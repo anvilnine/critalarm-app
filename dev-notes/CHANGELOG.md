@@ -81,6 +81,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Receipt party step after a purchase (PaywallThanksId.receiptParty, key party): a slip of the lifted limits, a stamp and confetti. Lights on and its cord and bulb cues are gone; a value lights reads as no step. Limits lifted shows its before values as limits. Confetti, slip and limit row parts moved to thanks\_parts.dart.
 - Design system: AppHeroScene, AppStatusCard (full and strip), AppReadinessPips, AppInboxSheet and AppInboxRow, AppCreamCard, AppStatCard and the HeroDisc painter, each with a gallery section, a reduce motion switch and tool/capture\_topics\_components.dart.
 - AppDurations.ambient (9 s) for the slowest loop, and GlyphType.moon.
+- HomeCardCubit, HomeFacts and a missed alarm feed give Home the data for its status card. The feed reads the missed alarm record without the notice slot, and closing an entry from either place closes it in both.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -131,6 +132,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 - Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
 - The animation clock moved to lib/design\_system/screen\_clock.dart and now stops while the app is not resumed. The paywall's paywall\_clock.dart re-exports it.
+- Home orders its topic rows with the inbox rule: rows that need you, pinned, unread, the rest, then muted. HomeTopicItem gains lastMessageAt and rowKind, and HomeState gains facts.
+- The Reliability screen and the Home card pick the first check to name and fix with one rule in reliability/domain/attention\_order.dart. The handled window lives in home\_card/handled\_window.dart.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

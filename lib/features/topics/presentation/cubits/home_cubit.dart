@@ -12,6 +12,10 @@ import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart'
+    show defaultDeskTimerS;
+import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/topic_inbox.dart';
@@ -35,6 +39,7 @@ class HomeCubit extends Cubit<HomeState> {
     DateTime Function()? clock,
     this.tick = const Duration(seconds: 5),
     this._listPrefs,
+    this._readSetupIncidentIds,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -58,6 +63,10 @@ class HomeCubit extends Cubit<HomeState> {
   /// Pin, mute and read marks, kept on this phone. Null in tests that do not
   /// care, which leaves every row unpinned, unmuted and read.
   final TopicListPrefsRepository? _listPrefs;
+
+  /// The alarms setup rang on purpose, which never count as the last alarm.
+  /// Null in tests that do not care.
+  final Set<String> Function()? _readSetupIncidentIds;
 
   /// How often the face is worked out again from the lists already held, so a
   /// countdown or a face that only lasts a while moves without a reload. A
@@ -148,11 +157,12 @@ class HomeCubit extends Cubit<HomeState> {
         priorities == null) {
       return;
     }
+    final now = _now();
     final result = resolveHomeFace(
       topics: topics,
       incidents: incidents,
       warningTopics: warningTopics,
-      now: _now(),
+      now: now,
     );
     final items = _buildTopicItems(
       result.rows,
@@ -160,6 +170,9 @@ class HomeCubit extends Cubit<HomeState> {
       priorities,
       _lastMessageTimes ?? const {},
       _lastPreviews ?? const {},
+      incidents: incidents,
+      warningTopics: warningTopics,
+      now: now,
     );
     if (rowsOnly) {
       // Only over a list that loaded. A failure keeps the rows it chose to
@@ -177,10 +190,21 @@ class HomeCubit extends Cubit<HomeState> {
         ringingIncidentId: result.hero.ringingIncidentId,
         clearRinging: result.hero.ringingIncidentId == null,
         topicItems: items,
+        facts: homeFactsFrom(
+          topics: topics,
+          incidents: incidents,
+          warningTopics: warningTopics,
+          messageTimes: _lastMessageTimes ?? const {},
+          now: now,
+          setupIncidentIds: _setupIncidentIds(),
+        ),
       ),
     );
     _syncTimer(result.needsTick);
   }
+
+  Set<String> _setupIncidentIds() =>
+      _readSetupIncidentIds?.call() ?? const <String>{};
 
   /// Pins [topic] to the top of the list, or unpins it.
   Future<void> togglePin(String topic) async {
@@ -283,6 +307,7 @@ class HomeCubit extends Cubit<HomeState> {
         isStale: false,
         clearLastKnownGood: true,
         hasServer: false,
+        facts: HomeFacts.none,
       );
     }
 
@@ -303,6 +328,8 @@ class HomeCubit extends Cubit<HomeState> {
       clearRinging: true,
       isStale: seenAt != null,
       hasServer: true,
+      // An old copy says nothing about what is live now.
+      facts: state.facts.withoutLive(),
     );
   }
 
@@ -325,7 +352,10 @@ class HomeCubit extends Cubit<HomeState> {
       _lastTopics = topics;
       _lastWarningTopics = const {};
       _lastPriorities = const {};
+      _lastMessageTimes = const {};
+      _lastPreviews = const {};
       _syncTimer(false);
+      final now = _now();
       return state.copyWith(
         status: HomeStatus.success,
         topicItems: const [],
@@ -336,8 +366,16 @@ class HomeCubit extends Cubit<HomeState> {
         clearRinging: true,
         clearError: true,
         isStale: false,
-        lastKnownGoodAt: _now(),
+        lastKnownGoodAt: now,
         hasServer: true,
+        facts: homeFactsFrom(
+          topics: topics,
+          incidents: incidents,
+          warningTopics: const {},
+          messageTimes: const {},
+          now: now,
+          setupIncidentIds: _setupIncidentIds(),
+        ),
       );
     }
 
@@ -397,6 +435,9 @@ class HomeCubit extends Cubit<HomeState> {
       priorities,
       messageTimes,
       previews,
+      incidents: incidents,
+      warningTopics: warningTopics,
+      now: now,
     );
 
     // A newer build started while this one waited on the polls, so this list
@@ -438,6 +479,14 @@ class HomeCubit extends Cubit<HomeState> {
       isStale: false,
       lastKnownGoodAt: now,
       hasServer: true,
+      facts: homeFactsFrom(
+        topics: topics,
+        incidents: incidents,
+        warningTopics: warningTopics,
+        messageTimes: messageTimes,
+        now: now,
+        setupIncidentIds: _setupIncidentIds(),
+      ),
     );
   }
 
@@ -446,8 +495,11 @@ class HomeCubit extends Cubit<HomeState> {
     List<Topic> topics,
     Map<String, int> priorities,
     Map<String, List<int>> messageTimes,
-    Map<String, String> previews,
-  ) {
+    Map<String, String> previews, {
+    required List<Incident> incidents,
+    required Set<String> warningTopics,
+    required DateTime now,
+  }) {
     final topicByName = {for (final t in topics) t.name: t};
     final pinned = _listPrefs?.pinned() ?? const <String>{};
     final muted = _listPrefs?.muted() ?? const <String>{};
@@ -455,6 +507,7 @@ class HomeCubit extends Cubit<HomeState> {
       final t = topicByName[r.name];
       final priority = priorities[r.name] ?? 3;
       final isMuted = muted.contains(r.name);
+      final times = messageTimes[r.name] ?? const <int>[];
       return HomeTopicItem(
         name: r.name,
         meta: r.meta,
@@ -477,24 +530,33 @@ class HomeCubit extends Cubit<HomeState> {
               ),
         isPinned: pinned.contains(r.name),
         isMuted: isMuted,
+        lastMessageAt: times.isEmpty
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(
+                times.reduce((a, b) => a > b ? a : b) * 1000,
+              ),
+        rowKind: rowKindFor(
+          topic: r.name,
+          incidents: incidents,
+          warningTopics: warningTopics,
+          now: now,
+          deskTimerS: t?.deskTimerS ?? defaultDeskTimerS,
+        ),
       );
     }).toList();
 
     final byName = {for (final i in items) i.name: i};
-    final order = orderTopics(
-      [for (final i in items) i.name],
-      pinned: pinned,
-      muted: muted,
-      live: {
-        for (final i in items)
-          if (i.isLive) i.name,
-      },
-      latestAt: {
-        for (final e in messageTimes.entries)
-          if (e.value.isNotEmpty)
-            e.key: e.value.reduce((a, b) => a > b ? a : b),
-      },
-    );
+    final order = orderInbox([
+      for (final i in items)
+        InboxEntry(
+          name: i.name,
+          kind: i.rowKind,
+          pinned: i.isPinned,
+          muted: i.isMuted,
+          unreadCount: i.unreadCount,
+          lastMessageAt: i.lastMessageAt,
+        ),
+    ]);
     return [for (final name in order) byName[name]!];
   }
 }
