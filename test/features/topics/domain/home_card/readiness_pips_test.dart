@@ -1,5 +1,4 @@
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/topics/domain/home_card/readiness_pips.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -90,57 +89,6 @@ void main() {
         const ReliabilityCheck.notOnThisPhone(ReliabilityCheckIds.alarms),
       ];
       expect(readinessCount(checks).total, 1);
-    });
-  });
-
-  group('worstCheck and checkToFix', () {
-    test('worst is the first broken check, else the first needing a look', () {
-      final checks = withCheckAt(
-        withCheckAt(androidChecks(7), 1, ReliabilityState.needsLook),
-        4,
-        ReliabilityState.broken,
-      );
-      expect(worstCheck(checks)?.id, checks[4].id);
-      expect(
-        worstCheck(
-          withCheckAt(androidChecks(7), 3, ReliabilityState.needsLook),
-        )?.id,
-        androidChecks(7)[3].id,
-      );
-      expect(worstCheck(androidChecks(7)), isNull);
-    });
-
-    test('the fix comes from the first attention check that has one', () {
-      const fix = OpenRouteFix('somewhere');
-      var checks = withCheckAt(androidChecks(7), 1, ReliabilityState.broken);
-      checks = withCheckAt(checks, 2, ReliabilityState.needsLook, fix: fix);
-      // The broken check has nothing to do, so the next one is offered.
-      expect(checkToFix(checks)?.fix, fix);
-    });
-
-    test('a broken check with a fix goes before a look check with one', () {
-      const brokenFix = OpenRouteFix('broken');
-      const lookFix = OpenRouteFix('look');
-      var checks = withCheckAt(
-        androidChecks(7),
-        1,
-        ReliabilityState.needsLook,
-        fix: lookFix,
-      );
-      checks = withCheckAt(
-        checks,
-        5,
-        ReliabilityState.broken,
-        fix: brokenFix,
-      );
-      expect(checkToFix(checks)?.fix, brokenFix);
-    });
-
-    test('no fix anywhere gives null', () {
-      expect(
-        checkToFix(withCheckAt(androidChecks(7), 1, ReliabilityState.broken)),
-        isNull,
-      );
     });
   });
 }

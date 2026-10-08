@@ -74,35 +74,3 @@ ReadinessCount readinessCount(Iterable<ReliabilityCheck> checks) {
     worst: overallReliabilityState(shown),
   );
 }
-
-/// The check the card names: the first broken one, else the first that needs
-/// a look, in the order the checks were given. Null when none does.
-ReliabilityCheck? worstCheck(Iterable<ReliabilityCheck> checks) {
-  final shown = _onThisPhone(checks).toList();
-  for (final state in const [
-    ReliabilityState.broken,
-    ReliabilityState.needsLook,
-  ]) {
-    for (final check in shown) {
-      if (check.state == state) return check;
-    }
-  }
-  return null;
-}
-
-/// The check whose fix the card offers: the first one that is not fine and
-/// has a fix, broken ones before ones that need a look. This is the rule the
-/// reliability screen uses for its one primary button. Null when no check
-/// that needs attention has a fix.
-ReliabilityCheck? checkToFix(Iterable<ReliabilityCheck> checks) {
-  final shown = _onThisPhone(checks).toList();
-  for (final state in const [
-    ReliabilityState.broken,
-    ReliabilityState.needsLook,
-  ]) {
-    for (final check in shown) {
-      if (check.state == state && check.fix != null) return check;
-    }
-  }
-  return null;
-}
