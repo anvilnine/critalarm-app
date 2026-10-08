@@ -179,7 +179,7 @@ const _scenes = <_Scene>[
   _Scene('empty', 'home-ha'),
   _Scene('many', 'prod-db', seed: _manyMessages),
   _Scene('unsorted', 'prod-db', seed: _unsortedMessages),
-  _Scene('longname', _longName, seed: _seedLongName),
+  _Scene('longname', _longName, seed: _seedLongName, extra: true),
   _Scene('warning', 'nas-backup', seed: _worried),
   _Scene('pane', 'prod-db', isPane: true),
   _Scene('example', 'example', isExample: true),

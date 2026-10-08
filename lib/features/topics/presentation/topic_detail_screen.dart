@@ -251,7 +251,11 @@ class _TopicDetailScreenContent extends StatelessWidget {
 
         // Where the hero's disc sits. The name and the summary stand between
         // the top bar and the scene, so the canvas is told how tall they are.
-        final headerHeight = topicHeaderHeight(context);
+        final headerHeight = topicHeaderHeight(
+          context,
+          name: state.topicName,
+          width: MediaQuery.sizeOf(context).width,
+        );
         final tone = _heroTone(card, state.severity);
 
         final scaffold = SeverityScope(
@@ -333,7 +337,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
                     TopicHeader(
                       name: state.topicName,
                       summary: topicSummaryText(summary),
-                      height: headerHeight,
                     ),
                     const SizedBox(height: Spacing.s3),
                     AppHeroScene(

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -8,8 +9,9 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// The name's size and line height.
-const double _kNameSize = 25;
+/// The name's size and line height. A name that does not fit on two lines at
+/// the first size steps down through the others until it does.
+const List<double> _kNameSizes = [25, 21, 18, 16, 14];
 const double _kNameLine = 1.25;
 
 /// The summary's size and line height.
@@ -23,35 +25,87 @@ const double _kHeaderGap = 2;
 int _summaryLines(TextScaler scaler) =>
     scaler.scale(16) / 16 > kChromeMaxTextScale ? 2 : 1;
 
-/// How tall [TopicHeader] is for the text size of [context].
-///
-/// Fixed, because the canvas draws the hero's disc and has to know where the
-/// scene starts: the header never grows past this, whatever the name or the
-/// summary says.
-double topicHeaderHeight(BuildContext context) {
+/// The side padding of [TopicHeader].
+const double _kHeaderSide = 20;
+
+/// The most lines a name takes before it ends in an ellipsis.
+const int _kNameMaxLines = 2;
+
+TextStyle _nameStyle(AppColors colors, double size) => AppTypography.monoBold(
+  colors.onCanvas,
+  fontSize: size,
+).copyWith(height: _kNameLine, letterSpacing: -size / 100);
+
+/// How a name is set in a header: its type size and how many lines it takes.
+@immutable
+class TopicNameFit {
+  const TopicNameFit({required this.size, required this.lines});
+
+  final double size;
+  final int lines;
+}
+
+/// The biggest size at which [name] fits on two lines in a header [width]
+/// points wide, and the lines it takes there. A long name wraps at its
+/// hyphens, and a word with none breaks where the line ends. The smallest
+/// size ends in an ellipsis if the name still does not fit.
+TopicNameFit topicNameFit(
+  BuildContext context,
+  String name, {
+  required double width,
+}) {
+  final colors = context.appColors;
+  final direction = Directionality.of(context);
   final scaler = MediaQuery.textScalerOf(context);
-  return scaler.scale(_kNameSize) * _kNameLine +
+  final room = width > 2 * _kHeaderSide ? width - 2 * _kHeaderSide : 0.0;
+  var lines = 1;
+  for (final size in _kNameSizes) {
+    final painter = TextPainter(
+      text: TextSpan(text: name, style: _nameStyle(colors, size)),
+      textDirection: direction,
+      textScaler: scaler,
+    )..layout(maxWidth: room);
+    lines = painter.computeLineMetrics().length;
+    painter.dispose();
+    if (lines <= _kNameMaxLines) {
+      return TopicNameFit(size: size, lines: lines);
+    }
+  }
+  return TopicNameFit(size: _kNameSizes.last, lines: _kNameMaxLines);
+}
+
+/// How tall [TopicHeader] is for the text size of [context] and the way
+/// [name] is set at [width].
+///
+/// Fixed once the name is known, because the canvas draws the hero's disc and
+/// has to know where the scene starts: a name is never taller than two lines,
+/// whatever it says.
+double topicHeaderHeight(
+  BuildContext context, {
+  required String name,
+  required double width,
+}) {
+  final scaler = MediaQuery.textScalerOf(context);
+  final fit = topicNameFit(context, name, width: width);
+  return fit.lines * scaler.scale(fit.size) * _kNameLine +
       _kHeaderGap +
       _summaryLines(scaler) * scaler.scale(_kSummarySize) * _kSummaryLine;
 }
 
 /// The topic's name in mono and the one line under it.
 ///
-/// Each takes one line and ends in an ellipsis when it is too long (the
-/// summary two lines at large text). A screen reader gets both in full.
+/// The name takes up to two lines, in a smaller type when it needs the room,
+/// and ends in an ellipsis only past that. The summary takes one line (two at
+/// large text). A screen reader gets both in full.
 class TopicHeader extends StatelessWidget {
   const TopicHeader({
     required this.name,
     required this.summary,
-    required this.height,
     super.key,
   });
 
   final String name;
   final String summary;
-
-  /// From [topicHeaderHeight].
-  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -63,43 +117,45 @@ class TopicHeader extends StatelessWidget {
       label: '$name. $summary',
       child: ExcludeSemantics(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SizedBox(
-            height: height,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: scaler.scale(_kNameSize) * _kNameLine,
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.monoBold(
-                      colors.onCanvas,
-                      fontSize: _kNameSize,
-                    ).copyWith(height: _kNameLine, letterSpacing: -0.25),
+          padding: const EdgeInsets.symmetric(horizontal: _kHeaderSide),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final fit = topicNameFit(
+                context,
+                name,
+                width: box.maxWidth + 2 * _kHeaderSide,
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: fit.lines * scaler.scale(fit.size) * _kNameLine,
+                    child: Text(
+                      name,
+                      maxLines: _kNameMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: _nameStyle(colors, fit.size),
+                    ),
                   ),
-                ),
-                const SizedBox(height: _kHeaderGap),
-                SizedBox(
-                  height:
-                      _summaryLines(scaler) *
-                      scaler.scale(_kSummarySize) *
-                      _kSummaryLine,
-                  child: Text(
-                    summary,
-                    maxLines: _summaryLines(scaler),
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.small(
-                      colors.onCanvasMuted,
-                      fontSize: _kSummarySize,
-                    ).copyWith(height: _kSummaryLine),
+                  const SizedBox(height: _kHeaderGap),
+                  SizedBox(
+                    height:
+                        _summaryLines(scaler) *
+                        scaler.scale(_kSummarySize) *
+                        _kSummaryLine,
+                    child: Text(
+                      summary,
+                      maxLines: _summaryLines(scaler),
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.small(
+                        colors.onCanvasMuted,
+                        fontSize: _kSummarySize,
+                      ).copyWith(height: _kSummaryLine),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -115,10 +171,12 @@ String topicSummaryText(TopicSummary summary) {
       : LocaleKeys.topic_hero_summary_today.plural(summary.today);
   final at = summary.lastAlarmAt;
   if (at == null) return count;
-  final local = at.toLocal();
-  final time = summary.lastAlarmIsToday
-      ? DateFormat.Hm().format(local)
-      : DateFormat('d MMM').format(local);
+  // Said inside a sentence, so the day before is in lower case.
+  final time = formatWhen(
+    at: at,
+    now: DateTime.now(),
+    yesterday: LocaleKeys.topic_hero_summary_yesterday.tr(),
+  );
   final last = LocaleKeys.topic_hero_summary_last_alarm.tr(
     namedArgs: {'time': time},
   );

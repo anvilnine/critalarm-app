@@ -3,6 +3,14 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
+/// How many lines a title takes before it ends in an ellipsis. A title wraps
+/// so it can be read whole; the cap only guards against a runaway one.
+const int _kTitleMaxLines = 4;
+
+/// How many lines the body takes on this screen. The messages screen shows
+/// the rest.
+const int _kBodyMaxLines = 6;
+
 /// One message on the Topic screen's white sheet: the title and the time on
 /// one line, the body under it, and the tags in mono when there are any.
 ///
@@ -61,7 +69,7 @@ class TopicMessageRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          maxLines: 2,
+                          maxLines: _kTitleMaxLines,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTypography.fontBody,
@@ -86,6 +94,8 @@ class TopicMessageRow extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 3),
                       child: Text(
                         body,
+                        maxLines: _kBodyMaxLines,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.small(
                           colors.ink2,
                         ).copyWith(height: 1.35),

@@ -691,6 +691,7 @@
       "other": "{} messages today."
     },
     "summary_last_alarm": "Last alarm {time}.",
+    "summary_yesterday": "yesterday",
     "all_messages": {
       "one": "All 1 message",
       "other": "All {} messages"

@@ -1,4 +1,5 @@
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -26,8 +27,7 @@ AppInboxRowKind inboxRowKindFor({
 };
 
 /// The words in the time cell. A row that needs the user names its state. Any
-/// other row shows when its newest message came in: the hour for today,
-/// "Yesterday", the weekday within a week, then the date.
+/// other row shows when its newest message came in (see `formatWhen`).
 String inboxTimeText({
   required InboxRowKind state,
   required DateTime? lastMessageAt,
@@ -48,14 +48,11 @@ String inboxTimeText({
       break;
   }
   if (lastMessageAt == null) return '';
-  final at = lastMessageAt.toLocal();
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(at.year, at.month, at.day);
-  final days = today.difference(day).inDays;
-  if (days <= 0) return DateFormat.Hm().format(at);
-  if (days == 1) return LocaleKeys.home_card_row_yesterday.tr();
-  if (days < 7) return DateFormat('EEE').format(at);
-  return DateFormat('d MMM').format(at);
+  return formatWhen(
+    at: lastMessageAt,
+    now: now,
+    yesterday: LocaleKeys.home_card_row_yesterday.tr(),
+  );
 }
 
 /// What a screen reader says for the bell on a Critical topic. The words
