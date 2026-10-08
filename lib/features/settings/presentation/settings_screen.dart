@@ -55,6 +55,18 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
+/// The sheet's inner padding. A row keeps 14 points inside its own box, so
+/// the row text, the plan card text and the section labels all start 20 points
+/// in from the sheet's edge, as the text on the Topics and Topic sheets does.
+const EdgeInsets _kSheetPadding = EdgeInsets.fromLTRB(6, 10, 6, 10);
+
+/// The section label's padding: the row's own 14 points at each side.
+const EdgeInsets _kLabelPadding = EdgeInsets.fromLTRB(14, 10, 14, 6);
+
+/// How much of the zone behind the title holds full strength once a row has
+/// scrolled under it.
+const double _kTitleBackingPlateau = 0.6;
+
 class _SettingsScreenContent extends StatelessWidget {
   const _SettingsScreenContent();
 
@@ -192,6 +204,9 @@ class _SettingsScreenContent extends StatelessWidget {
 
         return AppScreenScaffold(
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          // The sheet is text on white and scrolls under the title, so the
+          // backing holds full strength behind the whole title row.
+          topBackingPlateau: _kTitleBackingPlateau,
           slivers: [
             // The dark card. It reads the same checks as the Topics card and
             // opens the screen that lists them.
@@ -208,6 +223,7 @@ class _SettingsScreenContent extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                 child: AppSheet(
+                  padding: _kSheetPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -270,6 +286,7 @@ class _SettingsScreenContent extends StatelessWidget {
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_app_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       _buildNavRow(
                         context,
@@ -306,11 +323,13 @@ class _SettingsScreenContent extends StatelessWidget {
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       _buildPlanRow(context, state),
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       FeatureGuideAnchor(
                         id: FeatureGuideAnchorId.settingsFeatureGuides,
@@ -366,7 +385,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      const HelpSection(),
+                      const HelpSection(headerPadding: _kLabelPadding),
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,

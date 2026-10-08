@@ -114,7 +114,9 @@ class SettingsPlanCard extends StatelessWidget {
         borderRadius: Radii.lgAll,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        // 14 at the sides, as a row has, so the card's text starts where the
+        // row text and the section labels start.
+        padding: const EdgeInsets.all(14),
         child: label == null
             ? words
             : LayoutBuilder(
