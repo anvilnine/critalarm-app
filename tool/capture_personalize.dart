@@ -33,7 +33,10 @@
 //   look6_open     Pro held, a photo saved and picked: the tile with its
 //                  edit button, and the preview drawing the look
 //   look6_lapsed   nothing held, the photo still on the phone: locked,
-//                  and Standard is what rings
+//                  Standard is what rings, the picture is not in memory,
+//                  and the cross on the tile's corner removes it
+//   own_remove     the sheet behind that cross: Remove photo and nothing
+//                  else
 //   own_crop       the crop step on a busy photo
 //   own_accent     the sheet behind the edit button, on a dark photo
 //   topic_sheet_own   the topic page's sheet with a photo saved: it lists
@@ -504,6 +507,7 @@ void main() {
           CapturePhoto? photo, {
           String accent = 'yellow',
           bool isDefault = false,
+          bool isHeld = true,
         }) => tester.runAsync(() async {
           if (photo == null) {
             await getIt<OwnAlarmLookKeeper>().removePhoto();
@@ -513,6 +517,7 @@ void main() {
             photo,
             screen: size * 2,
             accent: accent,
+            isHeld: isHeld,
           );
           if (isDefault) await getIt<AlarmStyleChoices>().setDefault('own');
         });
@@ -528,6 +533,7 @@ void main() {
               tester,
               hasPhoto ? CapturePhoto.bright : null,
               isDefault: hasPhoto,
+              isHeld: state == 'open',
             );
             try {
               final key = await _open(
@@ -539,8 +545,10 @@ void main() {
                 mode: mode,
                 scale: scale,
               );
+              // Lapsed, the picture is not in memory, so the tile is the
+              // empty one.
               final tile = find.byKey(
-                ValueKey(hasPhoto ? 'look-own' : 'look-own-add'),
+                ValueKey(state == 'open' ? 'look-own' : 'look-own-add'),
               );
               expect(tile, findsOneWidget, reason: 'No sixth tile.');
               // Along the strip to its last tile, and down to the strip
@@ -550,6 +558,16 @@ void main() {
               expect(
                 find.byKey(const ValueKey('look-own-edit')),
                 state == 'open' ? findsOneWidget : findsNothing,
+              );
+              // A saved photo can be removed whatever the plan.
+              expect(
+                find.byKey(const ValueKey('look-own-remove')),
+                state == 'lapsed' ? findsOneWidget : findsNothing,
+              );
+              expect(
+                getIt<OwnAlarmLookKeeper>().isReady,
+                state == 'open',
+                reason: 'what is held in memory',
               );
               await _save(
                 tester,
@@ -563,10 +581,56 @@ void main() {
           });
         }
 
+        capture('own_remove_$tail', (tester, errors) async {
+          await _hold(isPro: false, isHosted: false);
+          await ownLook(
+            tester,
+            CapturePhoto.bright,
+            isDefault: true,
+            isHeld: false,
+          );
+          try {
+            final key = await _open(
+              tester,
+              location: '/settings/personalize',
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              mode: mode,
+              scale: scale,
+            );
+            final remove = find.byKey(const ValueKey('look-own-remove'));
+            await tester.ensureVisible(remove);
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(remove, warnIfMissed: false);
+            for (var i = 0; i < 4; i++) {
+              await tester.pump(const Duration(milliseconds: 200));
+            }
+            expect(find.byType(OwnLookSheetContent), findsOneWidget);
+            // Nothing to buy and nothing to edit in it: one button.
+            expect(
+              find.descendant(
+                of: find.byType(OwnLookSheetContent),
+                matching: find.byType(AppButton),
+              ),
+              findsOneWidget,
+            );
+            await _save(
+              tester,
+              key,
+              'own_remove_$tail',
+              isGood: errors.isEmpty,
+            );
+          } finally {
+            await ownLook(tester, null);
+          }
+        });
+
         capture('own_crop_$tail', (tester, errors) async {
-          final png = (await tester.runAsync(
-            () => capturePhotoPng(CapturePhoto.busy),
+          final picture = (await tester.runAsync(
+            () => capturePhotoImage(CapturePhoto.busy),
           ))!;
+          addTearDown(picture.dispose);
           final key = await _open(
             tester,
             location: '/',
@@ -576,7 +640,7 @@ void main() {
             mode: mode,
             scale: scale,
             home: OwnPhotoCropScreen(
-              image: MemoryImage(png),
+              picture: picture,
               onUse: (crop) async => null,
             ),
           );
