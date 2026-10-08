@@ -70,6 +70,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
 - A motion skill and rule for custom animation: one living hero per screen.
 - The relay that issued the device token is kept beside it: prefs key device\_token\_relay on Android and the same field in the iOS Keychain device item. deviceTokenRelayTrust in lib/core/push/device\_token\_relay.dart is the rule RegisterDeviceUsecase and EstablishApiSessionUsecase follow.
+- The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -118,6 +119,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Welcome shows product stories with a caption each (the ring story, the priority ladder, the curl) in place of the face loop, and OnboardingAnimationLoop is gone. welcome\_timing.dart holds the story times. ConnectRoutesPicture draws the two routes on the connect step, with connectRoutesFor in connect\_routes.dart as the rule for which one is lit.
 - Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
 - ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RelayUnchecked.
+- SettingsCubit.saveConnection goes through ConnectToServerUsecase and answers a ConnectOutcome. The proof and the relay check are built into ConnectToServerUsecase (GetServerInfoUsecase.proveAdminToken, EstablishApiSessionUsecase.relayTrust) and no longer need wiring. ConnectTransportError keeps a NetworkFault (the kind of error) in place of the thrown object.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
