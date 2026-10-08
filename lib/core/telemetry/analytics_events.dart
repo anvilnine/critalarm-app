@@ -31,6 +31,8 @@ abstract final class AnalyticsEvents {
   static const paywallClosed = 'paywall_closed';
   static const proPackPurchaseStarted = 'pro_pack_purchase_started';
   static const proPackClosed = 'pro_pack_closed';
+  static const paywallThanksShown = 'paywall_thanks_shown';
+  static const paywallThanksLeft = 'paywall_thanks_left';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.

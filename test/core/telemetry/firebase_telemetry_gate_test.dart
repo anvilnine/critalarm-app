@@ -110,6 +110,8 @@ void main() {
             'pro_paywall_layout': '',
             'paywall_intro': '',
             'pro_paywall_intro': '',
+            'paywall_thanks': '',
+            'pro_paywall_thanks': '',
           }),
         ).called(1);
 
@@ -208,6 +210,24 @@ void main() {
       when(() => remoteConfig.getString('pro_paywall_intro')).thenReturn('');
       expect(gate.paywallIntroKey, 'false_alarm');
       expect(gate.proPaywallIntroKey, isEmpty);
+      verifyNever(() => remoteConfig.fetchAndActivate());
+    });
+
+    test('the thanks values default to empty, which is no thanks', () {
+      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
+      expect(defaults['paywall_thanks'], isEmpty);
+      expect(defaults['pro_paywall_thanks'], isEmpty);
+      expect(FirebaseTelemetryGate().paywallThanksKey, isEmpty);
+      expect(FirebaseTelemetryGate().proPaywallThanksKey, isEmpty);
+      expect(const NoopTelemetryGate().paywallThanksKey, isEmpty);
+      expect(const NoopTelemetryGate().proPaywallThanksKey, isEmpty);
+
+      when(() => remoteConfig.getString('paywall_thanks')).thenReturn('');
+      when(
+        () => remoteConfig.getString('pro_paywall_thanks'),
+      ).thenReturn('confetti');
+      expect(gate.paywallThanksKey, isEmpty);
+      expect(gate.proPaywallThanksKey, 'confetti');
       verifyNever(() => remoteConfig.fetchAndActivate());
     });
 

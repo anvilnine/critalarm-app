@@ -1,4 +1,5 @@
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -41,7 +42,12 @@ void main() {
 
   test('a Hosted layout sends the shipped paywall events', () {
     final ready = _ready(PaywallProduct.hosted);
-    const tags = {'layout': 'sheet', 'intro': 'none', 'product': 'hosted'};
+    const tags = {
+      'layout': 'sheet',
+      'intro': 'none',
+      'thanks': 'none',
+      'product': 'hosted',
+    };
     reporter(PaywallProduct.hosted, 'history')
       ..viewed()
       ..started(PaywallBuyAction.purchase, ready)
@@ -106,7 +112,12 @@ void main() {
 
   test('a Pro layout sends the Pro sheet events and names no plan', () {
     final ready = _ready(PaywallProduct.pro);
-    const tags = {'layout': 'sheet', 'intro': 'none', 'product': 'pro'};
+    const tags = {
+      'layout': 'sheet',
+      'intro': 'none',
+      'thanks': 'none',
+      'product': 'pro',
+    };
     final paused = afterConfirmStep(
       ready,
       PaywallConfirmStep.paused,
@@ -165,6 +176,8 @@ void main() {
           PaywallBuyAction.purchase,
           ready.copyWith(status: PaywallBuyStatus.done),
         )
+        ..thanksShown('purchase')
+        ..thanksLeft('purchase', how: 'button', skipped: true)
         ..closed();
     }
     const allowed = {
@@ -174,6 +187,10 @@ void main() {
       'result',
       'layout',
       'intro',
+      'thanks',
+      'kind',
+      'how',
+      'skipped',
       'product',
     };
     for (final event in gate.events) {
@@ -181,6 +198,52 @@ void main() {
       expect(allowed.containsAll(parameters.keys), isTrue);
       expect(parameters.values.join(' '), isNot(contains(r'$')));
       expect(parameters.values, isNot(contains('demo')));
+    }
+  });
+
+  test('the step after a purchase says it showed and how it was left', () {
+    for (final product in PaywallProduct.values) {
+      gate.events.clear();
+      final tags = {
+        'layout': 'sheet',
+        'intro': 'none',
+        'thanks': 'confetti',
+        'product': product.key,
+      };
+      PaywallLayoutReporter(
+          PaywallLayoutAnalytics(
+            gate,
+            layout: PaywallLayoutId.sheet,
+            isHosted: product == PaywallProduct.hosted,
+            thanks: PaywallThanksId.confetti,
+          ),
+          source: 'history',
+        )
+        ..thanksShown('purchase')
+        ..thanksLeft('purchase', how: 'button', skipped: false)
+        ..thanksShown('restore')
+        ..thanksLeft('restore', how: 'away', skipped: true);
+
+      // The same two names for both products. Whether a tap cut the show
+      // short goes as a number: analytics takes no true or false.
+      expect(gate.events, [
+        [
+          'paywall_thanks_shown',
+          {'kind': 'purchase', ...tags},
+        ],
+        [
+          'paywall_thanks_left',
+          {'kind': 'purchase', 'how': 'button', 'skipped': 0, ...tags},
+        ],
+        [
+          'paywall_thanks_shown',
+          {'kind': 'restore', ...tags},
+        ],
+        [
+          'paywall_thanks_left',
+          {'kind': 'restore', 'how': 'away', 'skipped': 1, ...tags},
+        ],
+      ]);
     }
   });
 

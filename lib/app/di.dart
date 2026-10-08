@@ -416,6 +416,14 @@ Future<void> configureDependencies({
             DevPaywallIntroSwitch.hostedKey,
           ),
           proIntro: DevPaywallIntroSwitch(prefs, DevPaywallIntroSwitch.proKey),
+          hostedThanks: DevPaywallThanksSwitch(
+            prefs,
+            DevPaywallThanksSwitch.hostedKey,
+          ),
+          proThanks: DevPaywallThanksSwitch(
+            prefs,
+            DevPaywallThanksSwitch.proKey,
+          ),
         ),
       );
     }
@@ -425,6 +433,8 @@ Future<void> configureDependencies({
       pro: layoutSwitches.pro,
       hostedIntro: layoutSwitches.hostedIntro,
       proIntro: layoutSwitches.proIntro,
+      hostedThanks: layoutSwitches.hostedThanks,
+      proThanks: layoutSwitches.proThanks,
     );
   }
 
@@ -2223,6 +2233,18 @@ Future<void> configureDependencies({
         developerIntro: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedIntro,
           PaywallProduct.pro => appPaywallLayoutOverride.proIntro,
+        },
+        remoteThanksValue: (product) {
+          if (!getIt.isRegistered<TelemetryGate>()) return '';
+          final gate = getIt<TelemetryGate>();
+          return switch (product) {
+            PaywallProduct.hosted => gate.paywallThanksKey,
+            PaywallProduct.pro => gate.proPaywallThanksKey,
+          };
+        },
+        developerThanks: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hostedThanks,
+          PaywallProduct.pro => appPaywallLayoutOverride.proThanks,
         },
         hasSeenFalseAlarm: () =>
             getIt<SharedPreferences>().getBool(
