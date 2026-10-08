@@ -15,4 +15,8 @@ abstract interface class DevicePermissionsRepository {
 
   /// Opens the system settings screen for a specific [DevicePermissionType].
   Future<AppResult<bool>> openPermissionSettings(DevicePermissionType type);
+
+  /// Opens this app's own page in the system settings. Unlike
+  /// [openPermissionSettings] it never raises a system dialog.
+  Future<AppResult<bool>> openAppSettings();
 }

@@ -226,4 +226,15 @@ class PlatformDevicePermissionsRepository
       return Failure.unexpected(message: e.toString()).toFailure();
     }
   }
+
+  @override
+  Future<AppResult<bool>> openAppSettings() async {
+    try {
+      final opened =
+          await _channel.invokeMethod<bool>('openAppSettings') ?? true;
+      return opened.toSuccess();
+    } on Exception catch (e) {
+      return Failure.unexpected(message: e.toString()).toFailure();
+    }
+  }
 }

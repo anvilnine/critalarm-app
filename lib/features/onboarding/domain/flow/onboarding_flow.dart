@@ -11,6 +11,10 @@ abstract final class OnboardingStepId {
   static const permissions = 'permissions';
   static const firstTopic = 'first_topic';
   static const realRing = 'real_ring';
+
+  /// A frame around one paywall layout. It shows only when its switches say
+  /// so (`OnboardingOfferConfig`), and skips itself otherwise.
+  static const offer = 'offer';
   static const hookUp = 'hook_up';
   static const widgets = 'widgets';
 
@@ -80,6 +84,21 @@ class OnboardingFlow {
 abstract final class BundledOnboardingFlows {
   /// What a fresh install runs when no other source has a valid flow.
   static const defaultFlow = OnboardingFlow(
+    id: '2026-10-b',
+    steps: [
+      OnboardingStepId.welcome,
+      OnboardingStepId.connect,
+      OnboardingStepId.permissions,
+      OnboardingStepId.firstTopic,
+      OnboardingStepId.realRing,
+      OnboardingStepId.offer,
+      OnboardingStepId.hookUp,
+    ],
+  );
+
+  /// The default before `2026-10-b`. A phone that pinned it keeps running
+  /// it, and it stays here so the two can be compared.
+  static const october2026A = OnboardingFlow(
     id: '2026-10-a',
     steps: [
       OnboardingStepId.welcome,
@@ -105,5 +124,5 @@ abstract final class BundledOnboardingFlows {
     ],
   );
 
-  static const List<OnboardingFlow> all = [defaultFlow, legacy];
+  static const List<OnboardingFlow> all = [defaultFlow, october2026A, legacy];
 }

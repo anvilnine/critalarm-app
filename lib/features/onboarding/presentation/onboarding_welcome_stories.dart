@@ -52,11 +52,15 @@ class _MiniPhone extends StatelessWidget {
   const _MiniPhone({
     required this.screen,
     this.isAndroid = false,
+    this.isSilent = false,
     this.island = 0,
   });
 
   final Widget screen;
   final bool isAndroid;
+
+  /// Draws the silent mark beside the clock in the status bar.
+  final bool isSilent;
 
   /// 0 is the resting Dynamic Island, 1 is stretched to hold a face and a
   /// bell, which is what a ringing Crit Alarm does to it.
@@ -98,13 +102,25 @@ class _MiniPhone extends StatelessWidget {
                   Positioned(
                     top: 18,
                     left: isAndroid ? 30 : 46,
-                    child: const Text(
-                      '3:12',
-                      style: TextStyle(
-                        color: _white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      children: [
+                        const Text(
+                          '3:12',
+                          style: TextStyle(
+                            color: _white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (isSilent) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.notifications_off,
+                            color: _white,
+                            size: 17,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   Positioned(
@@ -973,9 +989,22 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   @override
   double get restAt => 4.5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.5;
+  static const double _ringTo = 8.8;
+
+  @override
+  List<TimedCue> buildCues() => [
+    ..._terminalCues(),
+    ...ringCues(from: _ringFrom, to: _ringTo),
+  ];
+
+  @override
+  double get loopTakes => 11;
+
   @override
   Widget build(BuildContext context) {
-    final t = this.t % 11;
+    final t = this.t % loopTakes;
     final seconds = (t - 2.5).clamp(0, 99).floor() + 1;
 
     return Opacity(
@@ -985,9 +1014,12 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
           Positioned.fill(
             child: Center(
               child: Transform.rotate(
-                angle: math.sin(t * 50) * 0.012 * _shown(t, 2.5, 8.8),
+                angle:
+                    math.sin(t * phoneShakeRate) *
+                    0.012 *
+                    _shown(t, _ringFrom, _ringTo),
                 child: _MiniPhone(
-                  island: _shown(t, 2.5, 8.8, fade: 0.25),
+                  island: _shown(t, _ringFrom, _ringTo, fade: 0.25),
                   screen: Stack(
                     children: [
                       Positioned.fill(
@@ -1058,6 +1090,12 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   }
 }
 
+/// The haptics for [_CurlTerminal]: a tick as it types, then the send.
+List<TimedCue> _terminalCues() => typingCues(
+  length: CurlTerminalCard.lengthOf(_curl),
+  isAndroid: defaultTargetPlatform == TargetPlatform.android,
+);
+
 /// The terminal from the site hero: types the curl, then slides away at
 /// [hideAt] once the phone has taken over.
 class _CurlTerminal extends StatelessWidget {
@@ -1069,7 +1107,9 @@ class _CurlTerminal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final length = CurlTerminalCard.lengthOf(_curl);
-    final typed = (_window(t, 0.3, 1.9) * length).floor();
+    final typed =
+        (_window(t, terminalTypingStartsAt, terminalTypingTakes) * length)
+            .floor();
     final caretOn = (t * 2).floor().isEven || typed < length;
 
     return Positioned(
@@ -1191,16 +1231,29 @@ class _AndroidHeroState extends _ClockState<_AndroidHero> {
   @override
   double get restAt => 4;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 1;
+  static const double _ringTo = 6.6;
+
+  @override
+  List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
+
+  @override
+  double get loopTakes => 10;
+
   @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final t = this.t % loopTakes;
     final seconds = (t - 1).clamp(0, 99).floor() + 1;
 
     return Opacity(
       opacity: 1 - _window(t, 9.5, 0.4),
       child: Center(
         child: Transform.rotate(
-          angle: math.sin(t * 50) * 0.012 * _shown(t, 1, 6.6, fade: 0.1),
+          angle:
+              math.sin(t * phoneShakeRate) *
+              0.012 *
+              _shown(t, _ringFrom, _ringTo, fade: 0.1),
           child: _MiniPhone(
             isAndroid: true,
             screen: Stack(
@@ -1258,9 +1311,22 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
   @override
   double get restAt => 5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.4;
+  static const double _ringTo = 8.1;
+
+  @override
+  List<TimedCue> buildCues() => [
+    ..._terminalCues(),
+    ...ringCues(from: _ringFrom, to: _ringTo),
+  ];
+
+  @override
+  double get loopTakes => 11.5;
+
   @override
   Widget build(BuildContext context) {
-    final t = this.t % 11.5;
+    final t = this.t % loopTakes;
     final seconds = (t - 2.4).clamp(0, 99).floor() + 1;
 
     return Opacity(
@@ -1271,7 +1337,9 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
             child: Center(
               child: Transform.rotate(
                 angle:
-                    math.sin(t * 50) * 0.012 * _shown(t, 2.4, 8.1, fade: 0.1),
+                    math.sin(t * phoneShakeRate) *
+                    0.012 *
+                    _shown(t, _ringFrom, _ringTo, fade: 0.1),
                 child: _MiniPhone(
                   isAndroid: true,
                   screen: Stack(
@@ -1319,45 +1387,69 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
 }
 
 // ---------------------------------------------------------------------------
-// 9. The priority ladder.
+// 9. The priority ladder. The second welcome story: three alerts of rising
+// priority, and what the phone does with each one.
 
 class _LadderHero extends StatefulWidget {
-  const _LadderHero();
+  const _LadderHero({this.onDone});
+
+  /// Called once, when the story is over. With none the story starts over
+  /// by itself, which is how the Developer options preview plays it.
+  final VoidCallback? onDone;
 
   @override
   State<_LadderHero> createState() => _LadderHeroState();
 }
 
 class _LadderHeroState extends _ClockState<_LadderHero> {
+  /// A still hero rests with all three alerts in and the last one ringing.
   @override
   double get restAt => 4;
 
+  bool _hasSaidDone = false;
+
+  @override
+  List<TimedCue> buildCues() => ladderCues();
+
+  @override
+  double? get loopTakes => widget.onDone == null ? ladderStoryTakes : null;
+
+  @override
+  void onClock(double seconds) {
+    if (_hasSaidDone || seconds < ladderStoryTakes) return;
+    _hasSaidDone = true;
+    widget.onDone?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final loops = widget.onDone == null;
+    final t = loops ? this.t % ladderStoryTakes : this.t;
     final colors = context.appColors;
-    final acked = t > 6.6;
-    final ringing = t > 2.6 && !acked;
+    final acked = t > ladderRingEndsAt;
+    final ringing = t > ladderRingStartsAt && !acked;
 
     Widget card({
       required int index,
       required String priority,
       required String topic,
+      required String time,
       required String title,
-      required FaceState face,
+      required Widget mark,
       required Widget outcome,
       Color? tint,
       double shake = 0,
     }) {
-      final arrive = Curves.easeOutBack.transform(
-        _window(t, 0.3 + index * 1.1, 0.6),
+      final start = ladderCardStartsAt(index);
+      final arrive = AppCurves.easeOut.transform(
+        _window(t, start, ladderCardTakes),
       );
       return Opacity(
-        opacity: _window(t, 0.3 + index * 1.1, 0.3),
+        opacity: _window(t, start, ladderCardTakes / 2),
         child: Transform.translate(
-          offset: Offset((1 - arrive) * 260 + shake, 0),
+          offset: Offset((1 - arrive) * 120 + shake, 0),
           child: AnimatedContainer(
-            duration: context.motion(const Duration(milliseconds: 300)),
+            duration: context.motion(AppDurations.base),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: tint ?? colors.surface,
@@ -1366,37 +1458,54 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.cream,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    priority,
-                    style: AppTypography.monoBold(colors.ink, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FaceWidget(
-                  state: face,
-                  size: 48,
-                  isLive: face == FaceState.alarmed && _mockFaceMoves(context),
-                ),
+                mark,
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        topic,
-                        style: AppTypography.mono(colors.ink3, fontSize: 12),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: colors.cream,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              priority,
+                              style: AppTypography.monoBold(
+                                colors.ink,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              topic,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.mono(
+                                colors.ink3,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            time,
+                            style: AppTypography.mono(
+                              colors.ink3,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.title(colors.ink, fontSize: 16),
                       ),
                       const SizedBox(height: 6),
@@ -1411,101 +1520,144 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
       );
     }
 
-    Widget chip(String label, IconData icon, Color fill, Color text) =>
+    /// What the phone does with the alert, as the icon on the card.
+    Widget mark(IconData icon, Color fill, Color ink, {double turn = 0}) =>
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: text),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          child: Transform.rotate(
+            angle: turn,
+            child: Icon(icon, size: 26, color: ink),
           ),
         );
 
-    // The bell swings while the P3 notice lands.
-    final swing = math.sin(t * 30) * 0.4 * _shown(t, 1.4, 2.3, fade: 0.1);
+    Widget chip(String label, Color fill, Color text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: text,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
 
-    return Opacity(
-      opacity: 1 - _window(t, 9.4, 0.5),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            card(
-              index: 0,
-              priority: 'P2',
-              topic: 'nightly-backup',
-              title: LocaleKeys.onboarding_welcome_story_backup_done.tr(),
-              face: FaceState.content,
-              outcome: chip(
-                LocaleKeys.onboarding_welcome_story_quiet.tr(),
-                Icons.notifications_off_outlined,
-                colors.cream,
-                colors.ink3,
+    // The bell swings once as the second alert lands.
+    final swingFrom = ladderCardShownAt(1) - 0.1;
+    final swing =
+        math.sin((t - swingFrom) * 22) *
+        0.35 *
+        _shown(t, swingFrom, swingFrom + 0.7, fade: 0.15);
+    // The alarm mark shakes in time with its card for as long as it rings.
+    final ringTurn = ringing ? math.sin(t * ladderShakeRate) * 0.16 : 0.0;
+
+    // Scaled down whole when the room is shorter than the three cards, as
+    // it is once the system text is large.
+    return LayoutBuilder(
+      builder: (context, box) => Opacity(
+        opacity: loops ? 1 - _window(t, ladderStoryTakes - 0.5, 0.5) : 1,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: box.maxWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  card(
+                    index: 0,
+                    priority: 'P2',
+                    topic: 'nightly-backup',
+                    time: '03:00',
+                    title: LocaleKeys.onboarding_welcome_story_backup_done.tr(),
+                    mark: mark(
+                      Icons.notifications_off_outlined,
+                      colors.cream,
+                      colors.ink3,
+                    ),
+                    outcome: chip(
+                      LocaleKeys.onboarding_welcome_story_quiet.tr(),
+                      colors.cream,
+                      colors.ink3,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                  card(
+                    index: 1,
+                    priority: 'P3',
+                    topic: 'disk-space',
+                    time: '03:07',
+                    title: LocaleKeys.onboarding_welcome_story_disk_warning
+                        .tr(),
+                    mark: mark(
+                      Icons.notifications_outlined,
+                      colors.high,
+                      _darkInk,
+                      turn: swing,
+                    ),
+                    outcome: chip(
+                      LocaleKeys.onboarding_welcome_story_notifies.tr(),
+                      colors.high,
+                      _darkInk,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                  card(
+                    index: 2,
+                    priority: 'P5',
+                    topic: 'prod-db',
+                    time: '03:12',
+                    title: LocaleKeys.onboarding_welcome_story_alarm_title.tr(),
+                    // The tints are see-through, so they are laid over the
+                    // card's own colour, never over the page behind it.
+                    tint: acked
+                        ? Color.alphaBlend(colors.cobaltTint, colors.surface)
+                        : (ringing
+                              ? Color.alphaBlend(
+                                  colors.critTint,
+                                  colors.surface,
+                                )
+                              : null),
+                    shake: ringing ? math.sin(t * ladderShakeRate) * 3 : 0,
+                    mark: acked
+                        ? mark(Icons.check, colors.cobalt, _white)
+                        : _RingWaves(
+                            t: t,
+                            color: colors.crit,
+                            isOn: ringing,
+                            child: mark(
+                              Icons.alarm,
+                              colors.crit,
+                              _white,
+                              turn: ringTurn,
+                            ),
+                          ),
+                    outcome: acked
+                        ? chip(
+                            LocaleKeys.onboarding_welcome_story_acknowledged
+                                .tr(),
+                            colors.cobalt,
+                            _white,
+                          )
+                        : chip(
+                            LocaleKeys.onboarding_welcome_story_rings.tr(),
+                            colors.crit,
+                            _white,
+                          ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: Spacing.s3),
-            card(
-              index: 1,
-              priority: 'P3',
-              topic: 'disk-space',
-              title: LocaleKeys.onboarding_welcome_story_disk_warning.tr(),
-              face: FaceState.concerned,
-              outcome: Transform.rotate(
-                angle: swing,
-                alignment: Alignment.centerLeft,
-                child: chip(
-                  LocaleKeys.onboarding_welcome_story_notifies.tr(),
-                  Icons.notifications_active_outlined,
-                  colors.high,
-                  _darkInk,
-                ),
-              ),
-            ),
-            const SizedBox(height: Spacing.s3),
-            _RingWaves(
-              t: t,
-              color: colors.crit,
-              isOn: ringing,
-              child: card(
-                index: 2,
-                priority: 'P5',
-                topic: 'prod-db',
-                title: LocaleKeys.onboarding_welcome_story_alarm_title.tr(),
-                face: acked ? FaceState.acked : FaceState.alarmed,
-                tint: acked
-                    ? colors.cobaltTint
-                    : (ringing ? colors.critTint : null),
-                shake: ringing ? math.sin(t * 60) * 3 : 0,
-                outcome: acked
-                    ? chip(
-                        LocaleKeys.onboarding_welcome_story_acknowledged.tr(),
-                        Icons.check,
-                        colors.cobalt,
-                        _white,
-                      )
-                    : chip(
-                        LocaleKeys.onboarding_welcome_story_rings.tr(),
-                        Icons.alarm,
-                        colors.crit,
-                        _white,
-                      ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1526,9 +1678,19 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
   @override
   double get restAt => 3.5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.4;
+  static const double _ringTo = 5.9;
+
+  @override
+  List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
+
+  @override
+  double get loopTakes => 10;
+
   @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final t = this.t % loopTakes;
     final colors = context.appColors;
 
     final server = t < 0.4
@@ -1545,8 +1707,8 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
         : t < 6.8
         ? _blend(FaceState.calm, FaceState.determined, _window(t, 1.5, 0.3))
         : _blend(FaceState.determined, FaceState.happy, _window(t, 6.8, 0.3));
-    final ringing = t > 2.4 && t < 5.9;
-    final phoneState = t < 2.4
+    final ringing = t > _ringFrom && t < _ringTo;
+    final phoneState = t < _ringFrom
         ? FaceState.calm
         : ringing
         ? FaceState.alarmed
@@ -1622,7 +1784,7 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
                     color: colors.crit,
                     isOn: ringing,
                     child: Transform.rotate(
-                      angle: ringing ? math.sin(t * 50) * 0.08 : 0,
+                      angle: ringing ? math.sin(t * phoneShakeRate) * 0.08 : 0,
                       child: FaceWidget(
                         state: phoneState,
                         size: face,

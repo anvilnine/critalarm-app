@@ -1,26 +1,40 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_pages.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
 part 'onboarding_intro_steps.dart';
+part 'onboarding_welcome_product_stories.dart';
 part 'onboarding_welcome_stories.dart';
 part 'onboarding_welcome_variants.dart';
 
-/// The welcome animations. The first five are only faces, the next seven
-/// show how Crit Alarm works, and the last three are faces again.
+/// The older welcome animations, kept for the Developer options preview and
+/// for the steps that still use one. The first five are only faces, the next
+/// seven show how Crit Alarm works, and the last three are faces again. First
+/// launch shows the three welcome pages instead.
 enum WelcomeVariant {
   /// One big face asleep, wakes up, smiles.
   wakeUp,
@@ -75,9 +89,12 @@ enum WelcomeVariant {
 }
 
 /// Onboarding welcome screen (/onboarding/welcome), the first thing a new
-/// user sees. With no [variant] it opens on one of two faces at random, then
-/// keeps playing more animations for as long as the user stays. Developer
-/// options opens it with a [variant] and [isPreview] to try each one.
+/// user sees. With no [variant] it is three pages, each a picture with its
+/// own caption: the ring story, the priority ladder and the curl. The user
+/// swipes between them or taps Next, and the button on the last page starts
+/// setup. Until the user moves by hand, each story hands on to the next page
+/// when it ends. It always starts on the first one. Developer options opens
+/// it with a [variant] and [isPreview] to try each of the older animations.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
     this.variant,
@@ -97,11 +114,7 @@ class OnboardingWelcomeScreen extends StatefulWidget {
 }
 
 class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
-  late WelcomeVariant _variant =
-      widget.variant ??
-      (math.Random().nextBool()
-          ? WelcomeVariant.wakeUp
-          : WelcomeVariant.peekaboo);
+  late WelcomeVariant _variant = widget.variant ?? WelcomeVariant.wakeUp;
 
   /// Bumped on every tap of the preview switch, so picking the one already
   /// showing plays it again from the start.
@@ -109,35 +122,273 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 
   bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
+  /// Moves the pictures between the pages.
+  PageController _pages = PageController();
+
+  /// The page the dots, the caption and the button show. First launch
+  /// always starts on the first one. During a swipe it changes half way.
+  WelcomePage _page = WelcomePage.rings;
+
+  /// The page the pictures last came to rest on.
+  WelcomePage _restingOn = WelcomePage.rings;
+
+  /// True from the moment the pictures start to move until they rest again.
+  bool _isMoving = false;
+
+  /// True from the user's first swipe or first tap on Next. From then on no
+  /// page moves on by itself.
+  bool _userHasMoved = false;
+
+  /// Bumped every time a story starts over on its own page, so each pass
+  /// plays from its start.
+  int _passes = 0;
+
+  /// A swipe in progress that started outside the pictures.
+  Drag? _drag;
+
+  /// How far a swipe has gone, while the pictures do not follow the finger.
+  double _swiped = 0;
+
+  /// What this phone can promise about ringing. Null until it has been
+  /// read, and until then nothing says the phone rings on silent.
+  RingClaim? _ringClaim;
+
+  /// True while the phone asks for reduced motion.
+  bool _isStill = false;
+
+  List<ModalRoute<Object?>> _pagesAbove = const [];
+
+  /// Whether the pictures follow the finger. They do not with animations
+  /// switched off, or at a text size so large that the pictures are gone.
+  bool get _followsFinger => !_isStill && _pages.hasClients;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isPlaylist) unawaited(_readRingClaim());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isStill = context.reduceMotion;
+    _pagesAbove = pagesAbove(context);
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  Future<void> _readRingClaim() async {
+    // The host answers "unsupported" when it cannot be reached, which
+    // RingClaim reads as the quiet wording on an iPhone.
+    final alarm = await getIt<AlarmHost>().authorizationStatus();
+    if (mounted) setState(() => _ringClaim = RingClaim.forPhone(alarm));
+  }
+
+  /// Opens [page]: a slide like the end of a swipe, or at once with
+  /// animations switched off.
+  void _showPage(WelcomePage page) {
+    if (page == _page) return;
+    if (_followsFinger) {
+      unawaited(
+        _pages.animateToPage(
+          page.index,
+          duration: AppDurations.slow,
+          curve: AppCurves.easeOut,
+        ),
+      );
+    } else if (_pages.hasClients) {
+      _pages.jumpToPage(page.index);
+    } else {
+      // No pictures on screen to move. Should they come back, they open on
+      // this page.
+      _pages.dispose();
+      setState(() {
+        _pages = PageController(initialPage: page.index);
+        _page = page;
+        _restingOn = page;
+      });
+    }
+  }
+
+  /// The story on [page] is over: the next page opens, or the story plays
+  /// again.
+  void _onStoryDone(WelcomePage page) {
+    if (!mounted) return;
+    final next = welcomePageAfterStory(page, userHasMoved: _userHasMoved);
+    if (next == page) {
+      setState(() => _passes++);
+    } else {
+      _showPage(next);
+    }
+  }
+
+  void _onNext() {
+    _userHasMoved = true;
+    _showPage(_page.next);
+  }
+
+  /// Follows the pictures as they move, to know which page is in front.
+  bool _onPagesScroll(ScrollNotification scroll) {
+    if (scroll is ScrollStartNotification) {
+      setState(() {
+        _isMoving = true;
+        // Only a finger starts a scroll with a drag.
+        if (scroll.dragDetails != null) _userHasMoved = true;
+      });
+    } else if (scroll is ScrollEndNotification) {
+      final cameFrom = _restingOn;
+      final index = _pages.page?.round() ?? _page.index;
+      setState(() {
+        _isMoving = false;
+        _restingOn = WelcomePage.values[index];
+      });
+      if (_restingOn != cameFrom && !_isStill && isOnTopOfAll(_pagesAbove)) {
+        AppHaptics.tick();
+      }
+    }
+    return false;
+  }
+
+  void _onSwipeStart(DragStartDetails details) {
+    _userHasMoved = true;
+    _swiped = 0;
+    if (_followsFinger) {
+      _drag = _pages.position.drag(details, () => _drag = null);
+    }
+  }
+
+  void _onSwipeUpdate(DragUpdateDetails details) {
+    _swiped += details.primaryDelta ?? 0;
+    _drag?.update(details);
+  }
+
+  void _onSwipeEnd(DragEndDetails details) {
+    final drag = _drag;
+    if (drag != null) {
+      drag.end(details);
+    } else {
+      _showPage(welcomePageAfterSwipe(_page, moved: _swiped));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _IntroLayout(
-      top: widget.isPreview ? _previewSwitch() : null,
-      // On first launch the opening face hands over to more animations for
-      // as long as the user stays.
-      hero: _isPlaylist
-          ? OnboardingAnimationLoop(
-              first: _variant,
-              loop: const [
-                WelcomeVariant.ladder,
-                WelcomeVariant.parade,
-                WelcomeVariant.orbit,
-              ],
-            )
-          : KeyedSubtree(
-              key: ValueKey((_variant, _replays)),
-              child: _heroFor(_variant),
-            ),
-      title: LocaleKeys.onboarding_welcome_title.tr(),
-      subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
-      button: LocaleKeys.onboarding_welcome_button.tr(),
-      onPressed: widget.isPreview
-          ? () => context.pop()
-          : () => unawaited(
-              finishOnboardingStep(context, OnboardingStepId.welcome),
-            ),
+    if (!_isPlaylist) {
+      return _IntroLayout(
+        top: widget.isPreview ? _previewSwitch() : null,
+        isHeroSpoken: true,
+        hero: KeyedSubtree(
+          key: ValueKey((_variant, _replays)),
+          child: _spokenHeroFor(_variant),
+        ),
+        title: LocaleKeys.onboarding_welcome_title.tr(),
+        subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+        button: LocaleKeys.onboarding_welcome_button.tr(),
+        onPressed: widget.isPreview
+            ? () => context.pop()
+            : () => unawaited(
+                finishOnboardingStep(context, OnboardingStepId.welcome),
+              ),
+      );
+    }
+
+    final ringsOnSilent = _ringClaim == RingClaim.alarm;
+    final button = welcomeButtonFor(_page);
+    // A swipe anywhere on the page moves the pictures, also one that starts
+    // on the words, which stay where they are.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // A screen reader moves the pages through the pictures and Next.
+      excludeFromSemantics: true,
+      onHorizontalDragStart: _onSwipeStart,
+      onHorizontalDragUpdate: _onSwipeUpdate,
+      onHorizontalDragEnd: _onSwipeEnd,
+      onHorizontalDragCancel: () => _drag?.cancel(),
+      child: _IntroLayout(
+        isHeroSpoken: true,
+        hero: _storyPages(ringsOnSilent: ringsOnSilent),
+        underHero: PermissionStepDots(
+          count: WelcomePage.values.length,
+          index: _page.index,
+          label: LocaleKeys.onboarding_welcome_page_progress.tr(
+            namedArgs: {
+              'page': '${_page.index + 1}',
+              'count': '${WelcomePage.values.length}',
+            },
+          ),
+        ),
+        title: LocaleKeys.onboarding_welcome_title.tr(),
+        subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+        // Each page has its own line, in the place of the one line the
+        // older animations share.
+        caption: _StoryCaption(page: _page, ringsOnSilent: ringsOnSilent),
+        button: switch (button) {
+          WelcomeButton.next => LocaleKeys.onboarding_welcome_next.tr(),
+          WelcomeButton.getStarted => LocaleKeys.onboarding_welcome_button.tr(),
+        },
+        onPressed: switch (button) {
+          WelcomeButton.next => _onNext,
+          WelcomeButton.getStarted => () => unawaited(
+            finishOnboardingStep(context, OnboardingStepId.welcome),
+          ),
+        },
+      ),
     );
   }
+
+  /// The three pictures side by side, one in view. They are as wide as the
+  /// screen, wider than the room the layout gives them, so a picture slides
+  /// off the edge of the screen and not off the edge of that room.
+  Widget _storyPages({required bool ringsOnSilent}) => LayoutBuilder(
+    builder: (context, box) => OverflowBox(
+      minWidth: box.maxWidth + 2 * _IntroLayout.sidePadding,
+      maxWidth: box.maxWidth + 2 * _IntroLayout.sidePadding,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onPagesScroll,
+        // Swiping past the first or the last page does nothing: no bounce
+        // and no stretch.
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: PageView(
+            controller: _pages,
+            clipBehavior: Clip.none,
+            physics: _isStill
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
+            onPageChanged: (index) =>
+                setState(() => _page = WelcomePage.values[index]),
+            children: [
+              for (final page in WelcomePage.values)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _IntroLayout.sidePadding,
+                  ),
+                  child: _HeroStage(
+                    isInFront: welcomePageIsInFront(
+                      page,
+                      restingOn: _restingOn,
+                      isMoving: _isMoving,
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey((page, _passes)),
+                      child: _welcomeStoryHero(
+                        page,
+                        ringsOnSilent: ringsOnSilent,
+                        onDone: () => _onStoryDone(page),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   /// Every animation by number, in two rows so fifteen still fit a phone.
   Widget _previewSwitch() {
@@ -163,6 +414,42 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   }
 }
 
+/// The hero for [variant] as a screen reader meets it. Every hero but one is
+/// a mock-up of the app: its fake topic names and times mean nothing read
+/// aloud, and the title and text below say what it shows. The sleeping face
+/// answers a tap, so it labels itself.
+Widget _spokenHeroFor(WelcomeVariant variant) =>
+    variant == WelcomeVariant.wakeUp
+    ? const _WakeUpHero()
+    : ExcludeSemantics(child: _heroFor(variant));
+
+/// Says whether the hero below is the one in front. On the welcome pages
+/// only the page the user rests on is: its story starts and its haptic cues
+/// play. A hero with no stage above it is always in front.
+class _HeroStage extends InheritedWidget {
+  const _HeroStage({required this.isInFront, required super.child});
+
+  final bool isInFront;
+
+  static bool isInFrontOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HeroStage>()?.isInFront ??
+      true;
+
+  @override
+  bool updateShouldNotify(_HeroStage old) => old.isInFront != isInFront;
+}
+
+/// Plays one animation cue on the phone.
+void _playHeroCue(HeroCue cue) => switch (cue) {
+  HeroCue.typeTick => AppHaptics.tick(),
+  HeroCue.cardLands ||
+  HeroCue.alertLands ||
+  HeroCue.commandSent => AppHaptics.lightTap(),
+  // The heavy thud. AppHaptics has no call named for a ring, and this is
+  // its strongest.
+  HeroCue.ringPulse => AppHaptics.success(),
+};
+
 Widget _heroFor(WelcomeVariant variant) => switch (variant) {
   WelcomeVariant.wakeUp => const _WakeUpHero(),
   WelcomeVariant.parade => const _ParadeHero(),
@@ -181,94 +468,6 @@ Widget _heroFor(WelcomeVariant variant) => switch (variant) {
   WelcomeVariant.ringingOrbit => const _RingingOrbitHero(),
 };
 
-/// Plays [first], then each of [loop] round and round, fading between them.
-/// With animations switched off it stays on [first], sitting still.
-class OnboardingAnimationLoop extends StatefulWidget {
-  const OnboardingAnimationLoop({
-    required this.loop,
-    this.first,
-    this.isOnItsOwn = false,
-    super.key,
-  });
-
-  final WelcomeVariant? first;
-  final List<WelcomeVariant> loop;
-
-  /// True where nothing around the loop looks after it, as on the connect
-  /// step. Then the loop keeps its own size when the system text grows, and
-  /// goes away when the room it is given is too small to read. The intro
-  /// layout does both itself.
-  final bool isOnItsOwn;
-
-  @override
-  State<OnboardingAnimationLoop> createState() =>
-      _OnboardingAnimationLoopState();
-}
-
-class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
-  late WelcomeVariant _variant = widget.first ?? widget.loop.first;
-  Timer? _next;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleNext();
-  }
-
-  @override
-  void dispose() {
-    _next?.cancel();
-    super.dispose();
-  }
-
-  /// How long each animation plays: one full story for the phone ones, a
-  /// few seconds for the faces.
-  Duration get _playFor => switch (_variant) {
-    WelcomeVariant.ladder ||
-    WelcomeVariant.pipeline => const Duration(milliseconds: 9800),
-    _ => const Duration(seconds: 7),
-  };
-
-  void _scheduleNext() {
-    _next = Timer(_playFor, () {
-      if (!mounted) return;
-      // With animations off each face sits still, so there is nothing to
-      // move on from.
-      if (MediaQuery.of(context).disableAnimations) return;
-      final at = widget.loop.indexOf(_variant);
-      setState(() => _variant = widget.loop[(at + 1) % widget.loop.length]);
-      _scheduleNext();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => _NoIntrinsicSize(
-    child: LayoutBuilder(
-      builder: (context, box) {
-        if (widget.isOnItsOwn && !introHeroFits(box.maxHeight)) {
-          return const SizedBox.shrink();
-        }
-        // The heroes are mock-ups of the app. Their fake topic names and
-        // times mean nothing read aloud; the title and text below say what
-        // they show.
-        final hero = ExcludeSemantics(
-          child: AnimatedSwitcher(
-            duration: context.motion(const Duration(milliseconds: 450)),
-            child: KeyedSubtree(
-              key: ValueKey(_variant),
-              child: _heroFor(_variant),
-            ),
-          ),
-        );
-        // A drawing, so it keeps its size when the system text grows.
-        return widget.isOnItsOwn
-            ? MediaQuery.withNoTextScaling(child: hero)
-            : hero;
-      },
-    ),
-  );
-}
-
 /// The shape every intro step shares: an animation filling the top, then a
 /// title, a line of text and one button. The words and the button are on the
 /// page from the first frame and stay put while the animation above them
@@ -282,9 +481,19 @@ class _IntroLayout extends StatelessWidget {
     required this.onPressed,
     this.top,
     this.badge,
+    this.caption,
+    this.underHero,
+    this.isHeroSpoken = false,
   });
 
+  /// The room left free on each side of the page.
+  static const double sidePadding = Spacing.s5;
+
   final Widget hero;
+
+  /// True when [hero] gives a screen reader its own label. Otherwise it is
+  /// a mock-up and a screen reader skips it.
+  final bool isHeroSpoken;
   final String title;
   final String subtitle;
   final String button;
@@ -293,8 +502,15 @@ class _IntroLayout extends StatelessWidget {
   /// Above the animation, such as the preview switch.
   final Widget? top;
 
+  /// Centred between the animation and the title, such as the page dots.
+  final Widget? underHero;
+
   /// Between the title and the text, such as the Hosted badge.
   final Widget? badge;
+
+  /// Drawn where [subtitle] would be, for a step whose line changes with
+  /// its animation. It keeps one height, so nothing around it moves.
+  final Widget? caption;
 
   /// The most the system text size may grow the title.
   static const double _titleMaxTextScale = 1.4;
@@ -303,6 +519,12 @@ class _IntroLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final textScale = setupTextScaleOf(context);
+    // This step has no top bar, so the shell's tracker, small face and Back
+    // sit over the top of the page. The page starts under them, and the
+    // animation gives up that much of its room, so the page is no taller.
+    final trackerRoom = OnboardingAmbientScope.showsTrackerOf(context)
+        ? AppScreenScaffold.topBarHeight - Spacing.s4
+        : 0.0;
 
     // Same frame as the permissions and connect screens, so the button sits
     // in the same place on every onboarding step.
@@ -327,10 +549,10 @@ class _IntroLayout extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.s5,
-            Spacing.s4,
-            Spacing.s5,
+          padding: EdgeInsets.fromLTRB(
+            sidePadding,
+            Spacing.s4 + trackerRoom,
+            sidePadding,
             0,
           ),
           sliver: SliverFillRemaining(
@@ -361,7 +583,10 @@ class _IntroLayout extends StatelessWidget {
                       // The room the animation keeps depends on the text
                       // size: all of it at the default, none once the text
                       // is larger, so the words come first.
-                      minHeight: introHeroMinHeightFor(textScale),
+                      minHeight: introHeroMinHeightFor(
+                        textScale,
+                        roomAbove: trackerRoom,
+                      ),
                       child: LayoutBuilder(
                         builder: (context, box) {
                           // Too little room for it to read: it goes, and
@@ -369,23 +594,28 @@ class _IntroLayout extends StatelessWidget {
                           if (!introHeroFits(box.maxHeight)) {
                             return const SizedBox.shrink();
                           }
-                          // A mock-up; the words below carry the meaning.
                           // It is a drawing, so it keeps its size when the
                           // system text grows.
-                          return ExcludeSemantics(
-                            child: MediaQuery.withNoTextScaling(
-                              child: AnimatedSwitcher(
-                                duration: context.motion(
-                                  const Duration(milliseconds: 450),
-                                ),
-                                child: hero,
+                          final drawing = MediaQuery.withNoTextScaling(
+                            child: AnimatedSwitcher(
+                              duration: context.motion(
+                                const Duration(milliseconds: 450),
                               ),
+                              child: hero,
                             ),
                           );
+                          // A mock-up; the words below carry the meaning.
+                          return isHeroSpoken
+                              ? drawing
+                              : ExcludeSemantics(child: drawing);
                         },
                       ),
                     ),
                   ),
+                  if (underHero != null) ...[
+                    const SizedBox(height: Spacing.s3),
+                    Center(child: underHero),
+                  ],
                   const SizedBox(height: Spacing.s5),
                   Text(
                     title,
@@ -405,13 +635,14 @@ class _IntroLayout extends StatelessWidget {
                     Align(alignment: Alignment.centerLeft, child: badge),
                   ],
                   const SizedBox(height: Spacing.s2),
-                  Text(
-                    subtitle,
-                    style: AppTypography.lead(
-                      colors.onCanvasMuted,
-                      fontSize: 16,
-                    ),
-                  ),
+                  caption ??
+                      Text(
+                        subtitle,
+                        style: AppTypography.lead(
+                          colors.onCanvasMuted,
+                          fontSize: 16,
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -424,7 +655,8 @@ class _IntroLayout extends StatelessWidget {
 
 /// A hero that redraws every frame and knows how many seconds it has run.
 /// With animations switched off it sits at [restAt] and runs no ticker at
-/// all.
+/// all. On a welcome page that is not in front yet it waits at its first
+/// frame, and its clock starts when the page comes to rest.
 abstract class _ClockState<T extends StatefulWidget> extends State<T>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
@@ -440,23 +672,71 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   /// Seconds since the hero appeared.
   double get t => _isStill ? restAt : _seconds;
 
+  /// The haptic cues this hero plays, timed on its own clock. Most heroes
+  /// have none.
+  List<TimedCue> buildCues() => const [];
+
+  /// How many seconds one pass of this hero's story takes, when the story
+  /// starts over and has cues. The cues then play again on every pass.
+  double? get loopTakes => null;
+
+  late final HeroCueClock _cueClock = HeroCueClock(
+    buildCues(),
+    loopsEvery: loopTakes,
+  );
+
+  List<ModalRoute<Object?>> _pagesAbove = const [];
+
+  /// Whether this hero is the one in front (see [_HeroStage]).
+  bool _isInFront = true;
+
+  /// Whether this hero may play a haptic right now: it moves, it is the one
+  /// in front, its screen is the one on top, and the app is in front. A hero
+  /// whose screen is covered or gone stays silent, and so does one on a page
+  /// that is half in view during a swipe.
+  bool get canPlayHaptics {
+    final lifecycle = SchedulerBinding.instance.lifecycleState;
+    return mounted &&
+        !_isStill &&
+        _isInFront &&
+        isOnTopOfAll(_pagesAbove) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  /// Called on every frame, after the clock has moved to [seconds].
+  void onClock(double seconds) {}
+
+  /// Whether [cue] may play now that it is due. A hero whose story the user
+  /// can cut short says no to what is left of it.
+  bool mayPlay(HeroCue cue) => true;
+
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker(
-      (elapsed) => setState(() => _seconds = elapsed.inMicroseconds / 1e6),
-    );
+    _ticker = createTicker((elapsed) {
+      final seconds = elapsed.inMicroseconds / 1e6;
+      setState(() => _seconds = seconds);
+      onClock(seconds);
+      // The cue clock moves on every frame, allowed to play or not, so a
+      // cue that was missed is never kept for later.
+      final cues = _cueClock.advanceTo(seconds);
+      if (canPlayHaptics) cues.where(mayPlay).forEach(_playHeroCue);
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _pagesAbove = pagesAbove(context);
+    _isInFront = _HeroStage.isInFrontOf(context);
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.
     if (_isStill && _ticker.isActive) {
       _ticker.stop();
-    } else if (!_isStill && !_ticker.isActive) {
+    } else if (!_isStill && !_ticker.isActive && _isInFront) {
+      // A story that has started plays on while its page is swiped away.
+      // One that has not waits for its page to come to rest.
       unawaited(_ticker.start());
     }
   }
@@ -536,8 +816,25 @@ class _WakeUpHero extends StatefulWidget {
 }
 
 class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
+  /// A still hero rests this long after waking, on its first smile.
   @override
-  double get restAt => 3.2;
+  double get restAt => 1.6;
+
+  /// When the face woke, on the hero's clock. Null while it dozes.
+  double? _wokeAt;
+
+  /// Wakes the face now. The hop starts on the next frame and the thump
+  /// plays here, so a tap feels answered at once.
+  void _wake() {
+    if (_isStill || _wokeAt != null) return;
+    setState(() => _wokeAt = _seconds);
+    if (canPlayHaptics) AppHaptics.capture();
+  }
+
+  @override
+  void onClock(double seconds) {
+    if (seconds >= welcomeAutoWakeAfter) _wake();
+  }
 
   static const List<FaceState> _after = [
     FaceState.happy,
@@ -552,31 +849,58 @@ class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
     final t = this.t;
     final enter = Curves.easeOutBack.transform(_window(t, 0, 0.9));
 
+    // A still hero has been awake all along.
+    final wokeAt = _isStill ? 0.0 : _wokeAt;
+    final isAwake = wokeAt != null;
+    // Seconds since it woke. Below zero while it dozes.
+    final awake = isAwake ? t - wokeAt : -1.0;
+
     final FaceShape face;
-    if (t < 1.6) {
+    if (awake < 0) {
       face = _shape(FaceState.dozing);
-    } else if (t < 1.95) {
-      face = _blend(FaceState.dozing, FaceState.wakesUp, _window(t, 1.6, 0.35));
-    } else if (t < 2.5) {
+    } else if (awake < 0.35) {
+      face = _blend(FaceState.dozing, FaceState.wakesUp, awake / 0.35);
+    } else if (awake < 0.9) {
       face = _shape(FaceState.wakesUp);
-    } else if (t < 2.9) {
-      face = _blend(FaceState.wakesUp, FaceState.happy, _window(t, 2.5, 0.4));
+    } else if (awake < 1.3) {
+      face = _blend(
+        FaceState.wakesUp,
+        FaceState.happy,
+        _window(awake, 0.9, 0.4),
+      );
     } else {
-      face = _withBlink(_cycle(_after, t - 2.9, hold: 2), t);
+      face = _withBlink(_cycle(_after, awake - 1.3, hold: 2), t);
     }
 
     // A startled hop as it wakes, then a slow breathing bob.
-    final hop = math.sin(_window(t, 1.6, 0.45) * math.pi) * -26;
-    final bob = t > 2.9 ? math.sin((t - 2.9) * 2.2) * 5 : 0.0;
+    final hop = isAwake
+        ? math.sin(_window(awake, 0, welcomeWakeHopTakes) * math.pi) * -26
+        : 0.0;
+    final bob = awake > 1.3 ? math.sin((awake - 1.3) * 2.2) * 5 : 0.0;
 
-    return Center(
-      child: Opacity(
-        opacity: _window(t, 0, 0.4),
-        child: Transform.translate(
-          offset: Offset(0, hop + bob),
-          child: Transform.scale(
-            scale: 0.6 + 0.4 * enter,
-            child: _face(face, 190),
+    return Semantics(
+      container: true,
+      image: true,
+      label: isAwake
+          ? LocaleKeys.onboarding_welcome_hero_awake.tr()
+          : LocaleKeys.onboarding_welcome_hero_asleep.tr(),
+      hint: isAwake ? null : LocaleKeys.onboarding_welcome_hero_wake_hint.tr(),
+      onTap: isAwake ? null : _wake,
+      child: Listener(
+        // A touch anywhere on the hero wakes it, on the way down: waiting
+        // for the finger to lift would make the face feel slow.
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) => _wake(),
+        child: Center(
+          child: Opacity(
+            opacity: _window(t, 0, 0.4),
+            child: Transform.translate(
+              offset: Offset(0, hop + bob),
+              child: Transform.scale(
+                scale: 0.6 + 0.4 * enter,
+                child: ExcludeSemantics(child: _face(face, 190)),
+              ),
+            ),
           ),
         ),
       ),

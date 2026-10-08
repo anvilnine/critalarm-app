@@ -63,6 +63,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layout kit: a frame, one buy block for Hosted and Pro, a clock, benefits as data, six feature previews, a /plans route for developer builds and a capture tool. Nothing a user can open yet.
 - Paywall layouts sheet, proof and bento at /plans, developer builds only.
 - Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
+- Setup chapters: bundled flow 2026-10-b is the default, SetupTracker and a small face in the setup shell, a Back rule with the system back gesture, and step changes that slide and fade from the shell
+- Setup step offer: a frame that hosts one paywall layout by id, between real\_ring and hook\_up in flow 2026-10-b. It ships switched off. Switches come from dev.onboarding\_offer, then the Remote Config key onboarding\_offer, then the bundled value.
+- Setup funnel events onboarding\_offer\_shown, onboarding\_offer\_closed and onboarding\_offer\_bought, each with product, layout and flow\_id. PaywallSource.onboardingOffer names the offer step. AfterAckDecider gives no follow-up while the offer step is still to come. Developer options, Setup flow, has the four offer switches.
 - Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
 - Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
 - A motion skill and rule for custom animation: one living hero per screen.
@@ -110,6 +113,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - BarBackingConfig.defaults is blur and gradient for both bars (top 40, 45, 0.9, 0.1 and bottom 34.5, 38, 0.15, 0.1), and AppScreenScaffold draws the bottom backing only behind a tab bar or a pinned bar.
 - HomeScreen takes its bar backing from AppBarBackingScope and insets its pinned notice by 6 on each side.
 - Settings sub screens on the root navigator pass hasTabBar: false, so they leave no tab bar room and draw no bottom blur.
+- Setup Back walks the steps shown in this run (OnboardingFlowEngine.shownSteps, in memory), so a step that was passed over is never opened. A screen that moves on by itself finishes with skippedItself. Came back, connect says which server it is connected to and the permissions list each answer (PermissionAnswerList, allowListed); the battery row opens the app's page in Settings through DevicePermissionsRepository.openAppSettings.
+- Welcome shows product stories with a caption each (the ring story, the priority ladder, the curl) in place of the face loop, and OnboardingAnimationLoop is gone. welcome\_timing.dart holds the story times. ConnectRoutesPicture draws the two routes on the connect step, with connectRoutesFor in connect\_routes.dart as the rule for which one is lit.
+- Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

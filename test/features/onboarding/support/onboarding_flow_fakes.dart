@@ -1,9 +1,11 @@
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -88,8 +90,11 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
     this.permissions = false,
     this.ownsTopic = false,
     this.firstMessage = false,
+    this.offerSkips = true,
   });
 
+  /// The offer step is switched off unless a test turns it on.
+  bool offerSkips;
   bool connected;
   bool permissions;
   bool ownsTopic;
@@ -106,7 +111,37 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
 
   @override
   Future<bool> hasOwnedTopic() async => ownsTopic;
+
+  @override
+  Future<bool> hasNoOfferToShow() async => offerSkips;
 }
+
+/// An offer gate over plain values. With nothing passed in, no source has a
+/// value and the step is off. The defaults below describe a user who would
+/// be shown the offer once it is switched on.
+OnboardingOfferGate offerGateFor({
+  String? developerJson,
+  String? remoteJson,
+  ServerMode? serverMode = ServerMode.hosted,
+  Set<String> builtLayoutKeys = const {'plain'},
+  String? accountId = 'acct_1',
+  bool holdsPro = false,
+  bool holdsHosted = false,
+  bool isSetupComplete = false,
+  List<String> flowSteps = const [],
+  Set<String> completedSteps = const {},
+}) => OnboardingOfferGate(
+  readDeveloperJson: () => developerJson,
+  readRemoteJson: () => remoteJson,
+  readServerMode: () async => serverMode,
+  builtLayoutKeys: () => builtLayoutKeys,
+  readAccountId: () async => accountId,
+  holdsPro: () => holdsPro,
+  readHoldsHosted: () async => holdsHosted,
+  isSetupComplete: () async => isSetupComplete,
+  readFlowSteps: () => flowSteps,
+  readCompletedSteps: () => completedSteps,
+);
 
 /// A source whose flow can be swapped while a test runs.
 class FakeOnboardingFlowSource implements OnboardingFlowSource {

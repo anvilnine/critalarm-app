@@ -16,16 +16,16 @@ import 'support/onboarding_flow_fakes.dart';
 
 void main() {
   group('the bundled flow', () {
-    test('2026-10-a ends with hook_up, straight after real_ring', () {
+    test('2026-10-b ends with hook_up, after real_ring and the offer', () {
       const flow = BundledOnboardingFlows.defaultFlow;
-      expect(flow.id, '2026-10-a');
+      expect(flow.id, '2026-10-b');
       expect(flow.steps, [
         'welcome',
-        'how_it_rings',
         'connect',
         'permissions',
         'first_topic',
         'real_ring',
+        'offer',
         'hook_up',
       ]);
     });

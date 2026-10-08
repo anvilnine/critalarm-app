@@ -43,6 +43,11 @@ void main() {
       expect(introHeroMinHeightFor(2), 0);
     });
 
+    test('gives up the room kept above it for the tracker', () {
+      expect(introHeroMinHeightFor(1, roomAbove: 40), 340);
+      expect(introHeroMinHeightFor(2, roomAbove: 40), 0);
+    });
+
     test('is drawn only when it has room', () {
       expect(introHeroFits(380), isTrue);
       expect(introHeroFits(120), isTrue);

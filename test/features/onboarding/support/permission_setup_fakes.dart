@@ -80,6 +80,9 @@ class FakeDevicePermissions implements DevicePermissionsRepository {
   /// Every settings page opened, in order.
   final List<DevicePermissionType> opened = [];
 
+  /// How many times the app's own settings page was opened.
+  int appSettingsOpened = 0;
+
   void grant(DevicePermissionType type) =>
       statuses[type] = DevicePermissionStatus.granted;
 
@@ -96,6 +99,12 @@ class FakeDevicePermissions implements DevicePermissionsRepository {
     DevicePermissionType type,
   ) async {
     opened.add(type);
+    return true.toSuccess();
+  }
+
+  @override
+  Future<AppResult<bool>> openAppSettings() async {
+    appSettingsOpened++;
     return true.toSuccess();
   }
 
@@ -182,6 +191,7 @@ class PermissionPhone {
   NotificationPermissionsCubit cubit({
     bool replayForDemo = false,
     bool standalone = false,
+    bool cameBack = false,
     Duration readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) => NotificationPermissionsCubit(
@@ -192,6 +202,7 @@ class PermissionPhone {
     devicePermissions: device,
     replayForDemo: replayForDemo,
     standalone: standalone,
+    cameBack: cameBack,
     readTimeout: readTimeout,
     initialStep: initialStep,
   );

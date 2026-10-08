@@ -148,6 +148,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_funnel_hook
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/domain/flow/remote_onboarding_flow_source.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
@@ -195,6 +196,7 @@ import 'package:critalarm/features/paywall/presentation/cubits/pro_status_cubit.
 import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hosted_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/pro_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
@@ -1147,6 +1149,36 @@ Future<void> configureDependencies({
           : const EmptyOnboardingFlowSource(),
       instanceName: remoteOnboardingFlowSource,
     )
+    // The offer step's switches come from the same three places as the
+    // flow: Developer options, Remote Config, then what ships in the app.
+    // A store build holds no developer value.
+    ..registerLazySingleton(
+      () => OnboardingOfferGate(
+        readDeveloperJson: () =>
+            getIt<DeveloperOnboardingOverrides>().offerJson,
+        readRemoteJson: () => getIt.isRegistered<TelemetryGate>()
+            ? getIt<TelemetryGate>().onboardingOfferJson
+            : null,
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        builtLayoutKeys: () => {
+          for (final layout in paywallLayoutBuilders.keys) layout.key,
+        },
+        readAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+        holdsPro: () => getIt<ProPackAccess>().isHeld,
+        readHoldsHosted: () async =>
+            (await getIt<AccountRepository>().readIsPaid()) ||
+            appProOverride.isForcingPro,
+        isSetupComplete: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
+        readFlowSteps: () => getIt<OnboardingFlowEngine>().runningFlow().steps,
+        readCompletedSteps: () =>
+            getIt<OnboardingFlowRepository>().read().completed,
+      ),
+    )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the
     // battery step can be looked at on an emulator.
     ..registerLazySingleton<DeviceMakerReader>(
@@ -1193,6 +1225,7 @@ Future<void> configureDependencies({
             readPermissionSetup: getIt<ReadPermissionSetupUsecase>(),
             notices: getIt<InAppNoticeRepository>(),
             firstMessage: getIt<FirstMessageStore>(),
+            offer: getIt<OnboardingOfferGate>(),
           ),
         );
         return buildHasOnboardingDeveloperTools
@@ -1519,7 +1552,7 @@ Future<void> configureDependencies({
     ..registerFactoryParam<
       NotificationPermissionsCubit,
       NotificationPermissionStep?,
-      ({bool replayForDemo, bool standalone})?
+      ({bool replayForDemo, bool standalone, bool cameBack})?
     >(
       (initialStep, mode) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
@@ -1529,6 +1562,7 @@ Future<void> configureDependencies({
         devicePermissions: getIt<DevicePermissionsRepository>(),
         replayForDemo: mode?.replayForDemo ?? false,
         standalone: mode?.standalone ?? false,
+        cameBack: mode?.cameBack ?? false,
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
@@ -1544,6 +1578,16 @@ Future<void> configureDependencies({
         readDraft: getIt<ReadOnboardingDraftUsecase>(),
         saveDraft: getIt<SaveOnboardingDraftUsecase>(),
         backgroundConnect: getIt<BackgroundConnect>(),
+        // "Use a different server" on the connect step drops the old one
+        // with the very call Settings > Server makes.
+        disconnect: () async {
+          final settings = getIt<SettingsCubit>();
+          try {
+            await settings.disconnectServer();
+          } finally {
+            await settings.close();
+          }
+        },
         connectToServer: getIt<ConnectToServerUsecase>(),
         initialConnected: initialConnected ?? false,
       ),

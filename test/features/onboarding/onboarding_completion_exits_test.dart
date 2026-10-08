@@ -125,9 +125,9 @@ void main() {
   }
 
   group('Continue on the It works screen', () {
-    test('is what a setup run on 2026-10-a shows, for both tests', () {
+    test('is what a setup run on 2026-10-b shows, for both tests', () {
       const flow = BundledOnboardingFlows.defaultFlow;
-      expect(flow.id, '2026-10-a');
+      expect(flow.id, '2026-10-b');
       for (final kind in [SetupTestKind.serverSent, SetupTestKind.phoneOnly]) {
         final exits = ackedExitsFor(
           kind: kind,

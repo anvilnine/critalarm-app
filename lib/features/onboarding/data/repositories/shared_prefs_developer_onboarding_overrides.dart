@@ -12,9 +12,23 @@ class SharedPrefsDeveloperOnboardingOverrides extends ChangeNotifier
 
   static const flowKey = 'dev.onboarding_flow';
   static const forcedKey = 'dev.onboarding_forced_unsatisfied';
+  static const offerKey = 'dev.onboarding_offer';
 
   @override
   bool get isActive => true;
+
+  @override
+  String? get offerJson => _prefs.getString(offerKey);
+
+  @override
+  Future<void> setOfferJson(String? json) async {
+    if (json == null) {
+      await _prefs.remove(offerKey);
+    } else {
+      await _prefs.setString(offerKey, json);
+    }
+    notifyListeners();
+  }
 
   @override
   DeveloperFlowChoice? get flowChoice =>

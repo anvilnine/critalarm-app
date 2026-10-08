@@ -94,6 +94,14 @@ abstract interface class DeveloperOnboardingOverrides implements Listenable {
 
   /// Turns the forcing of [stepId] on or off.
   Future<void> forceUnsatisfied(String stepId, {required bool forced});
+
+  /// The offer step switches a developer set, as the JSON text
+  /// `OnboardingOfferConfig` reads, or null to let the next source decide.
+  String? get offerJson;
+
+  /// Saves [json] as the offer step switches, or clears them when it is
+  /// null.
+  Future<void> setOfferJson(String? json);
 }
 
 /// What a store build is compiled with. It keeps nothing and answers with
@@ -115,6 +123,12 @@ class NoDeveloperOnboardingOverrides implements DeveloperOnboardingOverrides {
 
   @override
   Future<void> forceUnsatisfied(String stepId, {required bool forced}) async {}
+
+  @override
+  String? get offerJson => null;
+
+  @override
+  Future<void> setOfferJson(String? json) async {}
 
   @override
   void addListener(VoidCallback listener) {}

@@ -152,7 +152,7 @@ void main() {
     test('marks the step completed and opens the next open one', () async {
       final h = EngineHarness(
         repository: FakeOnboardingFlowRepository(
-          pinned: flow,
+          pinned: BundledOnboardingFlows.october2026A,
           completed: {'welcome'},
         ),
       );
@@ -164,7 +164,10 @@ void main() {
     });
 
     test('walks the default flow in order on a fresh phone', () async {
-      final h = EngineHarness();
+      // With the offer step switched on, which it is not as shipped.
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(offerSkips: false),
+      );
       final seen = <String>[(await h.engine.resume()).route!];
 
       for (final step in flow.steps.take(flow.steps.length - 1)) {
@@ -173,14 +176,34 @@ void main() {
 
       expect(seen, [
         '/onboarding/welcome',
-        '/onboarding/how-it-rings',
         '/onboarding/connect',
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        '/onboarding/offer',
         '/onboarding/hook-up',
       ]);
       expect(h.progress.completed, isFalse);
+    });
+
+    test('passes over the offer step while it has nothing to show', () async {
+      final h = EngineHarness(
+        repository: FakeOnboardingFlowRepository(
+          pinned: flow,
+          completed: {
+            'welcome',
+            'how_it_rings',
+            'connect',
+            'permissions',
+            'first_topic',
+          },
+        ),
+      );
+
+      final next = await h.engine.finishStep('real_ring');
+
+      expect(next.route, '/onboarding/hook-up');
+      expect(h.repository.completed, isNot(contains('offer')));
     });
 
     test('walks the legacy flow in its own order', () async {
@@ -231,8 +254,8 @@ void main() {
       expect(
         h.events.map((e) => (e.kind, e.stepId, e.flowId, e.isReplay)),
         [
-          (OnboardingStepEventKind.finished, 'welcome', '2026-10-a', false),
-          (OnboardingStepEventKind.entered, 'how_it_rings', '2026-10-a', false),
+          (OnboardingStepEventKind.finished, 'welcome', '2026-10-b', false),
+          (OnboardingStepEventKind.entered, 'connect', '2026-10-b', false),
         ],
       );
     });
@@ -256,11 +279,12 @@ void main() {
       }
 
       expect(seen, [
-        '/onboarding/how-it-rings',
         '/onboarding/connect',
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        // A replay opens the offer step too. Its screen moves on by itself.
+        '/onboarding/offer',
         '/onboarding/hook-up',
         'home',
       ]);
@@ -323,7 +347,7 @@ void main() {
 
       final next = await h.engine.resume();
 
-      expect(next.route, '/onboarding/how-it-rings');
+      expect(next.route, '/onboarding/connect');
       expect(h.progress.completed, isFalse);
       expect(h.repository.pinned, BundledOnboardingFlows.defaultFlow);
       expect(h.repository.completed, {'welcome'});
@@ -413,7 +437,7 @@ void main() {
 
       final next = await h.engine.finishStep('welcome', isReplay: true);
 
-      expect(next.route, '/onboarding/how-it-rings');
+      expect(next.route, '/onboarding/connect');
       expect(h.repository.writes, 0);
     });
   });
@@ -557,6 +581,7 @@ void main() {
       readPermissionSetup: phone.read,
       notices: _NoNotices(),
       firstMessage: _NoFirstMessage(),
+      offer: offerGateFor(),
     ).hasEveryPermission();
 
     test('never without notifications', () async {

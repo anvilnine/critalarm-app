@@ -30,6 +30,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const String paywallEnabledKey = 'paywall_enabled';
   static const String paywallVariantKeyName = 'paywall_variant';
   static const String onboardingFlowKey = 'onboarding_flow';
+  static const String onboardingOfferKey = 'onboarding_offer';
   static const String paywallLayoutKeyName = 'paywall_layout';
   static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
 
@@ -37,6 +38,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
     paywallEnabledKey: false,
     paywallVariantKeyName: 'straight',
     onboardingFlowKey: '',
+    onboardingOfferKey: '',
     paywallLayoutKeyName: '',
     proPaywallLayoutKeyName: '',
   };
@@ -185,6 +187,15 @@ class FirebaseTelemetryGate implements TelemetryGate {
   String get onboardingFlowJson {
     try {
       return remoteConfig?.getString(onboardingFlowKey) ?? '';
+    } on Object catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  String get onboardingOfferJson {
+    try {
+      return remoteConfig?.getString(onboardingOfferKey) ?? '';
     } on Object catch (_) {
       return '';
     }
