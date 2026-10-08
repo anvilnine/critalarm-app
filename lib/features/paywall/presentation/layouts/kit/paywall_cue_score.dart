@@ -21,7 +21,7 @@ void playPaywallCue(PaywallCue cue) => getIt<PaywallCues>().play(cue);
 ///   by itself plays [turnCue], through the first pass only and never once
 ///   the hand has taken over.
 /// - Nothing plays when nothing may move, or in a thumbnail
-///   (`PaywallMuted`).
+///   (`PaywallMuted`), or once the step after a purchase has begun.
 /// - After an intro the beats of the first moments are left out: the
 ///   intro's last cue still has the room.
 ///
@@ -69,6 +69,8 @@ class _PaywallCueScoreState extends State<PaywallCueScore> {
     final before = _before;
     _before = now;
     if (_isMuted || clock.isStill) return;
+    // The step after a purchase has the sound once it has begun.
+    if (PaywallThanksPlay.hasBegun(context)) return;
 
     final cues = paywallCuesBetween(
       widget.beats,

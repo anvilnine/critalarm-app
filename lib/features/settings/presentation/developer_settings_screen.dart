@@ -212,25 +212,39 @@ class _PaywallLayoutsRow extends StatelessWidget {
         switches.pro,
         switches.hostedIntro,
         switches.proIntro,
+        switches.hostedThanks,
+        switches.proThanks,
       ]),
       builder: (context, _) {
         final remote = LocaleKeys.developer_options_remote.tr();
-        String pair(DevPaywallIntroSwitch intro, DevPaywallLayoutSwitch at) =>
-            paywallPairText(
-              intro: intro.value == null
-                  ? null
-                  : paywallIntroName(intro.value!),
-              layout: at.value == null ? null : _layoutLabel(at.value),
-              remote: remote,
-            );
+        String steps(
+          DevPaywallIntroSwitch intro,
+          DevPaywallLayoutSwitch at,
+          DevPaywallThanksSwitch thanks,
+        ) => paywallStepsText(
+          intro: intro.value == null ? null : paywallIntroName(intro.value!),
+          layout: at.value == null ? null : _layoutLabel(at.value),
+          thanks: thanks.value == null
+              ? null
+              : paywallThanksName(thanks.value!),
+          remote: remote,
+        );
         return AppValueRow(
           title: title,
           detail: LocaleKeys.developer_options_layouts_value.tr(
             namedArgs: {
               'hosted_name': paywallProductName(PaywallProduct.hosted),
-              'hosted': pair(switches.hostedIntro, switches.hosted),
+              'hosted': steps(
+                switches.hostedIntro,
+                switches.hosted,
+                switches.hostedThanks,
+              ),
               'pro_name': paywallProductName(PaywallProduct.pro),
-              'pro': pair(switches.proIntro, switches.pro),
+              'pro': steps(
+                switches.proIntro,
+                switches.pro,
+                switches.proThanks,
+              ),
             },
           ),
           onTap: open,
