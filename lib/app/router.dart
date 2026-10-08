@@ -63,6 +63,7 @@ import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_recorder_screen.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -164,7 +165,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         // stayed on screen behind the form. The ambient backdrop sits outside
         // the navigator, so it still shows.
         opaque: true,
-        child: const CreateTopicScreen(),
+        child: CreateTopicScreen(
+          initialTool: ToolTemplate.fromId(state.uri.queryParameters['tool']),
+        ),
       ),
     ),
     // One screen, two jobs. No `topic` sets the default sound;
