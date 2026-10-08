@@ -2055,6 +2055,7 @@ Future<void> configureDependencies({
         null,
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
+        () => getIt<SetupTestRing>().setupIncidentIds,
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it
