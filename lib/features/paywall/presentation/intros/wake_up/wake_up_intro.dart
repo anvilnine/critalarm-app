@@ -23,8 +23,8 @@ const PaywallIntro wakeUpIntro = PaywallIntro(
   beats: [
     // The message lands on the sleeping mascot.
     PaywallIntroBeat(WakeUpTimeline.bonk, PaywallCue.introKnock),
-    // The night rolls up.
-    PaywallIntroBeat(WakeUpTimeline.reveal, PaywallCue.kidding),
+    // Up with a start: a spring as the night rolls up.
+    PaywallIntroBeat(WakeUpTimeline.reveal, PaywallCue.introSpring),
   ],
   tag: _tag,
   builder: _build,

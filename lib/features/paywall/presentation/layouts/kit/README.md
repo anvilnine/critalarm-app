@@ -63,12 +63,20 @@ palette, which carries its own haptic. `PaywallIntroBeat.tap(seconds, pattern)` 
 for a moment inside a sound that is still playing. The host plays each as the clock passes, never
 in a tile, and never for a moment a tap skipped. `skipCue` is played when a tap skips the intro,
 in place of the beat it lands on. The beat at the reveal is what the hand over feels like, so the
-host adds no tap of its own. Keep them few and single: nothing may ring or buzz like an alarm,
+host adds no tap of its own.
+
+**The punchline.** The beat at the reveal is the joke landing, and each intro has a cue of its
+own for it (see Cues). A tap lands on that beat, so a skipped intro plays the same punchline. An
+intro whose sound is one long cue has no such beat: it ends the long cue on its punchline and
+names the punchline alone as `skipCue`. A new intro gets a new punchline: never borrow one, and
+never use a sound that falls. Keep them few and single: nothing may ring or buzz like an alarm,
 and nothing is felt while a picture of an alarm rings.
 
 **Quiet after.** The layout plays no cue of its own entrance for `quietAfter` seconds from the
 hand over (`paywallQuietAfterIntro` by default), because the intro's last cue is still sounding.
-An intro that opens on a long cue says how much of it is left by then.
+An intro that opens on a long cue says how much of it is left by then. The frame's own `open`
+is not played after an intro either, so from the reveal the punchline has the player alone for
+about 0.8 s. Keep a punchline under 0.6 s.
 
 **The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
 small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
@@ -338,6 +346,23 @@ be able to name the moment with eyes shut:
   at 0.60 s, silence by 2.15 s.
 - `close` is a little let down and kind about it: "oh, okay". It is a slide where `error` is two
   struck mallet notes ("that did not work"), so the two are never confused. It never mocks.
+
+An intro's joke lands on a punchline, one for each intro, so no two jokes land the same way:
+
+| Cue | Intro | Lead voice | Shape | Ends | Haptic |
+|---|---|---|---|---|---|
+| `introWink` | False alarm, "Just kidding." | Knocks on wood | Dips a third, then jumps up | Up, on the fifth | `tripleRise` |
+| `introGulp` | Snooze snack, "Nice try." | A voiced gulp | Dips and swoops up, then a hiccup higher | Up, on the tonic above | `medium` |
+| `introSpring` | Rude awakening, "I'm up!" | A spring | Leaps an octave and wobbles there | Level, on the third | `risingPair` |
+| `introTease` | Countdown, "Too slow." | Pitched pops | A quick run up the scale, then a flick | Up, on the third above | `light` |
+
+- A punchline never falls. A fall is a failure (`error`) or a let down (`close`). These hop,
+  spring, dip and come up, or climb.
+- None is the three note call or mallets climbing home: that is `bought`, and it plays nowhere
+  else. `gag` rings on the mallet for as long as the picture rings and ends on the wink.
+- Each is three or four quick events, over in half a second, and shares neither its lead voice
+  nor its shape with another punchline or with `open`, `bought`, `close` and `error`.
+- `introBounce` is a hop, a spring up and three bounces on one note. It does not rattle out.
 
 The frame plays `close` once, when the paywall goes without the product in hand
 (`paywallSaysClose`): from the cross, and from back or a swipe as the route starts to go. It

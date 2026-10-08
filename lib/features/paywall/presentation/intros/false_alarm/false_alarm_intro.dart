@@ -44,8 +44,8 @@ FaceShape _faceAt(double t) {
 ///
 /// A silent picture of an alarm. The app makes none. The gag cue is the
 /// only sound and owns the whole intro: nothing is felt while the screen
-/// rings, one light tap marks the reveal, and a tap that skips it plays
-/// the release in its place.
+/// rings, and its last three knocks, the wink, land on the reveal, where
+/// they are felt too. A tap that skips the joke plays the wink alone.
 const PaywallIntro falseAlarmIntro = PaywallIntro(
   seconds: FalseAlarmTimeline.end,
   handover: FalseAlarmTimeline.handover,
@@ -53,9 +53,9 @@ const PaywallIntro falseAlarmIntro = PaywallIntro(
   tone: PaywallTone.crit,
   cue: PaywallEntranceCue.gag,
   beats: [
-    PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.light),
+    PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.tripleRise),
   ],
-  skipCue: PaywallCue.kidding,
+  skipCue: PaywallCue.introWink,
   quietAfter: FalseAlarmTimeline.gagEnds - FalseAlarmTimeline.handover,
   tag: _tag,
   builder: _build,
