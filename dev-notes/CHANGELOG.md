@@ -149,6 +149,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Settings drops the Will it wake me? row for AppStatusCard.strip, fed by ReadinessSummary, the same rule the Topics card reads. The count, pips, check lines and fix come from reliability, and tool/capture\_settings\_screen.dart captures every state.
 - The Topic screen uses the Topics hero: the face looks at a dark Critical delivery card with the switch in it, and the messages sit on a white sheet under it. The disc behind the face is drawn by the ambient canvas through an AmbientOverride.
 - Review fixes on the redesigned screens: formatWhen (lib/core/format/when\_label.dart) is the one date rule, TopicHeader sets a long name on two lines and steps its type down (topicHeaderHeight takes the name and the width), AppScreenScaffold topBackingPlateau, FaceWidget draws the canvas face stroke in every state, AppColors.critText, and the panel switch off track is the muted panel colour at 0.55.
+- Topic message rows always show the time (Yesterday 00:45, 8 Oct 00:45), the token line reads Made yesterday, and History keeps its title clear of scrolled rows.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
