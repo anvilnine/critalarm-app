@@ -196,7 +196,6 @@ class _FixedHome extends HomeCubit {
         null,
         const Duration(seconds: 5),
         getIt(),
-        null,
       );
 
   final HomeState fixed;

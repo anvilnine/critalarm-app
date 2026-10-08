@@ -31,7 +31,6 @@ class HomeCubit extends Cubit<HomeState> {
     DateTime Function()? clock,
     this.tick = const Duration(seconds: 5),
     this._listPrefs,
-    this._readSetupIncidentIds,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -55,10 +54,6 @@ class HomeCubit extends Cubit<HomeState> {
   /// Pin, mute and read marks, kept on this phone. Null in tests that do not
   /// care, which leaves every row unpinned, unmuted and read.
   final TopicListPrefsRepository? _listPrefs;
-
-  /// The alarms setup rang on purpose, which never count as the last alarm.
-  /// Null in tests that do not care.
-  final Set<String> Function()? _readSetupIncidentIds;
 
   /// How often the state is worked out again from the lists already held, so
   /// an acknowledged alarm's countdown or a close that only lasts a while
@@ -167,7 +162,6 @@ class HomeCubit extends Cubit<HomeState> {
       warningTopics: warningTopics,
       messageTimes: _lastMessageTimes ?? const {},
       now: now,
-      setupIncidentIds: _setupIncidentIds(),
     );
     emit(
       state.copyWith(
@@ -184,9 +178,6 @@ class HomeCubit extends Cubit<HomeState> {
   /// alarm's desk timer, or the moment after a close.
   static bool _needsTick(HomeFacts facts) =>
       facts.acknowledged != null || facts.handled != null;
-
-  Set<String> _setupIncidentIds() =>
-      _readSetupIncidentIds?.call() ?? const <String>{};
 
   /// Pins [topic] to the top of the list, or unpins it.
   Future<void> togglePin(String topic) async {
@@ -336,7 +327,6 @@ class HomeCubit extends Cubit<HomeState> {
           warningTopics: const {},
           messageTimes: const {},
           now: now,
-          setupIncidentIds: _setupIncidentIds(),
         ),
       );
     }
@@ -421,7 +411,6 @@ class HomeCubit extends Cubit<HomeState> {
       warningTopics: warningTopics,
       messageTimes: messageTimes,
       now: now,
-      setupIncidentIds: _setupIncidentIds(),
     );
     _syncTimer(_needsTick(facts));
 

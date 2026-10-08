@@ -121,7 +121,6 @@ void main() {
   late IncidentsCubit incidentsCubit;
   late TopicsCubit topicsCubit;
   late _MemoryPrefs prefs;
-  late Set<String> setupIds;
   late HomeCubit cubit;
 
   void build({
@@ -138,7 +137,6 @@ void main() {
       clock,
       const Duration(seconds: 5),
       prefs,
-      () => setupIds,
     );
   }
 
@@ -149,7 +147,6 @@ void main() {
     incidentsCubit = IncidentsCubit(GetIncidentsUsecase(incidentRepo));
     topicsCubit = TopicsCubit(GetTopicsUsecase(InMemoryTopicRepository(api)));
     prefs = _MemoryPrefs();
-    setupIds = {};
   });
 
   tearDown(() async {
@@ -449,7 +446,7 @@ void main() {
       );
     });
 
-    test('leave out an alarm setup rang when naming the last alarm', () async {
+    test('name an alarm setup rang as the last alarm', () async {
       server.seedState(
         topics: const [Topic(name: 'prod-db', critical: true)],
         incidents: [
@@ -471,10 +468,9 @@ void main() {
           ),
         ],
       );
-      setupIds = {'setup'};
       build();
       await cubit.load();
-      expect(cubit.state.facts.lastAlarmAt, _ago(const Duration(days: 2)));
+      expect(cubit.state.facts.lastAlarmAt, _ago(const Duration(hours: 1)));
     });
 
     test('are empty for a server with no topics', () async {

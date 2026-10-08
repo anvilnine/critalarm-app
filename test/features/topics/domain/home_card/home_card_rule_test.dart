@@ -624,6 +624,18 @@ void main() {
       expect(m.foot.slot, HomeCardFootSlot.noAlarmYet);
     });
 
+    test('names an alarm answered yesterday', () {
+      final yesterday = now.subtract(const Duration(hours: 24));
+      final m = resolve((d) => d.lastAlarmAt = yesterday);
+      expect(m.foot, HomeCardFoot(HomeCardFootSlot.lastAlarm, time: yesterday));
+    });
+
+    test('names an alarm from weeks ago', () {
+      final weeks = now.subtract(const Duration(days: 23));
+      final m = resolve((d) => d.lastAlarmAt = weeks);
+      expect(m.foot, HomeCardFoot(HomeCardFootSlot.lastAlarm, time: weeks));
+    });
+
     test('says no topic rings when no topic has Critical delivery', () {
       final m = resolve((d) => d.hasCriticalTopic = false);
       expect(m.foot.slot, HomeCardFootSlot.noTopicRings);
