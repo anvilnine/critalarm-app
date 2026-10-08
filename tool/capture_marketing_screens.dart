@@ -5,6 +5,10 @@
 // passes the output folder in SCREENS_OUT. Nothing it writes belongs in this
 // repo.
 //
+// `make screens STORIES=1` draws something else: the ringing and the answered
+// alarm screen once per story in `_stories`, at the social size only. It
+// writes stories.json and leaves manifest.json alone.
+//
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // ignore_for_file: avoid_print, cast_nullable_to_non_nullable
 
@@ -43,6 +47,7 @@ import 'package:critalarm/features/reliability/presentation/cubits/reliability_c
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:crypto/crypto.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -123,25 +128,33 @@ const List<_Device> _devices = [
 /// fixture that fills the mock server before it is drawn.
 ///
 /// `after` runs once the screen has settled, for a shot that is not the top
-/// of its route.
+/// of its route. `story` swaps the alarm in the fixture for that story's.
 typedef _Screen = ({
   String id,
   String route,
   String fixture,
   Future<void> Function(WidgetTester tester)? after,
+  _Story? story,
 });
 
 final List<_Screen> _screens = [
-  (id: 'home.calm', route: '/', fixture: 'calm', after: null),
+  (id: 'home.calm', route: '/', fixture: 'calm', after: null, story: null),
   // An open incident takes home straight to the alarm screen, so the home
   // shot with something on it is the acknowledged one.
-  (id: 'home.acked', route: '/', fixture: 'acked', after: null),
-  (id: 'alarm.ringing', route: '/alarm', fixture: 'alarmed', after: null),
+  (id: 'home.acked', route: '/', fixture: 'acked', after: null, story: null),
+  (
+    id: 'alarm.ringing',
+    route: '/alarm',
+    fixture: 'alarmed',
+    after: null,
+    story: null,
+  ),
   (
     id: 'alarm.acked',
     route: '/incidents/$_ackedId',
     fixture: 'acked',
     after: null,
+    story: null,
   ),
   // The alarm this phone sets for itself to try the ring. It is on no
   // server, so the screen draws it from its id alone.
@@ -150,17 +163,159 @@ final List<_Screen> _screens = [
     route: '/incidents/$phoneOnlyTestIncidentId',
     fixture: 'calm',
     after: null,
+    story: null,
   ),
-  (id: 'topic.detail', route: '/topics/db-1', fixture: 'calm', after: null),
+  (
+    id: 'topic.detail',
+    route: '/topics/db-1',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
   (
     id: 'topic.critical',
     route: '/topics/db-1',
     fixture: 'calm',
     after: _showCriticalSwitch,
+    story: null,
   ),
-  (id: 'history', route: '/history', fixture: 'calm', after: null),
-  (id: 'settings', route: '/settings', fixture: 'calm', after: null),
-  (id: 'paywall.hosted', route: _paywallRoute, fixture: 'calm', after: null),
+  (id: 'history', route: '/history', fixture: 'calm', after: null, story: null),
+  (
+    id: 'settings',
+    route: '/settings',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'paywall.hosted',
+    route: _paywallRoute,
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+];
+
+/// One alarm a video tells the story of: the topic it rings on and the words
+/// its sender put in it.
+///
+/// The title and the message are what a person would type into their own
+/// tool, with no product names. A story about something at home uses no
+/// technical words, and its one tag is the room. Every story has a tag: the
+/// card draws the time, a slash and the tags, and with none the slash is left
+/// hanging.
+typedef _Story = ({
+  String slug,
+  String topic,
+  String title,
+  String message,
+  List<String> tags,
+});
+
+// Each message fits on one line of the alarm card at the social size, so the
+// buttons under it sit in the same place in every story.
+const List<_Story> _stories = [
+  (
+    slug: 'freezer',
+    topic: 'freezer',
+    title: 'Freezer door is open',
+    message: 'It has been open for 10 minutes.',
+    tags: ['kitchen'],
+  ),
+  (
+    slug: 'chest-freezer',
+    topic: 'chest-freezer',
+    title: 'Freezer getting warm',
+    message: 'It has been getting warmer for 20 minutes.',
+    tags: ['garage'],
+  ),
+  (
+    slug: 'freezer-door',
+    topic: 'freezer-door',
+    title: 'Freezer door left open',
+    message: 'The door has been open for 10 minutes.',
+    tags: ['kitchen'],
+  ),
+  (
+    slug: 'sump-pump',
+    topic: 'sump-pump',
+    title: 'Sump pump stopped',
+    message: 'It has not run for an hour. Water is rising.',
+    tags: ['basement'],
+  ),
+  (
+    slug: 'payment-webhook',
+    topic: 'payment-webhook',
+    title: 'Payment webhook went quiet',
+    message: 'No payment events for 30 minutes.',
+    tags: ['payments'],
+  ),
+  (
+    slug: 'backup-job',
+    topic: 'backup-job',
+    title: 'Backup failed',
+    message: 'The nightly backup stopped with an error.',
+    tags: ['backup', 'nightly'],
+  ),
+  (
+    slug: 'backup',
+    topic: 'backup',
+    title: 'Backup missed its check-in',
+    message: 'It was due an hour ago and has not reported.',
+    tags: ['backup', 'late'],
+  ),
+  (
+    slug: 'scheduled-job',
+    topic: 'scheduled-job',
+    title: 'Job missed its check-in',
+    message: 'The nightly job is 20 minutes overdue.',
+    tags: ['job', 'late'],
+  ),
+  (
+    slug: 'site',
+    topic: 'site',
+    title: 'Site is down',
+    message: 'No answer from the home page for 2 minutes.',
+    tags: ['site', 'down'],
+  ),
+  (
+    slug: 'lab-server',
+    topic: 'lab-server',
+    title: 'Server is down',
+    message: 'lab-server has not answered for 3 minutes.',
+    tags: ['server', 'down'],
+  ),
+  (
+    slug: 'coding-agent',
+    topic: 'coding-agent',
+    title: 'Agent is waiting for you',
+    message: 'It needs a yes or no before it can go on.',
+    tags: ['agent'],
+  ),
+];
+
+String _storyRingingId(_Story s) => 'inc_story_${s.slug}';
+String _storyAckedId(_Story s) => 'inc_story_${s.slug}_acked';
+
+/// Two shots per story, drawn by the same routes and fixtures as
+/// `alarm.ringing` and `alarm.acked`.
+List<_Screen> _storyScreens() => [
+  for (final s in _stories) ...[
+    (
+      id: 'alarm.ringing.${s.slug}',
+      route: '/alarm',
+      fixture: 'alarmed',
+      after: null,
+      story: s,
+    ),
+    (
+      id: 'alarm.acked.${s.slug}',
+      route: '/incidents/${_storyAckedId(s)}',
+      fixture: 'acked',
+      after: null,
+      story: s,
+    ),
+  ],
 ];
 
 /// The Hero layout selling the hosted plan, listing what this build has.
@@ -313,8 +468,102 @@ List<Topic> _topics(DateTime now) => [
   return (incidents, messages);
 }
 
-void _seed(MockServer server, String fixture) {
+/// A story's fixture: its topic alone, one earlier alarm of the same kind
+/// that was answered and closed, and the alarm itself, ringing or answered.
+/// The timings match the plain `alarmed` and `acked` fixtures.
+void _seedStory(MockServer server, String fixture, _Story story) {
+  final now = DateTime.now().toUtc();
+
+  Message message(String id, String incidentId, DateTime at) => Message(
+    id: id,
+    topic: story.topic,
+    time: _unix(at),
+    title: story.title,
+    message: story.message,
+    priority: 5,
+    tags: story.tags,
+    incidentId: incidentId,
+  );
+
+  final earlier = now.subtract(const Duration(days: 9, hours: 4));
+  final earlierId = 'inc_story_${story.slug}_past';
+  final earlierMsg = message('m_story_${story.slug}_past', earlierId, earlier);
+  final incidents = <Incident>[
+    Incident(
+      id: earlierId,
+      topic: story.topic,
+      state: IncidentStates.closed,
+      openedAt: earlier,
+      ackedAt: earlier.add(const Duration(seconds: 47)),
+      closedAt: earlier.add(const Duration(minutes: 12)),
+      updatedAt: earlier.add(const Duration(minutes: 12)),
+      lastMessageAt: earlier,
+      messages: [earlierMsg],
+    ),
+  ];
+  final messages = <Message>[earlierMsg];
+
+  switch (fixture) {
+    case 'alarmed':
+      final opened = now.subtract(const Duration(seconds: 14));
+      final id = _storyRingingId(story);
+      final msg = message('m_story_${story.slug}', id, opened);
+      messages.add(msg);
+      incidents.add(
+        Incident(
+          id: id,
+          topic: story.topic,
+          openedAt: opened,
+          updatedAt: opened,
+          lastMessageAt: opened,
+          messages: [msg],
+        ),
+      );
+    case 'acked':
+      final opened = now.subtract(const Duration(minutes: 3));
+      final acked = opened.add(const Duration(seconds: 41));
+      final id = _storyAckedId(story);
+      final msg = message('m_story_${story.slug}_acked', id, opened);
+      messages.add(msg);
+      incidents.add(
+        Incident(
+          id: id,
+          topic: story.topic,
+          state: IncidentStates.acked,
+          openedAt: opened,
+          ackedAt: acked,
+          updatedAt: acked,
+          deskTimerFiresAt: acked.add(const Duration(minutes: 10)),
+          lastMessageAt: opened,
+          messages: [msg],
+        ),
+      );
+    default:
+      throw ArgumentError('A story has no fixture $fixture');
+  }
+
+  server.seedState(
+    topics: [
+      Topic(
+        name: story.topic,
+        critical: true,
+        createdAt: now.subtract(const Duration(days: 41)),
+        token: 'tk_story_${story.slug}',
+        tokenId: 'tok_story_${story.slug}',
+        tokenName: story.topic,
+      ),
+    ],
+    incidents: incidents,
+    messages: messages,
+  );
+}
+
+void _seed(MockServer server, String fixture, {_Story? story}) {
   server.reset();
+  if (story != null) {
+    _seedStory(server, fixture, story);
+    return;
+  }
   final now = DateTime.now().toUtc();
   final (past, pastMessages) = _past(now);
   final incidents = <Incident>[...past];
@@ -437,7 +686,11 @@ void main() {
     _env('SCREENS_OUT', '../critalarm-content-pipeline/ui-snapshots'),
   );
   final only = _env('SCREENS_ONLY', '');
-  final onlyDevices = _env('SCREENS_DEVICES', '');
+  // Stories are for videos, so they are drawn at the social size and no
+  // other, whatever SCREENS_DEVICES says.
+  final storiesOnly = const {'1', 'true'}.contains(_env('SCREENS_STORIES', ''));
+  final onlyDevices = storiesOnly ? 'social916' : _env('SCREENS_DEVICES', '');
+  final screens = storiesOnly ? _storyScreens() : _screens;
   final entries = <Map<String, Object?>>[];
 
   setUpAll(() async {
@@ -534,9 +787,21 @@ void main() {
             ],
           },
       },
+      if (storiesOnly)
+        'stories': [
+          for (final s in _stories)
+            {
+              'slug': s.slug,
+              'topic': s.topic,
+              'title': s.title,
+              'message': s.message,
+              'tags': s.tags,
+            },
+        ],
       'screens': entries,
     };
-    File('${outDir.path}/manifest.json').writeAsStringSync(
+    final name = storiesOnly ? 'stories.json' : 'manifest.json';
+    File('${outDir.path}/$name').writeAsStringSync(
       '${const JsonEncoder.withIndent('  ').convert(manifest)}\n',
     );
     print('Wrote ${entries.length} screens to ${outDir.path}');
@@ -547,11 +812,11 @@ void main() {
       continue;
     }
     for (final theme in const [ThemeMode.light, ThemeMode.dark]) {
-      for (final screen in _screens) {
+      for (final screen in screens) {
         if (only.isNotEmpty && !only.split(',').contains(screen.id)) continue;
         final rel = '${device.id}/${theme.name}/${screen.id}.png';
         testWidgets('screen $rel', (tester) async {
-          _seed(getIt<MockServer>(), screen.fixture);
+          _seed(getIt<MockServer>(), screen.fixture, story: screen.story);
           // The store keeps what the last capture synced. Empty it so this
           // screen sees only its own fixture. sqflite hands back the open
           // connection for the same path.
@@ -641,6 +906,20 @@ void main() {
             fail('$rel did not draw cleanly: $why');
           }
 
+          // Where a video taps on a ringing story shot: the middle of the
+          // button that stops the ring, as a fraction of the frame.
+          final story = screen.story;
+          List<double>? tapPoint;
+          if (story != null && screen.fixture == 'alarmed') {
+            final c = tester.getCenter(
+              find.text('critical_alarm.acknowledge_button'.tr()),
+            );
+            tapPoint = [
+              double.parse((c.dx / device.width).toStringAsFixed(4)),
+              double.parse((c.dy / device.height).toStringAsFixed(4)),
+            ];
+          }
+
           await tester.runAsync(() async {
             final render =
                 boundary.currentContext!.findRenderObject()
@@ -664,6 +943,8 @@ void main() {
               'size': [image.width, image.height],
               'file': rel,
               'sha256': sha256.convert(bytes).toString(),
+              if (story != null) 'story': story.slug,
+              'im_up_tap_point': ?tapPoint,
             });
             print('captured $rel ${image.width}x${image.height}');
           });
