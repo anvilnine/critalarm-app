@@ -844,13 +844,25 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
     // One short throw of confetti when the checklist finishes, over the
     // whole screen and dead to the touch.
-    return Stack(
+    final content = Stack(
       fit: StackFit.passthrough,
       children: [
         screen,
         if (setupState.phase == HomeSetupPhase.celebration)
           const Positioned.fill(child: HomeSetupConfetti()),
       ],
+    );
+
+    // The canvas behind the screen is the ambient one. It gets the profile
+    // for the card, and morphs to the next one when the card changes.
+    return AmbientRouteProfile(
+      path: '/',
+      profile: homeAmbientProfile(
+        card,
+        context.appColors,
+        spot: heroDiscSpotOf(context),
+      ),
+      child: content,
     );
   }
 

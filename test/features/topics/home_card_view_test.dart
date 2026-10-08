@@ -1,8 +1,9 @@
 import 'package:critalarm/core/alarm/ring_claim.dart';
-import 'package:critalarm/design/components/hero_scene.dart';
+import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/status_card.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
@@ -13,6 +14,7 @@ import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/home_card/setup_finish_card.dart';
 import 'package:critalarm/features/topics/presentation/home_card_view.dart';
 import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'domain/home_card/home_card_fixtures.dart' as fx;
@@ -143,6 +145,84 @@ void main() {
       );
       expect(model.kind, HomeCardKind.idle);
       expect(homeCardViewFor(model, now: now).foot, 'no Critical topic yet');
+    });
+  });
+
+  group('homeAmbientProfile', () {
+    const colors = AppColors.light;
+
+    AmbientProfile profileOf(HomeCardInput input) =>
+        homeAmbientProfile(resolveHomeCard(input), colors);
+
+    test('a ringing alarm is on the red canvas', () {
+      final profile = profileOf(
+        HomeCardInput(
+          now: now,
+          topicCount: 1,
+          ringing: RingingFact(
+            incidentId: 'inc-1',
+            topic: 'prod-db',
+            openedAt: now.subtract(const Duration(minutes: 2)),
+          ),
+        ),
+      );
+      expect(profile.canvas, colors.critCanvas);
+      expect(profile.shapes.first.color, colors.critCanvasAlt);
+    });
+
+    test('a calm card is on the yellow ground with the pale disc', () {
+      final profile = profileOf(
+        HomeCardInput(
+          now: now,
+          topicCount: 1,
+          readiness: ReadinessInput(loaded: true, checks: fx.androidChecks(7)),
+        ),
+      );
+      expect(profile.canvas, colors.canvas);
+      expect(profile, AmbientAppProfiles.topicsHero(colors));
+    });
+
+    test('no server tints the disc red on the yellow ground', () {
+      final profile = profileOf(HomeCardInput(now: now, hasServer: false));
+      expect(profile.canvas, colors.canvas);
+      expect(profile.shapes.first.color, colors.crit);
+      expect(profile.shapes.first.opacity, 0.3);
+    });
+
+    test('each card kind keeps the profile apart from its neighbour', () {
+      final idle = profileOf(
+        HomeCardInput(
+          now: now,
+          topicCount: 1,
+          readiness: ReadinessInput(loaded: true, checks: fx.androidChecks(7)),
+        ),
+      );
+      final noServer = profileOf(HomeCardInput(now: now, hasServer: false));
+      final loading = profileOf(HomeCardInput(now: now, isLoading: true));
+      expect(idle, isNot(noServer));
+      expect(loading, idle, reason: 'loading is a calm card');
+    });
+
+    test('the finish card is calm, so the canvas does not change', () {
+      expect(
+        homeAmbientProfile(setupFinishCard(), colors),
+        AmbientAppProfiles.topicsHero(colors),
+      );
+    });
+
+    test('the spot is passed on to the disc', () {
+      const spot = HeroDiscSpot(
+        anchor: Alignment(0.3, 0.2),
+        discScale: 1.1,
+        ringScale: 1.4,
+      );
+      final profile = homeAmbientProfile(
+        setupFinishCard(),
+        colors,
+        spot: spot,
+      );
+      expect(profile.shapes.first.anchor, spot.anchor);
+      expect(profile.shapes.last.scale, spot.ringScale);
     });
   });
 
