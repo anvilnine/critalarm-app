@@ -8,7 +8,13 @@
 /// never changes. An id this build does not know reads as no challenge.
 enum ChallengeKind {
   /// Type the name of the topic the screen already shows.
-  typeTopicName('type_topic_name');
+  typeTopicName('type_topic_name'),
+
+  /// Type the first words of the alert title the screen already shows.
+  typeAlertTitle('type_alert_title'),
+
+  /// Answer one developer-flavoured sum.
+  opsMath('ops_math');
 
   const ChallengeKind(this.id);
 

@@ -2131,6 +2131,23 @@
       "prompt": "Type the topic name",
       "field_label": "Type the topic name: {topic}",
       "hint": "Capitals do not matter."
+    },
+    "type_alert_title": {
+      "name": "Type the alert title",
+      "prompt": "Type the first words of the alert",
+      "field_label": "Type the first words of the alert title: {words}",
+      "hint": "The bold words. Capitals and punctuation do not matter."
+    },
+    "ops_math": {
+      "name": "Ops math",
+      "prompt": "Answer the sum",
+      "q_hex": "What is {value} in decimal?",
+      "q_power": "What is 2^{value}?",
+      "q_minutes": "How many seconds in {value} minutes?",
+      "q_hours": "How many seconds in {value} hours?",
+      "q_megabytes": "How many kilobytes in {value} MB?",
+      "hint": "Numbers only.",
+      "wrong": "Not that one. Same question, try again."
     }
   },
   "alarm_styles": {
