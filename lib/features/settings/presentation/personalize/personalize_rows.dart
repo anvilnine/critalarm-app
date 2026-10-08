@@ -105,20 +105,39 @@ class WidgetMiniature extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The face on the widget is the yellow one in both themes.
+    final theme = Theme.of(context);
+    final colors = context.appColors.copyWith(
+      faceFill: AppColors.light.faceFill,
+      faceInk: AppColors.light.faceInk,
+      faceStroke: AppColors.light.faceStroke,
+    );
     return SizedBox.square(
       dimension: size,
       child: FittedBox(
-        child: MediaQuery(
-          // A picture of a widget: its words do not follow the text size.
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.noScaling,
-            disableAnimations: true,
+        child: Theme(
+          data: theme.copyWith(
+            extensions: [
+              ...theme.extensions.values.where((ext) => ext is! AppColors),
+              colors,
+            ],
           ),
-          child: const ExcludeSemantics(
-            child: IgnorePointer(
-              child: WidgetsPreview(size: Size.square(_drawnAt)),
-            ),
-          ),
+          child: _picture(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _picture(BuildContext context) {
+    return MediaQuery(
+      // A picture of a widget: its words do not follow the text size.
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.noScaling,
+        disableAnimations: true,
+      ),
+      child: const ExcludeSemantics(
+        child: IgnorePointer(
+          child: WidgetsPreview(size: Size.square(_drawnAt)),
         ),
       ),
     );
