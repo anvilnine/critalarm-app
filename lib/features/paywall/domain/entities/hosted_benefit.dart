@@ -1,3 +1,5 @@
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -45,11 +47,13 @@ enum HostedBenefitId { topics, pushes, history, widgets, appIcons }
 
 /// One thing Hosted gives, with the string keys each surface reads.
 ///
-/// To move a benefit out of Hosted, delete its entry from
-/// [HostedBenefit.all]. Every surface then drops it.
+/// [HostedBenefit.all] is built from `featureTable`: a benefit is listed
+/// while Hosted unlocks its [feature]. To move a benefit out of Hosted,
+/// change that feature's row in the table. Every surface then drops it.
 class HostedBenefit {
   const HostedBenefit({
     required this.id,
+    required this.feature,
     required this.shortKey,
     required this.compareLabelKey,
     required this.compareFreeKey,
@@ -61,6 +65,11 @@ class HostedBenefit {
   });
 
   final HostedBenefitId id;
+
+  /// The feature this benefit stands for. Null for a benefit that is a
+  /// number the relay enforces and no feature in the table: it is always
+  /// Hosted.
+  final AppFeature? feature;
 
   /// Hosted number, where the benefit has one. Null means "no limit" or not
   /// a number.
@@ -83,9 +92,17 @@ class HostedBenefit {
   /// A short noun phrase for running text, such as the reminder body.
   final String phraseKey;
 
-  static final List<HostedBenefit> all = List.unmodifiable([
+  /// What Hosted gives in this build, in display order.
+  static final List<HostedBenefit> all = List.unmodifiable(
+    hostedBenefitsIn(featureTable),
+  );
+
+  /// Every benefit Hosted has strings for, in the one display order. The
+  /// table picks from it and never reorders it.
+  static final List<HostedBenefit> _displayOrder = List.unmodifiable([
     HostedBenefit(
       id: HostedBenefitId.topics,
+      feature: AppFeature.unlimitedCriticalTopics,
       freeValue: AccountCaps.free.criticalTopics,
       shortKey: LocaleKeys.hosted_benefits_topics_short,
       compareLabelKey: LocaleKeys.hosted_benefits_topics_compare_label,
@@ -96,6 +113,7 @@ class HostedBenefit {
     ),
     HostedBenefit(
       id: HostedBenefitId.pushes,
+      feature: null,
       hostedValue: hostedP4Daily,
       freeValue: AccountCaps.free.p4Daily,
       shortKey: LocaleKeys.hosted_benefits_pushes_short,
@@ -107,6 +125,7 @@ class HostedBenefit {
     ),
     HostedBenefit(
       id: HostedBenefitId.history,
+      feature: AppFeature.longHistory,
       hostedValue: hostedHistoryDays,
       freeValue: AccountCaps.free.historyDays,
       shortKey: LocaleKeys.hosted_benefits_history_short,
@@ -118,6 +137,7 @@ class HostedBenefit {
     ),
     const HostedBenefit(
       id: HostedBenefitId.widgets,
+      feature: AppFeature.widgets,
       shortKey: LocaleKeys.hosted_benefits_widgets_short,
       compareLabelKey: LocaleKeys.hosted_benefits_widgets_compare_label,
       compareFreeKey: LocaleKeys.hosted_benefits_widgets_compare_free,
@@ -127,6 +147,7 @@ class HostedBenefit {
     ),
     const HostedBenefit(
       id: HostedBenefitId.appIcons,
+      feature: AppFeature.appIcons,
       shortKey: LocaleKeys.hosted_benefits_app_icons_short,
       compareLabelKey: LocaleKeys.hosted_benefits_app_icons_compare_label,
       compareFreeKey: LocaleKeys.hosted_benefits_app_icons_compare_free,
@@ -168,6 +189,15 @@ class HostedBenefit {
     return out.toString();
   }
 }
+
+/// The Hosted benefits under [table], in display order: each benefit whose
+/// feature Hosted unlocks there, plus the ones that stand for no feature.
+List<HostedBenefit> hostedBenefitsIn(Map<AppFeature, FeatureRule> table) => [
+  for (final benefit in HostedBenefit._displayOrder)
+    if (benefit.feature == null ||
+        (table[benefit.feature]?.unlockedBy.contains(Holding.hosted) ?? false))
+      benefit,
+];
 
 /// Whether [surface] has text for [benefit]. Real only when the key is
 /// present and the English string for it exists in [strings], a flat map of
