@@ -513,7 +513,10 @@ import AlarmKit
       let mayClose = DoneHandOffRule.mayClose(
         acked: AckedIncidentStore.contains(incidentId: incidentId),
         alarmUnderWay: alarmUnderWay,
-        cardState: IncidentActivityCoordinator.shared.cardState(incidentId: incidentId)
+        cardState: IncidentActivityCoordinator.shared.cardState(incidentId: incidentId),
+        widgetState: DoneHandOffRule.widgetState(
+          incidentId: incidentId, in: WidgetSnapshotStore.read()
+        )
       )
       guard mayClose else {
         NSLog("CritAlarmAlarm: close_from_done_refused incident_id=%@", incidentId)
