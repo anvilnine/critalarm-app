@@ -72,6 +72,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layouts: plain is removed, bento is built, and each layout picks its own HeroMotion (atmosphere, entrance, idle, card arrival). Doors is redrawn on the canvas colour.
 - The developer page for paywall layouts is a two step picker, intro then paywall, with live tiles (PaywallLayoutTile, PaywallIntroTile).
 - Interface sounds: PaywallCues.play(PaywallCue) gives a sound and a haptic together from one table, 33 cues, HapticPattern and AppHaptics.play, a Settings switch. Silent while an alarm is up.
+- The step after a purchase: PaywallThanksId (none, confetti, unlock, stamp, limits, key, lights), paywallThanksBuilders, PaywallThanksHost, remote values paywall\_thanks and pro\_paywall\_thanks, prefs dev.paywall\_thanks and dev.pro\_paywall\_thanks, events paywall\_thanks\_shown and paywall\_thanks\_left. It starts only on a confirmed purchase. With a version set, a Hosted purchase on a layout paywall no longer opens the welcome page. The developer picker has a third row.
 - A motion skill and rule for custom animation: one living hero per screen.
 - Two more versions of the step after a purchase, Key and Lights on, and five interface cues for it: settle, lock, key, cord and bulb. Confetti plays the settle as its last piece lands.
 
