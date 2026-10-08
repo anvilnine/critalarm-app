@@ -1,6 +1,8 @@
+import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/status_card.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
@@ -66,6 +68,24 @@ HomeCardView homeCardViewFor(
     ticks: numeral is Elapsed || numeral is Remaining,
   );
 }
+
+/// The backdrop the Topics tab asks the ambient canvas for while the card
+/// shows [model]: the card's canvas (the yellow ground, or the warning,
+/// ringing and acknowledged one) with the disc tinted for its state.
+///
+/// [colors] are the app's own, not the ones inside the screen's severity
+/// scope. Handing the canvas a different profile when the card changes is
+/// what makes the backdrop morph from one state to the next.
+AmbientProfile homeAmbientProfile(
+  HomeCardModel model,
+  AppColors colors, {
+  HeroDiscSpot spot = HeroDiscSpot.phone,
+}) => AmbientAppProfiles.topicsHero(
+  colors,
+  severity: model.severity,
+  tone: _heroTone(model.discTone),
+  spot: spot,
+);
 
 /// The big figure as text.
 String homeCardNumeralText(HomeCardNumeral numeral, {required DateTime now}) =>

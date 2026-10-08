@@ -1,7 +1,9 @@
+import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -142,6 +144,71 @@ void main() {
         final all = AppHeroTone.values.map((t) => t.discColor(colors)).toSet();
         expect(all.length, AppHeroTone.values.length);
       }
+    });
+  });
+
+  group('AppHeroTone.discTint', () {
+    test('is the disc colour split into a colour and a strength', () {
+      for (final colors in [AppColors.light, AppColors.dark]) {
+        for (final tone in AppHeroTone.values) {
+          final (color, opacity) = tone.discTint(colors);
+          expect(color.withValues(alpha: opacity), tone.discColor(colors));
+        }
+      }
+    });
+  });
+
+  group('heroDiscSpot', () {
+    HeroDiscSpot at({
+      Size screen = const Size(390, 844),
+      double top = 115,
+      double left = 0,
+      double? width,
+      double textScale = 1,
+      bool isPane = false,
+    }) => heroDiscSpot(
+      screen: screen,
+      sceneOrigin: Offset(left, top),
+      sceneWidth: width ?? screen.width,
+      textScale: textScale,
+      isPane: isPane,
+    );
+
+    test('the default spot is the one for a 390 by 844 phone', () {
+      final spot = at();
+      expect(spot.anchor.x, closeTo(HeroDiscSpot.phone.anchor.x, 1e-4));
+      expect(spot.anchor.y, closeTo(HeroDiscSpot.phone.anchor.y, 1e-4));
+      expect(spot.discScale, closeTo(HeroDiscSpot.phone.discScale, 1e-4));
+      expect(spot.ringScale, closeTo(HeroDiscSpot.phone.ringScale, 1e-4));
+    });
+
+    test('the disc is centred on the scene, not on the screen', () {
+      // Behind the face, left of the middle, as in the hero scene.
+      expect(at().anchor.x, lessThan(0));
+    });
+
+    test('a lower scene puts the disc lower', () {
+      expect(at(top: 200).anchor.y, greaterThan(at().anchor.y));
+    });
+
+    test('the stacked layout centres the disc across the scene', () {
+      final stacked = at(textScale: 2);
+      expect(stacked.anchor.x, closeTo(0, 1e-9));
+    });
+
+    test('a pane stacks and puts the disc over the pane', () {
+      final pane = at(
+        screen: const Size(1024, 768),
+        width: 389,
+        isPane: true,
+      );
+      expect(pane.anchor.x, lessThan(0));
+    });
+
+    test('a spot never asks for a shape the canvas cannot draw', () {
+      final spot = at(screen: const Size(200, 800), width: 200);
+      expect(spot.discScale, lessThanOrEqualTo(AmbientShape.maxScale));
+      expect(spot.ringScale, lessThanOrEqualTo(AmbientShape.maxScale));
     });
   });
 }

@@ -1,12 +1,18 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/ambient/ambient_scope.dart';
+import 'package:critalarm/design/ambient/ambient_shape.dart';
 import 'package:critalarm/design/ambient/hero_disc.dart';
 import 'package:critalarm/design/ambient/hero_timeline.dart';
+import 'package:critalarm/design/ambient/hero_tone.dart';
+import 'package:critalarm/design/components/nav_rail.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
@@ -15,36 +21,7 @@ import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:flutter/material.dart';
 
-/// How the disc behind the face is tinted.
-///
-/// The severity canvases retint the disc by themselves: [calm] is the
-/// canvas's lighter step, so under a high, critical or acknowledged canvas it
-/// is already orange, red or cobalt. The other three are for a yellow canvas
-/// that needs the disc to say something the canvas does not.
-enum AppHeroTone {
-  /// The lighter step of the canvas. The default for a card that is fine,
-  /// and the one tone to use under a severity canvas.
-  calm,
-
-  /// A faint ink wash that takes the colour out of the scene: quiet and
-  /// stale.
-  quiet,
-
-  /// Orange at half strength: a check needs a look.
-  look,
-
-  /// Red at a third of its strength: nothing can reach the phone, or an
-  /// alarm was missed.
-  danger;
-
-  /// The disc fill on [colors].
-  Color discColor(AppColors colors) => switch (this) {
-    AppHeroTone.calm => colors.canvasAlt,
-    AppHeroTone.quiet => colors.onCanvas.withValues(alpha: 0.06),
-    AppHeroTone.look => colors.high.withValues(alpha: 0.55),
-    AppHeroTone.danger => colors.crit.withValues(alpha: 0.3),
-  };
-}
+export 'package:critalarm/design/ambient/hero_tone.dart' show AppHeroTone;
 
 /// Where the face looks while nothing else is going on.
 enum AppHeroGaze {
@@ -99,6 +76,104 @@ double heroFaceSizeFor(AppHeroLayout layout, double width) => switch (layout) {
   AppHeroLayout.sideBySide => math.min(kHeroMaxFaceSize, width * 0.44),
   AppHeroLayout.stacked => math.min(kHeroStackedFaceSize, width * 0.44),
 };
+
+/// Room above the face for its bob.
+const double _kHeroFaceTop = Spacing.s2;
+
+/// The space either side of the scene.
+const double _kHeroGutter = Spacing.s3;
+
+/// Where the disc and the ring are centred in a scene [width] points wide, and
+/// how wide each is, for a face [face] points across.
+({Offset centre, double disc, double ring}) heroDiscGeometry({
+  required AppHeroLayout layout,
+  required double width,
+  required double face,
+}) {
+  final isSide = layout == AppHeroLayout.sideBySide;
+  final faceLeft = isSide ? _kHeroGutter : (width - face) / 2;
+  final faceCentre = Offset(faceLeft + face / 2, _kHeroFaceTop + face / 2);
+  return (
+    centre: isSide
+        ? faceCentre + Offset(face * 0.27, face * 0.09)
+        : faceCentre + Offset(0, face * 0.1),
+    disc: face * 2.76,
+    ring: face * 3.47,
+  );
+}
+
+/// Where the disc and the ring of a scene sit on a [screen], for the ambient
+/// canvas to draw behind it.
+///
+/// - [sceneOrigin]: the scene's top left corner on the screen, with the list
+///   not scrolled.
+/// - [sceneWidth] and [textScale]: what the scene lays itself out from.
+HeroDiscSpot heroDiscSpot({
+  required Size screen,
+  required Offset sceneOrigin,
+  required double sceneWidth,
+  required double textScale,
+  bool isPane = false,
+}) {
+  final layout = heroLayoutFor(
+    width: sceneWidth,
+    textScale: textScale,
+    isPane: isPane,
+  );
+  final geometry = heroDiscGeometry(
+    layout: layout,
+    width: sceneWidth,
+    face: heroFaceSizeFor(layout, sceneWidth),
+  );
+  final centre = sceneOrigin + geometry.centre;
+  final short = screen.shortestSide;
+  return HeroDiscSpot(
+    anchor: Alignment(
+      centre.dx / screen.width * 2 - 1,
+      centre.dy / screen.height * 2 - 1,
+    ),
+    discScale: math.min(geometry.disc / short, AmbientShape.maxScale),
+    ringScale: math.min(geometry.ring / short, AmbientShape.maxScale),
+  );
+}
+
+/// [heroDiscSpot] for the Topics screen on this display: the scene sits under
+/// the status bar, the top bar and one gap, with the list at rest.
+///
+/// It follows the scaffold's own column rules (a capped, centred column on a
+/// medium display, a list pane beside the detail on an expanded one), so the
+/// disc stays behind the face. Both the shell and the screen call it with the
+/// same context, so they agree on the answer.
+HeroDiscSpot heroDiscSpotOf(BuildContext context) {
+  // Only the parts that matter, so a keyboard sliding up does not rebuild the
+  // shell that calls this.
+  final screen = MediaQuery.sizeOf(context);
+  final padding = MediaQuery.paddingOf(context);
+  final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+  final size = AppSize.of(context);
+  final isPane = size.isExpanded;
+  final railOnRight = size.navPlacement == AppNavPlacement.right;
+  final railGap = size.hasRail
+      ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
+      : 0.0;
+  final available = screen.width - railGap;
+  final paneWidth = isPane
+      ? AppScreenScaffold.listPaneWidth(available)
+      : screen.width;
+  final gutter = isPane
+      ? 0.0
+      : math.max(railGap, (paneWidth - AppSize.contentMaxWidth) / 2);
+  return heroDiscSpot(
+    screen: screen,
+    sceneOrigin: Offset(
+      gutter + (isPane && !railOnRight ? railGap : 0),
+      padding.top + AppScreenScaffold.topBarHeight + Spacing.s3,
+    ),
+    sceneWidth: paneWidth - 2 * gutter,
+    textScale: textScale,
+    isPane: isPane,
+  );
+}
 
 /// Where the pupils sit for [gaze], in the face's 200 unit box.
 Offset heroGazeOffset(AppHeroGaze gaze, AppHeroLayout layout) => switch (gaze) {
@@ -371,22 +446,21 @@ class _HeroBodyState extends PaywallClockState<_HeroBody> {
     final face = widget.faceSize;
     final isSide = layout == AppHeroLayout.sideBySide;
 
-    const gutter = Spacing.s3;
-    // Room above the face for its bob.
-    const faceTop = Spacing.s2;
+    const gutter = _kHeroGutter;
+    const faceTop = _kHeroFaceTop;
 
     final faceLeft = isSide ? gutter : (width - face) / 2;
-    final faceCentre = Offset(faceLeft + face / 2, faceTop + face / 2);
-    final discCentre = isSide
-        ? faceCentre + Offset(face * 0.27, face * 0.09)
-        : faceCentre + Offset(0, face * 0.1);
+    final disc = heroDiscGeometry(layout: layout, width: width, face: face);
+    // On the app's ambient canvas the canvas draws the disc and the ring, so
+    // they morph with the tab changes and the pushes. Alone, in the gallery
+    // or a capture tool, the scene draws its own.
+    final paintsDisc = !AmbientScope.isInAmbientScope(context);
 
     // The card starts a little under the top of the face beside it, or just
     // above the foot of the face when stacked.
     final cardTop = isSide ? faceTop + face * 0.176 : faceTop + face - 10;
     final cardLeft = isSide ? faceLeft + face - kHeroCardOverlap : gutter;
 
-    final ringColor = colors.onCanvas.withValues(alpha: 0.06);
     final dotRingColor = colors.onCanvas.withValues(alpha: 0.1);
     final dotFillColor = colors.surface.withValues(alpha: 0.7);
 
@@ -405,48 +479,55 @@ class _HeroBodyState extends PaywallClockState<_HeroBody> {
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: TweenAnimationBuilder<Color?>(
-            tween: ColorTween(end: scene.tone.discColor(colors)),
-            duration: context.motion(const Duration(milliseconds: 600)),
-            curve: AppCurves.easeOut,
-            builder: (context, discColor, _) => ValueListenableBuilder<double>(
-              valueListenable: _seconds,
-              builder: (context, secs, _) {
-                final frame = heroTimeline(secs);
-                return ExcludeSemantics(
-                  child: IgnorePointer(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
+          child: ValueListenableBuilder<double>(
+            valueListenable: _seconds,
+            builder: (context, secs, _) {
+              final frame = heroTimeline(secs);
+              return ExcludeSemantics(
+                child: IgnorePointer(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (paintsDisc)
                         Positioned.fill(
-                          child: HeroDisc(
-                            painter: HeroDiscPainter(
-                              centre: discCentre,
-                              discDiameter: face * 2.76,
-                              ringDiameter: face * 3.47,
-                              discColor: discColor ?? colors.canvasAlt,
-                              ringColor: ringColor,
-                              discScale: frame.discScale,
-                              ringScale: frame.ringScale,
+                          child: TweenAnimationBuilder<Color?>(
+                            tween: ColorTween(
+                              end: scene.tone.discColor(colors),
+                            ),
+                            duration: context.motion(
+                              const Duration(milliseconds: 600),
+                            ),
+                            curve: AppCurves.easeOut,
+                            builder: (context, discColor, _) => HeroDisc(
+                              painter: HeroDiscPainter(
+                                centre: disc.centre,
+                                discDiameter: disc.disc,
+                                ringDiameter: disc.ring,
+                                discColor: discColor ?? colors.canvasAlt,
+                                ringColor: colors.onCanvas.withValues(
+                                  alpha: 0.06,
+                                ),
+                                discScale: frame.discScale,
+                                ringScale: frame.ringScale,
+                              ),
                             ),
                           ),
                         ),
-                        _dot(
-                          firstDot - Offset(0, frame.firstDotRise),
-                          26,
-                          border: dotRingColor,
-                        ),
-                        _dot(
-                          secondDot - Offset(0, frame.secondDotRise),
-                          10,
-                          fill: dotFillColor,
-                        ),
-                      ],
-                    ),
+                      _dot(
+                        firstDot - Offset(0, frame.firstDotRise),
+                        26,
+                        border: dotRingColor,
+                      ),
+                      _dot(
+                        secondDot - Offset(0, frame.secondDotRise),
+                        10,
+                        fill: dotFillColor,
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ),
         Positioned(

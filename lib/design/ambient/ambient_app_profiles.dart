@@ -1,5 +1,7 @@
 import 'package:critalarm/design/ambient/ambient_profile.dart';
 import 'package:critalarm/design/ambient/ambient_shape.dart';
+import 'package:critalarm/design/ambient/hero_disc.dart';
+import 'package:critalarm/design/ambient/hero_tone.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 
@@ -133,7 +135,9 @@ abstract final class AmbientAppProfiles {
     );
   }
 
-  /// Profile for the primary Topics dashboard tab.
+  /// The three blobs the Topics tab used before it had a hero. The Topic
+  /// screen is drawn from them, so a push from the list still moves the
+  /// canvas.
   static AmbientProfile topics(AppColors colors) {
     return _triShapeProfile(
       canvas: colors.canvas,
@@ -149,6 +153,71 @@ abstract final class AmbientAppProfiles {
         Alignment(0.8, -0.1),
         Alignment(-0.2, 0.9),
       ],
+    );
+  }
+
+  /// Profile for the Topics tab, where the hero's face and card sit on a big
+  /// pale disc with a faint ring around it.
+  ///
+  /// The shapes keep the three slots every profile has: the disc in the first
+  /// (a circle), a pill nobody sees in the second (so the tab profiles can
+  /// grow one when the canvas morphs), and the ring in the third. Handing a
+  /// different profile to the canvas retints, moves and resizes them with the
+  /// same lerp the tab changes use.
+  ///
+  /// - [severity]: the canvas the card state asks for. [SeverityMode.none] is
+  ///   the yellow ground; high, crit and ack are the warning, ringing and
+  ///   acknowledged canvases. Under one of those the disc is the canvas's
+  ///   lighter step already, so pass [AppHeroTone.calm] with it.
+  /// - [tone]: how the disc is tinted on the yellow ground.
+  /// - [spot]: where the disc sits, from `heroDiscSpot`. The default is a
+  ///   390 by 844 phone.
+  static AmbientProfile topicsHero(
+    AppColors colors, {
+    SeverityMode severity = SeverityMode.none,
+    AppHeroTone tone = AppHeroTone.calm,
+    HeroDiscSpot spot = HeroDiscSpot.phone,
+  }) {
+    final ground = colors.withSeverity(severity);
+    final (discColor, discOpacity) = tone.discTint(ground);
+    return AmbientProfile(
+      canvas: ground.canvas,
+      surfaceOpacity: 0.74,
+      shapes: List<AmbientShape>.unmodifiable([
+        AmbientShape(
+          color: discColor,
+          opacity: discOpacity,
+          anchor: spot.anchor,
+          scale: spot.discScale,
+          turns: 0,
+          depth: 0.25,
+        ),
+        // Not drawn. It sits where the tab profiles' second shape does, so
+        // that shape fades in from nothing in place.
+        const AmbientShape(
+          color: _calmPale,
+          opacity: 0,
+          anchor: Alignment(0.8, -0.1),
+          scale: 0.35,
+          turns: -0.1,
+          depth: 0.55,
+        ),
+        AmbientShape(
+          // Orange on the yellow ground, like the blob it turns into when
+          // the canvas moves to another tab, so the shape never passes
+          // through a muddy mid tone. Ink under a severity canvas, which has
+          // no orange of its own.
+          color: severity == SeverityMode.none ? _calmOrange : ground.onCanvas,
+          opacity: severity == SeverityMode.none
+              ? _calmOpacity(colors, 0.22)
+              : 0.06,
+          anchor: spot.anchor,
+          scale: spot.ringScale,
+          turns: 0,
+          depth: 0.85,
+          ring: 1,
+        ),
+      ]),
     );
   }
 
@@ -218,7 +287,7 @@ abstract final class AmbientAppProfiles {
   }
 
   /// Returns the canonical profile for a given root tab index (0: Topics,
-  /// 1: History, 2: Settings).
+  /// 1: History, 2: Settings). Topics gets its calm hero profile.
   static AmbientProfile forTabIndex(int index, AppColors colors) {
     switch (index) {
       case 1:
@@ -227,7 +296,7 @@ abstract final class AmbientAppProfiles {
         return settings(colors);
       case 0:
       default:
-        return topics(colors);
+        return topicsHero(colors);
     }
   }
 
