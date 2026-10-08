@@ -75,6 +75,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The step after a purchase: PaywallThanksId (none, confetti, unlock, stamp, limits, key, lights), paywallThanksBuilders, PaywallThanksHost, remote values paywall\_thanks and pro\_paywall\_thanks, prefs dev.paywall\_thanks and dev.pro\_paywall\_thanks, events paywall\_thanks\_shown and paywall\_thanks\_left. It starts only on a confirmed purchase. With a version set, a Hosted purchase on a layout paywall no longer opens the welcome page. The developer picker has a third row.
 - A motion skill and rule for custom animation: one living hero per screen.
 - Two more versions of the step after a purchase, Key and Lights on, and five interface cues for it: settle, lock, key, cord and bulb. Confetti plays the settle as its last piece lands.
+- Arriving at a paywall, buying and leaving without buying each have their own sound. The arrival is one tine strike left open, the purchase is the only celebration, and leaving plays a soft falling slide with HapticPattern.fallingPair. The frame plays the leaving cue as the route starts to go (PopScope), by the rule paywallSaysClose.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
