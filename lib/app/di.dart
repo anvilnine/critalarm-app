@@ -2193,8 +2193,9 @@ Future<void> configureDependencies({
             getIt<AlarmFocus>().stream.where((isOn) => isOn),
           ],
           haptic: getIt<PlatformCapabilities>().hasHaptics
-              ? AppHaptics.selection
+              ? AppHaptics.play
               : null,
+          cancelHaptic: AppHaptics.cancelPattern,
         ),
       ),
     )

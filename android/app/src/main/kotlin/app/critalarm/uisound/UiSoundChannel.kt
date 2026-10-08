@@ -11,8 +11,9 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Plays one short interface sound at a time, such as the cues of the plans
- * screen.
+ * Plays short interface sounds, such as the cues of the plans screen. One
+ * at a time, except that a sound asked for with more than one voice may
+ * overlap itself (a run of quick ticks).
  *
  * This is not the alarm and not the sound picker's preview, and it shares
  * nothing with either. A sound goes out as media (`USAGE_MEDIA`), so it
@@ -29,11 +30,14 @@ class UiSoundChannel(private val context: Context) {
     }
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private var player: MediaPlayer? = null
+    /** What is playing or getting ready, oldest first. */
+    private val playing = ArrayList<Pair<String, MediaPlayer>>()
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "play" -> result.success(play(call.argument<String>("asset")))
+            "play" -> result.success(
+                play(call.argument<String>("asset"), call.argument<Int>("voices")),
+            )
             "stop" -> {
                 stop()
                 result.success(true)
@@ -42,14 +46,23 @@ class UiSoundChannel(private val context: Context) {
         }
     }
 
-    /** Plays [asset] once, in place of whatever was playing. Never queues. */
-    private fun play(asset: String?): Boolean {
-        stop()
-        if (asset == null || !UiSoundRules.isInterfaceSound(asset)) return false
+    /**
+     * Plays [asset] once, in place of whatever was playing. Never queues.
+     * With [voices] above one, copies of the same sound are left to finish.
+     */
+    private fun play(asset: String?, voices: Int?): Boolean {
         val ringerMode = audioManager?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
-        if (!UiSoundRules.ringerAllows(ringerMode, AudioManager.RINGER_MODE_NORMAL)) return false
+        if (asset == null || !UiSoundRules.isInterfaceSound(asset) ||
+            !UiSoundRules.ringerAllows(ringerMode, AudioManager.RINGER_MODE_NORMAL)
+        ) {
+            stop()
+            return false
+        }
+        UiSoundRules.toStop(playing.map { it.first }, asset, UiSoundRules.voices(voices))
+            .map { playing[it].second }
+            .forEach { release(it) }
         val next = MediaPlayer()
-        player = next
+        playing.add(asset to next)
         return runCatching {
             next.setAudioAttributes(
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
@@ -61,7 +74,7 @@ class UiSoundChannel(private val context: Context) {
             next.isLooping = false
             next.setOnPreparedListener { ready ->
                 // Dropped when a newer sound or a stop came first.
-                if (player === ready) ready.start()
+                if (playing.any { it.second === ready }) ready.start()
             }
             next.setOnCompletionListener { release(it) }
             next.setOnErrorListener { failed, _, _ ->
@@ -80,11 +93,11 @@ class UiSoundChannel(private val context: Context) {
 
     /** Stops whatever is playing. Safe to call when nothing is. */
     fun stop() {
-        player?.let { release(it) }
+        playing.map { it.second }.forEach { release(it) }
     }
 
     private fun release(target: MediaPlayer) {
-        if (player === target) player = null
+        playing.removeAll { it.second === target }
         // A player still preparing, or in its error state, throws from stop().
         runCatching { target.stop() }
         runCatching { target.release() }
