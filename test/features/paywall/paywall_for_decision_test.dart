@@ -103,16 +103,53 @@ void main() {
       expect(LockSource.reliability.pro, ProPackSheetSource.reliability);
     });
 
+    // `PaywallSource` has no value of its own for these yet: the paywall
+    // layouts switch over every value, so a new one is added there first.
+    const personalize = {
+      LockSource.personalizeSound,
+      LockSource.personalizeWidgets,
+      LockSource.personalizeAppIcon,
+    };
+
     test('a place has the same wire name on both paywalls', () {
       for (final source in LockSource.values) {
         if (source == LockSource.reliability) continue;
+        if (personalize.contains(source)) continue;
         expect(source.pro.wire, source.hosted.wire, reason: source.name);
+      }
+    });
+
+    test('the Personalize places have a Pro source of their own, and on '
+        'the Hosted side read as the older place that sells the same', () {
+      expect(
+        LockSource.personalizeSound.pro,
+        ProPackSheetSource.personalizeSound,
+      );
+      expect(LockSource.personalizeSound.hosted, PaywallSource.direct);
+      expect(
+        LockSource.personalizeWidgets.pro,
+        ProPackSheetSource.personalizeWidgets,
+      );
+      expect(LockSource.personalizeWidgets.hosted, PaywallSource.homeWidgets);
+      expect(
+        LockSource.personalizeAppIcon.pro,
+        ProPackSheetSource.personalizeAppIcon,
+      );
+      expect(LockSource.personalizeAppIcon.hosted, PaywallSource.appIcon);
+      for (final source in personalize) {
+        expect(
+          paywallEntryOfProSheet(source.pro),
+          PaywallEntry.lockedRow,
+          reason: source.name,
+        );
       }
     });
 
     test('a place opens the same kind of layout on both paywalls', () {
       for (final source in LockSource.values) {
         if (source == LockSource.reliability) continue;
+        // Nothing sells own sounds on Hosted, so it has no Hosted place.
+        if (source == LockSource.personalizeSound) continue;
         expect(
           paywallEntryOfProSheet(source.pro),
           paywallEntryOf(source.hosted),
