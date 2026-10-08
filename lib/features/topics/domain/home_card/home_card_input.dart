@@ -1,6 +1,5 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
-import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
@@ -201,22 +200,17 @@ class ReadinessInput {
   int get hashCode => Object.hash(loaded, incomplete, Object.hashAll(checks));
 }
 
-/// The newest start among the incidents that count as real use, or null when
-/// none does. A test that setup sent never counts.
-DateTime? lastRealAlarmAt(
-  Iterable<Incident> incidents, {
-  required Set<String> setupIncidentIds,
-}) {
+/// The newest start among the incidents, or null when none has one.
+///
+/// Every alarm the phone holds counts, a test that setup sent included: it
+/// rang the phone, History lists it and the Topic screen names it, so the
+/// Topics card must not say "no alarm yet" over it. The rules that wait for
+/// real use (`countsAsRealUse`) are a different question and do not read this.
+DateTime? newestAlarmAt(Iterable<Incident> incidents) {
   DateTime? newest;
   for (final incident in incidents) {
     final openedAt = incident.openedAt;
     if (openedAt == null) continue;
-    if (!countsAsRealUse(
-      incidentId: incident.id,
-      setupIncidentIds: setupIncidentIds,
-    )) {
-      continue;
-    }
     if (newest == null || openedAt.isAfter(newest)) newest = openedAt;
   }
   return newest;
@@ -300,8 +294,7 @@ class HomeCardInput {
   /// When the newest message on any topic came in.
   final DateTime? newestMessageAt;
 
-  /// The start of the newest alarm that counts as real use
-  /// ([lastRealAlarmAt]).
+  /// The start of the newest alarm the phone holds ([newestAlarmAt]).
   final DateTime? lastAlarmAt;
 
   /// Some topic has Critical delivery on.

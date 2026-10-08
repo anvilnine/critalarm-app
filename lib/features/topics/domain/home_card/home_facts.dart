@@ -36,8 +36,8 @@ class HomeFacts {
   /// When the newest message on any topic came in. Null with no message.
   final DateTime? newestMessageAt;
 
-  /// The start of the newest alarm that counts as real use. Null when none
-  /// does.
+  /// The start of the newest alarm the phone holds, a setup test included.
+  /// Null when it holds none.
   final DateTime? lastAlarmAt;
 
   /// How many topics have a live warning.
@@ -87,8 +87,6 @@ class HomeFacts {
 /// - [incidents]: every incident the app holds.
 /// - [warningTopics]: the topics with a live warning.
 /// - [messageTimes]: the epoch seconds of every message held, per topic.
-/// - [setupIncidentIds]: the alarms setup rang on purpose. They never count
-///   as the last alarm.
 ///
 /// Ringing is an open incident with a priority 5 message. When several
 /// qualify the one that opened last wins, and an incident with no opening
@@ -99,7 +97,6 @@ HomeFacts homeFactsFrom({
   required Set<String> warningTopics,
   required Map<String, List<int>> messageTimes,
   required DateTime now,
-  Set<String> setupIncidentIds = const {},
 }) {
   final deskTimerOf = {for (final t in topics) t.name: t.deskTimerS};
 
@@ -150,7 +147,7 @@ HomeFacts homeFactsFrom({
     newestMessageAt: hasMessage
         ? DateTime.fromMillisecondsSinceEpoch(newestSeconds * 1000)
         : null,
-    lastAlarmAt: lastRealAlarmAt(incidents, setupIncidentIds: setupIncidentIds),
+    lastAlarmAt: newestAlarmAt(incidents),
     warningCount: warningTopics.length,
   );
 }

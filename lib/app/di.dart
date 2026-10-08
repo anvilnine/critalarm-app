@@ -2053,7 +2053,6 @@ Future<void> configureDependencies({
         null,
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
-        () => getIt<SetupTestRing>().setupIncidentIds,
       ),
     )
     // The dark card on Home. It follows the screen's own HomeCubit and
