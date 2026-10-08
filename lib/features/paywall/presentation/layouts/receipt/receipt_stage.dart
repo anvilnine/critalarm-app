@@ -42,9 +42,9 @@ String receiptLineFor(PaywallBenefit benefit) {
 }
 
 /// The receipt: a slot with the printed slip hanging from it, the mascot
-/// beside it, and the preview of the line being played peeking out from
-/// behind the paper. Under the stage, the pips, a headline, and one quiet
-/// sentence about that line.
+/// large beside it, and under the mascot the preview of the line being
+/// played, whole and clear of the paper. Under the stage, the pips, a
+/// headline, and one quiet sentence about that line.
 ///
 /// The slip is the benefit list, so there are no check lines. A tap on a
 /// line of the slip puts that benefit on, a swipe across the stage goes to
@@ -302,8 +302,8 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
   }
 }
 
-/// One frame of the stage: the air, the card behind the paper, the paper
-/// hanging from the slot, and the mascot.
+/// One frame of the stage: the air, the card beside the paper, the paper
+/// hanging from the slot, and the mascot in front.
 class _ReceiptStage extends StatelessWidget {
   const _ReceiptStage({
     required this.plan,
@@ -327,7 +327,7 @@ class _ReceiptStage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
+    final inks = ReceiptInks.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final air = HeroAtmosphereColors.of(context, PaywallTone.canvas);
     final frame = player.frameAt(t);
@@ -339,7 +339,7 @@ class _ReceiptStage extends StatelessWidget {
 
     final Widget mascot;
     if (isPrinting) {
-      final actor = ReceiptTimeline.actor(t);
+      final actor = ReceiptTimeline.actor(t, count: plan.count);
       mascot = HeroMascot(
         size: plan.mascot.width,
         face: actor.face,
@@ -353,8 +353,9 @@ class _ReceiptStage extends StatelessWidget {
     }
 
     // The card: out from behind the paper at the end of the print, and
-    // tucked behind it for a moment as one preview gives way to the next.
-    final visible = plan.card.width - ReceiptPlan.cardTucked;
+    // back behind it for a moment as one preview gives way to the next.
+    // Between the two it stands clear of the paper.
+    final visible = plan.cardTravel;
     final hasPrevious = frame.previous != null;
     final tuck = isPrinting
         ? 1 - ReceiptTimeline.peek(t)
@@ -479,7 +480,7 @@ class _ReceiptStage extends StatelessWidget {
             child: ExcludeSemantics(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colors.onCanvas,
+                  color: inks.slot,
                   borderRadius: BorderRadius.circular(Radii.sm),
                   boxShadow: AppShadows.shadowSm(isDark: isDark),
                 ),
@@ -489,7 +490,7 @@ class _ReceiptStage extends StatelessWidget {
                     child: Container(
                       height: 3,
                       decoration: BoxDecoration(
-                        color: colors.canvas.withValues(alpha: 0.36),
+                        color: inks.slit,
                         borderRadius: BorderRadius.circular(Radii.xs),
                       ),
                     ),
