@@ -15,10 +15,16 @@ class TopicDetailMessageItem {
     required this.body,
     required this.source,
     this.isHigh = false,
+    this.sentAt,
   });
 
   final String title;
+
+  /// When it arrived, short enough for a row ("02:41", "Yesterday", "8 Oct").
   final String timestamp;
+
+  /// When it arrived, for text that leaves the screen and is read later.
+  final DateTime? sentAt;
   final String body;
   final String source;
   final bool isHigh;
@@ -29,6 +35,7 @@ class TopicDetailMessageItem {
     String? body,
     String? source,
     bool? isHigh,
+    DateTime? sentAt,
   }) {
     return TopicDetailMessageItem(
       title: title ?? this.title,
@@ -36,6 +43,7 @@ class TopicDetailMessageItem {
       body: body ?? this.body,
       source: source ?? this.source,
       isHigh: isHigh ?? this.isHigh,
+      sentAt: sentAt ?? this.sentAt,
     );
   }
 
@@ -48,7 +56,8 @@ class TopicDetailMessageItem {
           timestamp == other.timestamp &&
           body == other.body &&
           source == other.source &&
-          isHigh == other.isHigh;
+          isHigh == other.isHigh &&
+          sentAt == other.sentAt;
 
   @override
   int get hashCode => Object.hash(
@@ -57,6 +66,7 @@ class TopicDetailMessageItem {
     body,
     source,
     isHigh,
+    sentAt,
   );
 }
 
