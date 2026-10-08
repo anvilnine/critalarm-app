@@ -57,9 +57,17 @@ final class HostedHoldingSource implements HoldingSource {
   late Future<void> _latestRead;
 
   /// Done once the stored identity has been read, and read again after the
-  /// last thing that may have moved it.
+  /// last thing that may have moved it. A read that starts while this
+  /// waits is waited for too, so [state] is never older than the last
+  /// change when this completes.
   @override
-  Future<void> get ready => _latestRead;
+  Future<void> get ready async {
+    Future<void> waitedFor;
+    do {
+      waitedFor = _latestRead;
+      await waitedFor;
+    } while (!identical(waitedFor, _latestRead));
+  }
 
   /// Whether the server's own tier says Hosted, read from the stored
   /// identity at this moment.

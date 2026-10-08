@@ -43,6 +43,10 @@ final class Holdings {
     }
   }
 
+  /// Whether [holding] is held and confirmed: never true for a purchase
+  /// that is still pending.
+  bool holdsConfirmed(Holding holding) => stateOf(holding) == HoldingState.held;
+
   /// [holds], asked once every source is current. For a caller that asks
   /// once and does not listen for changes.
   Future<bool> holdsOnceReady(Holding holding) async {
