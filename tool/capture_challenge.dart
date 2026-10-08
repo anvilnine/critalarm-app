@@ -21,6 +21,13 @@
 //   strip_open           Personalize, Pro held, the challenge picked
 //   try_page             the try on the whole screen
 //
+// For KIND=scratch_card, `challenge_keyboard` is the card rubbed until it
+// is revealed, with the number pad up, and there are three more:
+//   challenge_covered    the card as it opens, nothing rubbed, no keyboard
+//   challenge_half       one swipe across the card, the code still hidden
+//   challenge_button     five seconds of rubbing with nothing revealed: the
+//                        button that shows the code
+//
 // It also walks the step itself on the real alarm route, at 390 by 844, and
 // prints one line per walk (`FLOW ...`). These are not pictures:
 //   typing the topic name closes the incident
@@ -36,7 +43,7 @@
 //                                capture only the files whose name has one
 //                                of these parts
 //   --dart-define=KIND=<id>     the challenge: type_topic_name (default),
-//                                type_alert_title or ops_math
+//                                type_alert_title, ops_math or scratch_card
 //   --dart-define=STYLE=<id>     the look of the alarm screen the
 //                                challenge step is captured in, for
 //                                example `minimal`
@@ -106,7 +113,7 @@ const _phones = <(String, Size, double, double, double)>[
 const _topic = 'prod-db';
 
 /// The challenge to capture, by id: `type_topic_name` (default),
-/// `type_alert_title` or `ops_math`.
+/// `type_alert_title`, `ops_math` or `scratch_card`.
 const _kindId = String.fromEnvironment(
   'KIND',
   defaultValue: 'type_topic_name',
@@ -118,7 +125,57 @@ String get _partial => switch (_kind) {
   ChallengeKind.typeTopicName => 'prod',
   ChallengeKind.typeAlertTitle => 'primary da',
   ChallengeKind.opsMath => '3',
+  // Typed from the card itself: see [_shownCode].
+  ChallengeKind.scratchCard => '',
 };
+
+bool get _isScratch => _kind == ChallengeKind.scratchCard;
+
+/// The keyboard as a challenge opens. A scratch card opens with none: its
+/// number pad comes up once the card is revealed, which a screen reader
+/// gets from the start.
+double _keyboardAtOpen(double keyboard, {bool hasReader = false}) =>
+    _isScratch && !hasReader ? 0 : keyboard;
+
+/// The four digits printed on the scratch card.
+final Finder _cardCode = find.byWidgetPredicate(
+  (widget) =>
+      widget is Text && RegExp(r'^[0-9]{4}$').hasMatch(widget.data ?? ''),
+);
+
+String _shownCode(WidgetTester tester) => tester.widget<Text>(_cardCode).data!;
+
+/// One swipe across the scratch card, [dy] points under its middle.
+Future<void> _swipeCard(WidgetTester tester, double dy) async {
+  final middle = tester.getCenter(_cardCode);
+  final gesture = await tester.startGesture(middle + Offset(-130, dy));
+  for (var i = 0; i < 13; i++) {
+    await gesture.moveBy(const Offset(20, 0));
+  }
+  await gesture.up();
+  await tester.pump();
+}
+
+/// Rubs the scratch card until it is revealed, then brings the number pad
+/// up.
+Future<void> _revealCard(WidgetTester tester, double keyboard) async {
+  await _swipeCard(tester, -16);
+  expect(find.byType(TextField), findsNothing);
+  await _swipeCard(tester, 16);
+  await tester.pump(const Duration(milliseconds: 400));
+  expect(find.byType(TextField), findsOneWidget);
+  _raiseKeyboard(tester, keyboard);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+/// The keyboard stand-in of the challenge that is open.
+ValueNotifier<double>? _keyboardShown;
+
+void _raiseKeyboard(WidgetTester tester, double keyboard) {
+  tester.view.viewInsets = FakeViewPadding(bottom: keyboard * 2);
+  _keyboardShown?.value = keyboard;
+}
 
 Future<void> _loadFonts() async {
   Future<void> family(String name, List<String> files) async {
@@ -288,7 +345,11 @@ Future<GlobalKey> _openChallenge(
     hasChoice ? _kind : null,
   );
   final shown = ValueNotifier<double>(0);
-  addTearDown(shown.dispose);
+  _keyboardShown = shown;
+  addTearDown(() {
+    _keyboardShown = null;
+    shown.dispose();
+  });
   final key = await _open(
     tester,
     location: '/alarm',
@@ -386,11 +447,15 @@ void main() {
             size: size,
             topInset: top,
             bottomInset: bottom,
-            keyboard: keyboard,
+            keyboard: _keyboardAtOpen(keyboard),
             mode: mode,
             scale: scale,
           );
-          await tester.enterText(find.byType(TextField), _partial);
+          if (_isScratch) await _revealCard(tester, keyboard);
+          await tester.enterText(
+            find.byType(TextField),
+            _isScratch ? _shownCode(tester).substring(0, 2) : _partial,
+          );
           await tester.pump();
           await _save(
             tester,
@@ -400,13 +465,55 @@ void main() {
           );
         });
 
+        if (_isScratch) {
+          for (final state in ['covered', 'half', 'button']) {
+            capture('challenge_${state}_$tail', (tester, errors) async {
+              final key = await _openChallenge(
+                tester,
+                size: size,
+                topInset: top,
+                bottomInset: bottom,
+                keyboard: 0,
+                mode: mode,
+                scale: scale,
+              );
+              expect(find.byType(TextField), findsNothing);
+              final reveal = find.text(
+                LocaleKeys.challenges_scratch_card_reveal.tr(),
+              );
+              if (state == 'half') {
+                await _swipeCard(tester, -16);
+              } else if (state == 'button') {
+                // A finger on one spot, which clears next to nothing.
+                final gesture = await tester.startGesture(
+                  tester.getCenter(_cardCode) + const Offset(-140, -40),
+                );
+                await tester.pump(const Duration(milliseconds: 4900));
+                expect(reveal, findsNothing);
+                await tester.pump(const Duration(milliseconds: 200));
+                await gesture.up();
+                await tester.pump();
+                expect(reveal, findsOneWidget);
+              }
+              // Still covered: nothing to type into yet.
+              expect(find.byType(TextField), findsNothing);
+              await _save(
+                tester,
+                key,
+                'challenge_${state}_$tail',
+                isGood: errors.isEmpty,
+              );
+            });
+          }
+        }
+
         capture('challenge_midhold_$tail', (tester, errors) async {
           final key = await _openChallenge(
             tester,
             size: size,
             topInset: top,
             bottomInset: bottom,
-            keyboard: keyboard,
+            keyboard: _keyboardAtOpen(keyboard),
             mode: mode,
             scale: scale,
           );
@@ -440,7 +547,7 @@ void main() {
               size: size,
               topInset: top,
               bottomInset: bottom,
-              keyboard: keyboard,
+              keyboard: _keyboardAtOpen(keyboard, hasReader: true),
               mode: mode,
               scale: scale,
             );
@@ -559,7 +666,7 @@ void main() {
     size: flowSize,
     topInset: flowTop,
     bottomInset: flowBottom,
-    keyboard: flowKeyboard,
+    keyboard: _keyboardAtOpen(flowKeyboard),
     mode: ThemeMode.light,
     scale: 1,
     isPro: isPro,
@@ -599,6 +706,46 @@ void main() {
     expect(find.byType(ChallengeStep), findsNothing);
     expect(_status(), CriticalAlarmStatus.closed);
     print('FLOW typing the first words of the title closed the incident');
+  });
+
+  capture('flow_scratch_closes', (tester, errors) async {
+    if (!_isScratch) return;
+    await flow(tester);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    await _revealCard(tester, flowKeyboard);
+    final code = _shownCode(tester);
+    // A wrong code costs nothing and closes nothing.
+    final wrong = code == '1111' ? '2222' : '1111';
+    await tester.enterText(find.byType(TextField), wrong);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsOneWidget);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    expect(
+      find.text(LocaleKeys.challenges_scratch_card_wrong.tr()),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byType(TextField), code);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print('FLOW rubbing the card and typing its code closed the incident');
+  });
+
+  capture('flow_scratch_button', (tester, errors) async {
+    if (!_isScratch) return;
+    await flow(tester);
+    final gesture = await tester.startGesture(
+      tester.getCenter(_cardCode) + const Offset(-140, -40),
+    );
+    await tester.pump(const Duration(milliseconds: 5100));
+    await gesture.up();
+    await tester.pump();
+    await tester.tap(find.text(LocaleKeys.challenges_scratch_card_reveal.tr()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(TextField), findsOneWidget);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    print('FLOW after five seconds of rubbing, the button showed the code');
   });
 
   // A title of many words, to show the first three set apart from the rest.

@@ -14,7 +14,10 @@ enum ChallengeKind {
   typeAlertTitle('type_alert_title'),
 
   /// Answer one developer-flavoured sum.
-  opsMath('ops_math');
+  opsMath('ops_math'),
+
+  /// Rub the cover off a card and type the four digit code under it.
+  scratchCard('scratch_card');
 
   const ChallengeKind(this.id);
 
