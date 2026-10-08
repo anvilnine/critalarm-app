@@ -35,6 +35,21 @@ object AlarmSoundStore {
     private const val DEFAULT_KEY = "flutter.alarm_sound_default"
     private const val PER_TOPIC_KEY = "flutter.alarm_sound_per_topic"
     private const val USER_LIST_KEY = "flutter.alarm_sound_user_list"
+
+    /**
+     * The one thing native code knows about plans: Dart writes true here
+     * while own sounds are locked. This file never works a plan out.
+     * `ownSoundsLockedKey` in lib/core/sound/own_sound_rule.dart is the Dart
+     * name.
+     */
+    private const val OWN_LOCKED_KEY = "flutter.alarm_sound_own_locked"
+
+    /**
+     * Every sound the user brought in themselves has an id starting with
+     * this. `ownSoundIdPrefix` in lib/core/sound/own_sound_rule.dart is the
+     * Dart name. Keep the two in step.
+     */
+    const val OWN_PREFIX = "user_"
     private const val TAG = "CritAlarmSound"
 
     /**
@@ -50,19 +65,36 @@ object AlarmSoundStore {
      * when both are gone does the bundled classic siren ring. A file that is
      * there but will not decode falls back later, in AlarmPlayer, through
      * [app.critalarm.alarm.AlarmFallback].
+     *
+     * While own sounds are locked, a choice that is an own sound is skipped
+     * the same way, so the next one in the chain rings. The saved choices
+     * are not touched, and the chain still ends at the classic siren.
      */
     fun resolveForTopic(context: Context, topic: String?): Pair<String, AlarmSoundSource> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val defaultId = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID
         val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)
-        val picked = resolveChain(soundsDir(context), listOfNotNull(topicId, defaultId)) {
+        val ownLocked = readOwnLocked { prefs.getBoolean(OWN_LOCKED_KEY, false) }
+        val picked = resolveChain(soundsDir(context), listOfNotNull(topicId, defaultId), ownLocked) {
             importedPath(context, it)
         }
-        if (picked.first != (topicId ?: defaultId)) {
-            Log.w(TAG, "sound_missing sound_id=${topicId ?: defaultId} falling_back_to=${picked.first}")
+        val wanted = topicId ?: defaultId
+        if (picked.first != wanted) {
+            val reason = if (ownLocked && isOwnSound(wanted)) "sound_own_locked" else "sound_missing"
+            Log.w(TAG, "$reason sound_id=$wanted falling_back_to=${picked.first}")
         }
         return picked
     }
+
+    /** True for a sound the user brought in themselves. */
+    fun isOwnSound(soundId: String): Boolean = soundId.startsWith(OWN_PREFIX)
+
+    /**
+     * The lock flag, read so that nothing about it can stop an alarm: a
+     * flag that is missing, or that will not read as a boolean, is "not
+     * locked", and the saved choice rings. Pure, so the JVM tests can run it.
+     */
+    fun readOwnLocked(read: () -> Boolean): Boolean = runCatching(read).getOrDefault(false)
 
     /** The topic's own sound id from the per-topic JSON, or null. */
     private fun topicSoundId(raw: String?, topic: String?): String? {
@@ -73,14 +105,19 @@ object AlarmSoundStore {
 
     /**
      * The first of [soundIds] whose file is there, then the classic siren.
+     * With [ownLocked], an own sound is passed over even when its file is
+     * there. Whatever is passed in, the answer is a sound: the last step is
+     * the classic siren, which ships in the apk.
      * Pure, so the JVM tests can run it.
      */
     fun resolveChain(
         soundsDir: File,
         soundIds: List<String>,
+        ownLocked: Boolean = false,
         importedPath: (String) -> String?,
     ): Pair<String, AlarmSoundSource> {
         for (id in soundIds.distinct()) {
+            if (ownLocked && isOwnSound(id)) continue
             val resolved = resolveIn(soundsDir, id, importedPath)
             if (!resolved.fellBack) return id to resolved.source
         }
