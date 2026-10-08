@@ -336,6 +336,8 @@ void main() {
               // What the cubit shows from the tap on "I'm up" until the
               // server answers.
               final cubit = CriticalAlarmCubit.current!;
+              // The tool stands in for the cubit here.
+              // ignore: invalid_use_of_protected_member
               cubit.emit(cubit.state.copyWith(isAcknowledging: true));
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 200));
