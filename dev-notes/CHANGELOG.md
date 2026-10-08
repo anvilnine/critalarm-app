@@ -65,6 +65,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
 - Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
 - Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
+- Paywall intros are their own step: PaywallIntroId (none, false\_alarm, snooze, wake\_up, curtain, countdown), paywallIntroBuilders, remote values paywall\_intro and pro\_paywall\_intro, prefs dev.paywall\_intro and dev.pro\_paywall\_intro. The layout value false\_alarm reads as hero with that intro. paywallLayoutFor became paywallOpeningFor. Layout events carry intro.
+- Paywall layouts: plain is removed, bento is built, and each layout picks its own HeroMotion (atmosphere, entrance, idle, card arrival). Doors is redrawn on the canvas colour.
+- The developer page for paywall layouts is a two step picker, intro then paywall, with live tiles (PaywallLayoutTile, PaywallIntroTile).
+- Interface sounds: PaywallCues.play(PaywallCue) gives a sound and a haptic together from one table, 33 cues, HapticPattern and AppHaptics.play, a Settings switch. Silent while an alarm is up.
 - A motion skill and rule for custom animation: one living hero per screen.
 
 ### Changed
