@@ -4,13 +4,17 @@ import 'dart:convert';
 import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/observed_api_session_store.dart';
 import 'package:critalarm/app/access/pro_holding_source.dart';
+import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
@@ -606,7 +610,13 @@ Future<void> configureDependencies({
     ..registerLazySingleton<HostedHoldingSource>(
       () => HostedHoldingSource(
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
-        identityChanges: [appAccountIdentityChanges],
+        // The source keeps the last tier it read. Every write to the store
+        // makes it read again, so a sign-out or a deleted account never
+        // leaves the old tier standing.
+        identityChanges: [
+          appAccountIdentityChanges,
+          getIt<DeviceIdentityStore>().changes,
+        ],
         readStore: buildSkipsPaywall ? null : getIt.get<SubscriptionRepository>,
       ),
     )
@@ -818,6 +828,7 @@ Future<void> configureDependencies({
             ? null
             : () => getIt<RevenueCatService>().logOut(),
         stopAlarm: getIt<AlarmHost>().stopRinging,
+        holdings: getIt<Holdings>(),
       ),
     )
     ..registerLazySingleton<InAppNoticeRepository>(
@@ -863,9 +874,7 @@ Future<void> configureDependencies({
               since: 'all',
             )).fold((messages) => messages.isNotEmpty, (_) => true),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
-        readIsPaid: () async =>
-            (await getIt<AccountRepository>().readIsPaid()) ||
-            appProOverride.isForcingPro,
+        readHoldsHosted: _holdsHosted,
         readIsSignedIn: () async =>
             (await getIt<IdentityRepository>().readIdentity()) != null,
         proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
@@ -1213,10 +1222,8 @@ Future<void> configureDependencies({
         },
         readAccountId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
-        holdsPro: () => getIt<ProPackAccess>().isHeld,
-        readHoldsHosted: () async =>
-            (await getIt<AccountRepository>().readIsPaid()) ||
-            appProOverride.isForcingPro,
+        holdsPro: () => getIt<Holdings>().holdsConfirmed(Holding.pro),
+        readHoldsHosted: _holdsHosted,
         isSetupComplete: () async =>
             (await getIt<GetOnboardingCompletedUsecase>()(
               const NoParams(),
@@ -1478,13 +1485,11 @@ Future<void> configureDependencies({
         host: getIt<WidgetHost>(),
         isConnected: () async =>
             (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
-        // Widgets are part of Pro on the hosted plan. A self-hosted server
-        // has no plans, so it never locks.
-        isLocked: () async {
-          final account = getIt<AccountRepository>();
-          return await account.readServerMode() == ServerMode.hosted &&
-              !await account.readIsPaid();
-        },
+        // The lock is drawn by the widget itself, outside the app, and a
+        // wrong one takes the widgets away. So this waits until the plan
+        // and the saved server have been read before it answers.
+        isLocked: () async =>
+            !await getIt<FeatureAccess>().canOnceReady(AppFeature.widgets),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
@@ -1657,7 +1662,11 @@ Future<void> configureDependencies({
       () => AppIconCubit(
         readCurrent: () => getIt<AppIconHost>().current(),
         apply: (icon) => getIt<AppIconHost>().set(icon),
-        readUnlocked: _proIconsUnlocked,
+        readUnlocked: () =>
+            getIt<FeatureAccess>().canOnceReady(AppFeature.appIcons),
+        unlockChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.appIcons,
+        ),
         readWelcomed: () async =>
             getIt<SharedPreferences>().getBool(_appIconWelcomedKey) ?? false,
         markWelcomed: () async {
@@ -1665,22 +1674,22 @@ Future<void> configureDependencies({
         },
       ),
     )
-    // Puts the default icon back once Pro has ended. Asks the store as well
-    // as the server's tier before it does, because the tier can trail a
-    // purchase by a few seconds and a wrong switch costs the user their icon.
+    ..registerLazySingleton(
+      () => SureLock(
+        access: getIt<FeatureAccess>(),
+        hosted: getIt<HostedHoldingSource>(),
+      ),
+    )
+    // Puts the default icon back once the icons are locked again. The same
+    // rule the picker draws its locks from, asked through SureLock: it
+    // waits for the plan to be read and asks the store as well, because a
+    // wrong switch costs the user their icon.
     ..registerLazySingleton(
       () => AppIconGuard(
         readCurrent: () => getIt<AppIconHost>().current(),
         apply: (icon) => getIt<AppIconHost>().set(icon),
-        readUnlocked: () async {
-          final account = getIt<AccountRepository>();
-          if (await account.readServerMode() != ServerMode.hosted) return true;
-          if (await account.readIsPaid()) return true;
-          if (buildSkipsPaywall) return false;
-          return (await getIt<SubscriptionRepository>().isProActive())
-                  .getOrNull() ??
-              true;
-        },
+        readUnlocked: () async =>
+            !await getIt<SureLock>().isLocked(AppFeature.appIcons),
       ),
     )
     ..registerFactory(
@@ -1722,11 +1731,12 @@ Future<void> configureDependencies({
         // The same reads the create-topic screen makes for its plan line: a
         // paid plan and a server of the user's own have no cap to state.
         readCriticalLimit: () async {
-          final session = await getIt<ApiSessionStore>().read();
           return AccountAccess(
             await getIt<DeviceIdentityStore>().readOrCreate(),
           ).freeCriticalCap(
-            isSelfHosted: session?.mode == ServerMode.selfhosted,
+            isUnlimited: await getIt<FeatureAccess>().canOnceReady(
+              AppFeature.unlimitedCriticalTopics,
+            ),
           );
         },
         isReplay: isReplay ?? false,
@@ -1804,16 +1814,13 @@ Future<void> configureDependencies({
         readSetupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
         isGuideOfferAnswered: () =>
             getIt<FeatureGuideCubit>().hasSeenFirstGuide,
-        // The same line the widgets themselves draw: locked on the hosted
-        // plan without Hosted, open on a server that has no plans.
+        // The same answer the widgets themselves draw their lock from.
         readWidgetsPlan: () async {
-          final account = getIt<AccountRepository>();
-          if (await account.readServerMode() != ServerMode.hosted) {
-            return HomeWidgetsPlan.selfHosted;
-          }
-          return await account.readIsPaid()
-              ? HomeWidgetsPlan.hosted
-              : HomeWidgetsPlan.needsHosted;
+          final access = getIt<FeatureAccess>();
+          return homeWidgetsPlanFor(
+            await access.decideOnceReady(AppFeature.widgets),
+            isOwnServer: access.isOwnServer,
+          );
         },
         platform: defaultTargetPlatform,
         isWeb: kIsWeb,
@@ -1821,7 +1828,7 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SearchCubit(
-        identityStore: getIt<DeviceIdentityStore>(),
+        featureAccess: getIt<FeatureAccess>(),
         sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
@@ -2025,7 +2032,9 @@ Future<void> configureDependencies({
         // calls the relay: the row's own cubit does that.
         WeeklyCheckSource(
           readCheck: () => getIt<WeeklyCheckMonitor>().check,
-          isPackHeld: () => getIt<ProPackAccess>().isHeld,
+          isPackHeld: () =>
+              getIt<FeatureAccess>().decide(AppFeature.weeklyCheck)
+                  is FeatureOpen,
           readMissedByClock: () =>
               getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
           testRouteName: AppRoute.testRing,
@@ -2036,7 +2045,7 @@ Future<void> configureDependencies({
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
-        sessionStore: getIt<ApiSessionStore>(),
+        featureAccess: getIt<FeatureAccess>(),
         store: localStore,
       ),
     )
@@ -2048,7 +2057,7 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
         identityStore: getIt<DeviceIdentityStore>(),
-        sessionStore: getIt<ApiSessionStore>(),
+        featureAccess: getIt<FeatureAccess>(),
       ),
     )
     ..registerFactory(
@@ -2058,9 +2067,10 @@ Future<void> configureDependencies({
               getIt<GetConnectionUsecase>(),
               getIt<DeviceIdentityStore>(),
               getIt<GetTopicsUsecase>(),
+              null,
+              getIt<FeatureAccess>(),
             )
             ..alarm = getIt<AlarmHost>()
-            ..sessionStore = getIt<ApiSessionStore>()
             ..toolTemplates = getIt<ToolTemplateStore>()
             ..handoff = getIt<FirstTopicHandoff>(),
     )
@@ -2102,6 +2112,8 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SettingsCubit(
+        holdings: getIt<Holdings>(),
+        featureAccess: getIt<FeatureAccess>(),
         identityStore: getIt<DeviceIdentityStore>(),
         apiSessions: getIt<ApiSessionStore>(),
         getServerInfo: getIt<GetServerInfoUsecase>(),
@@ -2133,7 +2145,7 @@ Future<void> configureDependencies({
         store: getIt<LocalReminderStore>(),
         scheduler: getIt<LocalReminderScheduler>(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
-        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+        readHoldsHosted: () => getIt<AccountRepository>().readHoldsHosted(),
         trigger: getIt<LocalReminderPlanTrigger>(),
         analytics: getIt<LocalReminderAnalytics>(),
       ),
@@ -2279,12 +2291,8 @@ Future<void> configureDependencies({
             getOfferings: getIt<GetOfferingsUsecase>(),
             purchasePackage: getIt<PurchasePackageUsecase>(),
             restorePurchases: getIt<RestorePurchasesUsecase>(),
-            readIsPaid: () async => AccountAccess(
-              await getIt<DeviceIdentityStore>().readOrCreate(),
-            ).isPaid,
-            readIsRegisteredPaid: () async => AccountAccess(
-              await getIt<DeviceIdentityStore>().readOrCreate(),
-            ).isRegisteredPaid,
+            readIsPaid: _holdsHosted, // access-ok: the buy cubit's name
+            readIsRegisteredPaid: _hostedByServer, // access-ok: same
             refreshRegistration: () async {
               await getIt<RevenueCatService>().invalidateCustomerInfoCache();
               await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
@@ -2296,7 +2304,8 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => ProStatusCubit(
-        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+        readHoldsHosted: _holdsHosted,
+        holdingChanges: getIt<Holdings>().stream,
       ),
     )
     ..registerLazySingleton(
@@ -2304,6 +2313,7 @@ Future<void> configureDependencies({
         notices: getIt<InAppNoticeRepository>(),
         plan: getIt<PlanStatusSource>(),
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        readHeldByServer: _hostedByServer,
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
@@ -2458,13 +2468,12 @@ Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
   );
 }
 
-/// True when the Pro app icons are open to this device: it is on Pro, or it
-/// talks to a server with no plans. The same line widgets draw, except that a
-/// device not connected anywhere yet also sees them locked.
-Future<bool> _proIconsUnlocked() async {
-  final account = getIt<AccountRepository>();
-  final mode = await account.readServerMode();
-  if (mode == null) return false;
-  if (mode != ServerMode.hosted) return true;
-  return account.readIsPaid();
-}
+/// Whether this install holds Hosted, asked once the sources are current.
+/// For the readers that ask once and do not listen: the reminder inputs,
+/// the onboarding offer, the Pro badge and the buy flow.
+Future<bool> _holdsHosted() => getIt<Holdings>().holdsOnceReady(Holding.hosted);
+
+/// Whether the server's own tier says Hosted, leaving out the store and the
+/// developer switch. See [HostedHoldingSource.readHeldByServer].
+Future<bool> _hostedByServer() =>
+    getIt<HostedHoldingSource>().readHeldByServer();

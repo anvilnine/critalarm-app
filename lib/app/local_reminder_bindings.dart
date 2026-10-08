@@ -23,7 +23,7 @@ class LocalReminderBindings {
     required Future<void> Function() openStoreReview,
     required Future<void> Function(String source) openFeedbackForm,
     LocalReminderAnalytics? analytics,
-    this.readIsPaid,
+    this.readHoldsHosted,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -63,7 +63,7 @@ class LocalReminderBindings {
   /// Whether this account is on Pro. A Pro reminder tapped after buying goes
   /// home instead of to the paywall. Null counts as free; a failed read
   /// counts as paid.
-  final Future<bool> Function()? readIsPaid;
+  final Future<bool> Function()? readHoldsHosted;
   final AlarmFocus _focus;
   final void Function(String path) _navigate;
   final Future<void> Function(Uri url) _openUrl;
@@ -93,8 +93,8 @@ class LocalReminderBindings {
     }
     // A browser, store or form that fails to open is logged, never thrown.
     try {
-      final isPaid = await _readIsPaidSafely();
-      switch (LocalReminderTapRoute.resolve(tap, isPaid: isPaid)) {
+      final holdsHosted = await _readHoldsHostedSafely();
+      switch (LocalReminderTapRoute.resolve(tap, holdsHosted: holdsHosted)) {
         case OpenRouteAction(:final path):
           _navigate(path);
         case OpenUrlAction(:final url):
@@ -122,8 +122,8 @@ class LocalReminderBindings {
 
   Future<void> dispose() async => _taps?.cancel();
 
-  Future<bool> _readIsPaidSafely() async {
-    final read = readIsPaid;
+  Future<bool> _readHoldsHostedSafely() async {
+    final read = readHoldsHosted;
     if (read == null) return false;
     try {
       return await read();

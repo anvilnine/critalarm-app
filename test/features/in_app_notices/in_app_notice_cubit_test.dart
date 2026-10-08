@@ -87,11 +87,11 @@ class FakeIdentityRepo implements IdentityRepository {
 }
 
 class FakeAccountRepo implements AccountRepository {
-  bool isPaid = false;
+  bool holdsHosted = false;
   ServerMode? serverMode = ServerMode.hosted;
 
   @override
-  Future<bool> readIsPaid() async => isPaid;
+  Future<bool> readHoldsHosted() async => holdsHosted;
 
   @override
   Future<ServerMode?> readServerMode() async => serverMode;
@@ -406,7 +406,7 @@ void main() {
         provider: IdentityProvider.apple,
         accountId: 'acc_pro',
       );
-      accountRepo.isPaid = true;
+      accountRepo.holdsHosted = true;
 
       final cubit = buildCubit();
       await cubit.load();
@@ -444,7 +444,7 @@ void main() {
       identityRepo.identity = null;
       accountRepo
         ..serverMode = ServerMode.hosted
-        ..isPaid = false;
+        ..holdsHosted = false;
       cubit = buildCubit();
     });
 

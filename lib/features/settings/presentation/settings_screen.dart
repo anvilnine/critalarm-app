@@ -135,7 +135,7 @@ class _SettingsScreenContent extends StatelessWidget {
       return _buildSelfHostedPlanRow(context);
     }
     final colors = context.appColors;
-    final isPro = state.access.isPaid;
+    final isPro = state.holdsHosted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(

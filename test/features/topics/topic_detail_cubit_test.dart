@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -23,6 +24,8 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../app/access/store_access.dart';
 
 /// A topic list that never loads.
 class _FailingTopics implements TopicRepository {
@@ -232,6 +235,7 @@ void main() {
         required String tier,
         required int? limit,
         required int criticalCount,
+        ServerMode serverMode = ServerMode.hosted,
       }) async {
         SharedPreferences.setMockInitialValues({
           'device_id': 'dev_1',
@@ -257,10 +261,33 @@ void main() {
           updateTopicUsecase,
           incidentRepo,
           identityStore: store,
+          featureAccess: accessOver(store, serverMode: serverMode).features,
         );
         addTearDown(cubit.close);
         return cubit;
       }
+
+      test(
+        'Hosted is never one way, even while the caps still say 2',
+        () async {
+          final cubit = await cubitFor(
+            tier: 'hosted',
+            limit: 2,
+            criticalCount: 3,
+          );
+          expect(await cubit.turningOffIsOneWay(), isFalse);
+        },
+      );
+
+      test("a server of the user's own is never one way", () async {
+        final cubit = await cubitFor(
+          tier: 'free',
+          limit: 2,
+          criticalCount: 3,
+          serverMode: ServerMode.selfhosted,
+        );
+        expect(await cubit.turningOffIsOneWay(), isFalse);
+      });
 
       test('free with 3 critical and a limit of 2 is one way', () async {
         final cubit = await cubitFor(tier: 'free', limit: 2, criticalCount: 3);

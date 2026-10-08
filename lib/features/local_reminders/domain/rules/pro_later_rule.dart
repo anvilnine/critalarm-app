@@ -14,7 +14,7 @@ abstract final class ProLaterRule {
   static LocalReminderCandidate? candidate(LocalReminderInputs inputs) {
     final later = inputs.proLaterAt;
     if (later == null) return null;
-    if (inputs.isPaid) return null;
+    if (inputs.holdsHosted) return null;
     if (inputs.proDismissCount >= ProAskRules.maxDismissals) return null;
 
     final fireAt = LocalReminderDates.atHourOnOrAfter(

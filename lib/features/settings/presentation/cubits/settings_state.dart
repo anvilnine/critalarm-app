@@ -12,6 +12,8 @@ enum SettingsStatus { initial, loading, success, failure }
 class SettingsState {
   const SettingsState({
     this.access = const AccountAccess(null),
+    this.holdsHosted = false,
+    this.hasStorageSection = false,
     this.topics = const [],
     this.status = SettingsStatus.initial,
     // Matches QuietHours.defaults, so nothing claims quiet hours is on before
@@ -35,6 +37,16 @@ class SettingsState {
 
   final List<Topic> topics;
   final AccountAccess access;
+
+  /// Whether this install holds Hosted, from `Holdings`. A purchase the
+  /// store confirmed counts before the server has registered it. The plan
+  /// row reads this.
+  final bool holdsHosted;
+
+  /// Whether the Storage section is drawn, from
+  /// `FeatureAccess.can(AppFeature.storageRules)`: on Hosted, and on a
+  /// server of the user's own, which has no tier at all.
+  final bool hasStorageSection;
   String get criticalUsage => access.criticalUsage(topics);
   final SettingsStatus status;
   final bool quietHoursEnabled;
@@ -65,14 +77,11 @@ class SettingsState {
   bool get hasAccounts =>
       serverMode != null && serverMode != ServerMode.selfhosted;
 
-  /// The Storage section is drawn on a paid tier and on a self-hosted server,
-  /// which has no tier at all. A free relay account does not see it.
-  bool get hasStorageSection =>
-      access.isPaid || serverMode == ServerMode.selfhosted;
-
   SettingsState copyWith({
     List<Topic>? topics,
     AccountAccess? access,
+    bool? holdsHosted,
+    bool? hasStorageSection,
     SettingsStatus? status,
     bool? quietHoursEnabled,
     int? quietHoursStartMinutes,
@@ -93,6 +102,8 @@ class SettingsState {
   }) {
     return SettingsState(
       access: access ?? this.access,
+      holdsHosted: holdsHosted ?? this.holdsHosted,
+      hasStorageSection: hasStorageSection ?? this.hasStorageSection,
       topics: topics ?? this.topics,
       status: status ?? this.status,
       quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
@@ -123,6 +134,8 @@ class SettingsState {
       other is SettingsState &&
           runtimeType == other.runtimeType &&
           access == other.access &&
+          holdsHosted == other.holdsHosted &&
+          hasStorageSection == other.hasStorageSection &&
           topics == other.topics &&
           status == other.status &&
           quietHoursEnabled == other.quietHoursEnabled &&
@@ -159,5 +172,7 @@ class SettingsState {
     isSavingConnection,
     errorMessage,
     serverMode,
+    holdsHosted,
+    hasStorageSection,
   );
 }

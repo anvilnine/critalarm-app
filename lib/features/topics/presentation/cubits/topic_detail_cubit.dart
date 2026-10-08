@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
-import 'package:critalarm/core/models/account_access.dart';
-import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -35,7 +34,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this._incidentRepository, {
     this.alarm,
     this.identityStore,
-    this.sessionStore,
+    this.featureAccess,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -51,13 +50,16 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// Null off iOS, where there is no AlarmKit and nothing to gate on.
   final AlarmHost? alarm;
 
-  /// Says which tier the account is on, so this screen shows the same window
-  /// History does. Null in tests, and then nothing is hidden.
+  /// Holds the caps the registration sent: how many days of history and
+  /// how many critical topics. Null in tests, and then nothing is hidden.
   final DeviceIdentityStore? identityStore;
 
-  /// Says whether the server is self-hosted, which has no window at all.
-  /// Null in tests, and then the server is treated as not self-hosted.
-  final ApiSessionStore? sessionStore;
+  /// Says who is past those caps: Hosted, or a server of the user's own.
+  /// Null in tests, and then the caps apply.
+  final FeatureAccess? featureAccess;
+
+  Future<bool> _can(AppFeature feature) async =>
+      await featureAccess?.canOnceReady(feature) ?? false;
 
   final DateTime Function() _now;
 
@@ -74,12 +76,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   Future<DateTime?> _lowerBound() async {
     final identity = await identityStore?.readOrCreate();
     if (identity == null) return null;
-    final session = await sessionStore?.read();
     return HistoryWindow.lowerBound(
-      isPaid: AccountAccess(identity).isPaid,
+      hasLongHistory: await _can(AppFeature.longHistory),
       historyDays: identity.caps.historyDays ?? 7,
       now: _now(),
-      isSelfHosted: session?.mode == ServerMode.selfhosted,
     );
   }
 
@@ -298,7 +298,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// the server would refuse to turn it back on (api.md §4.2).
   Future<bool> turningOffIsOneWay() async {
     final identity = await identityStore?.readOrCreate();
-    if (identity == null || AccountAccess(identity).isPaid) return false;
+    if (identity == null) return false;
+    if (await _can(AppFeature.unlimitedCriticalTopics)) return false;
     final limit = identity.caps.criticalTopics;
     if (limit == null) return false;
     final count = _topics.state.topics.where((topic) => topic.critical).length;
