@@ -25,6 +25,7 @@ class AlarmStyleGate {
     required this._readAccountId,
     required Future<void> planRead,
     this._changes = const [],
+    this._isOwnLookReady,
   }) {
     unawaited(
       planRead.then<void>((_) => _isPlanRead = true, onError: (Object _) {}),
@@ -45,6 +46,11 @@ class AlarmStyleGate {
 
   /// The tag of that account, once [check] has read it.
   String? _accountTag;
+
+  /// Whether the person's own photo is decoded and held in memory right
+  /// now. Left out, the own look is never ready. It must answer at once:
+  /// the alarm screen asks it while it rings.
+  final bool Function()? _isOwnLookReady;
 
   /// Each fires when the answer may have changed.
   final List<Stream<Object?>> _changes;
@@ -69,6 +75,7 @@ class AlarmStyleGate {
           accountTag: _accountTag,
         ),
         isSetupAlarm: isSetupAlarm,
+        isOwnLookReady: _isOwnLookReady?.call() ?? false,
       );
     } on Object catch (_) {
       return AlarmStyleId.standard;

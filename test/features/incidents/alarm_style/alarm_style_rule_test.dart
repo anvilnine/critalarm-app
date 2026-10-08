@@ -26,6 +26,7 @@ AlarmStyleId _draws({
   bool isPlanRead = true,
   bool wasOpenWhenLastSure = false,
   bool isSetupAlarm = false,
+  bool isOwnLookReady = false,
 }) => alarmStyleFor(
   saved: saved,
   topicName: topic,
@@ -33,6 +34,7 @@ AlarmStyleId _draws({
   isPlanRead: isPlanRead,
   wasOpenWhenLastSure: wasOpenWhenLastSure,
   isSetupAlarm: isSetupAlarm,
+  isOwnLookReady: isOwnLookReady,
 );
 
 void main() {
@@ -46,6 +48,7 @@ void main() {
           'terminal': 'terminal',
           'redAlert': 'red_alert',
           'critPanic': 'crit_panic',
+          'own': 'own',
         },
       );
     });
@@ -103,6 +106,100 @@ void main() {
         const AlarmStyleAssignments(defaultStyleId: 'minimal'),
       );
       expect(next.withDefault(null).defaultStyleId, isNull);
+    });
+  });
+
+  group('the own look:', () {
+    const own = AlarmStyleId.own;
+    const phoneOwn = AlarmStyleAssignments(defaultStyleId: 'own');
+    const topicOwn = AlarmStyleAssignments(
+      defaultStyleId: 'minimal',
+      perTopic: {'prod-db': 'own'},
+    );
+
+    test('saved, the plan held and no photo ready: the standard look, on '
+        'every answer', () {
+      // No photo on disk, a file that is broken, a decode still running:
+      // each reads as "not ready", and the alarm screen never waits.
+      for (final decision in [_open, _confirming, _locked, _unread]) {
+        for (final isPlanRead in [true, false]) {
+          for (final wasOpen in [true, false]) {
+            expect(
+              _draws(
+                saved: phoneOwn,
+                decision: decision,
+                isPlanRead: isPlanRead,
+                wasOpenWhenLastSure: wasOpen,
+              ),
+              _standard,
+            );
+          }
+        }
+      }
+    });
+
+    test('a topic on the own look with no photo ready draws the standard '
+        "look, never the phone's other look", () {
+      expect(_draws(saved: topicOwn, decision: _open), _standard);
+      // Another topic still follows the phone.
+      expect(
+        _draws(saved: topicOwn, decision: _open, topic: 'staging'),
+        _minimal,
+      );
+    });
+
+    test('ready, it follows the plan like every paid look', () {
+      AlarmStyleId ready(
+        FeatureDecision decision, {
+        bool isPlanRead = true,
+        bool wasOpen = false,
+      }) => _draws(
+        saved: phoneOwn,
+        decision: decision,
+        isPlanRead: isPlanRead,
+        wasOpenWhenLastSure: wasOpen,
+        isOwnLookReady: true,
+      );
+      expect(ready(_open), own);
+      expect(ready(_confirming), own);
+      expect(ready(_locked), _standard);
+      expect(ready(_unread), _standard);
+      expect(ready(_unread, wasOpen: true), own);
+      expect(ready(_locked, isPlanRead: false, wasOpen: true), own);
+      expect(ready(_locked, isPlanRead: false), _standard);
+    });
+
+    test('a setup alarm draws the standard look, photo or no photo', () {
+      expect(
+        _draws(
+          saved: phoneOwn,
+          decision: _open,
+          isSetupAlarm: true,
+          isOwnLookReady: true,
+        ),
+        _standard,
+      );
+    });
+
+    test('a photo that is ready changes nothing for another look', () {
+      for (final isReady in [true, false]) {
+        expect(
+          _draws(
+            saved: _phoneMinimal,
+            decision: _open,
+            isOwnLookReady: isReady,
+          ),
+          _minimal,
+        );
+        expect(
+          _draws(
+            saved: const AlarmStyleAssignments(),
+            decision: _open,
+            isOwnLookReady: isReady,
+          ),
+          _standard,
+        );
+      }
     });
   });
 
