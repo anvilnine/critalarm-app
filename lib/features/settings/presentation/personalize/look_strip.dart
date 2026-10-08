@@ -134,49 +134,67 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
 
   /// The "Yours" tile, after the fixed looks.
   ///
-  /// With a photo held it is a look like the others, with the edit button
-  /// on its corner while it is open. Locked, a tap tries it, as for every
-  /// paid look. With no photo that can be drawn (none saved, or a file
-  /// that is gone or broken) it offers the picker, and locked it sells.
+  /// - No photo saved: the tile offers the picker, and locked it sells.
+  /// - A photo held in memory: a look like the others, with a pencil on
+  ///   its corner that changes the photo or the colour.
+  /// - A photo saved that cannot be drawn (alarm looks are locked, so
+  ///   the picture is not kept in memory, or its file is gone or
+  ///   broken): the empty tile, with a cross on its corner.
+  ///
+  /// The corner button is there whenever a photo is saved, plan or no
+  /// plan, and it sits outside the lock: a person can always remove
+  /// their own photo.
   Widget _own(Widget Function(AlarmStyle style) option) {
     final style = _ownLook.style;
     final name = LocaleKeys.alarm_styles_own.tr();
+    final Widget tile;
     if (style == null) {
-      return AccessLock(
+      tile = AccessLock(
         feature: AppFeature.alarmScreenStyles,
         source: LockSource.personalizeLook,
         name: name,
         badgeOverhang: PersonalizeStrip.badgeRoom,
         child: _AddOwnLook(
           key: const ValueKey('look-own-add'),
+          // Locked with a photo saved, there is nothing to add and no
+          // picture in memory to show. Unlocked with a photo that cannot
+          // be drawn, the tile offers the picker again.
+          hasPhoto:
+              _ownLook.hasPhoto &&
+              _access.decide(AppFeature.alarmScreenStyles) is FeatureLocked,
           onTap: () => unawaited(addOwnPhoto(context)),
         ),
       );
+    } else {
+      tile = AccessLock(
+        feature: AppFeature.alarmScreenStyles,
+        source: LockSource.personalizeLook,
+        name: name,
+        tap: LockTap.tryIt,
+        onTry: () => _try(style),
+        badgeOverhang: PersonalizeStrip.badgeRoom,
+        child: option(style),
+      );
     }
-    final isLocked =
-        _access.decide(AppFeature.alarmScreenStyles) is FeatureLocked;
-    return AccessLock(
-      feature: AppFeature.alarmScreenStyles,
-      source: LockSource.personalizeLook,
-      name: name,
-      tap: LockTap.tryIt,
-      onTry: () => _try(style),
-      badgeOverhang: PersonalizeStrip.badgeRoom,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          option(style),
-          if (!isLocked)
-            PositionedDirectional(
-              end: -6,
-              top: PersonalizeLookStrip._pictureHeight - _editTarget + 6,
-              child: _EditOwnLook(
-                key: const ValueKey('look-own-edit'),
-                onTap: () => unawaited(showOwnLookSheet(context)),
-              ),
-            ),
-        ],
-      ),
+    if (!_ownLook.hasPhoto) return tile;
+    final canEdit = style != null;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        tile,
+        PositionedDirectional(
+          end: -6,
+          top: PersonalizeLookStrip._pictureHeight - _editTarget + 6,
+          child: _OwnLookCorner(
+            key: ValueKey(canEdit ? 'look-own-edit' : 'look-own-remove'),
+            glyph: canEdit ? GlyphType.pencil : GlyphType.close,
+            label: canEdit
+                ? LocaleKeys.alarm_styles_own_edit_label.tr()
+                : LocaleKeys.alarm_styles_own_remove_photo.tr(),
+            onTap: () => unawaited(showOwnLookSheet(context, canEdit: canEdit)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -237,11 +255,19 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
 /// The edge of the square that takes a tap on the own look's edit button.
 const double _editTarget = 44;
 
-/// The own look's edit button: a small ink disc with a pencil on the
-/// corner of the picture, inside a full-size target.
-class _EditOwnLook extends StatelessWidget {
-  const _EditOwnLook({required this.onTap, super.key});
+/// The button on the corner of the own look's tile: a small ink disc
+/// inside a full-size target. A pencil opens the look's sheet, and a
+/// cross opens it with only "Remove photo" in it.
+class _OwnLookCorner extends StatelessWidget {
+  const _OwnLookCorner({
+    required this.glyph,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
 
+  final GlyphType glyph;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -249,7 +275,7 @@ class _EditOwnLook extends StatelessWidget {
     final colors = context.appColors;
     return Semantics(
       button: true,
-      label: LocaleKeys.alarm_styles_own_edit_label.tr(),
+      label: label,
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
@@ -270,7 +296,7 @@ class _EditOwnLook extends StatelessWidget {
               ),
               child: Center(
                 child: AppGlyph(
-                  GlyphType.pencil,
+                  glyph,
                   size: 13,
                   color: colors.surface,
                 ),
@@ -285,10 +311,19 @@ class _EditOwnLook extends StatelessWidget {
 
 /// The "Yours" tile while there is no photo to draw: the shape of a look
 /// with a plus in it. A tap opens the picker.
+///
+/// With [hasPhoto] a photo is saved and cannot be drawn. The tile is then
+/// empty, since the picture is not in memory to show, and says so to a
+/// screen reader in place of "Add your photo".
 class _AddOwnLook extends StatelessWidget {
-  const _AddOwnLook({required this.onTap, super.key});
+  const _AddOwnLook({
+    required this.onTap,
+    required this.hasPhoto,
+    super.key,
+  });
 
   final VoidCallback onTap;
+  final bool hasPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +336,9 @@ class _AddOwnLook extends StatelessWidget {
     return Semantics(
       button: true,
       label: LocaleKeys.alarm_styles_own.tr(),
-      hint: LocaleKeys.alarm_styles_own_add_label.tr(),
+      hint: hasPhoto
+          ? LocaleKeys.alarm_styles_own_change_photo.tr()
+          : LocaleKeys.alarm_styles_own_add_label.tr(),
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
@@ -322,9 +359,15 @@ class _AddOwnLook extends StatelessWidget {
                   borderRadius: radius,
                   border: Border.all(color: colors.ink, width: 1.5),
                 ),
-                child: Center(
-                  child: AppGlyph(GlyphType.plus, size: 22, color: colors.ink),
-                ),
+                child: hasPhoto
+                    ? null
+                    : Center(
+                        child: AppGlyph(
+                          GlyphType.plus,
+                          size: 22,
+                          color: colors.ink,
+                        ),
+                      ),
               ),
               const SizedBox(height: PersonalizeLookStrip._labelGap),
               SizedBox(

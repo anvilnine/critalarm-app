@@ -18,6 +18,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// never describes pixels it was not measured on. The file saved before
 /// is deleted only once the new record is in.
 ///
+/// A save that is cut short (the app is killed between the file and its
+/// record, or a delete fails) can leave a file no record names. [sweep]
+/// deletes those at launch.
+///
 /// Nothing here logs: not a path, not a size, not a failure.
 class FileOwnLookStore implements OwnLookStore {
   FileOwnLookStore(this._prefs, this._root);
@@ -66,11 +70,10 @@ class FileOwnLookStore implements OwnLookStore {
   }
 
   @override
-  Future<Uint8List?> readPhoto() async {
-    final record = photo;
-    if (record == null) return null;
+  Future<Uint8List?> readPhoto(String stamp) async {
+    if (!_stampShape.hasMatch(stamp)) return null;
     try {
-      final file = await _fileFor(record.stamp);
+      final file = await _fileFor(stamp);
       if (!file.existsSync()) return null;
       final length = await file.length();
       if (length <= 0 || length > OwnLookStore.maxStoredBytes) return null;
@@ -147,10 +150,57 @@ class FileOwnLookStore implements OwnLookStore {
   }
 
   @override
+  Future<void> sweep() async {
+    String? stamp;
+    try {
+      stamp = photo?.stamp;
+    } on Object catch (_) {
+      stamp = null;
+    }
+    await _deleteAllBut(stamp);
+  }
+
+  @override
+  Future<void> notePending(String path) async {
+    if (path.isEmpty) return;
+    await _prefs.setString(OwnLookStore.pendingKey, path);
+  }
+
+  @override
+  Future<void> discardPending() async {
+    String? path;
+    try {
+      path = _prefs.getString(OwnLookStore.pendingKey);
+    } on Object catch (_) {
+      path = null;
+    }
+    if (path != null && path.isNotEmpty) {
+      try {
+        final file = File(path);
+        // A file only: a note is never a reason to delete a folder.
+        if (file.existsSync()) await file.delete();
+      } on Object catch (_) {
+        // Gone already, or not ours to delete. The note goes all the
+        // same: the system clears its own cache in time.
+      }
+    }
+    await _prefs.remove(OwnLookStore.pendingKey);
+  }
+
+  @override
   Future<void> forgetAll() async {
-    await _prefs.remove(OwnLookStore.photoKey);
-    await _prefs.remove(OwnLookStore.accentKey);
-    await _deleteAllBut(null);
+    // Each step runs whatever the one before it did: a record that will
+    // not go must not keep the file.
+    Future<void> step(Future<void> Function() drop) async {
+      try {
+        await drop();
+      } on Object catch (_) {}
+    }
+
+    await step(() => _prefs.remove(OwnLookStore.photoKey));
+    await step(() => _deleteAllBut(null));
+    await step(discardPending);
+    await step(() => _prefs.remove(OwnLookStore.accentKey));
     _changes.add(null);
   }
 

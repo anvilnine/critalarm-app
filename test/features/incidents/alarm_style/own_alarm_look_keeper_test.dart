@@ -46,10 +46,17 @@ void main() {
   late FileOwnLookStore store;
   final keepers = <OwnAlarmLookKeeper>[];
 
-  OwnAlarmLookKeeper keeper({OwnPhotoDecoder? decode}) {
-    final made = decode == null
-        ? OwnAlarmLookKeeper(store)
-        : OwnAlarmLookKeeper(store, decode: decode);
+  OwnAlarmLookKeeper keeper({
+    OwnPhotoDecoder decode = decodeOwnPhoto,
+    bool Function()? mayHold,
+    List<Stream<Object?>> recheck = const [],
+  }) {
+    final made = OwnAlarmLookKeeper(
+      store,
+      decode: decode,
+      mayHold: mayHold,
+      recheck: recheck,
+    );
     keepers.add(made);
     return made;
   }
@@ -369,6 +376,165 @@ void main() {
       await starting;
       expect(own.isReady, isFalse);
       expect(heldOwnAlarmStyle, isNull);
+    });
+  });
+
+  group('while alarm looks are locked:', () {
+    test('nothing is decoded and nothing is held, and the photo is still '
+        'known to be saved so it can be removed', () async {
+      await savePhoto();
+      var decodes = 0;
+      final own = keeper(
+        mayHold: () => false,
+        decode: (bytes, width, height) {
+          decodes++;
+          return decodeOwnPhoto(bytes, width, height);
+        },
+      );
+      await own.start();
+      expect(decodes, 0);
+      expect(own.isReady, isFalse);
+      expect(heldOwnAlarmStyle, isNull);
+      expect(own.hasPhoto, isTrue);
+      expect(photoFile().existsSync(), isTrue);
+
+      await own.removePhoto();
+      expect(own.hasPhoto, isFalse);
+      expect(root.listSync(recursive: true).whereType<File>(), isEmpty);
+    });
+
+    test('a plan that ends lets the picture go, and a plan that comes back '
+        'decodes it again', () async {
+      await savePhoto();
+      var isOpen = true;
+      var decodes = 0;
+      final plan = StreamController<Object?>.broadcast();
+      addTearDown(plan.close);
+      final own = keeper(
+        mayHold: () => isOpen,
+        recheck: [plan.stream],
+        decode: (bytes, width, height) {
+          decodes++;
+          return decodeOwnPhoto(bytes, width, height);
+        },
+      );
+      await own.start();
+      expect(own.isReady, isTrue);
+      final held = own.style;
+
+      isOpen = false;
+      plan.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(own.isReady, isFalse);
+      expect(heldOwnAlarmStyle, isNull);
+      expect(alarmStyleOf(AlarmStyleId.own), standardAlarmStyle);
+      expect(own.hasPhoto, isTrue);
+      expect(photoFile().existsSync(), isTrue);
+
+      isOpen = true;
+      plan.add(null);
+      await own.refresh();
+      expect(own.isReady, isTrue);
+      expect(identical(own.style, held), isFalse);
+      expect(decodes, 2);
+    });
+
+    test('a lock that lands while the photo is decoding: the picture is '
+        'not kept', () async {
+      await savePhoto();
+      var isOpen = true;
+      final slow = Completer<void>();
+      final own = keeper(
+        mayHold: () => isOpen,
+        decode: (bytes, width, height) async {
+          await slow.future;
+          return decodeOwnPhoto(bytes, width, height);
+        },
+      );
+      final starting = own.start();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      isOpen = false;
+      slow.complete();
+      await starting;
+      expect(own.isReady, isFalse);
+      expect(heldOwnAlarmStyle, isNull);
+    });
+
+    test('a check of the plan that changes nothing does not rebuild the '
+        'look an alarm may be drawn in', () async {
+      await savePhoto();
+      final plan = StreamController<Object?>.broadcast();
+      addTearDown(plan.close);
+      var decodes = 0;
+      final own = keeper(
+        mayHold: () => true,
+        recheck: [plan.stream],
+        decode: (bytes, width, height) {
+          decodes++;
+          return decodeOwnPhoto(bytes, width, height);
+        },
+      );
+      await own.start();
+      final held = own.style;
+      plan
+        ..add(null)
+        ..add(null);
+      await Future<void>.delayed(Duration.zero);
+      await own.refresh();
+      expect(identical(own.style, held), isTrue);
+      expect(decodes, 1);
+    });
+
+    test('an answer that throws holds nothing', () async {
+      await savePhoto();
+      final own = keeper(mayHold: () => throw StateError('no gate'));
+      await own.start();
+      expect(own.isReady, isFalse);
+    });
+  });
+
+  group('what an earlier run left behind is cleared at launch:', () {
+    test('a photo file with no record: the app was killed between the '
+        'file and its record', () async {
+      await savePhoto();
+      final kept = photoFile().path;
+      File('${root.path}/alarm_look/own_orphan1.png').writeAsBytesSync([1]);
+      File('${root.path}/alarm_look/own_x.png.part').writeAsBytesSync([2]);
+      final own = keeper();
+      await own.start();
+      expect(
+        root.listSync(recursive: true).whereType<File>().map((f) => f.path),
+        [kept],
+      );
+      expect(own.isReady, isTrue);
+    });
+
+    test('a photo file and no record at all', () async {
+      await Directory('${root.path}/alarm_look').create();
+      File('${root.path}/alarm_look/own_orphan2.png').writeAsBytesSync([1]);
+      final own = keeper();
+      await own.start();
+      expect(root.listSync(recursive: true).whereType<File>(), isEmpty);
+      expect(own.hasPhoto, isFalse);
+    });
+
+    test("the copy the system's picker made for a pick that never "
+        'ended', () async {
+      final copy = File('${root.path}/picker_IMG_9.jpg')
+        ..writeAsBytesSync([1, 2, 3]);
+      await store.notePending(copy.path);
+      final own = keeper();
+      await own.start();
+      expect(copy.existsSync(), isFalse);
+      expect(prefs.getString(OwnLookStore.pendingKey), isNull);
+    });
+
+    test('locked or not: the sweep does not wait for a plan', () async {
+      await Directory('${root.path}/alarm_look').create();
+      File('${root.path}/alarm_look/own_orphan3.png').writeAsBytesSync([1]);
+      final own = keeper(mayHold: () => false);
+      await own.start();
+      expect(root.listSync(recursive: true).whereType<File>(), isEmpty);
     });
   });
 }

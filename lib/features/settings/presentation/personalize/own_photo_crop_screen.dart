@@ -53,33 +53,35 @@ Size coverSizeFor({required Size picture, required Size frame}) {
 /// The frame starts on the middle of the photo, covering it, so "Use
 /// this photo" works with no gesture at all.
 ///
-/// It decodes a copy for the screen and nothing else. [onUse] does the
-/// saving: it gets the framed part and answers null when the photo was
-/// kept, or the message to show when it was not. The screen closes on
-/// null and answers true.
+/// It decodes nothing: [picture] is the import's one decode of the
+/// picked photo, and the kept part is cut from the same picture. The
+/// caller owns it and frees it once this screen has closed. [onUse] does
+/// the saving: it gets the framed part and answers null when the photo
+/// was kept, or the message to show when it was not. The screen closes
+/// on null and answers true.
 class OwnPhotoCropScreen extends StatefulWidget {
   const OwnPhotoCropScreen({
-    required this.image,
+    required this.picture,
     required this.onUse,
     super.key,
   });
 
-  /// The picked photo, for the screen. The caller sizes it down.
-  final ImageProvider image;
+  /// The picked photo, already decoded.
+  final ui.Image picture;
 
   final Future<String?> Function(OwnPhotoCrop crop) onUse;
 
   /// The closest the frame zooms in. Past this the kept part of a large
   /// photo would be a small corner of it.
-  static const double maxZoom = 4;
+  static const double maxZoom = 3;
 
   static Route<bool> route({
-    required ImageProvider image,
+    required ui.Image picture,
     required Future<String?> Function(OwnPhotoCrop crop) onUse,
   }) => PageRouteBuilder<bool>(
     fullscreenDialog: true,
     pageBuilder: (context, _, _) =>
-        OwnPhotoCropScreen(image: image, onUse: onUse),
+        OwnPhotoCropScreen(picture: picture, onUse: onUse),
     transitionsBuilder: (context, animation, _, child) =>
         MediaQuery.of(context).disableAnimations
         ? child
@@ -92,13 +94,6 @@ class OwnPhotoCropScreen extends StatefulWidget {
 
 class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
   final TransformationController _view = TransformationController();
-  ImageStream? _stream;
-  late final ImageStreamListener _listener = ImageStreamListener(
-    _onImage,
-    onError: (_, _) => _onImageFailed(),
-  );
-  ui.Image? _picture;
-  bool _didFail = false;
   bool _isSaving = false;
   String? _error;
 
@@ -106,36 +101,15 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
   Size? _centredFor;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_stream != null) return;
-    _stream = widget.image.resolve(createLocalImageConfiguration(context))
-      ..addListener(_listener);
-  }
-
-  void _onImage(ImageInfo info, bool _) {
-    if (!mounted) return;
-    setState(() => _picture = info.image);
-  }
-
-  void _onImageFailed() {
-    if (!mounted) return;
-    setState(() => _didFail = true);
-  }
-
-  @override
   void dispose() {
-    _stream?.removeListener(_listener);
     _view.dispose();
     super.dispose();
   }
 
-  Size get _pictureSize {
-    final picture = _picture;
-    return picture == null
-        ? Size.zero
-        : Size(picture.width.toDouble(), picture.height.toDouble());
-  }
+  Size get _pictureSize => Size(
+    widget.picture.width.toDouble(),
+    widget.picture.height.toDouble(),
+  );
 
   /// Puts the middle of the photo in the middle of [frame], zoomed out.
   void _centre(Size frame) {
@@ -208,10 +182,8 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final screen = RingingPreview.screenOf(context).size;
-    final picture = _picture;
-    final error = _didFail
-        ? LocaleKeys.alarm_styles_own_error_unreadable.tr()
-        : _error;
+    final picture = widget.picture;
+    final error = _error;
     return Material(
       color: colors.canvas,
       child: SafeArea(
@@ -258,7 +230,7 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                         final radius = BorderRadius.circular(
                           frame.width * 0.14,
                         );
-                        if (picture != null) _centre(frame);
+                        _centre(frame);
                         return DecoratedBox(
                           position: DecorationPosition.foreground,
                           decoration: BoxDecoration(
@@ -272,9 +244,7 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                             borderRadius: radius,
                             child: ColoredBox(
                               color: colors.inkFixed,
-                              child: picture == null
-                                  ? const SizedBox.expand()
-                                  : _frame(picture, frame),
+                              child: _frame(picture, frame),
                             ),
                           ),
                         );
@@ -299,14 +269,14 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                     glyph: GlyphType.minus,
                     size: 44,
                     ariaLabel: LocaleKeys.alarm_styles_own_crop_zoom_out.tr(),
-                    onPressed: picture == null ? null : () => _zoom(1 / 1.25),
+                    onPressed: () => _zoom(1 / 1.25),
                   ),
                   const SizedBox(width: Spacing.s2),
                   AppIconButton(
                     glyph: GlyphType.plus,
                     size: 44,
                     ariaLabel: LocaleKeys.alarm_styles_own_crop_zoom_in.tr(),
-                    onPressed: picture == null ? null : () => _zoom(1.25),
+                    onPressed: () => _zoom(1.25),
                   ),
                 ],
               ),
@@ -316,7 +286,7 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                 variant: AppButtonVariant.ink,
                 isFullWidth: true,
                 isLoading: _isSaving,
-                onPressed: picture == null ? null : () => unawaited(_use()),
+                onPressed: () => unawaited(_use()),
               ),
             ],
           ),

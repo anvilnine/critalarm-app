@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
@@ -9,6 +8,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_style.dart';
@@ -32,10 +32,6 @@ String ownPhotoErrorText(String? code) => switch (code) {
   _ => LocaleKeys.alarm_styles_own_error_save_failed.tr(),
 };
 
-/// The longest side of the copy the crop step shows, in pixels. The
-/// picked file is decoded at this size for the screen, never whole.
-const int _cropScreenSide = 2048;
-
 void _say(BuildContext context, String message) {
   ScaffoldMessenger.maybeOf(context)
     ?..clearSnackBars()
@@ -48,9 +44,14 @@ void _say(BuildContext context, String message) {
 /// [select] also saves the own look as the phone's, which is what a first
 /// photo is for. A change of photo leaves the phone's look alone.
 ///
-/// The copy the system's picker made in the app's cache is deleted when
-/// this ends, however it ends, and so is the copy decoded for the crop
-/// step.
+/// The picked file is decoded once. The crop step shows that picture and
+/// the kept photo is cut from it.
+///
+/// The system's picker puts a copy of the picked file in the app's cache.
+/// Where it is gets written down before anything else is done with it,
+/// and it is deleted as soon as the one decode is over, or the pick has
+/// failed. If the app is killed in between, the next launch and the
+/// account wipe both find the note and delete the copy.
 Future<bool> addOwnPhoto(BuildContext context, {bool select = true}) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
@@ -64,6 +65,9 @@ Future<bool> addOwnPhoto(BuildContext context, {bool select = true}) async {
     return false;
   }
   final picker = getIt<OwnPhotoPicker>();
+  final store = getIt<OwnLookStore>();
+  final usecase = getIt<ImportOwnPhotoUsecase>();
+  final keeper = getIt<OwnAlarmLookKeeper>();
   PickedOwnPhoto? picked;
   try {
     picked = await picker.pickOne();
@@ -71,34 +75,40 @@ Future<bool> addOwnPhoto(BuildContext context, {bool select = true}) async {
     picked = null;
   }
   if (picked == null) return false;
-  ImageProvider? shown;
+  OwnPhotoWorkingCopy? photo;
+  String? failure;
+  try {
+    await store.notePending(picked.path);
+    final opened = await usecase.open(picked);
+    photo = opened.getOrNull();
+    failure = opened.exceptionOrNull()?.message;
+  } on Object catch (_) {
+    failure = ImportOwnPhotoUsecase.unreadableCode;
+  } finally {
+    // The picked file is not read again from here on.
+    try {
+      await picker.discard(picked.path);
+    } on Object catch (_) {}
+    try {
+      await store.discardPending();
+    } on Object catch (_) {}
+  }
+  if (photo == null) {
+    if (context.mounted) _say(context, ownPhotoErrorText(failure));
+    return false;
+  }
+  final working = photo;
   try {
     if (!context.mounted) return false;
-    final usecase = getIt<ImportOwnPhotoUsecase>();
-    final keeper = getIt<OwnAlarmLookKeeper>();
-    final checked = await usecase.check(picked);
-    if (!context.mounted) return false;
-    final source = checked.getOrNull();
-    if (source == null) {
-      _say(context, ownPhotoErrorText(checked.exceptionOrNull()?.message));
-      return false;
-    }
     // Kept no larger than this phone's own screen, in pixels.
     final screen = RingingPreview.screenOf(context);
     final pixels = screen.size * screen.devicePixelRatio;
-    final image = ResizeImage(
-      FileImage(File(source.path)),
-      width: _cropScreenSide,
-      height: _cropScreenSide,
-      policy: ResizeImagePolicy.fit,
-    );
-    shown = image;
     final kept = await Navigator.of(context, rootNavigator: true).push<bool>(
       OwnPhotoCropScreen.route(
-        image: image,
+        picture: working.image,
         onUse: (crop) async {
           final saved = await usecase.save(
-            source: source,
+            photo: working,
             crop: crop,
             screenWidth: pixels.width,
             screenHeight: pixels.height,
@@ -121,27 +131,35 @@ Future<bool> addOwnPhoto(BuildContext context, {bool select = true}) async {
     }
     return true;
   } finally {
-    await shown?.evict();
-    await picker.discard(picked.path);
+    // The crop screen draws from a handle of its own, so the picture can
+    // go while the screen is still fading out.
+    working.dispose();
   }
 }
 
 /// What the person asked for in the own look's sheet.
 enum _OwnLookAction { changePhoto, removePhoto }
 
-/// The sheet behind the edit button on the "Yours" tile: the colour of
+/// The sheet behind the corner button on the "Yours" tile: the colour of
 /// "I'm up", a new photo, or no photo.
 ///
 /// A colour is saved the moment it is tapped, and the preview on the page
 /// behind the sheet draws it. Removing the photo deletes the file, and
 /// every choice that named the own look goes back to the phone's.
-Future<void> showOwnLookSheet(BuildContext context) async {
+///
+/// [canEdit] is false while the look cannot be drawn: alarm looks are
+/// locked, or the photo's file is gone or broken. The sheet then offers
+/// the one thing that never needs a plan, removing the photo.
+Future<void> showOwnLookSheet(
+  BuildContext context, {
+  bool canEdit = true,
+}) async {
   AppHaptics.selection();
   final action = await showAppSheet<_OwnLookAction>(
     context: context,
     title: LocaleKeys.alarm_styles_own_sheet_title.tr(),
     subtitle: LocaleKeys.alarm_styles_own_private_note.tr(),
-    content: (sheetContext) => const OwnLookSheetContent(),
+    content: (sheetContext) => OwnLookSheetContent(canEdit: canEdit),
   );
   if (action == null || !context.mounted) return;
   switch (action) {
@@ -170,7 +188,10 @@ Future<void> removeOwnPhoto() async {
 /// What is inside [showOwnLookSheet]: the eight colours, a sample of the
 /// button in the picked one, and the two actions on the photo.
 class OwnLookSheetContent extends StatefulWidget {
-  const OwnLookSheetContent({super.key});
+  const OwnLookSheetContent({this.canEdit = true, super.key});
+
+  /// False leaves out everything but "Remove photo".
+  final bool canEdit;
 
   @override
   State<OwnLookSheetContent> createState() => _OwnLookSheetContentState();
@@ -204,6 +225,19 @@ class _OwnLookSheetContentState extends State<OwnLookSheetContent> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final picked = _keeper.accent;
+    final remove = AppButton(
+      label: LocaleKeys.alarm_styles_own_remove_photo.tr(),
+      variant: AppButtonVariant.dangerText,
+      isFullWidth: true,
+      onPressed: () => Navigator.of(context).pop(_OwnLookAction.removePhoto),
+    );
+    if (!widget.canEdit) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [remove],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -257,13 +291,7 @@ class _OwnLookSheetContentState extends State<OwnLookSheetContent> {
               Navigator.of(context).pop(_OwnLookAction.changePhoto),
         ),
         const SizedBox(height: Spacing.s2),
-        AppButton(
-          label: LocaleKeys.alarm_styles_own_remove_photo.tr(),
-          variant: AppButtonVariant.dangerText,
-          isFullWidth: true,
-          onPressed: () =>
-              Navigator.of(context).pop(_OwnLookAction.removePhoto),
-        ),
+        remove,
       ],
     );
   }

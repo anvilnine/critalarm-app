@@ -146,7 +146,7 @@ final class OwnLookOnDisk {
     expect(prefs.getString(OwnLookStore.photoKey), isNotNull);
     expect(prefs.getString(OwnLookStore.accentKey), 'mint');
     expect(store.photo, isNotNull);
-    expect(await store.readPhoto(), hasLength(64));
+    expect(await store.readPhoto(store.photo!.stamp), hasLength(64));
   }
 
   Future<void> expectGone() async {
@@ -155,6 +155,5 @@ final class OwnLookOnDisk {
     expect(prefs.getString(OwnLookStore.accentKey), isNull);
     expect(store.photo, isNull);
     expect(store.accentId, isNull);
-    expect(await store.readPhoto(), isNull);
   }
 }
