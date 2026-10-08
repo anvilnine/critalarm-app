@@ -136,6 +136,36 @@ void main() {
       }
     });
 
+    test('an answer that arrived and could not be read is not "no '
+        'answer"', () {
+      for (final text in [
+        'FormatException: Unexpected character (at character 1)',
+        "type 'Null' is not a subtype of type 'String' in type cast",
+      ]) {
+        expect(
+          serverGaveNoAnswer(Failure.unexpected(message: text)),
+          isFalse,
+          reason: text,
+        );
+      }
+      // A network failure with or without words is.
+      expect(
+        serverGaveNoAnswer(
+          const Failure.unexpected(
+            message: 'ClientException with SocketException: Failed host lookup',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        serverGaveNoAnswer(
+          const Failure.unexpected(message: 'TimeoutException after 0:00:10'),
+        ),
+        isTrue,
+      );
+      expect(serverGaveNoAnswer(const Failure.unexpected()), isTrue);
+    });
+
     test('any other answer is the server speaking', () {
       for (final code in [400, 401, 403, 404, 409, 410, 422]) {
         expect(serverGaveNoAnswer(_status(code)), isFalse, reason: '$code');
@@ -240,33 +270,67 @@ void main() {
       expect(alarm.callsTo('closeFromDone'), hasLength(1));
     });
 
-    test('a native call that fails claims nothing and keeps the '
-        'button', () async {
-      await openFromDone(_offline);
+    /// Makes the native side answer [answer] to every call.
+    void nativeAnswers(Future<Object?> Function(MethodCall call)? answer) {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
             const MethodChannel(AlarmHost.channelName),
-            (call) async => throw PlatformException(code: 'bad_args'),
+            answer,
           );
+    }
+
+    /// The plain failed screen: no button, nothing claimed, still failed.
+    void expectPlainFailedScreen() {
+      expect(cubit.state.status, CriticalAlarmStatus.failure);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(cubit.state.doneIncidentId, isNull);
+      expect(cubit.state.isDoneHandedOff, isFalse);
+    }
+
+    test('native refuses, the incident is not acknowledged on this phone: '
+        'the button goes and nothing is claimed', () async {
+      await openFromDone(_offline);
+      var calls = 0;
+      nativeAnswers((call) async {
+        calls++;
+        throw PlatformException(code: AlarmHost.notAcknowledgedCode);
+      });
 
       await cubit.handCloseToNative();
+      expectPlainFailedScreen();
 
-      expect(cubit.state.isDoneHandedOff, isFalse);
-      expect(cubit.state.doneIncidentId, 'inc_1');
+      // With the button gone there is nothing to tap again.
+      await cubit.handCloseToNative();
+      expect(calls, 1);
     });
 
-    test('a platform with no such call claims nothing either', () async {
+    test('a platform with no such call: the button goes and nothing is '
+        'claimed', () async {
       await openFromDone(_offline);
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-            const MethodChannel(AlarmHost.channelName),
-            null,
-          );
+      nativeAnswers(null);
 
       await cubit.handCloseToNative();
+      expectPlainFailedScreen();
+    });
 
-      expect(cubit.state.isDoneHandedOff, isFalse);
-      expect(cubit.state.doneIncidentId, 'inc_1');
+    test('any other native failure: the same', () async {
+      await openFromDone(_offline);
+      nativeAnswers((call) async => throw PlatformException(code: 'bad_args'));
+
+      await cubit.handCloseToNative();
+      expectPlainFailedScreen();
+    });
+
+    test('a failed load with no message still reads as failed once the '
+        'button is gone', () async {
+      await openFromDone(const Failure.api(statusCode: 503));
+      expect(cubit.state.errorMessage, isNull);
+      nativeAnswers((call) async {
+        throw PlatformException(code: AlarmHost.notAcknowledgedCode);
+      });
+
+      await cubit.handCloseToNative();
+      expectPlainFailedScreen();
     });
   });
 

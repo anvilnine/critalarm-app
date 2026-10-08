@@ -433,6 +433,15 @@ public final class IncidentActivityCoordinator {
         #endif
     }
 
+    /// The state on the incident's card, or nil when it has no card.
+    public func cardState(incidentId: String) -> IncidentActivityState? {
+        #if canImport(ActivityKit)
+        return activity(for: incidentId)?.content.state.state
+        #else
+        return nil
+        #endif
+    }
+
     /// Incident ids with a card on screen right now.
     public func showingIncidentIds() -> [String] {
         #if canImport(ActivityKit)

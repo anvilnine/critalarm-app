@@ -494,12 +494,36 @@ import AlarmKit
         result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
         return
       }
-      if #available(iOS 16.2, *) {
-        Task { _ = try? await CloseIncidentIntent(incidentId: incidentId).perform() }
-        result(nil)
-      } else {
+      guard #available(iOS 16.2, *) else {
         result(FlutterMethodNotImplemented)
+        return
       }
+      // The link that brought the app here can be forged, so it is not
+      // what decides. This phone's own record is: only an incident
+      // acknowledged here and quiet has a Done to press. Anything else is
+      // refused before a single thing is touched.
+      var alarmUnderWay = false
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+        // Alarms that cannot be read count as one under way.
+        alarmUnderWay = (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+      }
+      #endif
+      let mayClose = DoneHandOffRule.mayClose(
+        acked: AckedIncidentStore.contains(incidentId: incidentId),
+        alarmUnderWay: alarmUnderWay,
+        cardState: IncidentActivityCoordinator.shared.cardState(incidentId: incidentId)
+      )
+      guard mayClose else {
+        NSLog("CritAlarmAlarm: close_from_done_refused incident_id=%@", incidentId)
+        result(FlutterError(
+          code: "not_acknowledged", message: "not acknowledged on this phone", details: nil
+        ))
+        return
+      }
+      Task { _ = try? await CloseIncidentIntent(incidentId: incidentId).perform() }
+      result(nil)
 
     case "cancelAlarm":
       guard let incidentId = args["incident_id"] as? String else {

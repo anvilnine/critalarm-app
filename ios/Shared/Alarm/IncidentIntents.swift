@@ -90,6 +90,36 @@ public enum DoneButton: Equatable {
     }
 }
 
+/// Whether the app may run the close on behalf of a Done button it says
+/// was pressed.
+///
+/// The app only says so because a link carried a marker, and
+/// `critalarm://` links can be opened by any app or web page. So the marker
+/// proves nothing. What this phone itself recorded does: the close goes
+/// ahead only for an incident that is acknowledged here and quiet, which is
+/// exactly the incident whose card carries Done.
+///
+/// It matters most here: the close ends the Live Activity before the
+/// server answers, and for an incident nobody acknowledged that card is
+/// where "I'm up" is.
+public enum DoneHandOffRule {
+    /// - [acked]: the incident is in `AckedIncidentStore`, set by "I'm up"
+    ///   on this phone or by an acknowledge from elsewhere, and dropped
+    ///   when the incident opens again.
+    /// - [alarmUnderWay]: an AlarmKit alarm exists for the incident,
+    ///   alerting, counting down or re-armed.
+    /// - [cardState]: the state on the incident's Live Activity, nil when
+    ///   it has none. A silenced card and a reopened one say `open`.
+    ///
+    /// An id this phone has never seen is in no store, and is refused.
+    static func mayClose(
+        acked: Bool, alarmUnderWay: Bool, cardState: IncidentActivityState?
+    ) -> Bool {
+        guard acked, !alarmUnderWay else { return false }
+        return cardState == nil || cardState == .acked
+    }
+}
+
 @available(iOS 16.2, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop"
