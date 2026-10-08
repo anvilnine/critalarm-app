@@ -160,11 +160,19 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 
   /// The words the acknowledged screen shows, which is all a challenge may
   /// compare against.
-  ChallengeIncident _challengeIncident(CriticalAlarmState state) =>
-      ChallengeIncident(
-        topic: state.topic,
-        alertTitle: state.title.isEmpty ? null : state.title,
-      );
+  ///
+  /// When the first message has no title (a topic whose content mode hides
+  /// it), the cubit puts a fallback line in `state.title`. That line is not
+  /// a title, so no alert title is passed. The test is the message's own
+  /// `title` being null or empty, never the text of the line.
+  ChallengeIncident _challengeIncident(CriticalAlarmState state) {
+    final sent = state.incident?.messages.firstOrNull?.title;
+    final hasRealTitle = sent != null && sent.isNotEmpty;
+    return ChallengeIncident(
+      topic: state.topic,
+      alertTitle: hasRealTitle && state.title.isNotEmpty ? state.title : null,
+    );
+  }
 
   /// The challenge to draw for [state], or null. Only for the incident it
   /// was opened for, and only while that one waits for "At my desk".
