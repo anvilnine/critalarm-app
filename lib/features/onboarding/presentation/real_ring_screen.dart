@@ -166,6 +166,16 @@ class _RealRingViewState extends State<_RealRingView>
 
   void _onChanged(BuildContext context, RealRingState state) {
     final cubit = context.read<RealRingCubit>();
+    // The small face beside the tracker is alarmed while the real alarm is
+    // being sent: from the count before it to the phone ringing.
+    final isSending =
+        state.isSendCountingDown ||
+        state.phase == RealRingPhase.sending ||
+        state.phase == RealRingPhase.waiting ||
+        state.phase == RealRingPhase.rang;
+    OnboardingAmbientScope.maybeOf(context)?.setFaceMood(
+      isSending ? TravellingFaceMood.alarmed : null,
+    );
     if (state.local.canLaunch) {
       cubit.phoneOnlyTestLaunched();
       _openAlarm(phoneOnlyTestIncidentId);
@@ -208,9 +218,9 @@ class _RealRingViewState extends State<_RealRingView>
             withFades: false,
             hasTabBar: false,
             topBar: AppTopBar(
-              title: LocaleKeys.app_title.tr(),
-              // Setup moves forward only. Opened on top of another screen,
-              // Back returns there.
+              title: setupTopBarTitle(context),
+              // From this step on setup moves forward only. Opened on top
+              // of another screen, Back returns there.
               leading: context.canPop()
                   ? AppIconButton(
                       glyph: GlyphType.back,

@@ -1,7 +1,12 @@
 import 'dart:async';
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 /// The terminal from the site hero: a dark card with three dots, a prompt,
 /// as much of [command] as has been typed, and a caret.
@@ -125,6 +130,10 @@ class _Dot extends StatelessWidget {
 /// The typing takes [typeFor]. With animations switched off nothing is
 /// typed: the finished command is there from the first frame. A screen
 /// reader gets [semanticLabel] and none of the keystrokes.
+///
+/// The phone ticks as it types and taps once when the command is whole,
+/// with the same limits as the story terminal. Nothing plays when nothing
+/// is typed, or while this screen is covered or the app is in the back.
 class TypedCurlTerminal extends StatefulWidget {
   const TypedCurlTerminal({
     required this.command,
@@ -152,10 +161,16 @@ class _TypedCurlTerminalState extends State<TypedCurlTerminal>
   late final int _length = CurlTerminalCard.lengthOf(widget.command);
   bool _started = false;
 
+  /// The haptic cues of the typing, or null when nothing is typed.
+  HeroCueClock? _cueClock;
+  double _typeSeconds = 0;
+  List<ModalRoute<Object?>> _pagesAbove = const [];
+
   // Started here rather than in initState because it reads MediaQuery.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _pagesAbove = pagesAbove(context);
     if (_started) return;
     _started = true;
     final duration = context.motion(widget.typeFor);
@@ -163,8 +178,39 @@ class _TypedCurlTerminalState extends State<TypedCurlTerminal>
       _typing.value = 1;
       return;
     }
-    _typing.duration = duration;
+    _typeSeconds = duration.inMicroseconds / 1e6;
+    _cueClock = HeroCueClock(
+      typingCues(
+        length: _length,
+        isAndroid: defaultTargetPlatform == TargetPlatform.android,
+        startsAt: 0,
+        takes: _typeSeconds,
+      ),
+    );
+    _typing
+      ..addListener(_playCues)
+      ..duration = duration;
     unawaited(_typing.forward());
+  }
+
+  /// Whether a haptic may play right now: this screen is the one on top and
+  /// the app is in front.
+  bool get _canPlayHaptics {
+    final lifecycle = SchedulerBinding.instance.lifecycleState;
+    return mounted &&
+        isOnTopOfAll(_pagesAbove) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  void _playCues() {
+    // The clock moves on every frame, allowed to play or not, so a cue that
+    // was missed is never kept for later.
+    final cues = _cueClock?.advanceTo(_typing.value * _typeSeconds);
+    if (cues == null || !_canPlayHaptics) return;
+    for (final cue in cues) {
+      if (cue == HeroCue.typeTick) AppHaptics.tick();
+      if (cue == HeroCue.commandSent) AppHaptics.lightTap();
+    }
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_routes.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -12,8 +13,8 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
-import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/connect_routes_picture.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tap_room.dart';
@@ -39,41 +40,64 @@ enum OnboardingConnectPart {
 class OnboardingConnectScreen extends StatelessWidget {
   const OnboardingConnectScreen({
     this.part = OnboardingConnectPart.connect,
+    this.cameBack = false,
     super.key,
   });
 
   final OnboardingConnectPart part;
 
+  /// Opened by Back from a later step. The screen then shows the server the
+  /// user picked and waits, instead of moving on because one is saved.
+  final bool cameBack;
+
   @override
   Widget build(BuildContext context) {
     final isTest = part == OnboardingConnectPart.test;
     final isReplay = isOnboardingReplay(context);
+    // A replay connects to nothing, so it has no choice to show.
+    final showsChoice = cameBack && !isTest && !isReplay;
     return BlocProvider(
       create: (_) {
         final cubit = getIt<OnboardingConnectCubit>(param1: isTest);
         // A replay of the connect step is a look at the form, so a server
         // that is already saved does not move it on.
         unawaited(
-          cubit.loadConnection(
-            adoptSavedConnection: isTest || !isReplay,
-            isReplay: isReplay,
-          ),
+          cubit
+              .loadConnection(
+                adoptSavedConnection: isTest || !isReplay,
+                isReplay: isReplay,
+              )
+              .then((_) {
+                if (showsChoice) return cubit.followPendingConnect();
+              }),
         );
         return cubit;
       },
-      child: _OnboardingConnectView(isTest: isTest, isReplay: isReplay),
+      child: _OnboardingConnectView(
+        isTest: isTest,
+        isReplay: isReplay,
+        showsChoice: showsChoice,
+      ),
     );
   }
 }
 
 class _OnboardingConnectView extends StatefulWidget {
-  const _OnboardingConnectView({required this.isTest, required this.isReplay});
+  const _OnboardingConnectView({
+    required this.isTest,
+    required this.isReplay,
+    required this.showsChoice,
+  });
 
   final bool isTest;
 
   /// Opened from Settings to look at the screens. Nothing is saved, so the
   /// connect buttons move on without connecting.
   final bool isReplay;
+
+  /// The user came back to this step: a server that is saved, or on its
+  /// way, is shown with a way to change it.
+  final bool showsChoice;
 
   @override
   State<_OnboardingConnectView> createState() => _OnboardingConnectViewState();
@@ -153,10 +177,60 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
   bool _connectStepFinished = false;
 
-  void _finishConnectStep() {
+  /// [skippedItself] when the step moved on because a server was already
+  /// saved, with nothing for the user to do. Back never opens it then.
+  void _finishConnectStep({bool skippedItself = false}) {
     if (_connectStepFinished) return;
     _connectStepFinished = true;
-    unawaited(finishOnboardingStep(context, OnboardingStepId.connect));
+    unawaited(
+      finishOnboardingStep(
+        context,
+        OnboardingStepId.connect,
+        skippedItself: skippedItself,
+      ),
+    );
+  }
+
+  /// True until the user asks for a different server. While it is, a saved
+  /// server does not move the step on by itself.
+  late bool _keepsChoice = widget.showsChoice;
+  bool _isChangingServer = false;
+
+  /// The last try to drop the server failed, so it is still the one saved.
+  bool _changeServerFailed = false;
+
+  /// Whether the screen is showing the server the user already picked: one
+  /// that is connected, or Crit Alarm Cloud while its connect is on the way.
+  bool _showsChoice(OnboardingConnectState state) =>
+      _keepsChoice &&
+      state.confirmation == null &&
+      (state.isConnected ||
+          (state.isConnecting && state.cloudWaitLine != null));
+
+  /// Use a different server. Drops the one that is there, then the two
+  /// choices show as they did the first time.
+  Future<void> _changeServer() async {
+    if (_isChangingServer) return;
+    setState(() {
+      _isChangingServer = true;
+      _changeServerFailed = false;
+    });
+    var hasChanged = false;
+    try {
+      await context.read<OnboardingConnectCubit>().changeServer();
+      hasChanged = true;
+    } on Object {
+      // The server is still saved. The line under it says so.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChangingServer = false;
+          _keepsChoice = !hasChanged;
+          _changeServerFailed = !hasChanged;
+        });
+      }
+    }
+    if (mounted && hasChanged) unawaited(_checkConnectivity());
   }
 
   /// Continue with Crit Alarm Cloud. The connect is handed over to run
@@ -201,9 +275,15 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           (!prev.canNavigateToHome && curr.canNavigateToHome) ||
           (!prev.canLaunchDemoAlarm && curr.canLaunchDemoAlarm) ||
           prev.isConnected != curr.isConnected ||
+          prev.isConnecting != curr.isConnecting ||
           prev.isCountingDown != curr.isCountingDown,
       listener: (context, state) {
         final cubit = context.read<OnboardingConnectCubit>();
+        // The small face beside the tracker watches while a server is being
+        // connected.
+        OnboardingAmbientScope.maybeOf(context)?.setFaceMood(
+          state.isConnecting ? TravellingFaceMood.watching : null,
+        );
         if (state.canNavigateToHome) {
           cubit.navigationHandled();
           context.go('/');
@@ -220,9 +300,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           // A server answered, so this step is done. The flow says what
           // comes next; this screen no longer turns into the test. A server
           // the user typed by hand first shows that it worked, and waits
-          // for Continue.
-          if (state.isConnected && state.confirmation == null) {
-            _finishConnectStep();
+          // for Continue. So does the server of a user who came back here.
+          if (state.isConnected &&
+              state.confirmation == null &&
+              !_keepsChoice) {
+            _finishConnectStep(skippedItself: true);
           }
           return;
         }
@@ -252,7 +334,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         }
 
         final isTest = widget.isTest;
-        final bottomAligned = !isTest && !state.isSelfHosting;
+        final showsChoice = _showsChoice(state);
+        final bottomAligned = !isTest && !state.isSelfHosting && !showsChoice;
 
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
@@ -302,9 +385,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           hasTabBar: false,
           resizeForKeyboard: true,
           topBar: AppTopBar(
-            title: LocaleKeys.app_title.tr(),
-            // Onboarding moves forward only. Opened from Settings the screen
-            // sits on top of it, and Back returns there.
+            title: setupTopBarTitle(context),
+            // In a setup run the shell draws Back. Opened from Settings the
+            // screen sits on top of it, and Back returns there.
             leading: context.canPop()
                 ? AppIconButton(
                     glyph: GlyphType.back,
@@ -364,6 +447,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     if (confirmation != null) {
       return _buildSelfHostConfirmation(context, confirmation);
     }
+    if (_showsChoice(state)) return _buildCurrentChoice(context, state, cubit);
     if (state.isSelfHosting && state.isConnecting) {
       // The address is being checked. The face waits with the user and one
       // line says what is going on.
@@ -388,7 +472,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SetupFace(state: FaceState.thinking, gap: Spacing.s4),
+                // The same picture as the two choices, with the route
+                // through the user's own server lit.
+                ConnectStepRoutes(state: state, isHeader: true),
                 AppFittedTitle(
                   LocaleKeys.onboarding_connect_self_host_title.tr(),
                   minFontSize: setupTitleMinFontSize,
@@ -408,14 +494,12 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         // with the face centered in the middle area.
         if (!state.isSelfHosting) ...[
           const SizedBox(height: Spacing.s4),
-          const Expanded(
-            child: OnboardingAnimationLoop(
-              isOnItsOwn: true,
-              loop: [
-                WelcomeVariant.pipeline,
-                WelcomeVariant.parade,
-                WelcomeVariant.orbit,
-              ],
+          // The two routes an alert can take. The lit one follows the
+          // choice.
+          Expanded(
+            child: ConnectStepRoutes(
+              state: state,
+              background: cubit.backgroundConnect,
             ),
           ),
           const SizedBox(height: Spacing.s4),
@@ -573,7 +657,13 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         .tr();
     return Column(
       children: [
-        const SetupFace(state: FaceState.success, gap: Spacing.s4),
+        // The route through the user's own server, drawn connected.
+        const ConnectRoutesHeader(
+          view: (
+            lit: ConnectRoute.ownServer,
+            status: ConnectRouteStatus.connected,
+          ),
+        ),
         Semantics(
           liveRegion: true,
           // Read as one: "Connected, alerts.example.com".
@@ -613,6 +703,82 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     );
   }
 
+  /// What a user who came back to this step sees: "Connected to" the server
+  /// they picked, or Crit Alarm Cloud with where its connect stands, in the
+  /// words the rest of setup uses for it. Continue and the way to change it
+  /// are in the pinned bar.
+  Widget _buildCurrentChoice(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit,
+  ) {
+    final colors = context.appColors;
+    final isOnItsWay = !state.isConnected;
+    final title = isOnItsWay
+        ? LocaleKeys.onboarding_connect_cloud_title.tr()
+        : cubit.choseCloud
+        ? LocaleKeys.onboarding_connect_came_back_connected_cloud.tr()
+        : LocaleKeys.onboarding_connect_came_back_connected_own.tr();
+    // While the connect is on its way the line under the name says where
+    // it stands. Once it has landed, the host says which server it is.
+    final waitLine = isOnItsWay ? state.cloudWaitLine : null;
+    final host = cubit.chosenHost;
+    return Column(
+      children: [
+        // The route the user picked, drawn as it stands now.
+        ConnectRoutesHeader(
+          view: (
+            lit: cubit.choseCloud || isOnItsWay
+                ? ConnectRoute.cloud
+                : ConnectRoute.ownServer,
+            status: isOnItsWay
+                ? ConnectRouteStatus.connecting
+                : ConnectRouteStatus.connected,
+          ),
+        ),
+        Semantics(
+          liveRegion: true,
+          // Read as one: "Connected to your server, alerts.example.com".
+          label: '$title, ${waitLine ?? host}',
+          child: ExcludeSemantics(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppFittedTitle(
+                  title,
+                  minFontSize: setupTitleMinFontSize,
+                  style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+                ),
+                const SizedBox(height: Spacing.s2),
+                if (waitLine != null)
+                  Text(
+                    waitLine,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body(colors.onCanvasMuted),
+                  )
+                else
+                  // A host is a machine string, so it is set in mono.
+                  Text(
+                    host,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.mono(colors.onCanvas, fontSize: 15),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (_changeServerFailed) ...[
+          const SizedBox(height: Spacing.s4),
+          AppToast(
+            key: const ValueKey('connect-change-server-error-toast'),
+            faceState: FaceState.worried,
+            message: LocaleKeys.onboarding_connect_change_server_failed.tr(),
+          ),
+        ],
+      ],
+    );
+  }
+
   /// Pinned actions for the not-yet-connected states.
   Widget _buildConnectBottomBar(
     BuildContext context,
@@ -626,6 +792,28 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         size: AppButtonSize.lg,
         isFullWidth: true,
         onPressed: _finishConnectStep,
+      );
+    }
+    if (_showsChoice(state)) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppButton(
+            label: LocaleKeys.onboarding_connect_self_host_continue.tr(),
+            size: AppButtonSize.lg,
+            isFullWidth: true,
+            onPressed: _isChangingServer ? null : _finishConnectStep,
+          ),
+          const SizedBox(height: Spacing.s3),
+          AppButton(
+            label: LocaleKeys.onboarding_connect_change_server.tr(),
+            variant: AppButtonVariant.ghost,
+            // Tall enough to tap without extra room around it.
+            isFullWidth: true,
+            isLoading: _isChangingServer,
+            onPressed: () => unawaited(_changeServer()),
+          ),
+        ],
       );
     }
     // No server has answered yet, so offer the way out. Without it a user who

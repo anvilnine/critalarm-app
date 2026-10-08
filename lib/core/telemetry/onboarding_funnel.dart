@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,10 @@ enum OnboardingFunnelState {
 ///
 /// An event is the step id, the flow id and the milliseconds since the
 /// previous event. Both ids are checked before they become a parameter.
+///
+/// The offer step adds three events of its own: shown, closed and bought.
+/// Each is the product, the layout and the flow id, checked the same way,
+/// and they wait, go and are dropped with the step events.
 final class OnboardingFunnel {
   OnboardingFunnel({
     required this._prefs,
@@ -65,6 +70,19 @@ final class OnboardingFunnel {
   static const _viewed = 'v';
   static const _completed = 'c';
   static const _fields = {'k', 'step', 'flow_id', 'ms', 'at'};
+
+  static const _offerShown = 'os';
+  static const _offerClosed = 'oc';
+  static const _offerBought = 'ob';
+  static const Set<String> _offerKinds = {
+    _offerShown,
+    _offerClosed,
+    _offerBought,
+  };
+  static const _offerFields = {'k', 'product', 'layout', 'flow_id', 'at'};
+
+  /// The two products an offer can name.
+  static const Set<String> _offerProducts = {'pro', 'hosted'};
 
   final SharedPreferences _prefs;
   final TelemetryGate _gate;
@@ -97,6 +115,31 @@ final class OnboardingFunnel {
     bool isReplay = false,
   }) => _record(_completed, step, flowId, isReplay: isReplay);
 
+  /// The offer step put a paywall layout on screen. [product] is `pro` or
+  /// `hosted` and [layout] is a `PaywallLayoutId.key`.
+  Future<void> offerShown({
+    required String product,
+    required String layout,
+    required String flowId,
+    bool isReplay = false,
+  }) => _recordOffer(_offerShown, product, layout, flowId, isReplay: isReplay);
+
+  /// The user left the offer without buying.
+  Future<void> offerClosed({
+    required String product,
+    required String layout,
+    required String flowId,
+    bool isReplay = false,
+  }) => _recordOffer(_offerClosed, product, layout, flowId, isReplay: isReplay);
+
+  /// The user bought what the offer showed.
+  Future<void> offerBought({
+    required String product,
+    required String layout,
+    required String flowId,
+    bool isReplay = false,
+  }) => _recordOffer(_offerBought, product, layout, flowId, isReplay: isReplay);
+
   /// The app opened. [analyticsOn] is the saved analytics preference. This
   /// is where a leftover list is sent, deleted or aged out.
   Future<void> start({required bool analyticsOn}) => _enqueue(() async {
@@ -128,19 +171,50 @@ final class OnboardingFunnel {
     final ms = previous == null
         ? 0
         : max(0, now.difference(previous).inMilliseconds);
-    return _enqueue(() => _handle(kind, step, flowId, ms, now));
+    return _enqueue(
+      () => _handle({
+        'k': kind,
+        'step': step,
+        'flow_id': flowId,
+        'ms': ms,
+        'at': now.millisecondsSinceEpoch,
+      }),
+    );
   }
 
-  Future<void> _handle(
+  Future<void> _recordOffer(
     String kind,
-    String step,
-    String flowId,
-    int ms,
-    DateTime now,
-  ) async {
+    String product,
+    String layout,
+    String flowId, {
+    required bool isReplay,
+  }) {
+    if (isReplay) return Future.value();
+    if (!_isOffer(product, layout) || !_flowIdPattern.hasMatch(flowId)) {
+      return Future.value();
+    }
+    final at = _clock().millisecondsSinceEpoch;
+    return _enqueue(
+      () => _handle({
+        'k': kind,
+        'product': product,
+        'layout': layout,
+        'flow_id': flowId,
+        'at': at,
+      }),
+    );
+  }
+
+  static bool _isOffer(Object? product, Object? layout) =>
+      _offerProducts.contains(product) &&
+      layout is String &&
+      PaywallLayoutId.fromKey(layout) != null;
+
+  /// Sends [event], keeps it for later or drops it, by what the user said.
+  Future<void> _handle(Map<String, Object?> event) async {
     switch (state) {
       case OnboardingFunnelState.optedIn:
-        await _send(kind, step, flowId, ms);
+        await _send(event);
       case OnboardingFunnelState.optedOut:
       case OnboardingFunnelState.expired:
         return;
@@ -149,13 +223,7 @@ final class OnboardingFunnel {
         if (state == OnboardingFunnelState.expired) return;
         final events = await _readBuffer() ?? <Map<String, Object?>>[];
         if (events.length >= maxBuffered) return;
-        events.add({
-          'k': kind,
-          'step': step,
-          'flow_id': flowId,
-          'ms': ms,
-          'at': now.millisecondsSinceEpoch,
-        });
+        events.add(event);
         await _prefs.setString(bufferKey, jsonEncode(events));
     }
   }
@@ -169,12 +237,7 @@ final class OnboardingFunnel {
     if (turnGateOn) await _gate.setAnalyticsEnabled(true);
     final events = await _takeBuffer();
     for (final event in events) {
-      await _send(
-        event['k']! as String,
-        event['step']! as String,
-        event['flow_id']! as String,
-        event['ms']! as int,
-      );
+      await _send(event);
     }
   }
 
@@ -200,14 +263,40 @@ final class OnboardingFunnel {
     await _prefs.setString(stateKey, 'expired');
   }
 
-  Future<void> _send(String kind, String step, String flowId, int ms) =>
-      kind == _viewed
-      ? _analytics.stepViewed(step: step, flowId: flowId, msSincePrevious: ms)
-      : _analytics.stepCompleted(
-          step: step,
+  Future<void> _send(Map<String, Object?> event) {
+    final kind = event['k']! as String;
+    final flowId = event['flow_id']! as String;
+    if (_offerKinds.contains(kind)) {
+      final product = event['product']! as String;
+      final layout = event['layout']! as String;
+      return switch (kind) {
+        _offerShown => _analytics.offerShown(
+          product: product,
+          layout: layout,
           flowId: flowId,
-          msSincePrevious: ms,
-        );
+        ),
+        _offerClosed => _analytics.offerClosed(
+          product: product,
+          layout: layout,
+          flowId: flowId,
+        ),
+        _ => _analytics.offerBought(
+          product: product,
+          layout: layout,
+          flowId: flowId,
+        ),
+      };
+    }
+    final step = event['step']! as String;
+    final ms = event['ms']! as int;
+    return kind == _viewed
+        ? _analytics.stepViewed(step: step, flowId: flowId, msSincePrevious: ms)
+        : _analytics.stepCompleted(
+            step: step,
+            flowId: flowId,
+            msSincePrevious: ms,
+          );
+  }
 
   /// The waiting events, with the list already deleted, so a crash while
   /// sending cannot send them twice. A list that does not check out is
@@ -239,18 +328,28 @@ final class OnboardingFunnel {
     final events = <Map<String, Object?>>[];
     for (final row in decoded) {
       if (row is! Map<String, dynamic>) return null;
+      final kind = row['k'];
+      final flowId = row['flow_id'];
+      final at = row['at'];
+      if (flowId is! String || !_flowIdPattern.hasMatch(flowId)) return null;
+      if (at is! int) return null;
+      if (_offerKinds.contains(kind)) {
+        if (row.length != _offerFields.length ||
+            !row.keys.every(_offerFields.contains)) {
+          return null;
+        }
+        if (!_isOffer(row['product'], row['layout'])) return null;
+        events.add(Map<String, Object?>.from(row));
+        continue;
+      }
       if (row.length != _fields.length || !row.keys.every(_fields.contains)) {
         return null;
       }
-      final kind = row['k'];
       final step = row['step'];
-      final flowId = row['flow_id'];
       final ms = row['ms'];
-      final at = row['at'];
       if (kind != _viewed && kind != _completed) return null;
       if (step is! String || !_stepIds.contains(step)) return null;
-      if (flowId is! String || !_flowIdPattern.hasMatch(flowId)) return null;
-      if (ms is! int || ms < 0 || at is! int) return null;
+      if (ms is! int || ms < 0) return null;
       events.add(Map<String, Object?>.from(row));
     }
     return events;

@@ -61,7 +61,7 @@ void main() {
       expect(validate(['made_up', 'also_made_up']), isNull);
     });
 
-    test('both bundled flows pass unchanged', () {
+    test('every bundled flow passes unchanged', () {
       for (final flow in BundledOnboardingFlows.all) {
         expect(
           validateOnboardingFlow(flow, requires: requires),
@@ -72,8 +72,18 @@ void main() {
     });
 
     test('the bundled lists are the ones that ship', () {
-      expect(BundledOnboardingFlows.defaultFlow.id, '2026-10-a');
+      expect(BundledOnboardingFlows.defaultFlow.id, '2026-10-b');
       expect(BundledOnboardingFlows.defaultFlow.steps, [
+        'welcome',
+        'connect',
+        'permissions',
+        'first_topic',
+        'real_ring',
+        'offer',
+        'hook_up',
+      ]);
+      expect(BundledOnboardingFlows.october2026A.id, '2026-10-a');
+      expect(BundledOnboardingFlows.october2026A.steps, [
         'welcome',
         'how_it_rings',
         'connect',

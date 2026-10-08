@@ -27,6 +27,10 @@ enum AfterAck {
 /// Nothing follows an ack before onboarding is finished and the first
 /// Feature Guide has been seen or skipped (`isSetupDone`). The demo alarm at
 /// the end of onboarding is acked with both still open.
+///
+/// Nothing follows an ack either while the offer step of setup is still to
+/// come (`isOfferAhead`): that step is the one ask of the run, and no sheet
+/// is shown, planned or owed beside it.
 abstract final class AfterAckDecider {
   static AfterAck decide({
     required bool isSetupDone,
@@ -38,8 +42,9 @@ abstract final class AfterAckDecider {
     required bool proShouldAsk,
     bool hasOtherOpenIncident = false,
     bool alreadyShownToday = false,
+    bool isOfferAhead = false,
   }) {
-    if (!isSetupDone) return AfterAck.nothing;
+    if (!isSetupDone || isOfferAhead) return AfterAck.nothing;
     // While another incident is still open, or a sheet already showed today,
     // no sheet pops up over the alarm. Planning and owing still run, because
     // neither puts anything on screen.

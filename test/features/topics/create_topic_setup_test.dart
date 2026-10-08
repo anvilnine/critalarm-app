@@ -10,6 +10,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_connection_use
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/topic_made_beat.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -237,6 +238,9 @@ void main() {
       await open(tester);
       await tester.tap(find.text('Create topic'));
       await settle(tester);
+      // The picture of Home with the new topic in it takes 1.2 s.
+      expect(doneCalls, 0);
+      await tester.pump(topicMadeBeatTakes);
       await settle(tester);
 
       expect(doneCalls, 1);

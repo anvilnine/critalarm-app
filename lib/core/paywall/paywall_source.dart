@@ -22,6 +22,9 @@ enum PaywallSource {
   reminderProLater('reminder_pro_later'),
   homeDay0Card('home_day0_card'),
 
+  /// The offer step of setup, which hosts one paywall layout.
+  onboardingOffer('onboarding_offer'),
+
   /// Only the router uses this, when a link arrives with no source or one it
   /// does not know.
   direct(directPaywallSource);

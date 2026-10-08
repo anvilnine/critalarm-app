@@ -75,6 +75,8 @@ void main() {
     await harness.engine.resume();
     for (final step in BundledOnboardingFlows.defaultFlow.steps) {
       if (step == OnboardingStepId.hookUp) break;
+      // Switched off, as shipped, the offer step is never opened.
+      if (step == OnboardingStepId.offer) continue;
       await harness.engine.finishStep(step);
     }
   }
@@ -86,7 +88,10 @@ void main() {
       await runToHookUp();
       await harness.engine.finishStep(OnboardingStepId.hookUp);
 
-      final steps = BundledOnboardingFlows.defaultFlow.steps;
+      final steps = [
+        for (final step in BundledOnboardingFlows.defaultFlow.steps)
+          if (step != OnboardingStepId.offer) step,
+      ];
       final entered = harness.events
           .where((e) => e.kind == OnboardingStepEventKind.entered)
           .map((e) => e.stepId);
@@ -165,7 +170,11 @@ void main() {
         // through the same repository the sheet uses.
         await privacy.setAnalyticsEnabled(enabled: true);
 
-        final steps = BundledOnboardingFlows.defaultFlow.steps;
+        // Switched off, as shipped, the offer step is never opened.
+        final steps = [
+          for (final step in BundledOnboardingFlows.defaultFlow.steps)
+            if (step != OnboardingStepId.offer) step,
+        ];
         expect(gate.sent, hasLength(steps.length * 2));
         expect(hasBuffer(), isFalse);
         expect(gate.sent.last.$1, AnalyticsEvents.onboardingStepCompleted);

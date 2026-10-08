@@ -6,6 +6,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/offer_step_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
@@ -30,6 +31,7 @@ class OnboardingStepEntry {
     this.screen,
     this.requires = const {},
     this.handlesMissingServer = false,
+    this.hasTopBar = true,
     this.isAvailable = _onEveryPhone,
     this.isSatisfied = _onlyOnceCompleted,
   });
@@ -53,6 +55,11 @@ class OnboardingStepEntry {
   /// where it would otherwise put the waiting face or the failure in its
   /// place.
   final bool handlesMissingServer;
+
+  /// False for a screen that draws no top bar of its own, as the intro
+  /// steps do. The shell's tracker sits where a top bar would, so on such a
+  /// step the shell also backs it once the page is scrolled under it.
+  final bool hasTopBar;
 
   /// Whether the step exists on this phone.
   final bool Function(OnboardingPlatform on) isAvailable;
@@ -108,6 +115,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/welcome',
       routeName: 'onboardingWelcome',
       ambientStep: OnboardingAmbientStep.welcome,
+      hasTopBar: false,
       screen: (context, state) => OnboardingWelcomeScreen(
         variant: state.uri.queryParameters.containsKey('v')
             ? WelcomeVariant.fromQuery(state.uri.queryParameters['v'])
@@ -120,6 +128,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/how-it-rings',
       routeName: 'onboardingHowItRings',
       ambientStep: OnboardingAmbientStep.howItRings,
+      hasTopBar: false,
       screen: (context, state) => const OnboardingHowItRingsScreen(),
     ),
     OnboardingStepEntry(
@@ -128,7 +137,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       routeName: 'onboardingConnect',
       ambientStep: OnboardingAmbientStep.connect,
       isSatisfied: (facts) => facts.hasConnection(),
-      screen: (context, state) => const OnboardingConnectScreen(),
+      screen: (context, state) => OnboardingConnectScreen(
+        cameBack: isOnboardingCameBackUri(state.uri),
+      ),
     ),
     OnboardingStepEntry(
       id: OnboardingStepId.permissions,
@@ -144,6 +155,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
         initialStep: state.uri.queryParameters['denied'] == 'true'
             ? NotificationPermissionStep.denied
             : NotificationPermissionStep.initial,
+        cameBack: isOnboardingCameBackUri(state.uri),
         replaySkips: OnboardingPermissionsScreen.replaySkipsFrom(state.uri),
       ),
     ),
@@ -176,6 +188,21 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       screen: (context, state) => const RealRingScreen(),
     ),
     OnboardingStepEntry(
+      id: OnboardingStepId.offer,
+      route: '/onboarding/offer',
+      routeName: 'onboardingOffer',
+      // The paywall layout covers the whole screen. The canvas under it
+      // only has to differ from the steps on either side.
+      ambientStep: OnboardingAmbientStep.firstTopic,
+      hasTopBar: false,
+      // The stores sell on a phone only.
+      isAvailable: _onMobileOnly,
+      // Switched off, or with nothing to offer this user, it counts as
+      // done and a run never opens it.
+      isSatisfied: (facts) => facts.hasNoOfferToShow(),
+      screen: (context, state) => const OfferStepScreen(),
+    ),
+    OnboardingStepEntry(
       id: OnboardingStepId.legacyTest,
       route: '/onboarding/test',
       routeName: 'onboardingTest',
@@ -189,6 +216,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/widgets',
       routeName: 'onboardingWidgets',
       ambientStep: OnboardingAmbientStep.widgets,
+      hasTopBar: false,
       isAvailable: _whereWidgetsExist,
       screen: (context, state) => const OnboardingWidgetsScreen(),
     ),

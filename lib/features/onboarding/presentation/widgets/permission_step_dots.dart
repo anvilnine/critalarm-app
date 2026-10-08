@@ -9,10 +9,14 @@ import 'package:flutter/material.dart';
 /// [count] is the number of steps this phone will draw, so two phones can
 /// show a different number of dots. With one step there is nothing to count
 /// and it draws nothing.
+///
+/// The welcome step draws its pages with the same dots, and gives its own
+/// [label].
 class PermissionStepDots extends StatelessWidget {
   const PermissionStepDots({
     required this.count,
     required this.index,
+    this.label,
     super.key,
   });
 
@@ -20,6 +24,9 @@ class PermissionStepDots extends StatelessWidget {
 
   /// The current step, from zero.
   final int index;
+
+  /// What a screen reader says for the dots. With none it counts steps.
+  final String? label;
 
   static const double _dot = 6;
   static const double _bar = 20;
@@ -31,9 +38,11 @@ class PermissionStepDots extends StatelessWidget {
     final duration = context.motion(AppDurations.base);
 
     return Semantics(
-      label: LocaleKeys.onboarding_permissions_step_progress.tr(
-        namedArgs: {'step': '${index + 1}', 'count': '$count'},
-      ),
+      label:
+          label ??
+          LocaleKeys.onboarding_permissions_step_progress.tr(
+            namedArgs: {'step': '${index + 1}', 'count': '$count'},
+          ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,

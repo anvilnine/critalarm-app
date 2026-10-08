@@ -118,7 +118,7 @@ void main() {
 
       expect(next.route, '/onboarding');
       expect(prefs.containsKey('onboarding_step'), isFalse);
-      expect(prefs.getString('onboarding_flow_id'), '2026-10-a');
+      expect(prefs.getString('onboarding_flow_id'), '2026-10-b');
       expect(
         prefs.getStringList('onboarding_flow_steps'),
         BundledOnboardingFlows.defaultFlow.steps,

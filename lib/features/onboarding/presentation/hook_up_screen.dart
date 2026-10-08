@@ -7,13 +7,13 @@ import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
-import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
@@ -112,8 +112,11 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     // what forgets the token.
     finishAndGoNext: () =>
         unawaited(finishOnboardingStep(context, OnboardingStepId.hookUp)),
-    finishStep: () =>
-        getIt<OnboardingFlowEngine>().finishStep(OnboardingStepId.hookUp),
+    // Never a replay here: a replay hears no alarm.
+    finishStep: () => finishOnboardingStepInEngine(
+      OnboardingStepId.hookUp,
+      isReplay: false,
+    ),
     openAlarm: (incidentId) =>
         _router.go(PushDeepLink.incidentLocation(incidentId)),
     wait: () => Future<void>.delayed(_tickWait),
@@ -222,7 +225,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
           barBacking: context.appColors.canvas,
           hasTabBar: false,
           topBar: AppTopBar(
-            title: LocaleKeys.app_title.tr(),
+            title: setupTopBarTitle(context),
             leading: context.canPop()
                 ? AppIconButton(
                     glyph: GlyphType.back,

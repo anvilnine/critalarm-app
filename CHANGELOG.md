@@ -25,6 +25,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A missed alarm on Will it wake me? names the topic and time, offers a test, and can be closed there. Closing it clears it from Home.
 - A permission you were never asked for can be allowed from Will it wake me? without opening system settings.
 - On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
+- Setup shows where you are with three bars, and Back takes you one step back until your first topic is made
+- Setup now shows your first topic landing on the Topics screen, then points at it once when setup ends.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -49,6 +51,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Home no longer says All clear while a notice about missed alarms, missed checks or a phone update is showing.
 - Home cards close with a plain x and share one look.
 - The keyboard stays up while you scroll search results and goes away when you drag the list down.
+- The welcome screen shows what the app does: a phone that rings until you tap I'm up, which alerts ring and which stay quiet, and one command from your own tools ringing your phone. Tap I'm up in the picture to stop it yourself.
+- Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
+- The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

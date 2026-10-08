@@ -42,6 +42,7 @@ PaywallEntry paywallEntryOf(PaywallSource source) => switch (source) {
   PaywallSource.settingsSearch => PaywallEntry.settingsSearch,
   PaywallSource.askSheet ||
   PaywallSource.homeDay0Card ||
+  PaywallSource.onboardingOffer ||
   PaywallSource.reminderMorningAfter ||
   PaywallSource.reminderProLater => PaywallEntry.nudge,
   PaywallSource.planSheetEnding ||

@@ -30,6 +30,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_settler
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
@@ -126,6 +127,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       proShouldAsk: proShouldAsk,
       hasOtherOpenIncident: cubit.state.openIncidents.isNotEmpty,
       alreadyShownToday: lastSheet != null && _sameDay(lastSheet, now),
+      isOfferAhead: await getIt<OnboardingOfferGate>().isAhead(),
     );
     // Stamped before the sheet opens, so the second ack of the same day gets
     // nothing whichever of the two was shown.

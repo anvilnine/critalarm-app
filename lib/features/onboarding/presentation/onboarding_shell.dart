@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_chapters.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
@@ -14,10 +17,15 @@ import 'package:critalarm/features/onboarding/presentation/model/background_conn
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
+
+export 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart'
+    show TravellingFaceMood;
 
 /// The connect that runs behind the user, when the app has one registered.
 /// A test that mounts the shell alone has none, and the shell then shows
@@ -25,8 +33,16 @@ import 'package:go_router/go_router.dart';
 BackgroundConnect? _appBackgroundConnect() =>
     getIt.isRegistered<BackgroundConnect>() ? getIt<BackgroundConnect>() : null;
 
+/// The flow engine, when the app has one registered. A test that mounts the
+/// shell alone has none, and the shell then draws no tracker and no Back.
+OnboardingFlowEngine? _appFlowEngine() =>
+    getIt.isRegistered<OnboardingFlowEngine>()
+    ? getIt<OnboardingFlowEngine>()
+    : null;
+
 /// Controller coordinating ambient canvas step changes and direction within
-/// the onboarding flow.
+/// the onboarding flow. It also carries what the step on screen asks of the
+/// shell's top bar: the mood of the small face and whether Back is held.
 class OnboardingAmbientController extends ChangeNotifier {
   OnboardingAmbientController({
     OnboardingAmbientStep initialStep = OnboardingAmbientStep.notifications,
@@ -34,11 +50,31 @@ class OnboardingAmbientController extends ChangeNotifier {
 
   OnboardingAmbientStep _step;
   AmbientDirection _direction = AmbientDirection.push;
+  AmbientMotionVariant _variant = AmbientMotionVariant.drift;
+  TravellingFaceMood? _faceMood;
+  bool _isBackHeld = false;
 
   OnboardingAmbientStep get step => _step;
   AmbientDirection get direction => _direction;
 
-  void setStep(OnboardingAmbientStep nextStep, [AmbientDirection? direction]) {
+  /// How the shapes move for the change that is playing. Drift inside a
+  /// chapter. Only the shell passes sweep, for a step change that crosses
+  /// from one chapter to the next.
+  AmbientMotionVariant get variant => _variant;
+
+  /// The mood the step on screen asked for, or null when it asked for none
+  /// and the shell picks.
+  TravellingFaceMood? get faceMood => _faceMood;
+
+  /// True while the step on screen is in the middle of something Back must
+  /// not walk away from, such as making the first topic.
+  bool get isBackHeld => _isBackHeld;
+
+  void setStep(
+    OnboardingAmbientStep nextStep, [
+    AmbientDirection? direction,
+    AmbientMotionVariant variant = AmbientMotionVariant.drift,
+  ]) {
     if (_step == nextStep) return;
     final resolvedDirection =
         direction ??
@@ -47,7 +83,32 @@ class OnboardingAmbientController extends ChangeNotifier {
             : AmbientDirection.pop);
     _step = nextStep;
     _direction = resolvedDirection;
+    _variant = variant;
     notifyListeners();
+  }
+
+  /// Sets the mood of the small face beside the tracker. Null hands the
+  /// choice back to the shell. Call it from a listener or a callback, never
+  /// while building.
+  void setFaceMood(TravellingFaceMood? mood) {
+    if (_faceMood == mood) return;
+    _faceMood = mood;
+    notifyListeners();
+  }
+
+  /// Takes the Back button away while [isHeld], and gives it back after.
+  /// Call it from a listener or a callback, never while building.
+  void holdBack({required bool isHeld}) {
+    if (_isBackHeld == isHeld) return;
+    _isBackHeld = isHeld;
+    notifyListeners();
+  }
+
+  /// Another step is on screen, so what the last one asked for is over.
+  /// The shell calls it on a route change, where it is about to rebuild.
+  void resetForStep() {
+    _faceMood = null;
+    _isBackHeld = false;
   }
 }
 
@@ -58,6 +119,8 @@ class OnboardingAmbientScope extends InheritedWidget {
     required this.controller,
     required super.child,
     this.hasQuietLine = false,
+    this.showsTracker = false,
+    this.onBack,
     super.key,
   });
 
@@ -67,6 +130,14 @@ class OnboardingAmbientScope extends InheritedWidget {
   /// A step that draws something there of its own gives the corner up.
   final bool hasQuietLine;
 
+  /// True while the shell draws the tracker, and Back when it is offered,
+  /// where a step's top bar has its title. The step then leaves the title
+  /// out. See [setupTopBarTitle].
+  final bool showsTracker;
+
+  /// Goes back one step. Null when Back is not offered on this step.
+  final VoidCallback? onBack;
+
   /// Whether the shell's status is in the top corner right now. False
   /// outside the shell.
   static bool hasQuietLineOf(BuildContext context) =>
@@ -74,6 +145,20 @@ class OnboardingAmbientScope extends InheritedWidget {
           .dependOnInheritedWidgetOfExactType<OnboardingAmbientScope>()
           ?.hasQuietLine ??
       false;
+
+  /// Whether the shell is drawing the tracker over the top bar right now.
+  /// False outside the shell.
+  static bool showsTrackerOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<OnboardingAmbientScope>()
+          ?.showsTracker ??
+      false;
+
+  /// What Back does on this step, or null when it is not offered. Null
+  /// outside the shell.
+  static VoidCallback? onBackOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<OnboardingAmbientScope>()
+      ?.onBack;
 
   static OnboardingAmbientController? maybeOf(BuildContext context) {
     return context
@@ -84,12 +169,24 @@ class OnboardingAmbientScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant OnboardingAmbientScope oldWidget) {
     return controller != oldWidget.controller ||
-        hasQuietLine != oldWidget.hasQuietLine;
+        hasQuietLine != oldWidget.hasQuietLine ||
+        showsTracker != oldWidget.showsTracker ||
+        (onBack == null) != (oldWidget.onBack == null);
   }
 }
 
+/// The title a setup step gives its top bar: the app name, or none while
+/// the shell draws the tracker there.
+String? setupTopBarTitle(BuildContext context) =>
+    OnboardingAmbientScope.showsTrackerOf(context)
+    ? null
+    : LocaleKeys.app_title.tr();
+
+/// Where the step on screen is in a step change.
+enum _StepMotionPhase { rest, leaving, entering }
+
 /// Shell widget providing a persistent, animated ambient canvas behind all
-/// onboarding routes.
+/// onboarding routes, and the tracker, the small face and Back over them.
 class OnboardingShell extends StatefulWidget {
   const OnboardingShell({
     required this.state,
@@ -108,18 +205,69 @@ class OnboardingShell extends StatefulWidget {
   State<OnboardingShell> createState() => _OnboardingShellState();
 }
 
-class _OnboardingShellState extends State<OnboardingShell> {
+class _OnboardingShellState extends State<OnboardingShell>
+    with SingleTickerProviderStateMixin {
   late final OnboardingAmbientController _controller;
   late final BackgroundConnect? _connect;
+  late final OnboardingFlowEngine? _engine;
   StreamSubscription<BackgroundConnectState>? _connectChanges;
 
   /// How long the "connected" line stays up after a connect lands.
   static const _landedLineFor = Duration(seconds: 4);
 
+  /// How far a step slides, as a share of the screen width: out by the
+  /// first, in from the second. The same two the ambient pages use.
+  static const _leaveSlide = 0.08;
+  static const _enterSlide = 0.12;
+
   /// True for a few seconds after a connect lands while setup is on screen,
   /// so the result is reported on whichever step the user is on.
   bool _justLanded = false;
   Timer? _landedTimer;
+
+  /// Drives the step on screen out and the next one in.
+  late final AnimationController _motion;
+  _StepMotionPhase _phase = _StepMotionPhase.rest;
+
+  /// Which way the step change on screen runs.
+  bool _movesBack = false;
+
+  /// Set by [_leave] for the route change it comes before.
+  bool _nextChangeIsBack = false;
+
+  /// Counts step changes, so the end of one that was cut short does not
+  /// settle the one that replaced it.
+  int _motionRun = 0;
+
+  /// Brings the step back if the route never changes after a [_leave].
+  Timer? _leaveGuard;
+
+  /// What the tracker shows on this route. Null on a route that is not a
+  /// setup step, and with no flow engine.
+  OnboardingTrackerFill? _fill;
+
+  /// The step Back goes to from here, as last read. Null for none.
+  String? _backStep;
+
+  /// False once it is known that setup is complete and this is no replay:
+  /// the screen was opened on its own and there is no run to track.
+  bool _isRun = true;
+
+  /// True when the route sits on top of another screen, which is how a
+  /// setup screen is opened on its own. It keeps its own top bar then.
+  bool _opensOnItsOwn = false;
+  bool _hasReadRoute = false;
+
+  bool _isGoingBack = false;
+
+  /// True while a step with no top bar of its own is scrolled, so its rows
+  /// run under the tracker.
+  bool _isScrolledUnder = false;
+
+  Uri get _uri => widget.state.uri;
+  bool get _isReplay => isOnboardingReplayUri(_uri);
+  OnboardingStepEntry? get _entry =>
+      OnboardingStepRegistry.entryForPath(_uri.path);
 
   @override
   void initState() {
@@ -130,6 +278,58 @@ class _OnboardingShellState extends State<OnboardingShell> {
     _controller.addListener(_handleControllerUpdate);
     _connect = widget.backgroundConnect ?? _appBackgroundConnect();
     _connectChanges = _connect?.stream.listen(_handleConnectChange);
+    _engine = _appFlowEngine();
+    _motion = AnimationController(
+      vsync: this,
+      duration: AppDurations.slow,
+      value: 1,
+    );
+    _fill = _readFill();
+    attachOnboardingStepLeave(_leave);
+    unawaited(_refreshStanding());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasReadRoute) return;
+    _hasReadRoute = true;
+    _opensOnItsOwn = _readOpensOnItsOwn();
+  }
+
+  bool _readOpensOnItsOwn() => GoRouter.maybeOf(context)?.canPop() ?? false;
+
+  /// The tracker for the step on this route, from the flow the user is in.
+  OnboardingTrackerFill? _readFill() {
+    final engine = _engine;
+    final entry = _entry;
+    if (engine == null || entry == null) return null;
+    final flow = _isReplay ? engine.chooseFlow() : engine.runningFlow();
+    return onboardingTrackerFillFor(
+      currentStep: entry.id,
+      flowSteps: flow.steps,
+    );
+  }
+
+  /// Reads whether a setup run is on screen and where Back goes from here.
+  /// Both are local reads, so the answer is there within the frame.
+  Future<void> _refreshStanding() async {
+    final engine = _engine;
+    final entry = _entry;
+    if (engine == null || entry == null) return;
+    final path = _uri.path;
+    final isReplay = _isReplay;
+    final isComplete =
+        !isReplay &&
+        ((await engine.getOnboardingCompleted(const NoParams())).getOrNull() ??
+            false);
+    final back = await engine.backStepFrom(entry.id, isReplay: isReplay);
+    if (!mounted || _uri.path != path) return;
+    if (_isRun == !isComplete && _backStep == back) return;
+    setState(() {
+      _isRun = !isComplete;
+      _backStep = back;
+    });
   }
 
   void _handleConnectChange(BackgroundConnectState next) {
@@ -171,18 +371,152 @@ class _OnboardingShellState extends State<OnboardingShell> {
   @override
   void didUpdateWidget(covariant OnboardingShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.state.uri.path != oldWidget.state.uri.path) {
-      final routeStep = onboardingStepForPath(widget.state.uri.path);
-      // Setup only moves forward, and the order of its routes is a flow, not
-      // the order of the enum, so a route change is always a push.
-      _controller.setStep(routeStep, AmbientDirection.push);
+    final oldPath = oldWidget.state.uri.path;
+    if (widget.state.uri.path == oldPath) return;
+
+    final isBack = _nextChangeIsBack;
+    _nextChangeIsBack = false;
+    _leaveGuard?.cancel();
+
+    final from = OnboardingStepRegistry.entryForPath(oldPath);
+    final to = _entry;
+    final crossesChapter =
+        from != null &&
+        to != null &&
+        onboardingStepChangeCrossesChapter(from.id, to.id);
+    // The order of the routes is a flow, not the order of the enum, so the
+    // direction comes from which way the user moved.
+    _controller
+      ..resetForStep()
+      ..setStep(
+        onboardingStepForPath(widget.state.uri.path),
+        isBack ? AmbientDirection.pop : AmbientDirection.push,
+        crossesChapter
+            ? AmbientMotionVariant.sweep
+            : AmbientMotionVariant.drift,
+      );
+
+    final before = _fill;
+    final after = _readFill();
+    _fill = after;
+    _opensOnItsOwn = _readOpensOnItsOwn();
+    _isScrolledUnder = false;
+
+    final reduceMotion = context.reduceMotion;
+    // A tick as a bar gains a step. An animation cue, so there is none
+    // under reduce motion.
+    if (!reduceMotion &&
+        !isBack &&
+        before != null &&
+        after != null &&
+        after.position > before.position) {
+      AppHaptics.tick();
     }
+    _playEnter(isBack: isBack, reduceMotion: reduceMotion);
+    unawaited(_refreshStanding());
+  }
+
+  /// The new step comes in: from the end for a step forward, from the
+  /// start for Back.
+  void _playEnter({required bool isBack, required bool reduceMotion}) {
+    final wasLeaving = _phase == _StepMotionPhase.leaving;
+    final run = ++_motionRun;
+    if (reduceMotion) {
+      _phase = _StepMotionPhase.rest;
+      _motion.value = 1;
+      return;
+    }
+    _movesBack = isBack;
+    _phase = _StepMotionPhase.entering;
+    // Out and in together take the one slow beat. A change that had no way
+    // out played first, such as the first step after launch, gets all of it.
+    _motion.duration = wasLeaving
+        ? AppDurations.slow - AppDurations.quick
+        : AppDurations.slow;
+    _motion.forward(from: 0).whenCompleteOrCancel(() {
+      if (!mounted || run != _motionRun) return;
+      setState(() => _phase = _StepMotionPhase.rest);
+    });
+  }
+
+  /// The step on screen goes out of the way for the route change that is
+  /// about to come. What the navigation helpers call before they move.
+  Future<void> _leave({required bool isBack}) async {
+    if (!mounted) return;
+    _nextChangeIsBack = isBack;
+    _leaveGuard?.cancel();
+    _leaveGuard = Timer(const Duration(seconds: 1), _settle);
+    if (context.reduceMotion) return;
+    ++_motionRun;
+    setState(() {
+      _movesBack = isBack;
+      _phase = _StepMotionPhase.leaving;
+    });
+    _motion.duration = AppDurations.quick;
+    try {
+      await _motion.forward(from: 0).orCancel;
+    } on TickerCanceled {
+      // The shell went away, or another change took over.
+    }
+  }
+
+  /// The route did not change after a [_leave], so the step comes back.
+  void _settle() {
+    if (!mounted) return;
+    _nextChangeIsBack = false;
+    if (_phase != _StepMotionPhase.leaving) return;
+    ++_motionRun;
+    _motion.value = 1;
+    setState(() => _phase = _StepMotionPhase.rest);
+  }
+
+  Future<void> _goBack() async {
+    final entry = _entry;
+    if (entry == null || _isGoingBack) return;
+    _isGoingBack = true;
+    try {
+      final went = await goBackInOnboarding(
+        GoRouter.of(context),
+        entry.id,
+        isReplay: _isReplay,
+      );
+      // Back is no longer offered here: stop showing it.
+      if (!went) await _refreshStanding();
+    } finally {
+      _isGoingBack = false;
+    }
+  }
+
+  bool _handleScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    final isUnder = notification.metrics.pixels > 0;
+    if (isUnder == _isScrolledUnder) return false;
+    void show() {
+      if (mounted && isUnder != _isScrolledUnder) {
+        setState(() => _isScrolledUnder = isUnder);
+      }
+    }
+
+    // A list can move while the frame is being laid out, and nothing may be
+    // rebuilt then, so that one waits for the frame to finish.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => show());
+    } else {
+      show();
+    }
+    return false;
   }
 
   @override
   void dispose() {
+    detachOnboardingStepLeave(_leave);
+    _leaveGuard?.cancel();
     _landedTimer?.cancel();
     unawaited(_connectChanges?.cancel());
+    _motion.dispose();
     _controller
       ..removeListener(_handleControllerUpdate)
       ..dispose();
@@ -193,11 +527,31 @@ class _OnboardingShellState extends State<OnboardingShell> {
     if (mounted) setState(() {});
   }
 
+  /// The mood of the small face: what the step asked for, or else watching
+  /// while a connect runs behind the user, acknowledged once every chapter
+  /// is done, and calm the rest of the time.
+  TravellingFaceMood _moodFor(OnboardingTrackerFill fill) {
+    final asked = _controller.faceMood;
+    if (asked != null) return asked;
+    if (_connect?.state.isPending ?? false) return TravellingFaceMood.watching;
+    return fill.isAllDone
+        ? TravellingFaceMood.acknowledged
+        : TravellingFaceMood.calm;
+  }
+
   @override
   Widget build(BuildContext context) {
     final profiles = OnboardingAmbientProfiles.forColors(context.appColors);
     final currentProfile = profiles[_controller.step]!;
     final quietLine = _quietLine();
+    final fill = _fill;
+    // A setup run is on screen, so the shell has the top bar's title room.
+    final showsTracker = fill != null && _isRun && !_opensOnItsOwn;
+    final onBack = showsTracker && _backStep != null && !_controller.isBackHeld
+        ? () => unawaited(_goBack())
+        : null;
+    final barHeight =
+        MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight;
 
     return Stack(
       children: [
@@ -206,39 +560,147 @@ class _OnboardingShellState extends State<OnboardingShell> {
             child: AmbientCanvas(
               key: const ValueKey('onboarding-ambient-canvas'),
               profile: currentProfile,
-              variant: AmbientMotionVariant.drift,
+              variant: _controller.variant,
               direction: _controller.direction,
               reduceMotion: context.reduceMotion,
             ),
           ),
         ),
         Positioned.fill(
-          child: AmbientScope(
-            // Every step sits on this canvas with a clear background, so
-            // each one backs its bars with the canvas colour while a row is
-            // scrolled under them, and at rest when the text is too large
-            // for the step to fit. The app name keeps to the top bar's
-            // height.
-            child: AppBarBackingScope(
-              color: currentProfile.canvas,
-              topBarMaxTextScale: setupTopBarMaxTextScale,
-              child: OnboardingAmbientScope(
-                controller: _controller,
-                hasQuietLine: quietLine != null,
-                child: widget.child,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScroll,
+            // The step slides and fades out, and the next one in. The canvas
+            // behind and the tracker above hold still. The widgets here stay
+            // the same at rest, so a step keeps its state through a change.
+            child: AnimatedBuilder(
+              animation: _motion,
+              builder: (context, child) {
+                final towards = _movesBack ? -1.0 : 1.0;
+                final (opacity, shift) = switch (_phase) {
+                  _StepMotionPhase.rest => (1.0, 0.0),
+                  _StepMotionPhase.leaving => () {
+                    final gone = Curves.easeIn.transform(_motion.value);
+                    return (1 - gone, -towards * _leaveSlide * gone);
+                  }(),
+                  _StepMotionPhase.entering => () {
+                    final here = AppCurves.easeOut.transform(_motion.value);
+                    return (here, towards * _enterSlide * (1 - here));
+                  }(),
+                };
+                return IgnorePointer(
+                  // A step on its way out takes no more taps.
+                  ignoring: _phase == _StepMotionPhase.leaving,
+                  child: Opacity(
+                    opacity: opacity.clamp(0.0, 1.0),
+                    child: FractionalTranslation(
+                      translation: Offset(shift, 0),
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: AmbientScope(
+                // Every step sits on this canvas with a clear background, so
+                // each one backs its bars with the canvas colour while a row
+                // is scrolled under them, and at rest when the text is too
+                // large for the step to fit. The app name keeps to the top
+                // bar's height.
+                child: AppBarBackingScope(
+                  color: currentProfile.canvas,
+                  topBarMaxTextScale: setupTopBarMaxTextScale,
+                  child: OnboardingAmbientScope(
+                    controller: _controller,
+                    hasQuietLine: quietLine != null,
+                    showsTracker: showsTracker,
+                    onBack: onBack,
+                    child: widget.child,
+                  ),
+                ),
               ),
             ),
           ),
         ),
-        // In the empty corner beside the app title: over no title and no
-        // button. It takes no taps.
+        // A step with no top bar of its own has nothing behind the tracker
+        // once its rows scroll under it, so the shell backs it here.
+        if (showsTracker && !(_entry?.hasTopBar ?? true))
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: barHeight + 16,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _isScrolledUnder ? 1 : 0,
+                duration: context.motion(AppDurations.quick),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        currentProfile.canvas,
+                        currentProfile.canvas,
+                        currentProfile.canvas.withValues(alpha: 0),
+                      ],
+                      stops: [0, barHeight / (barHeight + 16), 1],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        // Where a step's top bar has its title: Back when it is offered,
+        // the small face and the three bars. Beside them, in the empty
+        // corner, the word or three about the connect. Only Back takes
+        // taps.
         Positioned(
           top: 0,
+          left: 0,
           right: 0,
-          child: IgnorePointer(
-            child: _ConnectQuietLine(
-              message: quietLine,
-              isLanded: _justLanded,
+          child: SafeArea(
+            bottom: false,
+            // The bar is 56 high whatever the text size, like a step's own.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: setupTopBarMaxTextScale,
+              child: SizedBox(
+                height: AppScreenScaffold.topBarHeight,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
+                    children: [
+                      _BackSlot(onPressed: onBack),
+                      IgnorePointer(
+                        // Faded out, it is not read out either.
+                        child: ExcludeSemantics(
+                          excluding: !showsTracker,
+                          child: AnimatedOpacity(
+                            opacity: showsTracker ? 1 : 0,
+                            duration: context.motion(AppDurations.base),
+                            curve: AppCurves.easeOut,
+                            child: fill == null
+                                ? const SizedBox.shrink()
+                                : SizedBox(
+                                    width: SetupTracker.width,
+                                    child: SetupTracker(
+                                      fill: fill,
+                                      mood: _moodFor(fill),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: IgnorePointer(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: _ConnectQuietLine(message: quietLine),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -247,13 +709,41 @@ class _OnboardingShellState extends State<OnboardingShell> {
   }
 }
 
-/// A word or three about the connect running behind the user, with the face
-/// watching beside it. Fades in and out; holds still under reduce motion.
+/// Back, in the first place of the top bar. It is there only while Back is
+/// offered, never greyed out, and the tracker slides along to make room.
+class _BackSlot extends StatelessWidget {
+  const _BackSlot({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final onPressed = this.onPressed;
+    return AnimatedSize(
+      duration: context.motion(AppDurations.slow),
+      curve: AppCurves.easeOut,
+      alignment: AlignmentDirectional.centerStart,
+      child: onPressed == null
+          ? const SizedBox(height: 40)
+          : Padding(
+              padding: const EdgeInsetsDirectional.only(end: Spacing.s3),
+              child: AppIconButton(
+                glyph: GlyphType.back,
+                ariaLabel: LocaleKeys.common_back.tr(),
+                onPressed: onPressed,
+              ),
+            ),
+    );
+  }
+}
+
+/// A word or three about the connect running behind the user. The small
+/// face beside the tracker does the watching, so there is no face in here.
+/// Fades in and out; holds still under reduce motion.
 class _ConnectQuietLine extends StatelessWidget {
-  const _ConnectQuietLine({required this.message, required this.isLanded});
+  const _ConnectQuietLine({required this.message});
 
   final String? message;
-  final bool isLanded;
 
   @override
   Widget build(BuildContext context) {
@@ -265,45 +755,27 @@ class _ConnectQuietLine extends StatelessWidget {
       switchOutCurve: AppCurves.easeOut,
       child: line == null
           ? const SizedBox.shrink(key: ValueKey('connect-quiet-none'))
-          : SafeArea(
+          : Semantics(
               key: ValueKey('connect-quiet-$line'),
-              bottom: false,
-              left: false,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  top: Spacing.s3,
-                  right: Spacing.s4,
+              liveRegion: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
                 ),
-                child: Semantics(
-                  liveRegion: true,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
-                    decoration: BoxDecoration(
-                      color: colors.surface.withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FaceWidget(
-                          state: isLanded
-                              ? FaceState.success
-                              : FaceState.watching,
-                          size: 22,
-                          isLive: true,
-                        ),
-                        const SizedBox(width: Spacing.s2),
-                        Text(
-                          line,
-                          // The shell sits above every route, so there is
-                          // no text style to inherit here.
-                          style: AppTypography.small(
-                            colors.ink,
-                          ).copyWith(decoration: TextDecoration.none),
-                        ),
-                      ],
-                    ),
-                  ),
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(Radii.pill),
+                ),
+                child: Text(
+                  line,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  // The shell sits above every route, so there is no text
+                  // style to inherit here.
+                  style: AppTypography.small(
+                    colors.ink,
+                  ).copyWith(decoration: TextDecoration.none),
                 ),
               ),
             ),
@@ -477,7 +949,7 @@ class _ConnectGateScreen extends StatelessWidget {
       withGhosts: false,
       withFades: false,
       hasTabBar: false,
-      topBar: AppTopBar(title: LocaleKeys.app_title.tr()),
+      topBar: AppTopBar(title: setupTopBarTitle(context)),
       bottomBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
