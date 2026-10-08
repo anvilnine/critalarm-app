@@ -68,7 +68,7 @@ void main() {
     }
   });
 
-  test('Hosted lists four of the benefits in HostedBenefit.all, in its order: '
+  test('Hosted lists the benefits in HostedBenefit.all, in its order: '
       'widgets are listed under Pro', () {
     final hosted = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.hosted)
@@ -81,9 +81,7 @@ void main() {
     ]);
     expect(
       hosted.map((b) => b.id.name),
-      HostedBenefit.all
-          .where((b) => b.id != HostedBenefitId.widgets)
-          .map((b) => b.id.name),
+      HostedBenefit.all.map((b) => b.id.name),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
     expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));

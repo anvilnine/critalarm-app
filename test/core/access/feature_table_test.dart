@@ -30,7 +30,7 @@ const Map<AppFeature, List<FeatureDecision>> featureTruth = {
   AppFeature.longHistory:             [_h, _o, _h, _o, _o, _o, _o, _o],
   AppFeature.storageRules:            [_h, _o, _h, _o, _o, _o, _o, _o],
   AppFeature.appIcons:                [_h, _o, _h, _o, _o, _o, _o, _o],
-  AppFeature.widgets:                 [_h, _o, _h, _o, _o, _o, _o, _o],
+  AppFeature.widgets:                 [_p, _p, _o, _o, _p, _p, _o, _o],
   AppFeature.ownSounds:               [_p, _p, _o, _o, _p, _p, _o, _o],
   AppFeature.alarmScreenStyles:       [_p, _p, _o, _o, _p, _p, _o, _o],
   AppFeature.wakeUpChallenges:        [_p, _p, _o, _o, _p, _p, _o, _o],
@@ -66,10 +66,9 @@ void main() {
         AppFeature.longHistory,
         AppFeature.storageRules,
         AppFeature.appIcons,
-        // Hosted until the widgets move to Pro, which is this one row.
-        AppFeature.widgets,
       ];
       const proEverywhere = [
+        AppFeature.widgets,
         AppFeature.ownSounds,
         AppFeature.alarmScreenStyles,
         AppFeature.wakeUpChallenges,

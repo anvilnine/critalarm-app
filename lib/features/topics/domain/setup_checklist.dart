@@ -328,13 +328,14 @@ bool homeScreenWidgetsExist({
 
 /// How this user gets home screen widgets.
 enum HomeWidgetsPlan {
-  /// On Crit Alarm Cloud with Hosted: widgets work.
-  hosted,
+  /// On Crit Alarm Cloud with Pro: widgets work.
+  pro,
 
-  /// On Crit Alarm Cloud without Hosted: widgets show locked.
-  needsHosted,
+  /// Without Pro, on Crit Alarm Cloud or on a server of the user's own:
+  /// widgets show locked.
+  needsPro,
 
-  /// On the user's own server, which has no plans: widgets work.
+  /// On the user's own server with Pro: widgets work.
   selfHosted,
 }
 
@@ -345,8 +346,8 @@ HomeWidgetsPlan homeWidgetsPlanFor(
   FeatureDecision decision, {
   required bool isOwnServer,
 }) {
-  if (!decision.isUsable) return HomeWidgetsPlan.needsHosted;
-  return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.hosted;
+  if (!decision.isUsable) return HomeWidgetsPlan.needsPro;
+  return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.pro;
 }
 
 /// Whether Home draws the widgets card.

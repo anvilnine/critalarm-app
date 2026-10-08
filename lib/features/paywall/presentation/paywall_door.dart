@@ -1,10 +1,12 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
@@ -35,6 +37,7 @@ class PaywallDoor {
     this._remoteThanksValue = _noThanksValue,
     this._developerThanks = _noDeveloperThanks,
     this._isThanksBuilt = paywallThanksIsBuilt,
+    this._widgetsDecision = _widgetsLockedForPro,
   });
 
   /// The prefs key that says the false alarm intro was shown on this
@@ -45,6 +48,8 @@ class PaywallDoor {
   static PaywallIntroId? _noDeveloperIntro(PaywallProduct product) => null;
   static String _noThanksValue(PaywallProduct product) => '';
   static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
+  static FeatureDecision _widgetsLockedForPro() =>
+      const FeatureDecision.locked(Holding.pro);
 
   final String Function(PaywallProduct product) _remoteValue;
   final PaywallLayoutSetting? Function(PaywallProduct product) _developer;
@@ -56,6 +61,10 @@ class PaywallDoor {
   final String Function(PaywallProduct product) _remoteThanksValue;
   final PaywallThanksId? Function(PaywallProduct product) _developerThanks;
   final bool Function(PaywallThanksId thanks) _isThanksBuilt;
+
+  /// `FeatureAccess.decide` for the widgets feature. A tap on a locked
+  /// widget arrives as a link, and this is what picks its paywall.
+  final FeatureDecision Function() _widgetsDecision;
 
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
@@ -135,6 +144,7 @@ class PaywallDoor {
     final uri = Uri.tryParse(location);
     if (uri == null || uri.path != paywallPath) return location;
     final source = PaywallSource.parse(uri.queryParameters['source']);
+    if (source == PaywallSource.widgetLocked) return _widgetTapLocation();
     final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
     return opening == null
         ? location
@@ -145,6 +155,29 @@ class PaywallDoor {
             thanks: opening.thanks,
             source: source,
           );
+  }
+
+  /// Where a tap on a locked widget goes, by the widgets decision: the
+  /// paywall of the product it offers. A widget that is not locked any
+  /// more (Pro was bought since it was drawn, or the plan cannot be read)
+  /// sells nothing, so the tap opens Home.
+  String _widgetTapLocation() {
+    final FeatureDecision decision;
+    try {
+      decision = _widgetsDecision();
+    } on Object catch (_) {
+      return PushDeepLink.homeLocation;
+    }
+    if (decision is! FeatureLocked) return PushDeepLink.homeLocation;
+    return switch (decision.offer) {
+      Holding.hosted => hostedLocation(LockSource.widgetLocked.hosted),
+      Holding.pro =>
+        proLayoutLocation(LockSource.widgetLocked.pro) ??
+            Uri(
+              path: proPackSheetPath,
+              queryParameters: {'source': LockSource.widgetLocked.pro.wire},
+            ).toString(),
+    };
   }
 
   /// The location of the layout that opens Pro for [source], or null for
@@ -197,6 +230,20 @@ String hostedPaywallLocation(PaywallSource source) =>
 /// [location] as the app should open it: see [PaywallDoor.resolve].
 String resolvePaywallLocation(String location) =>
     _door?.resolve(location) ?? location;
+
+/// [resolvePaywallLocation], for a location that may be a tap on a locked
+/// widget. It waits for the plan to be read first, so a tap right after a
+/// cold start never sells Pro to someone who holds it.
+Future<String> resolvePaywallLocationWhenReady(String location) async {
+  if (Uri.tryParse(location)?.path == paywallPath &&
+      getIt.isRegistered<FeatureAccess>()) {
+    await getIt<FeatureAccess>().ready.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {},
+    );
+  }
+  return resolvePaywallLocation(location);
+}
 
 /// Opens the Pro paywall for [source]: the Pro sheet, or a layout. Every
 /// place that opens it asks here.
