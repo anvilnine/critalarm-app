@@ -936,27 +936,17 @@
     "stage_sub_connected": "Connected to {host} since {date}.",
     "developer_header": "Developer options",
     "developer_pro_title": "Hosted plan",
-    "developer_pro_note": "Unlock Hosted features",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
-    "developer_dialog_sheet_subtitle": "Preview the dialog and sheet library",
     "developer_faces_title": "Face expressions",
-    "developer_faces_subtitle": "Demo all character faces, tilts and animations",
     "developer_ringing_faces_title": "Ringing faces",
-    "developer_ringing_faces_subtitle": "18 animated alarm faces, panic to meltdown",
     "developer_welcome_title": "Welcome screen",
-    "developer_welcome_subtitle": "Try the twelve onboarding welcome animations",
     "developer_alarm_debug_title": "Alarm debug",
-    "developer_alarm_debug_subtitle": "What is ringing, what is scheduled, what the phone remembers",
-    "developer_paywall_variant_title": "Paywall layout",
     "developer_paywall_variant_subtitle": "Pick which layout this build shows",
     "developer_paywall_variant_auto": "Remote Config decides",
     "developer_paywall_variant_straight": "Bullets",
     "developer_paywall_variant_compare": "Free and Hosted",
     "developer_paywall_variant_one_job": "Topic limit",
     "developer_paywall_variant_hosted_template": "RevenueCat dashboard",
-    "developer_paywall_route_hosted_title": "Hosted paywall opens",
-    "developer_paywall_route_pro_title": "Pro paywall opens",
-    "developer_paywall_route_subtitle": "Now: {}. Tap to change.",
     "developer_paywall_route_follow": "Follow the remote value",
     "developer_paywall_route_shipped": "What ships today",
     "developer_paywall_route_auto": "Auto, by entry point",
@@ -1035,7 +1025,6 @@
     "developer_row_title": "Developer options",
     "developer_row_subtitle": "Switch between Free and Hosted",
     "developer_pro_pack_title": "Pro pack",
-    "developer_pro_pack_note": "Hold the Pro pack on this install",
     "setup_header": "Setup",
     "help_header": "Help",
     "help_feedback_row": "Send feedback",
@@ -1049,11 +1038,9 @@
   },
   "developer_setup": {
     "title": "Setup flow",
-    "subtitle": "Choose the steps setup runs, open any of them, or make one count as not done.",
     "flow_title": "Flow",
     "flow_none": "No override",
     "flow_none_subtitle": "The next source decides, then the bundled default",
-    "flow_bundled_subtitle": "Bundled flow",
     "flow_custom": "Custom",
     "flow_custom_subtitle": "A list of step ids you type",
     "custom_label": "Step ids, comma separated",
@@ -1067,7 +1054,6 @@
     "reject_order": "Rejected: {} needs {} before it.",
     "reject_kept": "Not saved. The previous choice stays.",
     "redo_title": "Redo onboarding",
-    "redo_subtitle": "Replays flow {}. Nothing is saved.",
     "jump_title": "Open a step",
     "jump_subtitle": "Opens the screen as a replay. Nothing is saved.",
     "jump_not_on_phone": "Not on this phone",
@@ -1079,7 +1065,6 @@
     "more_states_title": "Other setup states",
     "more_states_subtitle": "Screens around setup that no step opens, with made-up values. Nothing is sent or saved.",
     "force_title": "Count as not done",
-    "force_subtitle": "Setup treats the step as unfinished even when it is already true on this phone.",
     "offer_title": "Offer step",
     "offer_subtitle": "The switches of the offer step, as in use now. Changing one saves an override, and Open a step then shows the offer on a replay."
   },
@@ -1386,7 +1371,6 @@
     },
     "dev": {
       "row_title": "Paywall layouts",
-      "row_subtitle": "Pick an intro and a paywall, and open them",
       "page_title": "Paywall layouts"
     }
   },
@@ -1833,7 +1817,6 @@
     "curl_copied": "Curl line copied",
     "curl_sample_message": "disk full",
     "lab_row_title": "Local reminder lab",
-    "lab_row_subtitle": "Scheduled reminders, rules and test fires",
     "lab_title": "Local reminder lab",
     "lab_now_header": "Right now",
     "lab_on": "on",
@@ -2075,5 +2058,18 @@
   },
   "paywall_intro_countdown": {
     "line": "Too slow."
+  },
+  "developer_options": {
+    "section_plans": "Purchases and plans",
+    "section_paywalls": "Paywalls",
+    "section_tools": "Tools and galleries",
+    "variant_title": "Paywall variant",
+    "remote": "remote",
+    "layouts_value": "{hosted_name}: {hosted} · {pro_name}: {pro}",
+    "offer_in_use": "In use",
+    "offer_clear": "Clear",
+    "by_key_title": "Pin by key",
+    "by_key_note": "Every layout id, built or not. One that is not built draws the fallback.",
+    "by_key_unbuilt": "Not built"
   }
 }

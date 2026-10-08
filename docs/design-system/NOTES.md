@@ -125,6 +125,12 @@ Two more came later and are listed after them.
   `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
   room of its own after it, and the page scrolls only once the body is taller than the screen.
 
+- `AppValueRow` and `AppPickerRow` (`picker_rows.dart`): one-line settings rows on the same cream
+  surface as `AppToggleRow`. `AppValueRow` is a title, an optional value at the trailing end and
+  an arrow, for a row that opens a page. `AppPickerRow` is for a choice from a list: it shows the
+  current value and opens a bottom sheet of `AppSheetOptionRow`s that closes on a pick. A list of
+  more than six opens the sheet that scrolls. Use a toggle row for on and off, never a picker.
+
 ## Glyphs and motion curves
 
 Both are in the gallery at `/gallery`, under the scales.
