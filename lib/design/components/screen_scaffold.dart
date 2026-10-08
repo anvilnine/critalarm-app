@@ -40,6 +40,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     this.barBacking,
+    this.topBackingPlateau,
     this.bodyClearsBottomBar = false,
     this.contentSortKey,
     super.key,
@@ -104,6 +105,14 @@ class AppScreenScaffold extends StatefulWidget {
   /// has no canvas colour to draw there, and half-seen rows between two
   /// pinned controls read as a fault. Pass the canvas colour.
   final Color? barBacking;
+
+  /// How much of the zone behind the top bar holds full strength while a row
+  /// is under it, 0 to 1, in place of the shared default.
+  ///
+  /// For a screen whose rows are text on a white sheet that scrolls under a
+  /// title: the title then stays readable with no row showing through it.
+  /// Only read where the backing comes from an [AppBarBackingScope].
+  final double? topBackingPlateau;
 
   /// True when the body leaves the room for the pinned bottom bar itself, so
   /// the list adds none under its last row.
@@ -287,7 +296,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final topBarMaxTextScale = scope?.topBarMaxTextScale;
     // A backing from the scope is the blur with a fade of the canvas colour
     // over it. A backing the screen asked for itself stays solid.
-    const backingConfig = BarBackingConfig.defaults;
+    final backingConfig = widget.topBackingPlateau == null
+        ? BarBackingConfig.defaults
+        : BarBackingConfig.defaults.copyWith(
+            top: BarBackingConfig.defaults.top.copyWith(
+              plateau: widget.topBackingPlateau,
+            ),
+          );
     final isScoped = widget.barBacking == null && backing != null;
 
     // On its side, or wide enough for two panes, the tab bar stands up as a
