@@ -2162,10 +2162,11 @@
     },
     "shake": {
       "name": "Shake",
-      "prompt": "Shake the phone 30 times",
+      "prompt": "30 shakes or taps",
       "count": "{count} of {target}",
       "hint_shake": "Shake hard. Out and back is one.",
       "hint_taps": "No shaking needed. Tap {target} times.",
+      "tap_instead": "Tap instead",
       "tap": "Tap"
     }
   },

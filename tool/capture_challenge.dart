@@ -1025,6 +1025,35 @@ void main() {
     print('FLOW the way out skipped the shake challenge, sensor off');
   });
 
+  capture('flow_shake_tap_instead', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    sensor
+      ..rest()
+      ..shake(11);
+    await tester.pump();
+    expect(sensor.isOn, isTrue);
+    await tester.tap(find.text(LocaleKeys.challenges_shake_tap_instead.tr()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(sensor.isOn, isFalse);
+    expect(_tapButton, findsOneWidget);
+    // The eleven shakes are kept.
+    expect(_shakeCount(11), findsOneWidget);
+    for (var i = 0; i < 19; i++) {
+      await tester.tap(_tapButton, warnIfMissed: false);
+    }
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print(
+      'FLOW Tap instead turned the sensor off, kept eleven shakes, and '
+      'nineteen taps closed the incident',
+    );
+  });
+
   capture('flow_shake_silent', (tester, errors) async {
     if (!_isShake) return;
     // A sensor that starts and then says nothing.
