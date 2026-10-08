@@ -122,7 +122,8 @@ class _TopicChallengeRowState extends State<TopicChallengeRow> {
         meta: chosen == null
             ? LocaleKeys.challenges_off.tr()
             : chosen.nameKey.tr(),
-        faceState: null,
+        // Asleep while off, up once a challenge is set.
+        faceState: chosen == null ? FaceState.sleepy : FaceState.wakesUp,
         trailing: isLocked
             ? null
             : AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),

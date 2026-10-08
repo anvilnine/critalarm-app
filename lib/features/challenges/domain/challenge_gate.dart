@@ -34,13 +34,13 @@ class ChallengeGate {
 
   bool _isPlanRead = false;
 
-  /// Incidents whose challenge was passed or left since the app started.
-  final Set<String> _cleared = <String>{};
-
+  /// [isCleared] is the alarm screen's own note that this incident's
+  /// challenge was already passed or left since it was last acknowledged,
+  /// so a close that failed is not asked for twice.
   ChallengeDue dueFor({
-    required String incidentId,
     required ChallengeIncident incident,
     required bool isScreenReaderOn,
+    bool isCleared = false,
   }) {
     try {
       final choice = _choices.choiceFor(incident.topic);
@@ -51,14 +51,10 @@ class ChallengeGate {
         wasOwedWhenLastSure: _choices.isFlagged(incident.topic),
         canRun: choice != null && _canRun(choice, incident),
         isScreenReaderOn: isScreenReaderOn,
-        isCleared: _cleared.contains(incidentId),
+        isCleared: isCleared,
       );
     } on Object catch (_) {
       return const ChallengeNotOwed(NoChallengeReason.cannotRun);
     }
   }
-
-  /// The challenge for [incidentId] was passed or left. If the close that
-  /// follows fails, the next "At my desk" closes with no second challenge.
-  void markCleared(String incidentId) => _cleared.add(incidentId);
 }

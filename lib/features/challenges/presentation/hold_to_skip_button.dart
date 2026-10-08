@@ -40,10 +40,7 @@ class HoldToSkipButton extends StatefulWidget {
 
 class _HoldToSkipButtonState extends State<HoldToSkipButton>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _hold = AnimationController(
-    vsync: this,
-    duration: holdToSkip,
-  )..addStatusListener(_onStatus);
+  late final AnimationController _hold;
 
   bool _didSkip = false;
   int? _pointer;
@@ -51,6 +48,13 @@ class _HoldToSkipButtonState extends State<HoldToSkipButton>
   @override
   void initState() {
     super.initState();
+    _hold = AnimationController(
+      vsync: this,
+      duration: holdToSkip,
+      // The hold is a wait, not decoration. With reduce motion on, the
+      // framework would otherwise run it in a twentieth of the time.
+      animationBehavior: AnimationBehavior.preserve,
+    )..addStatusListener(_onStatus);
     final heldFor = widget.heldFor;
     if (heldFor != null) _hold.value = holdProgress(heldFor);
   }
@@ -121,6 +125,7 @@ class _HoldToSkipButtonState extends State<HoldToSkipButton>
             return ConstrainedBox(
               constraints: const BoxConstraints(
                 minHeight: HoldToSkipButton.height,
+                minWidth: double.infinity,
               ),
               child: DecoratedBox(
                 position: DecorationPosition.foreground,

@@ -9,7 +9,7 @@ const _locked = FeatureDecision.locked(Holding.pro);
 const _confirming = FeatureDecision.confirming(Holding.pro);
 const _unread = FeatureDecision.unread(Holding.pro);
 
-const _kind = ChallengeKind.typeTopicName;
+const ChallengeKind _kind = ChallengeKind.typeTopicName;
 const _hold = ChallengeOwed(_kind, wayOut: ChallengeWayOut.hold);
 const _tap = ChallengeOwed(_kind, wayOut: ChallengeWayOut.tap);
 

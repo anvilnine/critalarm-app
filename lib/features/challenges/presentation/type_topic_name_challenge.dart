@@ -124,7 +124,9 @@ class _TypeTopicNameState extends State<_TypeTopicName> {
               color: colors.surface,
               borderRadius: Radii.mdAll,
               border: Border.all(
-                color: _focus.hasFocus ? colors.cobalt : colors.hairline,
+                // Ink, because cobalt is the canvas here in the light
+                // theme and would not show.
+                color: _focus.hasFocus ? colors.ink : colors.hairline,
                 width: 2,
               ),
             ),
