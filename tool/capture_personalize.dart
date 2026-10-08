@@ -17,6 +17,15 @@
 //   full      free, after a tap on the preview: the full-screen preview
 // and, at 1024 by 768, the wide layout for `free` and `trying`.
 //
+// The Look strip has its own shots, `look_<state>_...`, scrolled to the
+// strip:
+//   locked    nothing held: Standard ticked, Minimal with the lock
+//   trying    the same phone, after a tap on the locked Minimal: the
+//             preview draws it and the bar shows
+//   open      Pro held and Minimal saved as the phone's look
+// and the topic page's Alarm look row, `topic_look_locked_...` and
+// `topic_look_open_...` (Pro held, Minimal picked for the topic).
+//
 // It also writes the surfaces that moved onto the one lock, free and with
 // both held: the App icon screen on a paid icon, the Reliability screen
 // with the weekly check row, and the Home widgets card's badge.
@@ -40,16 +49,21 @@ import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -154,6 +168,9 @@ Future<void> _ownSoundSaved({required bool isSaved}) async {
   }
 }
 
+/// A topic of the mock server's calm fixture.
+const _topic = 'prod-db';
+
 bool _wanted(String name) =>
     _only.isEmpty || _only.split(',').any(name.contains);
 
@@ -167,6 +184,7 @@ Future<GlobalKey> _open(
   required ThemeMode mode,
   required double scale,
   Widget? home,
+  bool isStill = true,
 }) async {
   const dpr = 2.0;
   tester.view.physicalSize = size * dpr;
@@ -181,13 +199,17 @@ Future<GlobalKey> _open(
   Widget framed(BuildContext context, Widget? child) => MediaQuery(
     data: MediaQuery.of(context).copyWith(
       textScaler: TextScaler.linear(scale),
-      disableAnimations: true,
+      disableAnimations: isStill,
     ),
     child: RepaintBoundary(key: boundaryKey, child: child),
   );
   await tester.pumpWidget(
-    BlocProvider<ThemeCubit>.value(
-      value: getIt<ThemeCubit>(),
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
+        // The topic page reads the shared list.
+        BlocProvider<TopicsCubit>.value(value: getIt<TopicsCubit>()),
+      ],
       child: home == null
           ? MaterialApp.router(
               debugShowCheckedModeBanner: false,
@@ -267,6 +289,8 @@ void main() {
         FlutterError.onError = oldHandler;
         await _hold(isPro: false, isHosted: false);
         await _ownSoundSaved(isSaved: false);
+        await getIt<AlarmStyleChoices>().setDefault(null);
+        await getIt<AlarmStyleChoices>().setTopicStyle(_topic, null);
       }
     });
   }
@@ -330,13 +354,117 @@ void main() {
             await tester.pump(const Duration(milliseconds: 300));
           }
           if (shot == _Shot.full) {
-            await tester.tap(find.byType(RingingPreview));
+            // The big one. The Look strip draws small ones after it.
+            await tester.tap(find.byType(RingingPreview).first);
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 400));
             expect(find.byType(RingingPreviewPage), findsOneWidget);
           }
           await _save(tester, key, name, isGood: errors.isEmpty);
         });
+      }
+    }
+  }
+
+  // The Look strip, and the topic page's row.
+  for (final (sizeName, size, top, bottom) in _phones) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final scale in [1.0, 1.3]) {
+        final tail = '${sizeName}_${mode.name}_${scale}x';
+        for (final state in ['locked', 'trying', 'open']) {
+          capture('look_${state}_$tail', (tester, errors) async {
+            final isPro = state == 'open';
+            await _hold(isPro: isPro, isHosted: false);
+            if (isPro) await getIt<AlarmStyleChoices>().setDefault('minimal');
+            final key = await _open(
+              tester,
+              location: '/settings/personalize',
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              mode: mode,
+              scale: scale,
+            );
+            if (state == 'trying') {
+              await tester.tap(
+                find.byKey(const ValueKey('look-minimal')),
+                warnIfMissed: false,
+              );
+              final bar = find.descendant(
+                of: find.byType(PersonalizeTryBar),
+                matching: find.byType(ProBadge),
+              );
+              for (var i = 0; i < 6 && bar.evaluate().isEmpty; i++) {
+                await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 100)),
+                );
+                await tester.pump(const Duration(milliseconds: 200));
+              }
+              if (bar.evaluate().isEmpty) {
+                // See the sound try above: the tap is stood in for by
+                // what it would have called.
+                print('     try driven through the cubit, not the tap');
+                BlocProvider.of<PersonalizeCubit>(
+                  tester.element(find.byType(PersonalizeTryBar)),
+                ).tryOption(
+                  const PersonalizeTry(
+                    AppFeature.alarmScreenStyles,
+                    optionId: 'minimal',
+                  ),
+                );
+                await tester.pump();
+              }
+              expect(bar, findsOneWidget, reason: 'The try bar did not show.');
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 300));
+            }
+            // A try is shown with the preview and its bar in view. The
+            // other two are scrolled to the strip where the phone is too
+            // short to show it under the preview.
+            if (state != 'trying' && size.height < 800) {
+              await tester.ensureVisible(
+                find.byKey(const ValueKey('look-minimal')),
+              );
+              await tester.pump(const Duration(milliseconds: 300));
+            }
+            await _save(
+              tester,
+              key,
+              'look_${state}_$tail',
+              isGood: errors.isEmpty,
+            );
+          });
+        }
+        for (final isPro in [false, true]) {
+          final state = isPro ? 'open' : 'locked';
+          capture('topic_look_${state}_$tail', (tester, errors) async {
+            getIt<MockServer>().loadFixture(FaceState.calm);
+            await _hold(isPro: isPro, isHosted: false);
+            if (isPro) {
+              await getIt<AlarmStyleChoices>().setTopicStyle(_topic, 'minimal');
+            }
+            final key = await _open(
+              tester,
+              location: '/topics/$_topic',
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              mode: mode,
+              scale: scale,
+              // The topic page sizes a block with a zero-length animation
+              // under reduce motion, which lays out twice in this harness.
+              isStill: false,
+            );
+            await tester.ensureVisible(find.byType(TopicAlarmStyleRow));
+            await tester.pump(const Duration(milliseconds: 300));
+            await _save(
+              tester,
+              key,
+              'topic_look_${state}_$tail',
+              isGood: errors.isEmpty,
+            );
+          });
+        }
       }
     }
   }
