@@ -45,6 +45,19 @@ Future<void> openPaywallForFeature(
   isSelfHosted: isSelfHosted,
 );
 
+/// The location [openPaywallForFeature] would open, or null when [feature]
+/// is not locked. For a caller that closes itself first and is left with
+/// a router and no context, such as a sheet.
+String? paywallLocationForFeature(
+  AppFeature feature,
+  LockSource source, {
+  bool isSelfHosted = false,
+}) => paywallLocationFor(
+  getIt<FeatureAccess>().decide(feature),
+  source,
+  isSelfHosted: isSelfHosted,
+);
+
 /// [FeatureLock], fed from `FeatureAccess` for one [feature].
 ///
 /// It reads the decision, redraws when `FeatureAccess.changes` names the
