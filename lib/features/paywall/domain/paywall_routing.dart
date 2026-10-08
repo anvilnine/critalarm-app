@@ -61,7 +61,8 @@ PaywallEntry paywallEntryOfProSheet(ProPackSheetSource source) =>
       ProPackSheetSource.historyOlder => PaywallEntry.capHit,
       ProPackSheetSource.reliability ||
       ProPackSheetSource.homeWidgets ||
-      ProPackSheetSource.appIcon => PaywallEntry.lockedRow,
+      ProPackSheetSource.appIcon ||
+      ProPackSheetSource.sounds => PaywallEntry.lockedRow,
       ProPackSheetSource.direct => PaywallEntry.other,
     };
 

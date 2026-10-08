@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/foundation.dart';
 
@@ -31,9 +32,15 @@ PickedSoundFile? pickedSoundFileFrom(Object? raw) {
 ///
 /// Only one file is held. A newer share replaces an older one that never got
 /// shown, and the older copy is deleted.
+///
+/// An own sound needs a plan that unlocks it. A file that arrives while own
+/// sounds are locked is deleted at once and never held. What waits for the
+/// same two things instead is the paywall, sent out on [locked]: it never
+/// opens during setup or over a ringing alarm.
 class IncomingAudio {
   IncomingAudio({
     required this.canImportSounds,
+    required this.readOwnSounds,
     required this.isOnboardingDone,
     required this.isRinging,
     required this.discard,
@@ -41,6 +48,12 @@ class IncomingAudio {
   });
 
   final Future<bool> Function() canImportSounds;
+
+  /// The access layer's decision for own sounds, asked once it is ready,
+  /// so a share that starts the app is not turned away by a plan that has
+  /// not been read yet. Only a sure "locked" turns a file away: a plan that
+  /// could not be read, or a read that throws, lets the file through.
+  final Future<FeatureDecision> Function() readOwnSounds;
   final Future<bool> Function() isOnboardingDone;
   final Future<bool> Function() isRinging;
 
@@ -56,7 +69,13 @@ class IncomingAudio {
     sync: true,
   );
 
+  final _locked = StreamController<FeatureDecision>.broadcast(sync: true);
+
   PickedSoundFile? _pending;
+
+  /// A share was turned away by the lock and its paywall has not opened
+  /// yet. The file itself is already gone.
+  bool _paywallPending = false;
   bool _checking = false;
 
   /// Paths already received. The platform both holds a share and sends it
@@ -70,14 +89,38 @@ class IncomingAudio {
   /// Why a shared file was turned away, for the user to see.
   Stream<SoundImportRejection> get rejected => _rejected.stream;
 
+  /// A share met the lock. Carries the decision to hand to the paywall
+  /// door. The file was deleted before this fired.
+  Stream<FeatureDecision> get locked => _locked.stream;
+
   /// The file waiting for the cropper, if any.
   PickedSoundFile? get pending => _pending;
+
+  /// Whether a paywall is waiting for setup to finish or an alarm to stop.
+  bool get hasPaywallPending => _paywallPending;
+
+  Future<FeatureDecision> _ownSounds() async {
+    try {
+      return await readOwnSounds();
+    } on Object catch (_) {
+      // Nobody knows. Nothing is turned away and nothing is sold.
+      return const FeatureDecision.open();
+    }
+  }
 
   /// A file just came in. Checks it, holds it, and opens it if it can.
   Future<void> receive(PickedSoundFile file) async {
     if (!_seen.add(file.path)) return;
     if (!await canImportSounds()) {
       await discard(file.path);
+      return;
+    }
+    // Before the file check: a file nobody may import gets the paywall,
+    // not a line about its format.
+    if (await _ownSounds() is FeatureLocked) {
+      await discard(file.path);
+      _paywallPending = true;
+      await tryOpen();
       return;
     }
     final rejection = checkPickedSound(
@@ -104,11 +147,25 @@ class IncomingAudio {
     try {
       while (true) {
         final file = _pending;
-        if (file == null) return;
+        if (file == null && !_paywallPending) return;
         if (!await isOnboardingDone()) return;
         if (await isRinging()) return;
+        // The plan may have changed while the file or the paywall waited.
+        final decision = await _ownSounds();
         // A newer file came in while the checks ran. Check again for that one.
         if (!identical(file, _pending)) continue;
+        if (decision is FeatureLocked) {
+          // A file held from before the lock is dropped too, never kept
+          // for later.
+          _pending = null;
+          _paywallPending = false;
+          if (file != null) await discard(file.path);
+          _locked.add(decision);
+          return;
+        }
+        // Open again, so there is nothing to sell.
+        _paywallPending = false;
+        if (file == null) return;
         _pending = null;
         _toOpen.add(file);
         return;
@@ -121,5 +178,6 @@ class IncomingAudio {
   Future<void> dispose() async {
     await _toOpen.close();
     await _rejected.close();
+    await _locked.close();
   }
 }
