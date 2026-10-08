@@ -12,6 +12,7 @@ export 'crop_editor.dart';
 export 'dialogs.dart';
 export 'dismiss_cross.dart';
 export 'empty_state.dart';
+export 'feature_lock.dart';
 export 'fitted_title.dart';
 export 'floating_tab_bar.dart';
 export 'glyphs.dart';

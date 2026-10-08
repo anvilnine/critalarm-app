@@ -30,7 +30,29 @@ enum LockSource {
   ///
   /// `PaywallSource` has no value for it yet, so on the Hosted side it
   /// reads as `direct`. Nothing on that screen sells Hosted today.
-  reliability(PaywallSource.direct, ProPackSheetSource.reliability);
+  reliability(PaywallSource.direct, ProPackSheetSource.reliability),
+
+  /// The sound strip on the Personalize page, and the bar under its
+  /// preview while a locked sound is being tried.
+  ///
+  /// The three Personalize places have a Pro source of their own. On the
+  /// Hosted side each reads as the older place that sells the same thing,
+  /// so the Hosted paywall still leads with the benefit the person reached
+  /// for. `PaywallSource` gets its own values for them once the paywall
+  /// layouts, which switch over every value, can take new cases.
+  personalizeSound(PaywallSource.direct, ProPackSheetSource.personalizeSound),
+
+  /// The Widgets row on the Personalize page.
+  personalizeWidgets(
+    PaywallSource.homeWidgets,
+    ProPackSheetSource.personalizeWidgets,
+  ),
+
+  /// The App icon row on the Personalize page.
+  personalizeAppIcon(
+    PaywallSource.appIcon,
+    ProPackSheetSource.personalizeAppIcon,
+  );
 
   const LockSource(this.hosted, this.pro);
 

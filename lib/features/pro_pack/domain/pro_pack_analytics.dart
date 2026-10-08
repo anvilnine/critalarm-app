@@ -14,6 +14,9 @@ enum ProPackSheetSource {
   historyOlder('history_older'),
   homeWidgets('home_widgets'),
   appIcon('app_icon'),
+  personalizeSound('personalize_sound'),
+  personalizeWidgets('personalize_widgets'),
+  personalizeAppIcon('personalize_app_icon'),
   direct('direct');
 
   const ProPackSheetSource(this.wire);
