@@ -45,6 +45,14 @@
 //                                  layout's own clock starts at the intro's
 //                                  hand over. With no T nothing moves, so no
 //                                  intro plays.
+//   --dart-define=THANKS=<key>     buy on the made-up buy model and capture
+//                                  what plays after, a PaywallThanksId key
+//                                  such as confetti. T then counts from the
+//                                  confirmed purchase: the layout plays for
+//                                  three seconds first. With no T it is the
+//                                  resting frame. With STATE=done it is what
+//                                  a buyer who already has the product sees.
+//   --dart-define=RESTORE=true     with THANKS: restore in place of buying
 //   --dart-define=MOTION=<names>   draw the Hero composition with these
 //                                  motion variants in place of LAYOUT: any
 //                                  of the HeroMotion enum names, comma
@@ -59,7 +67,8 @@
 //     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
 //     --dart-define=PICKER=intro --dart-define=T=2.5
 //
-// PICKER is `page` (the two rows), `intro` or `paywall` (that sheet open).
+// PICKER is `page` (the three rows), `intro`, `paywall` or `thanks` (that
+// sheet open).
 // PRODUCT picks the tab. T lets the tiles play to that second after the
 // sheet opens. It writes one size, light and dark, at the default text size.
 // PICKED=<layout>,<intro> opens it with those already chosen for Hosted, as
@@ -99,6 +108,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_fram
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -127,6 +137,11 @@ const _drag = String.fromEnvironment('DRAG');
 const _held = bool.fromEnvironment('HELD');
 const _then = String.fromEnvironment('THEN');
 const _introKey = String.fromEnvironment('INTRO');
+const _thanksKey = String.fromEnvironment('THANKS');
+const _restore = bool.fromEnvironment('RESTORE');
+
+/// How long the layout plays before the purchase, with THANKS and T.
+const double _beforeBuying = 3;
 const _motion = String.fromEnvironment('MOTION');
 const _picker = String.fromEnvironment('PICKER');
 const _picked = String.fromEnvironment('PICKED');
@@ -427,7 +442,13 @@ void main() {
   final source = PaywallSource.parse(_sourceKey);
   final intro = PaywallIntroId.fromKey(_introKey);
   final motion = _motionOf(_motion);
+  final thanks = PaywallThanksId.fromKey(_thanksKey);
   test('LAYOUT names a layout', () {
+    expect(
+      _thanksKey.isEmpty || thanks != null,
+      isTrue,
+      reason: 'Nothing after a purchase has the key "$_thanksKey".',
+    );
     expect(layout, isNotNull, reason: 'No layout has the key "$_layoutKey".');
     expect(
       _introKey.isEmpty || intro != null,
@@ -436,9 +457,9 @@ void main() {
     );
     expect(motion, isNotNull, reason: 'MOTION has a name no variant has.');
     expect(
-      const ['', 'page', 'intro', 'paywall'],
+      const ['', 'page', 'intro', 'paywall', 'thanks'],
       contains(_picker),
-      reason: 'PICKER is page, intro or paywall.',
+      reason: 'PICKER is page, intro, paywall or thanks.',
     );
     expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
     expect(
@@ -471,6 +492,8 @@ void main() {
           if (_held) 'held',
           if (_then.isNotEmpty) 'then$_then',
           if (_introKey.isNotEmpty) 'intro-$_introKey',
+          if (_thanksKey.isNotEmpty) 'thanks-$_thanksKey',
+          if (_restore) 'restore',
           if (_motion.isNotEmpty) 'motion-${_motion.replaceAll(',', '-')}',
         ].join('_');
 
@@ -498,6 +521,10 @@ void main() {
                       queryParameters: {
                         'product': product.key,
                         if (intro != null) 'intro': intro.key,
+                        if (thanks != null) ...{
+                          'thanks': thanks.key,
+                          'try': paywallTryOut,
+                        },
                         if (_sourceKey.isNotEmpty) 'source': source.wire,
                         if (_state.isNotEmpty) 'state': _state,
                         // The route lists what the build has unless asked
@@ -554,6 +581,7 @@ void main() {
               final row = switch (_picker) {
                 'intro' => LocaleKeys.paywall_picker_intro_row,
                 'paywall' => LocaleKeys.paywall_picker_paywall_row,
+                'thanks' => LocaleKeys.paywall_thanks_picker_row,
                 _ => null,
               };
               if (row != null) {
@@ -564,8 +592,25 @@ void main() {
             } else if (second == null) {
               await tester.pump(const Duration(milliseconds: 300));
               await tester.pump(const Duration(milliseconds: 300));
-            } else {
+            } else if (thanks == null || _state.isNotEmpty) {
               await _stepTo(tester, second);
+            }
+            if (thanks != null && _state.isEmpty) {
+              // The layout plays, the buyer buys or restores, and T counts
+              // from the frame the made-up model says the product is held.
+              if (second != null) await _stepTo(tester, _beforeBuying);
+              final cubit = BlocProvider.of<PaywallBuyCubit>(
+                tester.element(find.byType(PaywallBuyBlock).first),
+              );
+              await tester.runAsync(() async {
+                await (_restore ? cubit.restore() : cubit.buy());
+              });
+              await tester.pump();
+              if (second != null) await _stepTo(tester, second);
+              // The purchase cue's haptic is a short pattern on a timer.
+              if (second == null) {
+                await tester.pump(const Duration(milliseconds: 400));
+              }
             }
             final finger = await _touch(tester);
 
@@ -577,7 +622,9 @@ void main() {
 
             final problems = <String>[
               ...errors,
-              if (!isPicker && !onScreen(find.byType(AppDismissCross)))
+              if (!isPicker &&
+                  thanks == null &&
+                  !onScreen(find.byType(AppDismissCross)))
                 'The close cross is not on screen.',
               if (!isPicker &&
                   _state.isEmpty &&

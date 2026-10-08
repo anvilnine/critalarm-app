@@ -184,3 +184,45 @@ class PaywallMuted extends InheritedWidget {
   @override
   bool updateShouldNotify(PaywallMuted oldWidget) => false;
 }
+
+/// What the step after a purchase tells the layout under it.
+class PaywallThanksHandle {
+  /// True from the frame the product is known to be held: the step after
+  /// the purchase has the screen and the sound from then on, so the layout
+  /// under it plays no cue of its own.
+  bool hasBegun = false;
+}
+
+/// Says that something of its own plays after a purchase on the layout
+/// below. `PaywallThanksHost` puts it there, and only when a version is
+/// set and built.
+///
+/// The buy block reads it: with one above, the block does not change to
+/// its own done state when the purchase is confirmed, so nothing under the
+/// show moves as it starts.
+class PaywallThanksPlay extends InheritedWidget {
+  const PaywallThanksPlay({
+    required this.handle,
+    required super.child,
+    super.key,
+  });
+
+  final PaywallThanksHandle handle;
+
+  /// Whether a step after the purchase takes over from the buy block
+  /// under [context].
+  static bool takesOver(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PaywallThanksPlay>() != null;
+
+  /// Whether that step has begun. It does not listen, so it is safe on a
+  /// tick.
+  static bool hasBegun(BuildContext context) =>
+      context
+          .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+          ?.handle
+          .hasBegun ??
+      false;
+
+  @override
+  bool updateShouldNotify(PaywallThanksPlay oldWidget) => false;
+}

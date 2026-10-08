@@ -1,5 +1,6 @@
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,6 +44,37 @@ void main() {
           intro: PaywallIntroId.falseAlarm,
         ),
         '/plans/doors?product=pro&source=direct&intro=false_alarm',
+      );
+    });
+
+    test('names the thanks only when there is one', () {
+      expect(
+        paywallLayoutLocation(
+          PaywallLayoutId.hero,
+          PaywallProduct.hosted,
+          // The default, spelled out: `none` is never written.
+          // ignore: avoid_redundant_argument_values
+          thanks: PaywallThanksId.none,
+        ),
+        '/plans/hero?product=hosted&source=direct',
+      );
+      expect(
+        paywallLayoutLocation(
+          PaywallLayoutId.sheet,
+          PaywallProduct.hosted,
+          thanks: PaywallThanksId.confetti,
+        ),
+        '/plans/sheet?product=hosted&source=direct&thanks=confetti',
+      );
+      expect(
+        paywallLayoutLocation(
+          PaywallLayoutId.doors,
+          PaywallProduct.pro,
+          intro: PaywallIntroId.falseAlarm,
+          thanks: PaywallThanksId.unlock,
+        ),
+        '/plans/doors?product=pro&source=direct'
+        '&intro=false_alarm&thanks=unlock',
       );
     });
   });

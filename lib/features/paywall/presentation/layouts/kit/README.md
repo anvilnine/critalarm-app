@@ -102,6 +102,73 @@ Which intro plays is a second value beside the layout: remote keys `paywall_intr
 intro. An empty layout value still means the shipped surface, whatever the intro says. The
 layout value `false_alarm`, from when the joke was a layout, reads as `hero` with that intro.
 
+## Add a step after the purchase
+
+What plays once a purchase is confirmed is a third value beside the intro and the layout, a
+`PaywallThanksId`. Any one goes with any layout, for either product. `none` is the purchase
+ending as it did before: Hosted goes to the welcome screen, Pro's buy block says it is on.
+
+1. Add an id to `PaywallThanksId` (`lib/core/paywall/paywall_thanks.dart`). The key ships in
+   remote values and analytics, so it never changes. Add its name to `paywallThanksNameKey`.
+2. Add one folder, `presentation/thanks/<name>/`, with a pure timeline (a class of static
+   functions of `t`) and one file that holds a `const PaywallThanks` and the widget its
+   `builder` returns. Unit test the timeline: the order of the beats, the first frame, and that
+   the frame at `seconds` is complete, with nothing half way or at an angle.
+3. Register it in `kit/paywall_thanks_registry.dart`: `PaywallThanksId.confetti: confettiThanks`.
+
+```dart
+const PaywallThanks confettiThanks = PaywallThanks(
+  seconds: ConfettiTimeline.end, // 2.4: the resting frame from here on
+  cover: ConfettiTimeline.cover, // 0.38: it covers the whole screen from here on
+  buttonAt: ConfettiTimeline.goOn, // 1.1: the host's button comes on, 1.5 at the latest
+  tone: PaywallTone.canvas, // what the resting frame is painted on
+  beats: confettiBeats, // (int lines) => what is felt on the way
+  builder: _build, // (context, PaywallThanksScope scope) => ConfettiThanks(scope: scope)
+);
+```
+
+**Second zero is the confirmed purchase.** `PaywallThanksHost` starts the clock on the frame the
+buy model says the product is held after a trip to the store (`paywallThanksKindFor`), and never
+before. A cancel, a failure, a restore that found nothing and a held payment start nothing.
+The buy block plays `PaywallCue.bought` on that same frame, so a version never plays it. The cue
+is a click, a short pick up, one swell that starts at 0.4 and peaks at 0.6, and a tail that is
+over by `paywallBoughtCueSeconds` (2.2). Time the show to that.
+
+**Beats.** `PaywallThanksBeat.tap(seconds, pattern)` is a haptic alone, which is what every beat
+under the purchase cue must be. `PaywallThanksBeat(seconds, cue)` plays a cue of the palette and
+belongs after 2.2. `PaywallThanks.isSound` checks it and a test asks it of every version. Keep
+beats single and apart: nothing may ring or buzz like an alarm.
+
+**It grows out of the paywall.** A `PaywallThanksScope` has `clock`, `size`, `padding`, `product`,
+`benefits` (only what this build has), `origin` (the buy button that was pressed), `source` (its
+middle, or a fallback), `mascot` (the layout's own mascot as it was painted) and `room` (the
+screen less the safe areas and the host's button). Until `cover` the version draws over the
+paywall: put a `ThanksCover` first, growing from `scope.source`, and start the mascot at
+`thanksStartBox(scope.mascot)`. From `cover` on the host takes the layout away, so the version
+paints every pixel. The buy block does not change to its done state under a version
+(`PaywallThanksPlay`), so nothing moves as the show starts.
+
+`thanks/thanks_parts.dart` has the shared parts: `ThanksStage` (where the mascot stands and the
+words go), `ThanksCrit`, `ThanksDisc`, `ThanksCover`, `ThanksWords` (the headline and one line a
+benefit, each led by a mark you draw), `ThanksCheck`, `thanksIdleFace` and `ThanksQuiet`.
+
+What the host does, so a version does not:
+
+- The one button, at the foot, on by `buttonAt`. It goes where the purchase went before: Hosted
+  starts the app over at home, Pro closes the paywall.
+- A tap anywhere skips the show to its resting frame. Skipped beats are not played.
+- A restore that worked gets `ThanksQuiet`: the mascot, a check and one line. No show.
+- A product that was already held gets the resting frame with no show.
+- Reduce motion, or a `PaywallStill`: the frame at `seconds`, at once, with the clock still.
+  Otherwise the clock runs on past `seconds`, so the mascot may blink and bob at rest.
+- It plays once. The layout under it makes no sound from the first frame.
+- Analytics: `paywall_thanks_shown` and `paywall_thanks_left`, and every layout event carries
+  `thanks`.
+
+Which one plays: remote keys `paywall_thanks` and `pro_paywall_thanks`, developer prefs
+`dev.paywall_thanks` and `dev.pro_paywall_thanks`, the route's `?thanks=<key>`. Empty is none. An
+empty layout value still means the shipped surface, whatever this says.
+
 ## The frame
 
 `PaywallFrame(builder: (context, scope) => ...)` never scrolls. It keeps the safe areas, puts
@@ -242,7 +309,8 @@ and waits at zero under a `PaywallClockHold` (an intro puts one over the layout)
 
 ## Tiles
 
-`PaywallLayoutTile(layout:, product:, label:)` and `PaywallIntroTile(intro:, product:, label:)`
+`PaywallLayoutTile(layout:, product:, label:)`, `PaywallIntroTile(intro:, product:, label:)` and
+`PaywallThanksTile(thanks:, product:, label:)` (which buys on the demo model after a moment)
 draw the real layout (and intro) at 390 by 844 on the demo buy model, scaled down with a
 `FittedBox`. A tile takes no touch of its own, plays no cue (`PaywallMuted`), and an intro tile
 starts again every few seconds. Its clock runs only while the tile is built, so put tiles in a
@@ -298,5 +366,7 @@ size, or a cross or button off screen. The top of the tool lists the options: `O
 `BENEFITS=built`, `SOURCE`, `PREVIEWS=gallery`, and `T=<seconds>`, which plays the motion a
 frame at a time and captures that second (with `TAP=x,y`, `DRAG=x,y,x,y` and `THEN=<seconds>`).
 `INTRO=<key>` plays that intro first (with `T`, which then counts from the intro's first frame).
-`MOTION=rays,drop` draws the Hero composition with those variants. `PICKER=page|intro|paywall`
-captures the developer picker.
+`THANKS=<key>` buys on the demo model and captures what plays after (with `T`, which then counts
+from the confirmed purchase, and `RESTORE=true` for the quiet frame).
+`MOTION=rays,drop` draws the Hero composition with those variants.
+`PICKER=page|intro|paywall|thanks` captures the developer picker.
