@@ -2,6 +2,8 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
+import 'package:critalarm/core/sound/sound_assignments.dart';
 import 'package:flutter/foundation.dart';
 
 // The rules of the Personalize page, with nothing drawn. Pure, so they are
@@ -109,27 +111,31 @@ bool tryStillStands(
   Map<AppFeature, FeatureDecision> decisions,
 ) => tried != null && decisions[tried.feature] is FeatureLocked;
 
-/// The chips of the Sound strip, in order: [current] with the tick, then
-/// [builtIns]. "Yours" and the chip that opens the full picker come after
-/// and are always there.
+/// The chips of the Sound strip, in order: [current] with the tick,
+/// "Yours", then [builtIns], then the chip that opens the full picker.
+/// "Yours" comes second so its lock shows without scrolling.
 @immutable
 final class SoundStrip {
   const SoundStrip({
     required this.current,
     required this.builtIns,
-    required this.newestOwn,
+    required this.yours,
+    required this.ownSoundsLocked,
   });
 
-  /// The default sound as saved: what really rings. Null only when its id
-  /// names no sound on this phone.
+  /// The sound that really rings: the saved default, or what stands in for
+  /// it while own sounds are locked. Null only when its id names no sound
+  /// on this phone.
   final AlarmSound? current;
 
   /// A few built-in sounds, without [current].
   final List<AlarmSound> builtIns;
 
-  /// The newest sound the user brought in, which "Yours" plays. Null when
-  /// there is none.
-  final AlarmSound? newestOwn;
+  /// The own sound "Yours" stands for: the saved default when that is an
+  /// own sound, else the newest one. Null when the phone has none.
+  final AlarmSound? yours;
+
+  final bool ownSoundsLocked;
 
   /// Whether the sound that rings now is one the user brought in.
   bool get currentIsOwn => current?.source == AlarmSoundSource.user;
@@ -140,38 +146,51 @@ const int soundStripBuiltIns = 3;
 
 /// Builds the Sound strip.
 ///
-/// The strip leads with what is saved and never with what a plan would
-/// allow: the page shows what will really ring. [builtIn] is the bundled
-/// catalogue in its own order, [userSounds] the user's own, oldest first,
-/// and [others] anything else that can be the default (a pack sound).
+/// The tick sits on what really rings, which [OwnSoundRule] decides: with
+/// own sounds locked, a saved own sound does not ring, so the tick moves
+/// to the sound standing in for it and the saved one shows as the locked
+/// "Yours" chip. The saved choice itself is never changed by a lock.
+///
+/// [builtIn] is the bundled catalogue in its own order, [userSounds] the
+/// user's own, oldest first, and [others] anything else that can be the
+/// default (a pack sound).
 SoundStrip soundStripFor({
   required List<AlarmSound> builtIn,
   required List<AlarmSound> userSounds,
   required String defaultId,
+  required bool ownSoundsLocked,
   List<AlarmSound> others = const [],
   int builtInCount = soundStripBuiltIns,
 }) {
-  AlarmSound? current;
-  for (final sound in [...builtIn, ...others, ...userSounds]) {
-    if (sound.id == defaultId) {
-      current = sound;
-      break;
+  AlarmSound? byId(String id) {
+    for (final sound in [...builtIn, ...others, ...userSounds]) {
+      if (sound.id == id) return sound;
     }
+    return null;
   }
+
+  final ringingId = OwnSoundRule.ringingDefaultId(
+    saved: SoundAssignments(defaultSoundId: defaultId),
+    ownSoundsLocked: ownSoundsLocked,
+  );
+  final saved = byId(defaultId);
   return SoundStrip(
-    current: current,
+    current: byId(ringingId),
     builtIns: builtIn
-        .where((sound) => sound.id != defaultId)
+        .where((sound) => sound.id != ringingId)
         .take(builtInCount)
         .toList(growable: false),
-    newestOwn: userSounds.isEmpty ? null : userSounds.last,
+    yours: saved != null && saved.source == AlarmSoundSource.user
+        ? saved
+        : (userSounds.isEmpty ? null : userSounds.last),
+    ownSoundsLocked: ownSoundsLocked,
   );
 }
 
 /// What a tap on "Yours" does once own sounds are usable.
 enum YoursTap {
-  /// Makes the newest own sound the default and plays it.
-  pickNewest,
+  /// Makes the own sound the default and plays it.
+  pick,
 
   /// Opens the full sound picker, where a sound is added or another one
   /// picked.
@@ -181,9 +200,14 @@ enum YoursTap {
 /// With an own sound to pick that is not ringing already, the tap picks
 /// it. With none, or with one already the default, it opens the picker.
 YoursTap yoursTapFor(SoundStrip strip) =>
-    strip.newestOwn != null && !strip.currentIsOwn
-    ? YoursTap.pickNewest
+    strip.yours != null && !strip.currentIsOwn
+    ? YoursTap.pick
     : YoursTap.openPicker;
+
+/// Whether a tap on the locked "Yours" chip tries it. A try has to play
+/// something, so with no own sound on the phone the chip goes straight to
+/// the paywall.
+bool yoursCanBeTried(SoundStrip strip) => strip.yours != null;
 
 /// The text size from which the page gives the preview less room and lets
 /// chip labels wrap.

@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
@@ -19,12 +22,13 @@ import 'package:go_router/go_router.dart';
 Widget buildPersonalizeSoundStrip(BuildContext context) =>
     const PersonalizeSoundStrip();
 
-/// The sound that rings now with a tick, a few built-in sounds, "Yours",
+/// The sound that rings now with a tick, "Yours", a few built-in sounds,
 /// and a chip that opens the full sound picker.
 ///
 /// A built-in sound is saved as the default the moment it is tapped, and
-/// played once. "Yours" needs the plan that unlocks own sounds: locked, a
-/// tap tries it and saves nothing.
+/// played once. "Yours" needs the plan that unlocks own sounds. Locked, a
+/// tap plays the person's own sound as a try and saves nothing, or opens
+/// the paywall when the phone has no own sound to play.
 class PersonalizeSoundStrip extends StatelessWidget {
   const PersonalizeSoundStrip({super.key});
 
@@ -40,54 +44,70 @@ class PersonalizeSoundStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<PersonalizeCubit, PersonalizeState>(
-      builder: (context, state) {
-        final cubit = context.read<PersonalizeCubit>();
-        final strip = state.soundStrip;
-        final current = strip.current;
-        final yours = LocaleKeys.personalize_sound_yours.tr();
-        final isTryingYours = state.tried?.feature == AppFeature.ownSounds;
+    final access = getIt<FeatureAccess>();
+    // The order of the chips follows the lock, so the strip is built again
+    // when the answer for own sounds changes.
+    return StreamBuilder<AppFeature>(
+      stream: access.changes.where(
+        (feature) => feature == AppFeature.ownSounds,
+      ),
+      builder: (context, _) => BlocBuilder<PersonalizeCubit, PersonalizeState>(
+        builder: (context, state) {
+          final cubit = context.read<PersonalizeCubit>();
+          final strip = state.soundStrip(
+            ownSoundsLocked: ownSoundsLockedBy(
+              access.decide(AppFeature.ownSounds),
+            ),
+          );
+          final current = strip.current;
+          final yours = strip.yours;
+          final yoursLabel = LocaleKeys.personalize_sound_yours.tr();
+          final isTryingYours = state.tried?.feature == AppFeature.ownSounds;
 
-        Widget chip(AlarmSound sound, {required bool isSelected}) =>
-            PersonalizeChip(
-              key: ValueKey('sound-${sound.id}'),
-              label: sound.name,
-              isSelected: isSelected,
-              onTap: () => unawaited(cubit.pickSound(sound)),
-            );
+          Widget chip(AlarmSound sound, {required bool isSelected}) =>
+              PersonalizeChip(
+                key: ValueKey('sound-${sound.id}'),
+                label: sound.name,
+                isSelected: isSelected,
+                onTap: () => unawaited(cubit.pickSound(sound)),
+              );
 
-        return PersonalizeStrip(
-          children: [
-            if (current != null) chip(current, isSelected: true),
-            for (final sound in strip.builtIns) chip(sound, isSelected: false),
-            AccessLock(
-              feature: AppFeature.ownSounds,
-              source: LockSource.personalizeSound,
-              name: yours,
-              tap: LockTap.tryIt,
-              badgeOverhang: PersonalizeStrip.badgeRoom,
-              onTry: () => unawaited(cubit.trySound(strip.newestOwn)),
-              child: PersonalizeChip(
-                key: const ValueKey('sound-yours'),
-                label: yours,
-                isMarked: isTryingYours,
-                onTap: () => switch (yoursTapFor(strip)) {
-                  YoursTap.pickNewest => unawaited(
-                    cubit.pickSound(strip.newestOwn!),
-                  ),
-                  YoursTap.openPicker => unawaited(_openPicker(context)),
-                },
+          return PersonalizeStrip(
+            children: [
+              if (current != null) chip(current, isSelected: true),
+              AccessLock(
+                feature: AppFeature.ownSounds,
+                source: LockSource.personalizeSound,
+                name: yoursLabel,
+                // A try plays the person's own sound. With none on the
+                // phone there is nothing to try, so the chip sells.
+                tap: yoursCanBeTried(strip) ? LockTap.tryIt : LockTap.sell,
+                onTry: yours == null
+                    ? null
+                    : () => unawaited(cubit.trySound(yours)),
+                badgeOverhang: PersonalizeStrip.badgeRoom,
+                child: PersonalizeChip(
+                  key: const ValueKey('sound-yours'),
+                  label: yoursLabel,
+                  isMarked: isTryingYours,
+                  onTap: () => switch (yoursTapFor(strip)) {
+                    YoursTap.pick => unawaited(cubit.pickSound(yours!)),
+                    YoursTap.openPicker => unawaited(_openPicker(context)),
+                  },
+                ),
               ),
-            ),
-            PersonalizeChip(
-              key: const ValueKey('sound-more'),
-              label: LocaleKeys.personalize_sound_more.tr(),
-              trailing: GlyphType.arrow,
-              onTap: () => unawaited(_openPicker(context)),
-            ),
-          ],
-        );
-      },
+              for (final sound in strip.builtIns)
+                chip(sound, isSelected: false),
+              PersonalizeChip(
+                key: const ValueKey('sound-more'),
+                label: LocaleKeys.personalize_sound_more.tr(),
+                trailing: GlyphType.arrow,
+                onTap: () => unawaited(_openPicker(context)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

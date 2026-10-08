@@ -56,13 +56,19 @@ void main() {
   test('opens on the saved default with the built-in sounds', () {
     expect(cubit.state.isLoading, isFalse);
     expect(cubit.state.defaultSoundId, BundledSounds.fallbackId);
-    expect(cubit.state.soundStrip.current?.id, BundledSounds.fallbackId);
-    expect(cubit.state.soundStrip.builtIns, hasLength(soundStripBuiltIns));
+    expect(
+      cubit.state.soundStrip(ownSoundsLocked: false).current?.id,
+      BundledSounds.fallbackId,
+    );
+    expect(
+      cubit.state.soundStrip(ownSoundsLocked: false).builtIns,
+      hasLength(soundStripBuiltIns),
+    );
     expect(cubit.state.tried, isNull);
   });
 
   test('picking a sound saves it where the sound picker reads it', () async {
-    final pick = cubit.state.soundStrip.builtIns.first;
+    final pick = cubit.state.soundStrip(ownSoundsLocked: false).builtIns.first;
     await cubit.pickSound(pick);
 
     expect(repository.assignments.defaultSoundId, pick.id);
@@ -78,7 +84,10 @@ void main() {
   test('a default changed in the sound picker shows after a reload', () async {
     await repository.setDefaultSoundId('pager_beep');
     await cubit.load();
-    expect(cubit.state.soundStrip.current?.id, 'pager_beep');
+    expect(
+      cubit.state.soundStrip(ownSoundsLocked: false).current?.id,
+      'pager_beep',
+    );
   });
 
   test('trying a locked own sound plays it and saves nothing', () async {
@@ -95,39 +104,51 @@ void main() {
       const PersonalizeTry(AppFeature.ownSounds, optionId: 'user_1'),
     );
     expect(cubit.state.playingSoundId, 'user_1');
-    expect(cubit.state.chosenSound?.id, 'user_1');
+    expect(cubit.state.chosenSound(ownSoundsLocked: true)?.id, 'user_1');
     expect(methods(), isNot(contains('publishSoundAssignments')));
   });
 
-  test('trying with no own sound shows the try and plays nothing', () async {
-    await cubit.trySound(null);
-    expect(cubit.state.tried, const PersonalizeTry(AppFeature.ownSounds));
-    expect(cubit.state.isPlaying, isFalse);
-    expect(methods(), isNot(contains('startPreview')));
-    // The play button still plays what really rings.
-    expect(cubit.state.chosenSound?.id, BundledSounds.fallbackId);
+  test('locked with an own sound saved: the play button plays what rings, '
+      'and the saved choice stays', () async {
+    repository.sounds.add(own);
+    await repository.setDefaultSoundId(own.id);
+    await cubit.load();
+    calls.clear();
+
+    expect(
+      cubit.state.soundStrip(ownSoundsLocked: true).current?.id,
+      BundledSounds.fallbackId,
+    );
+    await cubit.togglePlay(ownSoundsLocked: true);
+
+    expect(cubit.state.playingSoundId, BundledSounds.fallbackId);
+    expect(repository.assignments.defaultSoundId, own.id);
   });
 
   test('picking a free sound ends the try', () async {
-    await cubit.trySound(null);
-    await cubit.pickSound(cubit.state.soundStrip.builtIns.first);
+    repository.sounds.add(own);
+    await cubit.load();
+    await cubit.trySound(own);
+    await cubit.pickSound(
+      cubit.state.soundStrip(ownSoundsLocked: false).builtIns.first,
+    );
     expect(cubit.state.tried, isNull);
   });
 
   test('the play button plays the chosen sound once, then stops it', () async {
-    await cubit.togglePlay();
+    await cubit.togglePlay(ownSoundsLocked: false);
     expect(cubit.state.playingSoundId, BundledSounds.fallbackId);
     final start = calls.lastWhere((call) => call.method == 'startPreview');
     expect((start.arguments as Map)['is_asset'], isTrue);
 
-    await cubit.togglePlay();
+    await cubit.togglePlay(ownSoundsLocked: false);
     expect(cubit.state.isPlaying, isFalse);
     expect(methods().last, 'stopPreview');
   });
 
   test('a preview that ends on its own clears the play button', () async {
-    await cubit.togglePlay();
-    final path = cubit.state.chosenSound!.path;
+    await cubit.togglePlay(ownSoundsLocked: false);
+    final path = cubit.state.chosenSound(ownSoundsLocked: false)!.path;
     await messenger.handlePlatformMessage(
       SoundHost.channelName,
       const StandardMethodCodec().encodeMethodCall(
@@ -142,10 +163,12 @@ void main() {
   test('the page only ever asks the sound host to preview', () async {
     repository.sounds.add(own);
     await cubit.load();
-    await cubit.pickSound(cubit.state.soundStrip.builtIns.first);
+    await cubit.pickSound(
+      cubit.state.soundStrip(ownSoundsLocked: false).builtIns.first,
+    );
     await cubit.trySound(own);
-    await cubit.togglePlay();
-    await cubit.togglePlay();
+    await cubit.togglePlay(ownSoundsLocked: false);
+    await cubit.togglePlay(ownSoundsLocked: false);
     expect(
       methods().toSet(),
       {'publishSoundAssignments', 'stopPreview', 'startPreview'},
@@ -153,7 +176,7 @@ void main() {
   });
 
   test('closing the page stops the sound', () async {
-    await cubit.togglePlay();
+    await cubit.togglePlay(ownSoundsLocked: false);
     calls.clear();
     await cubit.close();
     expect(methods(), contains('stopPreview'));

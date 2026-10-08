@@ -2,6 +2,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,91 +19,107 @@ AlarmSound _sound(
 
 void main() {
   final builtIn = [
-    for (final id in ['a', 'b', 'c', 'd', 'e']) _sound(id),
+    for (final id in [BundledSounds.fallbackId, 'a', 'b', 'c', 'd']) _sound(id),
   ];
+  // Own sounds carry the id prefix the lock rule reads.
   final own = [
-    _sound('u1', AlarmSoundSource.user),
-    _sound('u2', AlarmSoundSource.user),
+    _sound('user_1', AlarmSoundSource.user),
+    _sound('user_2', AlarmSoundSource.user),
   ];
+
+  SoundStrip strip({
+    required String defaultId,
+    bool locked = false,
+    List<AlarmSound>? userSounds,
+    List<AlarmSound> others = const [],
+  }) => soundStripFor(
+    builtIn: builtIn,
+    userSounds: userSounds ?? const [],
+    others: others,
+    defaultId: defaultId,
+    ownSoundsLocked: locked,
+  );
 
   group('soundStripFor', () {
     test('leads with the saved default, then three other built-ins', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: const [],
-        defaultId: 'c',
-      );
-      expect(strip.current?.id, 'c');
-      expect(strip.builtIns.map((s) => s.id), ['a', 'b', 'd']);
-      expect(strip.newestOwn, isNull);
-      expect(strip.currentIsOwn, isFalse);
+      final s = strip(defaultId: 'c');
+      expect(s.current?.id, 'c');
+      expect(s.builtIns.map((b) => b.id), [BundledSounds.fallbackId, 'a', 'b']);
+      expect(s.yours, isNull);
+      expect(s.currentIsOwn, isFalse);
     });
 
-    test('an own sound saved as the default is what leads', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: own,
-        defaultId: 'u1',
-      );
-      expect(strip.current?.id, 'u1');
-      expect(strip.currentIsOwn, isTrue);
-      expect(strip.builtIns.map((s) => s.id), ['a', 'b', 'c']);
-      expect(strip.newestOwn?.id, 'u2');
+    test('open: an own sound saved as the default rings and leads', () {
+      final s = strip(defaultId: 'user_1', userSounds: own);
+      expect(s.current?.id, 'user_1');
+      expect(s.currentIsOwn, isTrue);
+      expect(s.builtIns.map((b) => b.id), [BundledSounds.fallbackId, 'a', 'b']);
+      expect(s.yours?.id, 'user_1');
+    });
+
+    test('locked: a saved own sound does not ring. The tick is on the '
+        'sound standing in for it, and the saved one is "Yours"', () {
+      final s = strip(defaultId: 'user_1', userSounds: own, locked: true);
+      expect(s.current?.id, BundledSounds.fallbackId);
+      expect(s.currentIsOwn, isFalse);
+      expect(s.yours?.id, 'user_1');
+      expect(s.builtIns.map((b) => b.id), isNot(contains(s.current!.id)));
+      expect(s.builtIns, hasLength(3));
+    });
+
+    test('locked with a built-in saved: nothing moves', () {
+      final s = strip(defaultId: 'b', userSounds: own, locked: true);
+      expect(s.current?.id, 'b');
+      // "Yours" stands for the newest own sound.
+      expect(s.yours?.id, 'user_2');
     });
 
     test('a pack sound can be the default', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: const [],
-        others: [_sound('p1', AlarmSoundSource.pack)],
+      final s = strip(
         defaultId: 'p1',
+        others: [_sound('p1', AlarmSoundSource.pack)],
       );
-      expect(strip.current?.id, 'p1');
-      expect(strip.currentIsOwn, isFalse);
+      expect(s.current?.id, 'p1');
+      expect(s.currentIsOwn, isFalse);
     });
 
     test('a default that names no sound leaves no current chip', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: const [],
-        defaultId: 'gone',
-      );
-      expect(strip.current, isNull);
-      expect(strip.builtIns, hasLength(3));
+      final s = strip(defaultId: 'gone');
+      expect(s.current, isNull);
+      expect(s.builtIns, hasLength(3));
     });
   });
 
-  group('yoursTapFor', () {
-    test('picks the newest own sound when a built-in rings', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: own,
-        defaultId: 'a',
+  group('"Yours"', () {
+    test('open: picks the own sound when a built-in rings', () {
+      expect(
+        yoursTapFor(strip(defaultId: 'a', userSounds: own)),
+        YoursTap.pick,
       );
-      expect(yoursTapFor(strip), YoursTap.pickNewest);
     });
 
-    test('opens the picker with no own sound', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: const [],
-        defaultId: 'a',
-      );
-      expect(yoursTapFor(strip), YoursTap.openPicker);
+    test('open: opens the picker with no own sound', () {
+      expect(yoursTapFor(strip(defaultId: 'a')), YoursTap.openPicker);
     });
 
-    test('opens the picker when an own sound already rings', () {
-      final strip = soundStripFor(
-        builtIn: builtIn,
-        userSounds: own,
-        defaultId: 'u2',
+    test('open: opens the picker when an own sound already rings', () {
+      expect(
+        yoursTapFor(strip(defaultId: 'user_2', userSounds: own)),
+        YoursTap.openPicker,
       );
-      expect(yoursTapFor(strip), YoursTap.openPicker);
+    });
+
+    test('locked: can be tried only with an own sound to play', () {
+      expect(
+        yoursCanBeTried(strip(defaultId: 'a', userSounds: own, locked: true)),
+        isTrue,
+      );
+      expect(yoursCanBeTried(strip(defaultId: 'a', locked: true)), isFalse);
     });
   });
 
   group('tryBarFor', () {
-    const tried = PersonalizeTry(AppFeature.ownSounds, optionId: 'u2');
+    const tried = PersonalizeTry(AppFeature.ownSounds, optionId: 'user_2');
 
     test('nothing tried and nothing confirming: no bar', () {
       expect(

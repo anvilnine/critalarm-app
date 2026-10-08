@@ -35,11 +35,14 @@ class PersonalizeState {
   /// A locked option being tried. Never saved.
   final PersonalizeTry? tried;
 
-  SoundStrip get soundStrip => soundStripFor(
+  /// The Sound strip, for whether own sounds are locked right now. The
+  /// caller asks the access layer; nothing here reads a plan.
+  SoundStrip soundStrip({required bool ownSoundsLocked}) => soundStripFor(
     builtIn: builtIn,
     userSounds: userSounds,
     others: otherSounds,
     defaultId: defaultSoundId,
+    ownSoundsLocked: ownSoundsLocked,
   );
 
   AlarmSound? soundById(String? id) {
@@ -51,10 +54,10 @@ class PersonalizeState {
   }
 
   /// The sound the play button on the preview plays: the one being tried,
-  /// or else the saved default.
-  AlarmSound? get chosenSound {
+  /// or else the sound that really rings.
+  AlarmSound? chosenSound({required bool ownSoundsLocked}) {
     final triedSound = soundById(tried?.optionId);
-    return triedSound ?? soundById(defaultSoundId);
+    return triedSound ?? soundStrip(ownSoundsLocked: ownSoundsLocked).current;
   }
 
   bool get isPlaying => playingSoundId != null;
