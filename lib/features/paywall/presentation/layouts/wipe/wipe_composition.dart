@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_stage.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -52,9 +53,8 @@ class _WipeCompositionState extends State<WipeComposition> {
     final name = scope.isHosted
         ? LocaleKeys.paywall_kit_name_hosted.tr()
         : LocaleKeys.paywall_kit_name_pro.tr();
-    final before = scope.isHosted
-        ? LocaleKeys.paywall_wipe_tag_free.tr()
-        : LocaleKeys.paywall_wipe_tag_standard.tr();
+    // Without either product the app is the free one.
+    final before = LocaleKeys.paywall_wipe_tag_free.tr();
     final headline = scope.isHosted
         ? LocaleKeys.paywall_wipe_headline_hosted.tr()
         : LocaleKeys.paywall_wipe_headline_pro.tr();
@@ -86,9 +86,14 @@ class _WipeCompositionState extends State<WipeComposition> {
       bottomGap: sizes.bottomGap,
     );
 
+    // After an intro the mascot is already there, so the entrance and the
+    // sweep both start part of the way in.
+    final lead = wipeLeadFor(followsIntro: scope.followsIntro);
     final player = _playing
       ..clock = scope.clock
-      ..loop = HeroLoop([for (final b in benefits) b.previewId]);
+      ..loop = HeroLoop([
+        for (final b in benefits) b.previewId,
+      ], prelude: -lead);
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -101,6 +106,7 @@ class _WipeCompositionState extends State<WipeComposition> {
             size: Size(scope.size.width, room.stage),
             before: before,
             after: name,
+            lead: lead,
             label: LocaleKeys.paywall_wipe_compare_label.tr(
               namedArgs: {'before': before, 'name': name},
             ),
@@ -143,6 +149,7 @@ class _WipeCompositionState extends State<WipeComposition> {
                   HeroRise(
                     clock: scope.clock,
                     index: 0,
+                    after: -lead,
                     child: Semantics(
                       header: true,
                       child: Text(headline, style: headlineStyle),
