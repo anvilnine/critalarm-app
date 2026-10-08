@@ -738,7 +738,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         key: state.pageKey,
         // `?source=` names what opened it, for the analytics event.
         source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
-        isSelfHosted: proPackSheetIsSelfHosted(state.uri),
       ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
