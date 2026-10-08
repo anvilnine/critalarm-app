@@ -15,7 +15,15 @@ enum PaywallThanksId {
 
   /// A padlock on every line opens, one after another, and the mascot is
   /// glad of each.
-  unlock('unlock');
+  unlock('unlock'),
+
+  /// A slip prints from the button, a rubber stamp with the product's
+  /// name lands on it, and the mascot holds it up.
+  stamp('stamp'),
+
+  /// The free plan's limits stand at their caps, each one is lifted, and
+  /// the mascot grows a size.
+  limits('limits');
 
   const PaywallThanksId(this.key);
 
