@@ -26,16 +26,44 @@ DeviceTokenRelayTrust deviceTokenRelayTrust({
   required DeviceIdentity? identity,
   required Uri? sessionRelay,
   required Uri relay,
+}) => _trust(
+  token: identity?.deviceToken,
+  recorded: identity?.tokenRelay,
+  fallback: sessionRelay,
+  asked: relay,
+);
+
+/// On a server that is not self-hosted the device token is the management
+/// credential, so it is that for one server address and for no other.
+///
+/// The address is the one saved beside the token. A token with none belongs
+/// to [sessionServer], the server of the saved session. The answer reads as
+/// [deviceTokenRelayTrust] does, with the server in the relay's place.
+DeviceTokenRelayTrust deviceTokenServerTrust({
+  required DeviceIdentity? identity,
+  required Uri? sessionServer,
+  required Uri server,
+}) => _trust(
+  token: identity?.deviceToken,
+  recorded: identity?.tokenServer,
+  fallback: sessionServer,
+  asked: server,
+);
+
+DeviceTokenRelayTrust _trust({
+  required String? token,
+  required String? recorded,
+  required Uri? fallback,
+  required Uri asked,
 }) {
-  final token = identity?.deviceToken;
   if (token == null || token.trim().isEmpty) {
     return DeviceTokenRelayTrust.noToken;
   }
-  final issuer = identity?.tokenRelay ?? sessionRelay?.toString();
-  if (issuer == null || issuer.trim().isEmpty) {
+  final owner = recorded ?? fallback?.toString();
+  if (owner == null || owner.trim().isEmpty) {
     return DeviceTokenRelayTrust.unknownIssuer;
   }
-  return ServerInfoValidation.isSameAddress(issuer, relay.toString())
+  return ServerInfoValidation.isSameAddress(owner, asked.toString())
       ? DeviceTokenRelayTrust.issuer
       : DeviceTokenRelayTrust.otherRelay;
 }
@@ -47,4 +75,13 @@ final class DeviceTokenRelayMismatch implements Exception {
 
   @override
   String toString() => 'Device token belongs to another relay';
+}
+
+/// Thrown instead of making the device token the credential for a server
+/// other than the one it belongs to. Nothing was sent.
+final class DeviceTokenServerMismatch implements Exception {
+  const DeviceTokenServerMismatch();
+
+  @override
+  String toString() => 'Device token belongs to another server';
 }

@@ -4,6 +4,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
@@ -55,6 +56,7 @@ void main() {
       ),
     );
     registerFallbackValue(const NoParams());
+    registerFallbackValue(const SessionCheckpoint(null, <String, String?>{}));
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
@@ -62,6 +64,15 @@ void main() {
 
   setUp(() {
     mockEstablishSession = MockEstablishSession();
+    when(
+      () => mockEstablishSession.relayTrust(any()),
+    ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+    when(
+      () => mockEstablishSession.checkpoint(),
+    ).thenAnswer(
+      (_) async => const SessionCheckpoint(null, <String, String?>{}),
+    );
+    when(() => mockEstablishSession.rollBack(any())).thenAnswer((_) async {});
     when(() => mockEstablishSession(any(), any())).thenAnswer((
       invocation,
     ) async {
@@ -74,6 +85,9 @@ void main() {
       );
     });
     mockGetServerInfo = MockGetServerInfoUsecase();
+    when(
+      () => mockGetServerInfo.proveAdminToken(any(), any()),
+    ).thenAnswer((_) async {});
     mockSaveConnection = MockSaveConnectionUsecase();
     mockCompleteOnboarding = MockCompleteOnboardingUsecase();
     when(() => mockGetServerInfo(any())).thenAnswer(

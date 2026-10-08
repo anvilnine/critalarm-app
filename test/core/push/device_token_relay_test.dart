@@ -103,4 +103,63 @@ void main() {
       );
     }
   });
+
+  group('the server a device token is the credential for', () {
+    final cloud = Uri.parse('https://api.example.com');
+
+    DeviceTokenRelayTrust serverTrust({
+      required String server,
+      String? token = 'dv_1',
+      String? recorded,
+      Uri? session,
+    }) => deviceTokenServerTrust(
+      identity: DeviceIdentity(
+        deviceId: 'dev_1',
+        deviceToken: token,
+        tokenServer: recorded,
+      ),
+      sessionServer: session,
+      server: Uri.parse(server),
+    );
+
+    test('is the one saved beside it, and no other', () {
+      expect(
+        serverTrust(recorded: '$cloud', server: 'https://api.example.com/'),
+        DeviceTokenRelayTrust.issuer,
+      );
+      expect(
+        serverTrust(recorded: '$cloud', server: 'https://evil.example.net'),
+        DeviceTokenRelayTrust.otherRelay,
+      );
+    });
+
+    test('with none saved, is the server of the saved session', () {
+      expect(
+        serverTrust(session: cloud, server: '$cloud'),
+        DeviceTokenRelayTrust.issuer,
+      );
+      expect(
+        serverTrust(session: cloud, server: 'https://evil.example.net'),
+        DeviceTokenRelayTrust.otherRelay,
+      );
+    });
+
+    test('with none saved and no session, is not known', () {
+      expect(
+        serverTrust(server: '$cloud'),
+        DeviceTokenRelayTrust.unknownIssuer,
+      );
+    });
+
+    test('a phone with no token is bound to nothing', () {
+      expect(
+        serverTrust(
+          token: null,
+          recorded: '$cloud',
+          server: 'https://x.example',
+        ),
+        DeviceTokenRelayTrust.noToken,
+      );
+    });
+  });
 }

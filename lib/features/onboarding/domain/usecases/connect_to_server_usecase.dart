@@ -1,5 +1,6 @@
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
@@ -89,6 +90,12 @@ final class RelayUnchecked extends ConnectOutcome {
   const RelayUnchecked();
 }
 
+/// The server would take this phone's device token as its credential, and
+/// that token is the credential for another server.
+final class RegisteredElsewhere extends ConnectOutcome {
+  const RegisteredElsewhere();
+}
+
 /// The server answered but the connection could not be saved.
 final class ConnectionNotSaved extends ConnectOutcome {
   const ConnectionNotSaved(this.failure);
@@ -97,10 +104,13 @@ final class ConnectionNotSaved extends ConnectOutcome {
 }
 
 /// The connect threw on the way, which is a transport error.
+///
+/// Only the kind of error is kept. The text of what was thrown is dropped
+/// here, because it can quote what was being sent.
 final class ConnectTransportError extends ConnectOutcome {
-  const ConnectTransportError(this.error);
+  ConnectTransportError(Object error) : error = NetworkFault.of(error);
 
-  final Object error;
+  final NetworkFault error;
 }
 
 /// Connects the phone to a server: asks it who it is, checks the whole
@@ -144,10 +154,12 @@ class ConnectToServerUsecase {
 
   /// Makes one authenticated read on the server at `baseUri` with the admin
   /// token, and throws an [ApiException] carrying the status when the
-  /// server refuses it. Runs before anything is saved.
+  /// server refuses it. Runs before anything is saved. Left out, the read
+  /// goes through the same repository `/v1/info` does.
   final Future<void> Function(Uri baseUri, String adminToken)? proveAdminToken;
 
   /// What the relay a server names is to the device token this phone holds.
+  /// Left out, the session use case answers.
   final Future<DeviceTokenRelayTrust> Function(Uri relay)? readRelayTrust;
 
   /// [serverUrl] and [adminToken] are trimmed here. The token is only
@@ -193,11 +205,13 @@ class ConnectToServerUsecase {
     // one. Nothing is registered anywhere for a link.
     if (pinToAddress && !isSelfHosted) return const LinkServerNotSelfHosted();
     if (isSelfHosted && token.isEmpty) return AdminTokenMissing(info);
-    // The saved session cannot hold this character, and no server issues a
-    // token with it.
-    if (isSelfHosted && token.contains('|')) return const AdminTokenRefused();
+    // A token an HTTP header cannot carry, or the saved session cannot
+    // hold, is one no server issued. It is sent nowhere.
+    if (isSelfHosted && !_canBeSent(token)) return const AdminTokenRefused();
     try {
-      final trust = await readRelayTrust?.call(relay);
+      final trust = await (readRelayTrust ?? _establishSession.relayTrust)(
+        relay,
+      );
       if (trust == DeviceTokenRelayTrust.otherRelay) {
         return const RelayDiffers();
       }
@@ -210,17 +224,39 @@ class ConnectToServerUsecase {
         final refusedToken = await _refuseToken(Uri.parse(info.baseUrl), token);
         if (refusedToken != null) return refusedToken;
       }
-      // Every check has passed. Nothing was written before this line.
+    } on Object catch (error) {
+      return ConnectTransportError(error);
+    }
+    // Every check that needs no write has passed. From here a failure puts
+    // the session and the identity back as they were.
+    final SessionCheckpoint before;
+    try {
+      before = await _establishSession.checkpoint();
+    } on Object catch (error) {
+      return ConnectTransportError(error);
+    }
+    try {
       final savedUrl = await readSavedServerUrl?.call();
+      // Refuses another relay or another server before it sends or writes
+      // anything, and undoes its own writes when it throws.
       final session = await _establishSession(info, token);
-      final saved = await _saveConnection(
-        ServerConnection(
-          serverUrl: info.baseUrl,
-          adminToken: session.managementCredential,
-        ),
-      );
-      final saveFailure = saved.exceptionOrNull();
-      if (saveFailure != null) return ConnectionNotSaved(saveFailure);
+      final Failure? saveFailure;
+      try {
+        final saved = await _saveConnection(
+          ServerConnection(
+            serverUrl: info.baseUrl,
+            adminToken: session.managementCredential,
+          ),
+        );
+        saveFailure = saved.exceptionOrNull();
+      } on Object {
+        await _establishSession.rollBack(before);
+        rethrow;
+      }
+      if (saveFailure != null) {
+        await _establishSession.rollBack(before);
+        return ConnectionNotSaved(saveFailure);
+      }
       // Before anything loads from the new server: its incidents must not
       // be asked for from the old server's newest timestamp.
       if (readSavedServerUrl != null && !_sameServer(savedUrl, info.baseUrl)) {
@@ -229,17 +265,24 @@ class ConnectToServerUsecase {
       return Connected(info);
     } on DeviceTokenRelayMismatch {
       return const RelayDiffers();
+    } on DeviceTokenServerMismatch {
+      return const RegisteredElsewhere();
     } on Object catch (error) {
       return ConnectTransportError(error);
     }
   }
 
-  /// Null when the server accepts [token], or when nothing here can ask it.
+  /// Every character is one an `Authorization` header can carry and the
+  /// saved session can hold: visible ASCII, and not the session's separator.
+  static bool _canBeSent(String token) =>
+      !token.contains(ApiSession.fieldSeparator) &&
+      token.codeUnits.every((unit) => unit > 0x20 && unit < 0x7F);
+
+  /// Null when the server accepts [token].
   /// A `401` or `403` is a wrong token. Any other answer is a server that
   /// could not be asked.
   Future<ConnectOutcome?> _refuseToken(Uri baseUri, String token) async {
-    final prove = proveAdminToken;
-    if (prove == null) return null;
+    final prove = proveAdminToken ?? _getServerInfo.proveAdminToken;
     try {
       await prove(baseUri, token);
       return null;
