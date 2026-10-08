@@ -4,16 +4,28 @@ import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The native side, stood in for: it records the calls of the method
-/// channel and hands the event channel a sink.
+/// The native side, stood in for, with the rule the real one has: the
+/// newest start owns the sensor, and a stop or a cancel with any other
+/// number is ignored.
 final class _FakeNative {
-  _FakeNative({this.startError});
+  _FakeNative({this.startError, this.isInFront = true});
 
   final PlatformException? startError;
+
+  /// What `start` answers: false is "the app is not in front".
+  bool isInFront;
+
+  /// The method names, in the order they arrived.
   final calls = <String>[];
+
+  /// Every message of both channels with its number, in order.
+  final log = <String>[];
   MockStreamHandlerEventSink? sink;
   int streamListens = 0;
   int streamCancels = 0;
+  bool isOn = false;
+  int? _owner;
+  Object? _listener;
 
   static const _methods = MethodChannel(MotionSensorHost.methodsName);
   static const _events = EventChannel(MotionSensorHost.readingsName);
@@ -24,20 +36,33 @@ final class _FakeNative {
   void attach() {
     _messenger
       ..setMockMethodCallHandler(_methods, (call) async {
+        final run = (call.arguments as Map?)?['run'] as int?;
         calls.add(call.method);
-        if (call.method == 'start' && startError != null) throw startError!;
+        log.add('${call.method} $run');
+        if (call.method == 'start') {
+          if (startError != null) throw startError!;
+          if (!isInFront) return false;
+          isOn = true;
+          _owner = run;
+          return true;
+        }
+        if (call.method == 'stop' && run == _owner) isOn = false;
         return null;
       })
       ..setMockStreamHandler(
         _events,
         MockStreamHandler.inline(
-          onListen: (_, events) {
+          onListen: (arguments, events) {
             streamListens++;
+            log.add('listen $arguments');
             sink = events;
+            _listener = arguments;
           },
-          onCancel: (_) {
+          onCancel: (arguments) {
             streamCancels++;
-            sink = null;
+            log.add('cancel $arguments');
+            if (arguments == _listener) sink = null;
+            if (arguments == _owner) isOn = false;
           },
         ),
       );
@@ -134,6 +159,95 @@ void main() {
       expect(native.calls, ['start', 'stop']);
       // The readings were never asked for.
       expect(native.streamListens, 0);
+    });
+
+    test(
+      'one listener going as the next arrives leaves the sensor on',
+      () async {
+        // A widget that remounts inside one frame: the new one listens and
+        // the old one cancels with no turn of the event loop between them.
+        final native = _FakeNative()..attach();
+        addTearDown(native.detach);
+        final host = MotionSensorHost();
+        final old = <MotionReading>[];
+        final first = host.readings().listen(old.add);
+        await pumpEventQueue();
+        expect(native.log, ['start 1', 'listen 1']);
+
+        final got = <MotionReading>[];
+        final second = host.readings().listen(got.add);
+        final cancelling = first.cancel();
+        await pumpEventQueue();
+        await cancelling;
+
+        expect(native.log, [
+          'start 1',
+          'listen 1',
+          'start 2',
+          'stop 1',
+          'cancel 1',
+          'listen 2',
+        ]);
+        // The old stop and the old cancel did not end the new start.
+        expect(native.isOn, isTrue);
+        expect(native.sink, isNotNull);
+        native.sink!.success(<Object?>[2.0, 0.0, -1.0, 3.0]);
+        await pumpEventQueue();
+        expect(got, hasLength(1));
+        expect(old, isEmpty);
+
+        await second.cancel();
+        await pumpEventQueue();
+        expect(native.isOn, isFalse);
+        expect(native.sink, isNull);
+        expect(native.log.sublist(6), ['stop 2', 'cancel 2']);
+      },
+    );
+
+    test(
+      'a start the phone refuses is its own error, not a broken sensor',
+      () async {
+        final native = _FakeNative(isInFront: false)..attach();
+        addTearDown(native.detach);
+        final host = MotionSensorHost();
+        final errors = <Object>[];
+        var started = 0;
+        final subscription = host
+            .readings(onStarted: () => started++)
+            .listen((_) {}, onError: errors.add);
+        await pumpEventQueue();
+        expect(errors.single, isA<MotionSensorNotInFront>());
+        expect(started, 0);
+        // The readings were never asked for.
+        expect(native.streamListens, 0);
+        await subscription.cancel();
+        await pumpEventQueue();
+
+        // Asked again once the app is back, it starts.
+        native.isInFront = true;
+        final again = host
+            .readings(onStarted: () => started++)
+            .listen((_) {}, onError: errors.add);
+        await pumpEventQueue();
+        expect(errors, hasLength(1));
+        expect(started, 1);
+        expect(native.isOn, isTrue);
+        expect(native.streamListens, 1);
+        await again.cancel();
+      },
+    );
+
+    test('it says the sensor started once the start is accepted', () async {
+      final native = _FakeNative()..attach();
+      addTearDown(native.detach);
+      var started = 0;
+      final subscription = MotionSensorHost()
+          .readings(onStarted: () => started++)
+          .listen((_) {});
+      expect(started, 0);
+      await pumpEventQueue();
+      expect(started, 1);
+      await subscription.cancel();
     });
 
     test('every listen is its own start and its own stop', () async {

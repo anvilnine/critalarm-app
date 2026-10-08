@@ -28,17 +28,21 @@ final class MotionReading {
   /// time in seconds. Null for anything else.
   static MotionReading? fromEvent(Object? event) {
     if (event is! List || event.length < 4) return null;
-    final values = <double>[];
-    for (final value in event.take(4)) {
-      if (value is! num || !value.isFinite) return null;
-      values.add(value.toDouble());
+    // Read in place: this runs fifty times a second.
+    final x = event[0];
+    final y = event[1];
+    final z = event[2];
+    final seconds = event[3];
+    if (x is! num || y is! num || z is! num || seconds is! num) return null;
+    if (!x.isFinite || !y.isFinite || !z.isFinite || !seconds.isFinite) {
+      return null;
     }
     return MotionReading(
-      x: values[0],
-      y: values[1],
-      z: values[2],
+      x: x.toDouble(),
+      y: y.toDouble(),
+      z: z.toDouble(),
       at: Duration(
-        microseconds: (values[3] * Duration.microsecondsPerSecond).round(),
+        microseconds: (seconds * Duration.microsecondsPerSecond).round(),
       ),
     );
   }
@@ -58,6 +62,15 @@ final class MotionSensorUnavailable implements Exception {
   String toString() => 'MotionSensorUnavailable($reason)';
 }
 
+/// The sensor was asked for while the app was not the one in front, and
+/// did not start. Nothing is wrong with it: ask again when the app is back.
+final class MotionSensorNotInFront implements Exception {
+  const MotionSensorNotInFront();
+
+  @override
+  String toString() => 'MotionSensorNotInFront';
+}
+
 /// The phone's accelerometer, and nothing else of its motion hardware.
 ///
 /// It needs no permission and no usage string on either platform. It is
@@ -71,15 +84,27 @@ abstract interface class MotionSensor {
   /// Listening turns the sensor on and cancelling turns it off: there is no
   /// other switch, so a sensor left on is a subscription left open. A phone
   /// with no accelerometer gives one [MotionSensorUnavailable] error and no
-  /// readings.
-  Stream<MotionReading> readings();
+  /// readings. A start refused because the app is not in front gives one
+  /// [MotionSensorNotInFront] error and no readings.
+  ///
+  /// [onStarted] is called once, when the sensor has said it is running.
+  Stream<MotionReading> readings({void Function()? onStarted});
 }
 
 /// The native accelerometer, over a channel of our own.
 ///
 /// `MotionSensor.swift` and `MotionSensorChannel.kt` hold the other half.
 /// The method channel has `start` and `stop`, and the event channel carries
-/// the readings. The native side runs the sensor only while the app is in
+/// the readings.
+///
+/// Every stream has a number of its own, and its `start`, its `stop` and
+/// its event channel `listen` and `cancel` all carry it. The native side
+/// lets the newest start own the sensor and ignores a stop or a cancel
+/// with any other number. So when one listener goes as the next arrives
+/// (start new, stop old, cancel old, listen new), the old one's stop
+/// cannot turn off what the new one started.
+///
+/// The native side runs the sensor only while the app is in
 /// front: it stops by itself when the app leaves, whatever Dart does, and it
 /// does not start again until Dart asks.
 ///
@@ -98,9 +123,11 @@ final class MotionSensorHost implements MotionSensor {
 
   final MethodChannel _methods;
   final EventChannel _events;
+  int _runs = 0;
 
   @override
-  Stream<MotionReading> readings() {
+  Stream<MotionReading> readings({void Function()? onStarted}) {
+    final run = ++_runs;
     late final StreamController<MotionReading> controller;
     // Cancelled in the controller's onCancel.
     // ignore: cancel_subscriptions
@@ -108,8 +135,9 @@ final class MotionSensorHost implements MotionSensor {
     var isCancelled = false;
 
     Future<void> start() async {
+      final Object? answer;
       try {
-        await _methods.invokeMethod<Object?>('start');
+        answer = await _methods.invokeMethod<Object?>('start', {'run': run});
       } on MissingPluginException {
         if (!isCancelled) {
           controller.addError(const MotionSensorUnavailable('no_native_side'));
@@ -124,18 +152,27 @@ final class MotionSensorHost implements MotionSensor {
       // Cancelled while the start was on its way. The stop was sent after
       // it, on the same channel, so the native side is already off.
       if (isCancelled) return;
-      events = _events.receiveBroadcastStream().listen(
-        (event) {
-          final reading = MotionReading.fromEvent(event);
-          if (reading != null && !isCancelled) controller.add(reading);
-        },
-        onError: (Object error) {
-          if (!isCancelled) controller.addError(error);
-        },
-        onDone: () {
-          if (!isCancelled) unawaited(controller.close());
-        },
-      );
+      // False is the native side saying the app is not in front, so it
+      // started nothing.
+      if (answer == false) {
+        controller.addError(const MotionSensorNotInFront());
+        return;
+      }
+      onStarted?.call();
+      events = _events
+          .receiveBroadcastStream(run)
+          .listen(
+            (event) {
+              final reading = MotionReading.fromEvent(event);
+              if (reading != null && !isCancelled) controller.add(reading);
+            },
+            onError: (Object error) {
+              if (!isCancelled) controller.addError(error);
+            },
+            onDone: () {
+              if (!isCancelled) unawaited(controller.close());
+            },
+          );
     }
 
     controller = StreamController<MotionReading>(
@@ -145,7 +182,7 @@ final class MotionSensorHost implements MotionSensor {
         final listening = events;
         events = null;
         // The stop goes first, so nothing in front of it can hold it up.
-        final stopped = _stop();
+        final stopped = _stop(run);
         try {
           await listening?.cancel();
         } on MissingPluginException {
@@ -159,9 +196,9 @@ final class MotionSensorHost implements MotionSensor {
     return controller.stream;
   }
 
-  Future<void> _stop() async {
+  Future<void> _stop(int run) async {
     try {
-      await _methods.invokeMethod<Object?>('stop');
+      await _methods.invokeMethod<Object?>('stop', {'run': run});
     } on MissingPluginException {
       // No native side, so nothing is running.
     } on PlatformException {

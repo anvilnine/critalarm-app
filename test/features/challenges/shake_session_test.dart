@@ -9,9 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// A sensor a test drives by hand. It counts every listen and every
 /// cancel, so a test can say whether it is on.
 final class _FakeSensor implements MotionSensor {
-  _FakeSensor({this.throwsOnAsk = false});
+  _FakeSensor({this.throwsOnAsk = false, this.startsAtOnce = true});
 
   final bool throwsOnAsk;
+
+  /// Whether a listen is answered "running" at once. When false the test
+  /// says when with [started], or refuses with [refuse].
+  final bool startsAtOnce;
+  void Function()? _onStarted;
   int listens = 0;
   int cancels = 0;
   StreamController<MotionReading>? _open;
@@ -20,15 +25,23 @@ final class _FakeSensor implements MotionSensor {
   /// anything else is a leak.
   int get listening => listens - cancels;
 
+  /// The sensor says it is running.
+  void started() => _onStarted?.call();
+
+  /// The phone says the app is not in front and starts nothing.
+  void refuse() => _open?.addError(const MotionSensorNotInFront());
+
   @override
-  Stream<MotionReading> readings() {
+  Stream<MotionReading> readings({void Function()? onStarted}) {
     if (throwsOnAsk) throw StateError('no sensor');
+    _onStarted = onStarted;
     late final StreamController<MotionReading> controller;
     controller = StreamController<MotionReading>(
       sync: true,
       onListen: () {
         listens++;
         _open = controller;
+        if (startsAtOnce) onStarted?.call();
       },
       onCancel: () {
         cancels++;
@@ -76,7 +89,7 @@ final class _NoSensor implements MotionSensor {
   int cancels = 0;
 
   @override
-  Stream<MotionReading> readings() {
+  Stream<MotionReading> readings({void Function()? onStarted}) {
     late final StreamController<MotionReading> controller;
     controller = StreamController<MotionReading>(
       onListen: () {
@@ -320,6 +333,163 @@ void main() {
         ..appMoved(isInFront: false)
         ..appMoved(isInFront: true);
       expect(run.fake.listens, 1);
+    });
+  });
+
+  group('covered by a sheet or another page', () {
+    test('the sensor goes off, and comes back when it is uncovered', () {
+      final run = _Run()..session.open(onTaps: false);
+      run.fake.shake(4);
+      run.session.routeMoved(isOnTop: false);
+      expect(run.session.isSensorOn, isFalse);
+      expect(run.fake.listening, 0);
+      expect(run.activeTimers, 0);
+      run.session.routeMoved(isOnTop: true);
+      expect(run.fake.listens, 2);
+      expect(run.fake.listening, 1);
+      expect(run.activeTimers, 1);
+      expect(run.session.count, 4);
+    });
+
+    test('no shake counts while it is covered', () {
+      final run = _Run()..session.open(onTaps: false);
+      run.fake.shake(29);
+      run.session.routeMoved(isOnTop: false);
+      run.fake.shake(5);
+      expect(run.session.count, 29);
+      expect(run.passes, 0);
+      run.session.routeMoved(isOnTop: true);
+      run.fake.shake(2);
+      expect(run.session.count, 30);
+      expect(run.passes, 1);
+    });
+
+    test('no tap counts while it is covered', () {
+      final run = _Run()..session.open(onTaps: true);
+      for (var i = 0; i < 29; i++) {
+        run.session.tap();
+      }
+      run.session.routeMoved(isOnTop: false);
+      final changes = run.changes;
+      run.session
+        ..tap()
+        ..tap();
+      expect(run.session.count, 29);
+      expect(run.passes, 0);
+      expect(run.changes, changes);
+      run.session
+        ..routeMoved(isOnTop: true)
+        ..tap();
+      expect(run.session.count, 30);
+      expect(run.passes, 1);
+    });
+
+    test('opened already covered, the sensor waits', () {
+      final run = _Run()..session.open(onTaps: false, isOnTop: false);
+      expect(run.fake.listens, 0);
+      run.session.routeMoved(isOnTop: true);
+      expect(run.fake.listening, 1);
+    });
+
+    test('it needs both: on top and the app in front', () {
+      final run = _Run()..session.open(onTaps: false);
+      run.session
+        ..routeMoved(isOnTop: false)
+        ..appMoved(isInFront: false)
+        ..appMoved(isInFront: true);
+      expect(run.fake.listening, 0);
+      run.session
+        ..appMoved(isInFront: false)
+        ..routeMoved(isOnTop: true);
+      expect(run.fake.listening, 0);
+      run.session.appMoved(isInFront: true);
+      expect(run.fake.listening, 1);
+      expect(run.fake.listens, 2);
+    });
+
+    test('told the same thing again, it listens once', () {
+      final run = _Run()..session.open(onTaps: false);
+      run.session
+        ..routeMoved(isOnTop: true)
+        ..routeMoved(isOnTop: true);
+      expect(run.fake.listens, 1);
+      expect(run.activeTimers, 1);
+    });
+
+    test('uncovering does not bring the sensor back to a run on taps', () {
+      final run = _Run()..session.open(onTaps: false);
+      run.session
+        ..useTaps()
+        ..routeMoved(isOnTop: false)
+        ..routeMoved(isOnTop: true);
+      expect(run.fake.listens, 1);
+      expect(run.fake.listening, 0);
+    });
+
+    test('nothing after a close', () {
+      final run = _Run()
+        ..session.open(onTaps: false)
+        ..session.close()
+        ..session.routeMoved(isOnTop: false)
+        ..session.routeMoved(isOnTop: true);
+      expect(run.fake.listens, 1);
+      expect(run.fake.listening, 0);
+    });
+  });
+
+  group('a start the phone refused', () {
+    test(
+      'is not a broken sensor: the run stays on shaking and waits',
+      () async {
+        final run = _Run(sensor: _FakeSensor(startsAtOnce: false))
+          ..session.open(onTaps: false);
+        expect(run.activeTimers, 0);
+        run.fake.refuse();
+        await pumpEventQueue();
+        expect(run.session.input, ShakeInput.shake);
+        expect(run.session.isSensorOn, isFalse);
+        expect(run.fake.listening, 0);
+        expect(run.activeTimers, 0);
+        expect(run.changes, 0);
+      },
+    );
+
+    test('it asks again at the next resume', () async {
+      final run = _Run(sensor: _FakeSensor(startsAtOnce: false))
+        ..session.open(onTaps: false);
+      run.fake.refuse();
+      await pumpEventQueue();
+      run.session.appMoved(isInFront: true);
+      expect(run.fake.listens, 2);
+      expect(run.fake.listening, 1);
+      run.fake.started();
+      expect(run.activeTimers, 1);
+      run.fake.shake(3);
+      expect(run.session.count, 3);
+    });
+
+    test('the five seconds count from a start that was accepted', () {
+      final run = _Run(sensor: _FakeSensor(startsAtOnce: false))
+        ..session.open(onTaps: false);
+      // Asked, not yet answered: no watch is running.
+      expect(run.session.isSensorOn, isTrue);
+      expect(run.timers, isEmpty);
+      run.fake.started();
+      expect(run.activeTimers, 1);
+      expect(run.watch!.after, const Duration(seconds: 5));
+      // Said twice, it is still one watch.
+      run.fake.started();
+      expect(run.activeTimers, 1);
+      run.watch!.fire();
+      expect(run.session.input, ShakeInput.taps);
+    });
+
+    test('an answer for a listen that is gone starts no watch', () {
+      final run = _Run(sensor: _FakeSensor(startsAtOnce: false))
+        ..session.open(onTaps: false);
+      run.session.appMoved(isInFront: false);
+      run.fake.started();
+      expect(run.activeTimers, 0);
     });
   });
 

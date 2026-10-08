@@ -105,17 +105,25 @@ class _ShakeState extends State<_Shake>
       hasAssistiveNavigation: MediaQuery.accessibleNavigationOf(context),
       reducesMotion: context.reduceMotion,
     );
+    // Whether this page is the one on top. A sheet or a page pushed over
+    // the challenge makes it false, and this is called again when it
+    // changes. With no route around it (a bare widget) it counts as on top.
+    final isOnTop = ModalRoute.isCurrentOf(context) ?? true;
     if (!_didOpen) {
       _didOpen = true;
       final state = WidgetsBinding.instance.lifecycleState;
       session.open(
         onTaps: onTaps,
         isInFront: state == null || state == AppLifecycleState.resumed,
+        isOnTop: isOnTop,
       );
-    } else if (onTaps) {
-      // A screen reader or reduce motion came on with the challenge open.
-      session.useTaps();
+      return;
     }
+    // A screen reader or reduce motion came on with the challenge open.
+    if (onTaps) session.useTaps();
+    // Covered, the sensor is off and nothing counts, so the count cannot
+    // finish under a sheet. Uncovered, it carries on.
+    session.routeMoved(isOnTop: isOnTop);
   }
 
   /// The sensor runs only while the app is the one in front. Control
