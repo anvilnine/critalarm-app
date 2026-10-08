@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -41,10 +44,24 @@ CriticalAlarmState sampleRingingState({required bool isLive}) =>
 ///
 /// Under reduce motion it is one still frame: the face holds, the pulse
 /// rings are not drawn and the canvas does not drift.
+///
+/// It draws in [style], through the same `AlarmStyleStage` the alarm route
+/// uses, so a look shown here is the look that rings.
 class RingingPreview extends StatefulWidget {
-  const RingingPreview({this.fit = BoxFit.contain, super.key});
+  const RingingPreview({
+    this.fit = BoxFit.contain,
+    this.style,
+    this.isStill = false,
+    super.key,
+  });
 
   final BoxFit fit;
+
+  /// The look to draw. Null draws the standard one.
+  final AlarmStyle? style;
+
+  /// Holds one still frame whatever the motion setting, for a thumbnail.
+  final bool isStill;
 
   /// The screen the preview is laid out for: this display, with the text
   /// size and motion setting of [context].
@@ -72,11 +89,15 @@ class _RingingPreviewState extends State<RingingPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final screen = RingingPreview.screenOf(context);
+    final here = RingingPreview.screenOf(context);
+    final screen = widget.isStill
+        ? here.copyWith(disableAnimations: true)
+        : here;
     final reduce = screen.disableAnimations;
+    final style = widget.style ?? alarmStyleOf(null);
     // The canvas is tinted from the app's own colours and the screen from
-    // the severity's, the same as the alarm route does it.
-    final profile = AmbientAppProfiles.criticalAlarmRinging(context.appColors);
+    // the look's, the same as the alarm route does it.
+    final profile = style.ringing.ambient(context.appColors);
     return ExcludeSemantics(
       child: IgnorePointer(
         child: ExcludeFocus(
@@ -99,8 +120,11 @@ class _RingingPreviewState extends State<RingingPreview> {
                         reduceMotion: reduce,
                       ),
                       AmbientScope(
-                        child: SeverityScope(
-                          mode: SeverityMode.crit,
+                        child: AlarmStyleStage(
+                          style: style,
+                          stage: AlarmStage.ringing,
+                          severity: SeverityMode.crit,
+                          isStill: reduce,
                           child: Builder(
                             builder: (context) {
                               // The screen's own colours, as the alarm
@@ -165,11 +189,14 @@ class _YellowFace extends StatelessWidget {
 
 /// The preview on the whole screen, with a bare x to close it.
 class RingingPreviewPage extends StatelessWidget {
-  const RingingPreviewPage({super.key});
+  const RingingPreviewPage({this.style, super.key});
 
-  static Route<void> route() => PageRouteBuilder<void>(
+  /// The look to draw. Null draws the standard one.
+  final AlarmStyle? style;
+
+  static Route<void> route({AlarmStyle? style}) => PageRouteBuilder<void>(
     fullscreenDialog: true,
-    pageBuilder: (context, _, _) => const RingingPreviewPage(),
+    pageBuilder: (context, _, _) => RingingPreviewPage(style: style),
     transitionsBuilder: (context, animation, _, child) =>
         MediaQuery.of(context).disableAnimations
         ? child
@@ -178,7 +205,12 @@ class RingingPreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors.withSeverity(SeverityMode.crit);
+    final colors = (style ?? alarmStyleOf(null)).colorsFor(
+      AlarmStage.ringing,
+      base: context.appColors,
+      severity: SeverityMode.crit,
+      brightness: Theme.of(context).brightness,
+    );
     return Material(
       color: colors.canvas,
       child: Stack(
@@ -187,7 +219,7 @@ class RingingPreviewPage extends StatelessWidget {
           Semantics(
             image: true,
             label: LocaleKeys.personalize_preview_label.tr(),
-            child: const RingingPreview(fit: BoxFit.fill),
+            child: RingingPreview(fit: BoxFit.fill, style: style),
           ),
           SafeArea(
             child: Align(
@@ -217,12 +249,16 @@ class RingingPreviewFrame extends StatelessWidget {
     required this.onPlay,
     required this.maxHeight,
     this.playBelow = false,
+    this.style,
     this.picture,
     this.pictureLabel,
     this.pictureHint,
     this.onOpenPicture,
     super.key,
   });
+
+  /// The look the ringing alarm is drawn in. Null draws the standard one.
+  final AlarmStyle? style;
 
   /// Drawn in the frame in place of the ringing alarm: an option being
   /// shown that is not a look of the ringing screen, such as a wake-up
@@ -260,7 +296,7 @@ class RingingPreviewFrame extends StatelessWidget {
       Navigator.of(
         context,
         rootNavigator: true,
-      ).push(RingingPreviewPage.route()),
+      ).push(RingingPreviewPage.route(style: style)),
     );
   }
 
@@ -298,7 +334,7 @@ class RingingPreviewFrame extends StatelessWidget {
                   borderRadius: radius,
                   child: RepaintBoundary(
                     child: picture == null
-                        ? const RingingPreview()
+                        ? RingingPreview(style: style)
                         : picture(screenData),
                   ),
                 ),

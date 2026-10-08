@@ -19,6 +19,9 @@ const Set<LockSource> _noHostedSource = {
   // Wake-up challenges, on Personalize and on a topic's page.
   LockSource.personalizeChallenge,
   LockSource.topicChallenge,
+  // Alarm screen looks, on Personalize and on a topic's page.
+  LockSource.personalizeLook,
+  LockSource.topicLook,
 };
 
 void main() {
@@ -117,6 +120,11 @@ void main() {
         ProPackSheetSource.personalizeChallenge,
       );
       expect(LockSource.topicChallenge.pro, ProPackSheetSource.topicChallenge);
+      expect(
+        LockSource.personalizeLook.pro,
+        ProPackSheetSource.personalizeLook,
+      );
+      expect(LockSource.topicLook.pro, ProPackSheetSource.topicLook);
       // Neither has a `PaywallSource` of its own.
       for (final source in _noHostedSource) {
         expect(source.hosted, PaywallSource.direct, reason: source.name);

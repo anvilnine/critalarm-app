@@ -57,12 +57,11 @@ void main() {
         AppFeature.appIcons,
         AppFeature.widgets,
         AppFeature.ownSounds,
+        AppFeature.alarmScreenStyles,
         AppFeature.wakeUpChallenges,
         AppFeature.weeklyCheck,
       });
-      expect(accessLabNotBuilt, {
-        AppFeature.alarmScreenStyles,
-      });
+      expect(accessLabNotBuilt, isEmpty);
     });
 
     test('say where they go', () {
@@ -71,7 +70,10 @@ void main() {
         accessLabJumpText(AppFeature.wakeUpChallenges),
         'Goes to Personalize, Challenge',
       );
-      expect(accessLabJumpText(AppFeature.alarmScreenStyles), 'Not built yet');
+      expect(
+        accessLabJumpText(AppFeature.alarmScreenStyles),
+        'Goes to Personalize, Look',
+      );
     });
 
     group('against the router', () {

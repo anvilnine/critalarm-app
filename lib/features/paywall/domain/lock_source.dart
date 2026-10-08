@@ -69,6 +69,14 @@ enum LockSource {
   /// The Wake-up challenge row on a topic's page.
   topicChallenge(PaywallSource.direct, ProPackSheetSource.topicChallenge),
 
+  /// The Look strip on the Personalize page, and the bar under its preview
+  /// while a locked look is being tried. Alarm screen looks are sold with
+  /// Pro only, so on the Hosted side it reads as `direct`.
+  personalizeLook(PaywallSource.direct, ProPackSheetSource.personalizeLook),
+
+  /// The Alarm look row on a topic's page.
+  topicLook(PaywallSource.direct, ProPackSheetSource.topicLook),
+
   /// An own alarm sound: Pick a file, Record, the cropper, a file shared
   /// in from another app, and a locked own sound in the sound list.
   ///

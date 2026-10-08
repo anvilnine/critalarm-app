@@ -20,6 +20,8 @@ enum ProPackSheetSource {
   personalizeAppIcon('personalize_app_icon'),
   personalizeChallenge('personalize_challenge'),
   topicChallenge('topic_challenge'),
+  personalizeLook('personalize_look'),
+  topicLook('topic_look'),
 
   // An own alarm sound, from any of the ways in.
   sounds('sounds'),
