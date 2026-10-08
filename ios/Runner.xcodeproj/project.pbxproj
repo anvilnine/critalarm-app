@@ -37,6 +37,10 @@
 		A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
 		A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
 		A93A00000000000000000011 /* UiSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93A00000000000000000001 /* UiSoundPlayer.swift */; };
+		A191A0000000000000000011 /* MotionSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000001 /* MotionSensor.swift */; };
+		A191A0000000000000000012 /* MotionSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000001 /* MotionSensor.swift */; };
+		A191A0000000000000000021 /* MotionSensorChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000002 /* MotionSensorChannel.swift */; };
+		A191A0000000000000000031 /* MotionSensorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000003 /* MotionSensorTests.swift */; };
 		A92A00000000000000000031 /* WeeklyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000003 /* WeeklyCheckTests.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		7B23EC697E2DF0158A56C801 /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
@@ -255,6 +259,9 @@
 		A92A00000000000000000001 /* CheckPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CheckPush.swift; sourceTree = "<group>"; };
 		A92A00000000000000000002 /* WeeklyCheckResponder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCheckResponder.swift; sourceTree = "<group>"; };
 		A93A00000000000000000001 /* UiSoundPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UiSoundPlayer.swift; sourceTree = "<group>"; };
+		A191A0000000000000000001 /* MotionSensor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensor.swift; sourceTree = "<group>"; };
+		A191A0000000000000000002 /* MotionSensorChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensorChannel.swift; sourceTree = "<group>"; };
+		A191A0000000000000000003 /* MotionSensorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensorTests.swift; sourceTree = "<group>"; };
 		A92A00000000000000000003 /* WeeklyCheckTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCheckTests.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationServiceTests.swift; sourceTree = "<group>"; };
@@ -417,6 +424,7 @@
 				A31000000000000000000005 /* WidgetLinkTests.swift */,
 				A84A00000000000000000002 /* AppLinkRuleTests.swift */,
 				A92A00000000000000000003 /* WeeklyCheckTests.swift */,
+				A191A0000000000000000003 /* MotionSensorTests.swift */,
 				A32000000000000000000002 /* LiveCardTextTests.swift */,
 				A31000000000000000000108 /* WidgetDisplayTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
@@ -545,6 +553,8 @@
 				A92A00000000000000000001 /* CheckPush.swift */,
 				A92A00000000000000000002 /* WeeklyCheckResponder.swift */,
 				A93A00000000000000000001 /* UiSoundPlayer.swift */,
+				A191A0000000000000000001 /* MotionSensor.swift */,
+				A191A0000000000000000002 /* MotionSensorChannel.swift */,
 				A53A00000000000000000001 /* GaplessCaf.swift */,
 				A54A00000000000000000001 /* SoundPackBridge.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -970,6 +980,8 @@
 				A92A00000000000000000012 /* CheckPush.swift in Sources */,
 				A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */,
 				A92A00000000000000000031 /* WeeklyCheckTests.swift in Sources */,
+				A191A0000000000000000012 /* MotionSensor.swift in Sources */,
+				A191A0000000000000000031 /* MotionSensorTests.swift in Sources */,
 				A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */,
 				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
 				A19B00000000000000000011 /* DebugStateRule.swift in Sources */,
@@ -1035,6 +1047,8 @@
 				A92A00000000000000000011 /* CheckPush.swift in Sources */,
 				A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */,
 				A93A00000000000000000011 /* UiSoundPlayer.swift in Sources */,
+				A191A0000000000000000011 /* MotionSensor.swift in Sources */,
+				A191A0000000000000000021 /* MotionSensorChannel.swift in Sources */,
 				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,
 				FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */,
 				C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */,
