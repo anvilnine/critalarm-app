@@ -1,4 +1,4 @@
-<!-- GENERATED from critalarm-server@503efde-dirty — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@d4a6f22 — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm architecture
 
@@ -406,6 +406,7 @@ critalarm-server/
     auth/          better-auth, sign-in link and switch, account merge
     admin/         admin token routes
     stats/         counts for the site
+    check/         the weekly check: routes, the scan, what it stores
     v1/            topics, tokens, incidents, account routes
     config.ts
     main.ts        entry point
