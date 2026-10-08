@@ -42,9 +42,9 @@ final class TypeAlertTitleChallenge implements Challenge {
 /// a long one stays readable above the keyboard without being cut.
 double alertTitleFontSize(String title) {
   final length = title.trim().length;
-  if (length <= 30) return 22;
-  if (length <= 80) return 18;
-  return 16;
+  if (length <= 30) return 20;
+  if (length <= 80) return 17;
+  return 15;
 }
 
 class _TypeAlertTitle extends StatefulWidget {
@@ -113,7 +113,7 @@ class _TypeAlertTitleState extends State<_TypeAlertTitle> {
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.s4,
-                vertical: Spacing.s3,
+                vertical: Spacing.s2,
               ),
               // No line limit: the whole title is shown, and the words to
               // type are the bold ones.
@@ -174,7 +174,7 @@ class _TypeAlertTitleState extends State<_TypeAlertTitle> {
                 textInputAction: TextInputAction.done,
                 textAlign: TextAlign.center,
                 scrollPadding: const EdgeInsets.fromLTRB(20, 120, 20, 120),
-                style: AppTypography.monoBold(colors.ink, fontSize: 22),
+                style: AppTypography.monoBold(colors.ink, fontSize: 20),
                 cursorColor: colors.cobalt,
                 onChanged: _check,
                 onSubmitted: _check,

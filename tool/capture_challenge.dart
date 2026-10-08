@@ -35,6 +35,8 @@
 //   --dart-define=ONLY=<part>,<part>
 //                                capture only the files whose name has one
 //                                of these parts
+//   --dart-define=KIND=<id>     the challenge: type_topic_name (default),
+//                                type_alert_title or ops_math
 //   --dart-define=STYLE=<id>     the look of the alarm screen the
 //                                challenge step is captured in, for
 //                                example `minimal`
@@ -100,7 +102,21 @@ const _phones = <(String, Size, double, double, double)>[
 ];
 
 const _topic = 'prod-db';
-const ChallengeKind _kind = ChallengeKind.typeTopicName;
+
+/// The challenge to capture, by id: `type_topic_name` (default),
+/// `type_alert_title` or `ops_math`.
+const _kindId = String.fromEnvironment(
+  'KIND',
+  defaultValue: 'type_topic_name',
+);
+final ChallengeKind _kind = ChallengeKind.fromId(_kindId)!;
+
+/// Half an answer for the capture, so the field shows typing.
+String get _partial => switch (_kind) {
+  ChallengeKind.typeTopicName => 'prod',
+  ChallengeKind.typeAlertTitle => 'primary da',
+  ChallengeKind.opsMath => '3',
+};
 
 Future<void> _loadFonts() async {
   Future<void> family(String name, List<String> files) async {
@@ -372,7 +388,7 @@ void main() {
             mode: mode,
             scale: scale,
           );
-          await tester.enterText(find.byType(TextField), 'prod');
+          await tester.enterText(find.byType(TextField), _partial);
           await tester.pump();
           await _save(
             tester,
@@ -550,6 +566,7 @@ void main() {
   );
 
   capture('flow_type_closes', (tester, errors) async {
+    if (_kind != ChallengeKind.typeTopicName) return;
     await flow(tester);
     expect(_status(), CriticalAlarmStatus.acknowledged);
     // A wrong try costs nothing and closes nothing.
@@ -563,6 +580,23 @@ void main() {
     expect(find.byType(ChallengeStep), findsNothing);
     expect(_status(), CriticalAlarmStatus.closed);
     print('FLOW typing the topic name closed the incident');
+  });
+
+  capture('flow_title_closes', (tester, errors) async {
+    if (_kind != ChallengeKind.typeAlertTitle) return;
+    await flow(tester);
+    await tester.enterText(find.byType(TextField), 'primary database');
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsOneWidget);
+    // Punctuation at the edges, capitals and extra spaces do not matter.
+    await tester.enterText(
+      find.byType(TextField),
+      '  (PRIMARY)  database, down. ',
+    );
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print('FLOW typing the first words of the title closed the incident');
   });
 
   capture('flow_hold_closes', (tester, errors) async {
