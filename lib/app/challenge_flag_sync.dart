@@ -20,6 +20,12 @@ import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
 /// thing that needs no plan is taking a flag away from a topic that has no
 /// challenge chosen any more.
 ///
+/// The flags belong to one account. Every check starts by taking away
+/// flags written for another account, before anything here trusts them, so
+/// flags that came with a backup or outlived a sign-out count as not
+/// written, and native Done closes as it always did until a sure answer
+/// for this account sets them again.
+///
 /// Whatever a flag says, "I'm up" stops the ring with one tap. The flag is
 /// about the button that closes an incident already acknowledged.
 class ChallengeFlagSync {
@@ -31,6 +37,7 @@ class ChallengeFlagSync {
     required this._write,
     required this._publish,
     this._redraw,
+    this._keepOnlyOurs,
   });
 
   /// The decision for wake-up challenges, asked once the access layer is
@@ -59,6 +66,11 @@ class ChallengeFlagSync {
   /// is the home screen widgets, through the snapshot rewrite they already
   /// have. Null where there is nothing to redraw.
   final void Function()? _redraw;
+
+  /// Takes the flags away when they were written for another account than
+  /// the one this phone is on. True when a flag was taken away. Null where
+  /// the flags are not kept per account.
+  final Future<bool> Function()? _keepOnlyOurs;
 
   final List<StreamSubscription<Object?>> _subscriptions = [];
   bool _running = false;
@@ -89,6 +101,14 @@ class ChallengeFlagSync {
     _subscriptions.clear();
   }
 
+  /// The flags were taken away from under this, by the wipe of what
+  /// belongs to an account. The Live Activity's copy still holds them, so
+  /// it is owed.
+  Future<void> checkAfterWipe() {
+    _publishOwed = true;
+    return check();
+  }
+
   /// Writes the flags a sure answer changes, and makes a copy that is
   /// still owed. One run at a time: a change that lands during a run
   /// starts one more run after it, so the last answer is the one written.
@@ -109,6 +129,32 @@ class ChallengeFlagSync {
   }
 
   Future<void> _checkOnce() async {
+    // First, and before the plan is asked for: flags for another account
+    // must not wait for a plan that may never be readable.
+    try {
+      if (await _keepOnlyOurs?.call() ?? false) _publishOwed = true;
+    } on Object catch (_) {
+      // The account could not be read. Nothing is taken away, and the
+      // next check asks again.
+    }
+    await _writeChanges();
+    if (!_publishOwed) return;
+    try {
+      if (!await _publish()) return;
+      _publishOwed = false;
+    } on Object catch (_) {
+      // Still owed. The next check tries again.
+      return;
+    }
+    try {
+      _redraw?.call();
+    } on Object catch (_) {
+      // A surface that could not be redrawn keeps the button it has until
+      // its next redraw of its own.
+    }
+  }
+
+  Future<void> _writeChanges() async {
     FeatureDecision? decision;
     try {
       decision = await _decide();
@@ -137,20 +183,6 @@ class ChallengeFlagSync {
     }
     for (final topic in changes.set) {
       await _writeOne(topic, isOwed: true);
-    }
-    if (!_publishOwed) return;
-    try {
-      if (!await _publish()) return;
-      _publishOwed = false;
-    } on Object catch (_) {
-      // Still owed. The next check tries again.
-      return;
-    }
-    try {
-      _redraw?.call();
-    } on Object catch (_) {
-      // A surface that could not be redrawn keeps the button it has until
-      // its next redraw of its own.
     }
   }
 

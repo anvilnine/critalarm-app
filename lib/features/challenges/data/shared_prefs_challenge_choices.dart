@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,33 @@ class SharedPrefsChallengeChoices implements ChallengeChoices {
 
   final SharedPreferences _prefs;
   final _changes = StreamController<void>.broadcast();
+
+  /// The tag of the account this phone is on, as [keepFlagsOnlyFor] was
+  /// last told. Null until then, and while the phone has no account.
+  String? _accountTag;
+
+  /// Whether the flags on this phone were written for the account it is
+  /// on.
+  bool get _flagsAreOurs => noteIsForAccount(
+    noteTag: _string(ChallengeChoices.owedAccountKey),
+    accountTag: _accountTag,
+  );
+
+  /// Every flag key, set or not, whoever it was written for.
+  List<String> get _flagKeys => [
+    for (final key in _prefs.getKeys())
+      if (key.startsWith(ChallengeChoices.owedKeyPrefix)) key,
+  ];
+
+  /// Takes every flag and their tag away. True when a flag was there.
+  Future<bool> _dropFlags() async {
+    final keys = _flagKeys;
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
+    await _prefs.remove(ChallengeChoices.owedAccountKey);
+    return keys.isNotEmpty;
+  }
 
   String? _string(String key) {
     try {
@@ -80,7 +108,28 @@ class SharedPrefsChallengeChoices implements ChallengeChoices {
   Future<void> forgetTopic(String topic) => setChoice(topic, null);
 
   @override
+  Future<void> forgetAll() async {
+    for (final key in _prefs.getKeys().toList()) {
+      if (key.startsWith(ChallengeChoices.choiceKeyPrefix)) {
+        await _prefs.remove(key);
+      }
+    }
+    await _prefs.remove(ChallengeChoices.defaultKey);
+    await _dropFlags();
+    _changes.add(null);
+  }
+
+  @override
+  Future<bool> keepFlagsOnlyFor(String? accountTag) async {
+    _accountTag = accountTag;
+    if (accountTag == null) return false;
+    if (_string(ChallengeChoices.owedAccountKey) == accountTag) return false;
+    return _dropFlags();
+  }
+
+  @override
   Set<String> get flaggedTopics {
+    if (!_flagsAreOurs) return const <String>{};
     const prefix = ChallengeChoices.owedKeyPrefix;
     return {
       for (final key in _prefs.getKeys())
@@ -91,7 +140,7 @@ class SharedPrefsChallengeChoices implements ChallengeChoices {
 
   @override
   bool isFlagged(String topic) =>
-      _isTrue('${ChallengeChoices.owedKeyPrefix}$topic');
+      _flagsAreOurs && _isTrue('${ChallengeChoices.owedKeyPrefix}$topic');
 
   @override
   Future<void> writeFlag(String topic, {required bool isOwed}) async {
@@ -99,7 +148,14 @@ class SharedPrefsChallengeChoices implements ChallengeChoices {
     // No key reads as "not owed" on both platforms, so a cleared flag
     // leaves nothing behind.
     if (isOwed) {
+      final tag = _accountTag;
+      if (tag == null) throw StateError('No account to write the flag for');
+      // Flags another account left behind never get this account's tag.
+      if (!_flagsAreOurs) await _dropFlags();
       await _prefs.setBool(key, true);
+      if (_string(ChallengeChoices.owedAccountKey) != tag) {
+        await _prefs.setString(ChallengeChoices.owedAccountKey, tag);
+      }
     } else {
       await _prefs.remove(key);
     }

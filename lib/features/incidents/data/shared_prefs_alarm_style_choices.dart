@@ -59,6 +59,18 @@ class SharedPrefsAlarmStyleChoices implements AlarmStyleChoices {
   Future<void> forgetTopic(String topic) => setTopicStyle(topic, null);
 
   @override
+  Future<void> forgetAll() async {
+    for (final key in _prefs.getKeys().toList()) {
+      if (key.startsWith(AlarmStyleChoices.topicKeyPrefix)) {
+        await _prefs.remove(key);
+      }
+    }
+    await _prefs.remove(AlarmStyleChoices.defaultKey);
+    await _prefs.remove(AlarmStyleChoices.openWhenLastSureKey);
+    _changes.add(null);
+  }
+
+  @override
   String? get openNote => _string(AlarmStyleChoices.openWhenLastSureKey);
 
   @override
