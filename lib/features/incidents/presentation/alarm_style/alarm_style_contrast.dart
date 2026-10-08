@@ -2,9 +2,15 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
 import 'package:flutter/material.dart';
 
-/// The smallest contrast "I'm up" and the message may have against what
-/// is behind them, in every look and both themes (WCAG AA for text).
+/// The smallest contrast text may have against what is behind it, in every
+/// look and both themes (WCAG AA for text): "I'm up", the other buttons'
+/// labels and the message.
 const double alarmStyleMinContrast = 4.5;
+
+/// The smallest contrast a drawn thing that is not text may have: the
+/// spinner in "I'm up" while the acknowledge is on its way (WCAG AA for
+/// graphics).
+const double alarmStyleMinGraphicContrast = 3;
 
 /// One pair of colours a look puts on screen: [foreground] over
 /// [background], and how far apart they are.
@@ -14,76 +20,100 @@ class AlarmContrastLine {
     this.what,
     this.foreground,
     this.background, {
-    required this.isRequired,
+    this.min = alarmStyleMinContrast,
+    this.isRequired = true,
   });
 
-  /// What it is, in a few words, for a test's failure message.
+  /// What it is, in a few words. Stable: a test names a line by it.
   final String what;
   final Color foreground;
 
-  /// What is behind it, flattened: a see-through fill is laid over the
-  /// canvas first.
+  /// What is behind it, flattened: a see-through fill is laid over what it
+  /// sits on first.
   final Color background;
 
-  /// Whether [ratio] must reach [alarmStyleMinContrast]. The other lines
-  /// are measured and reported, and fail nothing.
+  /// The contrast [ratio] has to reach.
+  final double min;
+
+  /// False for a line that is measured and reported and fails nothing: a
+  /// pair the screen does not draw today.
   final bool isRequired;
 
   double get ratio => ColorContrast.contrastRatio(foreground, background);
 
-  bool get passes => !isRequired || ratio >= alarmStyleMinContrast;
+  bool get passes => !isRequired || ratio >= min;
 
   @override
   String toString() => '$what ${ratio.toStringAsFixed(2)}';
 }
 
-/// What `alarmStyleContrast` found for one look, stage and theme.
+/// "This shape must stand out from what is behind it more than that one
+/// does": the order of weight of the pinned buttons.
 @immutable
-class AlarmContrastReport {
-  const AlarmContrastReport({
-    required this.lines,
-    required this.acknowledgeStandsOut,
-    required this.quietStandsOut,
-  });
+class AlarmWeightLine {
+  const AlarmWeightLine(this.what, {required this.heavy, required this.light});
 
-  final List<AlarmContrastLine> lines;
+  /// What it is, in a few words. Stable: a test names a line by it.
+  final String what;
 
-  /// How far the fill of "I'm up" is from the canvas. Null on the
-  /// acknowledged stage, which has no such button.
-  final double? acknowledgeStandsOut;
+  /// How far the fill that must be the heavier one is from its background.
+  final double heavy;
 
-  /// The same for the fill of the quiet buttons.
-  final double? quietStandsOut;
+  /// The same for the fill it must outweigh.
+  final double light;
 
-  /// "I'm up" is the most visible button: its fill is further from the
-  /// canvas than the quiet buttons' fill is.
-  bool get acknowledgeIsMostVisible {
-    final acknowledge = acknowledgeStandsOut;
-    final quiet = quietStandsOut;
-    if (acknowledge == null || quiet == null) return true;
-    return acknowledge > quiet;
-  }
+  bool get passes => heavy > light;
 
-  /// Every line that has to pass and does not, plus the button rule.
-  List<String> get failures => [
-    for (final line in lines)
-      if (!line.passes)
-        '$line is under ${alarmStyleMinContrast.toStringAsFixed(1)}',
-    if (!acknowledgeIsMostVisible)
-      _notMostVisible(acknowledgeStandsOut!, quietStandsOut!),
-  ];
-
-  bool get passes => failures.isEmpty;
-
-  static String _notMostVisible(double acknowledge, double quiet) =>
-      '"I\'m up" stands out from the canvas by '
-      '${acknowledge.toStringAsFixed(2)}, the quiet buttons by '
-      '${quiet.toStringAsFixed(2)}: it is not the most visible button';
+  @override
+  String toString() =>
+      '$what ${heavy.toStringAsFixed(2)} over ${light.toStringAsFixed(2)}';
 }
 
-/// The resting fill and label of an `AppButton` of [variant] under
-/// [colors]. It follows the switch in `AppButton.build`, for the variants
-/// a look may use. Keep the two in step.
+/// What `alarmStyleContrast` found for one look, stage, theme and
+/// severity.
+@immutable
+class AlarmContrastReport {
+  const AlarmContrastReport({required this.lines, required this.weights});
+
+  final List<AlarmContrastLine> lines;
+  final List<AlarmWeightLine> weights;
+
+  /// The name of every line that has to pass and does not.
+  List<String> get failed => [
+    for (final line in lines)
+      if (!line.passes) line.what,
+    for (final weight in weights)
+      if (!weight.passes) weight.what,
+  ];
+
+  /// The same, with the numbers, for a failure message.
+  List<String> get failures => [
+    for (final line in lines)
+      if (!line.passes) '$line is under ${line.min.toStringAsFixed(1)}',
+    for (final weight in weights)
+      if (!weight.passes) '$weight: it does not stand out more',
+  ];
+
+  bool get passes => failed.isEmpty;
+
+  AlarmContrastLine? line(String what) {
+    for (final line in lines) {
+      if (line.what == what) return line;
+    }
+    return null;
+  }
+
+  AlarmWeightLine? weight(String what) {
+    for (final weight in weights) {
+      if (weight.what == what) return weight;
+    }
+    return null;
+  }
+}
+
+/// The fill and label of an `AppButton` of [variant] under [colors], at
+/// rest. It follows the switch in `AppButton.build`, for the variants a
+/// look may use. Keep the two in step.
 ({Color fill, Color label}) alarmButtonColors(
   AppButtonVariant variant,
   AppColors colors,
@@ -114,6 +144,30 @@ class AlarmContrastReport {
   ),
 };
 
+/// The fill and the spinner (or label) of an `AppButton` of [variant]
+/// while it is off: loading, or with nothing to press. "I'm up" is drawn
+/// like this for as long as an acknowledge is on its way. It follows the
+/// second switch in `AppButton.build`. Keep the two in step.
+({Color fill, Color label}) alarmButtonOffColors(
+  AppButtonVariant variant,
+  AppColors colors,
+) => switch (variant) {
+  AppButtonVariant.primary ||
+  AppButtonVariant.ink ||
+  AppButtonVariant.paper ||
+  AppButtonVariant.crit ||
+  AppButtonVariant.cream ||
+  AppButtonVariant.destructive => (fill: colors.ash, label: colors.ink2),
+  AppButtonVariant.ghost || AppButtonVariant.dangerText => (
+    fill: const Color(0x00000000),
+    label: colors.ink3,
+  ),
+  AppButtonVariant.tinted => (
+    fill: colors.surface.withValues(alpha: 0.22),
+    label: colors.ink3,
+  ),
+};
+
 /// Measures what [style] puts on [stage] in the [brightness] theme: the
 /// buttons and the text against what is behind them.
 ///
@@ -121,6 +175,18 @@ class AlarmContrastReport {
 /// and its canvas, so a look cannot pass here and draw something else.
 /// [severity] is the incident's. It is pure, so the contrast test runs it
 /// over every look in the registry.
+///
+/// What is behind a pinned button is one of two colours, and both are
+/// measured: the look's canvas (its ambient profile) while the screen is
+/// at rest, and the bar's backing (`canvas` of the stage's palette), which
+/// is drawn under the buttons when the list scrolls beneath them and
+/// always on the acknowledged stage. For the standard look the two differ
+/// for a severity that is not critical.
+///
+/// The cards are measured as they are drawn: opaque. A profile also names
+/// a `surfaceOpacity`, which no card reads today. The message's faintest
+/// line is measured a second time on a card of that opacity and reported,
+/// so the number is known before a card ever takes it up.
 AlarmContrastReport alarmStyleContrast(
   AlarmStyle style,
   AlarmStage stage, {
@@ -134,101 +200,120 @@ AlarmContrastReport alarmStyleContrast(
     severity: severity,
     brightness: brightness,
   );
-  final canvas = style.lookOf(stage).ambient(base).canvas;
-  Color over(Color fill) => Color.alphaBlend(fill, canvas);
-  final card = over(colors.surface);
+  final profile = style.lookOf(stage).ambient(base, brightness);
+  final canvas = profile.canvas;
+  // The two things a pinned button can have behind it.
+  final behind = <(String, Color)>[
+    ('the canvas', canvas),
+    ('the bar backing', Color.alphaBlend(colors.canvas, canvas)),
+  ];
+  double off(Color fill, Color background) => ColorContrast.contrastRatio(
+    Color.alphaBlend(fill, background),
+    background,
+  );
+  final card = Color.alphaBlend(colors.surface, canvas);
+  final thinCard = Color.alphaBlend(
+    colors.surface.withValues(alpha: colors.surface.a * profile.surfaceOpacity),
+    canvas,
+  );
 
   switch (stage) {
     case AlarmStage.ringing:
-      final acknowledge = alarmButtonColors(
-        style.ringing.acknowledgeButton,
-        colors,
-      );
-      final quiet = alarmButtonColors(style.ringing.quietButton, colors);
+      final look = style.ringing;
+      final acknowledge = alarmButtonColors(look.acknowledgeButton, colors);
+      final busy = alarmButtonOffColors(look.acknowledgeButton, colors);
+      final quiet = alarmButtonColors(look.quietButton, colors);
       return AlarmContrastReport(
-        acknowledgeStandsOut: ColorContrast.contrastRatio(
-          over(acknowledge.fill),
-          canvas,
-        ),
-        quietStandsOut: ColorContrast.contrastRatio(over(quiet.fill), canvas),
         lines: [
-          AlarmContrastLine(
-            '"I\'m up" on its fill',
-            acknowledge.label,
-            over(acknowledge.fill),
-            isRequired: true,
-          ),
-          AlarmContrastLine(
-            'message title on the card',
-            colors.ink,
-            card,
-            isRequired: true,
-          ),
-          AlarmContrastLine(
-            'message body on the card',
-            colors.ink2,
-            card,
-            isRequired: true,
-          ),
+          for (final (where, background) in behind) ...[
+            AlarmContrastLine(
+              '"I\'m up" on its fill, over $where',
+              acknowledge.label,
+              Color.alphaBlend(acknowledge.fill, background),
+            ),
+            AlarmContrastLine(
+              'the spinner in "I\'m up" on its fill, over $where',
+              busy.label,
+              Color.alphaBlend(busy.fill, background),
+              min: alarmStyleMinGraphicContrast,
+            ),
+            AlarmContrastLine(
+              'quiet button label on its fill, over $where',
+              quiet.label,
+              Color.alphaBlend(quiet.fill, background),
+            ),
+          ],
+          AlarmContrastLine('message title on the card', colors.ink, card),
+          AlarmContrastLine('message body on the card', colors.ink2, card),
           AlarmContrastLine(
             'message source line on the card',
             colors.ink3,
             card,
-            isRequired: true,
+          ),
+          AlarmContrastLine(
+            'message source line on a card at the profile opacity',
+            colors.ink3,
+            thinCard,
+            isRequired: false,
           ),
           AlarmContrastLine(
             'topic and time on the canvas',
             colors.onCanvas,
             canvas,
-            isRequired: true,
           ),
-          AlarmContrastLine(
-            'quiet button label on its fill',
-            quiet.label,
-            over(quiet.fill),
-            isRequired: true,
-          ),
+        ],
+        weights: [
+          for (final (where, background) in behind) ...[
+            AlarmWeightLine(
+              '"I\'m up" against the quiet buttons, over $where',
+              heavy: off(acknowledge.fill, background),
+              light: off(quiet.fill, background),
+            ),
+            AlarmWeightLine(
+              '"I\'m up" while it spins against the quiet buttons, '
+              'over $where',
+              heavy: off(busy.fill, background),
+              light: off(quiet.fill, background),
+            ),
+          ],
         ],
       );
     case AlarmStage.acknowledged:
       final desk = alarmButtonColors(AppButtonVariant.ghost, colors);
       final back = alarmButtonColors(AppButtonVariant.paper, colors);
+      final backOff = alarmButtonOffColors(AppButtonVariant.paper, colors);
       final row = Color.alphaBlend(colors.cream, card);
       return AlarmContrastReport(
-        acknowledgeStandsOut: null,
-        quietStandsOut: null,
         lines: [
           AlarmContrastLine(
             'title and line on the canvas',
             colors.onCanvas,
             canvas,
-            isRequired: true,
           ),
-          AlarmContrastLine(
-            '"At my desk" on the canvas',
-            desk.label,
-            over(desk.fill),
-            isRequired: true,
-          ),
-          AlarmContrastLine(
-            '"Back to topics" on its fill',
-            back.label,
-            over(back.fill),
-            isRequired: true,
-          ),
-          AlarmContrastLine(
-            'detail value on its row',
-            colors.ink,
-            row,
-            isRequired: true,
-          ),
-          AlarmContrastLine(
-            'detail label on its row',
-            colors.ink3,
-            row,
-            isRequired: false,
-          ),
+          for (final (where, background) in behind) ...[
+            AlarmContrastLine(
+              '"At my desk" and the hint, over $where',
+              desk.label,
+              Color.alphaBlend(desk.fill, background),
+            ),
+            AlarmContrastLine(
+              '"Back to topics" on its fill, over $where',
+              back.label,
+              Color.alphaBlend(back.fill, background),
+            ),
+            // No button of this stage is ever off today. Measured so one
+            // that is, later, already has a fill it reads on.
+            AlarmContrastLine(
+              '"Back to topics" if it were off, on its fill, over $where',
+              backOff.label,
+              Color.alphaBlend(backOff.fill, background),
+              min: alarmStyleMinGraphicContrast,
+            ),
+          ],
+          AlarmContrastLine('detail value on its row', colors.ink, row),
+          AlarmContrastLine('detail label on its row', colors.ink3, row),
         ],
+        weights: const [],
       );
   }
 }

@@ -19,6 +19,13 @@ const Color _darkCard = Color(0xFF1E1915);
 /// for the row labels to read on.
 const Color _darkRow = Color(0xFF261F1A);
 
+/// The fill of "I'm up" while the acknowledge is on its way, when the
+/// button is off and holds a spinner. A mid grey in each theme: far enough
+/// from the canvas to stay the heaviest shape on the screen, and far
+/// enough from the spinner drawn on it.
+const Color _lightBusy = Color(0xFF8A8078);
+const Color _darkBusy = Color(0xFF6A615A);
+
 /// The same palette on both stages and for every severity: the stage is
 /// told apart by the face and the words.
 AppColors _minimalColors(
@@ -36,6 +43,7 @@ AppColors _minimalColors(
       onCanvasMuted: AppColors.dark.ink2,
       surface: _darkCard,
       cream: _darkRow,
+      ash: _darkBusy,
       ink: AppColors.dark.ink,
       ink2: AppColors.dark.ink2,
       ink3: AppColors.dark.ink3,
@@ -51,6 +59,7 @@ AppColors _minimalColors(
     onCanvas: AppColors.light.ink,
     onCanvasMuted: AppColors.light.ink2,
     surface: AppColors.light.surface,
+    ash: _lightBusy,
     ink: AppColors.light.ink,
     ink2: AppColors.light.ink2,
     ink3: AppColors.light.ink3,
@@ -62,9 +71,8 @@ AppColors _minimalColors(
 /// The plain canvas with its three shapes left clear. They keep the place
 /// of the standard look's shapes, so the canvas fades them out where they
 /// are when this look takes over.
-AmbientProfile _plainCanvas(AppColors appColors) {
-  final isDark = appColors.canvas.computeLuminance() < 0.5;
-  final canvas = isDark ? _darkCanvas : _lightCanvas;
+AmbientProfile _plainCanvas(AppColors appColors, Brightness brightness) {
+  final canvas = brightness == Brightness.dark ? _darkCanvas : _lightCanvas;
   AmbientShape clear(Alignment anchor, double scale, double depth) =>
       AmbientShape(
         color: canvas,

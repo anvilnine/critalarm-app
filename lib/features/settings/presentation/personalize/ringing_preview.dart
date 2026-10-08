@@ -94,10 +94,18 @@ class _RingingPreviewState extends State<RingingPreview> {
         ? here.copyWith(disableAnimations: true)
         : here;
     final reduce = screen.disableAnimations;
-    final style = widget.style ?? alarmStyleOf(null);
+    final brightness = Theme.of(context).brightness;
+    // A look that cannot be drawn shows as the standard one, as it would
+    // on the alarm route.
+    final style = drawableAlarmStyle(
+      widget.style ?? alarmStyleOf(null),
+      base: context.appColors,
+      severity: SeverityMode.crit,
+      brightness: brightness,
+    );
     // The canvas is tinted from the app's own colours and the screen from
     // the look's, the same as the alarm route does it.
-    final profile = style.ringing.ambient(context.appColors);
+    final profile = style.ringing.ambient(context.appColors, brightness);
     return ExcludeSemantics(
       child: IgnorePointer(
         child: ExcludeFocus(
@@ -205,12 +213,19 @@ class RingingPreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = (style ?? alarmStyleOf(null)).colorsFor(
-      AlarmStage.ringing,
-      base: context.appColors,
-      severity: SeverityMode.crit,
-      brightness: Theme.of(context).brightness,
-    );
+    final brightness = Theme.of(context).brightness;
+    final colors =
+        drawableAlarmStyle(
+          style ?? alarmStyleOf(null),
+          base: context.appColors,
+          severity: SeverityMode.crit,
+          brightness: brightness,
+        ).colorsFor(
+          AlarmStage.ringing,
+          base: context.appColors,
+          severity: SeverityMode.crit,
+          brightness: brightness,
+        );
     return Material(
       color: colors.canvas,
       child: Stack(

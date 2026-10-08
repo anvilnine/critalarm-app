@@ -232,30 +232,64 @@ void main() {
     });
   });
 
-  group('openWhenLastSureAfter', () {
-    test('only a sure answer changes the note', () {
-      for (final written in [true, false]) {
+  group('the note of the last sure answer', () {
+    final mine = alarmStyleAccountTag('acct_mine');
+    final theirs = alarmStyleAccountTag('acct_theirs');
+
+    test('is kept under a hash of the account, never the id', () {
+      expect(mine, isNotNull);
+      expect(mine, hasLength(16));
+      expect(mine, isNot(contains('acct_mine')));
+      expect(mine, alarmStyleAccountTag('acct_mine'));
+      expect(mine, isNot(theirs));
+      expect(alarmStyleAccountTag(null), isNull);
+      expect(alarmStyleAccountTag(''), isNull);
+    });
+
+    test('counts only for the account the phone is on', () {
+      expect(openNoteCountsFor(noteTag: mine, accountTag: mine), isTrue);
+      // Restored from a backup onto a phone on another account.
+      expect(openNoteCountsFor(noteTag: theirs, accountTag: mine), isFalse);
+      // The account is not known yet, or the phone has none.
+      expect(openNoteCountsFor(noteTag: mine, accountTag: null), isFalse);
+      expect(openNoteCountsFor(noteTag: null, accountTag: mine), isFalse);
+      expect(openNoteCountsFor(noteTag: null, accountTag: null), isFalse);
+    });
+
+    test('only a sure answer changes it', () {
+      for (final written in [mine, theirs, null]) {
         expect(
-          openWhenLastSureAfter(written: written, decision: _open),
-          isTrue,
+          openNoteAfter(written: written, decision: _open, accountTag: mine),
+          mine,
         );
         expect(
-          openWhenLastSureAfter(written: written, decision: _confirming),
-          isTrue,
+          openNoteAfter(
+            written: written,
+            decision: _confirming,
+            accountTag: mine,
+          ),
+          mine,
         );
         expect(
-          openWhenLastSureAfter(written: written, decision: _locked),
-          isFalse,
+          openNoteAfter(written: written, decision: _locked, accountTag: mine),
+          isNull,
         );
         expect(
-          openWhenLastSureAfter(written: written, decision: _unread),
+          openNoteAfter(written: written, decision: _unread, accountTag: mine),
           written,
         );
         expect(
-          openWhenLastSureAfter(written: written, decision: null),
+          openNoteAfter(written: written, decision: null, accountTag: mine),
           written,
         );
       }
+    });
+
+    test('an open answer with no account known leaves no note', () {
+      expect(
+        openNoteAfter(written: theirs, decision: _open, accountTag: null),
+        isNull,
+      );
     });
   });
 }
