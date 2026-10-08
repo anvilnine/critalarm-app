@@ -138,8 +138,11 @@ final class ProPackAccess {
   final List<DateTime> _refreshCalls = [];
 
   /// Whether this install holds the Pro pack, right now.
-  bool get isHeld =>
-      _relayHolds() || _override.isForcing || _otherGrant(_other);
+  bool get isHeld => isHeldWithoutSwitch || _override.isForcing;
+
+  /// [isHeld] with the developer switch left out: what the relay and the
+  /// other-grant function say on their own.
+  bool get isHeldWithoutSwitch => _relayHolds() || _otherGrant(_other);
 
   /// Every change of [isHeld], and only changes. Read [isHeld] for the
   /// value to start from.
