@@ -2134,9 +2134,9 @@
     },
     "type_alert_title": {
       "name": "Type the alert title",
-      "prompt": "Type the first words of the alert",
+      "prompt": "Type the first words",
       "field_label": "Type the first words of the alert title: {words}",
-      "hint": "The bold words. Capitals and punctuation do not matter."
+      "hint": "Bold words only. Capitals do not matter."
     },
     "ops_math": {
       "name": "Ops math",
