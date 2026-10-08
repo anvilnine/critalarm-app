@@ -13,7 +13,10 @@ import '../../core/access/access_fakes.dart';
 
 /// Places that sell Pro only. `PaywallSource` has no value for them, so
 /// their Hosted side reads as `direct`.
-const _noHostedSource = {LockSource.reliability, LockSource.sounds};
+const Set<LockSource> _noHostedSource = {
+  LockSource.reliability,
+  LockSource.sounds,
+};
 
 void main() {
   group('paywallLocationFor', () {
