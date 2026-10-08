@@ -1189,19 +1189,35 @@ enum SoundLibrary {
   }
 
   /// Writes the ringable file names into the group for the extension.
+  ///
+  /// The lock flag Dart wrote goes with them. While it is set no own sound
+  /// is published (`SharedSounds.choicesToPublish`), and the saved choices
+  /// stay as they are, so they ring again once the flag clears.
   private static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
-    let defaultFile = defaults.string(forKey: "flutter.alarm_sound_default")
-      .flatMap(ringableFileName(forSoundId:))
-    var perTopic: [String: String] = [:]
+    var perTopicIds: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),
        let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
-      for (topic, id) in map {
-        if let name = ringableFileName(forSoundId: id) { perTopic[topic] = name }
-      }
+      perTopicIds = map
     }
-    SharedSounds.publish(defaultFile: defaultFile, perTopicFiles: perTopic, to: shared)
-    NSLog("CritAlarmSound: assignments_published topics=%d", perTopic.count)
+    // False when Dart has not written it yet, or it is not a boolean.
+    let ownLocked = defaults.bool(forKey: OwnSoundLock.appKey)
+    let choices = SharedSounds.choicesToPublish(
+      defaultId: defaults.string(forKey: "flutter.alarm_sound_default"),
+      perTopicIds: perTopicIds,
+      ownLocked: ownLocked,
+      ringableFileName: ringableFileName(forSoundId:)
+    )
+    SharedSounds.publish(
+      defaultFile: choices.defaultFile,
+      perTopicFiles: choices.perTopicFiles,
+      ownLocked: ownLocked,
+      to: shared
+    )
+    NSLog(
+      "CritAlarmSound: assignments_published topics=%d own_locked=%@",
+      choices.perTopicFiles.count, ownLocked ? "yes" : "no"
+    )
     return true
   }
 }

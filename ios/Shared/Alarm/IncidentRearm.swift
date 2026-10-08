@@ -86,7 +86,13 @@ enum IncidentRearm {
         let content = UNMutableNotificationContent()
         content.title = pending?.title ?? "Crit Alarm"
         content.body = "Still ringing. Tap I'm up to end it."
-        content.sound = UNNotificationSound(named: UNNotificationSoundName(pending?.sound ?? IncidentAlarmScheduler.soundName))
+        content.sound = UNNotificationSound(named: UNNotificationSoundName(
+            OwnSoundLock.alarmSound(
+                requested: pending?.sound,
+                ownLocked: OwnSoundLock.isLocked(in: OwnSoundLock.groupDefaults),
+                bundled: IncidentAlarmScheduler.soundName
+            )
+        ))
         content.categoryIdentifier = category
         content.userInfo = ["incident_id": incidentId]
         if #available(iOS 15.0, *) { content.interruptionLevel = .timeSensitive }
