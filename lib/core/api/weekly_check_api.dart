@@ -7,8 +7,9 @@ import 'package:critalarm/core/models/weekly_check.dart';
 abstract interface class WeeklyCheckApi {
   /// PUT /relay/v1/devices/{device_id}/check
   ///
-  /// Enrols the device or stops its checks. Enrolling without the pack
-  /// answers `403 {"error":"pack","pack":"pro"}`. Stopping always answers.
+  /// Enrols the device or stops its checks. Enrolling on any tier but
+  /// `hosted` answers `403 {"error":"tier","tier":"hosted"}`. Stopping
+  /// always answers.
   Future<WeeklyCheck> setWeeklyCheck({required bool enabled});
 
   /// GET /relay/v1/devices/{device_id}/check
@@ -27,7 +28,8 @@ abstract interface class WeeklyCheckApi {
 
   /// GET /relay/v1/devices/{device_id}/checks
   ///
-  /// The device's rounds, newest first. Answers with or without the pack.
+  /// The device's rounds, newest first. Answers whatever the account's
+  /// tier is.
   Future<List<WeeklyCheckRound>> listWeeklyCheckRounds({int? limit});
 }
 
