@@ -119,10 +119,13 @@ void main() {
     ]);
   });
 
-  test('a store build lists only the two Pro benefits the app has today', () {
+  test('a store build lists only the three Pro benefits the app has '
+      'today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
       PaywallBenefitId.widgets,
       PaywallBenefitId.reliabilityChecks,
+      // Four fixed looks and the person's own photo are in the app.
+      PaywallBenefitId.customAlarmScreens,
     ]);
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
@@ -130,7 +133,6 @@ void main() {
     expect(waiting, [
       PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.customSounds,
-      PaywallBenefitId.customAlarmScreens,
     ]);
   });
 
