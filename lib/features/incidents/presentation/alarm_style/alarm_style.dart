@@ -39,7 +39,9 @@ enum AlarmStage {
 /// - "I'm up" while the acknowledge is on its way, and any other filled
 ///   button that is off: `ash`, with `ink2` for the spinner or the label.
 /// - The topic pill and the pulse ring: `canvasGhostStrong`.
-/// - The ringing face: `faceFill`, `faceInk`, and `crit` for its outline.
+/// - The ringing face: `faceFill`, `faceInk`, and `crit` for its outline
+///   unless the look names one ([AlarmRingingLook.faceOutline]). The sound
+///   waves beside it: `onCanvas`.
 /// - The acknowledged face: `faceFill`.
 ///
 /// The canvas itself is drawn by the stage's [AlarmStageLook.ambient]
@@ -164,6 +166,11 @@ abstract class AlarmStageLook {
   final double maxFace;
 }
 
+/// The colour of the thin edge around "Silence" and "Read the full
+/// message", from the stage's own colours, or null for no edge.
+typedef AlarmQuietButtonEdge =
+    Color? Function(AppColors colors, Brightness brightness);
+
 /// How the ringing stage is drawn.
 @immutable
 class AlarmRingingLook extends AlarmStageLook {
@@ -175,6 +182,9 @@ class AlarmRingingLook extends AlarmStageLook {
     super.maxFace = double.infinity,
     this.acknowledgeButton = AppButtonVariant.primary,
     this.quietButton = AppButtonVariant.tinted,
+    this.quietButtonEdge,
+    this.faceOutline,
+    this.faceShape,
   });
 
   final AlarmRingingType type;
@@ -191,6 +201,54 @@ class AlarmRingingLook extends AlarmStageLook {
 
   /// The treatment of "Silence" and "Read the full message".
   final AppButtonVariant quietButton;
+
+  /// A thin edge around the two quiet buttons, for a look whose wash
+  /// cannot be told from its canvas. Null, or an answer of null, draws
+  /// none. Keep it fainter than the words: "I'm up" stays the heaviest.
+  final AlarmQuietButtonEdge? quietButtonEdge;
+
+  /// The outline of the ringing face. Null takes the stage's `crit`. A
+  /// look sets it when `crit` cannot be seen on what is behind the face.
+  final Color? faceOutline;
+
+  /// Which shape of [ambient] sits behind the face, by its place in the
+  /// profile, or null when none does. It is left clear when the face is
+  /// not drawn. See [ambientFor].
+  final int? faceShape;
+
+  /// The canvas of the stage. With the face left out for room
+  /// ([drawsFace] false) the shape behind it is left clear too, at its
+  /// place, so the canvas still has three shapes to blend.
+  AmbientProfile ambientFor(
+    AppColors appColors,
+    Brightness brightness, {
+    required bool drawsFace,
+  }) {
+    final profile = ambient(appColors, brightness);
+    final at = faceShape;
+    if (drawsFace || at == null || at < 0 || at >= profile.shapes.length) {
+      return profile;
+    }
+    final shape = profile.shapes[at];
+    return AmbientProfile(
+      canvas: profile.canvas,
+      surfaceOpacity: profile.surfaceOpacity,
+      shapes: List<AmbientShape>.unmodifiable([
+        for (var i = 0; i < profile.shapes.length; i++)
+          if (i == at)
+            AmbientShape(
+              color: shape.color,
+              opacity: 0,
+              anchor: shape.anchor,
+              scale: shape.scale,
+              turns: shape.turns,
+              depth: shape.depth,
+            )
+          else
+            profile.shapes[i],
+      ]),
+    );
+  }
 }
 
 /// How the acknowledged stage is drawn. Its buttons keep their treatment
@@ -246,10 +304,11 @@ class AlarmStyle {
   /// three flashes a second.
   final bool backdropMoves;
 
-  /// True for the standard look only: its face takes the theme's colours,
-  /// as the alarm screen always has, and the dark theme's are dark. Every
-  /// other look draws the face in yellow with dark features in both
-  /// themes, which the stage does for it.
+  /// True for a look whose face takes the theme's colours, and the dark
+  /// theme's are dark. No look that ships sets it: a face is always
+  /// yellow, so every look, the standard one included, draws the face in
+  /// yellow with dark features in both themes, which the stage does for
+  /// it.
   final bool keepsThemeFace;
 
   AlarmStageLook lookOf(AlarmStage stage) => switch (stage) {
@@ -279,8 +338,8 @@ class AlarmStyle {
   }
 
   /// The palette the acknowledged face takes its outline and features
-  /// from. The standard look keeps the theme's, every other look the
-  /// light theme's, so the face is the yellow one in both themes.
+  /// from: the light theme's, so the face is the yellow one in both
+  /// themes. Only a look that [keepsThemeFace] takes the theme's.
   AppColors facePaletteFor(Brightness brightness) =>
       keepsThemeFace && brightness == Brightness.dark
       ? AppColors.dark
