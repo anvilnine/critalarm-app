@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
@@ -65,6 +67,7 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
 
   PaywallClock? _watched;
   bool _stamped = false;
+  bool _isMuted = false;
   ReceiptPlan? _plan;
 
   PaywallLayoutScope get scope => widget.scope;
@@ -87,9 +90,18 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
       _stamped = false;
     } else if (!_stamped) {
       _stamped = true;
-      // One light tap as the stamp lands, if it is landing now.
-      if (t < ReceiptTimeline.stampLanded) AppHaptics.selection();
+      // One light tap and a tick as the stamp lands, if it is landing now.
+      if (t < ReceiptTimeline.stampLanded && !_isMuted) {
+        AppHaptics.selection();
+        getIt<PaywallCues>().tick();
+      }
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isMuted = PaywallMuted.of(context);
   }
 
   @override
@@ -229,6 +241,7 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
                     lines: lines,
                     name: name,
                     price: price,
+                    followsIntro: scope.followsIntro,
                   ),
                 ),
               ),
@@ -314,6 +327,7 @@ class _ReceiptStage extends StatelessWidget {
     required this.lines,
     required this.name,
     required this.price,
+    required this.followsIntro,
   });
 
   final ReceiptPlan plan;
@@ -324,6 +338,30 @@ class _ReceiptStage extends StatelessWidget {
   final List<ReceiptLine> lines;
   final String name;
   final String? price;
+
+  /// True when an intro handed over to this layout.
+  final bool followsIntro;
+
+  /// One preview at the card's size, lifted off the stage.
+  Widget _card(
+    PaywallPreviewId preview, {
+    required Key key,
+    required double? playFrom,
+    required BorderRadius radius,
+    required bool isDark,
+  }) => DecoratedBox(
+    key: key,
+    decoration: BoxDecoration(
+      borderRadius: radius,
+      boxShadow: AppShadows.shadowMd(isDark: isDark),
+    ),
+    child: PaywallPreview(
+      preview,
+      sizeClass: PaywallPreviewClass.medium,
+      size: plan.card.size,
+      playFrom: playFrom,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -339,9 +377,14 @@ class _ReceiptStage extends StatelessWidget {
 
     final Widget mascot;
     if (isPrinting) {
-      final actor = ReceiptTimeline.actor(t, count: plan.count);
+      final actor = ReceiptTimeline.actor(
+        t,
+        count: plan.count,
+        followsIntro: followsIntro,
+      );
       mascot = HeroMascot(
         size: plan.mascot.width,
+        entranceStyle: receiptMotion.entrance,
         face: actor.face,
         fromFace: actor.fromFace,
         faceBlend: actor.faceBlend,
@@ -349,21 +392,26 @@ class _ReceiptStage extends StatelessWidget {
         entrance: actor.entrance,
       );
     } else {
-      mascot = HeroMascot.frame(frame, size: plan.mascot.width);
+      mascot = HeroMascot.frame(
+        frame,
+        size: plan.mascot.width,
+        motion: receiptMotion,
+      );
     }
 
-    // The card: out from behind the paper at the end of the print, and
-    // back behind it for a moment as one preview gives way to the next.
-    // Between the two it stands clear of the paper.
+    // The card: out from behind the paper at the end of the print. After
+    // that one preview slides out as the next slides in, and the paper is
+    // in front of whichever of the two is on its side.
     final visible = plan.cardTravel;
-    final hasPrevious = frame.previous != null;
-    final tuck = isPrinting
-        ? 1 - ReceiptTimeline.peek(t)
-        : (hasPrevious ? 0.9 * receiptTuck(frame.cardEnter) : 0.0);
-    final showsPrevious =
-        !isPrinting && hasPrevious && !receiptShowsNext(frame.cardEnter);
-    final scene = showsPrevious ? frame.previous! : frame.scene!;
-    final playFrom = showsPrevious ? frame.previousPlayFrom : frame.playFrom;
+    final previous = isPrinting ? null : frame.previous;
+    final change = heroCardArrivalPose(
+      receiptMotion.arrival,
+      previous == null ? 1 : frame.cardEnter,
+      width: plan.card.width,
+      direction: receiptCardWay(frame.direction),
+      pull: frame.pull * 0.4,
+    );
+    final confetti = receiptConfettiSeconds(t, isStill: player.isStill);
     final cardShown = isPrinting
         ? phase(
             t,
@@ -404,34 +452,71 @@ class _ReceiptStage extends StatelessWidget {
               ),
             ),
           ),
-          if (cardShown > 0 && scene.preview != null)
+          // The confetti the stamp throws, in the column beside the paper.
+          if (confetti != null)
+            Positioned(
+              left: plan.paper.right - ReceiptPlan.cardGap,
+              right: 0,
+              top: -bleedTop,
+              bottom: 0,
+              child: ExcludeSemantics(
+                child: CustomPaint(
+                  painter: HeroAtmospherePainter(
+                    focus: Offset.zero,
+                    radius: 0,
+                    seconds: confetti,
+                    entrance: 1,
+                    showsShapes: true,
+                    disc: air.disc.withValues(alpha: 0),
+                    soft: air.soft,
+                    strong: air.strong,
+                    light: air.light,
+                    style: receiptMotion.atmosphere,
+                  ),
+                ),
+              ),
+            ),
+          if (previous?.preview != null && frame.cardEnter < 1)
             Positioned.fromRect(
               rect: plan.card,
               child: ExcludeSemantics(
                 child: Opacity(
-                  opacity: cardShown,
+                  opacity: change.outgoing.opacity,
+                  child: Transform.translate(
+                    offset: Offset(change.outgoing.dx, 0),
+                    child: _card(
+                      previous!.preview!,
+                      key: ValueKey(frame.previousTurn),
+                      playFrom: frame.previousPlayFrom,
+                      radius: cardRadius,
+                      isDark: isDark,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (cardShown > 0 && frame.scene?.preview != null)
+            Positioned.fromRect(
+              rect: plan.card,
+              child: ExcludeSemantics(
+                child: Opacity(
+                  opacity: cardShown * change.incoming.opacity,
                   child: Transform.translate(
                     offset: Offset(
-                      math.max(
-                        -visible,
-                        -visible * tuck + player.pullAt(t) * 0.4,
-                      ),
+                      isPrinting
+                          ? -visible * (1 - ReceiptTimeline.peek(t))
+                          : math.max(
+                              -visible,
+                              change.incoming.dx + player.pullAt(t) * 0.4,
+                            ),
                       0,
                     ),
-                    child: DecoratedBox(
-                      key: ValueKey(
-                        showsPrevious ? frame.previousTurn : frame.turn,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: cardRadius,
-                        boxShadow: AppShadows.shadowMd(isDark: isDark),
-                      ),
-                      child: PaywallPreview(
-                        scene.preview!,
-                        sizeClass: PaywallPreviewClass.medium,
-                        size: plan.card.size,
-                        playFrom: playFrom,
-                      ),
+                    child: _card(
+                      frame.scene!.preview!,
+                      key: ValueKey(frame.turn),
+                      playFrom: frame.playFrom,
+                      radius: cardRadius,
+                      isDark: isDark,
                     ),
                   ),
                 ),

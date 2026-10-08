@@ -192,4 +192,50 @@ void main() {
       );
     });
   });
+
+  group('the motion of the reel', () {
+    test('the stage picks its own variants', () {
+      expect(reelMotion.atmosphere, HeroAtmosphereStyle.rings);
+      expect(reelMotion.entrance, HeroEntranceStyle.slide);
+      expect(reelMotion.idle, HeroIdleStyle.benefitHop);
+      expect(reelMotion.arrival, HeroCardArrival.slideThrough);
+    });
+
+    test('after an intro the mascot is in its place on the first frame', () {
+      expect(reelPreludeFor(followsIntro: false), 0);
+      final loop = HeroLoop(const [
+        PaywallPreviewId.topics,
+        PaywallPreviewId.pushes,
+      ], prelude: reelPreludeFor(followsIntro: true));
+      final first = loop.frameAt(0);
+      final pose = heroEntrancePose(
+        reelMotion.entrance,
+        first.entrance,
+        size: 160,
+      );
+      expect(pose.dx, closeTo(0, 1e-9));
+      expect(pose.opacity, 1);
+      expect(loop.entranceEnd, lessThan(heroEntranceSeconds));
+    });
+
+    test('only the first pass of an untouched reel is felt', () {
+      bool cues(double began, {double? was = 1, bool touched = false}) =>
+          reelCuesPush(
+            began: began,
+            was: was,
+            entranceEnd: 1,
+            period: 10,
+            touched: touched,
+          );
+      // The first page is the entrance, not a push.
+      expect(cues(1, was: null), isFalse);
+      expect(cues(1), isFalse);
+      expect(cues(3.5), isTrue);
+      expect(cues(3.5, was: 3.5), isFalse);
+      // The second pass, a touch, and a clock that went back.
+      expect(cues(11, was: 9), isFalse);
+      expect(cues(3.5, touched: true), isFalse);
+      expect(cues(3.5, was: 6), isFalse);
+    });
+  });
 }

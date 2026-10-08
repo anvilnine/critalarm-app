@@ -12,8 +12,9 @@ import 'package:flutter/material.dart';
 /// then the product's name and the price of the plan picked as the total.
 /// The mascot nods at each line and is glad at the total. A rubber stamp
 /// with the product's name lands at the end, at a slight angle, and
-/// startles the mascot into a hop. That printed, stamped slip is the
-/// resting frame.
+/// startles the mascot into a hop and throws a little confetti beside the
+/// slip, once. That printed, stamped slip is the resting frame. The mascot
+/// is dropped in beside the slot as the paper starts to feed.
 ///
 /// The slip is the benefit list, so nothing is listed under it. A tap on
 /// one of its lines makes the mascot react to that benefit and brings its
