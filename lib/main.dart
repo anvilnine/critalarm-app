@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
@@ -63,6 +64,11 @@ Future<void> main() async {
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  // An install that was restored onto another phone drops what named the
+  // old one. Awaited, and first: everything below reads an identity, a
+  // flag or the acknowledge queue. On a phone that has not moved this is
+  // one question to the phone.
+  await getIt<MovedPhoneReset>().run();
   // The iOS ACK action runs with no engine and writes straight to the queue
   // Dart drains. Listen before asking for the backlog, or the one waiting from
   // a cold launch is missed.
