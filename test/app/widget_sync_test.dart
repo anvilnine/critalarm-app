@@ -235,6 +235,22 @@ void main() {
     expect(written(calls.length - 1)['locked'], isTrue);
   });
 
+  test('remembers the lock value it last handed to the platform', () async {
+    expect(sync.lastWrittenLocked, isNull);
+    expect(sync.lastWrittenAt, isNull);
+
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+    expect(sync.lastWrittenLocked, isFalse);
+    expect(sync.lastWrittenAt, isNotNull);
+
+    locked = true;
+    sync.rewrite();
+    await settle();
+    expect(sync.lastWrittenLocked, isTrue);
+  });
+
   group('a plan that could not be read', () {
     test(
       'writes nothing, so the widgets keep the snapshot they have',
