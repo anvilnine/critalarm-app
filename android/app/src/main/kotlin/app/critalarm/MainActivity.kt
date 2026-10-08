@@ -24,6 +24,7 @@ import app.critalarm.l10n.LocaleChannel
 import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderChannel
+import app.critalarm.links.LinkHandover
 import app.critalarm.localreminders.LocalReminderTapIntent
 import app.critalarm.makersettings.MakerSettingsChannel
 import app.critalarm.motion.MotionSensorChannel
@@ -554,7 +555,8 @@ class MainActivity : FlutterFragmentActivity() {
      *
      * The extras come off as they are read and the activity keeps the intent
      * without them, so nothing reopens the same screen later. A link opened
-     * from outside the app arrives the same way, as [EXTRA_LINK]. An intent the
+     * from outside the app is held by [LinkHandover], and [EXTRA_LINK] carries
+     * the pass for it. Any other value there gives no link. An intent the
      * system replayed out of the recents list is ignored outright: the user
      * asked for the app, not for a notification they already dealt with.
      */
@@ -565,14 +567,16 @@ class MainActivity : FlutterFragmentActivity() {
             ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
         val topic = intent.getStringExtra(EXTRA_TOPIC)
         val open = intent.getStringExtra(EXTRA_OPEN)
-        val link = intent.getStringExtra(EXTRA_LINK)
+        // Off the intent whether or not it gives a link.
+        val pass = intent.getStringExtra(EXTRA_LINK)
+        intent.removeExtra(EXTRA_LINK)
+        val link = LinkHandover.take(pass)
         val from = intent.getStringExtra(EXTRA_FROM)
         if (incidentId == null && topic == null && open == null && link == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)
         intent.removeExtra(EXTRA_TOPIC)
         intent.removeExtra(EXTRA_OPEN)
-        intent.removeExtra(EXTRA_LINK)
         intent.removeExtra(EXTRA_FROM)
         tapSequence += 1
         return TapRoute.tapFor(tapSequence, incidentId, topic, open, link, from)
@@ -590,8 +594,9 @@ class MainActivity : FlutterFragmentActivity() {
         const val OPEN_HOME = "home"
 
         /**
-         * A link AppLinkActivity handed over, whole. Dart parses it. A connect
-         * link carries a token, so the value is never logged here.
+         * On an intent: the [LinkHandover] pass for a link AppLinkActivity
+         * holds. In the tap Dart gets: that link, whole. Dart parses it. A
+         * connect link carries a token, so neither value is logged here.
          * Matches PushHost.linkKey in Dart.
          */
         const val EXTRA_LINK = "link"
