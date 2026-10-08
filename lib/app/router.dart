@@ -4,8 +4,10 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -657,10 +659,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           key: state.pageKey,
           opaque: true,
           child: PaywallLayoutScreen(
-            // An unknown key draws the reference layout.
+            // An unknown key draws the fallback layout. The key the false
+            // alarm had as a layout opens that one, with the intro.
             layout:
                 PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
-                PaywallLayoutId.plain,
+                paywallFallbackLayout,
+            intro:
+                PaywallIntroId.fromKey(query['intro']) ??
+                paywallIntroInLayoutValue(state.pathParameters['layout']) ??
+                PaywallIntroId.none,
+            thanks:
+                PaywallThanksId.fromKey(query['thanks']) ??
+                PaywallThanksId.none,
+            // The developer picker's "Open it". A store build never reads it.
+            isTryOut: _isDeveloperPaywallBuild && query['try'] == paywallTryOut,
             product: PaywallProduct.parse(query['product']),
             source: PaywallSource.parse(query['source']),
             sourceWire: query['source'],

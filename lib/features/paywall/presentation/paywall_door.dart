@@ -1,13 +1,16 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
-import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:flutter/widgets.dart';
@@ -15,28 +18,44 @@ import 'package:go_router/go_router.dart';
 
 /// The one way into either paywall.
 ///
-/// It reads what [paywallLayoutFor] needs (the remote value, what Developer
-/// options set, whether the False alarm layout was shown) and answers with
-/// a location: the shipped route, exactly as before, or a layout's. Anything
-/// that goes wrong while it reads answers with the shipped route.
+/// It reads what [paywallOpeningFor] needs (the remote values, what
+/// Developer options set, whether the false alarm intro was shown) and
+/// answers with a location: the shipped route, exactly as before, or a
+/// layout's, with its intro and its thanks. Anything that goes wrong
+/// while it reads answers with the shipped route.
 class PaywallDoor {
   PaywallDoor({
     required this._remoteValue,
     required this._developer,
     required this._hasSeenFalseAlarm,
     required this._markFalseAlarmSeen,
-    this._isBuilt = paywallLayoutIsBuilt,
+    this._remoteIntroValue = _noIntroValue,
+    this._developerIntro = _noDeveloperIntro,
+    this._isIntroBuilt = paywallIntroIsBuilt,
+    this._remoteThanksValue = _noThanksValue,
+    this._developerThanks = _noDeveloperThanks,
+    this._isThanksBuilt = paywallThanksIsBuilt,
   });
 
-  /// The prefs key that says the False alarm layout was shown on this
+  /// The prefs key that says the false alarm intro was shown on this
   /// install. Set once, when a paywall opens on it.
   static const String falseAlarmShownKey = 'paywall.false_alarm_shown';
 
+  static String _noIntroValue(PaywallProduct product) => '';
+  static PaywallIntroId? _noDeveloperIntro(PaywallProduct product) => null;
+  static String _noThanksValue(PaywallProduct product) => '';
+  static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
+
   final String Function(PaywallProduct product) _remoteValue;
   final PaywallLayoutSetting? Function(PaywallProduct product) _developer;
+  final String Function(PaywallProduct product) _remoteIntroValue;
+  final PaywallIntroId? Function(PaywallProduct product) _developerIntro;
   final bool Function() _hasSeenFalseAlarm;
   final Future<void> Function() _markFalseAlarmSeen;
-  final bool Function(PaywallLayoutId layout) _isBuilt;
+  final bool Function(PaywallIntroId intro) _isIntroBuilt;
+  final String Function(PaywallProduct product) _remoteThanksValue;
+  final PaywallThanksId? Function(PaywallProduct product) _developerThanks;
+  final bool Function(PaywallThanksId thanks) _isThanksBuilt;
 
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
@@ -51,23 +70,45 @@ class PaywallDoor {
     }
   }
 
-  /// The layout that opens for [product] from [entry], or null for the
-  /// shipped surface. A paywall that opens on the False alarm layout is
-  /// its one showing, so this writes that down.
-  PaywallLayoutId? layoutFor(PaywallProduct product, PaywallEntry entry) {
+  /// What opens for [product] from [entry], or null for the shipped
+  /// surface. A paywall that opens on the false alarm intro is its one
+  /// showing, so this writes that down.
+  PaywallOpening? openingFor(PaywallProduct product, PaywallEntry entry) {
     try {
-      // A False alarm layout this build cannot draw would fall back to
-      // another one and still use up its one showing.
-      final canDrawFalseAlarm = _isBuilt(PaywallLayoutId.falseAlarm);
-      final layout = paywallLayoutFor(
+      final remoteValue = _remoteValue(product);
+      final developer = _developer(product);
+      // A false alarm this build cannot draw would open with no intro and
+      // still use up its one showing.
+      final canDrawFalseAlarm = _isIntroBuilt(PaywallIntroId.falseAlarm);
+      final opening = paywallOpeningFor(
         product: product,
         entry: entry,
-        remote: PaywallLayoutSetting.parse(_remoteValue(product)),
-        developer: _developer(product),
+        remote: PaywallLayoutSetting.parse(remoteValue),
+        developer: developer,
+        remoteIntro: PaywallIntroId.parse(_remoteIntroValue(product)),
+        developerIntro: _developerIntro(product),
+        legacyIntro: developer == null
+            ? paywallIntroInLayoutValue(remoteValue)
+            : null,
         hasSeenFalseAlarm: !canDrawFalseAlarm || _hasSeenFalseAlarm(),
+        remoteThanks: PaywallThanksId.parse(_remoteThanksValue(product)),
+        developerThanks: _developerThanks(product),
       );
-      if (layout == PaywallLayoutId.falseAlarm) _markFalseAlarmSeen().ignore();
-      return layout;
+      if (opening == null) return null;
+      if (opening.intro == PaywallIntroId.falseAlarm) {
+        _markFalseAlarmSeen().ignore();
+      }
+      // An intro this build has no animation for is no intro, and the
+      // same goes for a thanks.
+      return PaywallOpening(
+        opening.layout,
+        intro: _isIntroBuilt(opening.intro)
+            ? opening.intro
+            : PaywallIntroId.none,
+        thanks: _isThanksBuilt(opening.thanks)
+            ? opening.thanks
+            : PaywallThanksId.none,
+      );
     } on Object catch (_) {
       return null;
     }
@@ -75,10 +116,16 @@ class PaywallDoor {
 
   /// The location that opens Hosted for [source].
   String hostedLocation(PaywallSource source) {
-    final layout = layoutFor(PaywallProduct.hosted, paywallEntryOf(source));
-    return layout == null
+    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
+    return opening == null
         ? paywallLocation(source)
-        : paywallLayoutLocation(layout, PaywallProduct.hosted, source: source);
+        : paywallLayoutLocation(
+            opening.layout,
+            PaywallProduct.hosted,
+            intro: opening.intro,
+            thanks: opening.thanks,
+            source: source,
+          );
   }
 
   /// [location], unless it is the shipped Hosted paywall and that is set
@@ -88,24 +135,32 @@ class PaywallDoor {
     final uri = Uri.tryParse(location);
     if (uri == null || uri.path != paywallPath) return location;
     final source = PaywallSource.parse(uri.queryParameters['source']);
-    final layout = layoutFor(PaywallProduct.hosted, paywallEntryOf(source));
-    return layout == null
+    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
+    return opening == null
         ? location
-        : paywallLayoutLocation(layout, PaywallProduct.hosted, source: source);
+        : paywallLayoutLocation(
+            opening.layout,
+            PaywallProduct.hosted,
+            intro: opening.intro,
+            thanks: opening.thanks,
+            source: source,
+          );
   }
 
   /// The location of the layout that opens Pro for [source], or null for
   /// the Pro sheet.
   String? proLayoutLocation(ProPackSheetSource source) {
-    final layout = layoutFor(
+    final opening = openingFor(
       PaywallProduct.pro,
       paywallEntryOfProSheet(source),
     );
-    return layout == null
+    return opening == null
         ? null
         : paywallLayoutLocation(
-            layout,
+            opening.layout,
             PaywallProduct.pro,
+            intro: opening.intro,
+            thanks: opening.thanks,
             sourceWire: source.wire,
           );
   }

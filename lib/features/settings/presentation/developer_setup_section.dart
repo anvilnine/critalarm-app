@@ -15,6 +15,8 @@ import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/settings/presentation/developer_options_group.dart';
+import 'package:critalarm/features/settings/presentation/developer_options_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -22,8 +24,16 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// Whether this build and this phone show the setup controls: a build with
+/// developer tools, on a phone that has the permissions step. The web
+/// dashboard has none, and setup does not run there.
+bool developerSetupIsShown() =>
+    getIt<DeveloperOnboardingOverrides>().isActive &&
+    getIt<OnboardingStepCatalog>().isAvailable(OnboardingStepId.permissions);
+
 /// The setup controls of developer settings: pick the flow, replay it, open
-/// any step, and make a step count as not done.
+/// any step, and make a step count as not done. Three groups of the list:
+/// the flow, the offer step and the steps that count as not done.
 ///
 /// Draws nothing in a build with no developer tools, and on a phone with no
 /// permissions step (the web dashboard), where setup does not run.
@@ -72,120 +82,94 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
 
   @override
   Widget build(BuildContext context) {
-    // Setup permissions exist on a phone only, so a phone without that step
-    // has no setup to look at.
-    if (!_overrides.isActive ||
-        !_catalog.isAvailable(OnboardingStepId.permissions)) {
-      return const SizedBox.shrink();
-    }
+    if (!developerSetupIsShown()) return const SizedBox.shrink();
     return ListenableBuilder(
       listenable: _overrides,
       builder: (context, _) {
         final choice = _overrides.flowChoice;
         final showField = _isEditingCustom || (choice?.isCustom ?? false);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _Heading(
-                title: LocaleKeys.developer_setup_title.tr(),
-                subtitle: LocaleKeys.developer_setup_subtitle.tr(),
-              ),
-              _flowRows(context, choice),
-              if (showField) _customField(context),
-              const SizedBox(height: 14),
-              _redoRow(context),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_jump_title.tr(),
-                subtitle: LocaleKeys.developer_setup_jump_subtitle.tr(),
-              ),
-              _jumpRows(context),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_ring_states_title.tr(),
-                subtitle: LocaleKeys.developer_setup_ring_states_subtitle.tr(),
-              ),
-              _ringStateRows(context),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_hook_up_states_title.tr(),
-                subtitle: LocaleKeys.developer_setup_hook_up_states_subtitle
-                    .tr(),
-              ),
-              _hookUpStateRows(context),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_more_states_title.tr(),
-                subtitle: LocaleKeys.developer_setup_more_states_subtitle.tr(),
-              ),
-              _moreStateRows(context),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_force_title.tr(),
-                subtitle: LocaleKeys.developer_setup_force_subtitle.tr(),
-              ),
-              _forceRows(),
-              const SizedBox(height: 14),
-              _Heading(
-                title: LocaleKeys.developer_setup_offer_title.tr(),
-                subtitle: LocaleKeys.developer_setup_offer_subtitle.tr(),
-              ),
-              _offerRows(context),
-            ],
-          ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DeveloperOptionsGroup(
+              title: LocaleKeys.developer_setup_title.tr(),
+              rows: [
+                _flowRow(choice),
+                if (showField) _customField(context),
+                _redoRow(context),
+                _jumpRow(context),
+                ?_ringStateRow(context),
+                ?_hookUpStateRow(context),
+                _moreStateRow(context),
+              ],
+            ),
+            DeveloperOptionsGroup(
+              title: LocaleKeys.developer_setup_offer_title.tr(),
+              rows: _offerRows(),
+            ),
+            DeveloperOptionsGroup(
+              title: LocaleKeys.developer_setup_force_title.tr(),
+              rows: _forceRows(),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _flowRows(BuildContext context, DeveloperFlowChoice? choice) {
-    final colors = context.appColors;
-    Widget check({required bool isSelected}) => isSelected
-        ? AppGlyph(GlyphType.check, color: colors.highlight, size: 16)
-        : const SizedBox.shrink();
-    return Column(
-      children: [
-        AppListRow(
-          name: LocaleKeys.developer_setup_flow_none.tr(),
+  /// What the flow sheet hands back for no override and for Custom. A
+  /// bundled flow hands back its own id.
+  static const _noFlow = '';
+  static const _customFlow = 'custom:';
+
+  /// One row for the flow: its value is the choice in use, and its sheet
+  /// lists no override, every bundled flow and Custom.
+  Widget _flowRow(DeveloperFlowChoice? choice) {
+    final isCustom = choice?.isCustom ?? false;
+    final none = LocaleKeys.developer_setup_flow_none.tr();
+    final custom = LocaleKeys.developer_setup_flow_custom.tr();
+    return AppPickerRow<String>(
+      title: LocaleKeys.developer_setup_flow_title.tr(),
+      selected: isCustom ? _customFlow : choice?.bundledId ?? _noFlow,
+      valueText: developerFlowValueText(
+        bundledId: choice?.bundledId,
+        isCustom: isCustom,
+        none: none,
+        custom: custom,
+      ),
+      options: [
+        AppPickerOption(
+          value: _noFlow,
+          label: none,
           meta: LocaleKeys.developer_setup_flow_none_subtitle.tr(),
-          faceState: null,
-          trailing: check(isSelected: choice == null),
-          onTap: () {
-            setState(() => _isEditingCustom = false);
-            unawaited(_overrides.chooseFlow(null));
-          },
         ),
-        for (final flow in BundledOnboardingFlows.all) ...[
-          const SizedBox(height: 4),
-          AppListRow(
-            name: flow.id,
+        for (final flow in BundledOnboardingFlows.all)
+          AppPickerOption(
+            value: flow.id,
+            label: flow.id,
             meta: flow.steps.join(', '),
-            faceState: null,
-            trailing: check(
-              isSelected: choice == DeveloperFlowChoice.bundled(flow.id),
-            ),
-            onTap: () {
-              setState(() => _isEditingCustom = false);
-              unawaited(
-                _overrides.chooseFlow(DeveloperFlowChoice.bundled(flow.id)),
-              );
-            },
           ),
-        ],
-        const SizedBox(height: 4),
-        AppListRow(
-          name: LocaleKeys.developer_setup_flow_custom.tr(),
-          meta: choice?.isCustom ?? false
-              ? choice!.customText!
+        AppPickerOption(
+          value: _customFlow,
+          label: custom,
+          meta: isCustom
+              ? choice!.customText
               : LocaleKeys.developer_setup_flow_custom_subtitle.tr(),
-          faceState: null,
-          trailing: check(isSelected: choice?.isCustom ?? false),
-          onTap: () => _openCustom(choice),
         ),
       ],
+      onPick: (picked) {
+        if (picked == _customFlow) {
+          _openCustom(choice);
+          return;
+        }
+        setState(() => _isEditingCustom = false);
+        unawaited(
+          _overrides.chooseFlow(
+            picked == _noFlow ? null : DeveloperFlowChoice.bundled(picked),
+          ),
+        );
+      },
     );
   }
 
@@ -228,7 +212,7 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
       }
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -266,62 +250,50 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
 
   Widget _redoRow(BuildContext context) {
     final engine = getIt<OnboardingFlowEngine>();
-    return AppListRow(
-      name: LocaleKeys.developer_setup_redo_title.tr(),
-      meta: LocaleKeys.developer_setup_redo_subtitle.tr(
-        args: [engine.chooseFlow().id],
-      ),
-      faceState: null,
-      trailing: AppGlyph(
-        GlyphType.arrow,
-        color: context.appColors.ink3,
-        size: 16,
-      ),
+    return AppValueRow(
+      title: LocaleKeys.developer_setup_redo_title.tr(),
+      value: engine.chooseFlow().id,
+      isMonoValue: true,
       // A replay: nothing is saved, and no step is skipped for being done.
       onTap: () => unawaited(context.push('/onboarding/welcome?demo=true')),
     );
   }
 
-  Widget _jumpRows(BuildContext context) {
-    return Column(
-      children: [
-        for (final entry in OnboardingStepRegistry.entries) ...[
-          if (entry != OnboardingStepRegistry.entries.first)
-            const SizedBox(height: 4),
-          _jumpRow(context, entry),
-        ],
+  /// Every registered step, opened as a replay. A step that is not on this
+  /// phone, or has no screen yet, is listed with the reason and opens
+  /// nothing.
+  Widget _jumpRow(BuildContext context) {
+    bool isOpen(OnboardingStepEntry entry) =>
+        _catalog.isAvailable(entry.id) && entry.route != null;
+    return AppPickerRow<OnboardingStepEntry>(
+      title: LocaleKeys.developer_setup_jump_title.tr(),
+      sheetNote: LocaleKeys.developer_setup_jump_subtitle.tr(),
+      hasSelection: false,
+      options: [
+        for (final entry in OnboardingStepRegistry.entries)
+          AppPickerOption(
+            value: entry,
+            label: entry.id,
+            meta: isOpen(entry)
+                ? entry.route
+                : entry.route == null
+                ? LocaleKeys.developer_setup_jump_no_screen.tr()
+                : LocaleKeys.developer_setup_jump_not_on_phone.tr(),
+          ),
       ],
+      onPick: (entry) {
+        if (!isOpen(entry)) return;
+        unawaited(context.push('${entry.route}?demo=true'));
+      },
     );
   }
 
-  Widget _jumpRow(BuildContext context, OnboardingStepEntry entry) {
-    final route = entry.route;
-    final isOpen = _catalog.isAvailable(entry.id) && route != null;
-    final meta = isOpen
-        ? route
-        : route == null
-        ? LocaleKeys.developer_setup_jump_no_screen.tr()
-        : LocaleKeys.developer_setup_jump_not_on_phone.tr();
-    return AppListRow(
-      name: entry.id,
-      meta: meta,
-      faceState: null,
-      isQuiet: !isOpen,
-      trailing: isOpen
-          ? AppGlyph(
-              GlyphType.arrow,
-              color: context.appColors.ink3,
-              size: 16,
-            )
-          : null,
-      onTap: isOpen ? () => unawaited(context.push('$route?demo=true')) : null,
-    );
-  }
-
-  /// One row per state of the real ring step, each opened as a replay that
-  /// is put on that state. Nothing is sent, set or saved.
-  Widget _ringStateRows(BuildContext context) => _stateRows(
+  /// One choice per state of the real ring step, each opened as a replay
+  /// that is put on that state. Nothing is sent, set or saved.
+  Widget? _ringStateRow(BuildContext context) => _stateRow(
     context,
+    title: LocaleKeys.developer_setup_ring_states_title.tr(),
+    note: LocaleKeys.developer_setup_ring_states_subtitle.tr(),
     stepId: OnboardingStepId.realRing,
     queries: {
       for (final name in RealRingScreen.replayStateNames)
@@ -329,10 +301,12 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
     },
   );
 
-  /// One row per state of the hook-up step and one per tool, each opened
+  /// One choice per state of the hook-up step and one per tool, each opened
   /// as a replay with made-up values. Nothing is sent, made or saved.
-  Widget _hookUpStateRows(BuildContext context) => _stateRows(
+  Widget? _hookUpStateRow(BuildContext context) => _stateRow(
     context,
+    title: LocaleKeys.developer_setup_hook_up_states_title.tr(),
+    note: LocaleKeys.developer_setup_hook_up_states_subtitle.tr(),
     stepId: OnboardingStepId.hookUp,
     queries: {
       for (final name in HookUpScreen.replayStateNames)
@@ -344,7 +318,7 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
 
   /// Screens around setup that no step route reaches, each opened with
   /// made-up values. Nothing is sent or saved.
-  Widget _moreStateRows(BuildContext context) {
+  Widget _moreStateRow(BuildContext context) {
     const locations = {
       'first_tool_acknowledged':
           CriticalAlarmScreen.previewFirstToolAckedLocation,
@@ -353,107 +327,77 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
       'checklist_closed': HomeSetupPreview.closed,
       'checklist_open': HomeSetupPreview.open,
     };
-    return Column(
-      children: [
+    return AppPickerRow<VoidCallback>(
+      title: LocaleKeys.developer_setup_more_states_title.tr(),
+      sheetNote: LocaleKeys.developer_setup_more_states_subtitle.tr(),
+      hasSelection: false,
+      options: [
         // The setup pill on Home, with made-up rows. Its way out clears it.
-        for (final entry in pills.entries) ...[
-          AppListRow(
-            name: entry.key,
+        for (final entry in pills.entries)
+          AppPickerOption(
+            label: entry.key,
             meta: '/',
-            faceState: null,
-            trailing: AppGlyph(
-              GlyphType.arrow,
-              color: context.appColors.ink3,
-              size: 16,
-            ),
-            onTap: () {
+            value: () {
               homeSetupPreview.value = entry.value;
               context.go('/');
             },
           ),
-          const SizedBox(height: 4),
-        ],
-        for (final (index, entry) in locations.entries.indexed) ...[
-          if (index > 0) const SizedBox(height: 4),
-          AppListRow(
-            name: entry.key,
+        for (final entry in locations.entries)
+          AppPickerOption(
+            label: entry.key,
             meta: entry.value,
-            faceState: null,
-            trailing: AppGlyph(
-              GlyphType.arrow,
-              color: context.appColors.ink3,
-              size: 16,
-            ),
-            onTap: () => unawaited(context.push(entry.value)),
+            value: () => unawaited(context.push(entry.value)),
           ),
-        ],
       ],
+      onPick: (open) => open(),
     );
   }
 
-  /// Rows that open the step [stepId] as a replay, one per entry of
-  /// [queries]: the row's name and the query that puts the step on it.
-  Widget _stateRows(
+  /// A row whose sheet opens the step [stepId] as a replay, one choice per
+  /// entry of [queries]: the choice's name and the query that puts the step
+  /// on it. Null when this phone does not have the step.
+  Widget? _stateRow(
     BuildContext context, {
+    required String title,
+    required String note,
     required String stepId,
     required Map<String, String> queries,
   }) {
     final route = OnboardingStepRegistry.entryFor(stepId)?.route;
-    if (route == null || !_catalog.isAvailable(stepId)) {
-      return const SizedBox.shrink();
-    }
-    return Column(
-      children: [
-        for (final (index, entry) in queries.entries.indexed) ...[
-          if (index > 0) const SizedBox(height: 4),
-          AppListRow(
-            name: entry.key,
-            meta: route,
-            faceState: null,
-            trailing: AppGlyph(
-              GlyphType.arrow,
-              color: context.appColors.ink3,
-              size: 16,
-            ),
-            onTap: () => unawaited(
-              context.push('$route?demo=true&${entry.value}'),
-            ),
-          ),
-        ],
+    if (route == null || !_catalog.isAvailable(stepId)) return null;
+    return AppPickerRow<String>(
+      title: title,
+      sheetNote: note,
+      hasSelection: false,
+      options: [
+        for (final entry in queries.entries)
+          AppPickerOption(value: entry.value, label: entry.key),
       ],
+      onPick: (query) => unawaited(context.push('$route?demo=true&$query')),
     );
   }
 
-  Widget _forceRows() {
+  List<Widget> _forceRows() {
     final forced = _overrides.forcedUnsatisfied;
-    return Column(
-      children: [
-        for (final id in forceableOnboardingSteps) ...[
-          if (id != forceableOnboardingSteps.first) const SizedBox(height: 4),
-          AppToggleRow(
-            title: id,
-            value: forced.contains(id),
-            onChanged: _catalog.isAvailable(id)
-                ? (on) => unawaited(
-                    _overrides.forceUnsatisfied(id, forced: on),
-                  )
-                : null,
-          ),
-        ],
-      ],
-    );
+    return [
+      for (final id in forceableOnboardingSteps)
+        AppToggleRow(
+          title: id,
+          value: forced.contains(id),
+          onChanged: _catalog.isAvailable(id)
+              ? (on) => unawaited(_overrides.forceUnsatisfied(id, forced: on))
+              : null,
+        ),
+    ];
   }
 
   /// The four switches of the offer step. The rows show the values in use
   /// now, from whichever source won. Changing one saves all four as the
   /// developer value, which outranks Remote Config.
-  Widget _offerRows(BuildContext context) {
-    final colors = context.appColors;
+  List<Widget> _offerRows() {
     final hasOverride = _overrides.offerJson != null;
     final now = getIt<OnboardingOfferGate>().chosen().config;
-    final layouts = [
-      for (final layout in paywallLayoutBuilders.keys) layout.key,
-    ];
+    final note = LocaleKeys.developer_setup_offer_subtitle.tr();
 
     void save({
       bool? enabled,
@@ -475,93 +419,60 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
       ),
     );
 
-    // A tap moves a row on to its next value, and round again.
-    T after<T>(List<T> values, T current) =>
-        values[(values.indexOf(current) + 1) % values.length];
+    AppPickerOption<PaywallProduct?> product(PaywallProduct? product) =>
+        AppPickerOption(
+          value: product,
+          label: product?.key ?? OnboardingOfferConfig.noProduct,
+        );
 
-    Widget valueRow(String name, String value, VoidCallback onTap) => Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: AppListRow(
-        name: name,
-        meta: value,
-        faceState: null,
-        trailing: AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
-        onTap: onTap,
+    return [
+      // Hands the four switches back to the next source.
+      AppValueRow(
+        title: LocaleKeys.developer_setup_flow_none.tr(),
+        value: hasOverride
+            ? LocaleKeys.developer_options_offer_clear.tr()
+            : LocaleKeys.developer_options_offer_in_use.tr(),
+        glyph: hasOverride ? GlyphType.close : GlyphType.check,
+        onTap: () => unawaited(_overrides.setOfferJson(null)),
       ),
-    );
-
-    return Column(
-      children: [
-        AppListRow(
-          name: LocaleKeys.developer_setup_flow_none.tr(),
-          meta: LocaleKeys.developer_setup_flow_none_subtitle.tr(),
-          faceState: null,
-          trailing: hasOverride
-              ? const SizedBox.shrink()
-              : AppGlyph(GlyphType.check, color: colors.highlight, size: 16),
-          onTap: () => unawaited(_overrides.setOfferJson(null)),
-        ),
-        const SizedBox(height: 4),
-        AppToggleRow(
-          title: OnboardingOfferConfig.enabledField,
-          value: now.enabled,
-          onChanged: (on) => save(enabled: on),
-        ),
-        valueRow(
-          OnboardingOfferConfig.cloudProductField,
-          now.cloudProduct?.key ?? OnboardingOfferConfig.noProduct,
-          () => save(
-            cloudProduct: () => after(const [
-              PaywallProduct.pro,
-              PaywallProduct.hosted,
-              null,
-            ], now.cloudProduct),
-          ),
-        ),
-        valueRow(
-          OnboardingOfferConfig.selfHostedProductField,
-          now.selfHostedProduct?.key ?? OnboardingOfferConfig.noProduct,
-          () => save(
-            selfHostedProduct: () =>
-                after(const [PaywallProduct.pro, null], now.selfHostedProduct),
-          ),
-        ),
-        valueRow(
-          OnboardingOfferConfig.layoutField,
-          now.layoutKey,
-          () => save(layoutKey: after(layouts, now.layoutKey)),
-        ),
-      ],
-    );
-  }
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colors.ink,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(color: colors.ink3, fontSize: 12)),
+      AppToggleRow(
+        title: OnboardingOfferConfig.enabledField,
+        value: now.enabled,
+        onChanged: (on) => save(enabled: on),
+      ),
+      AppPickerRow<PaywallProduct?>(
+        title: OnboardingOfferConfig.cloudProductField,
+        sheetNote: note,
+        isMonoValue: true,
+        selected: now.cloudProduct,
+        options: [
+          product(PaywallProduct.pro),
+          product(PaywallProduct.hosted),
+          product(null),
         ],
+        onPick: (picked) => save(cloudProduct: () => picked),
       ),
-    );
+      AppPickerRow<PaywallProduct?>(
+        title: OnboardingOfferConfig.selfHostedProductField,
+        sheetNote: note,
+        isMonoValue: true,
+        selected: now.selfHostedProduct,
+        options: [product(PaywallProduct.pro), product(null)],
+        onPick: (picked) => save(selfHostedProduct: () => picked),
+      ),
+      AppPickerRow<String>(
+        title: OnboardingOfferConfig.layoutField,
+        sheetNote: note,
+        isMonoValue: true,
+        selected: now.layoutKey,
+        // A key no layout here has still shows as the value.
+        valueText: now.layoutKey,
+        options: [
+          for (final layout in paywallLayoutBuilders.keys)
+            AppPickerOption(value: layout.key, label: layout.key),
+        ],
+        onPick: (picked) => save(layoutKey: picked),
+      ),
+    ];
   }
 }

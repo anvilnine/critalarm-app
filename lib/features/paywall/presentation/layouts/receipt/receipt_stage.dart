@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
@@ -42,9 +42,9 @@ String receiptLineFor(PaywallBenefit benefit) {
 }
 
 /// The receipt: a slot with the printed slip hanging from it, the mascot
-/// beside it, and the preview of the line being played peeking out from
-/// behind the paper. Under the stage, the pips, a headline, and one quiet
-/// sentence about that line.
+/// large beside it, and under the mascot the preview of the line being
+/// played, whole and clear of the paper. Under the stage, the pips, a
+/// headline, and one quiet sentence about that line.
 ///
 /// The slip is the benefit list, so there are no check lines. A tap on a
 /// line of the slip puts that benefit on, a swipe across the stage goes to
@@ -63,8 +63,6 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
   late final HeroPlayer _player = HeroPlayer(clock: widget.scope.clock)
     ..addListener(_onPlayer);
 
-  PaywallClock? _watched;
-  bool _stamped = false;
   ReceiptPlan? _plan;
 
   PaywallLayoutScope get scope => widget.scope;
@@ -73,28 +71,8 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
   // ticks to do it.
   void _onPlayer() => setState(() {});
 
-  void _watch(PaywallClock clock) {
-    if (identical(clock, _watched)) return;
-    _watched?.removeListener(_onClock);
-    _watched = clock..addListener(_onClock);
-  }
-
-  void _onClock() {
-    final clock = _watched;
-    if (clock == null || clock.isStill) return;
-    final t = clock.value;
-    if (t < ReceiptTimeline.stampAt) {
-      _stamped = false;
-    } else if (!_stamped) {
-      _stamped = true;
-      // One light tap as the stamp lands, if it is landing now.
-      if (t < ReceiptTimeline.stampLanded) AppHaptics.selection();
-    }
-  }
-
   @override
   void dispose() {
-    _watched?.removeListener(_onClock);
     _player
       ..removeListener(_onPlayer)
       ..dispose();
@@ -171,7 +149,6 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
       ..loop = HeroLoop([
         for (final b in benefits) b.previewId,
       ], prelude: ReceiptTimeline.prelude);
-    _watch(scope.clock);
 
     final lines = [
       for (final (i, b) in benefits.indexed)
@@ -186,124 +163,135 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
     final view = View.of(context);
     final bleedTop = view.viewPadding.top / view.devicePixelRatio;
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Listener(
-            onPointerDown: player.fingerDown,
-            onPointerUp: player.fingerUp,
-            onPointerCancel: player.fingerUp,
-            child: RawGestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              gestures: {
-                TapGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                      TapGestureRecognizer.new,
-                      (tap) => tap.onTapUp = _tapUp,
+    return PaywallCueScore(
+      clock: scope.clock,
+      // The print is heard a line at a time, then the stamp, then the
+      // first preview coming out.
+      beats: receiptCues(count),
+      player: player,
+      turnCue: PaywallCue.next,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Listener(
+              onPointerDown: player.fingerDown,
+              onPointerUp: player.fingerUp,
+              onPointerCancel: player.fingerUp,
+              child: RawGestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                gestures: {
+                  TapGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        TapGestureRecognizer
+                      >(
+                        TapGestureRecognizer.new,
+                        (tap) => tap.onTapUp = _tapUp,
+                      ),
+                  HeroStageDragRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        HeroStageDragRecognizer
+                      >(
+                        HeroStageDragRecognizer.new,
+                        (drag) => drag
+                          ..onStart = player.dragStart
+                          ..onUpdate = player.dragUpdate
+                          ..onEnd = player.dragEnd
+                          ..onCancel = player.dragCancel,
+                      ),
+                },
+                child: RepaintBoundary(
+                  child: PaywallClockBuilder(
+                    clock: scope.clock,
+                    builder: (context, t, _) => _ReceiptStage(
+                      plan: plan,
+                      player: player,
+                      t: t,
+                      bleedTop: bleedTop,
+                      title: LocaleKeys.app_title.tr(),
+                      lines: lines,
+                      name: name,
+                      price: price,
+                      followsIntro: scope.followsIntro,
                     ),
-                HeroStageDragRecognizer:
-                    GestureRecognizerFactoryWithHandlers<
-                      HeroStageDragRecognizer
-                    >(
-                      HeroStageDragRecognizer.new,
-                      (drag) => drag
-                        ..onStart = player.dragStart
-                        ..onUpdate = player.dragUpdate
-                        ..onEnd = player.dragEnd
-                        ..onCancel = player.dragCancel,
-                    ),
-              },
-              child: RepaintBoundary(
-                child: PaywallClockBuilder(
-                  clock: scope.clock,
-                  builder: (context, t, _) => _ReceiptStage(
-                    plan: plan,
-                    player: player,
-                    t: t,
-                    bleedTop: bleedTop,
-                    title: LocaleKeys.app_title.tr(),
-                    lines: lines,
-                    name: name,
-                    price: price,
                   ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: room.gap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-              child: HeroPips(player: player, count: count, color: tones.ink),
+            SizedBox(
+              height: room.gap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+                child: HeroPips(player: player, count: count, color: tones.ink),
+              ),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(
-              left: heroSideInset,
-              right: heroSideInset,
-              bottom: room.under,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HeroRise(
-                  clock: scope.clock,
-                  index: 0,
-                  child: Semantics(
-                    header: true,
-                    child: Text(headline, style: headlineStyle),
-                  ),
-                ),
-                if (hasSentence) ...[
-                  const SizedBox(height: sentenceGap),
+            Padding(
+              padding: EdgeInsets.only(
+                left: heroSideInset,
+                right: heroSideInset,
+                bottom: room.under,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   HeroRise(
                     clock: scope.clock,
-                    index: 1,
-                    child: SizedBox(
-                      height: tallest,
-                      // The slip's lines say the same to a screen reader.
-                      child: ExcludeSemantics(
-                        child: PaywallClockBuilder(
-                          clock: scope.clock,
-                          builder: (context, t, _) {
-                            final active = player.frameAt(t).activeIndex;
-                            return AnimatedSwitcher(
-                              duration: context.motion(AppDurations.base),
-                              layoutBuilder: (current, previous) => Stack(
-                                alignment: Alignment.topLeft,
-                                children: [...previous, ?current],
-                              ),
-                              child: Align(
-                                key: ValueKey(active),
-                                alignment: Alignment.topLeft,
-                                child: Text(
-                                  benefits[active % count].line,
-                                  style: sentenceStyle,
+                    index: 0,
+                    child: Semantics(
+                      header: true,
+                      child: Text(headline, style: headlineStyle),
+                    ),
+                  ),
+                  if (hasSentence) ...[
+                    const SizedBox(height: sentenceGap),
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 1,
+                      child: SizedBox(
+                        height: tallest,
+                        // The slip's lines say the same to a screen reader.
+                        child: ExcludeSemantics(
+                          child: PaywallClockBuilder(
+                            clock: scope.clock,
+                            builder: (context, t, _) {
+                              final active = player.frameAt(t).activeIndex;
+                              return AnimatedSwitcher(
+                                duration: context.motion(AppDurations.base),
+                                layoutBuilder: (current, previous) => Stack(
+                                  alignment: Alignment.topLeft,
+                                  children: [...previous, ?current],
                                 ),
-                              ),
-                            );
-                          },
+                                child: Align(
+                                  key: ValueKey(active),
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    benefits[active % count].line,
+                                    style: sentenceStyle,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// One frame of the stage: the air, the card behind the paper, the paper
-/// hanging from the slot, and the mascot.
+/// One frame of the stage: the air, the card beside the paper, the paper
+/// hanging from the slot, and the mascot in front.
 class _ReceiptStage extends StatelessWidget {
   const _ReceiptStage({
     required this.plan,
@@ -314,6 +302,7 @@ class _ReceiptStage extends StatelessWidget {
     required this.lines,
     required this.name,
     required this.price,
+    required this.followsIntro,
   });
 
   final ReceiptPlan plan;
@@ -325,9 +314,33 @@ class _ReceiptStage extends StatelessWidget {
   final String name;
   final String? price;
 
+  /// True when an intro handed over to this layout.
+  final bool followsIntro;
+
+  /// One preview at the card's size, lifted off the stage.
+  Widget _card(
+    PaywallPreviewId preview, {
+    required Key key,
+    required double? playFrom,
+    required BorderRadius radius,
+    required bool isDark,
+  }) => DecoratedBox(
+    key: key,
+    decoration: BoxDecoration(
+      borderRadius: radius,
+      boxShadow: AppShadows.shadowMd(isDark: isDark),
+    ),
+    child: PaywallPreview(
+      preview,
+      sizeClass: PaywallPreviewClass.medium,
+      size: plan.card.size,
+      playFrom: playFrom,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
+    final inks = ReceiptInks.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final air = HeroAtmosphereColors.of(context, PaywallTone.canvas);
     final frame = player.frameAt(t);
@@ -339,9 +352,14 @@ class _ReceiptStage extends StatelessWidget {
 
     final Widget mascot;
     if (isPrinting) {
-      final actor = ReceiptTimeline.actor(t);
+      final actor = ReceiptTimeline.actor(
+        t,
+        count: plan.count,
+        followsIntro: followsIntro,
+      );
       mascot = HeroMascot(
         size: plan.mascot.width,
+        entranceStyle: receiptMotion.entrance,
         face: actor.face,
         fromFace: actor.fromFace,
         faceBlend: actor.faceBlend,
@@ -349,20 +367,26 @@ class _ReceiptStage extends StatelessWidget {
         entrance: actor.entrance,
       );
     } else {
-      mascot = HeroMascot.frame(frame, size: plan.mascot.width);
+      mascot = HeroMascot.frame(
+        frame,
+        size: plan.mascot.width,
+        motion: receiptMotion,
+      );
     }
 
-    // The card: out from behind the paper at the end of the print, and
-    // tucked behind it for a moment as one preview gives way to the next.
-    final visible = plan.card.width - ReceiptPlan.cardTucked;
-    final hasPrevious = frame.previous != null;
-    final tuck = isPrinting
-        ? 1 - ReceiptTimeline.peek(t)
-        : (hasPrevious ? 0.9 * receiptTuck(frame.cardEnter) : 0.0);
-    final showsPrevious =
-        !isPrinting && hasPrevious && !receiptShowsNext(frame.cardEnter);
-    final scene = showsPrevious ? frame.previous! : frame.scene!;
-    final playFrom = showsPrevious ? frame.previousPlayFrom : frame.playFrom;
+    // The card: out from behind the paper at the end of the print. After
+    // that one preview slides out as the next slides in, and the paper is
+    // in front of whichever of the two is on its side.
+    final visible = plan.cardTravel;
+    final previous = isPrinting ? null : frame.previous;
+    final change = heroCardArrivalPose(
+      receiptMotion.arrival,
+      previous == null ? 1 : frame.cardEnter,
+      width: plan.card.width,
+      direction: receiptCardWay(frame.direction),
+      pull: frame.pull * 0.4,
+    );
+    final confetti = receiptConfettiSeconds(t, isStill: player.isStill);
     final cardShown = isPrinting
         ? phase(
             t,
@@ -403,34 +427,71 @@ class _ReceiptStage extends StatelessWidget {
               ),
             ),
           ),
-          if (cardShown > 0 && scene.preview != null)
+          // The confetti the stamp throws, in the column beside the paper.
+          if (confetti != null)
+            Positioned(
+              left: plan.paper.right - ReceiptPlan.cardGap,
+              right: 0,
+              top: -bleedTop,
+              bottom: 0,
+              child: ExcludeSemantics(
+                child: CustomPaint(
+                  painter: HeroAtmospherePainter(
+                    focus: Offset.zero,
+                    radius: 0,
+                    seconds: confetti,
+                    entrance: 1,
+                    showsShapes: true,
+                    disc: air.disc.withValues(alpha: 0),
+                    soft: air.soft,
+                    strong: air.strong,
+                    light: air.light,
+                    style: receiptMotion.atmosphere,
+                  ),
+                ),
+              ),
+            ),
+          if (previous?.preview != null && frame.cardEnter < 1)
             Positioned.fromRect(
               rect: plan.card,
               child: ExcludeSemantics(
                 child: Opacity(
-                  opacity: cardShown,
+                  opacity: change.outgoing.opacity,
+                  child: Transform.translate(
+                    offset: Offset(change.outgoing.dx, 0),
+                    child: _card(
+                      previous!.preview!,
+                      key: ValueKey(frame.previousTurn),
+                      playFrom: frame.previousPlayFrom,
+                      radius: cardRadius,
+                      isDark: isDark,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (cardShown > 0 && frame.scene?.preview != null)
+            Positioned.fromRect(
+              rect: plan.card,
+              child: ExcludeSemantics(
+                child: Opacity(
+                  opacity: cardShown * change.incoming.opacity,
                   child: Transform.translate(
                     offset: Offset(
-                      math.max(
-                        -visible,
-                        -visible * tuck + player.pullAt(t) * 0.4,
-                      ),
+                      isPrinting
+                          ? -visible * (1 - ReceiptTimeline.peek(t))
+                          : math.max(
+                              -visible,
+                              change.incoming.dx + player.pullAt(t) * 0.4,
+                            ),
                       0,
                     ),
-                    child: DecoratedBox(
-                      key: ValueKey(
-                        showsPrevious ? frame.previousTurn : frame.turn,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: cardRadius,
-                        boxShadow: AppShadows.shadowMd(isDark: isDark),
-                      ),
-                      child: PaywallPreview(
-                        scene.preview!,
-                        sizeClass: PaywallPreviewClass.medium,
-                        size: plan.card.size,
-                        playFrom: playFrom,
-                      ),
+                    child: _card(
+                      frame.scene!.preview!,
+                      key: ValueKey(frame.turn),
+                      playFrom: frame.playFrom,
+                      radius: cardRadius,
+                      isDark: isDark,
                     ),
                   ),
                 ),
@@ -479,7 +540,7 @@ class _ReceiptStage extends StatelessWidget {
             child: ExcludeSemantics(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colors.onCanvas,
+                  color: inks.slot,
                   borderRadius: BorderRadius.circular(Radii.sm),
                   boxShadow: AppShadows.shadowSm(isDark: isDark),
                 ),
@@ -489,7 +550,7 @@ class _ReceiptStage extends StatelessWidget {
                     child: Container(
                       height: 3,
                       decoration: BoxDecoration(
-                        color: colors.canvas.withValues(alpha: 0.36),
+                        color: inks.slit,
                         borderRadius: BorderRadius.circular(Radii.xs),
                       ),
                     ),

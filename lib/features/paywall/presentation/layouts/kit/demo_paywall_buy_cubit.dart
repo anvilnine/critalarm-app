@@ -50,6 +50,13 @@ class DemoPaywallBuyCubit extends PaywallBuyCubit {
   final PaywallBuyStatus? startAs;
   final Duration stepTime;
 
+  /// Set by the developer picker and its tiles: a purchase is confirmed at
+  /// once and a restore finds the product, so what plays after either can
+  /// be looked at with no store. It still walks every state on the way.
+  bool isTryOut = false;
+
+  Duration get _step => isTryOut ? Duration.zero : stepTime;
+
   @override
   Future<void> load() async {
     final ready = restingState(
@@ -77,9 +84,9 @@ class DemoPaywallBuyCubit extends PaywallBuyCubit {
     if (!state.canBuy) return;
     began(PaywallBuyAction.purchase);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
-    await Future<void>.delayed(stepTime);
+    await Future<void>.delayed(_step);
     show(afterStore(state, PaywallStoreResult.done));
-    await Future<void>.delayed(stepTime);
+    await Future<void>.delayed(_step);
     show(
       afterConfirmStep(
         state,
@@ -94,11 +101,13 @@ class DemoPaywallBuyCubit extends PaywallBuyCubit {
     if (!state.canRestore) return;
     began(PaywallBuyAction.restore);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
-    await Future<void>.delayed(stepTime);
+    await Future<void>.delayed(_step);
     show(
       afterConfirmStep(
         state,
-        PaywallConfirmStep.nothingToRestore,
+        isTryOut
+            ? PaywallConfirmStep.done
+            : PaywallConfirmStep.nothingToRestore,
         pausedKey: LocaleKeys.paywall_kit_paused,
       ),
     );
