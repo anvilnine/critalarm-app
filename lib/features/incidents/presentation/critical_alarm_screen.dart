@@ -19,9 +19,13 @@ import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
@@ -252,6 +256,27 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// The look this alarm is drawn in: the topic's own, or the phone's.
+  ///
+  /// Only an alarm that is ringing or acknowledged has one. The loading
+  /// and failed screens, a setup test and the first tool alarm keep the
+  /// standard look, and so does anything that goes wrong here: the alarm
+  /// screen always draws.
+  AlarmStyle _styleFor(CriticalAlarmState state) {
+    if (!state.isLive && !state.isAcknowledged) return alarmStyleOf(null);
+    try {
+      return alarmStyleOf(
+        getIt<AlarmStyleGate>().styleFor(
+          state.topic.isEmpty ? null : state.topic,
+          isSetupAlarm:
+              state.isPreview || state.ackedExits != AckedExits.incident,
+        ),
+      );
+    } on Object catch (_) {
+      return alarmStyleOf(null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Another incident is on screen now, or this one rang again, so a
@@ -301,9 +326,11 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       },
       builder: (context, state) {
         final colors = context.appColors;
-        final profile = state.isAcknowledged
-            ? AmbientAppProfiles.criticalAlarmAcknowledged(colors)
-            : AmbientAppProfiles.criticalAlarmRinging(colors);
+        final style = _styleFor(state);
+        final stage = state.isAcknowledged
+            ? AlarmStage.acknowledged
+            : AlarmStage.ringing;
+        final profile = style.lookOf(stage).ambient(colors);
 
         Widget content;
         if (!state.isLive && !state.isAcknowledged) {
@@ -443,11 +470,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             ],
           );
         } else {
-          content = SeverityScope(
-            // The acknowledged screen stays on the acknowledged canvas after
-            // At my desk closes the incident, so its text keeps the colours
-            // that read on it.
-            mode: state.isAcknowledged ? SeverityMode.ack : state.severityMode,
+          // The one place the look is applied, for both stages. The
+          // acknowledged screen stays on the acknowledged colours after At
+          // my desk closes the incident, so its text keeps the colours
+          // that read on it.
+          content = AlarmStyleStage(
+            style: style,
+            stage: stage,
+            severity: state.severityMode,
             child: Builder(
               builder: (context) {
                 final colors = context.appColors;
@@ -714,11 +744,11 @@ class AcknowledgedScreen extends StatelessWidget {
     // The demo welcomes: a ripple of happy faces, the title and one line,
     // with confetti on top.
     final faceState = state.faceState;
+    final style = AlarmStyleScope.of(context);
+    final look = style.acknowledged;
     // The face keeps the outline and features it has everywhere else. The
     // acknowledged palette turns both white for the text around it.
-    final facePalette = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.dark
-        : AppColors.light;
+    final facePalette = style.facePaletteFor(Theme.of(context).brightness);
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -829,7 +859,7 @@ class AcknowledgedScreen extends StatelessWidget {
               // the pill under the title, in both states and only there.
               if (!isClosed) ...[
                 if (pinsHint) ...[
-                  _sub(TextAlign.center, _deskTimerHint(context)),
+                  _sub(look, TextAlign.center, _deskTimerHint(context)),
                   const SizedBox(height: Spacing.s3),
                 ],
                 AppButton(
@@ -913,7 +943,7 @@ class AcknowledgedScreen extends StatelessWidget {
                   flightShuttleBuilder: faceFlightShuttleBuilder,
                   child: FaceWidget(
                     state: faceState,
-                    size: 260,
+                    size: math.min(260, look.maxFace),
                     overrideStrokeColor: facePalette.faceStroke,
                     overrideInkColor: facePalette.faceInk,
                   ),
@@ -926,16 +956,16 @@ class AcknowledgedScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _title(TextAlign.left),
+                        _title(look, TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _topic(context),
                         const SizedBox(height: Spacing.s2),
-                        _sub(TextAlign.left, ackedSub),
+                        _sub(look, TextAlign.left, ackedSub),
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
                         if (hintInList) ...[
                           const SizedBox(height: Spacing.s4),
-                          _sub(TextAlign.left, _deskTimerHint(context)),
+                          _sub(look, TextAlign.left, _deskTimerHint(context)),
                         ],
                       ],
                     ),
@@ -958,11 +988,14 @@ class AcknowledgedScreen extends StatelessWidget {
     // text size the list scrolls, and the room the scaffold leaves under
     // it is the height of the backing, so the card always scrolls clear.
     final media = MediaQuery.of(context);
-    final faceSize = (media.size.height - media.padding.vertical - _restHeight)
-        .clamp(
-          _minFace,
-          224.0,
-        );
+    // The room decides the face. A look may only cap it.
+    final faceSize = math.min(
+      (media.size.height - media.padding.vertical - _restHeight).clamp(
+        _minFace,
+        224.0,
+      ),
+      look.maxFace,
+    );
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -988,11 +1021,11 @@ class AcknowledgedScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: Spacing.s4),
-                _title(TextAlign.center),
+                _title(look, TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _topic(context),
                 const SizedBox(height: Spacing.s2),
-                _sub(TextAlign.center, ackedSub),
+                _sub(look, TextAlign.center, ackedSub),
               ],
             ),
           ),
@@ -1007,7 +1040,7 @@ class AcknowledgedScreen extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
-              child: _sub(TextAlign.center, _deskTimerHint(context)),
+              child: _sub(look, TextAlign.center, _deskTimerHint(context)),
             ),
           ),
       ],
@@ -1162,11 +1195,11 @@ class AcknowledgedScreen extends StatelessWidget {
 
   /// One line on any phone at the default text size: the type scales down
   /// until the word fits, and it never breaks inside a word.
-  Widget _title(TextAlign align) {
+  Widget _title(AlarmAcknowledgedLook look, TextAlign align) {
     return AppFittedTitle(
       LocaleKeys.critical_alarm_acked_title.tr(),
       textAlign: align,
-      style: AppTypography.display(colors.onCanvas),
+      style: look.type.title.copyWith(color: colors.onCanvas),
     );
   }
 
@@ -1229,17 +1262,11 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  Widget _sub(TextAlign align, String text) {
+  Widget _sub(AlarmAcknowledgedLook look, TextAlign align, String text) {
     return Text(
       text,
       textAlign: align,
-      style: TextStyle(
-        fontFamily: AppTypography.fontBody,
-        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-        color: colors.onCanvas,
-      ),
+      style: look.type.line.copyWith(color: colors.onCanvas),
     );
   }
 

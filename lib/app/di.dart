@@ -122,6 +122,9 @@ import 'package:critalarm/features/in_app_notices/domain/system_update_notice_ru
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -1521,10 +1524,12 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         deleteTopic: getIt<DeleteTopicUsecase>(),
         incidents: getIt<IncidentsCubit>(),
-        // A deleted topic takes its wake-up challenge and its flag along.
+        // A deleted topic takes its wake-up challenge and its flag along,
+        // and the look it had picked for its alarm screen.
         onDeleted: (name) async {
           await getIt<ChallengeChoices>().forgetTopic(name);
           await getIt<ChallengeFlagSync>().check();
+          await getIt<AlarmStyleChoices>().forgetTopic(name);
         },
       ),
     )
@@ -1595,6 +1600,28 @@ Future<void> configureDependencies({
     // tap on every plan.
     ..registerLazySingleton<ChallengeChoices>(
       () => SharedPrefsChallengeChoices(getIt<SharedPreferences>()),
+    )
+    // Alarm screen looks: the phone's choice and each topic's, kept on this
+    // phone only, and the gate the alarm screen asks which one to draw. A
+    // look changes how the in-app alarm screen is drawn and nothing else.
+    ..registerLazySingleton<AlarmStyleChoices>(
+      () => SharedPrefsAlarmStyleChoices(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => AlarmStyleGate(
+        choices: getIt<AlarmStyleChoices>(),
+        decide: () =>
+            getIt<FeatureAccess>().decide(AppFeature.alarmScreenStyles),
+        decideOnceReady: () => getIt<FeatureAccess>().decideOnceReady(
+          AppFeature.alarmScreenStyles,
+        ),
+        planRead: getIt<FeatureAccess>().ready,
+        changes: [
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.alarmScreenStyles,
+          ),
+        ],
+      ),
     )
     ..registerLazySingleton(
       () => ChallengeGate(
