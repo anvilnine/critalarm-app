@@ -45,6 +45,10 @@ const Map<AppFeature, AccessLabJump> accessLabJumps = {
   AppFeature.appIcons: AccessLabJump('App icon', '/app-icon'),
   AppFeature.widgets: AccessLabJump('Home widgets card', '/', isTab: true),
   AppFeature.ownSounds: AccessLabJump('Sound picker', '/sounds'),
+  AppFeature.alarmScreenStyles: AccessLabJump(
+    'Personalize, Look',
+    '/settings/personalize',
+  ),
   AppFeature.wakeUpChallenges: AccessLabJump(
     'Personalize, Challenge',
     '/settings/personalize',
@@ -65,9 +69,7 @@ const List<AccessLabJump> accessLabPages = [
 
 /// Features in the table that have no screen yet. Their row says so and
 /// has no button.
-const Set<AppFeature> accessLabNotBuilt = {
-  AppFeature.alarmScreenStyles,
-};
+const Set<AppFeature> accessLabNotBuilt = {};
 
 /// A feature's name as words, made from its enum name, so a feature added
 /// to the table gets a row with no edit here.
