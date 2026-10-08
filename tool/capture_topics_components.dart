@@ -28,6 +28,7 @@
 //                                    for a reader that shrinks a tall image
 //
 // Developer tool.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
 // ignore_for_file: avoid_print
 
 import 'dart:io';
@@ -96,7 +97,7 @@ Future<void> _save(
   await file.writeAsBytes(bytes!.buffer.asUint8List());
   print('${isGood ? 'FIT ' : 'BAD '} ${file.path}');
   if (_slice > 0) {
-    final step = _slice * 2;
+    const step = _slice * 2;
     for (var y = 0, n = 1; y < image.height; y += step, n++) {
       final h = (image.height - y) < step ? image.height - y : step;
       final recorder = ui.PictureRecorder();
