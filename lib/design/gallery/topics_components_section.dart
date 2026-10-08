@@ -5,6 +5,7 @@ import 'package:critalarm/design/components/notice_card.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/stat_card.dart';
 import 'package:critalarm/design/components/status_card.dart';
+import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -83,7 +84,7 @@ class _Caption extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// The sixteen cards.
+// The cards.
 // ---------------------------------------------------------------------------
 
 /// One kind of card with everything a hero scene needs to draw it.
@@ -330,6 +331,30 @@ const _kinds = <_Kind>[
       onAction: _noop,
     ),
   ),
+  // The Topic screen: the Critical switch in the card's trailing slot, in the
+  // panel variant. The off track is outlined so it shows on the dark card.
+  _Kind(
+    name: 'topic, critical on',
+    gaze: AppHeroGaze.card,
+    card: AppStatusCard(
+      label: 'CRITICAL DELIVERY',
+      numeral: 'On',
+      foot: 'rings through silent',
+      trailing: AppSwitch(value: true, variant: AppSwitchVariant.panel),
+    ),
+  ),
+  _Kind(
+    name: 'topic, critical off',
+    gaze: AppHeroGaze.card,
+    tone: AppHeroTone.quiet,
+    card: AppStatusCard(
+      label: 'CRITICAL DELIVERY',
+      numeral: 'Off',
+      numeralTone: AppStatusTone.muted,
+      foot: 'arrives as a normal push',
+      trailing: AppSwitch(value: false, variant: AppSwitchVariant.panel),
+    ),
+  ),
   _idle,
 ];
 
@@ -359,7 +384,7 @@ class _CanvasTile extends StatelessWidget {
   );
 }
 
-/// All sixteen cards and the three strips, each on its own canvas.
+/// Every card and the three strips, each on its own canvas.
 class StatusCardsGallery extends StatelessWidget {
   const StatusCardsGallery({super.key});
 
