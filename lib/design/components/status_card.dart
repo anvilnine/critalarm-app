@@ -461,7 +461,7 @@ class _AppStatusCardState extends State<AppStatusCard>
           border: surface.line == null
               ? null
               : Border.all(color: surface.line!),
-          boxShadow: isDark ? const [] : AppShadows.lightLg,
+          boxShadow: isDark ? const [] : AppShadows.lightMd,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),

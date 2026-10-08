@@ -33,6 +33,9 @@ character away. When a screen feels flat, give it one hero, not five decorations
 | Showing a feature doing its job, in miniature, before the user has it | Decoration that moves for its own sake |
 | Crit reacting to what just happened | Crit on every row |
 
+A list screen may carry one hero when the hero is the face: Crit large above the list, the
+rows and sheet quiet. It is the one exception to "a list gets no hero".
+
 Ask of every motion: what does it show that a still picture could not? If nothing, cut it.
 
 ## Rules
@@ -51,6 +54,9 @@ Ask of every motion: what does it show that a still picture could not? If nothin
    `AppCurves.easeBack`, the supporting parts follow with a small stagger. No plain fade for a
    hero. Anything the user needs to leave (a close cross, a back arrow) is on screen from the
    first frame.
+   Exception: a tab people open many times a day has no entrance at all. Its first frame is the
+   finished picture, and only ambient motion (a slow breath, a blink) and reactions to real
+   events play.
 5. **Nothing rests at an angle.** Rotation lives inside a motion (a ring shake of a few
    degrees, a landing) and ends at zero. A tilted card at rest looks like a bug, and a build
    that freezes half way through one looks broken.
@@ -80,15 +86,15 @@ Ask of every motion: what does it show that a still picture could not? If nothin
 every position, fade and face from it with pure functions. That is what makes motion testable
 and capturable.
 
-- The clock and helpers are in
-  `lib/features/paywall/presentation/layouts/kit/paywall_clock.dart`:
+- The clock and helpers are in `lib/design_system/screen_clock.dart` (the paywall's
+  `kit/paywall_clock.dart` re-exports it, so its old imports still work):
   `PaywallClockState` (a `State` base with a ticker, `t` and `restAt`),
   `PaywallClockBuilder`, `PaywallStill`, and the helpers `phase(t, start, end)`,
   `loopT(t, period)` and `stagger(i, t)`.
 - A small scene that must work inside a layout and alone in the gallery uses
   `PaywallPreviewClock` (`kit/paywall_preview_clock.dart`).
-- These live under the paywall feature today. If a second feature needs them, move them to
-  `lib/design_system/` first, in their own change, and import from there. Do not copy them.
+- They moved out of the paywall feature when a second screen needed them. Import from
+  `lib/design_system/screen_clock.dart` in new code. Do not copy them.
 - The welcome heroes in `onboarding_welcome_screen.dart` are the older, private form of the
   same idea. Read them for examples. Do not import from them.
 

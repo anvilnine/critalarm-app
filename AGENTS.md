@@ -954,7 +954,9 @@ native handlers.
 **Motion.** One large living thing per screen, and everything under it quiet. A screen that
 persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
 Crit reacting, or a feature shown doing its job, driven from one clock with a pure, tested
-timeline. Lists, forms and settings get none. When a screen feels busy, remove the boxes around
+timeline. Lists, forms and settings get none, with one exception: a list screen may carry one
+hero when that hero is the face. A tab opened many times a day has no entrance: its first frame
+is the finished picture. When a screen feels busy, remove the boxes around
 small things and keep the character. When it feels flat, add one hero, never several
 decorations. Nothing rests at an angle, the way out is on screen from the first frame, and
 reduce motion shows a complete resting frame. No Lottie, no Rive, no video. The full rules, the

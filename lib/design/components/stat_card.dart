@@ -183,23 +183,22 @@ class AppStatCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    OverflowBox(
-                      maxWidth: 24,
-                      child: Text(
-                        days[i].letter,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontMono,
-                          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                          fontWeight: days[i].isToday
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          fontSize: 10,
-                          height: 1.2,
-                          color: days[i].isToday
-                              ? colors.onPanel
-                              : colors.onPanelMuted,
-                        ),
+                    Text(
+                      days[i].letter,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontMono,
+                        fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                        fontWeight: days[i].isToday
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        fontSize: 10,
+                        height: 1.2,
+                        color: days[i].isToday
+                            ? colors.onPanel
+                            : colors.onPanelMuted,
                       ),
                     ),
                   ],
@@ -222,7 +221,7 @@ class AppStatCard extends StatelessWidget {
           border: surface.line == null
               ? null
               : Border.all(color: surface.line!),
-          boxShadow: isDark ? const [] : AppShadows.lightLg,
+          boxShadow: isDark ? const [] : AppShadows.lightMd,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),

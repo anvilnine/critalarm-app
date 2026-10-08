@@ -131,6 +131,23 @@ Two more came later and are listed after them.
   current value and opens a bottom sheet of `AppSheetOptionRow`s that closes on a pick. A list of
   more than six opens the sheet that scrolls. Use a toggle row for on and off, never a picker.
 
+## Status screen components
+
+All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce motion switch.
+
+- `AppHeroScene`: the face, a card slot that overlaps it by 10 points, and a breathing disc and
+  ring. It stacks below 340 points, above text scale 1.3 and in a list pane. Nothing plays when it
+  first appears.
+- `AppStatusCard`: the dark card (label, numeral, pips, foot, action). `AppStatusCard.strip` is
+  the Settings version with a 40 point face. In the dark theme the panel is 1.06 to 1 against the
+  canvas, so the card takes `surfaceElevated` and a `panelLine` outline instead.
+- `AppReadinessPips`: one pip per check, fine, look, broken or open. The numeral carries the count.
+- `AppInboxSheet` and `AppInboxRow`: one white sheet, hairlines between rows, a face only for a
+  topic that needs a look. The bell and moon labels come from the caller.
+- `AppCreamCard` (in `notice_card.dart`): title, body, an outline action and an optional bare cross.
+  On the white sheet it takes the ink stroke.
+- `AppStatCard`: History's week of seven bars and two numbers on the same dark surface.
+
 ## Glyphs and motion curves
 
 Both are in the gallery at `/gallery`, under the scales.
