@@ -1,3 +1,4 @@
+import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_exception.dart';
@@ -8,6 +9,7 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
@@ -16,6 +18,8 @@ import 'package:critalarm/features/account/domain/entities/account_identity.dart
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_state.dart';
+import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
+import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choices.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
@@ -23,6 +27,7 @@ import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/account_data_fixture.dart';
 import 'account_fakes.dart';
 
 /// The pref key [MessageSyncService] keeps a poll cursor under, spelled out
@@ -157,6 +162,9 @@ final class _Harness {
     await prefs.setString(_cursorKey, 'm_1');
     await prefs.setString(AckQueue.storageKey, '[]');
     await SharedPrefsRecentSearchesRepository(prefs).add('prod');
+    // And what the paid features keep for this account, next to the
+    // person's own sounds.
+    await writeAll(prefs, accountDataFor(registered.accountId!));
 
     account = ApiAccountRepository(
       api: api,
@@ -165,9 +173,14 @@ final class _Harness {
       register: register,
       identities: identities,
       connections: connections,
-      acks: AckQueue(prefs, api),
-      messageCursors: MessageSyncService(prefs, api),
-      recentSearches: SharedPrefsRecentSearchesRepository(prefs),
+      forgetAccountData: AccountData(
+        acks: AckQueue(prefs, api),
+        messageCursors: MessageSyncService(prefs, api),
+        recentSearches: SharedPrefsRecentSearchesRepository(prefs),
+        challenges: SharedPrefsChallengeChoices(prefs),
+        alarmStyles: SharedPrefsAlarmStyleChoices(prefs),
+        soundLock: OwnSoundLockFlag(prefs),
+      ).forget,
       signOutBilling: () async => billingLogOuts++,
       stopAlarm: () async => alarmStops++,
     );
@@ -198,8 +211,10 @@ void main() {
       expect(harness.deviceToken, isNot(oldToken));
       // Both saved records carry the new one, or everything answers 401 until
       // a restart and a re-onboard.
-      expect(harness.sessions.session?.managementCredential,
-          harness.deviceToken);
+      expect(
+        harness.sessions.session?.managementCredential,
+        harness.deviceToken,
+      );
       expect(harness.connections.connection?.adminToken, harness.deviceToken);
       // The store goes back to an anonymous user before anything else.
       expect(harness.billingLogOuts, 1);
@@ -210,6 +225,10 @@ void main() {
         harness.prefs.getStringList('search_recent_queries'),
         anyOf(isNull, isEmpty),
       );
+      // No challenge choice, no look choice and none of the three notes.
+      expectAccountDataGone(harness.prefs);
+      // The recordings and what rings where are the person's, not a plan's.
+      expectOwnSoundsKept(harness.prefs);
     });
 
     test('a 5xx leaves every local credential exactly as it was', () async {
@@ -233,6 +252,7 @@ void main() {
       expect(harness.prefs.getString(_cursorKey), 'm_1');
       expect(harness.prefs.getString(AckQueue.storageKey), '[]');
       expect(harness.prefs.getStringList('search_recent_queries'), ['prod']);
+      expectAccountDataKept(harness.prefs);
       expect(harness.billingLogOuts, 0);
       expect(cubit.state.status, AccountStatus.signedOut);
       expect(cubit.state.errorMessage, isNotNull);
@@ -284,6 +304,8 @@ void main() {
         harness.sessions.session?.managementCredential,
         harness.deviceToken,
       );
+      expectAccountDataGone(harness.prefs);
+      expectOwnSoundsKept(harness.prefs);
     });
 
     // Signing out registers a new anonymous account and logs the store in to
@@ -299,6 +321,20 @@ void main() {
       expect(harness.billingLogOuts, 1);
       expect(harness.deviceId, isNot(oldId));
       expect(harness.deviceToken, isNotNull);
+    });
+
+    // The phone lands on a new anonymous account. Nothing the old account
+    // chose or paid for may be waiting there.
+    test('signing out drops what belonged to the account and keeps own '
+        'sounds', () async {
+      final harness = _Harness(failDelete: false);
+      await harness.start();
+      expectAccountDataKept(harness.prefs);
+
+      await harness.account.signOutDevice();
+
+      expectAccountDataGone(harness.prefs);
+      expectOwnSoundsKept(harness.prefs);
     });
   });
 
