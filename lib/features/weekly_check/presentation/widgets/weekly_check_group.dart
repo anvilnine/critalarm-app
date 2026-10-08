@@ -7,8 +7,6 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/paywall/domain/lock_source.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/pro_pack/presentation/widgets/pro_pack_reliability_group.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
@@ -134,14 +132,7 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                         isSelfHosted: state.isSelfHosted,
                       ),
                       body: weeklyCheckReadyBody,
-                      onOpenPro: () => unawaited(
-                        openPaywallFor(
-                          context,
-                          access.decideHoldingNothing(AppFeature.weeklyCheck),
-                          LockSource.reliability,
-                          isSelfHosted: state.isSelfHosted,
-                        ),
-                      ),
+                      isSelfHosted: state.isSelfHosted,
                     )
                   else
                     ProPackReliabilityGroup(isSelfHosted: state.isSelfHosted),
