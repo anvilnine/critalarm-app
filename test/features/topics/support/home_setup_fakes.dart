@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_source.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
@@ -116,8 +115,6 @@ class FakeFirstMessageSource implements FirstMessageSource {
 HomeTopicItem topicItem(String name, {bool isCritical = false}) =>
     HomeTopicItem(
       name: name,
-      meta: '',
-      priority: PriorityLevel.defaultPriority,
       ringsThroughSilent: isCritical,
     );
 

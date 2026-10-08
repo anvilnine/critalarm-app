@@ -81,9 +81,9 @@ Two more came later and are listed after them.
   - `calm`: the cobalt tint with a cobalt stroke, for a row that is done.
 
   Text on it takes `onCanvas`: muted text on the light `crit` tone is 3.85:1.
-- Cream and the stroke: a cream card on the yellow canvas has no stroke (`AppNoticeCard`, tone
-  `AppNoticeTone.cream`). A cream card on the white sheet has the ink stroke
-  (`AppHighlightTone.choice`), because cream on white does not separate by itself.
+- Cream and the stroke: a cream card on the yellow canvas has no stroke. A cream card on the white
+  sheet has the ink stroke (`AppCreamCard.isOnSheet`, drawn as `AppHighlightTone.choice`), because
+  cream on white does not separate by itself.
 - `AppAnimatedTick`: use it when one thing finishes while the user watches, such as a first message
   landing or a checklist step. The ring fills, then the tick draws, once, in 600 ms. For a static
   "included" mark in a list, use `AppFeatureBullet`. The caller wraps it in `Semantics` with a

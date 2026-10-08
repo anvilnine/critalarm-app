@@ -125,19 +125,33 @@ names in code, strings, comments and PRs, and never one for another.
   replays them all. Formerly "tour" and, before that, "showcase". The prefs keys
   `tour_guides_seen` and `has_completed_showcase_tour` keep their old names
   because devices already hold them.
-- **In-App Notices** (`lib/features/in_app_notices/`): the one non-blocking
-  card or pinned bar on Home: no server connected, setup health, Pro ending,
-  back up your topics. A notice sits on the screen until its condition clears
-  or the user dismisses it. An **ask** is different: an interruptive sheet or
-  popup (the Pro ask, the consent ask, the Local reminders sheet, the store
-  review), governed by `HomeAskRules` and `SetupGate`. Never call a sheet a
-  notice. Formerly "home prompts"; the `home_prompt_*` prefs keys and the
-  `pro_prompt_answered` analytics event keep their names.
-  The setup checklist and the widgets card are neither: they are Home
-  content, drawn from `HomeSetupCubit`, and they do not go through the
-  notice slot or `SetupGate`. The checklist floats above the tab bar
-  (`HomeSetupPill`) and the widgets card sits at the top of the list sheet
-  (`HomeSetupSection`). See "Home setup content" below.
+- **In-App Notices** (`lib/features/in_app_notices/`): a reminder Home pins
+  above the tab bar as an `AppPinnedNoticeBar`. `InAppNoticeCubit` picks two
+  of them: the Hosted plan ending and "back up your topics". A notice sits
+  there until its condition clears or the user dismisses it. An **ask** is
+  different: an interruptive sheet or popup (the Pro ask, the consent ask,
+  the Local reminders sheet, the store review), governed by `HomeAskRules`
+  and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
+  `home_prompt_*` prefs keys and the `pro_prompt_answered` analytics event
+  keep their names.
+  Home puts three kinds of thing on the screen, and only the first is a
+  notice:
+  - **Pinned bars** (`pinnedBarFor` in
+    `lib/features/topics/domain/home_list_rules.dart`): one at a time, in
+    this order. The Hosted ending, the account backup reminder, then "One
+    topic so far", which is Home's own rule and not a notice.
+  - **Status card kinds** (`HomeCardKind`): what Home reports about whether
+    an alarm will ring, and where setup stands. No server, a missed alarm, a
+    stale or failed list, a warning, a failed or doubtful reliability check
+    (a missing permission, battery saver, a phone update, weekly checks that
+    stopped), the setup checklist and the wait for the first message. None
+    of them is a notice or a banner. The card is the only place Home reports
+    health.
+  - **Cream cards** (`AppCreamCard`, `creamCardFor`): the widgets card and the
+    day-0 card, one at a time at the top of the list sheet. The widgets card
+    comes from `HomeSetupCubit`. `Day0CardCubit` decides the day-0 card,
+    after the asks in `runHomeAsk`. Neither goes through `InAppNoticeCubit`.
+    See "Home setup content" below.
 - **Local Reminders** (`lib/features/local_reminders/`): notifications the app
   schedules for itself on the device: fire drill, silent topic, backup, plan
   heads-up, review and feedback asks, Pro later. Method channel
@@ -431,8 +445,8 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
 - Other setup states: screens around setup that no step route reaches,
   with made-up values. `first_tool_acknowledged` opens the setup
   acknowledged screen (`CriticalAlarmScreen.previewFirstToolAckedLocation`),
-  and `checklist_closed` / `checklist_open` put the setup pill on Home
-  (`homeSetupPreview`). Nothing is sent or saved. Real ring states also
+  and `checklist_closed` / `checklist_open` set `homeSetupPreview`. Home no
+  longer reads it, so those two draw nothing. Nothing is sent or saved. Real ring states also
   has `send_countdown`.
 - Count as not done: one switch per step that has an `isSatisfied` check
   (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
@@ -788,25 +802,29 @@ because the acknowledgement often comes later. Three places read it:
 incident that now holds a message of the user's own. It drops it from the
 list and leaves it for them to answer.
 
-**Home setup content.** A user who left setup early gets a checklist as a
-floating card above the tab bar (`HomeSetupPill`), drawn like the pinned
-notice bar. Closed it is one line with the count; a tap opens it in place
-to the three rows. The rules are pure functions in
-`lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit`
-runs them from the list Home drew.
+**Home setup content.** A user who left setup early gets a checklist that
+the status card speaks for. The card shows the label SETUP, the count as
+`1/3` with one pip per row, and a foot naming the next open row
+(`HomeCardKind.setup`). Its button, Continue, opens the screen for that row.
+Nothing in the list sheet or above the tab bar shows the rows any more: the
+floating checklist card that did is gone. Once the first two
+rows are true the card turns into the wait for the first message
+(`HomeCardKind.waiting`). The rules are pure functions in
+`lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit` runs
+them from the list Home drew. The card rule is in
+`lib/features/topics/domain/home_card/home_card_rule.dart`.
 
-- Three rows: a server is connected, a topic has Critical delivery on, a
-  first message arrived (`FirstMessageStore.isReceived`). The third row is
-  `FirstMessageRow`, the same one the last setup step uses, drawn bare. The
-  rows sit on the card with no surface of their own.
-- It shows only over a list that loaded, and stays until all three are
-  true. With no server nothing is drawn: the no-server card has that row.
-  An empty Home shows its empty card under it.
-- A pinned notice has the spot above the tab bar first
-  (`setupPillHasTheSpot`). While one is up the checklist is not drawn and
-  counts as not in front, so no row ticks behind it.
-- A row only opens a screen (`setupChecklistRoute`). Nothing here turns
-  Critical delivery on.
+- Three rows, one pip each: a server is connected, a topic has Critical
+  delivery on, a first message arrived (`FirstMessageStore.isReceived`, the
+  same fact the last setup step reads).
+- It counts only over a list that loaded, and stays until all three are
+  true. The card shows the first kind in `homeCardPriority` whose condition
+  holds, so a ringing alarm, the no-server card or a broken check outranks
+  it. An empty Home shows its empty state in the sheet under the card.
+- A pinned bar does not cover the card, so the checklist counts as in front
+  whenever Home is, and no row ticks out of sight.
+- The Continue button only opens the screen for the next open row
+  (`setupChecklistRoute`). Nothing here turns Critical delivery on.
 - The first look at a phone (`seedSetupChecklist`, once, saved as
   `setup_checklist_seeded`): a phone that already has the first-message
   flag, a message that is not a test alarm, or an incident that
@@ -832,16 +850,18 @@ runs them from the list Home drew.
   minutes (`setupSeedRetryDelay`). Nothing is drawn until it succeeds.
 - An install that owns a topic and finished setup before the checklist
   existed (`SetupChecklistStore.wasSetUpHere` is false) never sees it.
-- Hide the setup list, the last line of the open card, retires it for
-  good with no celebration (`checklistDismissed`).
+- `HomeSetupCubit.checklistDismissed` retires the checklist for good with no
+  celebration. The card has no control that calls it, so nothing on Home
+  does today.
 - A row that turns true while Home is covered is held until Home is back,
   so the tick plays in view. When the last one turns in view,
-  `setup_checklist_done` is saved first, the tick plays, then the rows
-  become one finished line with a short throw of confetti (none under
-  reduce motion), and it goes for good. Leaving Home ends it.
+  `setup_checklist_done` is saved first, then the card shows
+  `setupFinishCard` (`3/3`, every pip full, a glad face, no button) under a
+  short throw of confetti (none under reduce motion), and goes back to its
+  kind for good. Leaving Home ends it.
 - After that, on a later visit and once the Feature Guides offer was
-  answered, the widgets card shows once (`home_widgets_card_seen`), on iOS
-  and Android only. Opening the how-to, going to the plans or closing it
+  answered, the widgets card shows once at the top of the list sheet
+  (`home_widgets_card_seen`), on iOS and Android only. Opening the how-to, going to the plans or closing it
   all count as seen. Its main button is the next thing that user can do:
   the how-to where widgets are unlocked, the plans where they need Pro (Pro alone unlocks widgets, on a server of the
   user's own too). The how-to steps have separate iOS and Android keys
@@ -940,13 +960,14 @@ native handlers.
 - A received check is never shown as proof that alarms work. On a phone
   connected to a self-hosted server the row adds that it checks the relay to
   this phone, not that server.
-- One missed round changes the row and nothing else. Home shows one notice
-  at two misses in a row, or when the phone's own clock passes
-  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). A
+- One missed round changes the row and nothing else. Two misses in a row,
+  or the phone's own clock passing `notice_after` with no check received
+  since, make the weekly check a check that needs a look
+  (`WeeklyCheckNoticeRule`, read through `WeeklyCheckSource`), so Home's
+  status card counts it and the Reliability screen lists it. A
   check that arrived with no receipt answer ends only its own window: the
-  phone then counts two windows of 11 days from that arrival. It
-  is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
-  closed it comes back only for a later run of misses.
+  phone then counts two windows of 11 days from that arrival. Home has no
+  card or notice of its own for it.
 - The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
   needs no pack.
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
