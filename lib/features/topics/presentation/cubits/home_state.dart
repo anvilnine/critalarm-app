@@ -1,6 +1,8 @@
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:flutter/foundation.dart';
 
 enum HomeStatus { initial, loading, success, failure }
@@ -21,6 +23,8 @@ class HomeTopicItem {
     this.unreadCount = 0,
     this.isPinned = false,
     this.isMuted = false,
+    this.lastMessageAt,
+    this.rowKind = InboxRowKind.normal,
   });
 
   final String name;
@@ -53,6 +57,14 @@ class HomeTopicItem {
   /// Muted on this phone. Greyed out and moved below the rest.
   final bool isMuted;
 
+  /// When the newest message held for this topic came in. Null when the
+  /// topic has none.
+  final DateTime? lastMessageAt;
+
+  /// What state the row is in: a sounding alarm, a warning, an acknowledged
+  /// alarm, a missed one, a handled one, or none of them.
+  final InboxRowKind rowKind;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -69,7 +81,9 @@ class HomeTopicItem {
           preview == other.preview &&
           unreadCount == other.unreadCount &&
           isPinned == other.isPinned &&
-          isMuted == other.isMuted;
+          isMuted == other.isMuted &&
+          lastMessageAt == other.lastMessageAt &&
+          rowKind == other.rowKind;
 
   @override
   int get hashCode => Object.hash(
@@ -85,6 +99,8 @@ class HomeTopicItem {
     unreadCount,
     isPinned,
     isMuted,
+    lastMessageAt,
+    rowKind,
   );
 }
 
@@ -103,6 +119,7 @@ class HomeState {
     this.isStale = false,
     this.lastKnownGoodAt,
     this.hasServer = true,
+    this.facts = HomeFacts.none,
   });
 
   final HomeStatus status;
@@ -133,6 +150,9 @@ class HomeState {
   /// True by default, because every other state has a server to talk about.
   final bool hasServer;
 
+  /// What Home knows about alarms and messages, for the card.
+  final HomeFacts facts;
+
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
 
   HomeState copyWith({
@@ -150,6 +170,7 @@ class HomeState {
     DateTime? lastKnownGoodAt,
     bool clearLastKnownGood = false,
     bool? hasServer,
+    HomeFacts? facts,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -167,6 +188,7 @@ class HomeState {
           ? null
           : (lastKnownGoodAt ?? this.lastKnownGoodAt),
       hasServer: hasServer ?? this.hasServer,
+      facts: facts ?? this.facts,
     );
   }
 
@@ -185,7 +207,8 @@ class HomeState {
           errorMessage == other.errorMessage &&
           isStale == other.isStale &&
           lastKnownGoodAt == other.lastKnownGoodAt &&
-          hasServer == other.hasServer;
+          hasServer == other.hasServer &&
+          facts == other.facts;
 
   @override
   int get hashCode => Object.hash(
@@ -200,5 +223,6 @@ class HomeState {
     isStale,
     lastKnownGoodAt,
     hasServer,
+    facts,
   );
 }

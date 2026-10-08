@@ -3,6 +3,7 @@
 
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
+import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:flutter_test/flutter_test.dart';
 
