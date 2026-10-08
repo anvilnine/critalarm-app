@@ -22,7 +22,7 @@ class OnboardingOfferConfig {
     enabled: false,
     cloudProduct: PaywallProduct.pro,
     selfHostedProduct: PaywallProduct.pro,
-    layoutKey: 'plain',
+    layoutKey: 'hero',
   );
 
   /// The field names of the JSON value, remote and developer alike.

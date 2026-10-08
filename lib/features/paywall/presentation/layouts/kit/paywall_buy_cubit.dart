@@ -225,11 +225,18 @@ abstract class PaywallBuyCubit extends Cubit<PaywallBuyState> {
   /// The purchase or restore that has not come to rest yet.
   PaywallBuyAction? _running;
 
+  /// The trip to the store the buyer last asked for, or null before any.
+  /// It stays after the trip comes to rest, so a check that is asked again
+  /// later still knows whether it follows a purchase or a restore.
+  PaywallBuyAction? get lastAction => _lastAction;
+  PaywallBuyAction? _lastAction;
+
   /// Every `buy` and `restore` calls this once it is past its own guard
   /// and before it shows a state.
   @protected
   void began(PaywallBuyAction action) {
     _running = action;
+    _lastAction = action;
     reporter?.started(action, state);
   }
 

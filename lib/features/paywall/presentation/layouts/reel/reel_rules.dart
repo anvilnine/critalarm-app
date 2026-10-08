@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 
@@ -67,6 +68,37 @@ ReelPush reelPushAt(double eased, int direction) {
   final from = direction < 0 ? -1.0 : 1.0;
   return ReelPush(into: from * (1 - eased), out: -from * eased);
 }
+
+/// How the reel's stage moves. No scene shares its air with the next, so
+/// the air is rings on the scene's own tone. The mascot comes in from the
+/// side, as the pages do, and hops as each new page lands. The picture
+/// travels with its page.
+const HeroMotion reelMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rings,
+  entrance: HeroEntranceStyle.slide,
+  idle: HeroIdleStyle.benefitHop,
+  arrival: HeroCardArrival.slideThrough,
+);
+
+/// How much of the entrance is already over when the reel opens after an
+/// intro, in seconds. The intro ends on the mascot, so the mascot is in
+/// its place from the first frame and only the picture and the words are
+/// still arriving.
+const double reelAfterIntroLead = 0.6;
+
+/// The loop's prelude: none alone, and a head start after an intro.
+double reelPreludeFor({required bool followsIntro}) =>
+    followsIntro ? -reelAfterIntroLead : 0;
+
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot slides in and lands. After an intro the mascot
+/// is already there and nothing is played.
+///
+/// Every page after that has the page cue: the hand's own, and the reel's
+/// through its first pass (`paywallTurnCues`).
+List<PaywallCueBeat> reelCues({required double prelude}) => [
+  heroLandingBeat(reelMotion.entrance, prelude: prelude),
+];
 
 /// [frame] for the scene on stage, with nothing fading under its picture.
 /// The push shows the scene before it, so the stage must not.

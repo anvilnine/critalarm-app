@@ -12,6 +12,9 @@ import 'package:flutter/material.dart';
 /// on the right half goes on, a tap on the left goes back, a swipe does
 /// the same, and a finger held down pauses the reel.
 ///
+/// The pages push one another out, as stories do. The mascot comes in
+/// from the side, as the pages do, and hops as each new page lands.
+///
 /// The stage, the mascot, the loop and the hand are the kit's
 /// (`kit/paywall_hero.dart`). A product with one benefit has nothing to
 /// page through and draws the kit's own composition.

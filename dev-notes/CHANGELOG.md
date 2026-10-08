@@ -68,6 +68,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup funnel events onboarding\_offer\_shown, onboarding\_offer\_closed and onboarding\_offer\_bought, each with product, layout and flow\_id. PaywallSource.onboardingOffer names the offer step. AfterAckDecider gives no follow-up while the offer step is still to come. Developer options, Setup flow, has the four offer switches.
 - Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
 - Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
+- Paywall intros are their own step: PaywallIntroId (none, false\_alarm, snooze, wake\_up, curtain, countdown), paywallIntroBuilders, remote values paywall\_intro and pro\_paywall\_intro, prefs dev.paywall\_intro and dev.pro\_paywall\_intro. The layout value false\_alarm reads as hero with that intro. paywallLayoutFor became paywallOpeningFor. Layout events carry intro.
+- Paywall layouts: plain is removed, bento is built, and each layout picks its own HeroMotion (atmosphere, entrance, idle, card arrival). Doors is redrawn on the canvas colour.
+- The developer page for paywall layouts is a two step picker, intro then paywall, with live tiles (PaywallLayoutTile, PaywallIntroTile).
+- Interface sounds: PaywallCues.play(PaywallCue) gives a sound and a haptic together from one table, 33 cues, HapticPattern and AppHaptics.play, a Settings switch. Silent while an alarm is up.
 - A motion skill and rule for custom animation: one living hero per screen.
 
 ### Changed
@@ -116,6 +120,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup Back walks the steps shown in this run (OnboardingFlowEngine.shownSteps, in memory), so a step that was passed over is never opened. A screen that moves on by itself finishes with skippedItself. Came back, connect says which server it is connected to and the permissions list each answer (PermissionAnswerList, allowListed); the battery row opens the app's page in Settings through DevicePermissionsRepository.openAppSettings.
 - Welcome shows product stories with a caption each (the ring story, the priority ladder, the curl) in place of the face loop, and OnboardingAnimationLoop is gone. welcome\_timing.dart holds the story times. ConnectRoutesPicture draws the two routes on the connect step, with connectRoutesFor in connect\_routes.dart as the rule for which one is lit.
 - Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
+- Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

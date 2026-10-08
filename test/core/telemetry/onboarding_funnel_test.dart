@@ -372,7 +372,7 @@ void main() {
   group('the offer step', () {
     const offer = <String, Object?>{
       'product': 'pro',
-      'layout': 'plain',
+      'layout': 'hero',
       'flow_id': _flow,
     };
 
@@ -381,15 +381,15 @@ void main() {
       () async {
         final funnel = build();
         await funnel.answered(isOn: true);
-        await funnel.offerShown(product: 'pro', layout: 'plain', flowId: _flow);
+        await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
         await funnel.offerClosed(
           product: 'pro',
-          layout: 'plain',
+          layout: 'hero',
           flowId: _flow,
         );
         await funnel.offerBought(
           product: 'pro',
-          layout: 'plain',
+          layout: 'hero',
           flowId: _flow,
         );
 
@@ -435,9 +435,9 @@ void main() {
 
     test('an opt-out drops them', () async {
       final funnel = build();
-      await funnel.offerShown(product: 'pro', layout: 'plain', flowId: _flow);
+      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
       await funnel.answered(isOn: false);
-      await funnel.offerClosed(product: 'pro', layout: 'plain', flowId: _flow);
+      await funnel.offerClosed(product: 'pro', layout: 'hero', flowId: _flow);
 
       expect(gate.sent, isEmpty);
       expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
@@ -449,7 +449,7 @@ void main() {
       gate.sent.clear();
       await funnel.offerShown(
         product: 'pro',
-        layout: 'plain',
+        layout: 'hero',
         flowId: _flow,
         isReplay: true,
       );
@@ -458,9 +458,9 @@ void main() {
 
     test('an unknown product, layout or flow id drops the event', () async {
       final funnel = build();
-      await funnel.offerShown(product: 'gold', layout: 'plain', flowId: _flow);
+      await funnel.offerShown(product: 'gold', layout: 'hero', flowId: _flow);
       await funnel.offerShown(product: 'pro', layout: 'nope', flowId: _flow);
-      await funnel.offerShown(product: 'pro', layout: 'plain', flowId: 'a b');
+      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: 'a b');
 
       expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
       expect(gate.calls, isEmpty);
@@ -471,7 +471,7 @@ void main() {
       await funnel.answered(isOn: true);
       await funnel.stepViewed('welcome', _flow);
       clock.advance(const Duration(seconds: 4));
-      await funnel.offerShown(product: 'pro', layout: 'plain', flowId: _flow);
+      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
       clock.advance(const Duration(seconds: 4));
       await funnel.stepViewed('connect', _flow);
 
@@ -487,7 +487,7 @@ void main() {
             {
               'k': 'os',
               'product': 'gold',
-              'layout': 'plain',
+              'layout': 'hero',
               'flow_id': _flow,
               'at': 1,
             },

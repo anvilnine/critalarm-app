@@ -1,6 +1,9 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 /// Every time in the Sheet layout that is its own, worked out from the
 /// clock's one number.
@@ -8,12 +11,54 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cloc
 /// | From  | What happens |
 /// |---|---|
 /// | 0     | The scrim comes down. The lit row stays lit. |
-/// | 0.12  | The sheet rises and settles. |
+/// | 0.12  | The sheet rises, and carries the mascot up on its edge. |
 /// | 0.5   | The buy block comes in. |
-/// | 0.6   | The approved entrance: the mascot pops up over the edge. |
+/// | 0.56  | The sheet lands. The mascot is bumped into a hop. |
+/// | 0.6   | The approved entrance for the preview and the words. |
 /// | 1.6   | The loop starts on the lead benefit. |
 /// | proof | Near the end of the lead's turn the lit row answers. |
+///
+/// The mascot comes on with the sheet: it stands astride the sheet's top
+/// edge, so the first of it over the foot of the screen is its eyes.
 abstract final class SheetMotion {
+  /// How the stage in the sheet moves. Bubbles rise up the sheet, as the
+  /// sheet rose. The mascot looks over the foot of the screen first and
+  /// leans toward the preview while it waits. The preview changes with the
+  /// approved fade.
+  static const HeroMotion stage = HeroMotion(
+    atmosphere: HeroAtmosphereStyle.bubbles,
+    entrance: HeroEntranceStyle.peek,
+    idle: HeroIdleStyle.lean,
+  );
+
+  /// After an intro the preview and the words come with the sheet: the
+  /// intro has already been the wait.
+  static const double preludeAfterIntro = 0.2;
+
+  /// The loop's prelude, alone or after an intro.
+  static double preludeFor({required bool followsIntro}) =>
+      followsIntro ? preludeAfterIntro : prelude;
+
+  /// The second the sheet reaches its seat, how long the mascot's hop off
+  /// it lasts, and how high it goes against the hop of a reaction.
+  static const double landAt = 0.56;
+  static const double landSeconds = 0.4;
+  static const double landHopHeight = 1.3;
+
+  /// How high the mascot is in the hop the landing gives it, 0 to
+  /// [landHopHeight]. It is level before the sheet lands and after.
+  static double landingHop(double t) {
+    final p = phase(t, landAt, landAt + landSeconds);
+    return landHopHeight * 4 * p * (1 - p);
+  }
+
+  /// What the sheet's own entrance sounds like, by clock second: the
+  /// mascot pops as the sheet lands under it. The rise itself is the
+  /// frame's entrance cue, played as the sheet appears.
+  static const List<PaywallCueBeat> cues = [
+    PaywallCueBeat(landAt, PaywallCue.pop),
+  ];
+
   /// How long the sheet has to itself before the approved entrance starts:
   /// the loop's `prelude`.
   static const double prelude = 0.6;

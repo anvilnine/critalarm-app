@@ -1,6 +1,8 @@
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
@@ -74,6 +76,104 @@ void main() {
         wipeDividerAt(99, settle: settle, grip: grip, isStill: true),
         0.7,
       );
+    });
+  });
+
+  group('the sweep after an intro', () {
+    test('starts part of the way in and ends on the same place', () {
+      expect(wipeLeadFor(followsIntro: false), 0);
+      final lead = wipeLeadFor(followsIntro: true);
+      expect(lead, greaterThan(0));
+      expect(
+        wipeDividerAt(wipeSweepStart - lead, settle: 0.3, lead: lead),
+        1,
+      );
+      expect(
+        wipeDividerAt(wipeSweepEnd - lead, settle: 0.3, lead: lead),
+        closeTo(0.3, 1e-9),
+      );
+    });
+  });
+
+  group('the landing', () {
+    test('is when the divider is on the mascot to the eye', () {
+      expect(wipeLandsAt, inExclusiveRange(wipeSweepStart, wipeSweepEnd));
+      final at = wipeDividerAt(wipeLandsAt, settle: 0.3);
+      expect(at, closeTo(0.3, 0.03));
+    });
+
+    test('the sweep is a whoosh as it starts and a snap as it lands', () {
+      expect(wipeSweepCues(), const [
+        PaywallCueBeat(wipeSweepStart, PaywallCue.whoosh),
+        PaywallCueBeat(wipeLandsAt, PaywallCue.snap),
+      ]);
+      final lead = wipeLeadFor(followsIntro: true);
+      expect(wipeSweepCues(lead: lead).last.at, wipeLandsAt - lead);
+      expect(wipeEntranceCues().single.cue, PaywallCue.pop);
+      expect(wipeEntranceCues().single.at, lessThan(wipeSweepStart));
+    });
+  });
+
+  group('the drag', () {
+    test('ticks once at every tenth of the width', () {
+      expect(wipeDragCue(0.42, 0.44), isNull);
+      expect(wipeDragCue(0.48, 0.51), PaywallCue.ratchet);
+      expect(wipeDragCue(0.51, 0.48), PaywallCue.ratchet);
+      expect(wipeDragCue(0.51, 0.59), isNull);
+      expect(wipeDragCue(0.5, 0.5), isNull);
+      var ticks = 0;
+      var at = 0.2;
+      for (var i = 0; i < 60; i++) {
+        final to = at + 0.01;
+        if (wipeDragCue(at, to) == PaywallCue.ratchet) ticks++;
+        at = to;
+      }
+      // From 0.2 to 0.8: the notches at 0.3 to 0.8.
+      expect(ticks, inInclusiveRange(5, 6));
+    });
+
+    test('knocks once on reaching either stop, and not again there', () {
+      const grip = WipeGrip(at: 0.88);
+      final stopped = grip.moved(0.05);
+      expect(stopped.at, wipeMax);
+      expect(wipeDragCue(grip.at, stopped.at), PaywallCue.refuse);
+      // Pushed further it has not moved, so nothing more is felt.
+      expect(wipeDragCue(stopped.at, stopped.moved(0.05).at), isNull);
+      expect(
+        wipeDragCue(0.13, const WipeGrip(at: 0.13).moved(-0.2).at),
+        PaywallCue.refuse,
+      );
+      // Coming back off the stop is a notch like any other.
+      expect(wipeDragCue(wipeMax, 0.86), PaywallCue.ratchet);
+    });
+  });
+
+  group('the lean', () {
+    test('both sides are one mascot: the same entrance and idle', () {
+      expect(wipeMotion.entrance, wipeFreeMotion.entrance);
+      expect(wipeMotion.idle, wipeFreeMotion.idle);
+      expect(wipeMotion.idle, HeroIdleStyle.lean);
+      expect(wipeMotion.entrance, HeroEntranceStyle.pop);
+    });
+
+    test('bubbles rise on the product side only', () {
+      expect(wipeMotion.atmosphere, HeroAtmosphereStyle.bubbles);
+      expect(wipeFreeMotion.atmosphere, isNot(HeroAtmosphereStyle.bubbles));
+    });
+
+    test('the divider stays put at rest and between leans', () {
+      expect(wipeLeanShiftAt(0, mascot: 160), 0);
+      expect(wipeLeanShiftAt(0.5, mascot: 160), closeTo(0, 1e-9));
+      expect(wipeLeanShiftAt(heroLeanEvery, mascot: 160), closeTo(0, 1e-9));
+    });
+
+    test('it goes toward the product with the mascot, and comes back', () {
+      const peak = (1.4 + 3.2) / 2;
+      final shift = wipeLeanShiftAt(peak, mascot: 160);
+      expect(shift, greaterThan(4));
+      expect(shift, lessThan(160 * 0.12));
+      expect(wipeLeanShiftAt(peak - 0.5, mascot: 160), lessThan(shift));
+      expect(wipeLeanShiftAt(peak + 0.5, mascot: 160), lessThan(shift));
     });
   });
 

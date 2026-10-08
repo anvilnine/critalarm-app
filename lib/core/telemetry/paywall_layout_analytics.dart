@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -7,7 +8,8 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 ///
 /// A Hosted layout sends the events of the shipped paywall and a Pro layout
 /// those of the Pro sheet, under the same names with the same parameters,
-/// so one funnel reads both. Each also carries `layout` and `product`. The
+/// so one funnel reads both. Each also carries `layout`, `intro` and
+/// `product`. The
 /// shipped surfaces keep `PaywallAnalytics` and `ProPackAnalytics` and send
 /// exactly what they always have.
 ///
@@ -18,12 +20,16 @@ final class PaywallLayoutAnalytics {
     this._gate, {
     required this.layout,
     required this.isHosted,
+    this.intro = PaywallIntroId.none,
   });
 
   final TelemetryGate _gate;
 
   /// The layout the route asked for.
   final PaywallLayoutId layout;
+
+  /// The intro that played before it, `none` when none did.
+  final PaywallIntroId intro;
 
   /// Hosted, or Pro.
   final bool isHosted;
@@ -34,6 +40,7 @@ final class PaywallLayoutAnalytics {
   Map<String, Object?> _with(Map<String, Object?> parameters) => {
     ...parameters,
     'layout': layout.key,
+    'intro': intro.key,
     'product': isHosted ? hostedProduct : proProduct,
   };
 

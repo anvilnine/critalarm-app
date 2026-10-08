@@ -3,7 +3,7 @@
 //
 //   fvm flutter test tool/capture_paywall_layout.dart \
 //     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
-//     --dart-define=LAYOUT=plain --dart-define=PRODUCT=hosted
+//     --dart-define=LAYOUT=hero --dart-define=PRODUCT=hosted
 //
 // It writes eight PNGs: 390 by 844 and 375 by 667, light and dark, at the
 // default text size and at the largest (2.0), with motion still. Each file is
@@ -33,9 +33,37 @@
 //                                  down at the end of the drag
 //   --dart-define=THEN=<seconds>   with TAP or DRAG: let this much more time
 //                                  run before the capture
+//   --dart-define=ONLY=<part>,<part>
+//                                  capture only the files whose name has one
+//                                  of these parts, such as 390x844_light_1.0x
+//   --dart-define=ALSO=<s>,<s>     with T: go on to each of these later seconds
+//                                  in the same run and capture each as its
+//                                  own file, to see a motion as a strip
+//   --dart-define=INTRO=<key>      play that intro first, a PaywallIntroId
+//                                  key such as false_alarm. T then counts
+//                                  from the intro's first frame, and the
+//                                  layout's own clock starts at the intro's
+//                                  hand over. With no T nothing moves, so no
+//                                  intro plays.
+//   --dart-define=MOTION=<names>   draw the Hero composition with these
+//                                  motion variants in place of LAYOUT: any
+//                                  of the HeroMotion enum names, comma
+//                                  separated, such as rays,drop,lean,flip
 //
 // A capture fails when a layout overflows, when the close cross or the button
 // is off screen, or when anything scrolls at the default text size.
+//
+// To capture the developer picker instead of a layout:
+//
+//   fvm flutter test tool/capture_paywall_layout.dart \
+//     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
+//     --dart-define=PICKER=intro --dart-define=T=2.5
+//
+// PICKER is `page` (the two rows), `intro` or `paywall` (that sheet open).
+// PRODUCT picks the tab. T lets the tiles play to that second after the
+// sheet opens. It writes one size, light and dark, at the default text size.
+// PICKED=<layout>,<intro> opens it with those already chosen for Hosted, as
+// the developer switches would hold them, to see the mark on a tile.
 //
 // To capture the previews instead of a layout, as the gallery shows them:
 //
@@ -59,14 +87,21 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -76,12 +111,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
 
-const _layoutKey = String.fromEnvironment('LAYOUT', defaultValue: 'plain');
+const _layoutKey = String.fromEnvironment('LAYOUT', defaultValue: 'hero');
 const _productKey = String.fromEnvironment('PRODUCT', defaultValue: 'hosted');
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/paywall_shots');
 const _state = String.fromEnvironment('STATE');
 const _benefits = String.fromEnvironment('BENEFITS');
 const _t = String.fromEnvironment('T');
+const _also = String.fromEnvironment('ALSO');
+const _only = String.fromEnvironment('ONLY');
 const _sourceKey = String.fromEnvironment('SOURCE');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
@@ -89,6 +126,61 @@ const _tap = String.fromEnvironment('TAP');
 const _drag = String.fromEnvironment('DRAG');
 const _held = bool.fromEnvironment('HELD');
 const _then = String.fromEnvironment('THEN');
+const _introKey = String.fromEnvironment('INTRO');
+const _motion = String.fromEnvironment('MOTION');
+const _picker = String.fromEnvironment('PICKER');
+const _picked = String.fromEnvironment('PICKED');
+
+/// The variants MOTION names, or null when a name is none of them.
+HeroMotion? _motionOf(String names) {
+  var atmosphere = HeroAtmosphereStyle.drift;
+  var entrance = HeroEntranceStyle.pop;
+  var idle = HeroIdleStyle.bob;
+  var arrival = HeroCardArrival.fade;
+  for (final name in names.split(',').map((n) => n.trim())) {
+    if (name.isEmpty) continue;
+    final a = HeroAtmosphereStyle.values.asNameMap()[name];
+    final e = HeroEntranceStyle.values.asNameMap()[name];
+    final i = HeroIdleStyle.values.asNameMap()[name];
+    final c = HeroCardArrival.values.asNameMap()[name];
+    if (a == null && e == null && i == null && c == null) return null;
+    atmosphere = a ?? atmosphere;
+    entrance = e ?? entrance;
+    idle = i ?? idle;
+    arrival = c ?? arrival;
+  }
+  return HeroMotion(
+    atmosphere: atmosphere,
+    entrance: entrance,
+    idle: idle,
+    arrival: arrival,
+  );
+}
+
+/// The Hero composition with [motion], on a made-up buy model: what MOTION
+/// captures. No layout picks these variants yet, so the tool draws its own.
+Widget _motionLayout(PaywallProduct product, HeroMotion motion) =>
+    BlocProvider<PaywallBuyCubit>(
+      create: (_) {
+        final cubit = DemoPaywallBuyCubit(product);
+        cubit.load().ignore();
+        return cubit;
+      },
+      child: PaywallRouteInfo(
+        layout: PaywallLayoutId.hero,
+        source: PaywallSource.direct,
+        showsUnbuilt: true,
+        child: PaywallFrame(
+          closeOnLeft: false,
+          restAt: heroEntranceSeconds,
+          builder: (context, scope) =>
+              HeroComposition(scope: scope, motion: motion),
+        ),
+      ),
+    );
+
+/// The developer picker's route.
+const _pickerLocation = '/settings/developer/paywall-layouts';
 
 List<double> _numbers(String text) => [
   for (final part in text.split(',')) ?double.tryParse(part.trim()),
@@ -315,6 +407,14 @@ void main() {
     // `test/flutter_test_config.dart` only runs for files under test/, so
     // this tool loads the strings itself or every label renders as its key.
     await loadTestTranslations();
+    // After the strings, which start the preferences again from nothing.
+    final picked = _picked.split(',');
+    if (picked.length == 2) {
+      SharedPreferences.setMockInitialValues({
+        DevPaywallLayoutSwitch.hostedKey: picked[0].trim(),
+        DevPaywallIntroSwitch.hostedKey: picked[1].trim(),
+      });
+    }
     await configureDependencies();
     await _loadFonts();
   });
@@ -325,8 +425,21 @@ void main() {
   }
 
   final source = PaywallSource.parse(_sourceKey);
+  final intro = PaywallIntroId.fromKey(_introKey);
+  final motion = _motionOf(_motion);
   test('LAYOUT names a layout', () {
     expect(layout, isNotNull, reason: 'No layout has the key "$_layoutKey".');
+    expect(
+      _introKey.isEmpty || intro != null,
+      isTrue,
+      reason: 'No intro has the key "$_introKey".',
+    );
+    expect(motion, isNotNull, reason: 'MOTION has a name no variant has.');
+    expect(
+      const ['', 'page', 'intro', 'paywall'],
+      contains(_picker),
+      reason: 'PICKER is page, intro or paywall.',
+    );
     expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
     expect(
       _sourceKey.isEmpty || source.wire == _sourceKey,
@@ -334,13 +447,17 @@ void main() {
       reason: 'No paywall source has the wire name "$_sourceKey".',
     );
   });
-  if (layout == null) return;
+  if (layout == null || motion == null) return;
+  final isPicker = _picker.isNotEmpty;
 
   for (final (sizeName, size, topInset, bottomInset) in _phones) {
+    // The picker is a developer page: one phone, the default text size.
+    if (isPicker && sizeName != _phones.first.$1) continue;
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final scale in [1.0, _largest]) {
+      for (final scale in [1.0, if (!isPicker) _largest]) {
         final name = [
-          layout.key,
+          if (isPicker) 'picker_$_picker' else layout.key,
+          if (_picked.isNotEmpty) 'picked-${_picked.replaceAll(',', '-')}',
           product.key,
           sizeName,
           mode.name,
@@ -353,8 +470,11 @@ void main() {
           if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
           if (_held) 'held',
           if (_then.isNotEmpty) 'then$_then',
+          if (_introKey.isNotEmpty) 'intro-$_introKey',
+          if (_motion.isNotEmpty) 'motion-${_motion.replaceAll(',', '-')}',
         ].join('_');
 
+        if (_only.isNotEmpty && !_only.split(',').any(name.contains)) continue;
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
           final oldHandler = FlutterError.onError;
@@ -371,19 +491,23 @@ void main() {
           tester.view.viewPadding = tester.view.padding;
           addTearDown(tester.view.reset);
 
-          final location = Uri.parse(paywallLayoutLocation(layout, product))
-              .replace(
-                queryParameters: {
-                  'product': product.key,
-                  if (_sourceKey.isNotEmpty) 'source': source.wire,
-                  if (_state.isNotEmpty) 'state': _state,
-                  // The route lists what the build has unless asked for all.
-                  'benefits': _benefits.isEmpty
-                      ? paywallAllBenefits
-                      : _benefits,
-                },
-              )
-              .toString();
+          final location = isPicker
+              ? _pickerLocation
+              : Uri.parse(paywallLayoutLocation(layout, product))
+                    .replace(
+                      queryParameters: {
+                        'product': product.key,
+                        if (intro != null) 'intro': intro.key,
+                        if (_sourceKey.isNotEmpty) 'source': source.wire,
+                        if (_state.isNotEmpty) 'state': _state,
+                        // The route lists what the build has unless asked
+                        // for all.
+                        'benefits': _benefits.isEmpty
+                            ? paywallAllBenefits
+                            : _benefits,
+                      },
+                    )
+                    .toString();
           final boundaryKey = GlobalKey();
 
           // A test paints every shadow as a solid shape unless told
@@ -391,27 +515,53 @@ void main() {
           // does.
           debugDisableShadows = false;
           try {
+            Widget framed(BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+                // Still unless a second was asked for.
+                disableAnimations: second == null,
+              ),
+              child: RepaintBoundary(key: boundaryKey, child: child),
+            );
             await tester.pumpWidget(
               BlocProvider<ThemeCubit>.value(
                 value: getIt<ThemeCubit>(),
-                child: MaterialApp.router(
-                  theme: buildLightTheme(),
-                  darkTheme: buildDarkTheme(),
-                  themeMode: mode,
-                  routerConfig: buildRouter(initialLocation: location),
-                  builder: (context, child) => MediaQuery(
-                    data: MediaQuery.of(context).copyWith(
-                      textScaler: TextScaler.linear(scale),
-                      // Still unless a second was asked for.
-                      disableAnimations: second == null,
-                    ),
-                    child: RepaintBoundary(key: boundaryKey, child: child),
-                  ),
-                ),
+                child: _motion.isEmpty
+                    ? MaterialApp.router(
+                        theme: buildLightTheme(),
+                        darkTheme: buildDarkTheme(),
+                        themeMode: mode,
+                        routerConfig: buildRouter(initialLocation: location),
+                        builder: framed,
+                      )
+                    : MaterialApp(
+                        debugShowCheckedModeBanner: false,
+                        theme: buildLightTheme(),
+                        darkTheme: buildDarkTheme(),
+                        themeMode: mode,
+                        home: _motionLayout(product, motion),
+                        builder: framed,
+                      ),
               ),
             );
             await tester.pump();
-            if (second == null) {
+            if (isPicker) {
+              // The tab, then the row that opens the sheet asked for.
+              if (product == PaywallProduct.pro) {
+                await tester.tap(find.text(paywallProductName(product)));
+                await tester.pump();
+              }
+              final row = switch (_picker) {
+                'intro' => LocaleKeys.paywall_picker_intro_row,
+                'paywall' => LocaleKeys.paywall_picker_paywall_row,
+                _ => null,
+              };
+              if (row != null) {
+                await tester.tap(find.text(row.tr()));
+                await tester.pump();
+              }
+              await _stepTo(tester, second ?? 0.6);
+            } else if (second == null) {
               await tester.pump(const Duration(milliseconds: 300));
               await tester.pump(const Duration(milliseconds: 300));
             } else {
@@ -427,11 +577,13 @@ void main() {
 
             final problems = <String>[
               ...errors,
-              if (!onScreen(find.byType(AppDismissCross)))
+              if (!isPicker && !onScreen(find.byType(AppDismissCross)))
                 'The close cross is not on screen.',
-              if (_state.isEmpty && !onScreen(find.byType(AppButton)))
+              if (!isPicker &&
+                  _state.isEmpty &&
+                  !onScreen(find.byType(AppButton)))
                 'The button is not on screen.',
-              if (scale == 1.0)
+              if (scale == 1.0 && !isPicker)
                 for (final s in tester.stateList<ScrollableState>(
                   find.byType(Scrollable),
                 ))
@@ -449,6 +601,22 @@ void main() {
             if (block.evaluate().isNotEmpty) {
               final height = tester.getSize(block.first).height;
               print('     buy block ${height.toStringAsFixed(1)} points');
+            }
+
+            // The later seconds of the same run, each its own file.
+            var at = second ?? 0;
+            for (final later in _also.split(',')) {
+              final to = double.tryParse(later.trim());
+              if (second == null || to == null || to <= at) continue;
+              await _stepTo(tester, to - at);
+              at = to;
+              await _save(
+                tester,
+                boundaryKey,
+                name.replaceFirst('_t$_t', '_t${later.trim()}'),
+                pixelRatio: dpr,
+                isGood: errors.isEmpty,
+              );
             }
 
             await finger?.up();

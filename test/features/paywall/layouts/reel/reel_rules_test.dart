@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -190,6 +191,41 @@ void main() {
         ),
         0,
       );
+    });
+  });
+
+  group('the motion of the reel', () {
+    test('the stage picks its own variants', () {
+      expect(reelMotion.atmosphere, HeroAtmosphereStyle.rings);
+      expect(reelMotion.entrance, HeroEntranceStyle.slide);
+      expect(reelMotion.idle, HeroIdleStyle.benefitHop);
+      expect(reelMotion.arrival, HeroCardArrival.slideThrough);
+    });
+
+    test('after an intro the mascot is in its place on the first frame', () {
+      expect(reelPreludeFor(followsIntro: false), 0);
+      final loop = HeroLoop(const [
+        PaywallPreviewId.topics,
+        PaywallPreviewId.pushes,
+      ], prelude: reelPreludeFor(followsIntro: true));
+      final first = loop.frameAt(0);
+      final pose = heroEntrancePose(
+        reelMotion.entrance,
+        first.entrance,
+        size: 160,
+      );
+      expect(pose.dx, closeTo(0, 1e-9));
+      expect(pose.opacity, 1);
+      expect(loop.entranceEnd, lessThan(heroEntranceSeconds));
+    });
+
+    test('the entrance is heard as the mascot lands, alone only', () {
+      final alone = reelCues(prelude: reelPreludeFor(followsIntro: false));
+      expect(alone.single.cue, PaywallCue.pop);
+      expect(alone.single.at, inExclusiveRange(0, heroEntranceSeconds));
+      // After an intro the mascot is there before the clock starts.
+      final after = reelCues(prelude: reelPreludeFor(followsIntro: true));
+      expect(after.single.at, lessThan(0));
     });
   });
 }

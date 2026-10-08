@@ -6,14 +6,101 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 ## Add a layout
 
 1. Add one file, `layouts/<name>_paywall_layout.dart`, whose widget returns a `PaywallFrame`.
-   For Crit on a stage playing one benefit at a time, build on "Hero parts" below.
-   `plain_paywall_layout.dart` is the shortest layout with no stage.
+   Build on "Hero parts" below. `hero_paywall_layout.dart` is the worked example and the
+   shortest layout there is.
 2. Register it in `kit/paywall_layout_registry.dart`: `PaywallLayoutId.proof: (_) => const Proof...()`.
-3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
+3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts,
+   where it gets a tile that plays it. Add `&intro=<key>` to play an intro first.
    The route lists what this build has (`paywallBenefitsFor`). The developer page adds
    `&benefits=all`, which also lists what is not built yet and which only a developer build
    reads. An unregistered id draws `hero` (`paywallFallbackLayout`).
 4. Import `kit/paywall_frame.dart` (buy block, clock, scope, tones), `kit/paywall_preview.dart`.
+
+## Add an intro
+
+An intro is a short full screen animation (1.5 to 2.5 seconds) that plays once when a paywall
+opens, then hands over to whichever layout was chosen. It is not a layout: any intro goes with
+any layout, and it never draws a benefit, a price or a button.
+
+1. Add an id to `PaywallIntroId` (`lib/core/paywall/paywall_intro.dart`). The key ships in
+   remote values and analytics, so it never changes.
+2. Add one folder, `presentation/intros/<name>/`, with one file that holds a
+   `const PaywallIntro` and the widget its `builder` returns. Keep the times in a pure timeline
+   (a class of static functions of `t`) and unit test it: the order of the beats, the first
+   frame, what a tap skips to, and that nothing is drawn from `seconds` on.
+3. Register it in `kit/paywall_intro_registry.dart`: `PaywallIntroId.falseAlarm: falseAlarmIntro`.
+
+```dart
+const PaywallIntro falseAlarmIntro = PaywallIntro(
+  seconds: FalseAlarmTimeline.end, // 1.75: the intro is taken away
+  handover: FalseAlarmTimeline.handover, // 1.5: the layout's clock starts at zero
+  skipTo: FalseAlarmTimeline.reveal, // 1.25: where a tap jumps to
+  tone: PaywallTone.crit, // colours the close cross while it covers the screen
+  cue: PaywallEntranceCue.gag, // played once, in place of the layout's cue
+  beats: [PaywallIntroBeat(FalseAlarmTimeline.admit, _onAdmit)], // heard and felt on the way
+  tag: _tag, // () => the few words left by the layout's mascot afterwards
+  builder: _build, // (context, PaywallIntroScope scope) => FalseAlarmIntro(scope: scope)
+);
+```
+
+What the builder gets is a `PaywallIntroScope`: `clock` (seconds since the intro began, read it
+with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe areas), `product` and
+`landing` (where the layout's own mascot stands, once the host has found it). Draw every frame
+from `scope.clock` alone and hold no timer.
+
+`intros/intro_parts.dart` has the parts the intros share: `IntroCrit` (the mascot, with its way
+out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`.
+
+**The hand over is one move.** Two faces never show together. The intro's mascot is whole until
+`skipTo`, then travels to `scope.landing` and shrinks to nothing at its foot, and is gone at
+`handover` (`IntroCrit(leave:)`, `paywallIntroLeaveBox`). The layout's mascot pops up from that
+same spot as its clock starts. The screen the intro painted is all but gone by `handover` too, so
+the pop is in the open. The host finds the landing itself: the largest `FaceWidget` in the layout,
+where the layout laid it out. A layout does nothing for it.
+
+**Beats.** `PaywallIntroBeat(seconds, cue)` is one moment that is heard or felt: one cue of the
+palette, which carries its own haptic. `PaywallIntroBeat.tap(seconds, pattern)` is a haptic alone,
+for a moment inside a sound that is still playing. The host plays each as the clock passes, never
+in a tile, and never for a moment a tap skipped. `skipCue` is played when a tap skips the intro,
+in place of the beat it lands on. The beat at the reveal is what the hand over feels like, so the
+host adds no tap of its own. Keep them few and single: nothing may ring or buzz like an alarm,
+and nothing is felt while a picture of an alarm rings.
+
+**Quiet after.** The layout plays no cue of its own entrance for `quietAfter` seconds from the
+hand over (`paywallQuietAfterIntro` by default), because the intro's last cue is still sounding.
+An intro that opens on a long cue says how much of it is left by then.
+
+**The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
+small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
+when there is air and under its foot when there is not, and only while that mascot is there at
+about full size. It takes no room and no touch, and at a large text size it is left out.
+
+What `PaywallIntroHost` does, so an intro does not:
+
+- The layout is built under the intro from the first frame, with its clock held at zero
+  (`PaywallClockHold`). At `handover` that clock starts, so the layout's own entrance plays under
+  the intro's last moments. That is the hand over: one move, never a cut.
+- So an intro ends on Crit and then **uncovers** the layout between `handover` and `seconds`. It
+  paints nothing where the layout should show (the false alarm clips a growing circle out of its
+  red). It never paints the layout's background colour over it.
+- The close cross is over the intro from the first frame, in the corner the layout keeps its own.
+- A tap anywhere before `handover` moves the clock to `skipTo` (`paywallIntroSkip`). After it the
+  layout takes the touch.
+- Reduce motion, or a `PaywallStill`, plays no intro at all: the layout opens as it does alone.
+- It plays once for each open. A rebuild does not start it again.
+- One light haptic at the hand over, the intro's `cue` and its beats. None is an alarm: an intro makes
+  no alarm sound, no notification and no vibration like one. A picture of a ringing screen is a
+  silent picture.
+
+A layout knows it follows an intro: `scope.intro` is the `PaywallIntroId` (`none` when none
+plays, reduce motion included) and `scope.followsIntro` is true when one does. The intro ends on
+the mascot, so a layout may shorten or skip its own entrance pop then. Hero plays its approved
+entrance either way.
+
+Which intro plays is a second value beside the layout: remote keys `paywall_intro` and
+`pro_paywall_intro`, developer prefs `dev.paywall_intro` and `dev.pro_paywall_intro`. Empty is no
+intro. An empty layout value still means the shipped surface, whatever the intro says. The
+layout value `false_alarm`, from when the joke was a layout, reads as `hero` with that intro.
 
 ## The frame
 
@@ -67,8 +154,9 @@ The example changes the tone, the headline and the picture beside Crit.
 | `HeroLoop` | The turn table as numbers: `frameAt`, `touch`, the hold, the resting frame. |
 | `HeroPlayer(clock:)` | Plays a loop and keeps what the hand chose. Every part asks it `frameAt(t)`. |
 | `HeroLiveStage(player:, size:)` | The stage, playing, with swipes and taps. `HeroStage` is the still one. |
-| `HeroMascot(size:, face:)` | Crit alone, anywhere: `hop`, `bob`, `blink`, `entrance`, `props`. |
-| `HeroAtmosphere(focus:, radius:)` | The disc and the drifting shapes alone, in a `tone`. |
+| `HeroMascot(size:, face:)` | Crit alone, anywhere: `hop`, `bob`, `blink`, `entrance`, `props`, `entranceStyle`, `idle`. |
+| `HeroAtmosphere(focus:, radius:)` | The disc and what moves around it alone, in a `tone` and a `style`. |
+| `HeroMotion` | The motion variants a layout picks. See "Motion variants". |
 | `HeroBenefitLines(player:, metrics:)` | Check lines, the playing one strong, fixed row heights, 44 point tap areas. |
 | `HeroPips(player:, count:, color:)`, `HeroRise(clock:, index:)` | One pip per turn. The words' share of the entrance: each rises after the one above. |
 | `HeroTouchArea`, `HeroStageDragRecognizer` | Tap, swipe and wait for a box of your own. The drag is safe from the back swipe. |
@@ -107,6 +195,20 @@ class ReceiptPaywallLayout extends StatelessWidget {
 - **Parts by hand.** Keep a `HeroPlayer` in your `State`, set `player.loop` in `build`, dispose
   it. Size with `heroStageRoomFor`, `HeroSizes.of` and `HeroLinesMetrics.measure`. Listen to the
   player for anything not under a `PaywallClockBuilder`: no clock ticks when nothing may move.
+- **Motion variants.** Pass `motion: const HeroMotion(...)` to `HeroComposition`,
+  `HeroLiveStage` or `HeroStage` (and to `HeroMascot.frame`). Each field has a default, which is
+  the approved Hero, so name only what changes. Every variant is a pure function in
+  `hero/hero_motion.dart`, ends flat and upright, and has the same resting frame as Hero.
+
+  | Field | Values, the default first |
+  |---|---|
+  | `atmosphere: HeroAtmosphereStyle` | `drift`, `rays`, `bubbles`, `confetti`, `rings` |
+  | `entrance: HeroEntranceStyle` | `pop`, `drop`, `slide`, `peek` |
+  | `idle: HeroIdleStyle` | `bob`, `lean`, `benefitHop` |
+  | `arrival: HeroCardArrival` | `fade`, `flip`, `slideThrough` |
+
+  Parts used by hand take one value each: `HeroAtmosphere(style:)`,
+  `HeroAtmospherePainter(style:)`, `HeroMascot(entranceStyle:, idle:, turnSeconds:)`.
 - **The hand**, the same for any table: `player.touch(index:)` for a line, `touch(step:)` for a
   swipe (it wraps), `touch()` to play the turn again. The chosen turn plays from its start,
   holds `heroHandHoldSeconds`, then the loop goes on. It waits under a finger.
@@ -115,7 +217,7 @@ class ReceiptPaywallLayout extends StatelessWidget {
 
 `product` (`isHosted`, `isPro`), `benefits` (only what this build has, in order), `size`
 (the room you have), `isCompact` (667 points tall or under), `source`, `clock`, `closeOnLeft`,
-`close` (what the cross does). The cross covers a 44 point square in a top corner of your room:
+`close` (what the cross does), `intro` and `followsIntro` (see "Add an intro"). The cross covers a 44 point square in a top corner of your room:
 keep words out of it. Deeper in your tree, `PaywallLayoutScope.of(context)` is the same scope.
 
 ## Previews
@@ -135,7 +237,43 @@ part every frame. Or extend `PaywallClockState<T>`, read `t` in `build`, overrid
 `stagger(i, t, each: 0.08)` is the clock as item `i` sees it.
 
 With reduce motion on, or under a `PaywallStill`, `t` is `restAt` and no ticker runs. That frame
-must be complete: nothing hidden, half way or at an angle. The clock stops under another route.
+must be complete: nothing hidden, half way or at an angle. The clock stops under another route,
+and waits at zero under a `PaywallClockHold` (an intro puts one over the layout).
+
+## Tiles
+
+`PaywallLayoutTile(layout:, product:, label:)` and `PaywallIntroTile(intro:, product:, label:)`
+draw the real layout (and intro) at 390 by 844 on the demo buy model, scaled down with a
+`FittedBox`. A tile takes no touch of its own, plays no cue (`PaywallMuted`), and an intro tile
+starts again every few seconds. Its clock runs only while the tile is built, so put tiles in a
+lazy list with no cache: the developer picker shows about three at once.
+
+## Cues
+
+A cue is a sound and its haptic together, by name: `PaywallCue` in
+`lib/core/ui_sound/paywall_cues.dart`. One cue per moment, and never a raw `AppHaptics` call
+beside one. `playPaywallCue(PaywallCue.swap)` plays one from a touch.
+
+A layout writes what its motion sounds like as a list of beats, each a clock second and a cue, in
+its rules file beside the timeline they come from (`doorsCues`, `receiptCues`). It wraps its
+composition in `PaywallCueScore(clock:, beats:, player:, turnCue:)`, which plays them:
+
+- Each beat plays once, on the tick the clock passes its second. Never on a rebuild.
+- `turnCue` marks a benefit the loop changed by itself, through the first pass only and never
+  once the hand has taken over. A screen left open is silent. Use `next`, or the layout's own
+  quiet cue.
+- The hand's own change is `HeroPlayer.onChange`: `tick` by default, or the layout's cue.
+- Nothing plays under reduce motion, where the frame's entrance cue is the only sound, or in a
+  tile (`PaywallMuted`), or in the first moments after an intro.
+
+`HeroComposition` has a score of its own: the approved entrance (`heroEntranceCues`: the mascot
+lands with `pop`, or `drop` for a drop, and the card slides in with `whoosh`) and `next` for the
+loop. Pass `entranceCues` or `turnCue` to change either. A layout built from parts uses
+`heroLandingBeat` for its mascot.
+
+A long entrance cue owns its whole span: play no second sound under it. The rules are pure
+functions in `paywall_cue_rules.dart` and have tests. The buy block plays its own: `press` as a
+finger goes down on the button, then `paywallBuyCue` for how the trip to the store ended.
 
 ## Rules every layout keeps
 
@@ -145,7 +283,8 @@ must be complete: nothing hidden, half way or at an angle. The clock stops under
   your content scroll inside its own box. The frame still does not.
 - Nothing rests at an angle. Rotation lives inside a motion and ends at zero.
 - No timer, no urgency, no made-up proof, no trial toggle. No word about how Pro is paid.
-- Strings go in `en.json`, read through `LocaleKeys`. Sounds go through `PaywallCues`.
+- Strings go in `en.json`, read through `LocaleKeys`. Sounds and haptics go through `PaywallCue`
+  (see Cues).
 
 ## Capture it
 
@@ -158,3 +297,6 @@ It writes eight PNGs to `build/paywall_shots` and fails on an overflow, a scroll
 size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
 `BENEFITS=built`, `SOURCE`, `PREVIEWS=gallery`, and `T=<seconds>`, which plays the motion a
 frame at a time and captures that second (with `TAP=x,y`, `DRAG=x,y,x,y` and `THEN=<seconds>`).
+`INTRO=<key>` plays that intro first (with `T`, which then counts from the intro's first frame).
+`MOTION=rays,drop` draws the Hero composition with those variants. `PICKER=page|intro|paywall`
+captures the developer picker.
