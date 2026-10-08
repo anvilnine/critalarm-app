@@ -9,7 +9,19 @@ enum PaywallIntroId {
   none('none'),
 
   /// The screen looks like an alarm for a second, then admits it is not.
-  falseAlarm('false_alarm');
+  falseAlarm('false_alarm'),
+
+  /// A finger goes for a Snooze button and the mascot eats the button.
+  snooze('snooze'),
+
+  /// The mascot is asleep and a message drops on its head.
+  wakeUp('wake_up'),
+
+  /// The mascot peeks out of a curtain, then throws it open.
+  curtain('curtain'),
+
+  /// A film leader counts down and the mascot will not wait for one.
+  countdown('countdown');
 
   const PaywallIntroId(this.key);
 

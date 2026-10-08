@@ -37,13 +37,36 @@ const PaywallIntro falseAlarmIntro = PaywallIntro(
   skipTo: FalseAlarmTimeline.reveal, // 1.25: where a tap jumps to
   tone: PaywallTone.crit, // colours the close cross while it covers the screen
   cue: PaywallEntranceCue.gag, // played once, in place of the layout's cue
+  beats: [PaywallIntroBeat(FalseAlarmTimeline.admit, _onAdmit)], // heard and felt on the way
+  tag: _tag, // () => the few words left by the layout's mascot afterwards
   builder: _build, // (context, PaywallIntroScope scope) => FalseAlarmIntro(scope: scope)
 );
 ```
 
 What the builder gets is a `PaywallIntroScope`: `clock` (seconds since the intro began, read it
-with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe areas) and `product`.
-Draw every frame from `scope.clock` alone and hold no timer.
+with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe areas), `product` and
+`landing` (where the layout's own mascot stands, once the host has found it). Draw every frame
+from `scope.clock` alone and hold no timer.
+
+`intros/intro_parts.dart` has the parts the intros share: `IntroCrit` (the mascot, with its way
+out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`.
+
+**The hand over is one move.** Two faces never show together. The intro's mascot is whole until
+`skipTo`, then travels to `scope.landing` and shrinks to nothing at its foot, and is gone at
+`handover` (`IntroCrit(leave:)`, `paywallIntroLeaveBox`). The layout's mascot pops up from that
+same spot as its clock starts. The screen the intro painted is all but gone by `handover` too, so
+the pop is in the open. The host finds the landing itself: the largest `FaceWidget` in the layout,
+where the layout laid it out. A layout does nothing for it.
+
+**Beats.** `PaywallIntroBeat(seconds, play)` is one moment that is heard or felt. `play` is a top
+level function, the one call site for that moment: one `PaywallCues` call and at most one
+`AppHaptics` tap. The host calls it as the clock passes, never in a tile, and never for a moment a
+tap skipped. Keep them few and single: nothing may ring or buzz like an alarm.
+
+**The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
+small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
+when there is air and under its foot when there is not, and only while that mascot is there at
+about full size. It takes no room and no touch, and at a large text size it is left out.
 
 What `PaywallIntroHost` does, so an intro does not:
 
@@ -58,7 +81,7 @@ What `PaywallIntroHost` does, so an intro does not:
   layout takes the touch.
 - Reduce motion, or a `PaywallStill`, plays no intro at all: the layout opens as it does alone.
 - It plays once for each open. A rebuild does not start it again.
-- One light haptic at the hand over, and the intro's `cue`. Neither is an alarm: an intro makes
+- One light haptic at the hand over, the intro's `cue` and its beats. None is an alarm: an intro makes
   no alarm sound, no notification and no vibration like one. A picture of a ringing screen is a
   silent picture.
 

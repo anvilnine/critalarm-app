@@ -33,6 +33,12 @@
 //                                  down at the end of the drag
 //   --dart-define=THEN=<seconds>   with TAP or DRAG: let this much more time
 //                                  run before the capture
+//   --dart-define=ONLY=<part>,<part>
+//                                  capture only the files whose name has one
+//                                  of these parts, such as 390x844_light_1.0x
+//   --dart-define=ALSO=<s>,<s>     with T: go on to each of these later seconds
+//                                  in the same run and capture each as its
+//                                  own file, to see a motion as a strip
 //   --dart-define=INTRO=<key>      play that intro first, a PaywallIntroId
 //                                  key such as false_alarm. T then counts
 //                                  from the intro's first frame, and the
@@ -111,6 +117,8 @@ const _out = String.fromEnvironment('OUT', defaultValue: 'build/paywall_shots');
 const _state = String.fromEnvironment('STATE');
 const _benefits = String.fromEnvironment('BENEFITS');
 const _t = String.fromEnvironment('T');
+const _also = String.fromEnvironment('ALSO');
+const _only = String.fromEnvironment('ONLY');
 const _sourceKey = String.fromEnvironment('SOURCE');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
@@ -466,6 +474,7 @@ void main() {
           if (_motion.isNotEmpty) 'motion-${_motion.replaceAll(',', '-')}',
         ].join('_');
 
+        if (_only.isNotEmpty && !_only.split(',').any(name.contains)) continue;
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
           final oldHandler = FlutterError.onError;
@@ -592,6 +601,22 @@ void main() {
             if (block.evaluate().isNotEmpty) {
               final height = tester.getSize(block.first).height;
               print('     buy block ${height.toStringAsFixed(1)} points');
+            }
+
+            // The later seconds of the same run, each its own file.
+            var at = second ?? 0;
+            for (final later in _also.split(',')) {
+              final to = double.tryParse(later.trim());
+              if (second == null || to == null || to <= at) continue;
+              await _stepTo(tester, to - at);
+              at = to;
+              await _save(
+                tester,
+                boundaryKey,
+                name.replaceFirst('_t$_t', '_t${later.trim()}'),
+                pixelRatio: dpr,
+                isGood: errors.isEmpty,
+              );
             }
 
             await finger?.up();

@@ -1996,6 +1996,40 @@
     "follows_remote": "Follows the remote value",
     "open": "Open it",
     "routing_header": "What the app opens",
-    "selected": "{name}, selected"
+    "selected": "{name}, selected",
+    "intro_names": {
+      "false_alarm": "False Alarm",
+      "snooze": "Snooze Snack",
+      "wake_up": "Rude Awakening",
+      "curtain": "Curtain Call",
+      "countdown": "Countdown"
+    },
+    "layout_names": {
+      "hero": "Hero",
+      "sheet": "Sheet",
+      "proof": "Proof",
+      "bento": "Bento",
+      "reel": "Reel",
+      "stage": "Stage",
+      "sentence": "Sentence",
+      "wipe": "Wipe",
+      "doors": "Doors",
+      "receipt": "Receipt"
+    }
+  },
+  "paywall_intro_snooze": {
+    "button": "Snooze",
+    "line": "Nice try."
+  },
+  "paywall_intro_wake_up": {
+    "ping": "ping",
+    "line": "I'm up!"
+  },
+  "paywall_intro_curtain": {
+    "line": "Oh, hi.",
+    "tag": "Ta-da."
+  },
+  "paywall_intro_countdown": {
+    "line": "Too slow."
   }
 }

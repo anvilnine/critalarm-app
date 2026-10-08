@@ -45,9 +45,7 @@ List<PaywallIntroId> get _intros => [
     if (paywallIntroIsBuilt(intro)) intro,
 ];
 
-String _introLabel(PaywallIntroId intro) => intro == PaywallIntroId.none
-    ? LocaleKeys.paywall_picker_intro_none.tr()
-    : intro.key;
+String _introLabel(PaywallIntroId intro) => paywallIntroName(intro);
 
 String _routeLabel(PaywallLayoutSetting? setting) {
   if (setting == null) {
@@ -59,7 +57,8 @@ String _routeLabel(PaywallLayoutSetting? setting) {
   if (setting.isAuto) {
     return LocaleKeys.settings_developer_paywall_route_auto.tr();
   }
-  return setting.storedKey;
+  final layout = setting.layout;
+  return layout == null ? setting.storedKey : paywallLayoutName(layout);
 }
 
 class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
@@ -145,7 +144,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
           return PaywallLayoutTile(
             layout: layout,
             product: product,
-            label: layout.key,
+            label: paywallLayoutName(layout),
             isSelected: layout == layoutSwitch.value?.layout,
             onTap: () {
               unawaited(
