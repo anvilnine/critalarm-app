@@ -2115,5 +2115,24 @@
     "try_not_saved": "Not saved",
     "try_button": "Unlock",
     "try_confirming": "Confirming your purchase"
+  },
+  "challenges": {
+    "off": "Off",
+    "row_title": "Wake-up challenge",
+    "sheet_note": "Asked when you tap At my desk. I'm up always stops the ring with one tap.",
+    "strip_title": "Wake-up challenge",
+    "skip_hold": "Hold {seconds} s to skip",
+    "skip_holding": "Keep holding, {seconds} s",
+    "skip_tap": "Skip the challenge",
+    "leave": "Back to the alarm",
+    "try_hint": "Opens a try. Nothing is closed.",
+    "try_passed": "That is it. Nothing was closed.",
+    "try_done": "Done",
+    "type_topic_name": {
+      "name": "Type the topic name",
+      "prompt": "Type the topic name",
+      "field_label": "Type the topic name: {topic}",
+      "hint": "Capitals do not matter."
+    }
   }
 }

@@ -217,8 +217,26 @@ class RingingPreviewFrame extends StatelessWidget {
     required this.onPlay,
     required this.maxHeight,
     this.playBelow = false,
+    this.picture,
+    this.pictureLabel,
+    this.pictureHint,
+    this.onOpenPicture,
     super.key,
   });
+
+  /// Drawn in the frame in place of the ringing alarm: an option being
+  /// shown that is not a look of the ringing screen, such as a wake-up
+  /// challenge. It is handed the screen it is laid out for. Null draws the
+  /// ringing alarm.
+  final Widget Function(MediaQueryData screen)? picture;
+
+  /// What a screen reader calls the frame while [picture] is in it, and
+  /// what a double tap does.
+  final String? pictureLabel;
+  final String? pictureHint;
+
+  /// A tap on the frame while [picture] is in it.
+  final VoidCallback? onOpenPicture;
 
   /// The edge of the square that takes a tap on the play button.
   static const double playTarget = 44;
@@ -234,6 +252,10 @@ class RingingPreviewFrame extends StatelessWidget {
   final VoidCallback onPlay;
 
   void _open(BuildContext context) {
+    if (picture != null) {
+      onOpenPicture?.call();
+      return;
+    }
     unawaited(
       Navigator.of(
         context,
@@ -245,12 +267,18 @@ class RingingPreviewFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final screen = RingingPreview.screenOf(context).size;
+    final screenData = RingingPreview.screenOf(context);
+    final screen = screenData.size;
+    final picture = this.picture;
     final frame = Semantics(
       button: true,
       image: true,
-      label: LocaleKeys.personalize_preview_label.tr(),
-      hint: LocaleKeys.personalize_preview_hint.tr(),
+      label: picture == null
+          ? LocaleKeys.personalize_preview_label.tr()
+          : pictureLabel,
+      hint: picture == null
+          ? LocaleKeys.personalize_preview_hint.tr()
+          : pictureHint,
       onTap: () => _open(context),
       child: GestureDetector(
         onTap: () => _open(context),
@@ -268,7 +296,11 @@ class RingingPreviewFrame extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: radius,
-                  child: const RepaintBoundary(child: RingingPreview()),
+                  child: RepaintBoundary(
+                    child: picture == null
+                        ? const RingingPreview()
+                        : picture(screenData),
+                  ),
                 ),
               );
             },

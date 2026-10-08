@@ -52,6 +52,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// that do not need it.
   ToolTemplateStore? toolTemplates;
 
+  /// Gives the new topic what this phone keeps for a topic it made: today
+  /// the default wake-up challenge, which is none unless the user picked
+  /// one. Null in tests that do not need it.
+  Future<void> Function(String topicName)? applyPhoneDefaults;
+
   /// Holds the new topic for the steps after this one in setup. Null in tests
   /// that do not need it.
   FirstTopicHandoff? handoff;
@@ -260,6 +265,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// write never turns a created topic into an error.
   Future<void> _rememberTopic(Topic topic) async {
     final template = state.selectedTool;
+    try {
+      await applyPhoneDefaults?.call(topic.name);
+    } on Object catch (_) {
+      // The topic exists. It starts with no challenge, as every topic did
+      // before there were any.
+    }
     try {
       if (template != null) await toolTemplates?.save(topic.name, template);
       final token = topic.token;

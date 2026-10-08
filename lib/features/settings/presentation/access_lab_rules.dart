@@ -45,6 +45,10 @@ const Map<AppFeature, AccessLabJump> accessLabJumps = {
   AppFeature.appIcons: AccessLabJump('App icon', '/app-icon'),
   AppFeature.widgets: AccessLabJump('Home widgets card', '/', isTab: true),
   AppFeature.ownSounds: AccessLabJump('Sound picker', '/sounds'),
+  AppFeature.wakeUpChallenges: AccessLabJump(
+    'Personalize, Challenge',
+    '/settings/personalize',
+  ),
   AppFeature.weeklyCheck: AccessLabJump(
     'Reliability',
     '/settings/reliability',
@@ -63,7 +67,6 @@ const List<AccessLabJump> accessLabPages = [
 /// has no button.
 const Set<AppFeature> accessLabNotBuilt = {
   AppFeature.alarmScreenStyles,
-  AppFeature.wakeUpChallenges,
 };
 
 /// A feature's name as words, made from its enum name, so a feature added

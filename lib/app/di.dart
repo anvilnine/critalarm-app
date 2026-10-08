@@ -5,6 +5,7 @@ import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/observed_api_session_store.dart';
 import 'package:critalarm/app/access/pro_holding_source.dart';
 import 'package:critalarm/app/access/sure_lock.dart';
+import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
@@ -100,6 +101,10 @@ import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
+import 'package:critalarm/features/challenges/presentation/challenge.dart';
 import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
 import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -1578,6 +1583,54 @@ Future<void> configureDependencies({
             await getIt<SoundHost>().publishSoundAssignments(),
       ),
     )
+    // Wake-up challenges: each topic's choice, kept on this phone only; the
+    // gate the alarm screen asks before "At my desk" closes an incident;
+    // and the one flag per topic native code reads for its Done button.
+    // None of it is asked before "I'm up", which stops the ring with one
+    // tap on every plan.
+    ..registerLazySingleton<ChallengeChoices>(
+      () => SharedPrefsChallengeChoices(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => ChallengeGate(
+        choices: getIt<ChallengeChoices>(),
+        decide: () =>
+            getIt<FeatureAccess>().decide(AppFeature.wakeUpChallenges),
+        canRun: (kind, incident) =>
+            challengeOf(kind)?.canRunFor(incident) ?? false,
+        planRead: getIt<FeatureAccess>().ready,
+      ),
+    )
+    // The flag is set only on a sure answer, so this waits for the plan and
+    // the saved server to be read, and a plan that cannot be read leaves
+    // what is written alone. Without the plan no flag is ever set.
+    ..registerLazySingleton(
+      () => ChallengeFlagSync(
+        decide: () => getIt<FeatureAccess>().decideOnceReady(
+          AppFeature.wakeUpChallenges,
+        ),
+        changes: [
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.wakeUpChallenges,
+          ),
+          getIt<ChallengeChoices>().changes,
+        ],
+        // A kind this build has no challenge for asks for nothing.
+        readChoices: () => {
+          for (final MapEntry(:key, :value)
+              in getIt<ChallengeChoices>().choices.entries)
+            if (challengeOf(value) != null) key,
+        },
+        readWritten: () => getIt<ChallengeChoices>().flaggedTopics,
+        write: (topic, {required isOwed}) =>
+            getIt<ChallengeChoices>().writeFlag(topic, isOwed: isOwed),
+        // The iOS Live Activity reads its own copy, made with the sound
+        // choices. Android reads the flag where it is written.
+        publish: () async =>
+            !getIt<PlatformCapabilities>().isIos ||
+            await getIt<SoundHost>().publishSoundAssignments(),
+      ),
+    )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
     // no alarm is going off.
     ..registerLazySingleton(
@@ -2162,6 +2215,7 @@ Future<void> configureDependencies({
             )
             ..alarm = getIt<AlarmHost>()
             ..toolTemplates = getIt<ToolTemplateStore>()
+            ..applyPhoneDefaults = getIt<ChallengeChoices>().applyDefaultTo
             ..handoff = getIt<FirstTopicHandoff>(),
     )
     ..registerFactory(
