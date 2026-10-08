@@ -82,19 +82,13 @@ class PersonalizeCubit extends Cubit<PersonalizeState> {
   }
 
   /// A locked own sound: played once and shown as tried. Nothing is saved.
-  /// With no own sound on the phone there is nothing to play, and the try
-  /// still shows.
-  Future<void> trySound(AlarmSound? sound) async {
+  Future<void> trySound(AlarmSound sound) async {
     emit(
       state.copyWith(
-        tried: PersonalizeTry(AppFeature.ownSounds, optionId: sound?.id),
+        tried: PersonalizeTry(AppFeature.ownSounds, optionId: sound.id),
       ),
     );
-    if (sound == null) {
-      await stopPlaying();
-    } else {
-      await _play(sound);
-    }
+    await _play(sound);
   }
 
   /// A locked option of any section, tried in the preview. Nothing is
@@ -107,10 +101,11 @@ class PersonalizeCubit extends Cubit<PersonalizeState> {
   }
 
   /// The play button on the preview: plays the chosen sound once, or stops
-  /// it.
-  Future<void> togglePlay() async {
+  /// it. [ownSoundsLocked] is the access layer's answer, handed in by the
+  /// page, so the button plays what really rings.
+  Future<void> togglePlay({required bool ownSoundsLocked}) async {
     if (state.isPlaying) return stopPlaying();
-    final sound = state.chosenSound;
+    final sound = state.chosenSound(ownSoundsLocked: ownSoundsLocked);
     if (sound != null) await _play(sound);
   }
 

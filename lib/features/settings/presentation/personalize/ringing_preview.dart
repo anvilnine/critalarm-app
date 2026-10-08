@@ -102,15 +102,22 @@ class _RingingPreviewState extends State<RingingPreview> {
                         child: SeverityScope(
                           mode: SeverityMode.crit,
                           child: Builder(
-                            builder: (context) => RingingScreen(
-                              state: sampleRingingState(isLive: !reduce),
-                              colors: context.appColors,
-                              ackButtonKey: _ackButtonKey,
-                              onAcknowledge: _nothing,
-                              onSilence: _nothing,
-                              onReadMessage: _nothing,
-                              onSelectAlarm: _nothingFor,
-                            ),
+                            builder: (context) {
+                              // The screen's own colours, as the alarm
+                              // route hands them over.
+                              final colors = context.appColors;
+                              return _YellowFace(
+                                child: RingingScreen(
+                                  state: sampleRingingState(isLive: !reduce),
+                                  colors: colors,
+                                  ackButtonKey: _ackButtonKey,
+                                  onAcknowledge: _nothing,
+                                  onSilence: _nothing,
+                                  onReadMessage: _nothing,
+                                  onSelectAlarm: _nothingFor,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -122,6 +129,36 @@ class _RingingPreviewState extends State<RingingPreview> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pins Crit's face to yellow in both themes, on this page only.
+///
+/// The ringing face takes its fill and its ink from the theme, and the
+/// dark theme's are dark. Here the two are the light theme's whatever the
+/// theme, and nothing else in the palette changes. The alarm route is not
+/// under this, so the real alarm screen draws as it always has.
+class _YellowFace extends StatelessWidget {
+  const _YellowFace({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors.copyWith(
+      faceFill: AppColors.light.faceFill,
+      faceInk: AppColors.light.faceInk,
+    );
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values.where((ext) => ext is! AppColors),
+          colors,
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -172,14 +209,22 @@ class RingingPreviewPage extends StatelessWidget {
 }
 
 /// The preview in its rounded frame on the Personalize page, with the play
-/// button on its corner. A tap on the frame opens it full screen.
+/// button outside its bottom corner. A tap on the frame opens it full
+/// screen.
 class RingingPreviewFrame extends StatelessWidget {
   const RingingPreviewFrame({
     required this.isPlaying,
     required this.onPlay,
     required this.maxHeight,
+    this.playBelow = false,
     super.key,
   });
+
+  /// The edge of the square that takes a tap on the play button.
+  static const double playTarget = 44;
+
+  /// Puts the play button under the frame instead of beside it.
+  final bool playBelow;
 
   /// The tallest the frame may be. It is also never wider than the room
   /// it is given, and keeps the shape of this phone's screen.
@@ -231,13 +276,13 @@ class RingingPreviewFrame extends StatelessWidget {
         ),
       ),
     );
-    final framed = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        frame,
-        PositionedDirectional(
-          end: -AppPreviewButton.size / 2,
-          bottom: Spacing.s3,
+    // A 44 point target around the 40 point button.
+    final play = SizedBox.square(
+      dimension: playTarget,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPlay,
+        child: Center(
           child: AppPreviewButton(
             isPlaying: isPlaying,
             onPressed: onPlay,
@@ -245,22 +290,44 @@ class RingingPreviewFrame extends StatelessWidget {
             stopLabel: LocaleKeys.sound_picker_stop_aria_label.tr(),
           ),
         ),
-      ],
+      ),
     );
     final aspect = screen.width / screen.height;
     return LayoutBuilder(
       builder: (context, box) {
-        // Room at the end for the half of the play button that hangs out.
-        final maxWidth = box.maxWidth - AppPreviewButton.size;
+        // The play button sits outside the frame, so it covers none of
+        // the preview: beside its bottom corner, or under it where the
+        // page has no width to spare. Beside, the same room is kept on
+        // the other side so the frame stays in the middle.
+        const beside = playTarget + Spacing.s2;
+        final maxWidth = box.maxWidth - (playBelow ? 0 : 2 * beside);
         final height = maxHeight * aspect <= maxWidth
             ? maxHeight
             : maxWidth / aspect;
-        return Center(
-          child: SizedBox(
-            width: height * aspect,
-            height: height,
-            child: framed,
-          ),
+        final sized = SizedBox(
+          width: height * aspect,
+          height: height,
+          child: frame,
+        );
+        if (playBelow) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sized,
+              const SizedBox(height: Spacing.s2),
+              play,
+            ],
+          );
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const SizedBox(width: beside),
+            sized,
+            const SizedBox(width: Spacing.s2),
+            play,
+          ],
         );
       },
     );

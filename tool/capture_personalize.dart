@@ -10,7 +10,10 @@
 //   pro       the Pro pack held
 //   hosted    Hosted held
 //   both      both held
-//   trying    free, after a tap on the locked "Yours" chip: the bar shows
+//   lapsed    free, with an own sound saved as the default from when Pro
+//             was held: the tick is on the sound that really rings
+//   trying    the same phone, after a tap on the locked "Yours" chip: the
+//             bar shows
 //   full      free, after a tap on the preview: the full-screen preview
 // and, at 1024 by 768, the wide layout for `free` and `trying`.
 //
@@ -41,10 +44,13 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
+import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:flutter/material.dart';
@@ -74,13 +80,21 @@ enum _Shot {
   pro(isPro: true, isHosted: false),
   hosted(isPro: false, isHosted: true),
   both(isPro: true, isHosted: true),
-  trying(isPro: false, isHosted: false),
+  lapsed(isPro: false, isHosted: false, hasOwnSound: true),
+  trying(isPro: false, isHosted: false, hasOwnSound: true),
   full(isPro: false, isHosted: false);
 
-  const _Shot({required this.isPro, required this.isHosted});
+  const _Shot({
+    required this.isPro,
+    required this.isHosted,
+    this.hasOwnSound = false,
+  });
 
   final bool isPro;
   final bool isHosted;
+
+  /// The phone holds one own sound, saved as the default.
+  final bool hasOwnSound;
 }
 
 Future<void> _loadFonts() async {
@@ -116,6 +130,26 @@ Future<void> _loadFonts() async {
 Future<void> _hold({required bool isPro, required bool isHosted}) async {
   await getIt<DevProSwitch>().setPro(isPro: isHosted);
   await getIt<ProPackDevSwitch>().setHeld(isHeld: isPro);
+}
+
+const _ownSound = AlarmSound(
+  id: 'user_capture',
+  name: 'My recording',
+  source: AlarmSoundSource.user,
+  path: '/sounds/user_capture.caf',
+  duration: Duration(seconds: 4),
+);
+
+/// Puts one own sound on the phone as the saved default, or takes it off.
+Future<void> _ownSoundSaved({required bool isSaved}) async {
+  final sounds = getIt<AlarmSoundRepository>();
+  await sounds.deleteUserSound(_ownSound.id);
+  if (isSaved) {
+    await sounds.addUserSound(_ownSound);
+    await sounds.setDefaultSoundId(_ownSound.id);
+  } else {
+    await sounds.setDefaultSoundId(BundledSounds.fallbackId);
+  }
 }
 
 bool _wanted(String name) =>
@@ -230,6 +264,7 @@ void main() {
         debugDisableShadows = true;
         FlutterError.onError = oldHandler;
         await _hold(isPro: false, isHosted: false);
+        await _ownSoundSaved(isSaved: false);
       }
     });
   }
@@ -248,6 +283,7 @@ void main() {
             'personalize_${shot.name}_${sizeName}_${mode.name}_${scale}x';
         capture(name, (tester, errors) async {
           await _hold(isPro: shot.isPro, isHosted: shot.isHosted);
+          await _ownSoundSaved(isSaved: shot.hasOwnSound);
           final key = await _open(
             tester,
             location: '/settings/personalize',
@@ -259,8 +295,6 @@ void main() {
           );
           if (shot == _Shot.trying) {
             final yours = find.byKey(const ValueKey('sound-yours'));
-            await tester.ensureVisible(yours);
-            await tester.pump();
             await tester.tap(yours, warnIfMissed: false);
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 300));
@@ -332,6 +366,35 @@ void main() {
           tester,
           key,
           'lock_weekly_check_${plan}_${sizeName}_${mode.name}',
+          isGood: errors.isEmpty,
+        );
+      });
+
+      capture('lock_sounds_${plan}_${sizeName}_${mode.name}', (
+        tester,
+        errors,
+      ) async {
+        await _hold(isPro: held, isHosted: held);
+        await _ownSoundSaved(isSaved: true);
+        final key = await _open(
+          tester,
+          location: '/sounds',
+          size: size,
+          topInset: top,
+          bottomInset: bottom,
+          mode: mode,
+          scale: 1,
+        );
+        // Down to the own sound and the two ways to add one.
+        final own = find.text(_ownSound.name);
+        if (own.evaluate().isNotEmpty) {
+          await tester.ensureVisible(own.first);
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+        await _save(
+          tester,
+          key,
+          'lock_sounds_${plan}_${sizeName}_${mode.name}',
           isGood: errors.isEmpty,
         );
       });

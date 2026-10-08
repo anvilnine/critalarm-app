@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
@@ -116,7 +117,14 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
         RingingPreviewFrame preview(double maxHeight) => RingingPreviewFrame(
           maxHeight: maxHeight,
           isPlaying: state.isPlaying,
-          onPlay: () => unawaited(cubit.togglePlay()),
+          onPlay: () => unawaited(
+            cubit.togglePlay(
+              ownSoundsLocked: ownSoundsLockedBy(
+                _access.decide(AppFeature.ownSounds),
+              ),
+            ),
+          ),
+          playBelow: isWide,
         );
         final choices = _Choices(sections: widget.sections);
 
