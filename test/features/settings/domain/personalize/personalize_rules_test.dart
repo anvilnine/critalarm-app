@@ -149,7 +149,7 @@ void main() {
     test('a purchase being confirmed is one line, with or without a try', () {
       const decisions = {
         AppFeature.ownSounds: FeatureDecision.confirming(Holding.pro),
-        AppFeature.widgets: FeatureDecision.locked(Holding.hosted),
+        AppFeature.widgets: FeatureDecision.locked(Holding.pro),
       };
       expect(
         tryBarFor(tried: tried, decisions: decisions),

@@ -97,29 +97,29 @@ void main() {
     });
 
     test('shows after the checklist is done, with the plan', () async {
-      h = finished()..plan = HomeWidgetsPlan.needsHosted;
+      h = finished()..plan = HomeWidgetsPlan.needsPro;
       await h.open(home);
       expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
-      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsHosted);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsPro);
     });
 
     test('follows the plan when it changes under the open card', () async {
-      h = finished()..plan = HomeWidgetsPlan.needsHosted;
+      h = finished()..plan = HomeWidgetsPlan.needsPro;
       await h.open(home);
-      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsHosted);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsPro);
 
       // The purchase landed. The card must not stay a locked card whose
       // button opens nothing.
       h
-        ..plan = HomeWidgetsPlan.hosted
+        ..plan = HomeWidgetsPlan.pro
         ..planChanges.add(null);
       await h.settle();
       expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
-      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.hosted);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.pro);
     });
 
     test('keeps what it shows when the plan cannot be read', () async {
-      h = finished()..plan = HomeWidgetsPlan.hosted;
+      h = finished()..plan = HomeWidgetsPlan.pro;
       await h.open(home);
 
       h
@@ -127,7 +127,7 @@ void main() {
         ..planChanges.add(null);
       await h.settle();
       expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
-      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.hosted);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.pro);
     });
 
     test('does not appear while the plan cannot be read', () async {
@@ -164,7 +164,7 @@ void main() {
     });
 
     test('going to the plans sets the flag', () async {
-      h = finished()..plan = HomeWidgetsPlan.needsHosted;
+      h = finished()..plan = HomeWidgetsPlan.needsPro;
       await h.open(home);
       await h.cubit.widgetsPlansOpened();
       expect(h.store.isWidgetsCardSeen, isTrue);
