@@ -68,6 +68,44 @@ ReelPush reelPushAt(double eased, int direction) {
   return ReelPush(into: from * (1 - eased), out: -from * eased);
 }
 
+/// How the reel's stage moves. No scene shares its air with the next, so
+/// the air is rings on the scene's own tone. The mascot comes in from the
+/// side, as the pages do, and hops as each new page lands. The picture
+/// travels with its page.
+const HeroMotion reelMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rings,
+  entrance: HeroEntranceStyle.slide,
+  idle: HeroIdleStyle.benefitHop,
+  arrival: HeroCardArrival.slideThrough,
+);
+
+/// How much of the entrance is already over when the reel opens after an
+/// intro, in seconds. The intro ends on the mascot, so the mascot is in
+/// its place from the first frame and only the picture and the words are
+/// still arriving.
+const double reelAfterIntroLead = 0.6;
+
+/// The loop's prelude: none alone, and a head start after an intro.
+double reelPreludeFor({required bool followsIntro}) =>
+    followsIntro ? -reelAfterIntroLead : 0;
+
+/// Whether a push the reel made by itself gets a tap and a tick. Only the
+/// pages of the first pass do, and none once the hand has taken over: a
+/// reel left open does not keep clicking, and a touch has its own cue.
+///
+/// [began] is the clock second the page on stage began and [was] the one
+/// before it. [entranceEnd] and [period] are the loop's.
+bool reelCuesPush({
+  required double began,
+  required double? was,
+  required double entranceEnd,
+  required double period,
+  required bool touched,
+}) {
+  if (touched || was == null || began <= was) return false;
+  return began > entranceEnd && began < entranceEnd + period;
+}
+
 /// [frame] for the scene on stage, with nothing fading under its picture.
 /// The push shows the scene before it, so the stage must not.
 HeroFrame reelSettled(HeroFrame frame) => HeroFrame(

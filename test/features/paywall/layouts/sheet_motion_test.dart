@@ -1,5 +1,6 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -85,6 +86,51 @@ void main() {
     test('a product with nothing to show has nothing to answer', () {
       final empty = HeroLoop(const []);
       expect(SheetMotion.proofFor(empty, HeroFrame.empty), 0);
+    });
+  });
+
+  group('the motion of the sheet', () {
+    test('the stage picks its own variants', () {
+      expect(SheetMotion.stage.atmosphere, HeroAtmosphereStyle.bubbles);
+      expect(SheetMotion.stage.entrance, HeroEntranceStyle.peek);
+      expect(SheetMotion.stage.idle, HeroIdleStyle.lean);
+      expect(SheetMotion.stage.arrival, HeroCardArrival.fade);
+    });
+
+    test('the mascot hops as the sheet lands, and only then', () {
+      expect(SheetMotion.landingHop(0), 0);
+      expect(SheetMotion.landingHop(SheetMotion.landAt), 0);
+      expect(
+        SheetMotion.landingHop(
+          SheetMotion.landAt + SheetMotion.landSeconds / 2,
+        ),
+        closeTo(SheetMotion.landHopHeight, 1e-9),
+      );
+      expect(SheetMotion.landingHop(SheetMotion.restAt), 0);
+      // The sheet is in its seat by then.
+      expect(SheetMotion.rise(SheetMotion.landAt), greaterThan(0.98));
+      // And the hop is over before the loop starts.
+      expect(
+        SheetMotion.landAt + SheetMotion.landSeconds,
+        lessThan(SheetMotion.restAt),
+      );
+    });
+
+    test('after an intro the preview comes with the sheet', () {
+      expect(SheetMotion.preludeFor(followsIntro: false), SheetMotion.prelude);
+      expect(
+        SheetMotion.preludeFor(followsIntro: true),
+        lessThan(SheetMotion.prelude),
+      );
+    });
+
+    test('only the first pass of an untouched loop is felt', () {
+      bool cues(double t, {bool touched = false}) =>
+          SheetMotion.cuesAt(t, entranceEnd: 1.6, period: 9, touched: touched);
+      expect(cues(1), isFalse);
+      expect(cues(3), isTrue);
+      expect(cues(10.6), isFalse);
+      expect(cues(3, touched: true), isFalse);
     });
   });
 }

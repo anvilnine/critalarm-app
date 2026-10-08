@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 
 // The Proof layout's turns, as numbers. Every benefit plays as two beats:
@@ -194,14 +196,103 @@ ProofTurn proofTurnFor(PaywallPreviewId preview, {required int count}) {
   };
 }
 
-/// The Proof loop for a product's [previews], in order.
-HeroLoop proofLoopFor(List<PaywallPreviewId> previews) => HeroLoop.turns([
+/// How much of the entrance is already over when the layout opens after
+/// an intro, in seconds. The intro ends on the mascot, so it is in its
+/// place from the first frame and only the card and the words still come.
+const double proofAfterIntroLead = 0.6;
+
+/// The Proof loop for a product's [previews], in order. After an intro
+/// ([followsIntro]) its entrance has a head start.
+HeroLoop proofLoopFor(
+  List<PaywallPreviewId> previews, {
+  bool followsIntro = false,
+}) => HeroLoop.turns([
   for (final preview in previews)
     HeroTurn(
       proofTurnFor(preview, count: previews.length).script,
       preview: preview,
     ),
-]);
+], prelude: followsIntro ? -proofAfterIntroLead : 0);
+
+/// How the Proof stage moves. The mascot is dropped in, leans toward the
+/// preview as it watches, and the card turns over from one benefit to the
+/// next, as the tag on its corner does. The air is rings.
+const HeroMotion proofMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rings,
+  entrance: HeroEntranceStyle.drop,
+  idle: HeroIdleStyle.lean,
+  arrival: HeroCardArrival.flip,
+);
+
+/// The refusal: the second of a turn the card shakes its head, how long
+/// for, how far to each side in points, and how many times.
+const double proofShakeAt = 0.42;
+const double proofShakeSeconds = 0.44;
+const double proofShakeReach = 6;
+const int proofShakeTurns = 3;
+
+/// The lift: how long the card's jump lasts, how high it goes in points,
+/// and how much larger the tag is at the top of it.
+const double proofPopSeconds = 0.36;
+const double proofPopHeight = 10;
+const double proofPopSwell = 0.2;
+
+/// Whether [turn] has a refusal to shake at: Free stops it, or does not
+/// have it. A plain default is not a refusal.
+bool proofShakes(ProofTurn turn) =>
+    turn.start != ProofStart.plain && turn.liftAt > proofShakeAt;
+
+/// How far the card and its tag are off their place [seconds] into
+/// [turn], in points.
+///
+/// At the refusal the card shakes sideways, less each time, and is back
+/// in its place before the lift. At the lift it jumps and lands. Between
+/// the two, and when the turn is over, it is at zero.
+Offset proofNudgeAt(ProofTurn turn, double seconds) {
+  if (seconds >= turn.liftAt) {
+    final p = phase(seconds, turn.liftAt, turn.liftAt + proofPopSeconds);
+    return Offset(0, -proofPopHeight * 4 * p * (1 - p));
+  }
+  if (!proofShakes(turn)) return Offset.zero;
+  final end = math.min(proofShakeAt + proofShakeSeconds, turn.liftAt);
+  final p = phase(seconds, proofShakeAt, end);
+  if (p <= 0 || p >= 1) return Offset.zero;
+  return Offset(
+    proofShakeReach * (1 - p) * math.sin(2 * math.pi * proofShakeTurns * p),
+    0,
+  );
+}
+
+/// How much larger than itself the tag is [seconds] into [turn]: it
+/// swells as the lift lands and is back at its own size after it.
+double proofTagSwellAt(ProofTurn turn, double seconds) {
+  final p = phase(seconds, turn.liftAt, turn.liftAt + proofPopSeconds);
+  return 1 + proofPopSwell * 4 * p * (1 - p);
+}
+
+/// A moment of a turn that is felt and heard.
+enum ProofMoment { refusal, lift }
+
+/// The moments of [turn] the clock passed between [from] and [to] seconds
+/// into it. A clock that went backwards passed none.
+Set<ProofMoment> proofMomentsBetween(ProofTurn turn, double from, double to) {
+  if (to <= from) return const {};
+  bool passed(double at) => from < at && to >= at;
+  return {
+    if (proofShakes(turn) && passed(proofShakeAt)) ProofMoment.refusal,
+    if (passed(turn.liftAt)) ProofMoment.lift,
+  };
+}
+
+/// Whether the loop's own moments are felt and heard at clock second [t]:
+/// only through the first pass, and never once the hand has taken over.
+/// A screen left open does not keep tapping, and a touch has its own cue.
+bool proofCuesAt(
+  double t, {
+  required double entranceEnd,
+  required double period,
+  required bool touched,
+}) => !touched && t >= entranceEnd && t < entranceEnd + period;
 
 /// The clock second to cue a preview at, so it holds its Free frame.
 ///
