@@ -21,6 +21,7 @@ class DeviceIdentityStore {
     'device_id',
     'device_token',
     'device_token_relay',
+    'device_token_server',
     'account_id',
     'account_join_token',
     'account_tier',
@@ -34,6 +35,7 @@ class DeviceIdentityStore {
       deviceId: id,
       deviceToken: _prefs.getString('device_token'),
       tokenRelay: _prefs.getString('device_token_relay'),
+      tokenServer: _prefs.getString('device_token_server'),
       accountId: _prefs.getString('account_id'),
       accountJoinToken: _prefs.getString('account_join_token'),
       tier: _prefs.getString('account_tier') ?? 'free',
@@ -99,6 +101,10 @@ class DeviceIdentityStore {
     Uri? relay,
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
+    // A new token belongs to no server yet.
+    if (deviceToken != _prefs.getString('device_token')) {
+      await _prefs.remove('device_token_server');
+    }
     await _prefs.setString('device_token', deviceToken);
     if (relay != null) {
       await _prefs.setString('device_token_relay', relay.toString());
@@ -110,6 +116,38 @@ class DeviceIdentityStore {
     // stored one still stands. An empty string is never a token.
     final join = _nonEmpty(accountJoinToken);
     if (join != null) await _prefs.setString('account_join_token', join);
+  }
+
+  /// Writes down where the held device token belongs: the [relay] that
+  /// issued it and the one [server] it is the credential for. A value left
+  /// out stays as it is. Does nothing on a phone that holds no token.
+  Future<void> saveTokenOrigin({Uri? relay, Uri? server}) async {
+    if (_prefs.getString('device_token') == null) return;
+    if (relay != null) {
+      await _prefs.setString('device_token_relay', relay.toString());
+    }
+    if (server != null) {
+      await _prefs.setString('device_token_server', server.toString());
+    }
+  }
+
+  /// Everything this store holds, to hand back to [restore].
+  Future<Object> snapshot() async => <String, String?>{
+    for (final key in legacyKeys) key: _prefs.getString(key),
+  };
+
+  /// Puts back what [snapshot] read, so a connect that did not land leaves
+  /// the identity as it was.
+  Future<void> restore(Object snapshot) async {
+    final saved = snapshot as Map<String, String?>;
+    for (final key in legacyKeys) {
+      final value = saved[key];
+      if (value == null) {
+        await _prefs.remove(key);
+      } else {
+        await _prefs.setString(key, value);
+      }
+    }
   }
 
   /// Forgets the device row that was retired by the iOS Keychain split.
@@ -175,6 +213,8 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
           'device_token': identity.deviceToken,
           if (identity.tokenRelay != null)
             'device_token_relay': identity.tokenRelay,
+          if (identity.tokenServer != null)
+            'device_token_server': identity.tokenServer,
           'account_id': identity.accountId,
           'account_tier': identity.tier,
           'caps': identity.caps.toJson(),
@@ -315,6 +355,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     deviceId: data['device_id'] as String,
     deviceToken: data['device_token'] as String?,
     tokenRelay: data['device_token_relay'] as String?,
+    tokenServer: data['device_token_server'] as String?,
     accountId: data['account_id'] as String? ?? account?.accountId,
     // The old single item never held one, so on the first read after an
     // update this comes from the synced item or from nowhere.
@@ -377,6 +418,10 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       deviceId: identity.deviceId,
       deviceToken: deviceToken,
       tokenRelay: relay?.toString() ?? identity.tokenRelay,
+      // A new token belongs to no server yet.
+      tokenServer: deviceToken == identity.deviceToken
+          ? identity.tokenServer
+          : null,
       accountId: accountId,
       accountJoinToken: join,
       tier: tier,
@@ -393,6 +438,55 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
   }
 
   @override
+  Future<void> saveTokenOrigin({Uri? relay, Uri? server}) async {
+    final identity = await readOrCreate();
+    if (identity.deviceToken == null) return;
+    final saved = DeviceIdentity(
+      deviceId: identity.deviceId,
+      deviceToken: identity.deviceToken,
+      tokenRelay: relay?.toString() ?? identity.tokenRelay,
+      tokenServer: server?.toString() ?? identity.tokenServer,
+      accountId: identity.accountId,
+      accountJoinToken: identity.accountJoinToken,
+      tier: identity.tier,
+      caps: identity.caps,
+      retiredDeviceId: identity.retiredDeviceId,
+      retiredDeviceToken: identity.retiredDeviceToken,
+    );
+    await _writeDevice(saved);
+    _current = saved;
+  }
+
+  /// The three items as they are stored, and the prefs an install from
+  /// before the Keychain still holds.
+  @override
+  Future<Object> snapshot() async => <String, Object?>{
+    'device': await _read(deviceService, false),
+    'shared': await _read(deviceService, true),
+    'account': await _read(accountService, true),
+    'prefs': await super.snapshot(),
+  };
+
+  @override
+  Future<void> restore(Object snapshot) async {
+    final saved = snapshot as Map<String, Object?>;
+    await _putBack(deviceService, false, saved['device'] as String?);
+    await _putBack(deviceService, true, saved['shared'] as String?);
+    await _putBack(accountService, true, saved['account'] as String?);
+    await super.restore(saved['prefs']!);
+    _current = null;
+  }
+
+  Future<void> _putBack(String service, bool synchronizable, String? value) =>
+      value == null
+      ? _delete(service, synchronizable)
+      : channel.invokeMethod<void>('write', {
+          'service': service,
+          'synchronizable': synchronizable,
+          'value': value,
+        });
+
+  @override
   Future<void> clearRetiredDevice() async {
     final identity = _current;
     if (identity == null || identity.retiredDeviceId == null) return;
@@ -400,6 +494,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       deviceId: identity.deviceId,
       deviceToken: identity.deviceToken,
       tokenRelay: identity.tokenRelay,
+      tokenServer: identity.tokenServer,
       accountId: identity.accountId,
       accountJoinToken: identity.accountJoinToken,
       tier: identity.tier,

@@ -552,6 +552,31 @@ void main() {
       }
     });
 
+    test('an error that quotes a token with a line break in it is '
+        'scrubbed', () async {
+      const broken = 'tk_s3cret\nValue';
+      // As a thrown error quotes a value: the line break written out.
+      const quoted = r'Invalid header value: "Bearer tk_s3cret\nValue"';
+      when(
+        () => connect(
+          serverUrl: any(named: 'serverUrl'),
+          adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
+        ),
+      ).thenThrow(StateError(quoted));
+      final cubit = ConnectLinkCubit(
+        ConnectLink(
+          serverUrl: Uri.parse('https://alarm.example.com'),
+          token: broken,
+        ),
+        connectToServer: connect,
+      );
+      await cubit.connect();
+      expect(cubit.state.isFailed, isTrue);
+      expect(cubit.state.errorMessage, isNot(contains('tk_s3cret')));
+      await cubit.close();
+    });
+
     test('is not in the state even when asked to print it', () {
       final cubit = build();
       expect('${cubit.state}', isNot(contains(_token)));

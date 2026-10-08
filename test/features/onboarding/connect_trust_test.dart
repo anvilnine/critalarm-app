@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -380,24 +379,111 @@ void main() {
       expect(phone.stores, before);
     });
 
-    test('a hosted server on the relay that issued the device token '
-        'connects with that token', () async {
+    test('a server that says it is hosted and names the relay that issued '
+        'the device token is refused: the token is the credential for one '
+        'server, and nothing saved changes', () async {
       final phone = await _connectedPhone({
         'GET $_other/v1/info': (_) =>
             _info(baseUrl: _other, relayUrl: '$_homeRelay/', mode: 'hosted'),
         'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
             _refreshed('acc_home'),
       });
+      final before = phone.stores;
 
       final outcome = await phone.connect(serverUrl: _other, adminToken: '');
+
+      expect(outcome, isA<RegisteredElsewhere>());
+      expect(phone.carrying(_deviceToken), isEmpty);
+      expect(phone.stores, before);
+    });
+
+    test('a phone with no device token connects to a hosted server, and '
+        'the new token is kept with its relay and its server', () async {
+      final phone = await _connectedPhone({
+        'GET $_other/v1/info': (_) =>
+            _info(baseUrl: _other, relayUrl: _otherRelay, mode: 'hosted'),
+        'POST $_otherRelay/relay/v1/devices': (_) => _registered(),
+      }, isConnected: false);
+
+      final outcome = await phone.connect(serverUrl: _other, adminToken: '');
+
+      expect(outcome, isA<Connected>());
+      expect(phone.prefs.getString('device_token'), 'dv_from_this_relay');
+      expect(phone.prefs.getString('device_token_relay'), _otherRelay);
+      expect(phone.prefs.getString('device_token_server'), _other);
+      expect(
+        phone.prefs.getString('api_session'),
+        '$_other|$_otherRelay|hosted|dv_from_this_relay',
+      );
+    });
+
+    test('a phone on a hosted server connects to that server again with '
+        'the token it holds', () async {
+      final phone = await _connectedPhone(
+        {
+          'GET $_other/v1/info': (_) =>
+              _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
+          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_home'),
+        },
+        saved: {
+          'api_session': '$_other|$_homeRelay|hosted|$_deviceToken',
+          'server_url': _other,
+          'admin_token': _deviceToken,
+        },
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: '$_other/',
+        adminToken: '',
+      );
 
       expect(outcome, isA<Connected>());
       expect(phone.carrying(_deviceToken).map((r) => r.url.origin), [
         _homeRelay,
       ]);
-      final session = await SharedPrefsApiSessionStore(phone.prefs).read();
-      expect(session!.mode, ServerMode.hosted);
-      expect(session.managementCredential, _deviceToken);
+      expect(phone.prefs.getString('device_token_server'), _other);
+    });
+
+    test('a phone that moves from a hosted server to its own and back keeps '
+        'its token and its account', () async {
+      final phone = await _connectedPhone(
+        {
+          'GET $_other/v1/info': (_) =>
+              _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
+          'GET $_home/v1/info': (_) =>
+              _info(baseUrl: _home, relayUrl: _homeRelay),
+          'GET $_home/v1/incidents': (_) => _json(<dynamic>[]),
+          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_home'),
+        },
+        saved: {
+          'api_session': '$_other|$_homeRelay|hosted|$_deviceToken',
+          'server_url': _other,
+          'admin_token': _deviceToken,
+        },
+      );
+      // As an older version left it: no issuer and no server beside the
+      // token.
+      await phone.prefs.remove('device_token_relay');
+
+      expect(
+        await phone.connect(serverUrl: _home, adminToken: _adminToken),
+        isA<Connected>(),
+      );
+      expect(phone.prefs.getString('device_token_server'), _other);
+      expect(phone.prefs.getString('device_token_relay'), _homeRelay);
+      expect(
+        await phone.connect(serverUrl: _other, adminToken: ''),
+        isA<Connected>(),
+      );
+
+      expect(phone.prefs.getString('device_token'), _deviceToken);
+      expect(phone.prefs.getString('account_id'), 'acc_home');
+      expect(
+        phone.prefs.getString('api_session'),
+        '$_other|$_homeRelay|hosted|$_deviceToken',
+      );
     });
   });
 

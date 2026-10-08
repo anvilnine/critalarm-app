@@ -410,6 +410,25 @@ void main() {
     verifyNever(() => saveConnection(any()));
   });
 
+  test('a device token that is the credential for another server fails and '
+      'is not tried again', () async {
+    when(
+      () => establishSession(
+        any(),
+        any(),
+        pushToken: any(named: 'pushToken'),
+      ),
+    ).thenThrow(const DeviceTokenServerMismatch());
+    final connect = build();
+
+    await connect.start(cloudUrl);
+    await connect.settled;
+
+    expect(connect.state.failure, BackgroundConnectFailure.refused);
+    expect(intents.read(), isNull);
+    verifyNever(() => saveConnection(any()));
+  });
+
   test(
     'a registration the relay refuses fails and clears the intent',
     () async {

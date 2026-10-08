@@ -421,9 +421,13 @@ class BackgroundConnect {
       if (isStale()) return;
       // The relay answered without a device token. Asking again gets the
       // same answer.
-      // A relay other than the one this phone is registered with is the
-      // same: nothing was sent and a retry changes nothing.
-      if (error is StateError || error is DeviceTokenRelayMismatch) {
+      // A relay or a server other than the one this phone's device token
+      // belongs to is the same: nothing was sent and a retry changes
+      // nothing. So is a token the session cannot hold.
+      if (error is StateError ||
+          error is ArgumentError ||
+          error is DeviceTokenRelayMismatch ||
+          error is DeviceTokenServerMismatch) {
         return _fail(BackgroundConnectFailure.refused, isStale);
       }
       // Offline, DNS failure, timeout: keep it and try later.

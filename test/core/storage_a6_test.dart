@@ -106,6 +106,117 @@ void main() {
     );
   });
 
+  test('the server a device token is the credential for is kept beside it, '
+      'and a new token starts with none', () async {
+    final server = Uri.parse('https://api.example');
+    final prefs = await SharedPreferences.getInstance();
+    for (final store in [
+      DeviceIdentityStore(prefs),
+      KeychainDeviceIdentityStore(prefs),
+    ]) {
+      // Nothing to write an origin for yet.
+      await store.saveTokenOrigin(server: server);
+      expect((await store.read())?.tokenServer, isNull);
+      await store.readOrCreate();
+      await store.saveRegistration(
+        deviceToken: 'dv_1',
+        accountId: 'acc_1',
+        tier: 'free',
+      );
+      await store.saveTokenOrigin(server: server);
+      expect((await store.readOrCreate()).tokenServer, '$server');
+      expect((await store.readOrCreate()).tokenRelay, isNull);
+      // The same token again keeps its server.
+      await store.saveRegistration(
+        deviceToken: 'dv_1',
+        accountId: 'acc_1',
+        tier: 'hosted',
+      );
+      expect((await store.readOrCreate()).tokenServer, '$server');
+      await store.saveRegistration(
+        deviceToken: 'dv_2',
+        accountId: 'acc_1',
+        tier: 'hosted',
+      );
+      expect((await store.readOrCreate()).tokenServer, isNull);
+      await store.clear();
+    }
+  });
+
+  test('an identity put back from a snapshot is the one that was there, '
+      'on Android and in the iOS Keychain', () async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Android, from an identity.
+    final android = DeviceIdentityStore(prefs);
+    await android.readOrCreate();
+    await android.saveRegistration(
+      deviceToken: 'dv_old',
+      accountId: 'acc_old',
+      tier: 'free',
+      relay: Uri.parse('https://relay.example'),
+    );
+    final held = {for (final key in prefs.getKeys()) key: prefs.get(key)};
+    final snapshot = await android.snapshot();
+    await android.saveRegistration(
+      deviceToken: 'dv_new',
+      accountId: 'acc_new',
+      tier: 'hosted',
+      accountJoinToken: 'aj_new',
+      relay: Uri.parse('https://other.example'),
+    );
+    await android.restore(snapshot);
+    expect({for (final key in prefs.getKeys()) key: prefs.get(key)}, held);
+
+    // Android, from nothing.
+    await android.clear();
+    final empty = await android.snapshot();
+    await android.readOrCreate();
+    await android.saveRegistration(
+      deviceToken: 'dv_new',
+      accountId: 'acc_new',
+      tier: 'free',
+    );
+    await android.restore(empty);
+    expect(prefs.getKeys(), isEmpty);
+
+    // iPhone, from nothing: the items a registration wrote are gone again.
+    final iphone = KeychainDeviceIdentityStore(prefs);
+    final nothing = await iphone.snapshot();
+    await iphone.readOrCreate();
+    await iphone.saveRegistration(
+      deviceToken: 'dv_new',
+      accountId: 'acc_new',
+      tier: 'free',
+      accountJoinToken: 'aj_new',
+    );
+    expect(keychain.device, isNotNull);
+    expect(keychain.account, isNotNull);
+    await iphone.restore(nothing);
+    expect(keychain.items, isEmpty);
+    expect((await iphone.read())?.deviceToken, isNull);
+
+    // iPhone, from an identity.
+    await iphone.readOrCreate();
+    await iphone.saveRegistration(
+      deviceToken: 'dv_old',
+      accountId: 'acc_old',
+      tier: 'free',
+      accountJoinToken: 'aj_old',
+    );
+    final items = Map.of(keychain.items);
+    final kept = await iphone.snapshot();
+    await iphone.saveRegistration(
+      deviceToken: 'dv_new',
+      accountId: 'acc_new',
+      tier: 'hosted',
+      accountJoinToken: 'aj_new',
+    );
+    await iphone.restore(kept);
+    expect(keychain.items, items);
+    expect((await iphone.readOrCreate()).deviceToken, 'dv_old');
+  });
+
   test('a phone that holds nothing reads as nothing and mints no id', () async {
     final prefs = await SharedPreferences.getInstance();
     expect(await DeviceIdentityStore(prefs).read(), isNull);

@@ -19,11 +19,13 @@ String? connectOutcomeMessage(ConnectOutcome outcome) => switch (outcome) {
     LocaleKeys.onboarding_connect_admin_token_error_wrong.tr(),
   RelayDiffers() => LocaleKeys.onboarding_connect_relay_differs.tr(),
   RelayUnchecked() => LocaleKeys.connect_link_relay_unchecked.tr(),
+  RegisteredElsewhere() =>
+    LocaleKeys.onboarding_connect_registered_elsewhere.tr(),
   ServerIncompatible(:final version) =>
     LocaleKeys.onboarding_connect_version_incompatible.tr(
       namedArgs: {'version': version},
     ),
-  // An exception dump is not a sentence. This one is a transport error, so
-  // it gets the transport wording.
+  // Only the kind of transport error is left by now, so this is one of
+  // three fixed lines and never the text of an exception.
   ConnectTransportError(:final error) => networkFailureMessage(error),
 };

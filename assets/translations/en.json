@@ -117,6 +117,7 @@
     "admin_token_error_wrong": "The server did not accept this admin token. Not connected.",
     "answer_invalid": "This address did not answer like a Crit Alarm server. Not connected.",
     "relay_differs": "This server uses another relay than the one this phone is registered with. Disconnect first, then connect again.",
+    "registered_elsewhere": "This phone is registered with another server. Disconnect first, then connect again.",
     "version_incompatible": "Your server is {version}. Update it to 0.x, then connect again.",
     "connected_status": "Connected: {serverUrl}",
     "hook_title": "Test your alarm",

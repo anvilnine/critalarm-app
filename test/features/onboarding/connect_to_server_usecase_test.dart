@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/push/device_token_relay.dart';
@@ -24,6 +27,8 @@ const _info = ServerInfo(
   relayUrl: 'https://relay.example.com',
 );
 
+const _checkpoint = SessionCheckpoint(null, <String, String?>{});
+
 void main() {
   late _MockGetInfo getInfo;
   late _MockEstablish establish;
@@ -34,6 +39,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(Uri.parse('https://x.example.com'));
     registerFallbackValue(_info);
+    registerFallbackValue(_checkpoint);
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
@@ -48,6 +54,14 @@ void main() {
       calls.add('info');
       return _info.toSuccess();
     });
+    when(
+      () => establish.relayTrust(any()),
+    ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+    when(() => establish.checkpoint()).thenAnswer((_) async => _checkpoint);
+    when(() => establish.rollBack(any())).thenAnswer((_) async {
+      calls.add('roll back');
+    });
+    when(() => getInfo.proveAdminToken(any(), any())).thenAnswer((_) async {});
     when(() => establish(any(), any())).thenAnswer((invocation) async {
       calls.add('session');
       return ApiSession(
@@ -127,6 +141,60 @@ void main() {
       adminToken: 'tk_one',
     );
     expect(outcome, isA<ConnectionNotSaved>());
+  });
+
+  test('a connection that cannot be saved puts the session back', () async {
+    when(
+      () => save(any()),
+    ).thenAnswer((_) async => const Failure.database().toFailure());
+    await connect(serverUrl: 'https://alarm.example.com', adminToken: 'tk_one');
+    expect(calls, ['cancel', 'info', 'session', 'roll back']);
+  });
+
+  test('a save that throws puts the session back too', () async {
+    when(() => save(any())).thenThrow(Exception('keychain'));
+    final outcome = await connect(
+      serverUrl: 'https://alarm.example.com',
+      adminToken: 'tk_one',
+    );
+    expect(outcome, isA<ConnectTransportError>());
+    expect(calls, ['cancel', 'info', 'session', 'roll back']);
+  });
+
+  test('what a transport error said is dropped, so a credential it quoted '
+      'is in no outcome', () async {
+    when(() => establish(any(), any())).thenThrow(
+      const FormatException(
+        'Invalid HTTP header field value: "Bearer tk_one"',
+        'Bearer tk_one',
+      ),
+    );
+    final outcome = await connect(
+      serverUrl: 'https://alarm.example.com',
+      adminToken: 'tk_one',
+    );
+    expect(outcome, isA<ConnectTransportError>());
+    expect(
+      (outcome as ConnectTransportError).error.toString(),
+      isNot(contains('tk_one')),
+    );
+  });
+
+  test('a transport error keeps its kind and nothing else', () async {
+    final kinds = <Object, NetworkFaultKind>{
+      TimeoutException('slow'): NetworkFaultKind.timeout,
+      Exception('SocketException: Failed host lookup'):
+          NetworkFaultKind.unreachable,
+      Exception('anything else'): NetworkFaultKind.other,
+    };
+    for (final MapEntry(key: thrown, value: kind) in kinds.entries) {
+      when(() => establish(any(), any())).thenThrow(thrown);
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect((outcome as ConnectTransportError).error.kind, kind);
+    }
   });
 
   test('a throw on the way is a transport error', () async {
@@ -533,6 +601,28 @@ void main() {
       expect(calls, ['session', 'save']);
     });
 
+    test('a token with a character a header cannot carry is a wrong token '
+        'and is sent nowhere', () async {
+      for (final token in [
+        'tk_one\u200B',
+        'tk_\u00e9',
+        'tk_one\ntwo',
+        'tk one',
+        'tk_one\ttwo',
+        'tk_one\u007F',
+      ]) {
+        for (final pin in [false, true]) {
+          final outcome = await proving()(
+            serverUrl: 'https://alarm.example.com',
+            adminToken: token,
+            pinToAddress: pin,
+          );
+          expect(outcome, isA<AdminTokenRefused>(), reason: token);
+        }
+      }
+      expect(calls.where((call) => call != 'info'), isEmpty);
+    });
+
     test('a token the saved session cannot hold is a wrong token and is '
         'sent nowhere', () async {
       for (final pin in [false, true]) {
@@ -557,6 +647,33 @@ void main() {
       );
       expect(outcome, isA<AdminTokenRefused>());
       expect(outcome.toString(), isNot(contains('tk_s3cret')));
+    });
+  });
+
+  group('with no check handed in, the use case still makes both', () {
+    test('a refused token is not saved', () async {
+      when(() => getInfo.proveAdminToken(any(), any())).thenThrow(
+        const ApiException(statusCode: 401, message: 'no'),
+      );
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<AdminTokenRefused>());
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('another relay is refused', () async {
+      when(
+        () => establish.relayTrust(any()),
+      ).thenAnswer((_) async => DeviceTokenRelayTrust.otherRelay);
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<RelayDiffers>());
+      verifyNever(() => establish(any(), any()));
     });
   });
 
@@ -630,6 +747,19 @@ void main() {
         pinToAddress: true,
       );
       expect(outcome, isA<Connected>());
+    });
+
+    test('a session that refuses the server, because the device token is '
+        'the credential for another one, has an outcome of its own', () async {
+      when(
+        () => establish(any(), any()),
+      ).thenThrow(const DeviceTokenServerMismatch());
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<RegisteredElsewhere>());
+      verifyNever(() => save(any()));
     });
 
     test('a session that refuses the relay is the same outcome', () async {
