@@ -104,21 +104,24 @@ void main() {
         final q = opsMathQuestion(seed);
         seen.add(q.kind);
         final (low, high) = switch (q.kind) {
-          OpsMathKind.hexToDecimal => (16, 255),
-          OpsMathKind.powerOfTwo => (1, 12),
-          OpsMathKind.secondsInMinutes => (2, 90),
-          OpsMathKind.secondsInHours => (1, 12),
-          OpsMathKind.kilobytesInMegabytes => (2, 64),
+          OpsMathKind.hexToDecimal => (0x1A, 255),
+          OpsMathKind.powerOfTwo => (5, 12),
+          OpsMathKind.secondsInMinutes => (3, 90),
+          OpsMathKind.secondsInHours => (2, 12),
+          OpsMathKind.kilobytesInMegabytes => (3, 64),
         };
         expect(q.operand, inInclusiveRange(low, high), reason: 'seed $seed');
         expect(q.answer, greaterThan(0));
         switch (q.kind) {
           case OpsMathKind.hexToDecimal:
+            // At least one digit is a letter.
+            expect(q.operand >> 4 >= 10 || q.operand & 0xF >= 10, isTrue);
             expect(q.answer, lessThanOrEqualTo(0xFF));
             expect(int.parse(q.operandText.substring(2), radix: 16), q.answer);
           case OpsMathKind.powerOfTwo:
             expect(q.answer, lessThanOrEqualTo(4096));
           case OpsMathKind.secondsInMinutes:
+            expect(q.operand % 10, isNot(0));
             expect(q.answer, q.operand * 60);
           case OpsMathKind.secondsInHours:
             expect(q.answer, q.operand * 3600);
@@ -136,6 +139,12 @@ void main() {
         expect(a.kind, b.kind);
         expect(a.operand, b.operand);
       }
+    });
+
+    test('the sample sits inside the ranges', () {
+      const sample = OpsMathQuestion.sample;
+      expect(sample.operand, inInclusiveRange(0x1A, 0xFF));
+      expect(sample.operand >> 4 >= 10 || sample.operand & 0xF >= 10, isTrue);
     });
 
     test('known answers', () {
@@ -185,6 +194,39 @@ void main() {
       expect(ok('٣١'), isFalse);
       expect(ok('9' * 40), isFalse);
       expect(ok('3️⃣1️⃣'), isFalse);
+    });
+  });
+
+  group('opsMathJudge', () {
+    test('typing 1024 digit by digit waits, then passes once at the end', () {
+      final verdicts = [
+        for (final typed in ['1', '10', '102', '1024'])
+          opsMathJudge(typed: typed, answer: 1024),
+      ];
+      expect(verdicts, [
+        OpsMathVerdict.waiting,
+        OpsMathVerdict.waiting,
+        OpsMathVerdict.waiting,
+        OpsMathVerdict.right,
+      ]);
+    });
+
+    test('a wrong answer is cleared only at the answer length', () {
+      expect(opsMathJudge(typed: '1', answer: 1024), OpsMathVerdict.waiting);
+      expect(opsMathJudge(typed: '2', answer: 1024), OpsMathVerdict.waiting);
+      expect(opsMathJudge(typed: '1025', answer: 1024), OpsMathVerdict.wrong);
+      expect(opsMathJudge(typed: '10240', answer: 1024), OpsMathVerdict.wrong);
+    });
+
+    test('done judges a short answer, and an empty field waits', () {
+      expect(
+        opsMathJudge(typed: '10', answer: 1024, isFinal: true),
+        OpsMathVerdict.wrong,
+      );
+      expect(
+        opsMathJudge(typed: '', answer: 1024, isFinal: true),
+        OpsMathVerdict.waiting,
+      );
     });
   });
 

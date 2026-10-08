@@ -128,8 +128,10 @@ class _TypeAlertTitleState extends State<_TypeAlertTitle> {
                                 colors.onCanvas,
                                 fontSize: size,
                               )
+                            // The rest of the title is shown whole, but
+                            // dimmed so the words to type stand out.
                             : AppTypography.mono(
-                                colors.onCanvas,
+                                colors.onCanvas.withValues(alpha: 0.55),
                                 fontSize: size - 2,
                               ),
                       ),
