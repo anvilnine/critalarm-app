@@ -31,8 +31,16 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove"/>
 
+    <!-- No backup and no phone to phone transfer. A restored phone has to
+         start as a phone the relay has never seen, and the person's own
+         alarm photo and own sounds are in no backup. allowBackup="false"
+         stops the Google account backup. On Android 12 and later it does not
+         stop a transfer between two phones, so the two rules files leave
+         every domain out as well. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:label="Crit Alarm"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
