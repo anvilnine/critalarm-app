@@ -90,7 +90,9 @@ void main() {
             final profile = style.lookOf(stage).ambient(base, brightness);
             expect(profile.shapes, hasLength(3));
             expect(profile.canvas.a, 1, reason: 'a see-through canvas');
-            if (style.keepsThemeFace) continue;
+            // The standard look's canvas is the severity's, drawn by the
+            // two alarm profiles. Its own test below holds it to them.
+            if (style == standardAlarmStyle) continue;
             // A look with its own canvas says so in both places.
             final colors = style.colorsFor(
               stage,
@@ -127,7 +129,7 @@ void main() {
       });
 
       test('the face is yellow in both themes and both stages', () {
-        if (style.keepsThemeFace) return;
+        expect(style.keepsThemeFace, isFalse);
         for (final MapEntry(key: brightness, value: base) in _themes.entries) {
           for (final stage in AlarmStage.values) {
             final colors = style.colorsFor(
@@ -146,22 +148,14 @@ void main() {
   }
 
   group('the standard look is the alarm screen as it was:', () {
-    test('it is the only look that keeps the theme face', () {
-      expect(
-        alarmStyles.where((style) => style.keepsThemeFace).toList(),
-        [standardAlarmStyle],
-      );
-      expect(
-        standardAlarmStyle.facePaletteFor(Brightness.dark),
-        AppColors.dark,
-      );
-      expect(
-        standardAlarmStyle.facePaletteFor(Brightness.light),
-        AppColors.light,
-      );
+    test('its face is the yellow one in the dark theme too', () {
+      expect(alarmStyles.where((style) => style.keepsThemeFace), isEmpty);
+      for (final brightness in Brightness.values) {
+        expect(standardAlarmStyle.facePaletteFor(brightness), AppColors.light);
+      }
     });
 
-    test('its colours are the severity palette, untouched', () {
+    test('its colours are the severity palette, with the face yellow', () {
       for (final MapEntry(key: brightness, value: base) in _themes.entries) {
         for (final severity in SeverityMode.values) {
           final ringing = standardAlarmStyle.colorsFor(
@@ -171,12 +165,15 @@ void main() {
             brightness: brightness,
           );
           expect(ringing.canvas, base.withSeverity(severity).canvas);
-          expect(ringing.faceFill, base.faceFill);
+          expect(ringing.faceFill, AppColors.light.yellow);
+          expect(ringing.faceInk, AppColors.light.faceInk);
           expect(ringing.highlight, base.highlight);
-          // A severity that retints nothing hands the app's palette back.
-          if (severity == SeverityMode.none) {
-            expect(identical(ringing, base), isTrue);
-          }
+          // The rest is the severity's palette.
+          final severityColors = base.withSeverity(severity);
+          expect(ringing.onCanvas, severityColors.onCanvas);
+          expect(ringing.surface, severityColors.surface);
+          expect(ringing.ink, severityColors.ink);
+          expect(ringing.crit, severityColors.crit);
           // The acknowledged stage is the acknowledged palette whatever
           // the incident's severity.
           final acknowledged = standardAlarmStyle.colorsFor(
