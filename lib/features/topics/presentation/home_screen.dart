@@ -51,7 +51,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/home_card_view.dart';
 import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_confetti.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
