@@ -2,6 +2,7 @@ import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
@@ -46,6 +47,21 @@ final class WeeklyCheckBodyView {
   @override
   int get hashCode => Object.hash(lineKey, lineWhen, isOn);
 }
+
+/// The one line under the row for how the last tap on the switch ended, or
+/// null when it has nothing to say. A tap the relay refused says why in
+/// words that are true: it never reads as "could not reach the relay".
+String? weeklyCheckSwitchLineKey(WeeklyCheckSwitchOutcome? outcome) =>
+    switch (outcome) {
+      null || WeeklyCheckSwitchOutcome.done => null,
+      WeeklyCheckSwitchOutcome.tierRefused =>
+        LocaleKeys.weekly_check_switch_needs_hosted,
+      WeeklyCheckSwitchOutcome.notOffered =>
+        LocaleKeys.weekly_check_own_server_line,
+      WeeklyCheckSwitchOutcome.refused =>
+        LocaleKeys.weekly_check_switch_refused,
+      WeeklyCheckSwitchOutcome.failed => LocaleKeys.weekly_check_switch_failed,
+    };
 
 DateTime _at(int seconds) =>
     DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);

@@ -21,6 +21,10 @@ enum WeeklyCheckSwitchOutcome {
   /// exist. The relay was not asked.
   notOffered,
 
+  /// The relay answered and said no, for a reason other than the tier.
+  /// Nothing changed.
+  refused,
+
   /// The relay could not be asked. Nothing changed.
   failed,
 }
@@ -191,9 +195,12 @@ final class WeeklyCheckMonitor {
   /// Never enrols a phone on a server of the user's own: the relay is not
   /// asked. Enrolling without Hosted answers `403` with the tier the check
   /// needs. The app does not decide Hosted is gone by itself: it has the
-  /// tier read again ([_onTierRefused]) and reads the check back. A `403`
-  /// that names no tier, as a relay before 1.19.0 sends, is a switch that
-  /// failed.
+  /// tier read again ([_onTierRefused]) and reads the check back. Any other
+  /// refusal the relay answers with, such as the `403` with no tier that a
+  /// relay before 1.19.0 sends, is [WeeklyCheckSwitchOutcome.refused]: the
+  /// relay was reached, so the row must not say it was not. Only a relay
+  /// that could not be asked, or that failed on its own side, is
+  /// [WeeklyCheckSwitchOutcome.failed].
   Future<WeeklyCheckSwitchOutcome> setEnabled({required bool enabled}) async {
     if (enabled && _readAccess() == WeeklyCheckAccess.notOffered) {
       return WeeklyCheckSwitchOutcome.notOffered;
@@ -211,6 +218,11 @@ final class WeeklyCheckMonitor {
         return WeeklyCheckSwitchOutcome.tierRefused;
       }
       debugPrint('weekly_check_switch_failed status=${error.statusCode}');
+      if (error.statusCode >= 400 && error.statusCode < 500) {
+        // Read back, so the switch shows what the relay holds.
+        await refresh(force: true);
+        return WeeklyCheckSwitchOutcome.refused;
+      }
       return WeeklyCheckSwitchOutcome.failed;
     } on Object catch (error) {
       debugPrint('weekly_check_switch_failed error=${error.runtimeType}');

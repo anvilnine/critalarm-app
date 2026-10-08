@@ -1249,6 +1249,8 @@
     "line_no_token": "Not registered with the push relay yet.",
     "next_due": "Next check due {when}.",
     "switch_failed": "Could not reach the push relay. Try again.",
+    "switch_needs_hosted": "The weekly check needs Hosted.",
+    "switch_refused": "The push relay did not accept that.",
     "rounds_link": "Past checks",
     "rounds_title": "Past checks",
     "rounds_back": "Back",
