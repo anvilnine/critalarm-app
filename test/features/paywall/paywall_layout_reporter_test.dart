@@ -41,7 +41,7 @@ void main() {
 
   test('a Hosted layout sends the shipped paywall events', () {
     final ready = _ready(PaywallProduct.hosted);
-    const tags = {'layout': 'sheet', 'product': 'hosted'};
+    const tags = {'layout': 'sheet', 'intro': 'none', 'product': 'hosted'};
     reporter(PaywallProduct.hosted, 'history')
       ..viewed()
       ..started(PaywallBuyAction.purchase, ready)
@@ -106,7 +106,7 @@ void main() {
 
   test('a Pro layout sends the Pro sheet events and names no plan', () {
     final ready = _ready(PaywallProduct.pro);
-    const tags = {'layout': 'sheet', 'product': 'pro'};
+    const tags = {'layout': 'sheet', 'intro': 'none', 'product': 'pro'};
     final paused = afterConfirmStep(
       ready,
       PaywallConfirmStep.paused,
@@ -167,7 +167,15 @@ void main() {
         )
         ..closed();
     }
-    const allowed = {'source', 'plan', 'reason', 'result', 'layout', 'product'};
+    const allowed = {
+      'source',
+      'plan',
+      'reason',
+      'result',
+      'layout',
+      'intro',
+      'product',
+    };
     for (final event in gate.events) {
       final parameters = event[1]! as Map<String, Object?>;
       expect(allowed.containsAll(parameters.keys), isTrue);

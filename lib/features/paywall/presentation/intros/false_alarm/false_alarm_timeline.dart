@@ -1,14 +1,11 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
-import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 
-// The joke the False alarm paywall opens with, as numbers. The screen looks
-// like an alarm for about a second, the mascot blinks, admits it, and the
-// red gives way to the offer. Everything is worked out from the clock, so
-// the frame after the joke is simply a later second.
+// The false alarm intro, as numbers. The screen looks like an alarm for
+// about a second, the mascot blinks, admits it, and the red gives way to
+// whichever layout was chosen. Everything is worked out from the intro's
+// clock, so any second of it can be drawn and tested alone.
 
 /// The faces the large mascot makes during the joke.
 enum FalseAlarmFace { alarmed, sheepish, glad }
@@ -25,17 +22,11 @@ abstract final class FalseAlarmTimeline {
   /// The red starts to give way. A tap during the joke jumps here.
   static const double reveal = 1.25;
 
-  /// The offer's own entrance starts: the loop's prelude.
-  static const double prelude = 1.5;
-
-  /// The buy block comes in, once the red has left the foot of the screen.
-  static const double buyBlockAt = 1.6;
+  /// The layout's own entrance starts, under the last of the red.
+  static const double handover = 1.5;
 
   /// Nothing of the joke is drawn from here on.
   static const double end = 1.75;
-
-  /// The second a still screen rests on: the offer, after its entrance.
-  static const double restAt = prelude + heroEntranceSeconds;
 
   /// The widest the mascot leans in a ring, in radians: five degrees.
   static const double shakeReach = 5 * math.pi / 180;
@@ -98,61 +89,22 @@ abstract final class FalseAlarmTimeline {
   /// How far in the admission is at [t], 0 to 1.
   static double admission(double t) => phase(t, admit, admit + 0.18);
 
-  /// How much of the screen the stage tone has taken back from the red at
-  /// [t], 0 to 1.
+  /// How much of the screen the red has given back to the layout under it
+  /// at [t], 0 to 1. It opens from where the mascot stands.
   static double wipe(double t) => phase(t, reveal, reveal + 0.4);
 
-  /// How much of the large mascot and its line is left at [t], 1 to 0. It
-  /// goes as the offer's own mascot comes up.
-  static double presence(double t) => 1 - phase(t, prelude - 0.05, end);
+  /// How much of the admission is left at [t], 1 to 0. It is gone by the
+  /// hand over, so no word of the joke lies over the layout as it comes in.
+  static double words(double t) => 1 - phase(t, reveal + 0.1, handover);
+
+  /// How much of the large mascot is left at [t], 1 to 0. It goes as the
+  /// layout's own entrance comes up.
+  static double presence(double t) => 1 - phase(t, handover - 0.05, end);
 
   /// True once nothing of the joke is drawn.
   static bool isOver(double t) => t >= end;
 
-  /// Whether the buy block is on screen at [t].
-  static bool showsBuyBlock(double t) => t >= buyBlockAt;
-
   /// The second a tap at [t] moves the clock to: the reveal while the joke
   /// plays, and no change after it.
   static double skip(double t) => t < reveal ? reveal : t;
-}
-
-/// Where the "just kidding" tag may stand on the stage: the air to the
-/// right of the mascot and above the card, clear of the close cross in the
-/// top right corner. Null when there is no such room, and the tag is left
-/// out.
-///
-/// [stage] is the stage's size and [arrangement] what stands on it.
-/// [crossSize] is the square the cross takes from the top right corner.
-Rect? falseAlarmTagRoom({
-  required Size stage,
-  required HeroArrangement arrangement,
-  double crossSize = 48,
-  double minWidth = 110,
-  double minHeight = 40,
-}) {
-  if (arrangement.kind != HeroStageKind.pair) return null;
-  final mascot = arrangement.mascot;
-  final card = arrangement.card;
-  final left = mascot.right + 8;
-  final bottom = card.top - 8;
-  final right = stage.width - heroSideRoom;
-  if (right - left < minWidth) return null;
-
-  // Under the cross when that leaves a tag's height, beside it otherwise.
-  final under = Rect.fromLTRB(
-    left,
-    math.max(mascot.top, crossSize),
-    right,
-    bottom,
-  );
-  if (under.height >= minHeight + 12) return under;
-  final beside = Rect.fromLTRB(
-    left,
-    math.max(mascot.top, 4),
-    math.min(right, stage.width - crossSize),
-    bottom,
-  );
-  if (beside.width < minWidth || beside.height < minHeight) return null;
-  return beside;
 }

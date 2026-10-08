@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -9,31 +10,81 @@ import 'package:flutter_test/flutter_test.dart';
 const PaywallProduct _hosted = PaywallProduct.hosted;
 const PaywallProduct _pro = PaywallProduct.pro;
 
+/// What opens, as the door asks: the remote layout value is read for the
+/// layout and for the intro it may still carry.
+PaywallOpening? _open(
+  PaywallProduct product,
+  PaywallEntry entry, {
+  String remote = '',
+  String remoteIntro = '',
+  PaywallLayoutSetting? developer,
+  PaywallIntroId? developerIntro,
+  bool hasSeenFalseAlarm = false,
+}) => paywallOpeningFor(
+  product: product,
+  entry: entry,
+  remote: PaywallLayoutSetting.parse(remote),
+  developer: developer,
+  remoteIntro: PaywallIntroId.parse(remoteIntro),
+  developerIntro: developerIntro,
+  legacyIntro: developer == null ? paywallIntroInLayoutValue(remote) : null,
+  hasSeenFalseAlarm: hasSeenFalseAlarm,
+);
+
+PaywallLayoutId? paywallLayoutFor({
+  required PaywallProduct product,
+  required PaywallEntry entry,
+  required PaywallLayoutSetting remote,
+  required bool hasSeenFalseAlarm,
+}) => paywallOpeningFor(
+  product: product,
+  entry: entry,
+  remote: remote,
+  hasSeenFalseAlarm: hasSeenFalseAlarm,
+)?.layout;
+
 PaywallLayoutId? _hostedFrom(
   PaywallSource source, {
   String remote = '',
   PaywallLayoutSetting? developer,
   bool hasSeenFalseAlarm = false,
-}) => paywallLayoutFor(
-  product: _hosted,
-  entry: paywallEntryOf(source),
-  remote: PaywallLayoutSetting.parse(remote),
+}) => _open(
+  _hosted,
+  paywallEntryOf(source),
+  remote: remote,
   developer: developer,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
-);
+)?.layout;
 
 PaywallLayoutId? _proFrom(
   ProPackSheetSource source, {
   String remote = '',
   PaywallLayoutSetting? developer,
   bool hasSeenFalseAlarm = false,
-}) => paywallLayoutFor(
-  product: _pro,
-  entry: paywallEntryOfProSheet(source),
-  remote: PaywallLayoutSetting.parse(remote),
+}) => _open(
+  _pro,
+  paywallEntryOfProSheet(source),
+  remote: remote,
   developer: developer,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
-);
+)?.layout;
+
+PaywallIntroId? _hostedIntroFrom(
+  PaywallSource source, {
+  String remote = '',
+  String remoteIntro = '',
+  PaywallLayoutSetting? developer,
+  PaywallIntroId? developerIntro,
+  bool hasSeenFalseAlarm = false,
+}) => _open(
+  _hosted,
+  paywallEntryOf(source),
+  remote: remote,
+  remoteIntro: remoteIntro,
+  developer: developer,
+  developerIntro: developerIntro,
+  hasSeenFalseAlarm: hasSeenFalseAlarm,
+)?.intro;
 
 void main() {
   group('entry points', () {
@@ -120,8 +171,6 @@ void main() {
 
   group('auto', () {
     test('Hosted picks by entry point', () {
-      // The False alarm layout has had its showing, so the Settings plan
-      // row reads as the table has it.
       const expected = <PaywallSource, PaywallLayoutId>{
         PaywallSource.createTopicCard: PaywallLayoutId.sheet,
         PaywallSource.historyOlder: PaywallLayoutId.sheet,
@@ -179,7 +228,6 @@ void main() {
   group('a named layout', () {
     test('opens from every entry point, for both products', () {
       for (final layout in PaywallLayoutId.values) {
-        if (layout == PaywallLayoutId.falseAlarm) continue;
         for (final source in PaywallSource.values) {
           expect(_hostedFrom(source, remote: layout.key), layout);
         }
@@ -246,58 +294,57 @@ void main() {
     });
   });
 
-  group('the False alarm layout', () {
-    test('takes the place of hero on the Settings plan row, once', () {
+  group('the false alarm intro', () {
+    test('on auto it plays before hero on the Settings plan row, once', () {
       expect(
-        _hostedFrom(PaywallSource.settingsPlan, remote: 'auto'),
-        PaywallLayoutId.falseAlarm,
+        _open(_hosted, PaywallEntry.settingsPlan, remote: 'auto'),
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          intro: PaywallIntroId.falseAlarm,
+        ),
       );
       expect(
-        _hostedFrom(
-          PaywallSource.settingsPlan,
+        _open(
+          _hosted,
+          PaywallEntry.settingsPlan,
           remote: 'auto',
           hasSeenFalseAlarm: true,
         ),
-        PaywallLayoutId.hero,
+        const PaywallOpening(PaywallLayoutId.hero),
       );
     });
 
-    test('never opens from any other entry point', () {
+    test('with no intro set it plays from no other entry point', () {
       for (final remote in ['auto', 'false_alarm']) {
         for (final source in PaywallSource.values) {
           if (source == PaywallSource.settingsPlan) continue;
           expect(
-            _hostedFrom(source, remote: remote),
-            isNot(PaywallLayoutId.falseAlarm),
+            _hostedIntroFrom(source, remote: remote),
+            PaywallIntroId.none,
             reason: '$remote from $source',
           );
         }
       }
     });
 
-    test('by name it keeps the same rule and falls back to hero', () {
+    test('its old layout key reads as hero with the intro, same rule', () {
       expect(
-        _hostedFrom(PaywallSource.settingsPlan, remote: 'false_alarm'),
-        PaywallLayoutId.falseAlarm,
+        _open(_hosted, PaywallEntry.settingsPlan, remote: 'false_alarm'),
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          intro: PaywallIntroId.falseAlarm,
+        ),
       );
       expect(
-        _hostedFrom(
-          PaywallSource.settingsPlan,
+        _open(
+          _hosted,
+          PaywallEntry.settingsPlan,
           remote: 'false_alarm',
           hasSeenFalseAlarm: true,
         ),
-        PaywallLayoutId.hero,
+        const PaywallOpening(PaywallLayoutId.hero),
       );
-      for (final source in [
-        PaywallSource.createTopicCard,
-        PaywallSource.history,
-        PaywallSource.planSheetEnding,
-        PaywallSource.planSheetEnded,
-        PaywallSource.reminderMorningAfter,
-        PaywallSource.reminderProLater,
-        PaywallSource.askSheet,
-        PaywallSource.homeDay0Card,
-      ]) {
+      for (final source in PaywallSource.values) {
         expect(
           _hostedFrom(source, remote: 'false_alarm'),
           PaywallLayoutId.hero,
@@ -306,24 +353,102 @@ void main() {
       }
     });
 
-    test('never opens for Pro', () {
+    test('with no intro set it never plays for Pro', () {
       for (final remote in ['auto', 'false_alarm']) {
         for (final entry in PaywallEntry.values) {
           expect(
-            paywallLayoutFor(
-              product: _pro,
-              entry: entry,
-              remote: PaywallLayoutSetting.parse(remote),
-              hasSeenFalseAlarm: false,
-            ),
-            isNot(PaywallLayoutId.falseAlarm),
+            _open(_pro, entry, remote: remote)?.intro,
+            PaywallIntroId.none,
           );
         }
       }
     });
 
-    test('never opens at the defaults', () {
+    test('never plays at the defaults', () {
       expect(_hostedFrom(PaywallSource.settingsPlan), isNull);
+      expect(
+        _open(_hosted, PaywallEntry.settingsPlan, remoteIntro: 'false_alarm'),
+        isNull,
+      );
+    });
+  });
+
+  group('the intro value', () {
+    test('plays before any layout, from any entry, for both products', () {
+      for (final product in PaywallProduct.values) {
+        for (final entry in PaywallEntry.values) {
+          for (final layout in ['hero', 'sheet', 'doors', 'auto']) {
+            expect(
+              _open(
+                product,
+                entry,
+                remote: layout,
+                remoteIntro: 'false_alarm',
+              )?.intro,
+              PaywallIntroId.falseAlarm,
+              reason: '$product $entry $layout',
+            );
+          }
+        }
+      }
+    });
+
+    test('empty, and a value this build does not know, is no intro', () {
+      for (final value in ['', '  ', 'falseAlarm', 'drumroll', 'none']) {
+        expect(
+          _hostedIntroFrom(
+            PaywallSource.history,
+            remote: 'hero',
+            remoteIntro: value,
+          ),
+          PaywallIntroId.none,
+          reason: value,
+        );
+      }
+    });
+
+    test('the false alarm still plays once on an install', () {
+      expect(
+        _hostedIntroFrom(
+          PaywallSource.history,
+          remote: 'sheet',
+          remoteIntro: 'false_alarm',
+          hasSeenFalseAlarm: true,
+        ),
+        PaywallIntroId.none,
+      );
+    });
+
+    test('what Developer options set outranks the remote value', () {
+      expect(
+        _hostedIntroFrom(
+          PaywallSource.history,
+          remote: 'hero',
+          developerIntro: PaywallIntroId.falseAlarm,
+        ),
+        PaywallIntroId.falseAlarm,
+      );
+      // No intro, set by hand, also beats the rule for the Settings row.
+      expect(
+        _hostedIntroFrom(
+          PaywallSource.settingsPlan,
+          remote: 'auto',
+          remoteIntro: 'false_alarm',
+          developerIntro: PaywallIntroId.none,
+        ),
+        PaywallIntroId.none,
+      );
+    });
+
+    test('a developer layout drops the intro a remote layout carried', () {
+      expect(
+        _hostedIntroFrom(
+          PaywallSource.settingsPlan,
+          remote: 'false_alarm',
+          developer: const PaywallLayoutSetting.pinned(PaywallLayoutId.sheet),
+        ),
+        PaywallIntroId.none,
+      );
     });
   });
 }

@@ -6,14 +6,71 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 ## Add a layout
 
 1. Add one file, `layouts/<name>_paywall_layout.dart`, whose widget returns a `PaywallFrame`.
-   For Crit on a stage playing one benefit at a time, build on "Hero parts" below.
-   `plain_paywall_layout.dart` is the shortest layout with no stage.
+   Build on "Hero parts" below. `hero_paywall_layout.dart` is the worked example and the
+   shortest layout there is.
 2. Register it in `kit/paywall_layout_registry.dart`: `PaywallLayoutId.proof: (_) => const Proof...()`.
-3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
+3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts,
+   where it gets a tile that plays it. Add `&intro=<key>` to play an intro first.
    The route lists what this build has (`paywallBenefitsFor`). The developer page adds
    `&benefits=all`, which also lists what is not built yet and which only a developer build
    reads. An unregistered id draws `hero` (`paywallFallbackLayout`).
 4. Import `kit/paywall_frame.dart` (buy block, clock, scope, tones), `kit/paywall_preview.dart`.
+
+## Add an intro
+
+An intro is a short full screen animation (1.5 to 2.5 seconds) that plays once when a paywall
+opens, then hands over to whichever layout was chosen. It is not a layout: any intro goes with
+any layout, and it never draws a benefit, a price or a button.
+
+1. Add an id to `PaywallIntroId` (`lib/core/paywall/paywall_intro.dart`). The key ships in
+   remote values and analytics, so it never changes.
+2. Add one folder, `presentation/intros/<name>/`, with one file that holds a
+   `const PaywallIntro` and the widget its `builder` returns. Keep the times in a pure timeline
+   (a class of static functions of `t`) and unit test it: the order of the beats, the first
+   frame, what a tap skips to, and that nothing is drawn from `seconds` on.
+3. Register it in `kit/paywall_intro_registry.dart`: `PaywallIntroId.falseAlarm: falseAlarmIntro`.
+
+```dart
+const PaywallIntro falseAlarmIntro = PaywallIntro(
+  seconds: FalseAlarmTimeline.end, // 1.75: the intro is taken away
+  handover: FalseAlarmTimeline.handover, // 1.5: the layout's clock starts at zero
+  skipTo: FalseAlarmTimeline.reveal, // 1.25: where a tap jumps to
+  tone: PaywallTone.crit, // colours the close cross while it covers the screen
+  cue: PaywallEntranceCue.gag, // played once, in place of the layout's cue
+  builder: _build, // (context, PaywallIntroScope scope) => FalseAlarmIntro(scope: scope)
+);
+```
+
+What the builder gets is a `PaywallIntroScope`: `clock` (seconds since the intro began, read it
+with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe areas) and `product`.
+Draw every frame from `scope.clock` alone and hold no timer.
+
+What `PaywallIntroHost` does, so an intro does not:
+
+- The layout is built under the intro from the first frame, with its clock held at zero
+  (`PaywallClockHold`). At `handover` that clock starts, so the layout's own entrance plays under
+  the intro's last moments. That is the hand over: one move, never a cut.
+- So an intro ends on Crit and then **uncovers** the layout between `handover` and `seconds`. It
+  paints nothing where the layout should show (the false alarm clips a growing circle out of its
+  red). It never paints the layout's background colour over it.
+- The close cross is over the intro from the first frame, in the corner the layout keeps its own.
+- A tap anywhere before `handover` moves the clock to `skipTo` (`paywallIntroSkip`). After it the
+  layout takes the touch.
+- Reduce motion, or a `PaywallStill`, plays no intro at all: the layout opens as it does alone.
+- It plays once for each open. A rebuild does not start it again.
+- One light haptic at the hand over, and the intro's `cue`. Neither is an alarm: an intro makes
+  no alarm sound, no notification and no vibration like one. A picture of a ringing screen is a
+  silent picture.
+
+A layout knows it follows an intro: `scope.intro` is the `PaywallIntroId` (`none` when none
+plays, reduce motion included) and `scope.followsIntro` is true when one does. The intro ends on
+the mascot, so a layout may shorten or skip its own entrance pop then. Hero plays its approved
+entrance either way.
+
+Which intro plays is a second value beside the layout: remote keys `paywall_intro` and
+`pro_paywall_intro`, developer prefs `dev.paywall_intro` and `dev.pro_paywall_intro`. Empty is no
+intro. An empty layout value still means the shipped surface, whatever the intro says. The
+layout value `false_alarm`, from when the joke was a layout, reads as `hero` with that intro.
 
 ## The frame
 
@@ -67,8 +124,9 @@ The example changes the tone, the headline and the picture beside Crit.
 | `HeroLoop` | The turn table as numbers: `frameAt`, `touch`, the hold, the resting frame. |
 | `HeroPlayer(clock:)` | Plays a loop and keeps what the hand chose. Every part asks it `frameAt(t)`. |
 | `HeroLiveStage(player:, size:)` | The stage, playing, with swipes and taps. `HeroStage` is the still one. |
-| `HeroMascot(size:, face:)` | Crit alone, anywhere: `hop`, `bob`, `blink`, `entrance`, `props`. |
-| `HeroAtmosphere(focus:, radius:)` | The disc and the drifting shapes alone, in a `tone`. |
+| `HeroMascot(size:, face:)` | Crit alone, anywhere: `hop`, `bob`, `blink`, `entrance`, `props`, `entranceStyle`, `idle`. |
+| `HeroAtmosphere(focus:, radius:)` | The disc and what moves around it alone, in a `tone` and a `style`. |
+| `HeroMotion` | The motion variants a layout picks. See "Motion variants". |
 | `HeroBenefitLines(player:, metrics:)` | Check lines, the playing one strong, fixed row heights, 44 point tap areas. |
 | `HeroPips(player:, count:, color:)`, `HeroRise(clock:, index:)` | One pip per turn. The words' share of the entrance: each rises after the one above. |
 | `HeroTouchArea`, `HeroStageDragRecognizer` | Tap, swipe and wait for a box of your own. The drag is safe from the back swipe. |
@@ -107,6 +165,20 @@ class ReceiptPaywallLayout extends StatelessWidget {
 - **Parts by hand.** Keep a `HeroPlayer` in your `State`, set `player.loop` in `build`, dispose
   it. Size with `heroStageRoomFor`, `HeroSizes.of` and `HeroLinesMetrics.measure`. Listen to the
   player for anything not under a `PaywallClockBuilder`: no clock ticks when nothing may move.
+- **Motion variants.** Pass `motion: const HeroMotion(...)` to `HeroComposition`,
+  `HeroLiveStage` or `HeroStage` (and to `HeroMascot.frame`). Each field has a default, which is
+  the approved Hero, so name only what changes. Every variant is a pure function in
+  `hero/hero_motion.dart`, ends flat and upright, and has the same resting frame as Hero.
+
+  | Field | Values, the default first |
+  |---|---|
+  | `atmosphere: HeroAtmosphereStyle` | `drift`, `rays`, `bubbles`, `confetti`, `rings` |
+  | `entrance: HeroEntranceStyle` | `pop`, `drop`, `slide`, `peek` |
+  | `idle: HeroIdleStyle` | `bob`, `lean`, `benefitHop` |
+  | `arrival: HeroCardArrival` | `fade`, `flip`, `slideThrough` |
+
+  Parts used by hand take one value each: `HeroAtmosphere(style:)`,
+  `HeroAtmospherePainter(style:)`, `HeroMascot(entranceStyle:, idle:, turnSeconds:)`.
 - **The hand**, the same for any table: `player.touch(index:)` for a line, `touch(step:)` for a
   swipe (it wraps), `touch()` to play the turn again. The chosen turn plays from its start,
   holds `heroHandHoldSeconds`, then the loop goes on. It waits under a finger.
@@ -115,7 +187,7 @@ class ReceiptPaywallLayout extends StatelessWidget {
 
 `product` (`isHosted`, `isPro`), `benefits` (only what this build has, in order), `size`
 (the room you have), `isCompact` (667 points tall or under), `source`, `clock`, `closeOnLeft`,
-`close` (what the cross does). The cross covers a 44 point square in a top corner of your room:
+`close` (what the cross does), `intro` and `followsIntro` (see "Add an intro"). The cross covers a 44 point square in a top corner of your room:
 keep words out of it. Deeper in your tree, `PaywallLayoutScope.of(context)` is the same scope.
 
 ## Previews
@@ -135,7 +207,16 @@ part every frame. Or extend `PaywallClockState<T>`, read `t` in `build`, overrid
 `stagger(i, t, each: 0.08)` is the clock as item `i` sees it.
 
 With reduce motion on, or under a `PaywallStill`, `t` is `restAt` and no ticker runs. That frame
-must be complete: nothing hidden, half way or at an angle. The clock stops under another route.
+must be complete: nothing hidden, half way or at an angle. The clock stops under another route,
+and waits at zero under a `PaywallClockHold` (an intro puts one over the layout).
+
+## Tiles
+
+`PaywallLayoutTile(layout:, product:, label:)` and `PaywallIntroTile(intro:, product:, label:)`
+draw the real layout (and intro) at 390 by 844 on the demo buy model, scaled down with a
+`FittedBox`. A tile takes no touch of its own, plays no cue (`PaywallMuted`), and an intro tile
+starts again every few seconds. Its clock runs only while the tile is built, so put tiles in a
+lazy list with no cache: the developer picker shows about three at once.
 
 ## Rules every layout keeps
 
@@ -158,3 +239,6 @@ It writes eight PNGs to `build/paywall_shots` and fails on an overflow, a scroll
 size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
 `BENEFITS=built`, `SOURCE`, `PREVIEWS=gallery`, and `T=<seconds>`, which plays the motion a
 frame at a time and captures that second (with `TAP=x,y`, `DRAG=x,y,x,y` and `THEN=<seconds>`).
+`INTRO=<key>` plays that intro first (with `T`, which then counts from the intro's first frame).
+`MOTION=rays,drop` draws the Hero composition with those variants. `PICKER=page|intro|paywall`
+captures the developer picker.

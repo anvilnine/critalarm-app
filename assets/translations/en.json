@@ -1306,10 +1306,6 @@
     "nothing_to_restore": "Nothing to restore for this account.",
     "done_hosted": "Crit Alarm Hosted is on.",
     "done_pro": "Pro is on.",
-    "plain": {
-      "headline_hosted": "Hosted raises your limits",
-      "headline_pro": "Pro adds to your alarm"
-    },
     "benefits": {
       "topics": {
         "line": "No limit. Free stops at {free_critical_topics}."
@@ -1346,10 +1342,8 @@
     },
     "dev": {
       "row_title": "Paywall layouts",
-      "row_subtitle": "Every layout, for Hosted and for Pro",
-      "page_title": "Paywall layouts",
-      "note": "A layout that is not built yet opens the hero one.",
-      "not_built": "not built"
+      "row_subtitle": "Pick an intro and a paywall, and open them",
+      "page_title": "Paywall layouts"
     }
   },
   "hosted_benefits": {
@@ -1907,8 +1901,7 @@
   },
   "paywall_false_alarm": {
     "word": "ALARM",
-    "admission": "Just kidding.",
-    "tag": "False alarm.\nJust kidding."
+    "admission": "Just kidding."
   },
   "paywall_reel": {
     "eyebrow": "With {name}",
@@ -1979,5 +1972,17 @@
     "tag_free": "Free",
     "tag_standard": "Standard",
     "compare_label": "Compare {before} and {name}"
+  },
+  "paywall_picker": {
+    "intro_row": "Intro",
+    "paywall_row": "Paywall",
+    "intro_sheet_title": "Pick an intro",
+    "paywall_sheet_title": "Pick a paywall",
+    "sheet_note": "Each one plays as it does on a phone.",
+    "intro_none": "No intro",
+    "follows_remote": "Follows the remote value",
+    "open": "Open it",
+    "routing_header": "What the app opens",
+    "selected": "{name}, selected"
   }
 }

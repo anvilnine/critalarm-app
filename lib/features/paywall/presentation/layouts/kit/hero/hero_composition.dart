@@ -5,6 +5,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_ar
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_entrance.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pips.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_stage.dart';
@@ -33,6 +34,7 @@ class HeroLiveStage extends StatelessWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.motion = const HeroMotion(),
     this.swipes = true,
     super.key,
   });
@@ -46,6 +48,7 @@ class HeroLiveStage extends StatelessWidget {
   final HeroSceneBuilder? sceneBuilder;
   final Widget? beside;
   final bool? showsShapes;
+  final HeroMotion motion;
 
   /// False leaves sideways drags to the layout. See [HeroTouchArea].
   final bool swipes;
@@ -74,6 +77,7 @@ class HeroLiveStage extends StatelessWidget {
               sceneBuilder: sceneBuilder,
               beside: beside,
               showsShapes: showsShapes,
+              motion: motion,
             ),
           );
         },
@@ -105,6 +109,8 @@ typedef HeroHeadlineBuilder =
 ///   `prelude` so a beat of the layout's own plays first.
 /// - [arrange], [tone], [sceneBuilder], [beside], [showsShapes]: the
 ///   stage's, see [HeroStage].
+/// - [motion], a [HeroMotion] that names another atmosphere, entrance,
+///   idle or way for a preview to arrive.
 /// - [player], to read the frame from outside: for a backdrop that
 ///   follows the loop.
 ///
@@ -127,6 +133,7 @@ class HeroComposition extends StatefulWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.motion = const HeroMotion(),
     super.key,
   });
 
@@ -149,6 +156,9 @@ class HeroComposition extends StatefulWidget {
   final HeroSceneBuilder? sceneBuilder;
   final Widget? beside;
   final bool? showsShapes;
+
+  /// The stage's motion variants. See [HeroMotion].
+  final HeroMotion motion;
 
   @override
   State<HeroComposition> createState() => _HeroCompositionState();
@@ -275,6 +285,7 @@ class _HeroCompositionState extends State<HeroComposition> {
             sceneBuilder: widget.sceneBuilder,
             beside: widget.beside,
             showsShapes: widget.showsShapes,
+            motion: widget.motion,
           ),
           SizedBox(
             height: room.gap,

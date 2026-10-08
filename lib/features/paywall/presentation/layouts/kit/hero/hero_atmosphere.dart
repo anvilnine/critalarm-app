@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:flutter/material.dart';
@@ -49,9 +51,11 @@ const _shapes = <_Shape>[
   _Shape(_Kind.ring, Offset(0.3, 0.93), 9, _Ink.strong, every: 8, turn: 0.3),
 ];
 
-/// The air behind the mascot: one large disc it stands in front of and a
-/// few small shapes drifting at the edges. [HeroAtmosphere] is the widget
-/// that picks the colours. Use the painter where a layout has its own.
+/// The air behind the mascot: one large disc it stands in front of and, in
+/// the approved [HeroAtmosphereStyle.drift], a few small shapes drifting at
+/// the edges. The other styles are in `hero_motion.dart`. [HeroAtmosphere]
+/// is the widget that picks the colours. Use the painter where a layout has
+/// its own.
 ///
 /// Every shape is round or upright, so the resting frame has nothing at an
 /// angle. With [seconds] at zero the shapes sit at home.
@@ -66,7 +70,11 @@ class HeroAtmospherePainter extends CustomPainter {
     required this.soft,
     required this.strong,
     required this.light,
+    this.style = HeroAtmosphereStyle.drift,
   });
+
+  /// What moves around the disc. The disc is the same in every style.
+  final HeroAtmosphereStyle style;
 
   /// The middle of the mascot and the card, where the disc sits.
   final Offset focus;
@@ -97,6 +105,173 @@ class HeroAtmospherePainter extends CustomPainter {
       Paint()..color = disc.withValues(alpha: disc.a * grow),
     );
     if (!showsShapes) return;
+    switch (style) {
+      case HeroAtmosphereStyle.drift:
+        _paintDrift(canvas, size);
+      case HeroAtmosphereStyle.rays:
+        _paintRays(canvas, size, grow);
+      case HeroAtmosphereStyle.bubbles:
+        _paintBubbles(canvas, size);
+      case HeroAtmosphereStyle.confetti:
+        _paintConfetti(canvas, size);
+      case HeroAtmosphereStyle.rings:
+        _paintRings(canvas, size);
+    }
+  }
+
+  /// How solid everything but the disc is: it comes in with the entrance.
+  double get _presence =>
+      AppCurves.easeOut.transform(phase(entrance, 0.1, 0.75));
+
+  Color _inkOf(int index) => switch (index % 3) {
+    0 => soft,
+    1 => strong,
+    _ => light,
+  };
+
+  /// How far above the foot of the box the moving styles start to fade.
+  static const double _footFade = 44;
+
+  /// Paints [draw] so it fades out toward the foot of the box, where the
+  /// words start, and runs on freely above it, under the status bar.
+  void _fadingAtFoot(Canvas canvas, Size size, VoidCallback draw) {
+    final box = Rect.fromLTRB(0, -size.height, size.width, size.height);
+    canvas.saveLayer(box, Paint());
+    draw();
+    canvas
+      ..drawRect(
+        box,
+        Paint()
+          ..blendMode = BlendMode.dstIn
+          ..shader = ui.Gradient.linear(
+            Offset(0, size.height - _footFade),
+            Offset(0, size.height),
+            [disc.withValues(alpha: 1), disc.withValues(alpha: 0)],
+          ),
+      )
+      ..restore();
+  }
+
+  /// Rays from behind the disc, turning slowly, fading toward the edges.
+  /// They are drawn under the disc's own colour, so the disc stays whole.
+  void _paintRays(Canvas canvas, Size size, double grow) {
+    final presence = _presence;
+    if (presence <= 0) return;
+    final reach = size.longestSide * 1.15 * (0.6 + 0.4 * grow);
+    final turn = heroRayTurn(seconds);
+    const sweep = math.pi / heroRayCount * 0.9;
+    final paint = Paint()
+      ..shader = ui.Gradient.radial(focus, reach, [
+        strong.withValues(alpha: strong.a * presence),
+        strong.withValues(alpha: 0),
+      ]);
+    _fadingAtFoot(canvas, size, () {
+      for (var i = 0; i < heroRayCount; i++) {
+        final mid = turn - math.pi / 2 + 2 * math.pi * i / heroRayCount;
+        canvas.drawPath(
+          Path()
+            ..moveTo(focus.dx, focus.dy)
+            ..arcTo(
+              Rect.fromCircle(center: focus, radius: reach),
+              mid - sweep / 2,
+              sweep,
+              false,
+            )
+            ..close(),
+          paint,
+        );
+      }
+    });
+    // The disc again, over the rays' roots.
+    canvas.drawCircle(
+      focus,
+      radius * (0.55 + 0.45 * grow),
+      Paint()..color = disc.withValues(alpha: grow),
+    );
+  }
+
+  /// Bubbles rising up the stage, each a thin ring.
+  void _paintBubbles(Canvas canvas, Size size) {
+    final presence = _presence;
+    if (presence <= 0) return;
+    _fadingAtFoot(canvas, size, () {
+      for (var i = 0; i < heroBubbleCount; i++) {
+        final bubble = heroBubbleAt(i, seconds);
+        final base = _inkOf(i);
+        final at = Offset(
+          bubble.at.dx * size.width,
+          bubble.at.dy * size.height,
+        );
+        canvas.drawCircle(
+          at,
+          bubble.size,
+          Paint()
+            ..style = i.isEven ? PaintingStyle.stroke : PaintingStyle.fill
+            ..strokeWidth = math.max(1.5, bubble.size * 0.26)
+            ..color = base.withValues(
+              alpha: base.a * bubble.alpha * presence,
+            ),
+        );
+      }
+    });
+  }
+
+  /// Confetti falling once and lying flat along the foot of the stage.
+  void _paintConfetti(Canvas canvas, Size size) {
+    final presence = _presence;
+    if (presence <= 0) return;
+    for (var i = 0; i < heroConfettiCount; i++) {
+      final piece = heroConfettiAt(i, seconds);
+      if (piece.alpha <= 0) continue;
+      final base = _inkOf(i);
+      final paint = Paint()
+        ..color = base.withValues(alpha: base.a * piece.alpha * presence);
+      final at = Offset(piece.at.dx * size.width, piece.at.dy * size.height);
+      canvas
+        ..save()
+        ..translate(at.dx, at.dy)
+        ..rotate(piece.angle);
+      if (i % 3 == 0) {
+        canvas.drawCircle(Offset.zero, piece.size * 0.5, paint);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: piece.size * 1.6,
+              height: piece.size * 0.7,
+            ),
+            const Radius.circular(2),
+          ),
+          paint,
+        );
+      }
+      canvas.restore();
+    }
+  }
+
+  /// Rings travelling slowly out from the disc's edge.
+  void _paintRings(Canvas canvas, Size size) {
+    final presence = _presence;
+    if (presence <= 0) return;
+    _fadingAtFoot(canvas, size, () {
+      for (var i = 0; i < heroRingCount; i++) {
+        final ring = heroRingAt(i, seconds);
+        canvas.drawCircle(
+          focus,
+          radius * (1 + 0.75 * ring.out),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..color = strong.withValues(
+              alpha: strong.a * ring.alpha * presence,
+            ),
+        );
+      }
+    });
+  }
+
+  void _paintDrift(Canvas canvas, Size size) {
     for (final (i, shape) in _shapes.indexed) {
       // Each one comes in from further out, one after another.
       final p = AppCurves.easeOut.transform(
@@ -160,6 +335,7 @@ class HeroAtmospherePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(HeroAtmospherePainter old) =>
+      style != old.style ||
       seconds != old.seconds ||
       entrance != old.entrance ||
       showsShapes != old.showsShapes ||
@@ -220,8 +396,8 @@ class HeroAtmosphereColors {
   final Color light;
 }
 
-/// The atmosphere alone: the disc and the drifting shapes, filling the box
-/// it is given, in the colours of [tone].
+/// The atmosphere alone: the disc and what moves around it in [style],
+/// filling the box it is given, in the colours of [tone].
 ///
 /// The stage draws one behind the mascot. Use this where a layout wants
 /// the same air with no stage: behind a headline, a receipt, a pair of
@@ -235,9 +411,13 @@ class HeroAtmosphere extends StatelessWidget {
     this.entrance = 1,
     this.showsShapes = true,
     this.tone = PaywallTone.canvas,
+    this.style = HeroAtmosphereStyle.drift,
     this.child,
     super.key,
   });
+
+  /// What moves around the disc.
+  final HeroAtmosphereStyle style;
 
   /// Where the disc sits, in the box's own points, and how large it is.
   final Offset focus;
@@ -269,6 +449,7 @@ class HeroAtmosphere extends StatelessWidget {
         soft: colors.soft,
         strong: colors.strong,
         light: colors.light,
+        style: style,
       ),
       child: child,
     );
