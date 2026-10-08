@@ -28,6 +28,22 @@
 // The alarm is acknowledged through the cubit and the files are named
 // `acked_...`.
 //
+// To capture another look of the alarm screen:
+//   --dart-define=STYLE=minimal
+// saves that look as the phone's and holds the plan that unlocks it. With
+//   --dart-define=HELD=false
+// the look stays saved and the plan is not held, which draws the standard
+// look. A look moves the face and the text, so the comparison adds a
+// second line that leaves positions and scroll extents out: whether a
+// screen reader walks the same things in the same order, and whether every
+// button and its label sit where they did.
+//
+// By default the screen is captured bare, on its own background. The app
+// draws it on the canvas of its ambient shell, with the shapes of the
+// alarm's ambient profile behind it. To capture it that way:
+//   --dart-define=SHELL=true
+// A look is best judged like this, since its canvas is part of it.
+//
 // Developer tool testing mock setup.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // Tool prints progress to stdout.
@@ -38,10 +54,12 @@ import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -56,6 +74,12 @@ const _out = String.fromEnvironment('OUT', defaultValue: 'build/alarm_shots');
 const _against = String.fromEnvironment('AGAINST');
 const _stage = String.fromEnvironment('STAGE', defaultValue: 'ringing');
 const _isAcked = _stage == 'acked';
+const _style = String.fromEnvironment('STYLE');
+const _isHeld = bool.fromEnvironment('HELD', defaultValue: true);
+const _inShell = bool.fromEnvironment('SHELL');
+
+/// Where the phone's look is saved (`AlarmStyleChoices.defaultKey`).
+const _styleKey = 'alarm_style_default';
 
 const _screens = <(String, Size, double, double)>[
   ('390x844', Size(390, 844), 47, 34),
@@ -123,8 +147,7 @@ String _calm(String text) {
     final line = lines[i];
     final inList = box.firstMatch(line);
     if (inList != null) {
-      lines[i] =
-          '${inList[1]} ~ ${inList[2]} ~ ${inList[3]} ${inList[4]}';
+      lines[i] = '${inList[1]} ~ ${inList[2]} ~ ${inList[3]} ${inList[4]}';
       continue;
     }
     if (rect.hasMatch(line)) lastRect = i;
@@ -136,6 +159,34 @@ String _calm(String text) {
     }
   }
   return lines.join('\n');
+}
+
+/// The tree with every position taken out, and how far the list scrolls:
+/// what a screen reader meets, and in which order, wherever it sits. A
+/// look with a smaller face can fit a list that scrolled before, which
+/// changes the scroll extent and nothing a person hears.
+String _walk(String tree) => tree
+    .replaceAll(
+      RegExp(r'Rect\.fromLTRB\([^)]*\)( scaled by [\d.]+x)?'),
+      'RECT',
+    )
+    .split('\n')
+    .where(
+      (line) =>
+          !line.contains('scrollExtent') &&
+          !line.contains('scrollPosition') &&
+          !RegExp(r'actions: scroll\w+(, scroll\w+)*$').hasMatch(line),
+    )
+    .join('\n');
+
+/// Every button of a geometry file, with the label drawn in it.
+String _buttons(String geometry) {
+  final lines = geometry.split('\n');
+  return [
+    for (var i = 0; i < lines.length; i++)
+      if (lines[i].startsWith('AppButton '))
+        '${lines[i]} | ${i + 1 < lines.length ? lines[i + 1] : ''}',
+  ].join('\n');
 }
 
 Future<Uint8List> _rgba(ui.Image image) async =>
@@ -173,10 +224,15 @@ Rect? _differs(Uint8List a, Uint8List b, int width, List<Rect> skip) {
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      if (_style.isNotEmpty) _styleKey: _style,
+    });
     await loadTestTranslations();
     await configureDependencies();
     await _loadFonts();
+    if (_style.isNotEmpty) {
+      await getIt<ProPackDevSwitch>().setHeld(isHeld: _isHeld);
+    }
   });
 
   for (final (sizeName, size, topInset, bottomInset) in _screens) {
@@ -230,6 +286,7 @@ void main() {
           getIt<MockServer>().loadFixture(FaceState.alarmed);
 
           debugDisableShadows = false;
+          final router = buildRouter(initialLocation: '/alarm');
           try {
             await tester.pumpWidget(
               MultiBlocProvider(
@@ -242,13 +299,21 @@ void main() {
                   theme: buildLightTheme(),
                   darkTheme: buildDarkTheme(),
                   themeMode: mode,
-                  routerConfig: buildRouter(initialLocation: '/alarm'),
+                  routerConfig: router,
                   builder: (context, child) => MediaQuery(
                     data: MediaQuery.of(context).copyWith(
                       textScaler: TextScaler.linear(scale),
                       disableAnimations: true,
                     ),
-                    child: RepaintBoundary(key: boundaryKey, child: child),
+                    child: RepaintBoundary(
+                      key: boundaryKey,
+                      child: _inShell
+                          ? AppAmbientShell(
+                              router: router,
+                              child: child ?? const SizedBox.shrink(),
+                            )
+                          : child,
+                    ),
                   ),
                 ),
               ),
@@ -389,6 +454,22 @@ void main() {
                 'pixels outside the face and the clocks '
                 '${differs == null ? 'same' : 'DIFFER inside $differs of '
                           '${image.width}x${image.height}'}',
+              );
+              if (_style.isEmpty) return;
+              final sameWalk =
+                  oldTree.existsSync() &&
+                  _walk(_calm(oldTree.readAsStringSync())) ==
+                      _walk(_calm(tree));
+              final sameButtons =
+                  oldGeometry.existsSync() &&
+                  _buttons(_calm(oldGeometry.readAsStringSync())) ==
+                      _buttons(_calm(geometry));
+              print(
+                '     look $_style${_isHeld ? '' : ', plan not held'}: '
+                'semantics without positions and scrolling '
+                '${sameWalk ? 'same' : 'DIFFERENT'}, '
+                'buttons and their labels '
+                '${sameButtons ? 'same' : 'DIFFERENT'}',
               );
             });
             if (_isAcked) {
