@@ -28,6 +28,18 @@
 //   challenge_button     five seconds of rubbing with nothing revealed: the
 //                        button that shows the code
 //
+// For KIND=shake there is no keyboard and no `challenge_keyboard`. A made-up
+// accelerometer stands in for the phone's, and there are these instead:
+//   challenge_shake_0    the challenge as it opens, nothing counted
+//   challenge_shake_8    eight shakes in: Crit wide eyed
+//   challenge_shake_16   sixteen: eyes squeezed shut
+//   challenge_shake_26   twenty-six: spiral eyes
+//   challenge_rock       the frame 60 ms after a shake, the face mid-rock
+//   challenge_taps       a phone with no accelerometer: the button, twelve
+//                        taps in
+// `challenge_midhold` and `challenge_reader` run with reduce motion and a
+// screen reader, so both show the button too.
+//
 // It also walks the step itself on the real alarm route, at 390 by 844, and
 // prints one line per walk (`FLOW ...`). These are not pictures:
 //   typing the topic name closes the incident
@@ -43,7 +55,8 @@
 //                                capture only the files whose name has one
 //                                of these parts
 //   --dart-define=KIND=<id>     the challenge: type_topic_name (default),
-//                                type_alert_title, ops_math or scratch_card
+//                                type_alert_title, ops_math, scratch_card or
+//                                shake
 //   --dart-define=STYLE=<id>     the look of the alarm screen the
 //                                challenge step is captured in, for
 //                                example `minimal`
@@ -55,7 +68,9 @@
 // Tool prints progress to stdout.
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
@@ -63,6 +78,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
@@ -113,7 +129,7 @@ const _phones = <(String, Size, double, double, double)>[
 const _topic = 'prod-db';
 
 /// The challenge to capture, by id: `type_topic_name` (default),
-/// `type_alert_title`, `ops_math` or `scratch_card`.
+/// `type_alert_title`, `ops_math`, `scratch_card` or `shake`.
 const _kindId = String.fromEnvironment(
   'KIND',
   defaultValue: 'type_topic_name',
@@ -133,11 +149,94 @@ String get _partial => switch (_kind) {
 
 bool get _isScratch => _kind == ChallengeKind.scratchCard;
 
+bool get _isShake => _kind == ChallengeKind.shake;
+
 /// The keyboard as a challenge opens. A scratch card opens with none: its
 /// number pad comes up once the card is revealed, which a screen reader
-/// gets from the start.
-double _keyboardAtOpen(double keyboard, {bool hasReader = false}) =>
-    _isScratch && !hasReader ? 0 : keyboard;
+/// gets from the start. Shaking never has one.
+double _keyboardAtOpen(double keyboard, {bool hasReader = false}) {
+  if (_isShake) return 0;
+  return _isScratch && !hasReader ? 0 : keyboard;
+}
+
+/// An accelerometer the capture drives by hand, in place of the phone's.
+final class _HandSensor implements MotionSensor {
+  StreamController<MotionReading>? _open;
+  int _tick = 0;
+  int listens = 0;
+  int cancels = 0;
+
+  /// Whether the challenge is listening right now.
+  bool get isOn => listens > cancels;
+
+  @override
+  Stream<MotionReading> readings() {
+    late final StreamController<MotionReading> controller;
+    controller = StreamController<MotionReading>(
+      sync: true,
+      onListen: () {
+        listens++;
+        _open = controller;
+      },
+      onCancel: () {
+        cancels++;
+        if (identical(_open, controller)) _open = null;
+      },
+    );
+    return controller.stream;
+  }
+
+  void _add(double x) {
+    _tick++;
+    _open?.add(
+      MotionReading(
+        x: x,
+        y: 0,
+        z: -1,
+        at: Duration(milliseconds: 20 * _tick),
+      ),
+    );
+  }
+
+  /// A phone at rest for [readings] readings.
+  void rest([int readings = 10]) {
+    for (var i = 0; i < readings; i++) {
+      _add(0);
+    }
+  }
+
+  /// [count] hard swings out and back, 300 ms each.
+  void shake(int count) {
+    for (var i = 0; i < count; i++) {
+      for (var step = 0; step < 15; step++) {
+        _add(3 * math.sin(2 * math.pi * step / 15));
+      }
+    }
+  }
+}
+
+/// Puts [sensor] where the challenge looks for the accelerometer, until
+/// the capture ends.
+Future<void> _useSensor(MotionSensor sensor) async {
+  await getIt.unregister<MotionSensor>();
+  getIt.registerSingleton<MotionSensor>(sensor);
+  addTearDown(() async {
+    await getIt.unregister<MotionSensor>();
+    getIt.registerLazySingleton<MotionSensor>(MotionSensorHost.new);
+  });
+}
+
+/// What the shake challenge shows for its count.
+Finder _shakeCount(int count) => find.text(
+  LocaleKeys.challenges_shake_count.tr(
+    namedArgs: {'count': '$count', 'target': '30'},
+  ),
+);
+
+final Finder _tapButton = find.widgetWithText(
+  AppButton,
+  LocaleKeys.challenges_shake_tap.tr(),
+);
 
 /// The four digits printed on the scratch card.
 final Finder _cardCode = find.byWidgetPredicate(
@@ -339,6 +438,7 @@ Future<GlobalKey> _openChallenge(
   bool isPro = true,
   bool hasChoice = true,
   bool expectsChallenge = true,
+  bool isStill = true,
 }) async {
   getIt<MockServer>().loadFixture(FaceState.alarmed);
   await _hold(isPro: isPro);
@@ -361,6 +461,7 @@ Future<GlobalKey> _openChallenge(
     mode: mode,
     scale: scale,
     keyboard: shown,
+    isStill: isStill,
   );
   // "I'm up", through the same call the button makes. One tap, no
   // challenge in front of it.
@@ -443,29 +544,123 @@ void main() {
       for (final scale in [1.0, 1.3]) {
         final tail = '${sizeName}_${mode.name}_${scale}x';
 
-        capture('challenge_keyboard_$tail', (tester, errors) async {
-          final key = await _openChallenge(
-            tester,
-            size: size,
-            topInset: top,
-            bottomInset: bottom,
-            keyboard: _keyboardAtOpen(keyboard),
-            mode: mode,
-            scale: scale,
-          );
-          if (_isScratch) await _revealCard(tester, keyboard);
-          await tester.enterText(
-            find.byType(TextField),
-            _isScratch ? _shownCode(tester).substring(0, 2) : _partial,
-          );
-          await tester.pump();
-          await _save(
-            tester,
-            key,
-            'challenge_keyboard_$tail',
-            isGood: errors.isEmpty,
-          );
-        });
+        if (_isShake) {
+          for (final count in [0, 8, 16, 26]) {
+            capture('challenge_shake_${count}_$tail', (tester, errors) async {
+              final sensor = _HandSensor();
+              await _useSensor(sensor);
+              final key = await _openChallenge(
+                tester,
+                size: size,
+                topInset: top,
+                bottomInset: bottom,
+                keyboard: 0,
+                mode: mode,
+                scale: scale,
+                // Reduce motion would open it on taps.
+                isStill: false,
+              );
+              expect(sensor.isOn, isTrue);
+              expect(_tapButton, findsNothing);
+              sensor
+                ..rest()
+                ..shake(count);
+              await tester.pump();
+              // Past the rock, so the face is level.
+              await tester.pump(const Duration(milliseconds: 400));
+              expect(_shakeCount(count), findsOneWidget);
+              await _save(
+                tester,
+                key,
+                'challenge_shake_${count}_$tail',
+                isGood: errors.isEmpty,
+              );
+            });
+          }
+
+          capture('challenge_rock_$tail', (tester, errors) async {
+            final sensor = _HandSensor();
+            await _useSensor(sensor);
+            final key = await _openChallenge(
+              tester,
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              keyboard: 0,
+              mode: mode,
+              scale: scale,
+              isStill: false,
+            );
+            sensor
+              ..rest()
+              ..shake(27);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 60));
+            await _save(
+              tester,
+              key,
+              'challenge_rock_$tail',
+              isGood: errors.isEmpty,
+            );
+            await tester.pump(const Duration(milliseconds: 400));
+          });
+
+          capture('challenge_taps_$tail', (tester, errors) async {
+            // The harness has no native side, which is what a phone with
+            // no accelerometer looks like from Dart.
+            final key = await _openChallenge(
+              tester,
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              keyboard: 0,
+              mode: mode,
+              scale: scale,
+              isStill: false,
+            );
+            // The answer of the missing native side lands between frames.
+            await _afterClose(tester);
+            expect(_tapButton, findsOneWidget);
+            for (var i = 0; i < 12; i++) {
+              await tester.tap(_tapButton);
+            }
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+            expect(_shakeCount(12), findsOneWidget);
+            await _save(
+              tester,
+              key,
+              'challenge_taps_$tail',
+              isGood: errors.isEmpty,
+            );
+          });
+        }
+
+        if (!_isShake) {
+          capture('challenge_keyboard_$tail', (tester, errors) async {
+            final key = await _openChallenge(
+              tester,
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              keyboard: _keyboardAtOpen(keyboard),
+              mode: mode,
+              scale: scale,
+            );
+            if (_isScratch) await _revealCard(tester, keyboard);
+            await tester.enterText(
+              find.byType(TextField),
+              _isScratch ? _shownCode(tester).substring(0, 2) : _partial,
+            );
+            await tester.pump();
+            await _save(
+              tester,
+              key,
+              'challenge_keyboard_$tail',
+              isGood: errors.isEmpty,
+            );
+          });
+        }
 
         if (_isScratch) {
           for (final state in ['covered', 'half', 'button']) {
@@ -663,6 +858,7 @@ void main() {
     bool isPro = true,
     bool hasChoice = true,
     bool expectsChallenge = true,
+    bool isStill = true,
   }) => _openChallenge(
     tester,
     size: flowSize,
@@ -674,6 +870,7 @@ void main() {
     isPro: isPro,
     hasChoice: hasChoice,
     expectsChallenge: expectsChallenge,
+    isStill: isStill,
   );
 
   capture('flow_type_closes', (tester, errors) async {
@@ -748,6 +945,175 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(_status(), CriticalAlarmStatus.acknowledged);
     print('FLOW after five seconds of rubbing, the button showed the code');
+  });
+
+  capture('flow_shake_closes', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    expect(sensor.isOn, isTrue);
+    sensor
+      ..rest()
+      ..shake(29);
+    await _afterClose(tester);
+    expect(_shakeCount(29), findsOneWidget);
+    expect(find.byType(ChallengeStep), findsOneWidget);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    // Another app, Control Centre or the lock screen: the sensor goes off,
+    // and comes back on with the app.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(sensor.isOn, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    expect(sensor.isOn, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    expect(sensor.isOn, isTrue);
+    expect(_shakeCount(29), findsOneWidget);
+    sensor
+      ..rest()
+      ..shake(2);
+    expect(sensor.isOn, isFalse);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    expect(sensor.isOn, isFalse);
+    print(
+      'FLOW thirty shakes closed the incident. The sensor was off behind '
+      'another app and off after the pass',
+    );
+  });
+
+  capture('flow_shake_leave', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    sensor
+      ..rest()
+      ..shake(5);
+    await tester.pump();
+    expect(sensor.isOn, isTrue);
+    await tester.tap(find.bySemanticsLabel(LocaleKeys.challenges_leave.tr()));
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    expect(sensor.isOn, isFalse);
+    expect(sensor.listens, 1);
+    print('FLOW the cross left the shake challenge and the sensor went off');
+  });
+
+  capture('flow_shake_skip', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(HoldToSkipButton)),
+    );
+    await tester.pump();
+    // A phone held still: the sensor talks, so the hold is not cut short
+    // by the move to taps.
+    for (var second = 0; second < 10; second++) {
+      sensor.rest(50);
+      await tester.pump(const Duration(milliseconds: 1010));
+    }
+    await _afterClose(tester);
+    await gesture.up();
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    expect(sensor.isOn, isFalse);
+    print('FLOW the way out skipped the shake challenge, sensor off');
+  });
+
+  capture('flow_shake_silent', (tester, errors) async {
+    if (!_isShake) return;
+    // A sensor that starts and then says nothing.
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    expect(sensor.isOn, isTrue);
+    // The flow already let 600 ms go by.
+    await tester.pump(const Duration(milliseconds: 4200));
+    expect(_tapButton, findsNothing);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(_tapButton, findsOneWidget);
+    expect(sensor.isOn, isFalse);
+    for (var i = 0; i < 30; i++) {
+      await tester.tap(_tapButton, warnIfMissed: false);
+    }
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print(
+      'FLOW a sensor silent for five seconds gave the button, and thirty '
+      'taps closed the incident',
+    );
+  });
+
+  capture('flow_shake_no_sensor', (tester, errors) async {
+    if (!_isShake) return;
+    await flow(tester, isStill: false);
+    // The answer of the missing native side lands between frames.
+    await _afterClose(tester);
+    expect(_tapButton, findsOneWidget);
+    for (var i = 0; i < 29; i++) {
+      await tester.tap(_tapButton);
+    }
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsOneWidget);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    await tester.tap(_tapButton);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print('FLOW with no accelerometer, thirty taps closed the incident');
+  });
+
+  capture('flow_shake_reduce_motion', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    // The flow opens with reduce motion on.
+    await flow(tester);
+    expect(_tapButton, findsOneWidget);
+    expect(sensor.listens, 0);
+    print('FLOW with reduce motion the button was there and no sensor ran');
+  });
+
+  capture('flow_shake_reader', (tester, errors) async {
+    if (!_isShake) return;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    expect(_tapButton, findsOneWidget);
+    expect(sensor.listens, 0);
+    print('FLOW with a screen reader the button was there and no sensor ran');
+  });
+
+  capture('flow_shake_picture', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    tester.view.physicalSize = const Size(780, 1688);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildLightTheme(),
+        home: ChallengePicture(
+          challenge: challengeOf(ChallengeKind.shake)!,
+          screen: const MediaQueryData(size: Size(390, 844)),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 6));
+    expect(_shakeCount(0), findsOneWidget);
+    expect(_tapButton, findsNothing);
+    expect(sensor.listens, 0);
+    print('FLOW the Personalize picture started no sensor');
   });
 
   // A title of many words, to show the first three set apart from the rest.
