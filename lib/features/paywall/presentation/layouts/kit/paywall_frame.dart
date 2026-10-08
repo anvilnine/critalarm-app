@@ -23,6 +23,7 @@ export 'package:critalarm/core/ui_sound/paywall_cues.dart'
     show PaywallEntranceCue;
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_one_benefit.dart';

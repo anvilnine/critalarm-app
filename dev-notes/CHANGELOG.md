@@ -110,6 +110,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - BarBackingConfig.defaults is blur and gradient for both bars (top 40, 45, 0.9, 0.1 and bottom 34.5, 38, 0.15, 0.1), and AppScreenScaffold draws the bottom backing only behind a tab bar or a pinned bar.
 - HomeScreen takes its bar backing from AppBarBackingScope and insets its pinned notice by 6 on each side.
 - Settings sub screens on the root navigator pass hasTabBar: false, so they leave no tab bar room and draw no bottom blur.
+- Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_entrance.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pi
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_stage.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -113,6 +115,10 @@ typedef HeroHeadlineBuilder =
 ///   idle or way for a preview to arrive.
 /// - [player], to read the frame from outside: for a backdrop that
 ///   follows the loop.
+/// - [entranceCues] and [turnCue], what the entrance and the loop sound
+///   like. Null [entranceCues] is the approved entrance for [motion]: the
+///   mascot lands and the card slides in. [turnCue] marks a benefit the
+///   loop changed by itself, through its first pass.
 ///
 /// Give the frame `restAt: loop.entranceEnd` ([heroEntranceSeconds] for
 /// the approved loop) and a `tone` that matches [tone].
@@ -134,8 +140,17 @@ class HeroComposition extends StatefulWidget {
     this.beside,
     this.showsShapes,
     this.motion = const HeroMotion(),
+    this.entranceCues,
+    this.turnCue = PaywallCue.next,
     super.key,
   });
+
+  /// The cues of the entrance, by clock second. Null is
+  /// [heroEntranceCues] for [motion].
+  final List<PaywallCueBeat>? entranceCues;
+
+  /// Played when the loop changes the benefit by itself. Null is silent.
+  final PaywallCue? turnCue;
 
   final PaywallLayoutScope scope;
 
@@ -265,104 +280,115 @@ class _HeroCompositionState extends State<HeroComposition> {
     _listen();
     final after = player.loop.prelude;
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HeroLiveStage(
-            player: player,
-            size: Size(scope.size.width, room.stage),
-            label: (frame) => frame.activeIndex >= lines.length
-                ? null
-                : LocaleKeys.paywall_hero_stage_label.tr(
-                    namedArgs: {'benefit': lines[frame.activeIndex]},
-                  ),
-            bleedTop: MediaQuery.viewPaddingOf(context).top,
-            arrange: widget.arrange,
-            tone: widget.tone,
-            sceneBuilder: widget.sceneBuilder,
-            beside: widget.beside,
-            showsShapes: widget.showsShapes,
-            motion: widget.motion,
-          ),
-          SizedBox(
-            height: room.gap,
-            child: lines.length < 2
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: heroSideInset,
+    return PaywallCueScore(
+      clock: scope.clock,
+      beats:
+          widget.entranceCues ??
+          heroEntranceCues(widget.motion, prelude: after),
+      player: player,
+      turnCue: widget.turnCue,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HeroLiveStage(
+              player: player,
+              size: Size(scope.size.width, room.stage),
+              label: (frame) => frame.activeIndex >= lines.length
+                  ? null
+                  : LocaleKeys.paywall_hero_stage_label.tr(
+                      namedArgs: {'benefit': lines[frame.activeIndex]},
                     ),
-                    child: HeroPips(
-                      player: player,
-                      count: lines.length,
-                      color: tones.ink,
-                    ),
-                  ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapUp: isOne
-                ? null
-                : (details) {
-                    final line = heroLineAt(details.localPosition.dy, centres);
-                    if (line != null) player.touch(index: line);
-                  },
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: heroSideInset,
-                right: heroSideInset,
-                bottom: room.under,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  HeroRise(
-                    clock: scope.clock,
-                    index: 0,
-                    after: after,
-                    child: Semantics(
-                      header: true,
-                      child:
-                          widget.headlineBuilder?.call(
-                            context,
-                            headline,
-                            headlineStyle,
-                          ) ??
-                          Text(headline, style: headlineStyle),
-                    ),
-                  ),
-                  SizedBox(height: sizes.headlineGap),
-                  HeroBenefitLines(
-                    player: player,
-                    metrics: metrics,
-                    // What the short line leaves out is still said.
-                    labels: [for (final b in benefits) b.line],
-                    isPickable: !isOne,
-                    handlesTaps: false,
-                  ),
-                  if (sentence != null)
-                    HeroRise(
-                      clock: scope.clock,
-                      index: 2,
-                      after: after,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          top: Spacing.s1,
-                          left: sizes.check + HeroSizes.checkGap,
-                        ),
-                        child: Text(sentence, style: sentenceStyle),
+              bleedTop: MediaQuery.viewPaddingOf(context).top,
+              arrange: widget.arrange,
+              tone: widget.tone,
+              sceneBuilder: widget.sceneBuilder,
+              beside: widget.beside,
+              showsShapes: widget.showsShapes,
+              motion: widget.motion,
+            ),
+            SizedBox(
+              height: room.gap,
+              child: lines.length < 2
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: heroSideInset,
+                      ),
+                      child: HeroPips(
+                        player: player,
+                        count: lines.length,
+                        color: tones.ink,
                       ),
                     ),
-                ],
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapUp: isOne
+                  ? null
+                  : (details) {
+                      final line = heroLineAt(
+                        details.localPosition.dy,
+                        centres,
+                      );
+                      if (line != null) player.touch(index: line);
+                    },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: heroSideInset,
+                  right: heroSideInset,
+                  bottom: room.under,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 0,
+                      after: after,
+                      child: Semantics(
+                        header: true,
+                        child:
+                            widget.headlineBuilder?.call(
+                              context,
+                              headline,
+                              headlineStyle,
+                            ) ??
+                            Text(headline, style: headlineStyle),
+                      ),
+                    ),
+                    SizedBox(height: sizes.headlineGap),
+                    HeroBenefitLines(
+                      player: player,
+                      metrics: metrics,
+                      // What the short line leaves out is still said.
+                      labels: [for (final b in benefits) b.line],
+                      isPickable: !isOne,
+                      handlesTaps: false,
+                    ),
+                    if (sentence != null)
+                      HeroRise(
+                        clock: scope.clock,
+                        index: 2,
+                        after: after,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: Spacing.s1,
+                            left: sizes.check + HeroSizes.checkGap,
+                          ),
+                          child: Text(sentence, style: sentenceStyle),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

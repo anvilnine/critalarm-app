@@ -2,8 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors/doors_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,11 +38,43 @@ void main() {
       expect(DoorsTimeline.open(lead), inExclusiveRange(0, 1));
     });
 
-    test('its cue plays once, on the frame the swing starts', () {
-      const at = DoorsTimeline.prelude;
-      expect(doorsReached(at - 0.016, at, at), isTrue);
-      expect(doorsReached(at, at + 0.016, at), isFalse);
-      expect(doorsReached(0, at - 0.016, at), isFalse);
+    test('it is heard in order: knock, swing, the mascot, square', () {
+      final cues = doorsCues();
+      expect(
+        [for (final beat in cues) beat.cue],
+        [
+          PaywallCue.introKnock,
+          PaywallCue.whoosh,
+          PaywallCue.pop,
+          PaywallCue.snap,
+        ],
+      );
+      expect(
+        [for (final beat in cues) beat.at],
+        [
+          DoorsTimeline.nudgeStart,
+          DoorsTimeline.prelude,
+          closeTo(
+            DoorsTimeline.prelude + heroLandsAt(doorsMotion.entrance),
+            1e-9,
+          ),
+          DoorsTimeline.swingEnd,
+        ],
+      );
+      for (var i = 1; i < cues.length; i++) {
+        expect(cues[i].at, greaterThan(cues[i - 1].at));
+      }
+      expect(cues.last.at, lessThanOrEqualTo(DoorsTimeline.restAt));
+    });
+
+    test('after an intro every moment is sooner by the head start', () {
+      final lead = doorsLeadFor(followsIntro: true);
+      final alone = doorsCues();
+      final after = doorsCues(lead: lead);
+      for (final (i, beat) in after.indexed) {
+        expect(beat.at, closeTo(alone[i].at - lead, 1e-9));
+        expect(beat.cue, alone[i].cue);
+      }
     });
   });
 

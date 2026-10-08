@@ -1,13 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
@@ -65,9 +63,6 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
   late final HeroPlayer _player = HeroPlayer(clock: widget.scope.clock)
     ..addListener(_onPlayer);
 
-  PaywallClock? _watched;
-  bool _stamped = false;
-  bool _isMuted = false;
   ReceiptPlan? _plan;
 
   PaywallLayoutScope get scope => widget.scope;
@@ -76,37 +71,8 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
   // ticks to do it.
   void _onPlayer() => setState(() {});
 
-  void _watch(PaywallClock clock) {
-    if (identical(clock, _watched)) return;
-    _watched?.removeListener(_onClock);
-    _watched = clock..addListener(_onClock);
-  }
-
-  void _onClock() {
-    final clock = _watched;
-    if (clock == null || clock.isStill) return;
-    final t = clock.value;
-    if (t < ReceiptTimeline.stampAt) {
-      _stamped = false;
-    } else if (!_stamped) {
-      _stamped = true;
-      // One light tap and a tick as the stamp lands, if it is landing now.
-      if (t < ReceiptTimeline.stampLanded && !_isMuted) {
-        AppHaptics.selection();
-        getIt<PaywallCues>().tick();
-      }
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _isMuted = PaywallMuted.of(context);
-  }
-
   @override
   void dispose() {
-    _watched?.removeListener(_onClock);
     _player
       ..removeListener(_onPlayer)
       ..dispose();
@@ -183,7 +149,6 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
       ..loop = HeroLoop([
         for (final b in benefits) b.previewId,
       ], prelude: ReceiptTimeline.prelude);
-    _watch(scope.clock);
 
     final lines = [
       for (final (i, b) in benefits.indexed)
@@ -198,118 +163,128 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
     final view = View.of(context);
     final bleedTop = view.viewPadding.top / view.devicePixelRatio;
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Listener(
-            onPointerDown: player.fingerDown,
-            onPointerUp: player.fingerUp,
-            onPointerCancel: player.fingerUp,
-            child: RawGestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              gestures: {
-                TapGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                      TapGestureRecognizer.new,
-                      (tap) => tap.onTapUp = _tapUp,
+    return PaywallCueScore(
+      clock: scope.clock,
+      // The print is heard a line at a time, then the stamp, then the
+      // first preview coming out.
+      beats: receiptCues(count),
+      player: player,
+      turnCue: PaywallCue.next,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Listener(
+              onPointerDown: player.fingerDown,
+              onPointerUp: player.fingerUp,
+              onPointerCancel: player.fingerUp,
+              child: RawGestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                gestures: {
+                  TapGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        TapGestureRecognizer
+                      >(
+                        TapGestureRecognizer.new,
+                        (tap) => tap.onTapUp = _tapUp,
+                      ),
+                  HeroStageDragRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        HeroStageDragRecognizer
+                      >(
+                        HeroStageDragRecognizer.new,
+                        (drag) => drag
+                          ..onStart = player.dragStart
+                          ..onUpdate = player.dragUpdate
+                          ..onEnd = player.dragEnd
+                          ..onCancel = player.dragCancel,
+                      ),
+                },
+                child: RepaintBoundary(
+                  child: PaywallClockBuilder(
+                    clock: scope.clock,
+                    builder: (context, t, _) => _ReceiptStage(
+                      plan: plan,
+                      player: player,
+                      t: t,
+                      bleedTop: bleedTop,
+                      title: LocaleKeys.app_title.tr(),
+                      lines: lines,
+                      name: name,
+                      price: price,
+                      followsIntro: scope.followsIntro,
                     ),
-                HeroStageDragRecognizer:
-                    GestureRecognizerFactoryWithHandlers<
-                      HeroStageDragRecognizer
-                    >(
-                      HeroStageDragRecognizer.new,
-                      (drag) => drag
-                        ..onStart = player.dragStart
-                        ..onUpdate = player.dragUpdate
-                        ..onEnd = player.dragEnd
-                        ..onCancel = player.dragCancel,
-                    ),
-              },
-              child: RepaintBoundary(
-                child: PaywallClockBuilder(
-                  clock: scope.clock,
-                  builder: (context, t, _) => _ReceiptStage(
-                    plan: plan,
-                    player: player,
-                    t: t,
-                    bleedTop: bleedTop,
-                    title: LocaleKeys.app_title.tr(),
-                    lines: lines,
-                    name: name,
-                    price: price,
-                    followsIntro: scope.followsIntro,
                   ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: room.gap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-              child: HeroPips(player: player, count: count, color: tones.ink),
+            SizedBox(
+              height: room.gap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+                child: HeroPips(player: player, count: count, color: tones.ink),
+              ),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(
-              left: heroSideInset,
-              right: heroSideInset,
-              bottom: room.under,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HeroRise(
-                  clock: scope.clock,
-                  index: 0,
-                  child: Semantics(
-                    header: true,
-                    child: Text(headline, style: headlineStyle),
-                  ),
-                ),
-                if (hasSentence) ...[
-                  const SizedBox(height: sentenceGap),
+            Padding(
+              padding: EdgeInsets.only(
+                left: heroSideInset,
+                right: heroSideInset,
+                bottom: room.under,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   HeroRise(
                     clock: scope.clock,
-                    index: 1,
-                    child: SizedBox(
-                      height: tallest,
-                      // The slip's lines say the same to a screen reader.
-                      child: ExcludeSemantics(
-                        child: PaywallClockBuilder(
-                          clock: scope.clock,
-                          builder: (context, t, _) {
-                            final active = player.frameAt(t).activeIndex;
-                            return AnimatedSwitcher(
-                              duration: context.motion(AppDurations.base),
-                              layoutBuilder: (current, previous) => Stack(
-                                alignment: Alignment.topLeft,
-                                children: [...previous, ?current],
-                              ),
-                              child: Align(
-                                key: ValueKey(active),
-                                alignment: Alignment.topLeft,
-                                child: Text(
-                                  benefits[active % count].line,
-                                  style: sentenceStyle,
+                    index: 0,
+                    child: Semantics(
+                      header: true,
+                      child: Text(headline, style: headlineStyle),
+                    ),
+                  ),
+                  if (hasSentence) ...[
+                    const SizedBox(height: sentenceGap),
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 1,
+                      child: SizedBox(
+                        height: tallest,
+                        // The slip's lines say the same to a screen reader.
+                        child: ExcludeSemantics(
+                          child: PaywallClockBuilder(
+                            clock: scope.clock,
+                            builder: (context, t, _) {
+                              final active = player.frameAt(t).activeIndex;
+                              return AnimatedSwitcher(
+                                duration: context.motion(AppDurations.base),
+                                layoutBuilder: (current, previous) => Stack(
+                                  alignment: Alignment.topLeft,
+                                  children: [...previous, ?current],
                                 ),
-                              ),
-                            );
-                          },
+                                child: Align(
+                                  key: ValueKey(active),
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    benefits[active % count].line,
+                                    style: sentenceStyle,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

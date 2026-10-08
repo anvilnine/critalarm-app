@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 // The Proof layout's turns, as numbers. Every benefit plays as two beats:
 // first as it is on Free, then the lift. The preview, the face and the tag
@@ -284,15 +287,40 @@ Set<ProofMoment> proofMomentsBetween(ProofTurn turn, double from, double to) {
   };
 }
 
-/// Whether the loop's own moments are felt and heard at clock second [t]:
-/// only through the first pass, and never once the hand has taken over.
-/// A screen left open does not keep tapping, and a touch has its own cue.
-bool proofCuesAt(
-  double t, {
-  required double entranceEnd,
-  required double period,
-  required bool touched,
-}) => !touched && t >= entranceEnd && t < entranceEnd + period;
+/// What [moment] sounds and feels like, or null for nothing.
+///
+/// A turn the hand asked for ([byHand]) is the whole story: the refusal
+/// knocks and the lift answers it. A turn the loop plays by itself marks
+/// only the lift, with the tag turning over, and only [inFirstPass]
+/// (`paywallLoopCues`): a screen left open does not keep sounding.
+PaywallCue? proofCueFor(
+  ProofMoment moment, {
+  required bool byHand,
+  required bool inFirstPass,
+}) => switch (moment) {
+  ProofMoment.refusal => byHand ? PaywallCue.refuse : null,
+  ProofMoment.lift =>
+    byHand
+        ? PaywallCue.lift
+        : inFirstPass
+        ? PaywallCue.flip
+        : null,
+};
+
+/// How far through the entrance the Free tag starts to show on the card's
+/// corner: after the card has landed.
+const double proofTagAppearsAt = 0.7;
+
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot is dropped in, and the Free tag turns up on the
+/// card.
+List<PaywallCueBeat> proofEntranceCues({double prelude = 0}) => [
+  heroLandingBeat(proofMotion.entrance, prelude: prelude),
+  PaywallCueBeat(
+    prelude + proofTagAppearsAt * heroEntranceSeconds,
+    PaywallCue.flip,
+  ),
+];
 
 /// The clock second to cue a preview at, so it holds its Free frame.
 ///

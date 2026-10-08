@@ -1,29 +1,12 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors/doors_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:flutter/material.dart';
-
-/// The door starts to swing open: one tick and one light tap, once.
-void doorsOpenCue() {
-  AppHaptics.selection();
-  getIt<PaywallCues>().tick();
-}
-
-/// The hand puts another benefit in the doorway and the door opens wider
-/// for it: one tick and one light tap. The loop doing it is silent.
-void doorsWidenCue() {
-  AppHaptics.selection();
-  getIt<PaywallCues>().tick();
-}
 
 /// The corner of the doorway and of the door, and the weight of their
 /// outline, in points.
@@ -91,7 +74,7 @@ class DoorsColors {
 ///
 /// It answers the hand as the kit's stage does: a swipe goes to the next
 /// benefit or the one before, a tap plays the current one again.
-class DoorsStage extends StatefulWidget {
+class DoorsStage extends StatelessWidget {
   const DoorsStage({
     required this.player,
     required this.size,
@@ -116,76 +99,26 @@ class DoorsStage extends StatefulWidget {
   final double lead;
 
   @override
-  State<DoorsStage> createState() => _DoorsStageState();
-}
-
-class _DoorsStageState extends State<DoorsStage> {
-  late double _before = _player.clock.value;
-  late final bool _isMuted = PaywallMuted.of(context);
-
-  HeroPlayer get _player => widget.player;
-
-  // The opening's cue, on the frame the door starts to swing. After an
-  // intro the door is already moving and the hand over has its own cue.
-  void _onTick() {
-    final clock = _player.clock;
-    final now = clock.value;
-    final opens = doorsReached(
-      _before,
-      now,
-      DoorsTimeline.prelude - widget.lead,
-    );
-    _before = now;
-    final isOwn = widget.lead == 0;
-    if (opens && isOwn && !clock.isStill && !_isMuted) doorsOpenCue();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _player.clock.addListener(_onTick);
-  }
-
-  @override
-  void didUpdateWidget(DoorsStage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final was = oldWidget.player.clock;
-    if (identical(was, _player.clock)) return;
-    was.removeListener(_onTick);
-    _player.clock.addListener(_onTick);
-    _before = _player.clock.value;
-  }
-
-  @override
-  void dispose() {
-    _player.clock.removeListener(_onTick);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final size = widget.size;
-    final geometry = widget.geometry;
     final doorway = geometry.doorway;
     final mascot = geometry.arrangement.mascot;
     final card = geometry.arrangement.card;
     final colors = DoorsColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final count = widget.count;
 
     return HeroTouchArea(
-      player: _player,
+      player: player,
       child: RepaintBoundary(
         child: PaywallClockBuilder(
-          clock: _player.clock,
+          clock: player.clock,
           builder: (context, t, _) {
-            final frame = _player.frameAt(t);
-            final isStill = _player.isStill;
+            final frame = player.frameAt(t);
+            final isStill = player.isStill;
             final e = frame.entrance;
             final index = math.min(frame.activeIndex, math.max(0, count - 1));
             final before = frame.previous?.index;
             final previous = before != null && before < count ? before : null;
-            final open = isStill ? 1.0 : DoorsTimeline.open(t + widget.lead);
+            final open = isStill ? 1.0 : DoorsTimeline.open(t + lead);
 
             final shape = doorsLeafShapeFor(
               angle: doorsAngleAt(
@@ -223,7 +156,7 @@ class _DoorsStageState extends State<DoorsStage> {
             return Semantics(
               container: true,
               image: true,
-              label: widget.label(frame),
+              label: label(frame),
               child: ExcludeSemantics(
                 child: SizedBox.fromSize(
                   size: size,
@@ -242,7 +175,7 @@ class _DoorsStageState extends State<DoorsStage> {
                               painter: HeroAtmospherePainter(
                                 focus: card.center - doorway.topLeft,
                                 radius: card.width * 0.6,
-                                seconds: _player.stageSeconds(t),
+                                seconds: player.stageSeconds(t),
                                 entrance: e,
                                 showsShapes: true,
                                 disc: colors.glow,
@@ -273,7 +206,7 @@ class _DoorsStageState extends State<DoorsStage> {
                             opacity: phase(e, 0.42, 0.6),
                             child: Transform.translate(
                               offset: Offset(
-                                28 * (1 - cardArrive) + _player.pullAt(t),
+                                28 * (1 - cardArrive) + player.pullAt(t),
                                 0,
                               ),
                               child: Transform.scale(

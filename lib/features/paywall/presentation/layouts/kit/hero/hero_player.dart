@@ -1,7 +1,6 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/gestures.dart';
@@ -51,12 +50,11 @@ const double heroSettleSeconds = 0.36;
 /// swipe listens.
 const double heroBackEdge = 24;
 
-/// One light haptic and the paywall's tick: what a change of benefit feels
-/// and sounds like. The default of [HeroPlayer.onChange].
-void heroChangeCue() {
-  AppHaptics.selection();
-  getIt<PaywallCues>().tick();
-}
+/// The paywall's tick, which carries its own light haptic: what a change
+/// of benefit by the hand feels and sounds like. The default of
+/// [HeroPlayer.onChange]. A change the loop makes by itself is quieter and
+/// is played by `PaywallCueScore`.
+void heroChangeCue() => getIt<PaywallCues>().play(PaywallCue.tick);
 
 /// Plays a [HeroLoop] on a clock and keeps what the hand did to it: the
 /// benefit last chosen, how long the loop has waited under a finger, and

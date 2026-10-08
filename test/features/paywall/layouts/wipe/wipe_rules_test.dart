@@ -1,6 +1,8 @@
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
@@ -100,9 +102,49 @@ void main() {
       expect(at, closeTo(0.3, 0.03));
     });
 
-    test('its cue plays once', () {
-      expect(wipeReached(wipeLandsAt - 0.016, wipeLandsAt, wipeLandsAt), true);
-      expect(wipeReached(wipeLandsAt, wipeLandsAt + 0.016, wipeLandsAt), false);
+    test('the sweep is a whoosh as it starts and a snap as it lands', () {
+      expect(wipeSweepCues(), const [
+        PaywallCueBeat(wipeSweepStart, PaywallCue.whoosh),
+        PaywallCueBeat(wipeLandsAt, PaywallCue.snap),
+      ]);
+      final lead = wipeLeadFor(followsIntro: true);
+      expect(wipeSweepCues(lead: lead).last.at, wipeLandsAt - lead);
+      expect(wipeEntranceCues().single.cue, PaywallCue.pop);
+      expect(wipeEntranceCues().single.at, lessThan(wipeSweepStart));
+    });
+  });
+
+  group('the drag', () {
+    test('ticks once at every tenth of the width', () {
+      expect(wipeDragCue(0.42, 0.44), isNull);
+      expect(wipeDragCue(0.48, 0.51), PaywallCue.ratchet);
+      expect(wipeDragCue(0.51, 0.48), PaywallCue.ratchet);
+      expect(wipeDragCue(0.51, 0.59), isNull);
+      expect(wipeDragCue(0.5, 0.5), isNull);
+      var ticks = 0;
+      var at = 0.2;
+      for (var i = 0; i < 60; i++) {
+        final to = at + 0.01;
+        if (wipeDragCue(at, to) == PaywallCue.ratchet) ticks++;
+        at = to;
+      }
+      // From 0.2 to 0.8: the notches at 0.3 to 0.8.
+      expect(ticks, inInclusiveRange(5, 6));
+    });
+
+    test('knocks once on reaching either stop, and not again there', () {
+      const grip = WipeGrip(at: 0.88);
+      final stopped = grip.moved(0.05);
+      expect(stopped.at, wipeMax);
+      expect(wipeDragCue(grip.at, stopped.at), PaywallCue.refuse);
+      // Pushed further it has not moved, so nothing more is felt.
+      expect(wipeDragCue(stopped.at, stopped.moved(0.05).at), isNull);
+      expect(
+        wipeDragCue(0.13, const WipeGrip(at: 0.13).moved(-0.2).at),
+        PaywallCue.refuse,
+      );
+      // Coming back off the stop is a notch like any other.
+      expect(wipeDragCue(wipeMax, 0.86), PaywallCue.ratchet);
     });
   });
 

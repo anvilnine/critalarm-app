@@ -1,6 +1,5 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/intros/wake_up/wake_up_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -22,21 +21,14 @@ const PaywallIntro wakeUpIntro = PaywallIntro(
   tone: PaywallTone.panel,
   cue: PaywallEntranceCue.none,
   beats: [
-    PaywallIntroBeat(WakeUpTimeline.bonk, _onBonk),
-    PaywallIntroBeat(WakeUpTimeline.reveal, _onReveal),
+    // The message lands on the sleeping mascot.
+    PaywallIntroBeat(WakeUpTimeline.bonk, PaywallCue.introKnock),
+    // The night rolls up.
+    PaywallIntroBeat(WakeUpTimeline.reveal, PaywallCue.kidding),
   ],
   tag: _tag,
   builder: _build,
 );
-
-/// The message lands on the sleeping mascot.
-void _onBonk(PaywallCues cues) {
-  cues.gag();
-  AppHaptics.capture();
-}
-
-/// The night rolls up.
-void _onReveal(PaywallCues cues) => cues.open();
 
 String _tag() => LocaleKeys.paywall_intro_wake_up_line.tr();
 

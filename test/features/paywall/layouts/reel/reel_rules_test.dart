@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -218,24 +219,13 @@ void main() {
       expect(loop.entranceEnd, lessThan(heroEntranceSeconds));
     });
 
-    test('only the first pass of an untouched reel is felt', () {
-      bool cues(double began, {double? was = 1, bool touched = false}) =>
-          reelCuesPush(
-            began: began,
-            was: was,
-            entranceEnd: 1,
-            period: 10,
-            touched: touched,
-          );
-      // The first page is the entrance, not a push.
-      expect(cues(1, was: null), isFalse);
-      expect(cues(1), isFalse);
-      expect(cues(3.5), isTrue);
-      expect(cues(3.5, was: 3.5), isFalse);
-      // The second pass, a touch, and a clock that went back.
-      expect(cues(11, was: 9), isFalse);
-      expect(cues(3.5, touched: true), isFalse);
-      expect(cues(3.5, was: 6), isFalse);
+    test('the entrance is heard as the mascot lands, alone only', () {
+      final alone = reelCues(prelude: reelPreludeFor(followsIntro: false));
+      expect(alone.single.cue, PaywallCue.pop);
+      expect(alone.single.at, inExclusiveRange(0, heroEntranceSeconds));
+      // After an intro the mascot is there before the clock starts.
+      final after = reelCues(prelude: reelPreludeFor(followsIntro: true));
+      expect(after.single.at, lessThan(0));
     });
   });
 }

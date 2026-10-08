@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
@@ -86,11 +87,20 @@ void main() {
       expect(sentenceFirstRollEnd, lessThanOrEqualTo(heroEntranceSeconds));
     });
 
-    test('its cue plays once, on the frame the roll starts', () {
-      const at = sentenceFirstRollStart;
-      expect(sentenceReached(at - 0.016, at, at), isTrue);
-      expect(sentenceReached(at, at + 0.016, at), isFalse);
-      expect(sentenceReached(0, at - 0.016, at), isFalse);
+    test('is heard as it starts, after the mascot has landed', () {
+      final cues = sentenceCues(prelude: 0);
+      expect(
+        [for (final beat in cues) beat.cue],
+        [
+          PaywallCue.pop,
+          PaywallCue.roll,
+        ],
+      );
+      expect(cues.last.at, sentenceFirstRollStart);
+      expect(cues.first.at, lessThan(cues.last.at));
+      // A head start moves both.
+      final early = sentenceCues(prelude: -0.3);
+      expect(early.last.at, closeTo(sentenceFirstRollStart - 0.3, 1e-9));
     });
   });
 

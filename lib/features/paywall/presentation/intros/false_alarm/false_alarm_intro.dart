@@ -42,24 +42,24 @@ FaceShape _faceAt(double t) {
 /// mascot blinks and admits it, and the red opens from where the mascot
 /// stands to show the layout under it.
 ///
-/// A silent picture of an alarm. The app makes none.
+/// A silent picture of an alarm. The app makes none. The gag cue is the
+/// only sound and owns the whole intro: nothing is felt while the screen
+/// rings, one light tap marks the reveal, and a tap that skips it plays
+/// the release in its place.
 const PaywallIntro falseAlarmIntro = PaywallIntro(
   seconds: FalseAlarmTimeline.end,
   handover: FalseAlarmTimeline.handover,
   skipTo: FalseAlarmTimeline.reveal,
   tone: PaywallTone.crit,
   cue: PaywallEntranceCue.gag,
-  beats: [PaywallIntroBeat(FalseAlarmTimeline.admit, _onAdmit)],
+  beats: [
+    PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.light),
+  ],
+  skipCue: PaywallCue.kidding,
+  quietAfter: FalseAlarmTimeline.gagEnds - FalseAlarmTimeline.handover,
   tag: _tag,
   builder: _build,
 );
-
-/// The mascot admits it. The ringing before it is a silent picture: it
-/// has no sound and no touch of its own.
-void _onAdmit(PaywallCues cues) {
-  cues.tick();
-  AppHaptics.selection();
-}
 
 String _tag() => LocaleKeys.paywall_false_alarm_admission.tr();
 
