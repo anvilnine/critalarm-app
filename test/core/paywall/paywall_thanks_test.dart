@@ -8,7 +8,13 @@ void main() {
   test('every thanks has the key it ships under', () {
     expect(
       {for (final t in PaywallThanksId.values) t.name: t.key},
-      {'none': 'none', 'confetti': 'confetti', 'unlock': 'unlock'},
+      {
+        'none': 'none',
+        'confetti': 'confetti',
+        'unlock': 'unlock',
+        'lockAndKey': 'key',
+        'lights': 'lights',
+      },
     );
   });
 
