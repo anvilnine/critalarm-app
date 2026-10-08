@@ -43,6 +43,7 @@ final class ProPackAccess {
   }) : _override = override ?? appProPackOverride,
        _now = now ?? DateTime.now {
     _last = isHeld;
+    _lastWaiting = isPurchaseWaiting;
     _override.listenable?.addListener(_announce);
     for (final changes in _identityChanges) {
       changes.addListener(_identityChanged);
@@ -74,6 +75,7 @@ final class ProPackAccess {
   final DateTime Function() _now;
 
   final _changes = StreamController<bool>.broadcast();
+  final _anyChange = _Bell();
 
   /// Done once the kept list has been checked against this phone's account.
   /// Until then nothing is held from the relay.
@@ -104,6 +106,7 @@ final class ProPackAccess {
 
   ProPackOtherSources _other = const ProPackOtherSources();
   late bool _last;
+  late bool _lastWaiting;
 
   DateTime? _lastRead;
   Future<void>? _reading;
@@ -116,6 +119,25 @@ final class ProPackAccess {
   /// Every change of [isHeld], and only changes. Read [isHeld] for the
   /// value to start from.
   Stream<bool> get stream => _changes.stream;
+
+  /// Whether a purchase on this account is still waiting for the relay to
+  /// confirm it. Read only: it is the record [purchaseStarted] wrote, while
+  /// it is for this account and younger than [pendingConfirmGivesUpAfter].
+  bool get isPurchaseWaiting {
+    final scope = _scope;
+    if (scope == null) return false;
+    try {
+      final pending = _store.readPending();
+      if (pending == null || pending.scope != scope) return false;
+      final age = _now().difference(pending.since);
+      return !age.isNegative && age < pendingConfirmGivesUpAfter;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
+  /// Fires when [isHeld] or [isPurchaseWaiting] changed.
+  Listenable get changes => _anyChange;
 
   /// The address of a relay as the scope keeps it.
   static String relayText(Uri relay) {
@@ -286,6 +308,7 @@ final class ProPackAccess {
       await _store.writePending(
         PendingProPackConfirm(scope: scope, since: _now()),
       );
+      _announce();
     } on Object catch (error) {
       debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
     }
@@ -295,6 +318,7 @@ final class ProPackAccess {
   Future<void> purchaseAbandoned() async {
     try {
       await _store.clearPending();
+      _announce();
     } on Object catch (error) {
       debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
     }
@@ -434,10 +458,15 @@ final class ProPackAccess {
   }
 
   void _announce() {
+    if (_changes.isClosed) return;
     final held = isHeld;
-    if (held == _last || _changes.isClosed) return;
+    final waiting = isPurchaseWaiting;
+    final heldChanged = held != _last;
+    if (!heldChanged && waiting == _lastWaiting) return;
     _last = held;
-    _changes.add(held);
+    _lastWaiting = waiting;
+    if (heldChanged) _changes.add(held);
+    _anyChange.ring();
   }
 
   Future<void> dispose() async {
@@ -446,5 +475,11 @@ final class ProPackAccess {
       changes.removeListener(_identityChanged);
     }
     await _changes.close();
+    _anyChange.dispose();
   }
+}
+
+/// Tells its listeners something changed and carries no value.
+final class _Bell extends ChangeNotifier {
+  void ring() => notifyListeners();
 }
