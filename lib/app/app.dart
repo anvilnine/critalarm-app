@@ -40,6 +40,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_hos
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
@@ -232,6 +233,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // Made now, so it knows the plan was read before an alarm asks it.
     getIt<ChallengeGate>();
     getIt<ChallengeFlagSync>().start();
+    // Made now too, and it notes each sure answer about the plan.
+    getIt<AlarmStyleGate>().start();
     _autoDelete();
   }
 
@@ -248,6 +251,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<WidgetSync>().dispose());
     unawaited(getIt<SoundLockSync>().dispose());
     unawaited(getIt<ChallengeFlagSync>().dispose());
+    unawaited(getIt<AlarmStyleGate>().dispose());
     super.dispose();
   }
 
@@ -262,6 +266,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // A plan that could not be read at a background launch can be read now.
     unawaited(getIt<SoundLockSync>().check());
     unawaited(getIt<ChallengeFlagSync>().check());
+    unawaited(getIt<AlarmStyleGate>().check());
     unawaited(_retryFailedLaunchCalls());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.

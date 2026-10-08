@@ -7,6 +7,8 @@ import 'package:critalarm/features/history/presentation/history_formatting.dart'
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -20,6 +22,11 @@ import 'package:flutter/rendering.dart';
 /// so the alarm screen and the Personalize preview build the same widget:
 /// the alarm screen hands in the cubit's calls, the preview hands in
 /// nothing that reaches an incident.
+///
+/// How it looks comes from the [AlarmStyleScope] above it: the type, the
+/// treatment of the buttons, the pulse ring and the largest face. Nothing
+/// a look can reach moves a button, renames it or changes the order a
+/// screen reader walks.
 class RingingScreen extends StatelessWidget {
   const RingingScreen({
     required this.state,
@@ -69,6 +76,7 @@ class RingingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
+    final look = AlarmStyleScope.of(context).ringing;
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
@@ -88,6 +96,7 @@ class RingingScreen extends StatelessWidget {
           sortKey: _orderAcknowledge,
           child: AppButton(
             label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
+            variant: look.acknowledgeButton,
             isFullWidth: true,
             isLoading: state.isAcknowledging,
             onPressed: onAcknowledge,
@@ -102,7 +111,7 @@ class RingingScreen extends StatelessWidget {
           sortKey: _orderSilence,
           child: AppButton(
             label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-            variant: AppButtonVariant.tinted,
+            variant: look.quietButton,
             isFullWidth: true,
             onPressed: onSilence,
           ),
@@ -119,7 +128,7 @@ class RingingScreen extends StatelessWidget {
             sortKey: _orderReadMessage,
             child: AppButton(
               label: LocaleKeys.critical_alarm_read_message_button.tr(),
-              variant: AppButtonVariant.tinted,
+              variant: look.quietButton,
               isFullWidth: true,
               // Reading is not acknowledging, so this leaves the alarm
               // ringing and takes the user to the messages on the topic.
@@ -134,12 +143,12 @@ class RingingScreen extends StatelessWidget {
     // colour, so no line of it shows through a tinted button.
     return AppBarBackingScope(
       color: colors.canvas,
-      child: isWide ? _wide(context, bottomBar) : _tall(bottomBar),
+      child: isWide ? _wide(context, look, bottomBar) : _tall(look, bottomBar),
     );
   }
 
   /// A tablet or a phone on its side: the face beside the words.
-  Widget _wide(BuildContext context, Widget bottomBar) {
+  Widget _wide(BuildContext context, AlarmRingingLook look, Widget bottomBar) {
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderContent,
@@ -148,7 +157,7 @@ class RingingScreen extends StatelessWidget {
           hasScrollBody: false,
           child: Row(
             children: [
-              _face(300),
+              _face(look, math.min(300, look.maxFace)),
               const SizedBox(width: 40),
               Expanded(
                 child: ConstrainedBox(
@@ -157,14 +166,14 @@ class RingingScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _word(TextAlign.left),
+                      _word(look, TextAlign.left),
                       const SizedBox(height: Spacing.s2),
-                      _topic(TextAlign.left),
+                      _topic(look, TextAlign.left),
                       _alarmCountPill(context),
                       const SizedBox(height: Spacing.s2),
-                      _subtext(TextAlign.left),
+                      _subtext(look, TextAlign.left),
                       const SizedBox(height: Spacing.s4),
-                      _detailSheet(),
+                      _detailSheet(look),
                     ],
                   ),
                 ),
@@ -183,7 +192,7 @@ class RingingScreen extends StatelessWidget {
   /// card sits above the buttons, and goes away when that is too little. If
   /// the title still ends under the buttons, the lines above the card drop
   /// to a smaller text size. The rules are in `ringing_layout_rules.dart`.
-  Widget _tall(Widget bottomBar) {
+  Widget _tall(AlarmRingingLook look, Widget bottomBar) {
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderContent,
@@ -193,16 +202,18 @@ class RingingScreen extends StatelessWidget {
           // style its lines inherit are known.
           child: LayoutBuilder(
             builder: (context, box) {
-              final layout = _tallLayout(context, box.maxWidth);
+              final layout = _tallLayout(context, look, box.maxWidth);
+              // The layout decides the face. A look may only cap it.
+              final faceSize = math.min(layout.faceSize, look.maxFace);
               final header = Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _word(TextAlign.center),
+                  _word(look, TextAlign.center),
                   const SizedBox(height: Spacing.s2),
-                  _topic(TextAlign.center),
+                  _topic(look, TextAlign.center),
                   _alarmCountPill(context),
                   const SizedBox(height: Spacing.s2),
-                  _subtext(TextAlign.center),
+                  _subtext(look, TextAlign.center),
                 ],
               );
               return Padding(
@@ -215,8 +226,8 @@ class RingingScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (layout.faceSize > 0) ...[
-                      _face(layout.faceSize),
+                    if (faceSize > 0) ...[
+                      _face(look, faceSize),
                       const SizedBox(height: ringingFaceGap),
                     ],
                     if (layout.isCompact)
@@ -244,7 +255,7 @@ class RingingScreen extends StatelessWidget {
               _cardInset,
               0,
             ),
-            child: _detailSheet(),
+            child: _detailSheet(look),
           ),
         ),
       ],
@@ -262,6 +273,7 @@ class RingingScreen extends StatelessWidget {
   /// the length of the message is what decides the room.
   ({double faceSize, bool isCompact}) _tallLayout(
     BuildContext context,
+    AlarmRingingLook look,
     double width,
   ) {
     final media = MediaQuery.of(context);
@@ -282,13 +294,14 @@ class RingingScreen extends StatelessWidget {
       return height;
     }
 
-    final titleBottom = _cardPadding.top + lines(state.title, _titleStyle);
+    final titleBottom =
+        _cardPadding.top + lines(state.title, _titleStyle(look));
     final cardHeight =
         titleBottom +
         _titleGap +
-        lines(state.body, _bodyStyle) +
+        lines(state.body, _bodyStyle(look)) +
         _bodyGap +
-        lines(state.meta, _metaStyle) +
+        lines(state.meta, _metaStyle(look)) +
         _cardPadding.bottom;
     final viewportHeight = media.size.height - media.padding.vertical;
     // A setup test has no Read the full message button.
@@ -315,17 +328,21 @@ class RingingScreen extends StatelessWidget {
   /// How much wider the ringing face's stage is than its head.
   static const double _ringingStageScale = RingingFacePainter.stageUnits / 200;
 
-  Widget _face(double faceSize) {
+  Widget _face(AlarmRingingLook look, double faceSize) {
     // A setup test takes the face over from the setup screen it came from.
     final isDemo = state.ackedExits.isSetupTest;
     // The face and its pulse ring are a picture of the state. The words say
     // the same thing, so a screen reader passes over both.
     return ExcludeSemantics(
-      child: _faceStage(faceSize, isDemo: isDemo),
+      child: _faceStage(look, faceSize, isDemo: isDemo),
     );
   }
 
-  Widget _faceStage(double faceSize, {required bool isDemo}) {
+  Widget _faceStage(
+    AlarmRingingLook look,
+    double faceSize, {
+    required bool isDemo,
+  }) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: SizedBox(
@@ -335,7 +352,7 @@ class RingingScreen extends StatelessWidget {
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
-            PulseRingWidget(size: faceSize),
+            if (look.showsPulseRing) PulseRingWidget(size: faceSize),
             Hero(
               tag: isDemo
                   ? 'onboarding-face'
@@ -362,7 +379,7 @@ class RingingScreen extends StatelessWidget {
     );
   }
 
-  Widget _word(TextAlign align) {
+  Widget _word(AlarmRingingLook look, TextAlign align) {
     // Read together with the topic name, which comes first there.
     return ExcludeSemantics(
       child: FittedBox(
@@ -370,13 +387,13 @@ class RingingScreen extends StatelessWidget {
         child: Text(
           state.word,
           textAlign: align,
-          style: AppTypography.display(colors.onCanvas),
+          style: look.type.word.copyWith(color: colors.onCanvas),
         ),
       ),
     );
   }
 
-  Widget _topic(TextAlign align) {
+  Widget _topic(AlarmRingingLook look, TextAlign align) {
     return Semantics(
       sortKey: _orderTopic,
       label: spokenTopic(topic: state.topic, word: state.word),
@@ -386,13 +403,7 @@ class RingingScreen extends StatelessWidget {
         child: Text(
           state.topic,
           textAlign: align,
-          style: TextStyle(
-            fontFamily: AppTypography.fontMono,
-            fontFamilyFallback: AppTypography.fontMonoFallbacks,
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            color: colors.onCanvas,
-          ),
+          style: look.type.topic.copyWith(color: colors.onCanvas),
         ),
       ),
     );
@@ -401,7 +412,7 @@ class RingingScreen extends StatelessWidget {
   /// How long the alarm has been ringing. The line counts seconds for the
   /// eye. A screen reader gets whole minutes, so what it holds changes once a
   /// minute, and it is not a live region: nothing is read out on its own.
-  Widget _subtext(TextAlign align) {
+  Widget _subtext(AlarmRingingLook look, TextAlign align) {
     return Semantics(
       sortKey: _orderRingTime,
       label: state.ringTimeSpoken.isEmpty
@@ -411,13 +422,7 @@ class RingingScreen extends StatelessWidget {
       child: Text(
         state.subtext,
         textAlign: align,
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontWeight: FontWeight.w600,
-          fontSize: 15,
-          color: colors.onCanvas,
-        ),
+        style: look.type.time.copyWith(color: colors.onCanvas),
       ),
     );
   }
@@ -484,7 +489,7 @@ class RingingScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailSheet() {
+  Widget _detailSheet(AlarmRingingLook look) {
     // One stop for the whole message, so it is one swipe to hear it and one
     // more to reach Silence.
     return Semantics(
@@ -496,50 +501,35 @@ class RingingScreen extends StatelessWidget {
         meta: state.meta,
       ),
       excludeSemantics: true,
-      child: _detailCard(),
+      child: _detailCard(look),
     );
   }
 
   // The card's three lines. The layout measures the same styles, so the
   // face is sized for the card that is drawn.
-  TextStyle get _titleStyle => TextStyle(
-    fontFamily: AppTypography.fontDisplay,
-    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-    fontWeight: FontWeight.w700,
-    fontSize: 22,
-    color: colors.ink,
-    height: 1.2,
-  );
+  TextStyle _titleStyle(AlarmRingingLook look) =>
+      look.type.messageTitle.copyWith(color: colors.ink);
 
-  TextStyle get _bodyStyle => TextStyle(
-    fontFamily: AppTypography.fontBody,
-    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-    fontSize: 14,
-    color: colors.ink2,
-    height: 1.4,
-  );
+  TextStyle _bodyStyle(AlarmRingingLook look) =>
+      look.type.messageBody.copyWith(color: colors.ink2);
 
-  TextStyle get _metaStyle => TextStyle(
-    fontFamily: AppTypography.fontMono,
-    fontFamilyFallback: AppTypography.fontMonoFallbacks,
-    fontSize: 12,
-    color: colors.ink3,
-  );
+  TextStyle _metaStyle(AlarmRingingLook look) =>
+      look.type.messageMeta.copyWith(color: colors.ink3);
 
   static const double _titleGap = 6;
   static const double _bodyGap = 8;
 
-  Widget _detailCard() {
+  Widget _detailCard(AlarmRingingLook look) {
     return AppSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(state.title, style: _titleStyle),
+          Text(state.title, style: _titleStyle(look)),
           const SizedBox(height: _titleGap),
-          Text(state.body, style: _bodyStyle),
+          Text(state.body, style: _bodyStyle(look)),
           const SizedBox(height: _bodyGap),
-          Text(state.meta, style: _metaStyle),
+          Text(state.meta, style: _metaStyle(look)),
         ],
       ),
     );
