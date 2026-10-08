@@ -5,6 +5,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/design/design.dart';
@@ -96,9 +97,16 @@ class _SoundPickerView extends StatelessWidget {
   /// The gate in front of every way to add or pick an own sound. With own
   /// sounds locked it opens the paywall and answers true, and the caller
   /// does nothing else.
+  ///
+  /// It waits for the plan to be read first, so a tap right after a cold
+  /// start never shows a paywall to someone who holds Pro.
   static Future<bool> _openedPaywall(BuildContext context) async {
-    final state = context.read<SoundPickerCubit>().state;
-    if (!state.ownSoundsLocked) return false;
+    final decision = await context
+        .read<SoundPickerCubit>()
+        .ownSoundsOnceReady();
+    if (!ownSoundsLockedBy(decision)) return false;
+    if (!context.mounted) return true;
+    // The plan has been read by now, so the helper sees the same answer.
     await openPaywallForFeature(
       context,
       AppFeature.ownSounds,
@@ -442,8 +450,13 @@ class _SoundRowState extends State<_SoundRow>
                 : WaveformBars(peaks: sound.peaks!, progress: progress),
             onTap: () {
               AppHaptics.selection();
-              if (isLocked) {
-                unawaited(_SoundPickerView._openedPaywall(context));
+              if (isUserSound) {
+                // Asked again here, not read off the row: the row may have
+                // been drawn before the plan was read.
+                unawaited(() async {
+                  if (await _SoundPickerView._openedPaywall(context)) return;
+                  await cubit.select(sound.id);
+                }());
                 return;
               }
               unawaited(cubit.select(sound.id));
@@ -456,8 +469,8 @@ class _SoundRowState extends State<_SoundRow>
 }
 
 /// "Pick a file" or "Record": a way to bring in an own sound. While own
-/// sounds are locked the one lock puts the plan badge on its corner and a
-/// tap opens the paywall.
+/// sounds are locked the one lock puts the plan badge on its corner, and
+/// a tap goes through the picker's gate, which opens the paywall.
 class _OwnSoundWayIn extends StatelessWidget {
   const _OwnSoundWayIn({
     required this.label,
@@ -475,6 +488,13 @@ class _OwnSoundWayIn extends StatelessWidget {
       feature: AppFeature.ownSounds,
       source: LockSource.sounds,
       name: label,
+      // Drawn locked or not, a tap runs the same way in, which asks the
+      // picker's own gate once the plan is read. So a badge drawn before
+      // the first read never leads a Pro holder to a paywall.
+      onLockedTap: () {
+        AppHaptics.capture();
+        unawaited(onPressed());
+      },
       child: AppButton(
         label: label,
         variant: AppButtonVariant.ghost,

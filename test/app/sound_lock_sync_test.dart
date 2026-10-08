@@ -13,22 +13,29 @@ void main() {
   late List<bool> writes;
   late int publishes;
 
+  /// What the next publish answers. A test sets it to fail one.
+  late Future<bool> Function() publishAnswer;
+
   SoundLockSync build({
     required Future<bool> Function() isLocked,
     Stream<Object?>? changes,
     Future<void> Function({required bool locked})? write,
+    bool? Function()? readWritten,
   }) {
     final sync = SoundLockSync(
       isLocked: isLocked,
       changes: changes ?? const Stream<Object?>.empty(),
-      readWritten: () => written,
+      readWritten: readWritten ?? () => written,
       write:
           write ??
           ({required locked}) async {
             written = locked;
             writes.add(locked);
           },
-      publish: () async => publishes++,
+      publish: () {
+        publishes++;
+        return publishAnswer();
+      },
     );
     addTearDown(sync.dispose);
     return sync;
@@ -38,6 +45,127 @@ void main() {
     written = null;
     writes = [];
     publishes = 0;
+    publishAnswer = () async => true;
+  });
+
+  group('a publish that did not land', () {
+    test('answering false is tried again on the next check', () async {
+      publishAnswer = () async => false;
+      final sync = build(isLocked: () async => false);
+      await sync.check();
+      expect(writes, [false]);
+      expect(publishes, 1);
+      expect(sync.isPublishOwed, isTrue);
+
+      // Nothing to write now: the value already matches. The copy for
+      // the extension is still owed, so it is made again.
+      await sync.check();
+      expect(writes, [false]);
+      expect(publishes, 2);
+      expect(sync.isPublishOwed, isTrue);
+
+      publishAnswer = () async => true;
+      await sync.check();
+      expect(publishes, 3);
+      expect(sync.isPublishOwed, isFalse);
+
+      await sync.check();
+      expect(publishes, 3);
+      expect(writes, [false]);
+    });
+
+    test('throwing is tried again on the next check', () async {
+      publishAnswer = () async => throw StateError('channel');
+      final sync = build(isLocked: () async => true);
+      await sync.check();
+      expect(writes, [true]);
+      expect(sync.isPublishOwed, isTrue);
+
+      publishAnswer = () async => true;
+      await sync.check();
+      expect(publishes, 2);
+      expect(sync.isPublishOwed, isFalse);
+    });
+
+    test('a change event retries it too', () async {
+      final changes = StreamController<Object?>.broadcast();
+      addTearDown(changes.close);
+      publishAnswer = () async => false;
+      final sync = build(isLocked: () async => false, changes: changes.stream)
+        ..start();
+      await settle();
+      expect(sync.isPublishOwed, isTrue);
+
+      publishAnswer = () async => true;
+      changes.add(null);
+      await settle();
+      expect(publishes, 2);
+      expect(sync.isPublishOwed, isFalse);
+    });
+
+    test('an owed publish waits while the plan cannot be read', () async {
+      publishAnswer = () async => false;
+      var unreadable = false;
+      final sync = build(
+        isLocked: () async =>
+            unreadable ? throw const HoldingUnreadable(Holding.pro) : false,
+      );
+      await sync.check();
+      unreadable = true;
+      publishAnswer = () async => true;
+      await sync.check();
+      expect(publishes, 1);
+      expect(sync.isPublishOwed, isTrue);
+
+      unreadable = false;
+      await sync.check();
+      expect(publishes, 2);
+      expect(sync.isPublishOwed, isFalse);
+    });
+
+    test('a newer answer is written and one publish carries it', () async {
+      publishAnswer = () async => false;
+      var locked = false;
+      final sync = build(isLocked: () async => locked);
+      await sync.check();
+      locked = true;
+      publishAnswer = () async => true;
+      await sync.check();
+      expect(writes, [false, true]);
+      expect(publishes, 2);
+      expect(sync.isPublishOwed, isFalse);
+    });
+  });
+
+  group('a flag that is not a boolean', () {
+    test('counts as never written and is written over', () async {
+      Object? stored = 'yes';
+      final sync = build(
+        isLocked: () async => true,
+        // What SharedPreferences.getBool does with a string under the key.
+        readWritten: () => stored as bool?,
+        write: ({required locked}) async {
+          stored = locked;
+          writes.add(locked);
+        },
+      );
+      await sync.check();
+      expect(writes, [true]);
+      expect(stored, isTrue);
+      expect(publishes, 1);
+
+      await sync.check();
+      expect(writes, [true]);
+    });
+
+    test('still writes nothing while the plan cannot be read', () async {
+      await build(
+        isLocked: () async => throw const HoldingUnreadable(Holding.pro),
+        readWritten: () => throw TypeError(),
+      ).check();
+      expect(writes, isEmpty);
+      expect(publishes, 0);
+    });
   });
 
   group('one check', () {
