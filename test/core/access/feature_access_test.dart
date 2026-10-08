@@ -119,8 +119,12 @@ void main() {
       }
     });
 
-    test("relay mode is a server of the user's own", () {
+    test('relay mode is the relay itself, with plans, and follows what is '
+        'held', () {
       final access = build(serverMode: ServerMode.relay);
+      expect(access.isOwnServer, isFalse);
+      expect(access.can(AppFeature.longHistory), isFalse);
+      hosted.set(HoldingState.held);
       expect(access.can(AppFeature.longHistory), isTrue);
       expect(access.can(AppFeature.weeklyCheck), isFalse);
     });
@@ -209,8 +213,14 @@ void main() {
       expect(heard, _hostedFeatures);
       heard.clear();
 
-      // Both are a server of the user's own, so nothing moves.
+      // The relay has plans like Crit Alarm Cloud, so they lock again.
       access.setServerMode(ServerMode.relay);
+      await settle();
+      expect(heard, _hostedFeatures);
+      heard.clear();
+
+      // Cloud and the relay answer the same, so nothing moves.
+      access.setServerMode(ServerMode.hosted);
       await settle();
       expect(heard, isEmpty);
     });

@@ -123,6 +123,19 @@ void main() {
             serverMode: isOwnServer ? ServerMode.selfhosted : ServerMode.hosted,
           );
           addTearDown(access.dispose);
+          // Own server is `selfhosted` alone. The relay itself and a server
+          // not known yet have plans, so they read the cloud columns.
+          if (!isOwnServer) {
+            for (final mode in [ServerMode.relay, null]) {
+              final other = FeatureAccess(holdings: holdings, serverMode: mode);
+              addTearDown(other.dispose);
+              expect(
+                other.decide(feature),
+                _truth[feature]![column],
+                reason: 'on $mode',
+              );
+            }
+          }
           addTearDown(holdings.dispose);
 
           final expected = _truth[feature]![column];

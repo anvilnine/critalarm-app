@@ -4,6 +4,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 
 /// The one place that turns holdings into a yes or no for a feature.
@@ -50,12 +51,41 @@ final class FeatureAccess {
   /// [decide], asked once [ready] is done. For a caller that decides once
   /// and does not listen to [changes], and for one that takes something
   /// away.
+  ///
+  /// Throws [HoldingUnreadable] where [decide] would answer
+  /// [FeatureUnread]: nobody knows, and a caller that would lock, trim or
+  /// remove something on "no" catches it and does none of those.
   Future<FeatureDecision> decideOnceReady(AppFeature feature) async {
     await ready;
-    return decide(feature);
+    final decision = decide(feature);
+    if (decision is FeatureUnread) throw HoldingUnreadable(decision.holding);
+    return decision;
   }
 
-  /// [can], asked once [ready] is done. See [decideOnceReady].
+  /// [isOwnServer], asked once the saved server mode has been read.
+  Future<bool> isOwnServerOnceReady() async {
+    try {
+      await _serverModeRead;
+    } on Object catch (_) {
+      // A mode that could not be read stays unknown.
+    }
+    return isOwnServer;
+  }
+
+  /// Whether [feature] may be drawn as usable, asked once [ready] is done.
+  /// Never throws: when nobody knows, the answer is yes.
+  ///
+  /// For a screen that draws from the answer and would otherwise trim a
+  /// list, hide a section or show a count card with an offer on it. Code
+  /// that writes a lock somewhere, or takes something away, asks
+  /// [canOnceReady] and handles [HoldingUnreadable] itself.
+  Future<bool> usableOnceReady(AppFeature feature) async {
+    await ready;
+    return decide(feature).isUsable;
+  }
+
+  /// [can], asked once [ready] is done. Throws [HoldingUnreadable] when
+  /// nobody knows. See [decideOnceReady].
   Future<bool> canOnceReady(AppFeature feature) async =>
       (await decideOnceReady(feature)).isUsable;
 
@@ -76,19 +106,24 @@ final class FeatureAccess {
       return const FeatureDecision.open();
     }
     Holding? waiting;
+    Holding? unread;
     for (final holding in rule.unlockedBy) {
       switch (_holdings.stateOf(holding)) {
         case HoldingState.held:
           return const FeatureDecision.open();
         case HoldingState.pending:
           waiting ??= holding;
+        case HoldingState.unknown:
+          unread ??= holding;
         case HoldingState.notHeld:
           break;
       }
     }
-    return waiting == null
-        ? FeatureDecision.locked(rule.unlockedBy.first)
-        : FeatureDecision.confirming(waiting);
+    if (waiting != null) return FeatureDecision.confirming(waiting);
+    // One of the holdings that would unlock it could not be read. That is
+    // never a lock.
+    if (unread != null) return FeatureDecision.unread(unread);
+    return FeatureDecision.locked(rule.unlockedBy.first);
   }
 
   /// What [decide] answers for [feature] here when nothing is held: the
@@ -113,20 +148,25 @@ final class FeatureAccess {
   Stream<AppFeature> get changes => _changes.stream;
 
   /// Takes the mode of the server this phone is connected to. Null means it
-  /// is not known, and that answers as Crit Alarm Cloud.
+  /// is not known, and that answers as Crit Alarm Cloud. See [isOwnServer].
   void setServerMode(ServerMode? mode) {
     if (mode == _serverMode) return;
     _serverMode = mode;
     _announce();
   }
 
-  /// Whether this phone is on a server of the user's own. Only Crit Alarm
-  /// Cloud has plans, and every other known mode is such a server.
+  /// Whether this phone is on a server of the user's own: the mode is
+  /// `selfhosted` and nothing else.
   ///
-  /// For wording only ("no plans on your own server"). Whether a feature
-  /// is open there is [decide]'s answer, from the table.
-  bool get isOwnServer =>
-      _serverMode != null && _serverMode != ServerMode.hosted;
+  /// Crit Alarm Cloud (`hosted`) has plans. So does a server that reports
+  /// `relay`: it is the relay itself, with accounts, tiers and caps. A mode
+  /// that is not known yet is treated the same. All three follow what is
+  /// held.
+  ///
+  /// The one definition of "own server" for anything about plans: whether
+  /// a feature is open there is [decide]'s answer, and wording such as "no
+  /// plans on your own server" reads this.
+  bool get isOwnServer => isOwnServerMode(_serverMode);
 
   Map<AppFeature, FeatureDecision> _decideAll() => {
     for (final feature in AppFeature.values) feature: decide(feature),

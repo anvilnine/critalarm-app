@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/core/widgets/widget_snapshot.dart';
 
@@ -83,11 +84,20 @@ class WidgetSync {
   }
 
   Future<void> _write() async {
+    final bool locked;
+    try {
+      locked = await _isLocked();
+    } on HoldingUnreadable {
+      // Nobody knows what this phone holds right now (the Keychain is
+      // locked on a background launch). The snapshot the widgets already
+      // have stays: a guess here would lock them or unlock them wrongly.
+      return;
+    }
     final snapshot = buildWidgetSnapshot(
       topics: _topics.state.topics,
       incidents: _incidents.state.incidents,
       connected: await _isConnected(),
-      locked: await _isLocked(),
+      locked: locked,
       now: _now(),
     );
     final json = snapshot.toJson();

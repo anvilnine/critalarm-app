@@ -5,8 +5,10 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:flutter/foundation.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// The Hosted subscription as a holding.
 ///
@@ -20,6 +22,11 @@ import 'package:flutter/foundation.dart';
 /// so [state] is synchronous. It is read again whenever [PlanChanges] or
 /// one of `identityChanges` fires. Until the first read lands ([ready]),
 /// the tier counts as not paid.
+///
+/// A read can fail: the iOS Keychain is locked on a background launch
+/// before the first unlock. A failed read never replaces a good earlier
+/// one. With no good read at all the state is [HoldingState.unknown], and
+/// the next ask for [ready] reads again.
 ///
 /// Two named questions sit next to the rule, for the two callers that must
 /// not get the plain answer: [readHeldByServer] and [storeMayStillHold].
@@ -51,7 +58,21 @@ final class HostedHoldingSource implements HoldingSource {
   final _bell = _Bell();
 
   DeviceIdentity? _identity;
+
+  /// Whether any read of the identity has come back. False means
+  /// [_identity] is not an answer yet.
+  bool _hasIdentity = false;
+
+  /// Whether the newest read that finished failed.
+  bool _lastReadFailed = false;
+
+  /// Reads are numbered as they start. [_applied] is the number of the
+  /// read whose answer is showing, [_finished] of the newest one that came
+  /// back at all.
   int _reads = 0;
+  int _applied = 0;
+  int _finished = 0;
+  int _readsOut = 0;
   bool _isDisposed = false;
 
   late Future<void> _latestRead;
@@ -62,6 +83,10 @@ final class HostedHoldingSource implements HoldingSource {
   /// change when this completes.
   @override
   Future<void> get ready async {
+    // The last read failed and nothing is trying again: this ask does.
+    if (_lastReadFailed && _readsOut == 0 && !_isDisposed) {
+      _latestRead = _read();
+    }
     Future<void> waitedFor;
     do {
       waitedFor = _latestRead;
@@ -96,21 +121,34 @@ final class HostedHoldingSource implements HoldingSource {
     }
   }
 
-  /// The rule, as a function of its three inputs.
+  /// The rule, as a function of its inputs.
   ///
   /// `held` when the registered tier is paid or the developer switch forces
-  /// it, `pending` when only the store says so, else `notHeld`. Anything
-  /// but `notHeld` is exactly when `AccountAccess.isPaid` is true.
+  /// it, `pending` when only the store says so, else `notHeld`. `held` or
+  /// `pending` is exactly when `AccountAccess.isPaid` is true.
+  ///
+  /// [isIdentityUnread] says the stored identity could not be read and
+  /// there is no earlier one. The switch and the store still answer on
+  /// their own. Without them the answer is `unknown`, never `notHeld`.
   static HoldingState stateFor({
     required DeviceIdentity? identity,
     required bool storeSaysPro,
     required bool isForcingPro,
+    bool isIdentityUnread = false,
   }) {
-    if (AccountAccess(identity).isRegisteredPaid || isForcingPro) {
+    if (isForcingPro) return HoldingState.held;
+    if (!isIdentityUnread && AccountAccess(identity).isRegisteredPaid) {
       return HoldingState.held;
     }
-    return storeSaysPro ? HoldingState.pending : HoldingState.notHeld;
+    if (storeSaysPro) return HoldingState.pending;
+    return isIdentityUnread ? HoldingState.unknown : HoldingState.notHeld;
   }
+
+  /// What the store's own answer says about Hosted. The app mirrors this
+  /// into [PlanChanges] each time the store speaks, and that is the store
+  /// input of [stateFor].
+  static bool storeSaysHosted(CustomerInfo info) =>
+      info.entitlements.active.containsKey(SubscriptionTier.proEntitlement);
 
   @override
   Holding get holding => Holding.hosted;
@@ -120,6 +158,7 @@ final class HostedHoldingSource implements HoldingSource {
     identity: _identity,
     storeSaysPro: _plan.storeSaysPro,
     isForcingPro: _override.isForcingPro,
+    isIdentityUnread: _lastReadFailed && !_hasIdentity,
   );
 
   @override
@@ -136,17 +175,30 @@ final class HostedHoldingSource implements HoldingSource {
 
   Future<void> _read() async {
     final read = ++_reads;
+    _readsOut++;
     DeviceIdentity? identity;
+    var didFail = false;
     try {
       identity = await _readIdentity();
     } on Object catch (error) {
-      // What was known stays.
+      didFail = true;
       debugPrint('hosted_holding_read_failed error=${error.runtimeType}');
-      return;
+    } finally {
+      _readsOut--;
     }
-    // A newer read started while this one was out.
-    if (read != _reads || _isDisposed) return;
-    _identity = identity;
+    if (_isDisposed) return;
+    if (read > _finished) {
+      _finished = read;
+      _lastReadFailed = didFail;
+    }
+    // A failed read changes no answer: what was known stays. A good read
+    // is used unless a newer good one already is, so an older read that
+    // comes back is not lost when the one after it fails.
+    if (!didFail && read > _applied) {
+      _applied = read;
+      _identity = identity;
+      _hasIdentity = true;
+    }
     _bell.ring();
   }
 

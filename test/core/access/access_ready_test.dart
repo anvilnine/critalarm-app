@@ -5,6 +5,7 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -114,20 +115,45 @@ void main() {
   });
 
   group('isOwnServer', () {
-    test('is false on Crit Alarm Cloud and while the mode is unknown', () {
-      for (final mode in [ServerMode.hosted, null]) {
+    test('is false on Crit Alarm Cloud, on the relay itself and while the '
+        'mode is unknown', () {
+      for (final mode in [ServerMode.hosted, ServerMode.relay, null]) {
         final access = TestAccess(serverMode: mode);
         addTearDown(access.dispose);
         expect(access.features.isOwnServer, isFalse, reason: '$mode');
       }
     });
 
-    test('is true for every other mode', () {
-      for (final mode in [ServerMode.selfhosted, ServerMode.relay]) {
-        final access = TestAccess(serverMode: mode);
-        addTearDown(access.dispose);
-        expect(access.features.isOwnServer, isTrue, reason: '$mode');
+    test('is true for a self-hosted server and nothing else', () {
+      final access = TestAccess(serverMode: ServerMode.selfhosted);
+      addTearDown(access.dispose);
+      expect(access.features.isOwnServer, isTrue);
+      for (final mode in [null, ...ServerMode.values]) {
+        expect(
+          isOwnServerMode(mode),
+          mode == ServerMode.selfhosted,
+          reason: '$mode',
+        );
       }
+    });
+
+    test('once ready waits for the saved mode and never fails', () async {
+      final holder = TestAccess();
+      addTearDown(holder.dispose);
+      final modeRead = Completer<void>();
+      final access = FeatureAccess(
+        holdings: holder.holdings,
+        serverModeRead: modeRead.future,
+      );
+      addTearDown(access.dispose);
+      bool? answer;
+      unawaited(access.isOwnServerOnceReady().then((a) => answer = a));
+      await settle();
+      expect(answer, isNull);
+      access.setServerMode(ServerMode.selfhosted);
+      modeRead.completeError(StateError('prefs'));
+      await settle();
+      expect(answer, isTrue);
     });
   });
 

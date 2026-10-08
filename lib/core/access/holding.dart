@@ -13,6 +13,27 @@ enum HoldingState {
   /// it yet.
   pending,
   held,
+
+  /// The source could not read what it needs, and has no earlier answer to
+  /// stand on. Nobody knows whether the holding is held.
+  ///
+  /// While a holding is here nothing is taken away and nothing is sold: it
+  /// does not count as held, and it does not count as not held either.
+  unknown,
+}
+
+/// Thrown by the "once ready" asks when a holding is [HoldingState.unknown].
+///
+/// The caller decides what "nobody knows" means for it, and the answer is
+/// never to remove, lock, trim or offer something: keep what is on screen,
+/// skip the write, count the person as paying.
+final class HoldingUnreadable implements Exception {
+  const HoldingUnreadable(this.holding);
+
+  final Holding holding;
+
+  @override
+  String toString() => 'HoldingUnreadable(${holding.name})';
 }
 
 /// Says where one [Holding] stands, and when that may have changed.
@@ -33,5 +54,10 @@ abstract interface class HoldingSource {
   ///
   /// Until then [state] may say `notHeld` for something that is held, so
   /// code that takes something away waits for this first.
+  ///
+  /// A source whose last read failed reads again when this is asked, so a
+  /// read that failed once (a locked Keychain on a background launch) is
+  /// tried again by the next caller. When it completes, [state] can still
+  /// be [HoldingState.unknown].
   Future<void> get ready;
 }
