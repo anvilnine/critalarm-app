@@ -338,6 +338,7 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
@@ -2056,6 +2057,20 @@ Future<void> configureDependencies({
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
         () => getIt<SetupTestRing>().setupIncidentIds,
+      ),
+    )
+    // The dark card on Home. It follows the screen's own HomeCubit and
+    // HomeSetupCubit, so the screen hands them in:
+    // `getIt<HomeCardCubit>(param1: home, param2: setup)`. The checks and the
+    // missed alarm entry are shared, so they come from here.
+    ..registerFactoryParam<HomeCardCubit, HomeCubit, HomeSetupCubit>(
+      (home, setup) => HomeCardCubit(
+        home: home,
+        reliability: getIt<ReliabilityCubit>(),
+        setup: setup,
+        missed: getIt<MissedAlarmFeed>(),
+        testRouteName: AppRoute.testRing,
+        askPermissionsRouteName: AppRoute.askPermissions,
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it
