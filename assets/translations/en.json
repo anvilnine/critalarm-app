@@ -579,7 +579,7 @@
     "day_today": "Today, {date}",
     "meta_acknowledged": "Rang {duration}. Acknowledged.",
     "meta_resolved": "Rang {duration}. Resolved when the check passed.",
-    "meta_expired": "Rang {duration}. Stopped on its own.",
+    "meta_expired": "Rang {duration}. Nobody answered.",
     "meta_open": "Ringing {duration}.",
     "detail_empty_title": "No incident selected",
     "detail_empty_body": "Pick an incident to see its details.",
@@ -611,6 +611,33 @@
       "one": "1 older alarm. Hosted shows it.",
       "other": "{} older alarms. Hosted shows them."
     }
+  },
+  "history_hero": {
+    "alarms_days": {
+      "one": "alarm, {days} days",
+      "other": "alarms, {days} days"
+    },
+    "alarms_filtered": {
+      "one": "alarm matches your filter",
+      "other": "alarms match your filter"
+    },
+    "longest_answered": "longest answered",
+    "none": "None",
+    "chart_label": "Alarms per day, last {days} days",
+    "chart_label_filtered": "Alarms per day that match your filter",
+    "day_none": "{day}: no alarms",
+    "day_alarms": {
+      "one": "{day}: 1 alarm",
+      "other": "{day}: {} alarms"
+    },
+    "day_unanswered": {
+      "one": "{day}: 1 alarm, not answered",
+      "other": "{day}: {} alarms, not answered"
+    },
+    "day_hidden": "{day}: outside your plan's history",
+    "mark_answered": "Answered",
+    "mark_not_answered": "Not answered",
+    "mark_ringing": "Ringing"
   },
   "topic_detail": {
     "back_aria_label": "Back",

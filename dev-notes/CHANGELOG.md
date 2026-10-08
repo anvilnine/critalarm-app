@@ -141,6 +141,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
 - The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
 - InAppNoticeCubit picks only the Hosted ending and the account backup reminder, and no longer takes a ShellCubit. Pull to refresh on Home refreshes the shell health itself. HomeState drops the face, word, sub line and severity, and HomeTopicItem drops meta, priority, face, isCrit, isQuiet and isLive. resolveHomeFace and orderTopics are removed: HomeFacts, rowKindFor and orderInbox replace them.
+- History screen rebuilt on the Topics design language: still refresh face over AppStatCard, week rule in week\_bars.dart, flat rows with answered and not answered marks, historyHero ambient profile registered through AmbientRouteProfile, history\_hero strings, and history.meta\_expired now says Nobody answered
+- AppStatCard puts the numbers in a column on the left and the bars on the right, stacks them on a narrow card or large text, and takes isHidden days with no bar
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

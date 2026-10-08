@@ -240,6 +240,54 @@ abstract final class AmbientAppProfiles {
     );
   }
 
+  /// Profile for the History tab with its small face on show: a pale disc
+  /// behind the face and the top of the stat card.
+  ///
+  /// It keeps the three slots every profile has. The disc takes the first
+  /// (a circle) and is tinted like the Topics hero's calm disc. The pill in
+  /// the second is not drawn, so it fades in and out in place when the canvas
+  /// morphs to a tab profile. The third is the orange blob of [history].
+  ///
+  /// [spot] is where the disc sits, from the screen's own layout. Its
+  /// [HeroDiscSpot.ringScale] is not used.
+  static AmbientProfile historyHero(
+    AppColors colors, {
+    HeroDiscSpot spot = HeroDiscSpot.historyPhone,
+  }) {
+    final (discColor, discOpacity) = AppHeroTone.calm.discTint(colors);
+    return AmbientProfile(
+      canvas: colors.canvas,
+      surfaceOpacity: 0.76,
+      shapes: List<AmbientShape>.unmodifiable([
+        AmbientShape(
+          color: discColor,
+          opacity: discOpacity,
+          anchor: spot.anchor,
+          scale: spot.discScale,
+          turns: 0,
+          depth: 0.25,
+        ),
+        // Not drawn. It sits where the History tab profile's pill does.
+        const AmbientShape(
+          color: _calmPale,
+          opacity: 0,
+          anchor: Alignment(0.5, -0.7),
+          scale: 0.35,
+          turns: -0.1,
+          depth: 0.55,
+        ),
+        AmbientShape(
+          color: _calmOrange,
+          opacity: _calmOpacity(colors, 0.5),
+          anchor: const Alignment(0.9, 0.8),
+          scale: 0.29,
+          turns: 0.18,
+          depth: 0.85,
+        ),
+      ]),
+    );
+  }
+
   /// Profile for the Settings tab.
   static AmbientProfile settings(AppColors colors) {
     return _triShapeProfile(
