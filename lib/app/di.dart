@@ -8,10 +8,13 @@ import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
@@ -62,6 +65,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack_host.dart';
@@ -380,17 +384,28 @@ Future<void> configureDependencies({
   }
 
   if (buildSkipsPaywall) {
-    if (!getIt.isRegistered<DevProSwitch>()) {
-      getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
+    // The one store behind every developer plan switch: a state per
+    // holding and a server mode, set by the Plans and features lab. The
+    // only place it is handed to the rest of the app. In a store build
+    // appAccessOverride is a NoAccessOverride and this call does nothing.
+    if (!getIt.isRegistered<DevAccessSwitches>()) {
+      getIt.registerSingleton<DevAccessSwitches>(DevAccessSwitches(prefs));
     }
-    // The only place the switch is handed to the rest of the app. In a store
-    // build appProOverride is a NoProOverride and this call does nothing.
-    appProOverride.watch(getIt<DevProSwitch>());
+    final accessSwitches = getIt<DevAccessSwitches>();
+    appAccessOverride.watch(accessSwitches);
 
-    // The same for the Pro pack: its own switch, its own override. A store
-    // build compiles appProPackOverride as a NoProPackOverride.
+    // The two older toggles are "force held" on that same store. The older
+    // override classes hear it too, for the three readers that are not
+    // Holdings: the shipped Hosted paywall, the Settings plan row and the
+    // Pro sheet. In a store build both are compiled as the No variant.
+    if (!getIt.isRegistered<DevProSwitch>()) {
+      getIt.registerSingleton<DevProSwitch>(DevProSwitch(accessSwitches));
+    }
+    appProOverride.watch(getIt<DevProSwitch>());
     if (!getIt.isRegistered<ProPackDevSwitch>()) {
-      getIt.registerSingleton<ProPackDevSwitch>(PrefsProPackDevSwitch(prefs));
+      getIt.registerSingleton<ProPackDevSwitch>(
+        PrefsProPackDevSwitch(accessSwitches),
+      );
     }
     appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
@@ -638,22 +653,40 @@ Future<void> configureDependencies({
           getIt<DeviceIdentityStore>().changes,
         ],
         readStore: buildSkipsPaywall ? null : getIt.get<SubscriptionRepository>,
+        // The developer switch is not read in here. It reaches Holdings
+        // through the wrapper below, so this source says what the server
+        // and the store say.
+        proOverride: const NoProOverride(),
       ),
     )
+    // Each source with the developer override in front of it: the one seam
+    // that can force a holding's state, for every holding. A store build
+    // compiles the override as a NoAccessOverride, and each wrapper then
+    // answers with its source's own state.
+    ..registerLazySingleton<List<OverriddenHoldingSource>>(
+      () => [
+        OverriddenHoldingSource(getIt<HostedHoldingSource>()),
+        OverriddenHoldingSource(
+          ProHoldingSource(getIt<ProPackAccess>(), countsDevSwitch: false),
+        ),
+      ],
+    )
     ..registerLazySingleton<Holdings>(
-      () => Holdings([
-        getIt<HostedHoldingSource>(),
-        ProHoldingSource(getIt<ProPackAccess>()),
-      ]),
+      () => Holdings(getIt<List<OverriddenHoldingSource>>()),
+    )
+    // The saved session's server mode, with the same override in front.
+    ..registerLazySingleton<OverriddenServerMode>(
+      () => OverriddenServerMode(getIt<ObservedApiSessionStore>().mode),
     )
     // Whether a feature is open. The server mode comes from the saved
     // session: the one on disk at launch, then every connect that writes a
     // new one.
     ..registerLazySingleton<FeatureAccess>(() {
       final sessions = getIt<ObservedApiSessionStore>();
+      final mode = getIt<OverriddenServerMode>();
       final access = FeatureAccess(
         holdings: getIt<Holdings>(),
-        serverMode: sessions.mode.value,
+        serverMode: mode.value,
         // `ready` waits for this, so nothing is taken away from a phone on
         // its own server before the saved session says so.
         serverModeRead: sessions.read().then<void>(
@@ -661,9 +694,7 @@ Future<void> configureDependencies({
           onError: (Object _) {},
         ),
       );
-      sessions.mode.addListener(
-        () => access.setServerMode(sessions.mode.value),
-      );
+      mode.changes.addListener(() => access.setServerMode(mode.value));
       return access;
     })
     // A build that skips the store has nothing on sale.
@@ -1418,6 +1449,9 @@ Future<void> configureDependencies({
       () => ImportSoundUsecase(
         getIt<AlarmSoundRepository>(),
         getIt<SoundHost>(),
+        isLocked: () async => ownSoundsLockedBy(
+          await ownSoundsOnceReady(getIt<FeatureAccess>()),
+        ),
       ),
     )
     ..registerLazySingleton(
@@ -1519,12 +1553,34 @@ Future<void> configureDependencies({
           .listen((_) => sync.rewrite());
       return sync;
     })
+    // The one flag native code reads to know own sounds are locked. It
+    // follows the own sounds decision: a purchase, a pack that ended, a
+    // server that became known. It is written only on a sure answer, so
+    // this waits for the plan and the saved server to be read, and a plan
+    // that cannot be read leaves the last value alone.
+    ..registerLazySingleton(
+      () => SoundLockSync(
+        isLocked: () async =>
+            !await getIt<FeatureAccess>().canOnceReady(AppFeature.ownSounds),
+        changes: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
+        readWritten: () =>
+            getIt<SharedPreferences>().getBool(ownSoundsLockedKey),
+        write: ({required locked}) async {
+          await getIt<SharedPreferences>().setBool(ownSoundsLockedKey, locked);
+        },
+        // The iOS notification extension reads its own copy of the choices.
+        publish: () => getIt<SoundHost>().publishSoundAssignments(),
+      ),
+    )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
     // no alarm is going off.
     ..registerLazySingleton(
       () => IncomingAudio(
         canImportSounds: () async =>
             (await getIt<SoundHost>().capabilities()).canImportSounds,
+        readOwnSounds: () => ownSoundsOnceReady(getIt<FeatureAccess>()),
         isOnboardingDone: () async =>
             (await getIt<GetOnboardingCompletedUsecase>()(
               const NoParams(),
@@ -2231,6 +2287,11 @@ Future<void> configureDependencies({
         getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
         packs: getIt<SoundPackRepository>(),
+        readOwnSounds: () =>
+            getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        ownSoundsChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
       ),
     )
     ..registerFactory(
@@ -2250,6 +2311,9 @@ Future<void> configureDependencies({
         platform: getIt<PlatformCapabilities>().platform,
         isWeb: getIt<PlatformCapabilities>().isWeb,
         nameOf: (id) => 'sound_library.names.$id'.tr(),
+        ownSoundsLocked: () => ownSoundsLockedBy(
+          getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        ),
       ),
     )
     ..registerFactory(

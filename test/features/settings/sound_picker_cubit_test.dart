@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -17,8 +19,13 @@ class _FixedPicker implements SoundFilePicker {
   PickedSoundFile? next;
   final List<String> discarded = [];
 
+  int asked = 0;
+
   @override
-  Future<PickedSoundFile?> pickOne() async => next;
+  Future<PickedSoundFile?> pickOne() async {
+    asked++;
+    return next;
+  }
 
   @override
   Future<void> discard(String path) async => discarded.add(path);
@@ -46,6 +53,8 @@ void main() {
   late MemoryAlarmSoundRepository repository;
   late _FixedPicker picker;
   late SoundPickerCubit cubit;
+  late FeatureDecision ownSounds;
+  late StreamController<Object?> ownSoundsChanges;
 
   int publishCount() =>
       calls.where((m) => m == 'publishSoundAssignments').length;
@@ -90,6 +99,8 @@ void main() {
     repository = MemoryAlarmSoundRepository();
     picker = _FixedPicker();
     final host = SoundHost();
+    ownSounds = const FeatureDecision.open();
+    ownSoundsChanges = StreamController<Object?>.broadcast();
     cubit = SoundPickerCubit(
       repository,
       host,
@@ -97,6 +108,8 @@ void main() {
       picker,
       SoundPeaksCache(host),
       platform: TargetPlatform.iOS,
+      readOwnSounds: () => ownSounds,
+      ownSoundsChanges: ownSoundsChanges.stream,
     );
     await cubit.load();
     calls.clear();
@@ -104,7 +117,122 @@ void main() {
 
   tearDown(() async {
     await cubit.close();
+    await ownSoundsChanges.close();
     messenger.setMockMethodCallHandler(channel, null);
+  });
+
+  group('own sounds locked', () {
+    const locked = FeatureDecision.locked(Holding.pro);
+    const file = PickedSoundFile(
+      path: '/cache/a.mp3',
+      name: 'a.mp3',
+      sizeBytes: 4096,
+    );
+
+    Future<void> lock() async {
+      ownSounds = locked;
+      ownSoundsChanges.add(null);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('the screen follows the decision', () async {
+      expect(cubit.state.ownSoundsLocked, isFalse);
+      await lock();
+      expect(cubit.state.ownSoundsLocked, isTrue);
+      expect(cubit.state.ownSounds, locked);
+
+      ownSounds = const FeatureDecision.open();
+      ownSoundsChanges.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.ownSoundsLocked, isFalse);
+    });
+
+    test('Pick a file never opens the platform picker', () async {
+      picker.next = file;
+      await lock();
+      expect(await cubit.pickFile(), isNull);
+      expect(picker.asked, 0);
+    });
+
+    test('Pick a file works again once it is open', () async {
+      picker.next = file;
+      expect(await cubit.pickFile(), file);
+      expect(picker.asked, 1);
+    });
+
+    test('an own sound stays listed and cannot be picked', () async {
+      repository.sounds.add(userSound);
+      await cubit.load();
+      await lock();
+      calls.clear();
+
+      expect([for (final s in cubit.state.userSounds) s.id], [userSound.id]);
+      expect(cubit.state.isLocked(userSound), isTrue);
+      await cubit.select(userSound.id);
+      expect(repository.assignments.defaultSoundId, BundledSounds.fallbackId);
+      expect(cubit.state.selectedSoundId, BundledSounds.fallbackId);
+      expect(publishCount(), 0);
+    });
+
+    test('a built-in sound can still be picked', () async {
+      await lock();
+      await cubit.select('pager_beep');
+      expect(repository.assignments.defaultSoundId, 'pager_beep');
+      expect(cubit.state.isLocked(cubit.state.bundled.first), isFalse);
+    });
+
+    test('a locked own default shows the classic siren as ringing', () async {
+      repository.sounds.add(userSound);
+      await repository.setDefaultSoundId(userSound.id);
+      await cubit.load();
+      await lock();
+
+      expect(cubit.state.selectedSoundId, userSound.id);
+      expect(cubit.state.ringingSoundId, 'classic_siren');
+      expect(cubit.state.ringsSomethingElse, isTrue);
+      // The lock changes what rings, never what is saved.
+      expect(repository.assignments.defaultSoundId, userSound.id);
+    });
+
+    test('a locked own topic sound shows the default as ringing', () async {
+      repository.sounds.add(userSound);
+      await repository.setDefaultSoundId('pager_beep');
+      await repository.setTopicSoundId('prod', userSound.id);
+      await cubit.load(topicName: 'prod');
+      await lock();
+
+      expect(cubit.state.selectedSoundId, userSound.id);
+      expect(cubit.state.ringingSoundId, 'pager_beep');
+      expect(repository.assignments.soundIdFor('prod'), userSound.id);
+    });
+
+    test('open again, the same own sound rings with nothing redone', () async {
+      repository.sounds.add(userSound);
+      await repository.setTopicSoundId('prod', userSound.id);
+      await cubit.load(topicName: 'prod');
+      await lock();
+      expect(cubit.state.ringingSoundId, isNot(userSound.id));
+
+      ownSounds = const FeatureDecision.open();
+      ownSoundsChanges.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.ringingSoundId, userSound.id);
+      expect(cubit.state.ringsSomethingElse, isFalse);
+    });
+
+    test('a plan that could not be read locks nothing', () async {
+      repository.sounds.add(userSound);
+      await repository.setDefaultSoundId(userSound.id);
+      await cubit.load();
+      ownSounds = const FeatureDecision.unread(Holding.pro);
+      ownSoundsChanges.add(null);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.ownSoundsLocked, isFalse);
+      expect(cubit.state.ringingSoundId, userSound.id);
+      picker.next = file;
+      expect(await cubit.pickFile(), file);
+    });
   });
 
   test('the screen knows which platform it is on', () {

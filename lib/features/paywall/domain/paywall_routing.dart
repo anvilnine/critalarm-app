@@ -64,7 +64,8 @@ PaywallEntry paywallEntryOfProSheet(ProPackSheetSource source) =>
       ProPackSheetSource.appIcon ||
       ProPackSheetSource.personalizeSound ||
       ProPackSheetSource.personalizeWidgets ||
-      ProPackSheetSource.personalizeAppIcon => PaywallEntry.lockedRow,
+      ProPackSheetSource.personalizeAppIcon ||
+      ProPackSheetSource.sounds => PaywallEntry.lockedRow,
       ProPackSheetSource.direct => PaywallEntry.other,
     };
 

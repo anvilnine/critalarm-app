@@ -16,12 +16,14 @@ const FeatureDecision _o = _open;
 const _h = FeatureDecision.locked(Holding.hosted);
 const _p = FeatureDecision.locked(Holding.pro);
 
-/// One row per feature, to check against the table in the design.
+/// One row per feature, to check against the table in the design. Public,
+/// so the developer override's test checks its presets against the same
+/// rows.
 ///
 /// The eight answers are, in order: on Crit Alarm Cloud holding nothing,
 /// Hosted, Pro, both. Then the same four on a server of the user's own.
 // dart format off
-const Map<AppFeature, List<FeatureDecision>> _truth = {
+const Map<AppFeature, List<FeatureDecision>> featureTruth = {
   //                                   cloud           own server
   //                                   -   H   P   HP  -   H   P   HP
   AppFeature.unlimitedCriticalTopics: [_h, _o, _h, _o, _o, _o, _o, _o],
@@ -36,7 +38,7 @@ const Map<AppFeature, List<FeatureDecision>> _truth = {
 };
 // dart format on
 
-const List<Set<Holding>> _held = [
+const List<Set<Holding>> truthHoldings = [
   {},
   {Holding.hosted},
   {Holding.pro},
@@ -93,15 +95,15 @@ void main() {
 
   group('truth table', () {
     test('lists every feature with eight answers', () {
-      expect(_truth.keys, AppFeature.values);
-      for (final row in _truth.values) {
+      expect(featureTruth.keys, AppFeature.values);
+      for (final row in featureTruth.values) {
         expect(row, hasLength(8));
       }
     });
 
     for (final feature in AppFeature.values) {
       for (var column = 0; column < 8; column++) {
-        final held = _held[column % 4];
+        final held = truthHoldings[column % 4];
         final isOwnServer = column >= 4;
         final names = held.isEmpty
             ? 'nothing'
@@ -131,14 +133,14 @@ void main() {
               addTearDown(other.dispose);
               expect(
                 other.decide(feature),
-                _truth[feature]![column],
+                featureTruth[feature]![column],
                 reason: 'on $mode',
               );
             }
           }
           addTearDown(holdings.dispose);
 
-          final expected = _truth[feature]![column];
+          final expected = featureTruth[feature]![column];
           expect(access.decide(feature), expected);
           expect(access.can(feature), expected == _open);
         });
