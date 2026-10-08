@@ -194,8 +194,14 @@ enum WidgetCopy {
 
 /// "I'm up" or "Done", the same capsules and the same intents as the live
 /// card. Nothing here talks to the server itself.
+///
+/// "Done" asks the one rule the live card asks: a topic that owes a wake-up
+/// challenge gets a Done that opens the app on the incident and closes
+/// nothing here. "I'm up" never asks anything.
 struct IncidentActionButton: View {
     let incident: WidgetIncident
+    /// The name of the topic the incident is on.
+    let topic: String
     @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
@@ -206,7 +212,7 @@ struct IncidentActionButton: View {
                     if incident.state == WidgetIncident.open {
                         Button(intent: AckAlarmIntent(incidentId: incident.id)) { label(title) }
                     } else {
-                        Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
+                        done(title)
                     }
                 }
                 .buttonStyle(.plain)
@@ -218,11 +224,21 @@ struct IncidentActionButton: View {
                     .background(CritAlarmFace.alarmed.canvas, in: Capsule())
                     .foregroundStyle(CritAlarmFace.alarmed.stroke)
             } else {
-                Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
+                done(title)
                     .buttonStyle(.plain)
                     .background(CritAlarmPalette.cobalt, in: Capsule())
                     .foregroundStyle(CritAlarmPalette.onHighlight)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func done(_ title: String) -> some View {
+        switch DoneButton.forCard(topic: topic, shared: ChallengeFlag.groupDefaults) {
+        case .opensApp:
+            Button(intent: OpenIncidentIntent(incidentId: incident.id)) { label(title) }
+        case .closes:
+            Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
         }
     }
 
