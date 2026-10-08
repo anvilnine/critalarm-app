@@ -25,7 +25,10 @@ class EstablishApiSessionUsecase {
   }) async {
     final mode = ServerMode.fromWireValue(info.mode);
     var credential = adminToken;
-    if (mode != ServerMode.selfhosted) {
+    // How to connect, not a plan: only a server with accounts registers
+    // the device.
+    final registers = mode != ServerMode.selfhosted; // access-ok: connect
+    if (registers) {
       await _register(
         appVersion: appVersion,
         pushToken: pushToken,

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -131,7 +131,7 @@ class _SettingsScreenContent extends StatelessWidget {
   }
 
   Widget _buildPlanRow(BuildContext context, SettingsState state) {
-    if (state.serverMode == ServerMode.selfhosted) {
+    if (isOwnServerMode(state.serverMode)) {
       return _buildSelfHostedPlanRow(context);
     }
     final colors = context.appColors;

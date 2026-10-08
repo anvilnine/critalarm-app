@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
@@ -62,7 +63,7 @@ class LocalReminderSettingsCubit extends Cubit<LocalReminderSettingsState> {
       state.copyWith(
         switches: _store.readSwitches(),
         notificationsAllowed: system.notificationsAllowed,
-        isSelfHosted: mode == ServerMode.selfhosted,
+        isSelfHosted: isOwnServerMode(mode),
         holdsHosted: holdsHosted,
         isLoaded: true,
       ),

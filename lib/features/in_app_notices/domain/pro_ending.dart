@@ -30,7 +30,7 @@ final class ProEndingView {
 /// the pill that follows it, or the "Pro ended" sheet.
 ///
 /// Held or not always comes from the server's own tier
-/// (`HostedHoldingSource.readHeldByServer`), never the developer Force Pro
+/// (the Hosted source), never the developer Force Pro
 /// switch, so turning that switch off never shows "Pro ended". The store
 /// only says whether Pro will renew and when it ends.
 class ProEnding {
@@ -38,7 +38,7 @@ class ProEnding {
     required this._notices,
     required this._plan,
     required this._readIdentity,
-    required this._readHeldByServer,
+    required this._readServerSaysHosted,
     required this._readServerMode,
     required this._refreshRegistration,
     this._onPaidChanged,
@@ -56,7 +56,7 @@ class ProEnding {
   final Future<DeviceIdentity> Function() _readIdentity;
 
   /// Whether the server's tier says Hosted, read from storage each time.
-  final Future<bool> Function() _readHeldByServer;
+  final Future<bool> Function() _readServerSaysHosted;
   final Future<ServerMode?> Function() _readServerMode;
   final Future<void> Function() _refreshRegistration;
   final void Function()? _onPaidChanged;
@@ -73,12 +73,15 @@ class ProEnding {
   String? _cachedPlanAccount;
 
   Future<ProEndingView> read() async {
-    if (await _readServerMode() != ServerMode.hosted) {
-      return ProEndingView.nothing;
-    }
+    // About what the server is: the store subscription this reports on
+    // is sold on Crit Alarm Cloud alone. Any other server, and a phone
+    // connected to nothing, has no plan that can end.
+    final mode = await _readServerMode();
+    final isCloud = mode == ServerMode.hosted; // access-ok: cloud only
+    if (!isCloud) return ProEndingView.nothing;
     final now = _now();
     var identity = await _readIdentity();
-    var isHeld = await _readHeldByServer();
+    var isHeld = await _readServerSaysHosted();
 
     // The server drops the tier when the store says Pro expired. Until the
     // app registers again it still holds the old tier.
@@ -91,7 +94,7 @@ class ProEnding {
         // Offline or refused. The next resume tries again.
       }
       identity = await _readIdentity();
-      isHeld = await _readHeldByServer();
+      isHeld = await _readServerSaysHosted();
     }
 
     await _notePaid(identity, isHeld);

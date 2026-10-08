@@ -74,8 +74,13 @@ class SettingsState {
   /// How long the phone keeps alarms, and whether P5 alarms are exempt.
   final StorageSettings storage;
 
-  bool get hasAccounts =>
-      serverMode != null && serverMode != ServerMode.selfhosted;
+  /// About what the server is, not about plans: a self-hosted server has
+  /// one operator and no accounts to sign in to.
+  bool get hasAccounts {
+    final mode = serverMode;
+    if (mode == null) return false;
+    return mode != ServerMode.selfhosted; // access-ok: accounts exist
+  }
 
   SettingsState copyWith({
     List<Topic>? topics,

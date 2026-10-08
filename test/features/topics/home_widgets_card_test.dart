@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
@@ -100,6 +101,39 @@ void main() {
       await h.open(home);
       expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
       expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsHosted);
+    });
+
+    test('follows the plan when it changes under the open card', () async {
+      h = finished()..plan = HomeWidgetsPlan.needsHosted;
+      await h.open(home);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.needsHosted);
+
+      // The purchase landed. The card must not stay a locked card whose
+      // button opens nothing.
+      h
+        ..plan = HomeWidgetsPlan.hosted
+        ..planChanges.add(null);
+      await h.settle();
+      expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.hosted);
+    });
+
+    test('keeps what it shows when the plan cannot be read', () async {
+      h = finished()..plan = HomeWidgetsPlan.hosted;
+      await h.open(home);
+
+      h
+        ..planFailure = const HoldingUnreadable(Holding.hosted)
+        ..planChanges.add(null);
+      await h.settle();
+      expect(h.cubit.state.phase, HomeSetupPhase.widgetsCard);
+      expect(h.cubit.state.widgetsPlan, HomeWidgetsPlan.hosted);
+    });
+
+    test('does not appear while the plan cannot be read', () async {
+      h = finished()..planFailure = const HoldingUnreadable(Holding.hosted);
+      await h.open(home);
+      expect(h.cubit.state.phase, isNot(HomeSetupPhase.widgetsCard));
     });
 
     test('a user who finished setup gets it on first sight, with no '

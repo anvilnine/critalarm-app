@@ -793,7 +793,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         if (state.capReached?.name == 'critical_topics') {
           // Just bought Pro and the server has not heard yet. Asking them to
           // buy it again would be wrong, so say it is on its way.
-          if (state.isProPending) {
+          if (state.isPlanConfirming) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
           } else if (!_isSetup) {
             unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));

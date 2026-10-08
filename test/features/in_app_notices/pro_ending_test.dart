@@ -62,7 +62,7 @@ void main() {
       notices: notices,
       plan: plan,
       readIdentity: () async => identity,
-      readHeldByServer: () async =>
+      readServerSaysHosted: () async =>
           identity.accountId != null && identity.tier != 'free',
       readServerMode: () async => mode,
       refreshRegistration: () async => refreshes++,
@@ -214,7 +214,7 @@ void main() {
       notices: notices,
       plan: plan,
       readIdentity: () async => identity,
-      readHeldByServer: () async =>
+      readServerSaysHosted: () async =>
           identity.accountId != null && identity.tier != 'free',
       readServerMode: () async => mode,
       refreshRegistration: () async => throw StateError('offline'),

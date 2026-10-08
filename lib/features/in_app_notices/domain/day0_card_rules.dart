@@ -88,8 +88,11 @@ class Day0CardRules {
     final isSetupDone =
         await (_isSetupDone?.call() ?? Future<bool>.value(true));
 
+    // About what the server is: the card states Crit Alarm Cloud's free
+    // limits, so it is drawn there and nowhere else.
+    final isCloud = serverMode == ServerMode.hosted; // access-ok: cloud only
     return decide(
-      isHosted: serverMode == ServerMode.hosted,
+      isHosted: isCloud,
       holdsHosted: holdsHosted,
       isSetupDone: isSetupDone,
       isFirstMessageReceived: firstMessageStore.isReceived,

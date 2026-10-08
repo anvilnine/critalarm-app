@@ -146,6 +146,7 @@ class HomeSetupHarness {
       readIncidentIds: () => incidentIds,
       readSetupIncidentIds: () => setupIncidentIds,
       isGuideOfferAnswered: () => isGuideOfferAnswered,
+      widgetsPlanChanges: planChanges.stream,
       readWidgetsPlan: () async {
         final failure = planFailure;
         if (failure != null) throw failure;
@@ -179,6 +180,9 @@ class HomeSetupHarness {
   bool isGuideOfferAnswered = true;
   HomeWidgetsPlan plan = HomeWidgetsPlan.hosted;
   Exception? planFailure;
+
+  /// Stands in for `FeatureAccess.changes` for the widgets.
+  final planChanges = StreamController<void>.broadcast();
 
   Timer _newTimer(Duration duration, void Function() onFire) {
     final timer = FakeTimer(duration, onFire);

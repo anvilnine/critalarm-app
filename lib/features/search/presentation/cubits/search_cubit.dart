@@ -4,7 +4,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -83,8 +83,9 @@ class SearchCubit extends Cubit<SearchState> {
     final session = await sessionStore?.read();
     return (
       showsStorage:
-          await featureAccess?.canOnceReady(AppFeature.storageRules) ?? false,
-      selfHosted: session?.mode == ServerMode.selfhosted,
+          await featureAccess?.usableOnceReady(AppFeature.storageRules) ??
+          false,
+      selfHosted: isOwnServerMode(session?.mode),
     );
   }
 

@@ -59,7 +59,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   final FeatureAccess? featureAccess;
 
   Future<bool> _can(AppFeature feature) async =>
-      await featureAccess?.canOnceReady(feature) ?? false;
+      await featureAccess?.usableOnceReady(feature) ?? false;
 
   final DateTime Function() _now;
 

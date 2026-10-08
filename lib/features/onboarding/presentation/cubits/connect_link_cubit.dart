@@ -85,7 +85,9 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   /// instead, which says more.
   Future<bool> _readIsCloud() async {
     try {
-      return await _serverMode?.call() == ServerMode.hosted;
+      // Names the server on screen, nothing about plans.
+      final mode = await _serverMode?.call();
+      return mode == ServerMode.hosted; // access-ok: names the server
     } on Object {
       return false;
     }

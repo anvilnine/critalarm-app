@@ -29,7 +29,6 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -194,7 +193,6 @@ import 'package:critalarm/features/paywall/data/repositories/dev_subscription_re
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
@@ -568,7 +566,7 @@ Future<void> configureDependencies({
       );
       // Gaining or losing the pack changes what the relay answers for the
       // weekly check, so it is read again at once.
-      getIt<ProPackAccess>().stream.listen(
+      _proPackHeldChanges().listen(
         (_) => unawaited(monitor.refresh(force: true)),
       );
       return monitor;
@@ -576,9 +574,9 @@ Future<void> configureDependencies({
     ..registerLazySingleton<WeeklyCheckCubit>(
       () => WeeklyCheckCubit(
         monitor: getIt<WeeklyCheckMonitor>(),
-        readIsSelfHosted: () async =>
-            (await getIt<ApiSessionStore>().read())?.mode ==
-            ServerMode.selfhosted,
+        // Words the row for a phone on its own server: the check covers
+        // the push relay and not that server.
+        readIsSelfHosted: () => getIt<FeatureAccess>().isOwnServerOnceReady(),
       ),
     )
     ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
@@ -788,7 +786,7 @@ Future<void> configureDependencies({
             getIt<ProPackAccess>().relayAnswered(
               accountId: response.accountId,
               packs: response.packs,
-              tier: response.tier,
+              tier: response.tier, // access-ok: hands it to the Pro source
               relay: relayUri,
               request: request,
             ),
@@ -1478,8 +1476,8 @@ Future<void> configureDependencies({
     )
     // The home and lock screen widgets read a snapshot of the two lists
     // above. This writes it whenever either list changes.
-    ..registerLazySingleton(
-      () => WidgetSync(
+    ..registerLazySingleton(() {
+      final sync = WidgetSync(
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
         host: getIt<WidgetHost>(),
@@ -1490,8 +1488,15 @@ Future<void> configureDependencies({
         // and the saved server have been read before it answers.
         isLocked: () async =>
             !await getIt<FeatureAccess>().canOnceReady(AppFeature.widgets),
-      ),
-    )
+      );
+      // The lock follows the widgets decision: a purchase, a plan that
+      // ended, a server that became known. Neither list changes then, so
+      // this is what writes the snapshot again.
+      getIt<FeatureAccess>().changes
+          .where((feature) => feature == AppFeature.widgets)
+          .listen((_) => sync.rewrite());
+      return sync;
+    })
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
     // no alarm is going off.
     ..registerLazySingleton(
@@ -1734,7 +1739,7 @@ Future<void> configureDependencies({
           return AccountAccess(
             await getIt<DeviceIdentityStore>().readOrCreate(),
           ).freeCriticalCap(
-            isUnlimited: await getIt<FeatureAccess>().canOnceReady(
+            isUnlimited: await getIt<FeatureAccess>().usableOnceReady(
               AppFeature.unlimitedCriticalTopics,
             ),
           );
@@ -1822,6 +1827,9 @@ Future<void> configureDependencies({
             isOwnServer: access.isOwnServer,
           );
         },
+        widgetsPlanChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.widgets,
+        ),
         platform: defaultTargetPlatform,
         isWeb: kIsWeb,
       ),
@@ -2313,7 +2321,7 @@ Future<void> configureDependencies({
         notices: getIt<InAppNoticeRepository>(),
         plan: getIt<PlanStatusSource>(),
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
-        readHeldByServer: _hostedByServer,
+        readServerSaysHosted: _hostedByServer,
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
@@ -2431,7 +2439,7 @@ Stream<void> _expiredIncidentChanges(IncidentsCubit incidents) {
 }
 
 void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
-  value: info.entitlements.active.containsKey(SubscriptionTier.proEntitlement),
+  value: HostedHoldingSource.storeSaysHosted(info),
 );
 
 Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
@@ -2474,6 +2482,15 @@ Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
 Future<bool> _holdsHosted() => getIt<Holdings>().holdsOnceReady(Holding.hosted);
 
 /// Whether the server's own tier says Hosted, leaving out the store and the
-/// developer switch. See [HostedHoldingSource.readHeldByServer].
-Future<bool> _hostedByServer() =>
-    getIt<HostedHoldingSource>().readHeldByServer();
+/// developer switch: the Hosted source's named read, for the two callers
+/// that report what the server did.
+Future<bool> _hostedByServer() {
+  final hosted = getIt<HostedHoldingSource>();
+  return hosted.readHeldByServer(); // access-ok: the named read, passed on
+}
+
+/// Every change of whether the Pro pack is held, for the weekly check
+/// monitor. Not a gate: nothing is decided on it, the relay is asked again.
+Stream<bool> _proPackHeldChanges() {
+  return getIt<ProPackAccess>().stream; // access-ok: re-asks the relay
+}
