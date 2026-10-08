@@ -5,8 +5,8 @@
 //
 // It writes one PNG per section, phone, theme and text size, each the full
 // height of its section: 390 by 844 and 375 by 667 phones, light and dark,
-// at text scale 1.0 and 1.3, plus 2.0 for the hero scene, the inbox rows and
-// the stat card.
+// at text scale 1.0 and 1.3, plus 2.0 for the status cards, the hero scene,
+// the inbox rows and the stat card.
 // Every file is named <section>_<phone>_<theme>_<scale>x_<frame>.png and its
 // path is printed. A section that overflows fails its capture.
 //
@@ -61,7 +61,7 @@ const _phones = <(String, Size)>[
 const _frame = Duration(milliseconds: 16);
 
 /// Sections that are also captured at the largest text size.
-const _largestToo = {'hero', 'inbox', 'stat'};
+const _largestToo = {'status', 'hero', 'inbox', 'stat'};
 
 Widget _section(String name, double scale, double phoneWidth) => switch (name) {
   'status' => const StatusCardsGallery(),

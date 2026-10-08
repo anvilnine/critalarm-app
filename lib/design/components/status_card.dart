@@ -242,6 +242,60 @@ class _AppStatusCardState extends State<AppStatusCard>
     color: color,
   );
 
+  TextStyle _stripTitle(Color color) => TextStyle(
+    fontFamily: AppTypography.fontBody,
+    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+    fontWeight: FontWeight.w700,
+    fontSize: 16,
+    height: 1.25,
+    color: color,
+  );
+
+  /// Lines the stacked title may take. Far more than any title needs, so it
+  /// never loses a word.
+  static const int _stripStackedTitleLines = 8;
+
+  /// The widest the strip's numeral gets beside the title.
+  static const double _stripNumeralMaxWidth = 110;
+
+  /// Whether the strip's title keeps all its words in two lines with the
+  /// numeral at the end of the row. [width] is the strip's inner width.
+  ///
+  /// It measures the title and the numeral with the text size the strip is
+  /// drawn at. When it does not fit, the numeral stacks under the title and
+  /// the title has the whole column.
+  bool _stripFitsInARow(BuildContext context, double width, AppColors colors) {
+    final title = widget.title;
+    if (title == null) return true;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final numeral = TextPainter(
+      text: TextSpan(
+        text: widget.numeral,
+        style: _numeral(colors.onPanel, 40),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final numeralWidth = numeral.width < _stripNumeralMaxWidth
+        ? numeral.width
+        : _stripNumeralMaxWidth;
+    numeral.dispose();
+    // Face 40, gap 14 before the column, gap 10 after it.
+    final columnWidth = width - 40 - 14 - 10 - numeralWidth;
+    if (columnWidth <= 0) return false;
+    final painter = TextPainter(
+      text: TextSpan(text: title, style: _stripTitle(colors.onPanel)),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 2,
+    )..layout(maxWidth: columnWidth);
+    final fits = !painter.didExceedMaxLines;
+    painter.dispose();
+    return fits;
+  }
+
   /// Text that is chrome (label, foot) stops growing at the chrome limit.
   Widget _capped(BuildContext context, Widget child) => MediaQuery(
     data: MediaQuery.of(context).copyWith(
@@ -292,13 +346,13 @@ class _AppStatusCardState extends State<AppStatusCard>
             ),
           );
 
-    final numeralWidget = ExcludeSemantics(
+    Widget numeralAt(Alignment alignment) => ExcludeSemantics(
       child: ScaleTransition(
         scale: _scale,
-        alignment: isStrip ? Alignment.centerRight : Alignment.centerLeft,
+        alignment: alignment,
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: isStrip ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: alignment,
           child: Text(
             widget.numeral,
             maxLines: 1,
@@ -307,6 +361,9 @@ class _AppStatusCardState extends State<AppStatusCard>
           ),
         ),
       ),
+    );
+    final numeralWidget = numeralAt(
+      isStrip ? Alignment.centerRight : Alignment.centerLeft,
     );
 
     final footWidget = widget.foot == null
@@ -331,55 +388,77 @@ class _AppStatusCardState extends State<AppStatusCard>
 
     final Widget top;
     if (isStrip) {
-      top = Row(
-        children: [
-          ExcludeSemantics(
-            child: FaceWidget(
-              state: widget.face!,
-              size: 40,
-              overrideFillColor: colors.yellow,
-              overrideStrokeColor: colors.inkFixed,
-              overrideInkColor: colors.inkFixed,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ?labelWidget,
-                if (widget.title != null) ...[
-                  const SizedBox(height: 3),
-                  ExcludeSemantics(
-                    child: Text(
-                      widget.title!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        height: 1.25,
-                        color: colors.onPanel,
+      Widget face() => ExcludeSemantics(
+        child: FaceWidget(
+          state: widget.face!,
+          size: 40,
+          overrideFillColor: colors.yellow,
+          overrideStrokeColor: colors.inkFixed,
+          overrideInkColor: colors.inkFixed,
+        ),
+      );
+      Widget title({required int maxLines}) => ExcludeSemantics(
+        child: Text(
+          widget.title!,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: _stripTitle(colors.onPanel),
+        ),
+      );
+      top = LayoutBuilder(
+        builder: (context, box) {
+          final inRow = _stripFitsInARow(context, box.maxWidth, colors);
+          return Row(
+            crossAxisAlignment: inRow
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
+            children: [
+              face(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ?labelWidget,
+                    if (widget.title != null) ...[
+                      const SizedBox(height: 3),
+                      // Stacked, the title has the whole column and keeps
+                      // every word, however many lines that takes.
+                      title(maxLines: inRow ? 2 : _stripStackedTitleLines),
+                    ],
+                    // Stacked, the numeral sits under the title.
+                    if (!inRow) ...[
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: _stripNumeralMaxWidth,
+                          ),
+                          child: numeralAt(Alignment.centerLeft),
+                        ),
                       ),
-                    ),
+                    ],
+                    if (footWidget != null) ...[
+                      const SizedBox(height: 2),
+                      footWidget,
+                    ],
+                  ],
+                ),
+              ),
+              if (inRow) ...[
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: _stripNumeralMaxWidth,
                   ),
-                ],
-                if (footWidget != null) ...[
-                  const SizedBox(height: 2),
-                  footWidget,
-                ],
+                  child: numeralWidget,
+                ),
               ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 110),
-            child: numeralWidget,
-          ),
-        ],
+            ],
+          );
+        },
       );
     } else {
       top = Column(
