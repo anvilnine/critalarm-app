@@ -84,6 +84,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - HomeCardCubit, HomeFacts and a missed alarm feed give Home the data for its status card. The feed reads the missed alarm record without the notice slot, and closing an entry from either place closes it in both.
 - home\_list\_rules.dart holds the cream card order, the one-topic card rule (prefs key home\_one\_topic\_card\_closed) and nextGlanceCount, which decides when the face glances at the list. /topics/new takes an optional tool=<ToolTemplate id> query that preselects the chip. tool/capture\_topics\_screen.dart captures the real Topics screen against the mock server.
 - AmbientShape gains ring (fill to outline) and scales up to 2, AmbientController gains per-route profiles, and the capture tool steps the canvas through a tab change and a push.
+- AppSwitch takes a panel variant for the dark status card: 56 by 32, a panelLine outline and a 44 point touch target. It is in the status card gallery.
+- topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
+- tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -140,6 +143,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
 - Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
 - The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
+- The Topic screen uses the Topics hero: the face looks at a dark Critical delivery card with the switch in it, and the messages sit on a white sheet under it. The disc behind the face is drawn by the ambient canvas through an AmbientOverride.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
