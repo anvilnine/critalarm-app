@@ -83,37 +83,4 @@ void main() {
       expect(ladderStoryTakes, greaterThan(ladderRingEndsAt + 1));
     });
   });
-
-  group('the tools story', () {
-    test('each tool sends 1.3 s after the one before', () {
-      expect(toolsSendStartsAt(0), closeTo(0.6, 1e-9));
-      expect(toolsSendStartsAt(1), closeTo(1.9, 1e-9));
-      expect(toolsSendStartsAt(2), closeTo(3.2, 1e-9));
-    });
-
-    test('an alert lands 0.7 s after it was sent', () {
-      for (var index = 0; index < toolsStoryToolCount; index++) {
-        expect(
-          toolsAlertLandsAt(index) - toolsSendStartsAt(index),
-          closeTo(0.7, 1e-9),
-        );
-      }
-    });
-
-    test('one alert is in flight at a time', () {
-      for (var index = 0; index < toolsStoryToolCount - 1; index++) {
-        expect(
-          toolsAlertLandsAt(index),
-          lessThan(toolsSendStartsAt(index + 1)),
-        );
-      }
-    });
-
-    test('the story holds on all three alerts before it ends', () {
-      expect(
-        toolsStoryTakes,
-        greaterThan(toolsAlertLandsAt(toolsStoryToolCount - 1) + 2),
-      );
-    });
-  });
 }

@@ -218,6 +218,16 @@ Android, and counts as already done once a first message was received.
 lists it. It works at any position, the last one included, and it exists on
 iOS and Android only.
 
+`welcome` is one step with three pages (`WelcomePage` in
+`domain/welcome_pages.dart`): the ring story, the priority ladder and the
+curl that rings a phone. The user swipes between them or taps Next, and Get
+started on the last page finishes the step. Until the first swipe or Next
+tap, a story that ends opens the next page. The rules for the button, for
+where a finished story hands on and for which page may play haptics are in
+that file. `how_it_rings` shows the same curl as a step of its own.
+`2026-10-b` leaves it out because the welcome already has it, and
+`2026-10-a` and `legacy-1` still list it.
+
 `offer` is a frame around one paywall layout (`offer_step_screen.dart`). It
 holds no words, prices or benefit lists: it builds the layout an id names
 from `paywallLayoutBuilders`, over the whole screen. Closing the layout
@@ -311,8 +321,8 @@ dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
 
 Chapters and the tracker: setup has three chapters (`OnboardingChapter`):
-Meet (`welcome`, `how_it_rings`), Set up (`connect`, `permissions`,
-`first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
+Meet (`welcome`, and `how_it_rings` in a flow that lists it), Set up
+(`connect`, `permissions`, `first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
 where a step's top bar has its title: one small face and three bars.
 `onboardingTrackerFillFor` holds the maths. Bars before the current chapter
 are full, and the current one is the chapter's steps listed before this one
@@ -328,7 +338,8 @@ or a callback, and passes null to hand the choice back. `TravellingFaceMood`
 has the five it can be. A step never draws a face of its own in the top bar.
 
 Back: `onboardingBackStepFor` is the rule. Back is offered on
-`how_it_rings`, `connect`, `permissions` and `first_topic`, and is gone for
+`how_it_rings` (where a flow lists it), `connect`, `permissions` and
+`first_topic`, and is gone for
 good once the first topic exists. It goes to the nearest earlier step of the
 flow that was on screen at any point in this run
 (`OnboardingFlowEngine.shownSteps`, held in memory and emptied when setup

@@ -294,13 +294,4 @@ void main() {
       );
     });
   });
-
-  group('toolsStoryCues', () {
-    test("a light tap as each tool's alert lands", () {
-      expect(toolsStoryCues(), [
-        for (var index = 0; index < toolsStoryToolCount; index++)
-          (at: toolsAlertLandsAt(index), cue: HeroCue.alertLands),
-      ]);
-    });
-  });
 }

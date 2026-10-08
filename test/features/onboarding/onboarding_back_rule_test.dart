@@ -29,12 +29,14 @@ void main() {
       expect(backFrom('welcome'), isNull);
     });
 
-    test('how it rings goes back to the welcome', () {
-      expect(backFrom('how_it_rings'), 'welcome');
+    test('connect goes back to the welcome', () {
+      expect(backFrom('connect'), 'welcome');
     });
 
-    test('connect goes back to how it rings', () {
-      expect(backFrom('connect'), 'how_it_rings');
+    test('in 2026-10-a how it rings sits between the two', () {
+      final older = BundledOnboardingFlows.october2026A.steps;
+      expect(backFrom('how_it_rings', inFlow: older), 'welcome');
+      expect(backFrom('connect', inFlow: older), 'how_it_rings');
     });
 
     test('the permissions go back to connect', () {
@@ -61,12 +63,12 @@ void main() {
   group('the Back rule only opens steps that were shown', () {
     test('a step that was never shown is not a Back target', () {
       // The permissions were all granted, so the run passed them over.
-      const shown = ['welcome', 'how_it_rings', 'connect', 'first_topic'];
+      const shown = ['welcome', 'connect', 'first_topic'];
       expect(backFrom('first_topic', shown: shown), 'connect');
 
       // A server was already saved, so connect never showed.
-      const noConnect = ['welcome', 'how_it_rings', 'permissions'];
-      expect(backFrom('permissions', shown: noConnect), 'how_it_rings');
+      const noConnect = ['welcome', 'permissions'];
+      expect(backFrom('permissions', shown: noConnect), 'welcome');
     });
 
     test('with nothing shown before it a step has no Back', () {
@@ -76,11 +78,11 @@ void main() {
     });
 
     test('a step that was not shown has no Back', () {
-      expect(backFrom('connect', shown: ['welcome', 'how_it_rings']), isNull);
+      expect(backFrom('connect', shown: ['welcome']), isNull);
     });
 
     test('a step that is not in the flow has no Back', () {
-      const shown = ['welcome', 'how_it_rings', 'legacy_test'];
+      const shown = ['welcome', 'legacy_test'];
       expect(backFrom('legacy_test', shown: shown), isNull);
     });
 
@@ -98,7 +100,7 @@ void main() {
       expect(
         backFrom(
           'permissions',
-          shown: ['permissions', 'connect', 'how_it_rings', 'welcome'],
+          shown: ['permissions', 'connect', 'welcome'],
         ),
         'connect',
       );
@@ -106,9 +108,9 @@ void main() {
     });
 
     test('a step seen once stays in reach after going back past it', () {
-      // Back from the permissions to connect, back again to how it rings,
+      // Back from the permissions to connect, back again to the welcome,
       // then forward: connect passes itself over, and is still shown.
-      const shown = ['welcome', 'how_it_rings', 'connect', 'permissions'];
+      const shown = ['welcome', 'connect', 'permissions'];
       expect(backFrom('permissions', shown: shown), 'connect');
     });
   });
@@ -139,12 +141,7 @@ void main() {
       expect(back?.stepId, 'permissions');
       expect(back?.route, '/onboarding');
       // The step gone back to keeps what it had.
-      expect(h.repository.completed, {
-        'welcome',
-        'how_it_rings',
-        'connect',
-        'permissions',
-      });
+      expect(h.repository.completed, {'welcome', 'connect', 'permissions'});
       expect(h.events.last.kind, OnboardingStepEventKind.entered);
       expect(h.events.last.stepId, 'permissions');
       // Going back takes nothing out of the steps that were shown.
@@ -155,9 +152,9 @@ void main() {
       final h = await runUpTo('permissions');
 
       expect((await h.engine.goBack('permissions'))?.stepId, 'connect');
-      expect((await h.engine.goBack('connect'))?.stepId, 'how_it_rings');
+      expect((await h.engine.goBack('connect'))?.stepId, 'welcome');
       // A server is saved, so going forward passes connect over.
-      expect((await h.engine.finishStep('how_it_rings')).stepId, 'permissions');
+      expect((await h.engine.finishStep('welcome')).stepId, 'permissions');
 
       expect(await h.engine.backStepFrom('permissions'), 'connect');
       expect((await h.engine.goBack('permissions'))?.stepId, 'connect');
@@ -166,16 +163,13 @@ void main() {
     test('going forward again opens the step that was left', () async {
       final h = await runUpTo('connect');
 
-      // From connect back to how it rings, then back to the welcome.
-      expect((await h.engine.goBack('connect'))?.stepId, 'how_it_rings');
-      expect((await h.engine.goBack('how_it_rings'))?.stepId, 'welcome');
+      expect((await h.engine.goBack('connect'))?.stepId, 'welcome');
       expect(h.repository.completed, {'welcome'});
       expect(await h.engine.backStepFrom('welcome'), isNull);
 
-      // Forward retraces the same two steps.
-      expect((await h.engine.finishStep('welcome')).stepId, 'how_it_rings');
-      expect((await h.engine.finishStep('how_it_rings')).stepId, 'connect');
-      expect(await h.engine.backStepFrom('connect'), 'how_it_rings');
+      // Forward opens connect again.
+      expect((await h.engine.finishStep('welcome')).stepId, 'connect');
+      expect(await h.engine.backStepFrom('connect'), 'welcome');
     });
 
     test('permissions that were all granted are never gone back to', () async {
@@ -195,7 +189,7 @@ void main() {
       );
 
       expect(h.engine.shownSteps, isNot(contains('connect')));
-      expect(await h.engine.backStepFrom('permissions'), 'how_it_rings');
+      expect(await h.engine.backStepFrom('permissions'), 'welcome');
     });
 
     test(
@@ -219,7 +213,7 @@ void main() {
         facts: FakeOnboardingStepFacts(connected: true),
         repository: FakeOnboardingFlowRepository(
           pinned: BundledOnboardingFlows.defaultFlow,
-          completed: {'welcome', 'how_it_rings', 'connect'},
+          completed: {'welcome', 'connect'},
         ),
       );
 
@@ -241,6 +235,9 @@ void main() {
       expect((await h.engine.finishStep('how_it_rings')).stepId, 'connect');
 
       expect(await h.engine.backStepFrom('connect'), 'how_it_rings');
+      // Back to how it rings, and forward opens connect again.
+      expect((await h.engine.goBack('connect'))?.stepId, 'how_it_rings');
+      expect((await h.engine.finishStep('how_it_rings')).stepId, 'connect');
       expect(h.repository.pinned, BundledOnboardingFlows.october2026A);
     });
 
@@ -258,7 +255,7 @@ void main() {
       final h = EngineHarness(
         repository: FakeOnboardingFlowRepository(
           pinned: BundledOnboardingFlows.defaultFlow,
-          completed: {'welcome', 'how_it_rings', 'first_topic'},
+          completed: {'welcome', 'first_topic'},
         ),
       );
       expect((await h.engine.resume()).stepId, 'connect');
@@ -324,7 +321,7 @@ void main() {
       await h.engine.finishStep('welcome', isReplay: true);
 
       expect(
-        await h.engine.backStepFrom('how_it_rings', isReplay: true),
+        await h.engine.backStepFrom('connect', isReplay: true),
         'welcome',
       );
     });

@@ -170,12 +170,6 @@ List<TimedCue> ringStoryCues() => [
   ...ringCues(from: ringStoryRingStartsAt, to: ringStoryAutoStopAt),
 ];
 
-/// The tools story: each tool's alert landing on the phone.
-List<TimedCue> toolsStoryCues() => [
-  for (var index = 0; index < toolsStoryToolCount; index++)
-    (at: toolsAlertLandsAt(index), cue: HeroCue.alertLands),
-];
-
 /// The priority ladder: each card landing, then the first pulses of the
 /// last card ringing.
 List<TimedCue> ladderCues() => [

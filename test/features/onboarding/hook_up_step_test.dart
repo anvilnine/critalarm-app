@@ -21,7 +21,6 @@ void main() {
       expect(flow.id, '2026-10-b');
       expect(flow.steps, [
         'welcome',
-        'how_it_rings',
         'connect',
         'permissions',
         'first_topic',

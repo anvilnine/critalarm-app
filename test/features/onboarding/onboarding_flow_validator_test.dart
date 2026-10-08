@@ -75,7 +75,6 @@ void main() {
       expect(BundledOnboardingFlows.defaultFlow.id, '2026-10-b');
       expect(BundledOnboardingFlows.defaultFlow.steps, [
         'welcome',
-        'how_it_rings',
         'connect',
         'permissions',
         'first_topic',

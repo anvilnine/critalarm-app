@@ -9,15 +9,18 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_pages.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -31,7 +34,7 @@ part 'onboarding_welcome_variants.dart';
 /// The older welcome animations, kept for the Developer options preview and
 /// for the steps that still use one. The first five are only faces, the next
 /// seven show how Crit Alarm works, and the last three are faces again. First
-/// launch plays the three product stories instead.
+/// launch shows the three welcome pages instead.
 enum WelcomeVariant {
   /// One big face asleep, wakes up, smiles.
   wakeUp,
@@ -86,10 +89,12 @@ enum WelcomeVariant {
 }
 
 /// Onboarding welcome screen (/onboarding/welcome), the first thing a new
-/// user sees. With no [variant] it plays the three product stories round and
-/// round, each with its own caption, for as long as the user stays. It
-/// always starts on the first one. Developer options opens it with a
-/// [variant] and [isPreview] to try each of the older animations.
+/// user sees. With no [variant] it is three pages, each a picture with its
+/// own caption: the ring story, the priority ladder and the curl. The user
+/// swipes between them or taps Next, and the button on the last page starts
+/// setup. Until the user moves by hand, each story hands on to the next page
+/// when it ends. It always starts on the first one. Developer options opens
+/// it with a [variant] and [isPreview] to try each of the older animations.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
     this.variant,
@@ -117,20 +122,63 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 
   bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
-  /// The story on screen. First launch always starts on the first one.
-  _WelcomeStory _story = _WelcomeStory.rings;
+  /// Moves the pictures between the pages.
+  PageController _pages = PageController();
 
-  /// Bumped every time a story starts, so each pass plays from its start.
+  /// The page the dots, the caption and the button show. First launch
+  /// always starts on the first one. During a swipe it changes half way.
+  WelcomePage _page = WelcomePage.rings;
+
+  /// The page the pictures last came to rest on.
+  WelcomePage _restingOn = WelcomePage.rings;
+
+  /// True from the moment the pictures start to move until they rest again.
+  bool _isMoving = false;
+
+  /// True from the user's first swipe or first tap on Next. From then on no
+  /// page moves on by itself.
+  bool _userHasMoved = false;
+
+  /// Bumped every time a story starts over on its own page, so each pass
+  /// plays from its start.
   int _passes = 0;
+
+  /// A swipe in progress that started outside the pictures.
+  Drag? _drag;
+
+  /// How far a swipe has gone, while the pictures do not follow the finger.
+  double _swiped = 0;
 
   /// What this phone can promise about ringing. Null until it has been
   /// read, and until then nothing says the phone rings on silent.
   RingClaim? _ringClaim;
 
+  /// True while the phone asks for reduced motion.
+  bool _isStill = false;
+
+  List<ModalRoute<Object?>> _pagesAbove = const [];
+
+  /// Whether the pictures follow the finger. They do not with animations
+  /// switched off, or at a text size so large that the pictures are gone.
+  bool get _followsFinger => !_isStill && _pages.hasClients;
+
   @override
   void initState() {
     super.initState();
     if (_isPlaylist) unawaited(_readRingClaim());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isStill = context.reduceMotion;
+    _pagesAbove = pagesAbove(context);
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
   }
 
   Future<void> _readRingClaim() async {
@@ -140,49 +188,207 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     if (mounted) setState(() => _ringClaim = RingClaim.forPhone(alarm));
   }
 
-  /// The story on screen is over: the next one starts.
-  void _showNextStory() {
+  /// Opens [page]: a slide like the end of a swipe, or at once with
+  /// animations switched off.
+  void _showPage(WelcomePage page) {
+    if (page == _page) return;
+    if (_followsFinger) {
+      unawaited(
+        _pages.animateToPage(
+          page.index,
+          duration: AppDurations.slow,
+          curve: AppCurves.easeOut,
+        ),
+      );
+    } else if (_pages.hasClients) {
+      _pages.jumpToPage(page.index);
+    } else {
+      // No pictures on screen to move. Should they come back, they open on
+      // this page.
+      _pages.dispose();
+      setState(() {
+        _pages = PageController(initialPage: page.index);
+        _page = page;
+        _restingOn = page;
+      });
+    }
+  }
+
+  /// The story on [page] is over: the next page opens, or the story plays
+  /// again.
+  void _onStoryDone(WelcomePage page) {
     if (!mounted) return;
-    setState(() {
-      _story = _story.next;
-      _passes++;
-    });
+    final next = welcomePageAfterStory(page, userHasMoved: _userHasMoved);
+    if (next == page) {
+      setState(() => _passes++);
+    } else {
+      _showPage(next);
+    }
+  }
+
+  void _onNext() {
+    _userHasMoved = true;
+    _showPage(_page.next);
+  }
+
+  /// Follows the pictures as they move, to know which page is in front.
+  bool _onPagesScroll(ScrollNotification scroll) {
+    if (scroll is ScrollStartNotification) {
+      setState(() {
+        _isMoving = true;
+        // Only a finger starts a scroll with a drag.
+        if (scroll.dragDetails != null) _userHasMoved = true;
+      });
+    } else if (scroll is ScrollEndNotification) {
+      final cameFrom = _restingOn;
+      final index = _pages.page?.round() ?? _page.index;
+      setState(() {
+        _isMoving = false;
+        _restingOn = WelcomePage.values[index];
+      });
+      if (_restingOn != cameFrom && !_isStill && isOnTopOfAll(_pagesAbove)) {
+        AppHaptics.tick();
+      }
+    }
+    return false;
+  }
+
+  void _onSwipeStart(DragStartDetails details) {
+    _userHasMoved = true;
+    _swiped = 0;
+    if (_followsFinger) {
+      _drag = _pages.position.drag(details, () => _drag = null);
+    }
+  }
+
+  void _onSwipeUpdate(DragUpdateDetails details) {
+    _swiped += details.primaryDelta ?? 0;
+    _drag?.update(details);
+  }
+
+  void _onSwipeEnd(DragEndDetails details) {
+    final drag = _drag;
+    if (drag != null) {
+      drag.end(details);
+    } else {
+      _showPage(welcomePageAfterSwipe(_page, moved: _swiped));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ringsOnSilent = _ringClaim == RingClaim.alarm;
-    return _IntroLayout(
-      top: widget.isPreview ? _previewSwitch() : null,
-      isHeroSpoken: true,
-      hero: _isPlaylist
-          ? KeyedSubtree(
-              key: ValueKey((_story, _passes)),
-              child: _welcomeStoryHero(
-                _story,
-                ringsOnSilent: ringsOnSilent,
-                onDone: _showNextStory,
+    if (!_isPlaylist) {
+      return _IntroLayout(
+        top: widget.isPreview ? _previewSwitch() : null,
+        isHeroSpoken: true,
+        hero: KeyedSubtree(
+          key: ValueKey((_variant, _replays)),
+          child: _spokenHeroFor(_variant),
+        ),
+        title: LocaleKeys.onboarding_welcome_title.tr(),
+        subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+        button: LocaleKeys.onboarding_welcome_button.tr(),
+        onPressed: widget.isPreview
+            ? () => context.pop()
+            : () => unawaited(
+                finishOnboardingStep(context, OnboardingStepId.welcome),
               ),
-            )
-          : KeyedSubtree(
-              key: ValueKey((_variant, _replays)),
-              child: _spokenHeroFor(_variant),
-            ),
-      title: LocaleKeys.onboarding_welcome_title.tr(),
-      subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
-      // Each story has its own line, in the place of the one line the older
-      // animations share.
-      caption: _isPlaylist
-          ? _StoryCaption(story: _story, ringsOnSilent: ringsOnSilent)
-          : null,
-      button: LocaleKeys.onboarding_welcome_button.tr(),
-      onPressed: widget.isPreview
-          ? () => context.pop()
-          : () => unawaited(
-              finishOnboardingStep(context, OnboardingStepId.welcome),
-            ),
+      );
+    }
+
+    final ringsOnSilent = _ringClaim == RingClaim.alarm;
+    final button = welcomeButtonFor(_page);
+    // A swipe anywhere on the page moves the pictures, also one that starts
+    // on the words, which stay where they are.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // A screen reader moves the pages through the pictures and Next.
+      excludeFromSemantics: true,
+      onHorizontalDragStart: _onSwipeStart,
+      onHorizontalDragUpdate: _onSwipeUpdate,
+      onHorizontalDragEnd: _onSwipeEnd,
+      onHorizontalDragCancel: () => _drag?.cancel(),
+      child: _IntroLayout(
+        isHeroSpoken: true,
+        hero: _storyPages(ringsOnSilent: ringsOnSilent),
+        underHero: PermissionStepDots(
+          count: WelcomePage.values.length,
+          index: _page.index,
+          label: LocaleKeys.onboarding_welcome_page_progress.tr(
+            namedArgs: {
+              'page': '${_page.index + 1}',
+              'count': '${WelcomePage.values.length}',
+            },
+          ),
+        ),
+        title: LocaleKeys.onboarding_welcome_title.tr(),
+        subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+        // Each page has its own line, in the place of the one line the
+        // older animations share.
+        caption: _StoryCaption(page: _page, ringsOnSilent: ringsOnSilent),
+        button: switch (button) {
+          WelcomeButton.next => LocaleKeys.onboarding_welcome_next.tr(),
+          WelcomeButton.getStarted => LocaleKeys.onboarding_welcome_button.tr(),
+        },
+        onPressed: switch (button) {
+          WelcomeButton.next => _onNext,
+          WelcomeButton.getStarted => () => unawaited(
+            finishOnboardingStep(context, OnboardingStepId.welcome),
+          ),
+        },
+      ),
     );
   }
+
+  /// The three pictures side by side, one in view. They are as wide as the
+  /// screen, wider than the room the layout gives them, so a picture slides
+  /// off the edge of the screen and not off the edge of that room.
+  Widget _storyPages({required bool ringsOnSilent}) => LayoutBuilder(
+    builder: (context, box) => OverflowBox(
+      minWidth: box.maxWidth + 2 * _IntroLayout.sidePadding,
+      maxWidth: box.maxWidth + 2 * _IntroLayout.sidePadding,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onPagesScroll,
+        // Swiping past the first or the last page does nothing: no bounce
+        // and no stretch.
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: PageView(
+            controller: _pages,
+            clipBehavior: Clip.none,
+            physics: _isStill
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
+            onPageChanged: (index) =>
+                setState(() => _page = WelcomePage.values[index]),
+            children: [
+              for (final page in WelcomePage.values)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _IntroLayout.sidePadding,
+                  ),
+                  child: _HeroStage(
+                    isInFront: welcomePageIsInFront(
+                      page,
+                      restingOn: _restingOn,
+                      isMoving: _isMoving,
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey((page, _passes)),
+                      child: _welcomeStoryHero(
+                        page,
+                        ringsOnSilent: ringsOnSilent,
+                        onDone: () => _onStoryDone(page),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   /// Every animation by number, in two rows so fifteen still fit a phone.
   Widget _previewSwitch() {
@@ -216,6 +422,22 @@ Widget _spokenHeroFor(WelcomeVariant variant) =>
     variant == WelcomeVariant.wakeUp
     ? const _WakeUpHero()
     : ExcludeSemantics(child: _heroFor(variant));
+
+/// Says whether the hero below is the one in front. On the welcome pages
+/// only the page the user rests on is: its story starts and its haptic cues
+/// play. A hero with no stage above it is always in front.
+class _HeroStage extends InheritedWidget {
+  const _HeroStage({required this.isInFront, required super.child});
+
+  final bool isInFront;
+
+  static bool isInFrontOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HeroStage>()?.isInFront ??
+      true;
+
+  @override
+  bool updateShouldNotify(_HeroStage old) => old.isInFront != isInFront;
+}
 
 /// Plays one animation cue on the phone.
 void _playHeroCue(HeroCue cue) => switch (cue) {
@@ -260,8 +482,12 @@ class _IntroLayout extends StatelessWidget {
     this.top,
     this.badge,
     this.caption,
+    this.underHero,
     this.isHeroSpoken = false,
   });
+
+  /// The room left free on each side of the page.
+  static const double sidePadding = Spacing.s5;
 
   final Widget hero;
 
@@ -275,6 +501,9 @@ class _IntroLayout extends StatelessWidget {
 
   /// Above the animation, such as the preview switch.
   final Widget? top;
+
+  /// Centred between the animation and the title, such as the page dots.
+  final Widget? underHero;
 
   /// Between the title and the text, such as the Hosted badge.
   final Widget? badge;
@@ -321,9 +550,9 @@ class _IntroLayout extends StatelessWidget {
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(
-            Spacing.s5,
+            sidePadding,
             Spacing.s4 + trackerRoom,
-            Spacing.s5,
+            sidePadding,
             0,
           ),
           sliver: SliverFillRemaining(
@@ -383,6 +612,10 @@ class _IntroLayout extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (underHero != null) ...[
+                    const SizedBox(height: Spacing.s3),
+                    Center(child: underHero),
+                  ],
                   const SizedBox(height: Spacing.s5),
                   Text(
                     title,
@@ -422,7 +655,8 @@ class _IntroLayout extends StatelessWidget {
 
 /// A hero that redraws every frame and knows how many seconds it has run.
 /// With animations switched off it sits at [restAt] and runs no ticker at
-/// all.
+/// all. On a welcome page that is not in front yet it waits at its first
+/// frame, and its clock starts when the page comes to rest.
 abstract class _ClockState<T extends StatefulWidget> extends State<T>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
@@ -453,13 +687,18 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
 
   List<ModalRoute<Object?>> _pagesAbove = const [];
 
-  /// Whether this hero may play a haptic right now: it moves, its screen is
-  /// the one on top, and the app is in front. A hero whose screen is covered
-  /// or gone stays silent.
+  /// Whether this hero is the one in front (see [_HeroStage]).
+  bool _isInFront = true;
+
+  /// Whether this hero may play a haptic right now: it moves, it is the one
+  /// in front, its screen is the one on top, and the app is in front. A hero
+  /// whose screen is covered or gone stays silent, and so does one on a page
+  /// that is half in view during a swipe.
   bool get canPlayHaptics {
     final lifecycle = SchedulerBinding.instance.lifecycleState;
     return mounted &&
         !_isStill &&
+        _isInFront &&
         isOnTopOfAll(_pagesAbove) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed);
   }
@@ -490,11 +729,14 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     _pagesAbove = pagesAbove(context);
+    _isInFront = _HeroStage.isInFrontOf(context);
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.
     if (_isStill && _ticker.isActive) {
       _ticker.stop();
-    } else if (!_isStill && !_ticker.isActive) {
+    } else if (!_isStill && !_ticker.isActive && _isInFront) {
+      // A story that has started plays on while its page is swiped away.
+      // One that has not waits for its page to come to rest.
       unawaited(_ticker.start());
     }
   }
