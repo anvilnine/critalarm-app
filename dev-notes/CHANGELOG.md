@@ -76,7 +76,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A motion skill and rule for custom animation: one living hero per screen.
 - Two more versions of the step after a purchase, Key and Lights on, and five interface cues for it: settle, lock, key, cord and bulb. Confetti plays the settle as its last piece lands.
 - Arriving at a paywall, buying and leaving without buying each have their own sound. The arrival is one tine strike left open, the purchase is the only celebration, and leaving plays a soft falling slide with HapticPattern.fallingPair. The frame plays the leaving cue as the route starts to go (PopScope), by the rule paywallSaysClose.
-- Each intro ends on its own punchline cue: introWink (False Alarm), introGulp (Snooze Snack), introSpring (Rude Awakening), introTease (Countdown). The shared kidding cue is gone, a skipped intro plays its own punchline, and the Crit call plays on a purchase alone. The False Alarm sound is shorter so its ending lands on the reveal. HapticPattern.tripleRise is new.
+- Each intro plays one score from its first frame (PaywallIntro.score): a set up, a turn and an arrival, in a piano and a kalimba flavour (IntroSoundFlavour, developer row Intro sound, pref dev.paywall\_intro\_sound). A skipped intro plays introArrive. The gag, kidding and intro one shot cues are gone, intro beats are haptics alone, and the Crit call plays on a purchase alone.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
