@@ -21,7 +21,7 @@ import 'package:go_router/go_router.dart';
 /// picked in two steps. An intro, then a paywall, each from a sheet of
 /// small phones that play the real thing. "Open it" plays the pair as a
 /// user would see it. Under them, the routing choices that are not one
-/// named layout.
+/// named layout, and a list of every layout id to pin one by its key.
 ///
 /// The picks are the developer switches, so what is chosen here is also
 /// what every entry point in this build opens.
@@ -281,6 +281,34 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             ),
                             const SizedBox(height: Spacing.s1),
                           ],
+                          // Every id, the ones with no layout of their own
+                          // too: the tiles above only list what is built.
+                          AppPickerRow<PaywallLayoutId>(
+                            title: LocaleKeys.developer_options_by_key_title
+                                .tr(),
+                            sheetNote: LocaleKeys.developer_options_by_key_note
+                                .tr(),
+                            isMonoValue: true,
+                            selected: setting?.layout,
+                            hasSelection: setting?.layout != null,
+                            options: [
+                              for (final layout in PaywallLayoutId.values)
+                                AppPickerOption(
+                                  value: layout,
+                                  label: layout.key,
+                                  meta: paywallLayoutIsBuilt(layout)
+                                      ? paywallLayoutName(layout)
+                                      : LocaleKeys
+                                            .developer_options_by_key_unbuilt
+                                            .tr(),
+                                ),
+                            ],
+                            onPick: (layout) => unawaited(
+                              _layoutSwitch.setSetting(
+                                PaywallLayoutSetting.pinned(layout),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
