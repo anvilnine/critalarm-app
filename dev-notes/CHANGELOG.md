@@ -66,6 +66,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup chapters: bundled flow 2026-10-b is the default, SetupTracker and a small face in the setup shell, a Back rule with the system back gesture, and step changes that slide and fade from the shell
 - Setup step offer: a frame that hosts one paywall layout by id, between real\_ring and hook\_up in flow 2026-10-b. It ships switched off. Switches come from dev.onboarding\_offer, then the Remote Config key onboarding\_offer, then the bundled value.
 - Setup funnel events onboarding\_offer\_shown, onboarding\_offer\_closed and onboarding\_offer\_bought, each with product, layout and flow\_id. PaywallSource.onboardingOffer names the offer step. AfterAckDecider gives no follow-up while the offer step is still to come. Developer options, Setup flow, has the four offer switches.
+- Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
+- Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
+- A motion skill and rule for custom animation: one living hero per screen.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -106,6 +109,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - App links: an https link reads the connect address and token from the fragment only, never opens a fixed screen under /topics/ (AppLinkRoutes.reservedTopicNames, checked against the router in test/app/router\_test.dart), and opens Home for a double slash, a dot segment or a user name. iOS no longer passes an app link's user activity or URL context on to Flutter and its plugins.
 - Reliability screen: fine rows are plain rows, rows needing action share one card (splitReliabilityRows), ReliabilityFixButton announces its check, reliabilityRowFace is gone, denied lines are picked per check.
 - A tinted button washes a light highlight card with ink. Home uses barBacking and shrinks the stage face above 1.3x text.
+- Paywall kit: smaller buy block, pickable plan cards, previews in three fixed sizes, five Pro benefits with previews.
 - BarBackingConfig.defaults is blur and gradient for both bars (top 40, 45, 0.9, 0.1 and bottom 34.5, 38, 0.15, 0.1), and AppScreenScaffold draws the bottom backing only behind a tab bar or a pinned bar.
 - HomeScreen takes its bar backing from AppBarBackingScope and insets its pinned notice by 6 on each side.
 - Settings sub screens on the root navigator pass hasTabBar: false, so they leave no tab bar room and draw no bottom blur.

@@ -40,11 +40,17 @@ PaywallBenefit? sheetLeadBenefit(
   return benefits.first;
 }
 
-/// The benefits listed under the lead, in their own order.
-List<PaywallBenefit> sheetOtherBenefits(
-  PaywallBenefit? lead,
+/// The benefits in the order the sheet lists and plays them: the lead
+/// first, then the others in their own order.
+List<PaywallBenefit> sheetBenefitsLeadFirst(
+  PaywallSource source,
   List<PaywallBenefit> benefits,
-) => [
-  for (final benefit in benefits)
-    if (benefit.id != lead?.id) benefit,
-];
+) {
+  final lead = sheetLeadBenefit(source, benefits);
+  if (lead == null) return const [];
+  return [
+    lead,
+    for (final benefit in benefits)
+      if (benefit.id != lead.id) benefit,
+  ];
+}

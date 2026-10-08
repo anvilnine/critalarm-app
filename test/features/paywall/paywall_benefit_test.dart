@@ -68,16 +68,25 @@ void main() {
     }
   });
 
-  test('Hosted benefits match HostedBenefit.all one to one, in order', () {
+  test('Hosted lists four of the benefits in HostedBenefit.all, in its order: '
+      'widgets are listed under Pro', () {
     final hosted = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.hosted)
         .toList();
+    expect(hosted.map((b) => b.id), [
+      PaywallBenefitId.topics,
+      PaywallBenefitId.pushes,
+      PaywallBenefitId.history,
+      PaywallBenefitId.appIcons,
+    ]);
     expect(
       hosted.map((b) => b.id.name),
-      HostedBenefit.all.map((b) => b.id.name),
+      HostedBenefit.all
+          .where((b) => b.id != HostedBenefitId.widgets)
+          .map((b) => b.id.name),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
-    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(hosted.length));
+    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));
   });
 
   test('Hosted lines read their numbers from the one place', () {
@@ -99,20 +108,49 @@ void main() {
     }
   });
 
-  test('Pro lists the weekly check today and four more later', () {
+  test('Pro lists five benefits, in the order they are sold', () {
     final pro = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.pro)
         .toList();
     expect(pro.map((b) => b.id), [
-      PaywallBenefitId.weeklyCheck,
-      PaywallBenefitId.fireDrills,
       PaywallBenefitId.wakeUpChallenges,
+      PaywallBenefitId.widgets,
+      PaywallBenefitId.reliabilityChecks,
+      PaywallBenefitId.customSounds,
       PaywallBenefitId.customAlarmScreens,
-      PaywallBenefitId.morningSummary,
     ]);
+  });
+
+  test('a store build lists only the two Pro benefits the app has today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
-      PaywallBenefitId.weeklyCheck,
+      PaywallBenefitId.widgets,
+      PaywallBenefitId.reliabilityChecks,
     ]);
+    final waiting = allPaywallBenefits
+        .where((b) => !b.inThisBuild)
+        .map((b) => b.id);
+    expect(waiting, [
+      PaywallBenefitId.wakeUpChallenges,
+      PaywallBenefitId.customSounds,
+      PaywallBenefitId.customAlarmScreens,
+    ]);
+  });
+
+  test('no benefit is listed under both products', () {
+    final ids = allPaywallBenefits.map((b) => b.id).toList();
+    expect(ids.toSet(), hasLength(ids.length));
+    expect(ids.toSet(), PaywallBenefitId.values.toSet());
+  });
+
+  test('reliability checks are drawn with the weekly check preview, and '
+      'widgets with the widgets one', () {
+    PaywallPreviewId previewOf(PaywallBenefitId id) =>
+        allPaywallBenefits.firstWhere((b) => b.id == id).previewId;
+    expect(
+      previewOf(PaywallBenefitId.reliabilityChecks),
+      PaywallPreviewId.weeklyCheck,
+    );
+    expect(previewOf(PaywallBenefitId.widgets), PaywallPreviewId.widgets);
   });
 
   test('every benefit has its own id and its own preview', () {
@@ -144,6 +182,7 @@ void main() {
       'paywall_kit.button_get_price',
       'paywall_kit.not_on_sale',
       'paywall_kit.plain.headline_pro',
+      'paywall_hero.headline_pro',
     ]) {
       expect(banned.hasMatch(strings[key]!), isFalse, reason: key);
     }

@@ -25,6 +25,7 @@ import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_no
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
@@ -377,12 +378,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   void _openWidgetsPaywall() {
     unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
-    unawaited(context.push(paywallLocation(PaywallSource.homeWidgets)));
+    unawaited(context.push(hostedPaywallLocation(PaywallSource.homeWidgets)));
   }
 
   void _openDay0Plans() {
     unawaited(context.read<Day0CardCubit>().seePlans());
-    unawaited(context.push(paywallLocation(PaywallSource.homeDay0Card)));
+    unawaited(context.push(hostedPaywallLocation(PaywallSource.homeDay0Card)));
   }
 
   void _showWidgetsHowTo(HomeWidgetsPlan plan) {
@@ -395,7 +396,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         plan: plan,
         onSeeHosted: () {
           if (!mounted) return;
-          unawaited(context.push(paywallLocation(PaywallSource.homeWidgets)));
+          unawaited(
+            context.push(hostedPaywallLocation(PaywallSource.homeWidgets)),
+          );
         },
       ),
     );

@@ -4,9 +4,9 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/pro_pack/presentation/widgets/pro_pack_reliability_group.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
@@ -126,7 +126,7 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                       ),
                       body: weeklyCheckReadyBody,
                       onOpenPro: () => unawaited(
-                        openProPackSheet(
+                        openProPaywall(
                           context,
                           ProPackSheetSource.reliability,
                           isSelfHosted: state.isSelfHosted,
