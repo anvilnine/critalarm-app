@@ -1,4 +1,10 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:critalarm/core/account/account_tag.dart';
+import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_scrim.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -91,5 +97,63 @@ void expectAccountDataKept(SharedPreferences prefs) =>
 void expectOwnSoundsKept(SharedPreferences prefs) {
   for (final MapEntry(:key, :value) in ownSounds.entries) {
     expect(prefs.getString(key), value, reason: key);
+  }
+}
+
+/// A person's own alarm look as a phone holds it: the photo file in a
+/// folder of its own, its record and the accent in [prefs]. On the list,
+/// unlike own sounds: a photo is on screen for anyone holding the phone.
+final class OwnLookOnDisk {
+  OwnLookOnDisk._(this.prefs, this.root, this.store);
+
+  final SharedPreferences prefs;
+  final Directory root;
+  final FileOwnLookStore store;
+
+  /// Saves a photo and an accent through the real store, in a folder that
+  /// is deleted when the test ends.
+  static Future<OwnLookOnDisk> seed(SharedPreferences prefs) async {
+    final root = await Directory.systemTemp.createTemp('own_look_test_');
+    addTearDown(() async {
+      if (root.existsSync()) await root.delete(recursive: true);
+    });
+    final store = FileOwnLookStore(prefs, () async => root);
+    addTearDown(store.dispose);
+    await store.savePhoto(
+      Uint8List.fromList(List<int>.generate(64, (i) => i)),
+      width: 4,
+      height: 4,
+      measure: const OwnPhotoMeasure(
+        columns: 1,
+        rows: 1,
+        peaks: [200],
+        lows: [10],
+      ),
+    );
+    await store.setAccent('mint');
+    return OwnLookOnDisk._(prefs, root, store);
+  }
+
+  /// Every file under the photo's folder, whatever it is called.
+  List<String> get files => [
+    if (root.existsSync())
+      for (final entry in root.listSync(recursive: true))
+        if (entry is File) entry.path,
+  ];
+
+  Future<void> expectKept() async {
+    expect(files, hasLength(1));
+    expect(prefs.getString(OwnLookStore.photoKey), isNotNull);
+    expect(prefs.getString(OwnLookStore.accentKey), 'mint');
+    expect(store.photo, isNotNull);
+    expect(await store.readPhoto(store.photo!.stamp), hasLength(64));
+  }
+
+  Future<void> expectGone() async {
+    expect(files, isEmpty, reason: 'the photo file is still on the phone');
+    expect(prefs.getString(OwnLookStore.photoKey), isNull);
+    expect(prefs.getString(OwnLookStore.accentKey), isNull);
+    expect(store.photo, isNull);
+    expect(store.accentId, isNull);
   }
 }

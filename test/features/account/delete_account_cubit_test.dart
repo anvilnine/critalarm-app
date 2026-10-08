@@ -114,6 +114,7 @@ final class _Harness {
   late final _MemoryConnectionRepository connections;
   late final FakeIdentityRepository identities;
   late final ApiAccountRepository account;
+  late final OwnLookOnDisk ownLook;
 
   int billingLogOuts = 0;
   int alarmStops = 0;
@@ -174,6 +175,7 @@ final class _Harness {
       identities: identities,
       connections: connections,
       forgetAccountData: AccountData(
+        ownLook: (ownLook = await OwnLookOnDisk.seed(prefs)).store,
         acks: AckQueue(prefs, api),
         messageCursors: MessageSyncService(prefs, api),
         recentSearches: SharedPrefsRecentSearchesRepository(prefs),
@@ -227,6 +229,8 @@ void main() {
       );
       // No challenge choice, no look choice and none of the three notes.
       expectAccountDataGone(harness.prefs);
+      // And no own photo: the file, its record and its accent.
+      await harness.ownLook.expectGone();
       // The recordings and what rings where are the person's, not a plan's.
       expectOwnSoundsKept(harness.prefs);
     });
@@ -253,6 +257,7 @@ void main() {
       expect(harness.prefs.getString(AckQueue.storageKey), '[]');
       expect(harness.prefs.getStringList('search_recent_queries'), ['prod']);
       expectAccountDataKept(harness.prefs);
+      await harness.ownLook.expectKept();
       expect(harness.billingLogOuts, 0);
       expect(cubit.state.status, AccountStatus.signedOut);
       expect(cubit.state.errorMessage, isNotNull);
@@ -330,11 +335,13 @@ void main() {
       final harness = _Harness(failDelete: false);
       await harness.start();
       expectAccountDataKept(harness.prefs);
+      await harness.ownLook.expectKept();
 
       await harness.account.signOutDevice();
 
       expectAccountDataGone(harness.prefs);
       expectOwnSoundsKept(harness.prefs);
+      await harness.ownLook.expectGone();
     });
   });
 

@@ -25,7 +25,13 @@ enum AlarmStyleId {
 
   /// Crit's own yellow turned up: ink on yellow, rays behind the face
   /// that jolt with the ring.
-  critPanic('crit_panic');
+  critPanic('crit_panic'),
+
+  /// The person's own photo behind the screen and a colour of their
+  /// choice on "I'm up". Built at run time from what the phone holds, so
+  /// it is not in the list of fixed looks, and it draws only while its
+  /// photo is decoded and held.
+  own('own');
 
   const AlarmStyleId(this.id);
 

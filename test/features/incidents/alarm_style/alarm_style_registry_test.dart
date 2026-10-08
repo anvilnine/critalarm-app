@@ -36,10 +36,13 @@ const Map<Brightness, AppColors> _themes = {
 
 void main() {
   group('the registry', () {
-    test('every id has exactly one look, and the standard one is first', () {
+    test('every fixed id has exactly one look, and the standard one is '
+        'first', () {
+      // The own look is built at run time from the person's photo, so it
+      // is not in the list. Its own test checks it is a whole look.
       expect(
         alarmStyles.map((style) => style.id).toList(),
-        AlarmStyleId.values,
+        AlarmStyleId.values.where((id) => id != AlarmStyleId.own),
       );
       expect(alarmStyles.first.id, AlarmStyleId.standard);
     });
