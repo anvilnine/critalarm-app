@@ -33,8 +33,9 @@
 //   look6_open     Pro held, a photo saved and picked: the tile with its
 //                  edit button, and the preview drawing the look
 //   look6_lapsed   nothing held, the photo still on the phone: locked,
-//                  Standard is what rings, the picture is not in memory,
-//                  and the cross on the tile's corner removes it
+//                  Standard is what rings, the look is not in memory, the
+//                  tile shows a small copy of the photo, and the cross on
+//                  its corner removes it
 //   own_remove     the sheet behind that cross: Remove photo and nothing
 //                  else
 //   own_crop       the crop step on a busy photo
@@ -545,8 +546,8 @@ void main() {
                 mode: mode,
                 scale: scale,
               );
-              // Lapsed, the picture is not in memory, so the tile is the
-              // empty one.
+              // Lapsed, the look is not in memory, so the tile is the
+              // add tile with a small copy of the photo in it.
               final tile = find.byKey(
                 ValueKey(state == 'open' ? 'look-own' : 'look-own-add'),
               );

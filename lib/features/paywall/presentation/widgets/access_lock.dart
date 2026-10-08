@@ -83,6 +83,8 @@ class AccessLock extends StatefulWidget {
     this.onLockedTap,
     this.badgeAlignment = AlignmentDirectional.topEnd,
     this.badgeOverhang = 6,
+    this.badgeSeat = FeatureLockSeat.corner,
+    this.drawsBadge = true,
     this.decide,
     super.key,
   }) : _isInline = false;
@@ -99,6 +101,8 @@ class AccessLock extends StatefulWidget {
        onLockedTap = null,
        badgeAlignment = AlignmentDirectional.topEnd,
        badgeOverhang = 0,
+       badgeSeat = FeatureLockSeat.corner,
+       drawsBadge = false,
        _isInline = true;
 
   final AppFeature feature;
@@ -125,6 +129,12 @@ class AccessLock extends StatefulWidget {
 
   /// How far the badge hangs past the child's edge. Negative sets it in.
   final double badgeOverhang;
+
+  /// See [FeatureLock.badgeSeat].
+  final FeatureLockSeat badgeSeat;
+
+  /// See [FeatureLock.drawsBadge].
+  final bool drawsBadge;
 
   /// The decision to draw, for a surface that is locked by something
   /// besides the holdings, such as a row that stays locked while a
@@ -223,6 +233,8 @@ class _AccessLockState extends State<AccessLock> {
       onUnlock: unlock,
       badgeAlignment: widget.badgeAlignment,
       badgeOverhang: widget.badgeOverhang,
+      badgeSeat: widget.badgeSeat,
+      drawsBadge: widget.drawsBadge,
       child: widget.child,
     );
   }

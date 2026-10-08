@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/presentation/challenge.dart';
@@ -12,6 +13,7 @@ import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart
 import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge_chip_picture.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_chip.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -50,8 +52,7 @@ class PersonalizeChallengeStrip extends StatefulWidget {
       _PersonalizeChallengeStripState();
 }
 
-class _PersonalizeChallengeStripState
-    extends State<PersonalizeChallengeStrip> {
+class _PersonalizeChallengeStripState extends State<PersonalizeChallengeStrip> {
   late final FeatureAccess _access = getIt<FeatureAccess>();
   late final ChallengeChoices _choices = getIt<ChallengeChoices>();
   StreamSubscription<Object?>? _accessChanges;
@@ -121,10 +122,18 @@ class _PersonalizeChallengeStripState
                 name: challenge.nameKey.tr(),
                 tap: LockTap.tryIt,
                 onTry: () => _show(challenge),
-                badgeOverhang: PersonalizeStrip.badgeRoom,
+                badgeSeat: FeatureLockSeat.above,
+                badgeOverhang: PersonalizeStrip.badgeOverhang,
                 child: PersonalizeChip(
                   key: ValueKey('challenge-${challenge.kind.id}'),
-                  label: challenge.nameKey.tr(),
+                  // A picture and one word. The full name is what a
+                  // screen reader says.
+                  label: challengeChipWordKey(challenge.kind).tr(),
+                  spokenLabel: challenge.nameKey.tr(),
+                  picture: (color) => ChallengeChipPicture(
+                    kind: challenge.kind,
+                    color: color,
+                  ),
                   isSelected: saved?.kind == challenge.kind,
                   isMarked:
                       shown?.kind == challenge.kind &&

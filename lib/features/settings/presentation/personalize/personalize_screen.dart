@@ -163,6 +163,11 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
         return AppScreenScaffold(
           // Full screen, on the root navigator: no tab bar to leave room for.
           hasTabBar: false,
+          // Two columns side by side need more than one reading column,
+          // or each is narrower than a phone.
+          contentMaxWidth: isWide
+              ? personalizeWideMaxWidth
+              : AppSize.contentMaxWidth,
           topBar: AppTopBar(
             title: LocaleKeys.personalize_title.tr(),
             trailing: AppDismissCross(
@@ -179,8 +184,8 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // The scaffold keeps a page to one readable column,
-                      // so the two halves share that column.
+                      // The two halves share a column wide enough for
+                      // each to be as wide as a phone.
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsetsDirectional.only(
