@@ -470,7 +470,8 @@ class _TokenRow extends StatelessWidget {
                   'date': formatWhen(
                     at: made,
                     now: DateTime.now(),
-                    yesterday: LocaleKeys.home_card_row_yesterday.tr(),
+                    // Said inside a sentence, so it is in lower case.
+                    yesterday: LocaleKeys.topic_tokens_yesterday.tr(),
                   ),
                 },
               ),
