@@ -143,6 +143,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - InAppNoticeCubit picks only the Hosted ending and the account backup reminder, and no longer takes a ShellCubit. Pull to refresh on Home refreshes the shell health itself. HomeState drops the face, word, sub line and severity, and HomeTopicItem drops meta, priority, face, isCrit, isQuiet and isLive. resolveHomeFace and orderTopics are removed: HomeFacts, rowKindFor and orderInbox replace them.
 - History screen rebuilt on the Topics design language: still refresh face over AppStatCard, week rule in week\_bars.dart, flat rows with answered and not answered marks, historyHero ambient profile registered through AmbientRouteProfile, history\_hero strings, and history.meta\_expired now says Nobody answered
 - AppStatCard puts the numbers in a column on the left and the bars on the right, stacks them on a narrow card or large text, and takes isHidden days with no bar
+- Settings drops the Will it wake me? row for AppStatusCard.strip, fed by ReadinessSummary, the same rule the Topics card reads. The count, pips, check lines and fix come from reliability, and tool/capture\_settings\_screen.dart captures every state.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
