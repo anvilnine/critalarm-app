@@ -2,19 +2,20 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
-import 'package:critalarm/design/faces/refresh_face_controller.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
+import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
+import 'package:critalarm/features/history/presentation/widgets/history_hero.dart';
+import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -56,189 +57,291 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
 
     return BlocBuilder<HistoryCubit, HistoryState>(
       builder: (context, state) {
-        final longest = state.longestRing;
-        final summary = state.filter.isActive
-            // The unfiltered line names the plan's window, which a filter
-            // makes untrue. Say what the filter is doing instead of lying.
-            ? LocaleKeys.history_filter_badge.plural(state.filter.activeCount)
-            : longest == null
-            // An empty list says its piece once, in the big empty state.
-            ? ''
-            : LocaleKeys.history_summary.plural(
-                state.alarmCount,
-                namedArgs: {
-                  'longest': formatRingDuration(longest),
-                  'days': '${state.shownDays}',
-                },
-              );
+        // Nothing is on screen to count until the first read finishes.
+        final isFirstLoad =
+            (state.isLoading || state.status == HistoryStatus.initial) &&
+            state.days.isEmpty;
+        final hasHero = !isFirstLoad && state.status != HistoryStatus.failure;
+        final week = buildWeekBars(
+          // What the list shows, so a filter narrows the chart too.
+          entries: [for (final day in state.days) ...day.entries],
+          now: DateTime.now(),
+          shownDays: state.shownDays,
+          hasMore: state.hasMore,
+          oldestLoaded: state.entries.isEmpty
+              ? null
+              : state.entries.last.startedAt,
+        );
 
-        return NotificationListener<ScrollNotification>(
-          // Reads the next page off the phone as the list nears its end.
-          // Nothing here touches the network: the rows are already on disk.
-          onNotification: (notification) {
-            final metrics = notification.metrics;
-            if (state.hasMore &&
-                !state.isLoadingMore &&
-                metrics.pixels > metrics.maxScrollExtent - 400) {
-              unawaited(context.read<HistoryCubit>().loadMore());
-            }
-            return false;
-          },
-          child: AppScreenScaffold(
-            onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
-            topBar: AppTopBar(
-              title: LocaleKeys.history_title.tr(),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const RefreshActivityIndicator(),
-                  const SizedBox(width: 8),
-                  _FilterButton(filter: state.filter),
-                ],
-              ),
-            ),
-            detail: state.isEmpty
-                ? null
-                : _selected == null
-                ? AppEmptyState(
-                    title: LocaleKeys.history_detail_empty_title.tr(),
-                    description: LocaleKeys.history_detail_empty_body.tr(),
-                  )
-                : _IncidentDetail(
-                    key: ValueKey(_selected?.id),
-                    entry: _selected!,
-                  ),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
+        // The canvas behind the screen is the ambient one. It gets the disc
+        // behind the face, and morphs to the next tab's profile on a change.
+        return AmbientRouteProfile(
+          path: '/history',
+          profile: AmbientAppProfiles.historyHero(
+            context.appColors,
+            spot: historyDiscSpotOf(context),
+          ),
+          child: NotificationListener<ScrollNotification>(
+            // Reads the next page off the phone as the list nears its end.
+            // Nothing here touches the network: the rows are already on disk.
+            onNotification: (notification) {
+              final metrics = notification.metrics;
+              if (state.hasMore &&
+                  !state.isLoadingMore &&
+                  metrics.pixels > metrics.maxScrollExtent - 400) {
+                unawaited(context.read<HistoryCubit>().loadMore());
+              }
+              return false;
+            },
+            child: AppScreenScaffold(
+              onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
+              topBar: AppTopBar(
+                title: LocaleKeys.history_title.tr(),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(height: Spacing.s2),
-                    _HistoryStage(summary: summary),
-                    const SizedBox(height: Spacing.s3),
+                    const RefreshActivityIndicator(),
+                    const SizedBox(width: 8),
+                    _FilterButton(filter: state.filter),
                   ],
                 ),
               ),
-              // Loading and failure both used to fall through to the list
-              // branch, which drew an empty card with no spinner, no message
-              // and no way to try again. `errorMessage` was never rendered.
-              if (state.status == HistoryStatus.failure)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppToast(
-                          faceState: FaceState.worried,
-                          message:
-                              state.errorMessage ??
-                              LocaleKeys.history_load_failed.tr(),
-                        ),
-                        const SizedBox(height: 10),
-                        AppButton(
-                          label: LocaleKeys.history_retry_button.tr(),
-                          variant: AppButtonVariant.ghost,
-                          size: AppButtonSize.sm,
-                          isFullWidth: true,
-                          onPressed: () => unawaited(
-                            context.read<HistoryCubit>().refresh(),
-                          ),
-                        ),
-                      ],
+              detail: state.isEmpty
+                  ? null
+                  : _selected == null
+                  ? AppEmptyState(
+                      title: LocaleKeys.history_detail_empty_title.tr(),
+                      description: LocaleKeys.history_detail_empty_body.tr(),
+                    )
+                  : _IncidentDetail(
+                      key: ValueKey(_selected?.id),
+                      entry: _selected!,
                     ),
-                  ),
-                )
-              // A refresh keeps the list that is already on screen. Only a
-              // first load, with nothing grouped yet, says "loading".
-              else if (state.isLoading && state.days.isEmpty)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: AppEmptyState(
-                      title: LocaleKeys.history_loading_title.tr(),
-                      description: '',
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      12,
+                      Spacing.s3,
+                      12,
+                      Spacing.s4,
                     ),
+                    child: hasHero
+                        ? HistoryHero(
+                            week: week,
+                            isFiltered: state.filter.isActive,
+                          )
+                        : const SizedBox(height: Spacing.s2),
                   ),
-                )
-              else if (state.isEmptyAfterFilter)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: AppEmptyState(
-                      title: LocaleKeys.history_empty_filtered_title.tr(),
-                      description: LocaleKeys.history_empty_filtered_body.tr(),
-                      buttonLabel: LocaleKeys.history_filter_reset.tr(),
-                      onButtonPressed: () =>
-                          context.read<HistoryCubit>().clearFilter(),
-                      isLive: false,
-                    ),
-                  ),
-                )
-              else if (state.isEmpty)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: AppEmptyState(
-                      title: LocaleKeys.history_empty_title.tr(),
-                      description: state.shownDays < HistoryWindow.paidDays
-                          ? LocaleKeys.history_empty_body_free.tr(
-                              namedArgs: {'days': '${state.shownDays}'},
-                            )
-                          : LocaleKeys.history_empty_body.tr(),
-                      faceState: FaceState.calm,
-                      isLive: false,
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: AppSheet(
+                ),
+                // Loading and failure both used to fall through to the list
+                // branch, which drew an empty card with no spinner, no message
+                // and no way to try again. `errorMessage` was never rendered.
+                if (state.status == HistoryStatus.failure)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    sliver: SliverToBoxAdapter(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final day in state.days) ...[
-                            AppSectionHeader(_dayLabel(day.day)),
-                            for (final entry in day.entries) ...[
-                              AppListRow(
-                                name: entry.topic,
-                                meta: historyMetaText(entry),
-                                isSelected:
-                                    size.isExpanded &&
-                                    entry.id == _selected?.id,
-                                faceState: entry.faceState,
-                                timeText: DateFormat.Hm().format(
-                                  entry.startedAt,
-                                ),
-                                onTap: () {
-                                  if (size.isExpanded) {
-                                    AppHaptics.selection();
-                                    setState(() => _selected = entry);
-                                  } else {
-                                    unawaited(
-                                      context.push(
-                                        '/history/topics/${entry.topic}',
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                          ],
+                          AppToast(
+                            faceState: FaceState.worried,
+                            message:
+                                state.errorMessage ??
+                                LocaleKeys.history_load_failed.tr(),
+                          ),
+                          const SizedBox(height: 10),
+                          AppButton(
+                            label: LocaleKeys.history_retry_button.tr(),
+                            variant: AppButtonVariant.ghost,
+                            size: AppButtonSize.sm,
+                            isFullWidth: true,
+                            onPressed: () => unawaited(
+                              context.read<HistoryCubit>().refresh(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                // A refresh keeps the list that is already on screen. Only a
+                // first load, with nothing grouped yet, says "loading".
+                else if (isFirstLoad)
+                  const SliverPadding(
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    sliver: SliverToBoxAdapter(child: _LoadingSheet()),
+                  )
+                else if (state.isEmptyAfterFilter)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    sliver: SliverToBoxAdapter(
+                      child: AppEmptyState(
+                        title: LocaleKeys.history_empty_filtered_title.tr(),
+                        description: LocaleKeys.history_empty_filtered_body
+                            .tr(),
+                        buttonLabel: LocaleKeys.history_filter_reset.tr(),
+                        onButtonPressed: () =>
+                            context.read<HistoryCubit>().clearFilter(),
+                        showFace: false,
+                        isLive: false,
+                      ),
+                    ),
+                  )
+                else if (state.isEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    sliver: SliverToBoxAdapter(
+                      child: AppEmptyState(
+                        title: LocaleKeys.history_empty_title.tr(),
+                        description: state.shownDays < HistoryWindow.paidDays
+                            ? LocaleKeys.history_empty_body_free.tr(
+                                namedArgs: {'days': '${state.shownDays}'},
+                              )
+                            : LocaleKeys.history_empty_body.tr(),
+                        showFace: false,
+                        isLive: false,
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    sliver: SliverToBoxAdapter(
+                      child: AppInboxSheet(
+                        children: [
+                          for (final day in state.days)
+                            _DaySection(
+                              day: day,
+                              selectedId: size.isExpanded
+                                  ? _selected?.id
+                                  : null,
+                              onTap: (entry) {
+                                if (size.isExpanded) {
+                                  AppHaptics.selection();
+                                  setState(() => _selected = entry);
+                                } else {
+                                  unawaited(
+                                    context.push(
+                                      '/history/topics/${entry.topic}',
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
                           if (state.olderCount > 0)
                             _OlderAlarmsFooter(count: state.olderCount),
                         ],
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// One day: its heading, then its alarms with a hairline between them.
+class _DaySection extends StatelessWidget {
+  const _DaySection({
+    required this.day,
+    required this.selectedId,
+    required this.onTap,
+  });
+
+  final HistoryDay day;
+  final String? selectedId;
+  final void Function(HistoryEntry entry) onTap;
+
+  static String _markLabel(HistoryMark mark) => switch (mark) {
+    HistoryMark.answered => LocaleKeys.history_hero_mark_answered.tr(),
+    HistoryMark.notAnswered => LocaleKeys.history_hero_mark_not_answered.tr(),
+    HistoryMark.ringing => LocaleKeys.history_hero_mark_ringing.tr(),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppSectionHeader(
+          _dayLabel(day.day),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+        ),
+        for (var i = 0; i < day.entries.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: ColoredBox(
+                color: colors.hairline,
+                child: const SizedBox(height: 1),
+              ),
+            ),
+          Builder(
+            builder: (context) {
+              final entry = day.entries[i];
+              final mark = historyMarkFor(entry.state);
+              return HistoryRow(
+                name: entry.topic,
+                meta: historyMetaText(entry),
+                time: DateFormat.Hm().format(entry.startedAt),
+                mark: mark,
+                markLabel: _markLabel(mark),
+                isSelected: entry.id == selectedId,
+                onTap: () => onTap(entry),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Placeholder rows while the first read has not finished.
+class _LoadingSheet extends StatelessWidget {
+  const _LoadingSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: LocaleKeys.history_loading_title.tr(),
+      child: ExcludeSemantics(
+        child: AppInboxSheet(
+          children: [
+            for (var i = 0; i < 3; i++)
+              const AppSkeleton(
+                child: Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      AppSkeletonBone(
+                        width: HistoryMarkBadge.size,
+                        height: HistoryMarkBadge.size,
+                        borderRadius: BorderRadius.all(Radius.circular(15)),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppSkeletonBone.text(width: 120),
+                            SizedBox(height: 8),
+                            AppSkeletonBone.text(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -282,107 +385,6 @@ class _OlderAlarmsFooter extends StatelessWidget {
 
 /// Opens the filter sheet, with a dot on it while a filter is on so the state
 /// is visible without opening the sheet.
-/// The small face and summary line at the top of History. The face is too
-/// small for its expression to carry a refresh alone, so while a pull to
-/// refresh runs the line beside it says what is going on.
-///
-/// When the refresh ends, the result and the summary come in together as one
-/// line ("Up to date. 3 alarms in 7 days."), then the result
-/// leaves and the summary slides into place.
-class _HistoryStage extends StatefulWidget {
-  const _HistoryStage({required this.summary});
-
-  final String summary;
-
-  @override
-  State<_HistoryStage> createState() => _HistoryStageState();
-}
-
-class _HistoryStageState extends State<_HistoryStage> {
-  /// How long the result stays in front of the summary.
-  static const Duration _resultHold = Duration(milliseconds: 1600);
-
-  RefreshFaceController? _refresh;
-  RefreshFacePhase _phase = RefreshFacePhase.idle;
-  String? _result;
-  Timer? _clearResult;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final refresh = RefreshFaceScope.maybeOf(context);
-    if (refresh == _refresh) return;
-    _refresh?.removeListener(_onRefresh);
-    _refresh = refresh?..addListener(_onRefresh);
-  }
-
-  @override
-  void dispose() {
-    _refresh?.removeListener(_onRefresh);
-    _clearResult?.cancel();
-    super.dispose();
-  }
-
-  void _onRefresh() {
-    final phase = _refresh!.phase;
-    if (phase == _phase) return;
-    _phase = phase;
-
-    final result = switch (phase) {
-      RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
-      RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
-      _ => null,
-    };
-    if (result != null) {
-      _clearResult?.cancel();
-      _clearResult = Timer(_resultHold, () {
-        if (mounted) setState(() => _result = null);
-      });
-      setState(() => _result = result);
-    } else if (phase == RefreshFacePhase.working) {
-      _clearResult?.cancel();
-      setState(() => _result = null);
-    } else {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // An empty list has no summary. Leave the stage out until a refresh has
-    // something to report, so the empty state is the only face.
-    if (widget.summary.isEmpty &&
-        _result == null &&
-        _phase != RefreshFacePhase.working) {
-      return const SizedBox.shrink();
-    }
-
-    if (_refresh == null) {
-      return AppStage.horizontal(
-        faceState: FaceState.acked,
-        sub: widget.summary,
-      );
-    }
-
-    final colors = context.appColors;
-    final text = _phase == RefreshFacePhase.working
-        ? LocaleKeys.history_refresh_checking.tr()
-        : _result == null
-        ? widget.summary
-        : '$_result ${widget.summary}'.trim();
-
-    return AppStage.horizontal(
-      faceState: FaceState.acked,
-      subWidget: JumpingText(
-        text,
-        style: AppStage.horizontalSubStyle(colors),
-        gradient: [colors.cobalt, colors.crit, colors.high],
-        wave: _phase == RefreshFacePhase.working,
-      ),
-    );
-  }
-}
-
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.filter});
 
