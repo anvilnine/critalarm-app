@@ -10,9 +10,11 @@ import 'package:critalarm/app/quick_action_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
@@ -41,6 +43,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -149,6 +152,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     routeChanges: _router.routerDelegate,
     incidentChanges: getIt<IncidentsCubit>().stream,
     open: _openCropper,
+    openPaywall: _openSoundPaywall,
     showMessage: (message) {
       // A failed audio share never talks over an alarm.
       if (getIt<AlarmFocus>().on) return;
@@ -183,6 +187,18 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
+  /// A file shared in while own sounds are locked. The file is already
+  /// deleted, and this opens the paywall the sound list would. Never over
+  /// an alarm, and never a second one over a paywall that is already up.
+  void _openSoundPaywall(FeatureDecision decision) {
+    if (getIt<AlarmFocus>().on) return;
+    final location = paywallLocationFor(decision, LockSource.sounds);
+    if (location == null) return;
+    final top = _router.routerDelegate.currentConfiguration.last.route;
+    if (top.name == AppRoute.proPack) return;
+    unawaited(_router.push<void>(location));
+  }
+
   StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
@@ -207,6 +223,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
+    getIt<SoundLockSync>().start();
     _autoDelete();
   }
 
@@ -221,6 +238,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
+    unawaited(getIt<SoundLockSync>().dispose());
     super.dispose();
   }
 
@@ -232,6 +250,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());
+    // A plan that could not be read at a background launch can be read now.
+    unawaited(getIt<SoundLockSync>().check());
     unawaited(_retryFailedLaunchCalls());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.

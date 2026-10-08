@@ -1,3 +1,5 @@
+import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/foundation.dart';
@@ -43,10 +45,13 @@ void main() {
     late bool canImport;
     late bool onboardingDone;
     late bool ringing;
+    late List<FeatureDecision> paywalls;
+    late Future<FeatureDecision> Function() readOwnSounds;
 
     IncomingAudio build() {
       final incoming = IncomingAudio(
         canImportSounds: () async => canImport,
+        readOwnSounds: () => readOwnSounds(),
         isOnboardingDone: () async => onboardingDone,
         isRinging: () async => ringing,
         discard: (path) async => discarded.add(path),
@@ -54,6 +59,7 @@ void main() {
       );
       incoming.toOpen.listen(opened.add);
       incoming.rejected.listen(rejected.add);
+      incoming.locked.listen(paywalls.add);
       addTearDown(incoming.dispose);
       return incoming;
     }
@@ -71,6 +77,122 @@ void main() {
       canImport = true;
       onboardingDone = true;
       ringing = false;
+      paywalls = [];
+      readOwnSounds = () async => const FeatureDecision.open();
+    });
+
+    group('own sounds locked', () {
+      const lockedDecision = FeatureDecision.locked(Holding.pro);
+
+      test('the file is dropped and the paywall opens', () async {
+        readOwnSounds = () async => lockedDecision;
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, isEmpty);
+        expect(discarded, [memo.path]);
+        expect(incoming.pending, isNull);
+        expect(paywalls, [lockedDecision]);
+        expect(incoming.hasPaywallPending, isFalse);
+      });
+
+      test('a file the check would reject still gets the paywall', () async {
+        readOwnSounds = () async => lockedDecision;
+        final incoming = build();
+        const pdf = PickedSoundFile(
+          path: '/cache/incoming_audio/a.pdf',
+          name: 'a.pdf',
+          sizeBytes: 10,
+        );
+        await incoming.receive(pdf);
+        expect(rejected, isEmpty);
+        expect(discarded, [pdf.path]);
+        expect(paywalls, [lockedDecision]);
+      });
+
+      test('the paywall waits for a ringing alarm, not the file', () async {
+        readOwnSounds = () async => lockedDecision;
+        ringing = true;
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(discarded, [memo.path]);
+        expect(paywalls, isEmpty);
+        expect(incoming.hasPaywallPending, isTrue);
+
+        ringing = false;
+        await incoming.tryOpen();
+        expect(paywalls, [lockedDecision]);
+        expect(opened, isEmpty);
+
+        await incoming.tryOpen();
+        expect(paywalls, hasLength(1));
+      });
+
+      test('the paywall waits for setup to finish', () async {
+        readOwnSounds = () async => lockedDecision;
+        onboardingDone = false;
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(paywalls, isEmpty);
+
+        onboardingDone = true;
+        await incoming.tryOpen();
+        expect(paywalls, [lockedDecision]);
+      });
+
+      test('a paywall still waiting is dropped once Pro is back', () async {
+        readOwnSounds = () async => lockedDecision;
+        ringing = true;
+        final incoming = build();
+        await incoming.receive(memo);
+
+        readOwnSounds = () async => const FeatureDecision.open();
+        ringing = false;
+        await incoming.tryOpen();
+        expect(paywalls, isEmpty);
+        expect(opened, isEmpty);
+        expect(incoming.hasPaywallPending, isFalse);
+      });
+
+      test('a file held from before the lock is dropped, not kept', () async {
+        ringing = true;
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(incoming.pending, memo);
+
+        readOwnSounds = () async => lockedDecision;
+        ringing = false;
+        await incoming.tryOpen();
+        expect(opened, isEmpty);
+        expect(discarded, [memo.path]);
+        expect(incoming.pending, isNull);
+        expect(paywalls, [lockedDecision]);
+      });
+
+      test('a plan that could not be read lets the file through', () async {
+        readOwnSounds = () async => const FeatureDecision.unread(Holding.pro);
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, [memo]);
+        expect(paywalls, isEmpty);
+        expect(discarded, isEmpty);
+      });
+
+      test('a read that throws lets the file through', () async {
+        readOwnSounds = () async => throw const HoldingUnreadable(Holding.pro);
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, [memo]);
+        expect(paywalls, isEmpty);
+      });
+
+      test('a purchase being confirmed lets the file through', () async {
+        readOwnSounds = () async =>
+            const FeatureDecision.confirming(Holding.pro);
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, [memo]);
+        expect(paywalls, isEmpty);
+      });
     });
 
     test('a readable file opens the cropper', () async {

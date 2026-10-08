@@ -1527,6 +1527,8 @@
     "stop_aria_label": "Stop preview",
     "row_notifications_only": "Notifications only",
     "row_too_long_ios": "Too long for iPhone, so the default sound plays. Pick the file again to shorten it.",
+    "row_locked": "Needs Pro",
+    "row_locked_chosen": "Needs Pro. {name} rings instead.",
     "preview_progress": "{percent} percent played",
     "error_too_large": "That file is bigger than {megabytes} MB.",
     "error_unsupported": "That file type is not supported.",

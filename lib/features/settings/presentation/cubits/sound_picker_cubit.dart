@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
@@ -27,9 +29,15 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     TargetPlatform? platform,
     this.nameOf,
     SoundPackRepository? packs,
+    this._readOwnSounds,
+    Stream<Object?>? ownSoundsChanges,
   }) : _platform = platform ?? defaultTargetPlatform,
        _packs = packs,
        super(const SoundPickerState()) {
+    _ownSoundsChanges = ownSoundsChanges?.listen((_) {
+      if (isClosed) return;
+      emit(state.copyWith(ownSounds: _ownSounds()));
+    });
     _previewEnded = _host.previewEnded.listen((path) {
       if (isClosed) return;
       final playing = state.previewingSoundId;
@@ -47,6 +55,13 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   /// Left null in tests, which fall back to the English names in the
   /// catalogue.
   final String Function(String id)? nameOf;
+
+  /// The access layer's decision for own sounds. Left out, they are open.
+  final FeatureDecision Function()? _readOwnSounds;
+  StreamSubscription<Object?>? _ownSoundsChanges;
+
+  FeatureDecision _ownSounds() =>
+      _readOwnSounds?.call() ?? const FeatureDecision.open();
 
   /// Null where the app offers no packs.
   final SoundPackRepository? _packs;
@@ -86,6 +101,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
             sound.copyWith(peaks: sound.peaks ?? _peaksCache.cached(sound.id)),
         ],
         isLoadingPeaks: true,
+        ownSounds: _ownSounds(),
         userSounds: userSounds,
         selectedSoundId: selected,
         defaultSoundId: defaultId,
@@ -285,7 +301,16 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     }
   }
 
+  /// Saves the choice. A locked own sound cannot be picked: the screen
+  /// opens the paywall for it, and this saves nothing.
   Future<void> select(String soundId) async {
+    final ownSounds = _ownSounds();
+    if (ownSoundsLockedBy(ownSounds) && isOwnSoundId(soundId)) {
+      if (ownSounds != state.ownSounds) {
+        emit(state.copyWith(ownSounds: ownSounds));
+      }
+      return;
+    }
     if (state.isPerTopic) {
       await _repository.setTopicSoundId(state.topicName!, soundId);
     } else {
@@ -326,7 +351,17 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   /// (size and type) before anything decodes the file. Hands back a file the
   /// cropper can open, or null. A file that fails is deleted from the cache
   /// and the screen shows why.
+  ///
+  /// With own sounds locked the platform picker never opens, and the
+  /// screen opens the paywall instead.
   Future<PickedSoundFile?> pickFile() async {
+    final ownSounds = _ownSounds();
+    if (ownSoundsLockedBy(ownSounds)) {
+      if (!isClosed && ownSounds != state.ownSounds) {
+        emit(state.copyWith(ownSounds: ownSounds));
+      }
+      return null;
+    }
     final picked = await _picker.pickOne();
     if (picked == null) return null;
     final rejection = checkPickedSound(
@@ -381,6 +416,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   Future<void> close() async {
     await _previewEnded.cancel();
     await _packChanges?.cancel();
+    await _ownSoundsChanges?.cancel();
     await _host.stopPreview();
     return super.close();
   }
