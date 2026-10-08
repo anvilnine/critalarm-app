@@ -54,6 +54,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The welcome screen shows what the app does: a phone that rings until you tap I'm up, which alerts ring and which stay quiet, and one command from your own tools ringing your phone. Tap I'm up in the picture to stop it yourself.
 - Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 - The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
+- On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -73,10 +74,14 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Android back button closes search instead of leaving the app.
 - The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
 - The App icon screen no longer hits a layout error on the first visit with reduce motion on
+- An iPhone set up from a backup of another iPhone registers as a new device. It used to keep talking to the server as the old phone.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
 - Setup no longer shows a Stop animation button on the welcome screen or a close button on the first topic step.
+
+### Security
+- Your own alarm photo and your own alarm sounds are kept out of iCloud and computer backups. After a restore, pick the photo and add the sounds again.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
