@@ -7,8 +7,46 @@ import 'package:critalarm/design/faces/ringing/ringing_face_widget.dart';
 import 'package:critalarm/design/faces/ringing/ringing_frame.dart';
 import 'package:critalarm/design/faces/ringing/ringing_style.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+
+/// Whether the ringing faces under it keep the head's fill through a flush
+/// and a flash (`ringingFaceColors`). With none above it a face tints its
+/// head as it always has.
+///
+/// An alarm look whose face is always yellow sets this, so no style that
+/// is shuffled in turns the head another colour.
+class RingingFaceFill extends InheritedWidget {
+  const RingingFaceFill({
+    required this.keepsFill,
+    required super.child,
+    super.key,
+  });
+
+  final bool keepsFill;
+
+  static bool keepsFillOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<RingingFaceFill>()
+          ?.keepsFill ??
+      false;
+
+  @override
+  bool updateShouldNotify(RingingFaceFill oldWidget) =>
+      oldWidget.keepsFill != keepsFill;
+}
+
+/// The name of the one [RingingStyle] a capture holds the shuffling face
+/// on, from `--dart-define=RINGING_FACE=rage`. Debug builds only: a
+/// release build always shuffles.
+const String _pinnedStyleName = String.fromEnvironment('RINGING_FACE');
+
+/// The style a capture asked for, or null to pick one at random.
+RingingStyle? pinnedRingingStyle({
+  String name = _pinnedStyleName,
+  bool isDebug = kDebugMode,
+}) => isDebug ? RingingStyle.values.asNameMap()[name] : null;
 
 /// The face on the ringing screen. It starts on a random [RingingStyle] and
 /// every few seconds blends into another random one, for as long as the
@@ -45,6 +83,7 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
   final _random = math.Random();
   late final Ticker _ticker = createTicker(_onTick);
   late RingingStyle _style =
+      pinnedRingingStyle() ??
       RingingStyle.values[_random.nextInt(RingingStyle.values.length)];
   Duration _styleStart = Duration.zero;
   RingingStyle? _next;
@@ -137,6 +176,7 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
           strokeColor: colors.crit,
           inkColor: colors.faceInk,
           accentColor: colors.crit,
+          keepsFill: RingingFaceFill.keepsFillOf(context),
         ),
       ),
     );
