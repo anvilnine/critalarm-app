@@ -1,5 +1,6 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_beats.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -205,6 +206,93 @@ void main() {
       expect(held.isHeld, isTrue);
       expect(proofTagFor(held).isLifted, isTrue);
       expect(proofTagFor(held).flat, 1);
+    });
+  });
+
+  group('the motion of the proof', () {
+    final refused = proofTurnFor(PaywallPreviewId.topics, count: 4);
+    final plain = proofTurnFor(PaywallPreviewId.appIcons, count: 4);
+
+    test('the stage picks its own variants', () {
+      expect(proofMotion.atmosphere, HeroAtmosphereStyle.rings);
+      expect(proofMotion.entrance, HeroEntranceStyle.drop);
+      expect(proofMotion.idle, HeroIdleStyle.lean);
+      expect(proofMotion.arrival, HeroCardArrival.flip);
+    });
+
+    test('a refusal shakes sideways and is over before the lift', () {
+      for (final preview in PaywallPreviewId.values) {
+        final turn = proofTurnFor(preview, count: 4);
+        expect(proofNudgeAt(turn, 0), Offset.zero);
+        expect(proofNudgeAt(turn, proofShakeAt), Offset.zero);
+        // Just before the lift it is back in its place.
+        expect(proofNudgeAt(turn, turn.liftAt - 1e-6).distance, lessThan(0.01));
+        for (var s = 0.0; s < turn.liftAt; s += 0.01) {
+          final nudge = proofNudgeAt(turn, s);
+          expect(nudge.dy, 0);
+          expect(nudge.dx.abs(), lessThanOrEqualTo(proofShakeReach));
+        }
+      }
+      expect(proofShakes(refused), isTrue);
+      const mid = proofShakeAt + proofShakeSeconds / (proofShakeTurns * 4);
+      expect(proofNudgeAt(refused, mid).dx, greaterThan(2));
+    });
+
+    test('a plain default has nothing to shake at', () {
+      expect(proofShakes(plain), isFalse);
+      for (var s = 0.0; s < plain.liftAt; s += 0.01) {
+        expect(proofNudgeAt(plain, s), Offset.zero);
+      }
+    });
+
+    test('the lift jumps and lands, and the tag swells with it', () {
+      for (final turn in [refused, plain]) {
+        final top = turn.liftAt + proofPopSeconds / 2;
+        expect(proofNudgeAt(turn, turn.liftAt), Offset.zero);
+        expect(proofNudgeAt(turn, top).dy, closeTo(-proofPopHeight, 1e-9));
+        expect(proofNudgeAt(turn, top).dx, 0);
+        expect(proofNudgeAt(turn, turn.liftAt + proofPopSeconds), Offset.zero);
+        expect(proofNudgeAt(turn, turn.script.seconds), Offset.zero);
+        expect(proofTagSwellAt(turn, 0), 1);
+        expect(proofTagSwellAt(turn, top), closeTo(1 + proofPopSwell, 1e-9));
+        expect(proofTagSwellAt(turn, turn.script.seconds), 1);
+      }
+    });
+
+    test('each moment is passed once', () {
+      expect(proofMomentsBetween(refused, 0, 0.1), isEmpty);
+      expect(proofMomentsBetween(refused, 0.4, 0.45), {ProofMoment.refusal});
+      expect(proofMomentsBetween(refused, 0.45, 0.5), isEmpty);
+      expect(
+        proofMomentsBetween(refused, refused.liftAt - 0.01, refused.liftAt),
+        {ProofMoment.lift},
+      );
+      expect(proofMomentsBetween(plain, 0, 1), isEmpty);
+      expect(proofMomentsBetween(plain, 0, plain.liftAt), {ProofMoment.lift});
+      // A clock that went back passed nothing.
+      expect(proofMomentsBetween(refused, 2, 0.5), isEmpty);
+    });
+
+    test('only the first pass of an untouched loop is felt', () {
+      bool cues(double t, {bool touched = false}) =>
+          proofCuesAt(t, entranceEnd: 1, period: 10, touched: touched);
+      expect(cues(0.5), isFalse);
+      expect(cues(1), isTrue);
+      expect(cues(10.9), isTrue);
+      expect(cues(11), isFalse);
+      expect(cues(5, touched: true), isFalse);
+    });
+
+    test('after an intro the mascot has landed on the first frame', () {
+      final loop = proofLoopFor(_hosted, followsIntro: true);
+      final pose = heroEntrancePose(
+        proofMotion.entrance,
+        loop.frameAt(0).entrance,
+        size: 160,
+      );
+      expect(pose.opacity, 1);
+      expect(pose.dy.abs(), lessThan(160 * 0.12));
+      expect(proofLoopFor(_hosted).prelude, 0);
     });
   });
 }

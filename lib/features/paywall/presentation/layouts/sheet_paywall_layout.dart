@@ -1,9 +1,13 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_lead_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_page.dart';
@@ -23,10 +27,16 @@ import 'package:flutter/services.dart';
 /// (`HeroComposition`): the lead benefit's preview playing large, the
 /// headline for the place the user came from, the benefits as plain lines
 /// with the lead first, and the buy block. The loop, the swipes and the
-/// taps are the kit's. Two things are this layout's own. The mascot stands
-/// behind the sheet, so only its eyes show over the edge. And when the
-/// lead benefit has done its job on the stage, the lit row above answers:
-/// the switch goes on, or the lock on its badge becomes a check.
+/// taps are the kit's. Two things are this layout's own. The mascot
+/// stands whole astride the sheet's top edge, beside the preview, and the
+/// sheet's rise carries it up: its eyes come over the foot of the screen
+/// first, and it hops as the sheet lands. And when the lead benefit has
+/// done its job on the stage, the lit row above answers: the switch goes
+/// on, or the lock on its badge becomes a check.
+///
+/// Past the default text size the words need the room the mascot's lower
+/// half stands in. It then stands behind the sheet and looks over the
+/// edge.
 ///
 /// The screen behind is a picture, drawn from what opened the paywall. The
 /// sheet holds a `PaywallFrameBody`, which stays in its seat from the first
@@ -43,7 +53,8 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   /// top of the rise never shows what is behind.
   static const double _underhang = 80;
 
-  /// How far below its own height the sheet starts.
+  /// How far below its own height the sheet starts, at least. It starts
+  /// far enough down that the mascot on its edge is off the screen too.
   static const double _extraTravel = 46;
 
   /// How far the drifting shapes keep from the sheet's top edge, from the
@@ -62,6 +73,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   /// True once the buy block may come in.
   bool _buyIn = false;
 
+  /// The loop as last built, for the cues.
+  HeroLoop? _loop;
+
+  /// The clock and the lit row's answer as the last tick saw them.
+  double _seenAt = 0;
+  double _seenProof = 0;
+  bool _isMuted = false;
+
   @override
   double get restAt => SheetMotion.restAt;
 
@@ -71,6 +90,42 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     _clock.tell();
     if (!_buyIn && t >= SheetMotion.buyBlockAt) {
       setState(() => _buyIn = true);
+    }
+    _cue();
+  }
+
+  // The two moments that are felt: the sheet lands, and the lit row
+  // answers.
+  void _cue() {
+    final now = t;
+    final was = _seenAt;
+    _seenAt = now;
+    final player = _player;
+    final loop = _loop;
+    final proof = player == null || loop == null
+        ? 0.0
+        : SheetMotion.proofFor(loop, player.frame);
+    final wasProof = _seenProof;
+    _seenProof = proof;
+    if (_isMuted || isStill || now <= was) return;
+
+    // The sheet lands and bumps the mascot into a hop.
+    if (was < SheetMotion.landAt && now >= SheetMotion.landAt) {
+      AppHaptics.selection();
+    }
+    // The lit row answers: the switch goes on, the lock becomes a check.
+    final answers = wasProof <= 0 && proof > 0;
+    if (answers &&
+        player != null &&
+        loop != null &&
+        SheetMotion.cuesAt(
+          now,
+          entranceEnd: loop.entranceEnd,
+          period: loop.period,
+          touched: player.hand != null,
+        )) {
+      AppHaptics.capture();
+      getIt<PaywallCues>().tick();
     }
   }
 
@@ -99,6 +154,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _isMuted = PaywallMuted.of(context);
     _clock.tell();
   }
 
@@ -144,9 +200,15 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     final benefits = sheetBenefitsLeadFirst(offer.source, offer.benefits);
     final lead = benefits.firstOrNull;
     final kind = sheetPageKindFor(lead?.id);
-    final loop = HeroLoop([
-      for (final b in benefits) b.previewId,
-    ], prelude: SheetMotion.prelude);
+    // After an intro the preview and the words come up with the sheet.
+    final followsIntro =
+        !isStill &&
+        (PaywallIntroPlay.maybeOf(context)?.intro ?? PaywallIntroId.none) !=
+            PaywallIntroId.none;
+    final loop = _loop = HeroLoop(
+      [for (final b in benefits) b.previewId],
+      prelude: SheetMotion.preludeFor(followsIntro: followsIntro),
+    );
     final player = _player;
 
     // As the full-screen frame does: the links row may reach a little into
@@ -162,8 +224,60 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       textScale: media.textScaler.scale(100) / 100,
     );
     final showsAir = media.textScaler.scale(100) / 100 <= 1.01;
-    final travel = media.size.height - plan.sheetTop + _extraTravel;
+    final travel =
+        media.size.height -
+        plan.sheetTop +
+        math.max(_extraTravel, plan.faceAbove + Spacing.s2);
     double drop(double t) => (1 - SheetMotion.rise(t)) * travel;
+
+    // The mascot on the sheet's edge. It goes where the sheet goes.
+    final mascot = player == null
+        ? null
+        : Positioned(
+            top: plan.sheetTop - plan.faceAbove,
+            left: heroSideInset,
+            width: plan.faceSize,
+            height: plan.faceSize,
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: RepaintBoundary(
+                  child: ListenableBuilder(
+                    listenable: Listenable.merge([
+                      player.clock,
+                      player,
+                      _clock,
+                    ]),
+                    builder: (context, _) {
+                      final frame = player.frame;
+                      return Transform.translate(
+                        offset: Offset(0, drop(t)),
+                        child: plan.standsInFront
+                            // It rode up with the sheet, so it has no
+                            // entrance of its own: only the hop as the
+                            // sheet lands.
+                            ? HeroMascot(
+                                size: plan.faceSize,
+                                face: frame.face,
+                                fromFace: frame.fromFace,
+                                faceBlend: frame.faceBlend,
+                                blink: frame.blink,
+                                hop: math.max(
+                                  frame.hop,
+                                  isStill ? 0 : SheetMotion.landingHop(t),
+                                ),
+                                bob: frame.bob,
+                                props: frame.props,
+                                idle: SheetMotion.stage.idle,
+                                turnSeconds: frame.sceneSeconds,
+                              )
+                            : HeroMascot.frame(frame, size: plan.faceSize),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          );
 
     // The row the user tapped. It answers when the lead's turn has done
     // its job on the stage.
@@ -243,36 +357,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                   ),
                 ),
               ),
-              // The mascot stands behind the sheet and looks over its edge
-              // at the lit row. It is the stage's own mascot, playing the
-              // same frame: only the sheet in front hides the rest of it.
-              if (player != null)
-                Positioned(
-                  top: plan.sheetTop - plan.faceAbove,
-                  left: heroSideInset,
-                  width: plan.faceSize,
-                  height: plan.faceSize,
-                  child: IgnorePointer(
-                    child: ExcludeSemantics(
-                      child: RepaintBoundary(
-                        child: ListenableBuilder(
-                          listenable: Listenable.merge([
-                            player.clock,
-                            player,
-                            _clock,
-                          ]),
-                          builder: (context, _) => Transform.translate(
-                            offset: Offset(0, drop(t)),
-                            child: HeroMascot.frame(
-                              player.frame,
-                              size: plan.faceSize,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              // Past the default text size the mascot stands behind the
+              // sheet and looks over its edge at the lit row.
+              if (mascot != null && !plan.standsInFront) mascot,
               Positioned(
                 top: plan.sheetTop,
                 left: 0,
@@ -383,8 +470,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   headline: _headline(lead),
                                   loop: loop,
                                   player: _playerFor(scope),
-                                  arrange: sheetStageArrangement,
+                                  arrange: (size) => sheetStageArrangement(
+                                    size,
+                                    face: plan.standsInFront
+                                        ? plan.faceSize
+                                        : 0,
+                                  ),
                                   showsShapes: false,
+                                  motion: SheetMotion.stage,
                                 ),
                               ],
                             ),
@@ -393,6 +486,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                   ),
                 ),
               ),
+              // At the default text size the mascot stands whole in front
+              // of the sheet, astride its top edge, beside the preview.
+              if (mascot != null && plan.standsInFront) mascot,
             ],
           ),
         ),
@@ -421,6 +517,7 @@ class _SheetAir extends StatelessWidget {
               seconds: player.stageSeconds(t),
               entrance: player.frameAt(t).entrance,
               tone: PaywallTone.surface,
+              style: SheetMotion.stage.atmosphere,
             ),
           ),
         ),
