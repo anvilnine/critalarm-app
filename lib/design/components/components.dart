@@ -39,6 +39,7 @@ export 'segmented_control.dart';
 export 'sheets.dart';
 export 'skeleton.dart';
 export 'stage.dart';
+export 'stat_card.dart';
 export 'status_card.dart';
 export 'swipe_actions.dart';
 export 'switches.dart';
