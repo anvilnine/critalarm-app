@@ -61,8 +61,8 @@ class PaywallBenefit {
 
 /// The Hosted line and preview for each benefit a layout lists under
 /// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
-/// listed: home screen widgets are sold with Pro on these layouts. A
-/// benefit taken out of `HostedBenefit.all` drops off every layout too.
+/// listed. A benefit taken out of `HostedBenefit.all` drops off every
+/// layout too.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -143,14 +143,6 @@ const _proDisplayOrder = <PaywallBenefit>[
   ),
 ];
 
-/// Features the layouts list under Pro although the table does not say
-/// Pro yet.
-///
-/// The layouts were written with home screen widgets sold as Pro, and the
-/// table still has them on Hosted. This keeps the layouts as they are until
-/// the widgets row moves. Then the table says it and this set is emptied.
-const _listedUnderProAhead = <AppFeature>{AppFeature.widgets};
-
 /// Every benefit of both products under [table], Hosted first, each in
 /// display order. Includes the ones this build does not have yet.
 ///
@@ -172,9 +164,7 @@ List<PaywallBenefit> allPaywallBenefitsIn(
         inThisBuild: true,
       ),
   for (final pro in _proDisplayOrder)
-    if (_listedUnderProAhead.contains(pro.feature) ||
-        (table[pro.feature]?.unlockedBy.contains(Holding.pro) ?? false))
-      pro,
+    if (table[pro.feature]?.unlockedBy.contains(Holding.pro) ?? false) pro,
 ];
 
 /// [allPaywallBenefitsIn] for the app's own table. Only the tests and the

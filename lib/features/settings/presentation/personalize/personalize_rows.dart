@@ -129,7 +129,7 @@ class PersonalizeWidgetsRow extends StatelessWidget {
                   access.decide(AppFeature.widgets),
                   isOwnServer: access.isOwnServer,
                 ),
-                onSeeHosted: () {
+                onSeePro: () {
                   if (!context.mounted) return;
                   unawaited(
                     openPaywallForFeature(

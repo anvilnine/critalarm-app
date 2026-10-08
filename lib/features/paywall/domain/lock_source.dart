@@ -23,6 +23,10 @@ enum LockSource {
   /// The widgets card on Home and the sheet it opens.
   homeWidgets(PaywallSource.homeWidgets, ProPackSheetSource.homeWidgets),
 
+  /// A tap on a locked home screen widget. The tap arrives as a link, so
+  /// the paywall door picks the product from the widgets decision.
+  widgetLocked(PaywallSource.widgetLocked, ProPackSheetSource.widgetLocked),
+
   /// A locked icon on the App icon screen.
   appIcon(PaywallSource.appIcon, ProPackSheetSource.appIcon),
 
