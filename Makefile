@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -29,6 +29,25 @@ sync-contract:
 
 test:
 	fvm flutter test
+
+# Marketing screenshots from the real widgets in MOCK mode: store and social
+# sizes, light and dark, plus manifest.json. A tool, not a test: it never runs
+# in `make test` or CI. Output goes outside this repo, by default into the
+# content pipeline checkout next to the main checkout of this repo (found from
+# the shared .git, so it works from a worktree too). Override with
+# SCREENS_OUT=/abs/path, render a subset with
+# SCREENS_ONLY=alarm.ringing,home.calm, and only some sizes with
+# SCREENS_DEVICES=social916. TZ is pinned so every clock on a screen reads in
+# the same zone.
+SCREENS_OUT ?= $(abspath $(dir $(shell git rev-parse --path-format=absolute --git-common-dir))../critalarm-content-pipeline/ui-snapshots)
+screens:
+	@mkdir -p "$(SCREENS_OUT)"
+	TZ=UTC SCREENS_OUT="$(abspath $(SCREENS_OUT))" \
+	SCREENS_ONLY="$(SCREENS_ONLY)" \
+	SCREENS_DEVICES="$(SCREENS_DEVICES)" \
+	GIT_SHA="$$(git rev-parse --short HEAD)" \
+	GIT_DIRTY="$$(test -z "$$(git status --porcelain -- lib assets pubspec.yaml)" && echo false || echo true)" \
+	fvm flutter test tool/capture_marketing_screens.dart --reporter=compact
 
 # Fill ios/Flutter/Google.xcconfig from .env. Google Sign-In on iOS needs the
 # reversed client id registered as a URL scheme in the bundle, and Xcode reads
