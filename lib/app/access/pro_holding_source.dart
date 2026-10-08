@@ -25,4 +25,8 @@ final class ProHoldingSource implements HoldingSource {
 
   @override
   Listenable get changes => _access.changes;
+
+  @override
+  Future<void> get ready =>
+      _access.ready.then<void>((_) {}, onError: (Object _) {});
 }

@@ -5,6 +5,7 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:flutter/foundation.dart';
 
 /// The Hosted subscription as a holding.
@@ -19,12 +20,16 @@ import 'package:flutter/foundation.dart';
 /// so [state] is synchronous. It is read again whenever [PlanChanges] or
 /// one of `identityChanges` fires. Until the first read lands ([ready]),
 /// the tier counts as not paid.
+///
+/// Two named questions sit next to the rule, for the two callers that must
+/// not get the plain answer: [readHeldByServer] and [storeMayStillHold].
 final class HostedHoldingSource implements HoldingSource {
   HostedHoldingSource({
     required this._readIdentity,
     PlanChanges? planChanges,
     ProOverride? proOverride,
     this._identityChanges = const [],
+    this._readStore,
   }) : _plan = planChanges ?? appPlanChanges,
        _override = proOverride ?? appProOverride {
     _plan.addListener(_planChanged);
@@ -32,21 +37,56 @@ final class HostedHoldingSource implements HoldingSource {
     for (final changes in _identityChanges) {
       changes.addListener(_reload);
     }
-    ready = _read();
+    _latestRead = _read();
   }
 
   final Future<DeviceIdentity?> Function() _readIdentity;
   final PlanChanges _plan;
   final ProOverride _override;
   final List<Listenable> _identityChanges;
+
+  /// The store, asked only by [storeMayStillHold]. Null in a build that
+  /// has no store.
+  final SubscriptionRepository Function()? _readStore;
   final _bell = _Bell();
 
   DeviceIdentity? _identity;
   int _reads = 0;
   bool _isDisposed = false;
 
-  /// Done once the stored identity has been read for the first time.
-  late final Future<void> ready;
+  late Future<void> _latestRead;
+
+  /// Done once the stored identity has been read, and read again after the
+  /// last thing that may have moved it.
+  @override
+  Future<void> get ready => _latestRead;
+
+  /// Whether the server's own tier says Hosted, read from the stored
+  /// identity at this moment.
+  ///
+  /// It leaves out the store and the developer switch on purpose. It is
+  /// for code that reports what the server did, such as "your plan has
+  /// ended", which a developer switch going off must never trigger.
+  Future<bool> readHeldByServer() async =>
+      AccountAccess(await _readIdentity()).isRegisteredPaid;
+
+  /// Asks the store itself whether Hosted is active. True as well when the
+  /// store cannot answer.
+  ///
+  /// The registered tier can trail a purchase by a few seconds, and the
+  /// store's flag is only mirrored once the store has spoken in this run.
+  /// Code about to take something away asks this after [state] said
+  /// `notHeld`, so a wrong "no" never costs a paying person anything.
+  /// False in a build with no store: there is nobody to ask.
+  Future<bool> storeMayStillHold() async {
+    final store = _readStore;
+    if (store == null) return false;
+    try {
+      return (await store().isProActive()).getOrNull() ?? true;
+    } on Object catch (_) {
+      return true;
+    }
+  }
 
   /// The rule, as a function of its three inputs.
   ///
@@ -84,7 +124,7 @@ final class HostedHoldingSource implements HoldingSource {
     _reload();
   }
 
-  void _reload() => unawaited(_read());
+  void _reload() => _latestRead = _read();
 
   Future<void> _read() async {
     final read = ++_reads;

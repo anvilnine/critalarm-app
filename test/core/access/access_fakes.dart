@@ -16,6 +16,10 @@ class FakeHoldingSource extends ChangeNotifier implements HoldingSource {
   @override
   Listenable get changes => this;
 
+  /// Completed unless a test swaps it for one it finishes by hand.
+  @override
+  Future<void> ready = Future<void>.value();
+
   /// Changes the state and tells the listeners.
   void set(HoldingState state) {
     _state = state;

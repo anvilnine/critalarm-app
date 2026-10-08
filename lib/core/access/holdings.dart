@@ -36,6 +36,20 @@ final class Holdings {
   /// Whether [holding] is held or pending. See [held].
   bool holds(Holding holding) => stateOf(holding) != HoldingState.notHeld;
 
+  /// Done once every source is current. See [HoldingSource.ready].
+  Future<void> get ready async {
+    for (final source in _sources) {
+      await source.ready;
+    }
+  }
+
+  /// [holds], asked once every source is current. For a caller that asks
+  /// once and does not listen for changes.
+  Future<bool> holdsOnceReady(Holding holding) async {
+    await ready;
+    return holds(holding);
+  }
+
   /// [held], sent each time the set or the state of a holding changes, and
   /// only then. Read [held] for the value to start from.
   Stream<Set<Holding>> get stream => _changes.stream;
