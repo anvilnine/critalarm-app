@@ -612,11 +612,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final screen = SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
-        // The bar's own backing, so a row scrolled under it never shows
-        // through the title.
-        barBacking:
-            AppBarBackingScope.maybeOf(context)?.color ??
-            context.appColors.canvas,
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
@@ -633,7 +628,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             children: [ProStatusBadge(), RefreshActivityIndicator()],
           ),
         ),
-        bottomBar: noticeBar ?? setupPill,
+        // Narrower than the topics card and wider than the tab bar, so the
+        // three step in towards the bottom.
+        bottomBar: switch (noticeBar ?? setupPill) {
+          final bar? => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: bar,
+          ),
+          null => null,
+        },
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null

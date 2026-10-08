@@ -127,6 +127,7 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     final colors = context.appColors;
 
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: 'Face expressions',
         leading: AppIconButton(

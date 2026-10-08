@@ -11,6 +11,7 @@ import 'package:critalarm/features/search/presentation/widgets/search_section_la
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// The results, sitting directly above the search bar.
 ///
@@ -71,16 +72,25 @@ class SearchPanel extends StatelessWidget {
       // style with underlines and the rows have nothing to draw ink on.
       child: Material(
         type: MaterialType.transparency,
-        child: ListView(
-          shrinkWrap: true,
-          padding: EdgeInsets.fromLTRB(
-            Spacing.s1,
-            topInset + Spacing.s2,
-            Spacing.s1,
-            bottomInset + Spacing.s1,
+        // The keyboard stays up while the user reads through the rows. It
+        // goes away only when they drag the list down, towards it.
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (notification.direction == ScrollDirection.forward) {
+              FocusManager.instance.primaryFocus?.unfocus();
+            }
+            return false;
+          },
+          child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.fromLTRB(
+              Spacing.s1,
+              topInset + Spacing.s2,
+              Spacing.s1,
+              bottomInset + Spacing.s1,
+            ),
+            children: children,
           ),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          children: children,
         ),
       ),
     );

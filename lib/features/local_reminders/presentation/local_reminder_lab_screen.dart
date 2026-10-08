@@ -76,6 +76,7 @@ class _LocalReminderLabContent extends StatelessWidget {
         final spent = state.budgetSpentAt;
 
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.local_reminders_lab_title.tr(),
             leading: AppIconButton(

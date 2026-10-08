@@ -303,6 +303,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: 'Dialogs & bottom sheets',
         leading: AppIconButton(

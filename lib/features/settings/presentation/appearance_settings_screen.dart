@@ -27,6 +27,7 @@ class AppearanceSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: LocaleKeys.settings_appearance_header.tr(),
         leading: AppIconButton(

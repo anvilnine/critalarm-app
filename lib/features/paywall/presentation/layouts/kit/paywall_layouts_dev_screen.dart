@@ -18,6 +18,7 @@ class PaywallLayoutsDevScreen extends StatelessWidget {
     final colors = context.appColors;
 
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: LocaleKeys.paywall_kit_dev_page_title.tr(),
         leading: AppIconButton(

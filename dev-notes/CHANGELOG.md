@@ -107,6 +107,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Reliability screen: fine rows are plain rows, rows needing action share one card (splitReliabilityRows), ReliabilityFixButton announces its check, reliabilityRowFace is gone, denied lines are picked per check.
 - A tinted button washes a light highlight card with ink. Home uses barBacking and shrinks the stage face above 1.3x text.
 - Paywall kit: smaller buy block, pickable plan cards, previews in three fixed sizes, five Pro benefits with previews.
+- BarBackingConfig.defaults is blur and gradient for both bars (top 40, 45, 0.9, 0.1 and bottom 34.5, 38, 0.15, 0.1), and AppScreenScaffold draws the bottom backing only behind a tab bar or a pinned bar.
+- HomeScreen takes its bar backing from AppBarBackingScope and insets its pinned notice by 6 on each side.
+- Settings sub screens on the root navigator pass hasTabBar: false, so they leave no tab bar room and draw no bottom blur.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -125,6 +128,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - NotificationPermissionsState.activeSubstep, totalSteps, alarmSupported, fullScreenStep, fullScreenGranted, notificationsGranted and criticalAlertsGranted, replaced by steps, current and granted. The cubit's requestNotifications, requestCriticalAlerts and requestPermissions are one allowCurrentStep.
 - OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
+- Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

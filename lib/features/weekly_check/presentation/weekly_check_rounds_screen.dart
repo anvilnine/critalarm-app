@@ -43,6 +43,7 @@ class _RoundsView extends StatelessWidget {
         final rounds = state.rounds;
         final now = DateTime.now();
         return AppScreenScaffold(
+          hasTabBar: false,
           // The bar's own backing, so a row scrolled under it never shows
           // through the title.
           barBacking:
