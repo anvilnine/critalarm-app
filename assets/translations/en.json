@@ -2119,7 +2119,14 @@
     "app_icon_row": "App icon",
     "try_not_saved": "Not saved",
     "try_button": "Unlock",
-    "try_confirming": "Confirming your purchase"
+    "try_confirming": "Confirming your purchase",
+    "challenge_chips": {
+      "topic": "Topic",
+      "title": "Title",
+      "math": "Math",
+      "scratch": "Scratch",
+      "shake": "Shake"
+    }
   },
   "challenges": {
     "off": "Off",
