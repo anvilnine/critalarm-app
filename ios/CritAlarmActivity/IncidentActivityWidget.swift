@@ -146,7 +146,7 @@ private struct LockScreenCard: View {
             Spacer(minLength: 8)
 
             if let button = card.button {
-                CardButton(kind: button, incidentId: card.incidentId)
+                CardButton(kind: button, incidentId: card.incidentId, topic: card.topic)
                     .layoutPriority(1)
             }
         }
@@ -208,7 +208,7 @@ private struct IslandBottom: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if let button = card.button {
-                CardButton(kind: button, incidentId: card.incidentId)
+                CardButton(kind: button, incidentId: card.incidentId, topic: card.topic)
             }
         }
         .padding(.horizontal, 4)
@@ -244,6 +244,7 @@ private func silencedText(_ seconds: Int) -> String {
 private struct CardButton: View {
     let kind: LiveCardText.Button
     let incidentId: String
+    let topic: String
 
     var body: some View {
         switch kind {
@@ -253,10 +254,21 @@ private struct CardButton: View {
                 .background(CritAlarmFace.alarmed.canvas, in: Capsule())
                 .foregroundStyle(CritAlarmFace.alarmed.stroke)
         case .done:
-            Button(intent: CloseIncidentIntent(incidentId: incidentId)) { label("Done") }
-                .buttonStyle(.plain)
-                .foregroundStyle(CritAlarmPalette.onHighlight)
-                .background(CritAlarmPalette.cobalt, in: Capsule())
+            // A topic that owes a wake-up challenge: Done opens the app on
+            // this incident, where the challenge and its way out are, and
+            // closes nothing here. Dart wrote that flag. The alarm is
+            // already stopped by the time this button exists.
+            Group {
+                switch DoneButton.forCard(topic: topic, shared: ChallengeFlag.groupDefaults) {
+                case .opensApp:
+                    Button(intent: OpenIncidentIntent(incidentId: incidentId)) { label("Done") }
+                case .closes:
+                    Button(intent: CloseIncidentIntent(incidentId: incidentId)) { label("Done") }
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(CritAlarmPalette.onHighlight)
+            .background(CritAlarmPalette.cobalt, in: Capsule())
         }
     }
 

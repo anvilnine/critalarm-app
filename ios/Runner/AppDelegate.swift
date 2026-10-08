@@ -1217,6 +1217,9 @@ enum SoundLibrary {
       ownLocked: ownLocked,
       to: shared
     )
+    // The topics that owe a wake-up challenge go the same way, for the
+    // Done button on the Live Activity.
+    ChallengeFlag.publish(from: defaults, to: shared)
     NSLog(
       "CritAlarmSound: assignments_published topics=%d own_locked=%@",
       choices.perTopicFiles.count, ownLocked ? "yes" : "no"

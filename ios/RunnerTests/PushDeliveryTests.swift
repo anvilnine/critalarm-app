@@ -84,4 +84,90 @@ final class PushDeliveryTests: XCTestCase {
         _ = try await intent.perform()
         await fulfillment(of: [expectation], timeout: 2.0)
     }
+
+    // Done on the acknowledged card, and the wake-up challenge flag.
+    //
+    // The keys are spelled the way Dart writes them. A key spelled
+    // differently on this side would read as "never owed", and Done would
+    // close.
+
+    /// Two defaults of the test's own: the app's, and the app group's.
+    private func challengeDefaults() -> (app: UserDefaults, group: UserDefaults) {
+        let appName = "challenge-flag-app-\(UUID().uuidString)"
+        let groupName = "challenge-flag-group-\(UUID().uuidString)"
+        let app = UserDefaults(suiteName: appName)!
+        let group = UserDefaults(suiteName: groupName)!
+        addTeardownBlock {
+            app.removePersistentDomain(forName: appName)
+            group.removePersistentDomain(forName: groupName)
+        }
+        return (app, group)
+    }
+
+    func testDoneClosesWhenNothingWasEverPublished() {
+        let (_, group) = challengeDefaults()
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .closes)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: nil), .closes)
+    }
+
+    func testDoneOpensTheAppWhileTheTopicsFlagIsSet() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .opensApp)
+        // Another topic on the same phone still closes.
+        XCTAssertEqual(DoneButton.forCard(topic: "nas", shared: group), .closes)
+    }
+
+    func testDoneClosesAgainOnceTheFlagIsGone() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        app.removeObject(forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .closes)
+    }
+
+    func testOnlyARealTrueCountsAsAFlag() {
+        let (app, group) = challengeDefaults()
+        app.set(false, forKey: "flutter.topic_challenge_owed.off")
+        app.set("true", forKey: "flutter.topic_challenge_owed.text")
+        app.set(1, forKey: "flutter.topic_challenge_owed.number")
+        app.set(true, forKey: "flutter.topic_challenge_owed.")
+        // The choice itself is not the flag. Without Pro Dart keeps the
+        // choice and sets no flag.
+        app.set("type_topic_name", forKey: "flutter.topic_challenge.chosen")
+        app.set(true, forKey: "flutter.topic_challenge_owed.db.eu.1")
+        XCTAssertEqual(ChallengeFlag.owedTopics(in: app), ["db.eu.1"])
+        ChallengeFlag.publish(from: app, to: group)
+        for topic in ["off", "text", "number", "chosen", ""] {
+            XCTAssertEqual(DoneButton.forCard(topic: topic, shared: group), .closes, topic)
+        }
+        XCTAssertEqual(DoneButton.forCard(topic: "db.eu.1", shared: group), .opensApp)
+    }
+
+    func testACardWithNoTopicCloses() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "", shared: group), .closes)
+    }
+
+    /// The app's own publish carries the flags with the sound choices.
+    func testTheSoundPublishCarriesTheChallengeFlags() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.stringArray(forKey: ChallengeFlag.groupKey), ["prod-db"])
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .opensApp)
+    }
+
+    /// Whatever the flag says, the two buttons that stop a ring never open
+    /// the app first.
+    @available(iOS 16.2, *)
+    func testStoppingTheRingNeverOpensTheApp() {
+        XCTAssertFalse(StopAlarmIntent.openAppWhenRun)
+        XCTAssertFalse(AckAlarmIntent.openAppWhenRun)
+        XCTAssertFalse(CloseIncidentIntent.openAppWhenRun)
+    }
 }
