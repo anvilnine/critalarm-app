@@ -5,6 +5,15 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 /// route and in the analytics event.
 enum ProPackSheetSource {
   reliability('reliability'),
+
+  // The places that sell Hosted today. Each has a name here too, so a
+  // feature that moves to Pro opens the Pro paywall from the same place
+  // with nothing else to change. The wire names match `PaywallSource`.
+  createTopicCard('create_topic_card'),
+  history('history'),
+  historyOlder('history_older'),
+  homeWidgets('home_widgets'),
+  appIcon('app_icon'),
   direct('direct');
 
   const ProPackSheetSource(this.wire);

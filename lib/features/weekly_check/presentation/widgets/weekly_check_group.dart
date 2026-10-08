@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/pro_pack/presentation/widgets/pro_pack_reliability_group.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
@@ -49,16 +51,16 @@ class WeeklyCheckGroup extends StatefulWidget {
 
 class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
   bool _isFixing = false;
-  StreamSubscription<bool>? _packChanges;
+  StreamSubscription<AppFeature>? _packChanges;
 
   @override
   void initState() {
     super.initState();
     unawaited(getIt<WeeklyCheckCubit>().load());
     // Gaining or losing the pack changes whether the check counts.
-    _packChanges = getIt<ProPackAccess>().stream.listen(
-      (_) => unawaited(_recount()),
-    );
+    _packChanges = getIt<FeatureAccess>().changes
+        .where((feature) => feature == AppFeature.weeklyCheck)
+        .listen((_) => unawaited(_recount()));
   }
 
   @override
@@ -67,10 +69,16 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
     super.dispose();
   }
 
+  /// Whether the weekly check is open and confirmed. A purchase still
+  /// being confirmed does not count: the relay refuses the check until it
+  /// has the pack.
+  bool get _isOpen =>
+      getIt<FeatureAccess>().decide(AppFeature.weeklyCheck) is FeatureOpen;
+
   WeeklyCheckStanding _standing(WeeklyCheckRowState state) =>
       weeklyCheckStanding(
         check: state.check,
-        isPackHeld: getIt<ProPackAccess>().isHeld,
+        isPackHeld: _isOpen,
         missedByClock: state.missedByClock,
       );
 
@@ -97,15 +105,16 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
 
   @override
   Widget build(BuildContext context) {
-    final access = getIt<ProPackAccess>();
+    final access = getIt<FeatureAccess>();
     return BlocProvider.value(
       value: getIt<WeeklyCheckCubit>(),
       child: BlocConsumer<WeeklyCheckCubit, WeeklyCheckRowState>(
         listenWhen: (before, after) => _standing(before) != _standing(after),
         listener: (context, state) => unawaited(_recount()),
-        builder: (context, state) => StreamBuilder<bool>(
-          stream: access.stream,
-          initialData: access.isHeld,
+        builder: (context, state) => StreamBuilder<AppFeature>(
+          stream: access.changes.where(
+            (feature) => feature == AppFeature.weeklyCheck,
+          ),
           builder: (context, _) {
             final standing = _standing(state);
             // The list of rounds needs no pack, and only a phone the relay
@@ -116,7 +125,7 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (access.isHeld)
+                  if (_isOpen)
                     // The relay says the pack is gone and the packs list
                     // has not caught up. The row locks now.
                     WeeklyCheckRow(
@@ -126,9 +135,10 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                       ),
                       body: weeklyCheckReadyBody,
                       onOpenPro: () => unawaited(
-                        openProPaywall(
+                        openPaywallFor(
                           context,
-                          ProPackSheetSource.reliability,
+                          access.decideHoldingNothing(AppFeature.weeklyCheck),
+                          LockSource.reliability,
                           isSelfHosted: state.isSelfHosted,
                         ),
                       ),

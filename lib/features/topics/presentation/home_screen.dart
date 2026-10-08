@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -25,6 +27,7 @@ import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_no
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
@@ -378,7 +381,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   void _openWidgetsPaywall() {
     unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
-    unawaited(context.push(hostedPaywallLocation(PaywallSource.homeWidgets)));
+    unawaited(
+      openPaywallFor(
+        context,
+        getIt<FeatureAccess>().decide(AppFeature.widgets),
+        LockSource.homeWidgets,
+      ),
+    );
   }
 
   void _openDay0Plans() {
@@ -397,7 +406,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         onSeeHosted: () {
           if (!mounted) return;
           unawaited(
-            context.push(hostedPaywallLocation(PaywallSource.homeWidgets)),
+            openPaywallFor(
+              context,
+              getIt<FeatureAccess>().decide(AppFeature.widgets),
+              LockSource.homeWidgets,
+            ),
           );
         },
       ),

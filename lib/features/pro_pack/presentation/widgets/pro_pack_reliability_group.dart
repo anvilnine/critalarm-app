@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -38,23 +40,27 @@ class ProPackReliabilityGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final access = getIt<ProPackAccess>();
-    return StreamBuilder<bool>(
-      stream: access.stream,
-      initialData: access.isHeld,
-      builder: (context, held) {
+    final access = getIt<FeatureAccess>();
+    return StreamBuilder<AppFeature>(
+      stream: access.changes.where(
+        (feature) => feature == AppFeature.weeklyCheck,
+      ),
+      builder: (context, _) {
         // The stream only carries changes, so the value is read each build.
+        // A purchase still being confirmed keeps the row locked, as the
+        // relay would refuse the check until it has the pack.
         final view = weeklyCheckRowView(
-          isHeld: access.isHeld,
+          isHeld: access.decide(AppFeature.weeklyCheck) is FeatureOpen,
           isSelfHosted: isSelfHosted,
         );
         return WeeklyCheckRow(
           view: view,
           body: weeklyCheckBody,
           onOpenPro: () => unawaited(
-            openProPaywall(
+            openPaywallFor(
               context,
-              ProPackSheetSource.reliability,
+              access.decideHoldingNothing(AppFeature.weeklyCheck),
+              LockSource.reliability,
               isSelfHosted: isSelfHosted,
             ),
           ),
