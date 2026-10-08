@@ -20,11 +20,13 @@ import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderChannel
 import app.critalarm.localreminders.LocalReminderTapIntent
 import app.critalarm.makersettings.MakerSettingsChannel
+import app.critalarm.motion.MotionSensorChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
 import app.critalarm.uisound.UiSoundChannel
 import app.critalarm.widgets.WidgetChannel
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 // FlutterFragmentActivity, not FlutterActivity: flutter_local_notifications
@@ -36,6 +38,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var soundMethods: MethodChannel? = null
     private var soundPacks: SoundPackChannel? = null
     private var uiSounds: UiSoundChannel? = null
+    private var motion: MotionSensorChannel? = null
 
     /**
      * A tap the activity has read off an intent but Dart has not taken yet.
@@ -84,6 +87,14 @@ class MainActivity : FlutterFragmentActivity() {
         uiSounds = interfaceSounds
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UiSoundChannel.NAME)
             .setMethodCallHandler(interfaceSounds::handle)
+        // The accelerometer for the shake challenge: `start` and `stop`, and
+        // a stream of readings. It needs no permission.
+        val motionSensor = MotionSensorChannel(applicationContext)
+        motion = motionSensor
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MotionSensorChannel.NAME)
+            .setMethodCallHandler(motionSensor::handle)
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, MotionSensorChannel.READINGS_NAME)
+            .setStreamHandler(motionSensor)
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
@@ -291,7 +302,20 @@ class MainActivity : FlutterFragmentActivity() {
         soundPacks = null
         uiSounds?.stop()
         uiSounds = null
+        motion?.dispose()
+        motion = null
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        motion?.appCameToFront()
+    }
+
+    override fun onPause() {
+        // The accelerometer never runs behind another app or a locked screen.
+        motion?.appLeftFront()
+        super.onPause()
     }
 
     override fun onStop() {
