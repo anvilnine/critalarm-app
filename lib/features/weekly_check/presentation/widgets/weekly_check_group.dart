@@ -5,10 +5,11 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
-import 'package:critalarm/features/pro_pack/presentation/widgets/pro_pack_reliability_group.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -16,6 +17,7 @@ import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dar
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_views.dart';
@@ -25,8 +27,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// The weekly delivery check on the Reliability screen: the Pro row, with
-/// the switch and what the relay last said once the install holds the pack.
+/// The weekly delivery check on the Reliability screen. It is one of
+/// three rows, by what `FeatureAccess` answers for the feature:
+///
+/// - Hosted held: the switch and what the relay last said.
+/// - Hosted not held: a locked row that opens the Hosted paywall through
+///   the one lock.
+/// - On a server of the user's own: one line saying the check is not
+///   available there. No badge, no button and no paywall.
 ///
 /// The row never says a received check proves that alarms work. It shows
 /// nothing when a check arrives: native code answers it with no screen.
@@ -39,7 +47,8 @@ import 'package:go_router/go_router.dart';
 class WeeklyCheckGroup extends StatefulWidget {
   const WeeklyCheckGroup({this.check, this.isPrimary = false, super.key});
 
-  /// Null when the weekly check does not count: locked, never on, or off.
+  /// Null when the weekly check does not count: not offered, locked, never
+  /// on, or off.
   final ReliabilityCheck? check;
   final bool isPrimary;
 
@@ -49,34 +58,36 @@ class WeeklyCheckGroup extends StatefulWidget {
 
 class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
   bool _isFixing = false;
-  StreamSubscription<AppFeature>? _packChanges;
+  StreamSubscription<AppFeature>? _accessChanges;
 
   @override
   void initState() {
     super.initState();
     unawaited(getIt<WeeklyCheckCubit>().load());
-    // Gaining or losing the pack changes whether the check counts.
-    _packChanges = getIt<FeatureAccess>().changes
+    // Gaining or losing Hosted, or moving to another kind of server,
+    // changes whether the check counts.
+    _accessChanges = getIt<FeatureAccess>().changes
         .where((feature) => feature == AppFeature.weeklyCheck)
         .listen((_) => unawaited(_recount()));
   }
 
   @override
   void dispose() {
-    unawaited(_packChanges?.cancel());
+    unawaited(_accessChanges?.cancel());
     super.dispose();
   }
 
-  /// Whether the weekly check is open and confirmed. A purchase still
-  /// being confirmed does not count: the relay refuses the check until it
-  /// has the pack.
-  bool get _isOpen =>
-      getIt<FeatureAccess>().decide(AppFeature.weeklyCheck) is FeatureOpen;
+  /// What the access layer says for the weekly check. A purchase still
+  /// being confirmed does not open the row: the relay refuses the check
+  /// until the account is on Hosted.
+  WeeklyCheckAccess get _access => weeklyCheckAccessFor(
+    getIt<FeatureAccess>().decide(AppFeature.weeklyCheck),
+  );
 
   WeeklyCheckStanding _standing(WeeklyCheckRowState state) =>
       weeklyCheckStanding(
         check: state.check,
-        isPackHeld: _isOpen,
+        access: _access,
         missedByClock: state.missedByClock,
       );
 
@@ -115,29 +126,21 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
           ),
           builder: (context, _) {
             final standing = _standing(state);
-            // The list of rounds needs no pack, and only a phone the relay
+            // The list of rounds needs no plan, and only a phone the relay
             // has sent a check to has one.
             final showsRounds = weeklyCheckShowsRounds(state.check);
-            if (standing == WeeklyCheckStanding.locked) {
+            if (standing == WeeklyCheckStanding.notOffered ||
+                standing == WeeklyCheckStanding.locked) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_isOpen)
-                    // The relay says the pack is gone and the packs list
-                    // has not caught up. The row locks now.
-                    WeeklyCheckRow(
-                      view: weeklyCheckRowView(
-                        isHeld: false,
-                        isSelfHosted: state.isSelfHosted,
-                      ),
-                      body: weeklyCheckReadyBody,
-                      isSelfHosted: state.isSelfHosted,
-                    )
+                  if (standing == WeeklyCheckStanding.notOffered)
+                    const WeeklyCheckNotOfferedRow()
                   else
-                    ProPackReliabilityGroup(isSelfHosted: state.isSelfHosted),
-                  // A locked row is one button to the Pro sheet, so the
-                  // way to the rounds is a row of its own under it.
+                    const WeeklyCheckLockedRow(),
+                  // Neither row leads to the rounds, so the way to them
+                  // is a row of its own under it.
                   if (showsRounds) ...const [
                     ReliabilityRowDivider(),
                     WeeklyCheckRoundsRow(),
@@ -158,12 +161,13 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                   view: weeklyCheckBodyView(
                     standing: standing,
                     check: state.check,
-                    isSelfHosted: state.isSelfHosted,
                     now: DateTime.now(),
                   ),
                   needsLook: needsLook,
                   isSwitchBusy: state.isBusy,
-                  didSwitchFail: state.didFail,
+                  switchLineKey: weeklyCheckSwitchLineKey(
+                    state.switchOutcome,
+                  ),
                   onSwitch: (value) {
                     AppHaptics.capture();
                     unawaited(
@@ -200,10 +204,81 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
   }
 }
 
-/// The weekly check row once the install holds the pack.
+/// The weekly check row while Hosted is not held, on Crit Alarm Cloud: the
+/// title with the locked Hosted badge and one line on what the check does.
+/// A plain row with no face.
+///
+/// The row is a button. The badge and the way to the paywall both come
+/// from the one lock, [AccessLock], which picks the product from the
+/// feature table. Nothing here names a plan.
+class WeeklyCheckLockedRow extends StatelessWidget {
+  const WeeklyCheckLockedRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AccessLock.inline(
+      feature: AppFeature.weeklyCheck,
+      source: LockSource.reliability,
+      // The row is locked while a Hosted purchase is still being
+      // confirmed, because the relay refuses the check until then. So the
+      // lock drawn is the one for holding nothing. A plan that could not
+      // be read sells nothing: its own answer stands.
+      decide: (access) {
+        final decision = access.decide(AppFeature.weeklyCheck);
+        return decision is FeatureConfirming
+            ? access.decideHoldingNothing(AppFeature.weeklyCheck)
+            : decision;
+      },
+      child: Builder(
+        builder: (context) {
+          final scope = FeatureLockScope.maybeOf(context);
+          final title = LocaleKeys.weekly_check_title.tr();
+          final line = LocaleKeys.weekly_check_what_line.tr();
+          final unlock = scope?.unlock;
+          return ReliabilityPlainRow(
+            title: title,
+            badge: const FeatureLockBadge(staysWhenOpen: true),
+            lines: [line],
+            label: [title, ?scope?.planWord, line].join(', '),
+            hint: unlock == null
+                ? null
+                : LocaleKeys.weekly_check_locked_hint.tr(),
+            onTap: unlock,
+            trailing: unlock == null
+                ? null
+                : AppGlyph(
+                    GlyphType.arrow,
+                    color: context.appColors.ink3,
+                    size: 16,
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The weekly check row on a phone connected to a server of the user's
+/// own: the title and one line saying the check is not available there.
+///
+/// It is not a lock. There is no plan to sell for such a server, so the
+/// row has no badge, takes no tap and opens no paywall.
+class WeeklyCheckNotOfferedRow extends StatelessWidget {
+  const WeeklyCheckNotOfferedRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ReliabilityPlainRow(
+      title: LocaleKeys.weekly_check_title.tr(),
+      lines: [LocaleKeys.weekly_check_own_server_line.tr()],
+    );
+  }
+}
+
+/// The weekly check row once the install holds Hosted.
 ///
 /// While the check is fine, off or waiting it is a plain row: the title with
-/// the Pro badge, one line and the switch. It has no face.
+/// the Hosted badge, one line and the switch. It has no face.
 ///
 /// A check that needs a look is drawn like the free rows that do: the "Look"
 /// chip of that state, the switch on the title line, one button when there
@@ -215,7 +290,7 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
     required this.needsLook,
     required this.onSwitch,
     this.isSwitchBusy = false,
-    this.didSwitchFail = false,
+    this.switchLineKey,
     this.actionLabel,
     this.isActionPrimary = false,
     this.isActionBusy = false,
@@ -229,7 +304,10 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
   final bool needsLook;
   final ValueChanged<bool> onSwitch;
   final bool isSwitchBusy;
-  final bool didSwitchFail;
+
+  /// The line for a tap on the switch that did not go through, as a
+  /// `LocaleKeys` key, or null.
+  final String? switchLineKey;
 
   /// The one thing to do, or null when there is nothing.
   final String? actionLabel;
@@ -243,30 +321,25 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final title = LocaleKeys.pro_pack_weekly_title.tr();
+    final title = LocaleKeys.weekly_check_title.tr();
     final when = view.lineWhen;
     final line = when == null
         ? view.lineKey.tr()
         : view.lineKey.tr(namedArgs: {'when': when});
-    final selfHostedLine = view.showsSelfHostedLine
-        ? LocaleKeys.weekly_check_self_hosted_line.tr()
-        : null;
-    final failedLine = didSwitchFail
-        ? LocaleKeys.weekly_check_switch_failed.tr()
-        : null;
+    final failedLine = switchLineKey?.tr();
     final toggle = AppSwitch(
       value: view.isOn,
       semanticLabel: title,
       semanticHint: line,
       onChanged: isSwitchBusy ? null : onSwitch,
     );
-    final badge = ProBadge(label: LocaleKeys.pro_pack_badge.tr());
+    final badge = ProBadge(label: planWordFor(Holding.hosted));
 
     if (!needsLook) {
       return ReliabilityPlainRow(
         title: title,
         badge: badge,
-        lines: [line, ?selfHostedLine, ?failedLine],
+        lines: [line, ?failedLine],
         trailing: toggle,
       );
     }
@@ -309,7 +382,6 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(line, style: quiet),
-        if (selfHostedLine != null) Text(selfHostedLine, style: quiet),
         if (failedLine != null)
           Text(
             failedLine,

@@ -57,6 +57,7 @@ AlarmStyleId alarmStyleFor({
   return switch (decision) {
     FeatureOpen() || FeatureConfirming() => chosen,
     FeatureLocked() when isPlanRead => AlarmStyleId.standard,
+    FeatureNotOffered() => AlarmStyleId.standard,
     FeatureLocked() ||
     FeatureUnread() => wasOpenWhenLastSure ? chosen : AlarmStyleId.standard,
   };
@@ -95,6 +96,6 @@ String? openNoteAfter({
   required String? accountTag,
 }) => switch (decision) {
   FeatureOpen() || FeatureConfirming() => accountTag,
-  FeatureLocked() => null,
+  FeatureLocked() || FeatureNotOffered() => null,
   FeatureUnread() || null => written,
 };

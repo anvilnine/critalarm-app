@@ -1008,47 +1008,6 @@ void main() {
     });
   });
 
-  group('a 403 pack error', () {
-    test(
-      'for the Pro pack reads the list again, even inside the window',
-      () async {
-        api.packs = const PacksAnswer(packs: [proPack]);
-        final access = await build();
-        await access.refresh();
-        expect(access.isHeld, isTrue);
-
-        api.packs = const PacksAnswer(packs: []);
-        await access.relayRefused('pro');
-        expect(api.reads, 2);
-        expect(access.isHeld, isFalse);
-      },
-    );
-
-    test('does not take the pack away when the list still has it', () async {
-      api.packs = const PacksAnswer(packs: [proPack]);
-      final access = await build();
-      await access.refresh();
-      await access.relayRefused('pro');
-      expect(access.isHeld, isTrue);
-    });
-
-    test('keeps the pack when the list cannot be read', () async {
-      api.packs = const PacksAnswer(packs: [proPack]);
-      final access = await build();
-      await access.refresh();
-      api.packs = null;
-      await access.relayRefused('pro');
-      expect(access.isHeld, isTrue);
-    });
-
-    test('for another pack does nothing', () async {
-      final access = await build();
-      await access.relayRefused('team');
-      await access.relayRefused(null);
-      expect(api.reads, 0);
-    });
-  });
-
   group('the stream', () {
     test('carries changes and only changes', () async {
       final devSwitch = ValueNotifier<bool>(false);

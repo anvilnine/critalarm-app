@@ -31,16 +31,21 @@ bool _shows(
   int? dismissedAt,
   int? noticeAfter,
   int? noticeAfterSeenAt,
+  bool isPlanAway = false,
+  int? planAwaySeenAt,
+  int checkSeenAt = _seenAt,
 }) => WeeklyCheckNoticeRule.shouldShow(
   isSetupDone: isSetupDone,
   now: now,
   facts: WeeklyCheckNoticeFacts(
     check: check,
-    checkSeenAt: _seenAt,
+    checkSeenAt: checkSeenAt,
     noticeAfter: noticeAfter ?? check.noticeAfter,
-    noticeAfterSeenAt: noticeAfterSeenAt ?? _seenAt,
+    noticeAfterSeenAt: noticeAfterSeenAt ?? checkSeenAt,
     lastArrivalAt: lastArrivalAt,
     dismissedAt: dismissedAt,
+    isPlanAway: isPlanAway,
+    planAwaySeenAt: planAwaySeenAt,
   ),
 );
 
@@ -397,13 +402,198 @@ void main() {
       expect(_shows(off, now: _noticeAfter + _day), isFalse);
     });
 
-    test('once the pack was lost', () {
-      final lost = _check(
+    test('once the relay says the account is not on Hosted', () {
+      final lapsed = _check(
         state: WeeklyCheckState.off,
-        reason: WeeklyCheckOffReason.pack,
+        reason: WeeklyCheckOffReason.tier,
         misses: 2,
       );
-      expect(_shows(lost, now: _noticeAfter + _day), isFalse);
+      expect(_shows(lapsed, now: _noticeAfter + _day), isFalse);
+    });
+
+    test('for an off answer with a reason this build does not know, such '
+        'as `pack` from a relay before 1.19.0', () {
+      final old = WeeklyCheck.fromJson(const {
+        'enabled': true,
+        'state': 'off',
+        'reason': 'pack',
+        'misses': 2,
+        'notice_after': _noticeAfter,
+      });
+      expect(old.reason, isNull);
+      expect(_shows(old, now: _noticeAfter + 30 * _day), isFalse);
+    });
+  });
+
+  // api.md §4.5, "When the tier changes": while the account is not on
+  // Hosted the relay sends nothing and writes each round as skipped, so a
+  // check that does not arrive is not a missed one.
+  group('a plan that lapsed is not a run of misses', () {
+    final twice = _check(
+      state: WeeklyCheckState.missedRepeatedly,
+      misses: 2,
+      noticeAfter: _seenAt - 60,
+    );
+
+    test('while Hosted is away nothing shows: not for a stored '
+        'notice_after the clock passed', () {
+      // The phone never read the relay after the lapse, so its last answer
+      // still says "received" with the notice_after from before.
+      expect(
+        _shows(_check(), now: _noticeAfter + 60 * _day, isPlanAway: true),
+        isFalse,
+      );
+    });
+
+    test('while Hosted is away nothing shows: not for two misses the '
+        'relay counted before', () {
+      expect(_shows(twice, now: _seenAt + 60, isPlanAway: true), isFalse);
+    });
+
+    test('while Hosted is away nothing shows: not for an arrival with no '
+        'receipt answer, however old', () {
+      expect(
+        _shows(
+          _check(),
+          now: _seenAt + 400 * _day,
+          lastArrivalAt: _seenAt + _day,
+          isPlanAway: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('the Reliability row agrees: no "two rounds missed" either', () {
+      expect(
+        WeeklyCheckNoticeRule.twoRoundsMissed(
+          facts: WeeklyCheckNoticeFacts(
+            check: twice,
+            checkSeenAt: _seenAt,
+            noticeAfter: twice.noticeAfter,
+            noticeAfterSeenAt: _seenAt,
+            isPlanAway: true,
+          ),
+          now: _seenAt + 60,
+        ),
+        isFalse,
+      );
+    });
+
+    group('once Hosted is back', () {
+      // The phone saw the plan away at this second, after its last answer
+      // from the relay.
+      const awayAt = _seenAt + 3 * _day;
+
+      test('a notice_after from before the lapse raises nothing, however '
+          'far the clock ran past it', () {
+        expect(
+          _shows(
+            _check(),
+            now: _noticeAfter + 60 * _day,
+            planAwaySeenAt: awayAt,
+          ),
+          isFalse,
+        );
+      });
+
+      test('without the lapse on record the same facts do raise it, so the '
+          'record is what holds it back', () {
+        expect(_shows(_check(), now: _noticeAfter + 60 * _day), isTrue);
+      });
+
+      test('a count of misses from before the lapse waits for the relay', () {
+        expect(
+          _shows(twice, now: awayAt + _day, planAwaySeenAt: awayAt),
+          isFalse,
+        );
+      });
+
+      test('an arrival from before the lapse is not counted on from', () {
+        expect(
+          _shows(
+            _check(),
+            now: awayAt + 100 * _day,
+            lastArrivalAt: _seenAt + _day,
+            noticeAfterSeenAt: _seenAt,
+            planAwaySeenAt: awayAt,
+          ),
+          isFalse,
+        );
+      });
+
+      test('the relay answering again makes it an ordinary check: its new '
+          'notice_after counts', () {
+        const freshSeenAt = awayAt + 10 * _day;
+        const freshNoticeAfter = freshSeenAt + 8 * _day;
+        final fresh = _check(noticeAfter: freshNoticeAfter);
+        expect(
+          _shows(
+            fresh,
+            now: freshNoticeAfter - 60,
+            checkSeenAt: freshSeenAt,
+            planAwaySeenAt: awayAt,
+          ),
+          isFalse,
+        );
+        expect(
+          _shows(
+            fresh,
+            now: freshNoticeAfter + 60,
+            checkSeenAt: freshSeenAt,
+            planAwaySeenAt: awayAt,
+          ),
+          isTrue,
+        );
+      });
+
+      test('misses the relay still reports after the return are real', () {
+        // `misses` keeps its value across the lapse.
+        expect(
+          _shows(
+            twice,
+            now: awayAt + 10 * _day + 60,
+            checkSeenAt: awayAt + 10 * _day,
+            planAwaySeenAt: awayAt,
+          ),
+          isTrue,
+        );
+      });
+
+      test('a check that arrives after the return and gets no receipt '
+          'answer is counted on from', () {
+        const arrivedAt = awayAt + 12 * _day;
+        final deadline = WeeklyCheckNoticeRule.deadlineAfterArrival(arrivedAt);
+        expect(
+          _shows(
+            _check(),
+            now: deadline - 60,
+            lastArrivalAt: arrivedAt,
+            planAwaySeenAt: awayAt,
+          ),
+          isFalse,
+        );
+        expect(
+          _shows(
+            _check(),
+            now: deadline + 60,
+            lastArrivalAt: arrivedAt,
+            planAwaySeenAt: awayAt,
+          ),
+          isTrue,
+        );
+      });
+
+      test('an answer got in the very second the plan was seen away is '
+          'from before it', () {
+        expect(
+          _shows(
+            _check(),
+            now: _noticeAfter + _day,
+            planAwaySeenAt: _seenAt,
+          ),
+          isFalse,
+        );
+      });
     });
   });
 }

@@ -5,15 +5,14 @@ import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// What the unlocked weekly check row draws from.
+/// What the weekly check row draws from.
 @immutable
 final class WeeklyCheckRowState {
   const WeeklyCheckRowState({
     this.check,
     this.missedByClock = false,
-    this.isSelfHosted = false,
     this.isBusy = false,
-    this.didFail = false,
+    this.switchOutcome,
   });
 
   /// The relay's last answer, or null when it never answered on this phone.
@@ -23,27 +22,28 @@ final class WeeklyCheckRowState {
   /// answer that raises the notice on Home.
   final bool missedByClock;
 
-  /// The phone is connected to a self-hosted server.
-  final bool isSelfHosted;
-
   /// A tap on the switch is on its way to the relay.
   final bool isBusy;
 
   /// The last tap on the switch could not reach the relay.
-  final bool didFail;
+  bool get didFail => switchOutcome == WeeklyCheckSwitchOutcome.failed;
+
+  /// How the last tap on the switch ended, while that still has something
+  /// to say: the relay refused it, or could not be reached. Null after a
+  /// tap that worked and before any tap. The row words one line from it
+  /// (`weeklyCheckSwitchLineKey`), so a refused tap never ends in silence.
+  final WeeklyCheckSwitchOutcome? switchOutcome;
 
   WeeklyCheckRowState copyWith({
     WeeklyCheck? Function()? check,
     bool? missedByClock,
-    bool? isSelfHosted,
     bool? isBusy,
-    bool? didFail,
+    WeeklyCheckSwitchOutcome? Function()? switchOutcome,
   }) => WeeklyCheckRowState(
     check: check == null ? this.check : check(),
     missedByClock: missedByClock ?? this.missedByClock,
-    isSelfHosted: isSelfHosted ?? this.isSelfHosted,
     isBusy: isBusy ?? this.isBusy,
-    didFail: didFail ?? this.didFail,
+    switchOutcome: switchOutcome == null ? this.switchOutcome : switchOutcome(),
   );
 
   @override
@@ -51,32 +51,30 @@ final class WeeklyCheckRowState {
       other is WeeklyCheckRowState &&
       other.check == check &&
       other.missedByClock == missedByClock &&
-      other.isSelfHosted == isSelfHosted &&
       other.isBusy == isBusy &&
-      other.didFail == didFail;
+      other.switchOutcome == switchOutcome;
 
   @override
-  int get hashCode =>
-      Object.hash(check, missedByClock, isSelfHosted, isBusy, didFail);
+  int get hashCode => Object.hash(check, missedByClock, isBusy, switchOutcome);
 }
 
 /// The weekly check row on the Reliability screen: what the relay last
 /// said, and the switch.
 class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
-  WeeklyCheckCubit({
-    required this._monitor,
-    required this._readIsSelfHosted,
-  }) : super(WeeklyCheckRowState(check: _monitor.check)) {
+  WeeklyCheckCubit({required this._monitor})
+    : super(WeeklyCheckRowState(check: _monitor.check)) {
     _changes = _monitor.changes.listen((_) => unawaited(_show()));
   }
 
   final WeeklyCheckMonitor _monitor;
-  final Future<bool> Function() _readIsSelfHosted;
   late final StreamSubscription<void> _changes;
 
   /// What the monitor holds now. An extra emit can change the outcome of
   /// nothing: it is the same read every time.
-  Future<void> _show({bool? isBusy, bool? didFail}) async {
+  Future<void> _show({
+    bool? isBusy,
+    WeeklyCheckSwitchOutcome? Function()? switchOutcome,
+  }) async {
     var missedByClock = false;
     try {
       missedByClock = await _monitor.twoRoundsMissed();
@@ -89,7 +87,7 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
         check: () => _monitor.check,
         missedByClock: missedByClock,
         isBusy: isBusy,
-        didFail: didFail,
+        switchOutcome: switchOutcome,
       ),
     );
   }
@@ -97,14 +95,6 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
   /// Reads the check again. For when the row comes on screen. [force] reads
   /// even inside the monitor's one-minute window, for after a fix.
   Future<void> load({bool force = false}) async {
-    var isSelfHosted = state.isSelfHosted;
-    try {
-      isSelfHosted = await _readIsSelfHosted();
-    } on Object {
-      // Unknown is drawn as whatever it was.
-    }
-    if (isClosed) return;
-    emit(state.copyWith(isSelfHosted: isSelfHosted));
     await _monitor.refresh(force: force);
     await _show();
   }
@@ -112,11 +102,12 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
   /// The switch was tapped. One tap at a time.
   Future<WeeklyCheckSwitchOutcome?> setEnabled({required bool enabled}) async {
     if (state.isBusy) return null;
-    emit(state.copyWith(isBusy: true, didFail: false));
+    emit(state.copyWith(isBusy: true, switchOutcome: () => null));
     final outcome = await _monitor.setEnabled(enabled: enabled);
     await _show(
       isBusy: false,
-      didFail: outcome == WeeklyCheckSwitchOutcome.failed,
+      switchOutcome: () =>
+          outcome == WeeklyCheckSwitchOutcome.done ? null : outcome,
     );
     return outcome;
   }

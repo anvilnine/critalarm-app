@@ -63,6 +63,13 @@ class PaywallBenefit {
 /// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
 /// listed. A benefit taken out of `HostedBenefit.all` drops off every
 /// layout too.
+///
+/// The weekly delivery check is such a benefit today: it is in
+/// `HostedBenefit.all`, so the shipped Hosted paywall, the ask sheet and
+/// the notices name it, and it has no entry here yet. A layout lists it
+/// once it has one, and once the step after a purchase has plan facts for
+/// it (`limitsHostedFor`), which needs a row for every Hosted benefit a
+/// layout lists.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -91,10 +98,25 @@ const _hostedParts =
 /// order. The table picks from it and never reorders it: a benefit is
 /// listed under Pro while Pro unlocks its feature.
 ///
-/// [PaywallBenefit.inThisBuild] is true only for what the app has today:
-/// the widgets, the weekly delivery check and the alarm screen looks (four
-/// fixed ones and the person's own photo). The other two are written and
-/// drawn, and a layout picks each one up the day its switch is turned on.
+/// [PaywallBenefit.inThisBuild] is true only for what the app has today,
+/// as its line and its preview show it: the widgets, the person's own
+/// alarm sounds (a file picked or a recording) and the alarm screen looks
+/// (four fixed ones and the person's own photo).
+///
+/// Wake-up challenges are built too, and stay switched off here. Their
+/// line and their preview show a QR code scan that holds the stop button,
+/// and the four challenges the app has are typing a topic name, typing an
+/// alert title, a sum and a scratch card, with "I'm up" always stopping
+/// the ring. The switch goes on once the line and the preview show those.
+///
+/// The weekly delivery check keeps its entry here and the table leaves it
+/// out, because Hosted is what unlocks it now.
+///
+/// The app icons have no entry here yet, though Pro unlocks them too. A
+/// layout lists them under Hosted only. An entry for them needs the step
+/// after a purchase to tell the two products apart first: it reads a
+/// benefit's plan facts by id (`limitsHostedFor`) and expects none for a
+/// Pro benefit.
 const _proDisplayOrder = <PaywallBenefit>[
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
@@ -130,7 +152,7 @@ const _proDisplayOrder = <PaywallBenefit>[
     titleKey: LocaleKeys.paywall_kit_benefits_custom_sounds_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_sounds_line,
     previewId: PaywallPreviewId.customSounds,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customAlarmScreens,

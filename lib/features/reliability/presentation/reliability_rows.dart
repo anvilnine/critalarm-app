@@ -58,7 +58,7 @@ const _titleKeys = <String, String>{
   'missed_alarm': LocaleKeys.reliability_check_missed_alarm,
   // Drawn by its own group on the screen. The words are here for any list
   // that draws it as a plain row.
-  'weekly_check': LocaleKeys.pro_pack_weekly_title,
+  'weekly_check': LocaleKeys.weekly_check_title,
 };
 
 /// The title a row shows, as a `LocaleKeys` key, or null for an id this

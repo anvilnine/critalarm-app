@@ -4,6 +4,7 @@ import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -15,6 +16,8 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../core/access/access_fakes.dart';
 
 const _free = DeviceIdentity(deviceId: 'd1', accountId: 'acc_1');
 const _paid = DeviceIdentity(deviceId: 'd1', accountId: 'acc_1', tier: 'pro');
@@ -37,6 +40,7 @@ void main() {
   SureLock build({
     SubscriptionRepository? store,
     ServerMode? serverMode,
+    HoldingState pro = HoldingState.notHeld,
   }) {
     final source = HostedHoldingSource(
       readIdentity: () => identityRead.future,
@@ -44,7 +48,7 @@ void main() {
       proOverride: const NoProOverride(),
       readStore: store == null ? null : () => store,
     );
-    final holdings = Holdings([source]);
+    final holdings = Holdings([source, FakeHoldingSource(Holding.pro, pro)]);
     access = FeatureAccess(
       holdings: holdings,
       serverMode: serverMode,
@@ -196,6 +200,36 @@ void main() {
       expect(await lock.isLocked(AppFeature.appIcons), isFalse);
     });
 
+    test('the app icons are not locked for someone who holds Pro and no '
+        'Hosted, so the icon guard leaves a paid icon alone', () async {
+      final lock = build(
+        store: InMemorySubscriptionRepository(),
+        serverMode: ServerMode.hosted,
+        pro: HoldingState.held,
+      );
+      expect(await lock.isLocked(AppFeature.appIcons), isFalse);
+    });
+
+    test('the app icons are locked for sure with neither, once the store '
+        'says no too', () async {
+      final lock = build(
+        store: InMemorySubscriptionRepository(),
+        serverMode: ServerMode.hosted,
+      );
+      expect(await lock.isLocked(AppFeature.appIcons), isTrue);
+    });
+
+    test(
+      'a feature that is not offered on this server is not a lock',
+      () async {
+        final lock = build(
+          store: InMemorySubscriptionRepository(),
+          serverMode: ServerMode.selfhosted,
+        );
+        expect(await lock.isLocked(AppFeature.weeklyCheck), isFalse);
+      },
+    );
+
     test(
       'the store is not asked about a feature Hosted does not unlock',
       () async {
@@ -203,7 +237,7 @@ void main() {
           store: InMemorySubscriptionRepository(isPro: true),
           serverMode: ServerMode.hosted,
         );
-        expect(await lock.isLocked(AppFeature.weeklyCheck), isTrue);
+        expect(await lock.isLocked(AppFeature.widgets), isTrue);
       },
     );
   });

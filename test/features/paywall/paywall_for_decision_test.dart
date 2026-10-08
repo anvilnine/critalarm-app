@@ -49,22 +49,26 @@ void main() {
       }
     });
 
-    test('the Pro sheet is told about a server of the user own', () {
-      expect(
-        paywallLocationFor(
-          const FeatureDecision.locked(Holding.pro),
-          LockSource.reliability,
-          isSelfHosted: true,
-        ),
-        '/pro?source=reliability&self_hosted=1',
-      );
+    test('a feature that is not offered on this server opens no paywall, '
+        'from any place', () {
+      for (final source in LockSource.values) {
+        expect(
+          paywallLocationFor(const FeatureDecision.notOffered(), source),
+          isNull,
+          reason: source.name,
+        );
+      }
     });
 
-    test('nothing opens for a feature that is open or being confirmed', () {
+    test('nothing opens for a feature that is open, being confirmed, '
+        'unread or not offered', () {
       for (final decision in const [
         FeatureDecision.open(),
         FeatureDecision.confirming(Holding.hosted),
         FeatureDecision.confirming(Holding.pro),
+        FeatureDecision.unread(Holding.hosted),
+        FeatureDecision.unread(Holding.pro),
+        FeatureDecision.notOffered(),
       ]) {
         expect(
           paywallLocationFor(decision, LockSource.appIcon),
@@ -88,10 +92,33 @@ void main() {
       );
       expect(
         paywallLocationFor(
-          free.features.decide(AppFeature.weeklyCheck),
+          free.features.decide(AppFeature.widgets),
+          LockSource.homeWidgets,
+        ),
+        '/pro?source=${LockSource.homeWidgets.pro.wire}',
+      );
+      // The weekly check on the Reliability screen sells Hosted, also to
+      // someone who holds Pro.
+      final pro = TestAccess(held: {Holding.pro});
+      addTearDown(pro.dispose);
+      for (final access in [free, pro]) {
+        expect(
+          paywallLocationFor(
+            access.features.decide(AppFeature.weeklyCheck),
+            LockSource.reliability,
+          ),
+          '/paywall?source=direct',
+        );
+      }
+      // On a server of the user's own the same row opens nothing.
+      final own = TestAccess(serverMode: ServerMode.selfhosted);
+      addTearDown(own.dispose);
+      expect(
+        paywallLocationFor(
+          own.features.decide(AppFeature.weeklyCheck),
           LockSource.reliability,
         ),
-        '/pro?source=reliability',
+        isNull,
       );
 
       final ownServer = TestAccess(serverMode: ServerMode.selfhosted);
