@@ -8,6 +8,8 @@ import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design_system/widgets/section_card.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -65,6 +67,8 @@ class _SoundPickerView extends StatelessWidget {
   static Future<void> _pickAndCrop(BuildContext context) async {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
+    if (!context.mounted) return;
+    if (await _openedPaywall(context)) return;
     final file = await cubit.pickFile();
     if (file == null || !context.mounted) return;
     final result = await context.pushNamed<Object?>(
@@ -81,13 +85,28 @@ class _SoundPickerView extends StatelessWidget {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
     if (!context.mounted) return;
+    if (await _openedPaywall(context)) return;
+    if (!context.mounted) return;
     final result = await context.pushNamed<Object?>(AppRoute.soundRecord);
     if (result is Future<void>) await cubit.reloadAfterCrop(result);
   }
 
-  static AlarmSound? selectedSound(SoundPickerState state) {
+  /// The gate in front of every way to add or pick an own sound. With own
+  /// sounds locked it opens the paywall and answers true, and the caller
+  /// does nothing else.
+  static Future<bool> _openedPaywall(BuildContext context) async {
+    final state = context.read<SoundPickerCubit>().state;
+    if (!state.ownSoundsLocked) return false;
+    await openPaywallFor(context, state.ownSounds, LockSource.sounds);
+    return true;
+  }
+
+  /// The sound that really rings for this screen's choice: the saved one,
+  /// or what stands in for a locked own sound.
+  static AlarmSound? ringingSound(SoundPickerState state) {
+    final id = state.ringingSoundId;
     for (final sound in state.allSounds) {
-      if (sound.id == state.selectedSoundId) return sound;
+      if (sound.id == id) return sound;
     }
     return null;
   }
@@ -107,7 +126,7 @@ class _SoundPickerView extends StatelessWidget {
       builder: (context, state) {
         final colors = context.appColors;
         final cubit = context.read<SoundPickerCubit>();
-        final selectedName = selectedSound(state)?.name ?? '';
+        final selectedName = ringingSound(state)?.name ?? '';
         final content = AppScreenScaffold(
           topBar: AppTopBar(
             leading: AppIconButton(
@@ -370,20 +389,35 @@ class _SoundRowState extends State<_SoundRow>
         SoundImportLimits.tooLongToRing(state.platform, sound.duration);
     final notificationsOnly =
         isLocalFile && !state.capabilities.userSoundsRingAlarm;
+    // Listed, and not selectable. A tap opens the paywall. The row is
+    // dimmed by hand until the shared lock badge takes this over.
+    final isLocked = state.isLocked(sound);
+    final ringingName = _SoundPickerView.ringingSound(state)?.name ?? '';
+    // With no name to give, the row says it is locked and no more.
+    final isLockedChoice =
+        isLocked && state.selectedSoundId == sound.id && ringingName.isNotEmpty;
 
     return AnimatedBuilder(
       animation: _progress,
       builder: (context, _) {
         final progress = isPreviewing ? _progress.value : null;
-        return AppRadioRow(
+        final row = AppRadioRow(
           title: sound.name,
           meta: _SoundPickerView.formatLength(sound.duration),
-          note: tooLong
+          note: isLockedChoice
+              ? LocaleKeys.sound_picker_row_locked_chosen.tr(
+                  namedArgs: {'name': ringingName},
+                )
+              : isLocked
+              ? LocaleKeys.sound_picker_row_locked.tr()
+              : tooLong
               ? LocaleKeys.sound_picker_row_too_long_ios.tr()
               : notificationsOnly
               ? LocaleKeys.sound_picker_row_notifications_only.tr()
               : null,
-          selected: state.selectedSoundId == sound.id,
+          // The mark sits on the sound that rings, so a locked own choice
+          // shows it on the sound standing in for it.
+          selected: state.ringingSoundId == sound.id,
           leading: AppPreviewButton(
             isPlaying: isPreviewing,
             progress: progress,
@@ -407,9 +441,14 @@ class _SoundRowState extends State<_SoundRow>
               : WaveformBars(peaks: sound.peaks!, progress: progress),
           onTap: () {
             AppHaptics.selection();
+            if (isLocked) {
+              unawaited(_SoundPickerView._openedPaywall(context));
+              return;
+            }
             unawaited(cubit.select(sound.id));
           },
         );
+        return isLocked ? Opacity(opacity: 0.6, child: row) : row;
       },
     );
   }

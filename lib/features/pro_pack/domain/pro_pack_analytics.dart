@@ -17,6 +17,9 @@ enum ProPackSheetSource {
   personalizeSound('personalize_sound'),
   personalizeWidgets('personalize_widgets'),
   personalizeAppIcon('personalize_app_icon'),
+
+  // An own alarm sound, from any of the ways in.
+  sounds('sounds'),
   direct('direct');
 
   const ProPackSheetSource(this.wire);
