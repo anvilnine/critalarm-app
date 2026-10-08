@@ -1,8 +1,11 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/crit_panic_alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/minimal_alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/red_alert_alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/standard_alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/terminal_alarm_style.dart';
 import 'package:flutter/material.dart';
 
 /// Every look this build can draw, in the order the pickers show them.
@@ -14,6 +17,9 @@ import 'package:flutter/material.dart';
 final List<AlarmStyle> alarmStyles = List<AlarmStyle>.unmodifiable([
   standardAlarmStyle,
   minimalAlarmStyle,
+  terminalAlarmStyle,
+  redAlertAlarmStyle,
+  critPanicAlarmStyle,
 ]);
 
 /// The look for [id]. An id with no look listed draws the standard one.

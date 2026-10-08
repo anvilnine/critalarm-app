@@ -40,7 +40,13 @@ void main() {
     test('the ids saved on phones never change', () {
       expect(
         {for (final style in AlarmStyleId.values) style.name: style.id},
-        {'standard': 'standard', 'minimal': 'minimal'},
+        {
+          'standard': 'standard',
+          'minimal': 'minimal',
+          'terminal': 'terminal',
+          'redAlert': 'red_alert',
+          'critPanic': 'crit_panic',
+        },
       );
     });
 
