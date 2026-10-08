@@ -9,6 +9,11 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 // or null when the value is not known. A row with no value shows only its
 // arrow.
 
+/// The text scale above which a row value leaves the end of the row and sits
+/// under the title. At or below it the value is shown in full at the end,
+/// beside the arrow.
+const double kSettingsValueMaxTextScale = 1.15;
+
 /// Where this phone gets its pages from, or null before the saved server has
 /// been read.
 String? settingsServerValueKey({

@@ -63,7 +63,7 @@ const _statesArg = String.fromEnvironment('STATES');
 const _only = String.fromEnvironment('ONLY');
 
 /// Which plan the account holds in a scene.
-enum _Plan { calm, freeAtCap, hosted, selfHosted }
+enum _Plan { calm, freeAtCap, hosted, selfHosted, cloud }
 
 /// One thing Settings can be, and how the capture sets it up.
 class _Scene {
@@ -134,22 +134,36 @@ const _scenes = <_Scene>[
   _Scene('hosted', plan: _Plan.hosted, scrollToEnd: true),
   _Scene('selfhosted', plan: _Plan.selfHosted, scrollToEnd: true),
   _Scene('selfhostedtop', plan: _Plan.selfHosted),
+  _Scene('cloudserver', plan: _Plan.cloud),
   _Scene('bottom', scrollToEnd: true),
   _Scene('bottomlook', checks: _lookChecks, scrollToEnd: true),
 ];
 
 /// The phones, themes and text sizes each state is captured at.
 List<(String, Size, ThemeMode, double)> _variants(String scene) => [
-  ('390x844', const Size(390, 844), ThemeMode.light, 1.0),
-  ('390x844', const Size(390, 844), ThemeMode.dark, 1.0),
-  if (scene == 'fine' || scene == 'look') ...[
-    ('375x667', const Size(375, 667), ThemeMode.light, 1.0),
-    ('390x844', const Size(390, 844), ThemeMode.light, 1.3),
-    ('390x844', const Size(390, 844), ThemeMode.light, 2.0),
-  ],
-  if (scene == 'look') ...[
-    ('375x667', const Size(375, 667), ThemeMode.dark, 1.0),
-    ('390x844', const Size(390, 844), ThemeMode.dark, 2.0),
+  // The Server row at the narrowest and the common phone widths. 411 is
+  // the Samsung A25.
+  if (scene == 'cloudserver') ...[
+    ('360x900', const Size(360, 900), ThemeMode.light, 1.0),
+    ('390x900', const Size(390, 900), ThemeMode.light, 1.0),
+    ('411x900', const Size(411, 900), ThemeMode.light, 1.0),
+    ('411x900', const Size(411, 900), ThemeMode.light, 1.15),
+    ('411x900', const Size(411, 900), ThemeMode.light, 1.3),
+    ('360x900', const Size(360, 900), ThemeMode.light, 2.0),
+  ] else ...[
+    ('390x844', const Size(390, 844), ThemeMode.light, 1.0),
+    ('390x844', const Size(390, 844), ThemeMode.dark, 1.0),
+    if (scene == 'fine' || scene == 'look' || scene == 'broken') ...[
+      ('375x667', const Size(375, 667), ThemeMode.light, 1.0),
+      ('375x667', const Size(375, 667), ThemeMode.light, 1.3),
+      ('375x667', const Size(375, 667), ThemeMode.light, 2.0),
+      ('390x844', const Size(390, 844), ThemeMode.light, 1.3),
+      ('390x844', const Size(390, 844), ThemeMode.light, 2.0),
+    ],
+    if (scene == 'look') ...[
+      ('375x667', const Size(375, 667), ThemeMode.dark, 1.0),
+      ('390x844', const Size(390, 844), ThemeMode.dark, 2.0),
+    ],
   ],
 ];
 
@@ -216,6 +230,15 @@ class _PlanSettings extends SettingsCubit {
         emit(
           state.copyWith(
             serverMode: ServerMode.selfhosted,
+            isConnected: true,
+            hasStorageSection: true,
+          ),
+        );
+      case _Plan.cloud:
+        // Server set to Crit Alarm Cloud, the longest row value.
+        emit(
+          state.copyWith(
+            serverMode: ServerMode.hosted,
             isConnected: true,
             hasStorageSection: true,
           ),
