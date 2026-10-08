@@ -144,8 +144,10 @@ void main() {
       }
     });
 
-    test('a tile half grown is already the stage', () {
-      expect(bentoStageOpacity(0.5), 1);
+    test('a tile on its way up is its mark, then the stage', () {
+      expect(bentoStageOpacity(0.3), 0);
+      expect(bentoStageOpacity(0.55), inExclusiveRange(0, 1));
+      expect(bentoStageOpacity(0.7), 1);
     });
 
     test('a tile leaving the stage lets go of it before it has shrunk', () {
@@ -234,6 +236,78 @@ void main() {
       for (var i = 0; i < 4; i++) {
         expect(bentoSmallLandAt(rest, i), 1);
       }
+    });
+
+    test('drops each tile from above and leaves it flat in its place', () {
+      final start = bentoDropAt(0, from: bentoStageDropFrom);
+      expect(start.dy, -bentoStageDropFrom);
+      expect(start.opacity, 0);
+
+      final falling = bentoDropAt(0.2, from: bentoStageDropFrom);
+      expect(falling.dy, inExclusiveRange(-bentoStageDropFrom, 0));
+
+      final landed = bentoDropAt(1, from: bentoStageDropFrom);
+      expect(landed.dy, closeTo(0, 1e-9));
+      expect(landed.opacity, 1);
+      // A tile never sinks under its place.
+      for (var p = 0.0; p <= 1; p += 0.05) {
+        expect(
+          bentoDropAt(p, from: bentoSmallDropFrom).dy,
+          lessThanOrEqualTo(1e-9),
+        );
+      }
+    });
+
+    test('the stage tile touches the board when its cue plays', () {
+      final touch = bentoDropAt(
+        bentoStageLandAt(bentoStageThudAt),
+        from: bentoStageDropFrom,
+      );
+      expect(touch.dy, closeTo(0, 0.5));
+      expect(
+        bentoReached(
+          bentoStageThudAt - 0.016,
+          bentoStageThudAt,
+          bentoStageThudAt,
+        ),
+        isTrue,
+      );
+      expect(
+        bentoReached(
+          bentoStageThudAt,
+          bentoStageThudAt + 0.016,
+          bentoStageThudAt,
+        ),
+        isFalse,
+      );
+    });
+
+    test('after an intro the small tiles are already down', () {
+      expect(bentoLeadFor(followsIntro: false), 0);
+      final lead = bentoLeadFor(followsIntro: true);
+      expect(bentoSmallLandAt(lead, 0), 1);
+      expect(bentoStageLandAt(lead), inExclusiveRange(0, 1));
+    });
+
+    test('the mascot drops into the tile and hops for each benefit', () {
+      expect(bentoMotion.entrance, HeroEntranceStyle.drop);
+      expect(bentoMotion.idle, HeroIdleStyle.benefitHop);
+      expect(bentoMotion.atmosphere, HeroAtmosphereStyle.drift);
+    });
+  });
+
+  group('the pace of a trade', () {
+    test('is long enough to read as a swap', () {
+      expect(bentoTradeSeconds, greaterThanOrEqualTo(0.9));
+    });
+
+    test('is half way at the half, and still under way near both ends', () {
+      expect(bentoTradePath(0), 0);
+      expect(bentoTradePath(0.5), closeTo(0.5, 0.03));
+      expect(bentoTradePath(1), 1);
+      // A quarter of a second in, the tiles have only begun to move.
+      expect(bentoTradePath(0.25), lessThan(0.15));
+      expect(bentoTradePath(0.75), lessThan(0.95));
     });
   });
 

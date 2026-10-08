@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/widgets.dart';
 
@@ -60,8 +61,15 @@ class BentoBoard {
   }
 }
 
-/// How long two tiles take to trade places.
-const double bentoTradeSeconds = 0.64;
+/// How long two tiles take to trade places: long enough to see one go up
+/// as the other comes down.
+const double bentoTradeSeconds = 1;
+
+/// How far along its way a trading tile is when the trade is [trade] of
+/// the way through. It starts slowly, is half way at the half, and slows
+/// into its place, so the two tiles are seen to pass each other.
+double bentoTradePath(double trade) =>
+    Curves.easeInOutCubic.transform(trade.clamp(0.0, 1.0));
 
 /// How far through its last trade [board] is at loop second [seconds], 0
 /// to 1. A board that never traded is at 1.
@@ -82,10 +90,10 @@ const double bentoCrossRow = 44;
 
 /// The stage tile stops growing at this height. Past it more height is
 /// only more air.
-const double bentoStageMax = 400;
+const double bentoStageMax = 420;
 
 /// How much a small tile may grow on a tall phone.
-const double bentoSmallGrow = 16;
+const double bentoSmallGrow = 24;
 
 /// Where everything is in the column: the stage tile, the small tiles
 /// under it, and the room around the board. The tiles are in the board's
@@ -128,7 +136,9 @@ class BentoPlan {
 /// [small] is how many small tiles there are and [smallHeight] what one
 /// needs for its mark and its label. The stage tile takes what is left, up
 /// to [bentoStageMax]. Spare height past that goes to the small tiles
-/// first, then to the air around the board.
+/// first, then to the air around the board: most of it above the board
+/// and under the headline, so the headline stays close to the board it
+/// names.
 BentoPlan bentoPlanFor({
   required double width,
   required double height,
@@ -146,7 +156,7 @@ BentoPlan bentoPlanFor({
   final grow = small > 0 ? math.min(spare, bentoSmallGrow) : 0.0;
   spare -= grow;
 
-  final top = bentoCrossRow + spare * 0.25;
+  final top = bentoCrossRow + spare * 0.35;
   final tileHeight = smallHeight + grow;
   final tileWidth = small > 0
       ? (width - bentoGutter * (small - 1)) / small
@@ -163,8 +173,8 @@ BentoPlan bentoPlanFor({
           tileHeight,
         ),
     ],
-    gap: gap + spare * 0.4,
-    under: bottom + spare * 0.35,
+    gap: gap + spare * 0.15,
+    under: bottom + spare * 0.5,
   );
 }
 
@@ -184,7 +194,7 @@ Rect bentoTileRect({
   final home = slots[slot];
   final traded = board.tradedSlot;
   if (traded == null || trade >= 1) return home;
-  final eased = AppCurves.easeOut.transform(trade);
+  final eased = bentoTradePath(trade);
   if (slot == 0) return Rect.lerp(slots[traded], home, eased)!;
   if (slot == traded) return Rect.lerp(slots[0], home, eased)!;
   return home;
@@ -204,27 +214,73 @@ double bentoStageShare(Rect rect, BentoPlan plan) {
 /// 1. What is left of it is how strongly it draws its mark and its label,
 /// so a tile is never empty.
 ///
-/// A tile growing into the stage draws it as soon as it is large enough
-/// to read. A tile [isLeaving] the stage lets go of it at once and
-/// shrinks as its mark, so the mascot is never on two tiles at once.
-double bentoStageOpacity(double share, {bool isLeaving = false}) => isLeaving
-    ? phase(share, 0.82, 0.98)
-    : phase(share, 0.18, 0.42);
+/// A tile growing into the stage travels as its mark and draws the stage
+/// once it is most of the way there, so each tile is one clear thing
+/// while the two pass. A tile [isLeaving] the stage lets go of it at once
+/// and shrinks as its mark, so the mascot is never on two tiles at once.
+double bentoStageOpacity(double share, {bool isLeaving = false}) =>
+    isLeaving ? phase(share, 0.82, 0.98) : phase(share, 0.4, 0.7);
 
-/// The second the stage tile starts to land: the small tiles have all
+/// The second the stage tile starts to drop: the small tiles have all
 /// started by then. The mascot's own entrance starts here too, so it is
 /// the loop's `prelude`.
-const double bentoStageLands = 0.28;
+const double bentoStageLands = 0.36;
 
-/// How far the small tile at [index] has landed at clock second [t], 0 to
-/// 1. They land left to right, a little apart.
+/// How long the stage tile takes to drop and settle.
+const double bentoStageDropSeconds = 0.5;
+
+/// How far the small tile at [index] has dropped at clock second [t], 0
+/// to 1. They drop left to right, one after another.
 double bentoSmallLandAt(double t, int index) =>
-    phase(stagger(index, t, each: 0.06, start: 0.04), 0, 0.34);
+    phase(stagger(index, t, start: 0.04), 0, 0.4);
 
-/// How far the stage tile has landed at clock second [t], 0 to 1. It is
-/// the last tile down and the only one that pops.
+/// How far the stage tile has dropped at clock second [t], 0 to 1. It is
+/// the last tile down and the heaviest.
 double bentoStageLandAt(double t) =>
-    phase(t, bentoStageLands, bentoStageLands + 0.42);
+    phase(t, bentoStageLands, bentoStageLands + bentoStageDropSeconds);
+
+/// How far above their places the tiles start, in points.
+const double bentoSmallDropFrom = 26;
+const double bentoStageDropFrom = 44;
+
+/// A tile on its way down when it has [land] of its drop behind it: how
+/// far above its place it is, in points, and how solid. It falls [from]
+/// points, hits its place a little over a third of the way through,
+/// bounces, and lies still and whole at one.
+({double dy, double opacity}) bentoDropAt(double land, {required double from}) {
+  final p = land.clamp(0.0, 1.0);
+  return (
+    dy: -from * (1 - Curves.bounceOut.transform(p)),
+    opacity: phase(p, 0, 0.3),
+  );
+}
+
+/// The second the stage tile first touches its place: the first contact
+/// of its bounce. The landing's cue plays here.
+const double bentoStageThudAt = bentoStageLands + bentoStageDropSeconds / 2.75;
+
+/// How the stage tile moves: the mascot drops into the tile as the tile
+/// drops onto the board, the approved shapes drift behind it, and it hops
+/// as each new benefit takes the stage. A new preview arrives by the
+/// trade, so the card keeps the approved change.
+const HeroMotion bentoMotion = HeroMotion(
+  entrance: HeroEntranceStyle.drop,
+  idle: HeroIdleStyle.benefitHop,
+);
+
+/// How many seconds of the entrance are skipped when an intro has just
+/// handed over: the intro ends on the mascot, so the small tiles are
+/// already down and the stage tile is on its way.
+const double bentoIntroHeadStart = 0.5;
+
+/// The head start of a layout that does or does not follow an intro.
+double bentoLeadFor({required bool followsIntro}) =>
+    followsIntro ? bentoIntroHeadStart : 0;
+
+/// Whether a clock that read [before] and now reads [now] has just passed
+/// the moment [at]. A cue is played on the frame this turns true, once.
+bool bentoReached(double before, double now, double at) =>
+    before < at && now >= at;
 
 /// Room kept clear inside the stage tile: above the mascot for what it
 /// wears, and at the sides.
