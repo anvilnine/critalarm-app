@@ -10,7 +10,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 ///
 /// A sign-out, an account delete, a dead credential and a connect to a
 /// different server all call [forget], so none of them can drop one thing
-/// and leave another behind:
+/// and leave another behind. Every item is dropped even when an earlier
+/// one fails:
 ///
 /// 1. Acknowledgements still waiting to be sent. Each names an incident on
 ///    the account that is going.
@@ -22,7 +23,9 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 ///    `alarm_style_open_when_last_sure`.
 /// 6. The own sounds lock flag `alarm_sound_own_locked` with its tag.
 /// 7. The own alarm look: the photo file, the record of how bright it is
-///    (`alarm_style_own_photo`) and the accent (`alarm_style_own_accent`).
+///    (`alarm_style_own_photo`), the accent (`alarm_style_own_accent`)
+///    and any copy of a picked photo a pick left in the cache
+///    (`alarm_style_own_pending`). Listed last and dropped first.
 ///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
@@ -64,20 +67,39 @@ class AccountData {
   final Future<void> Function()? _afterForget;
 
   Future<void> forget() async {
-    // The three drops both callers already made, in the order they made
-    // them. A failure here still stops the caller, as it did.
-    await _acks.clear();
-    await _messageCursors.resetAllCursors();
-    await _recentSearches.clear();
+    // The own photo first. It is the most private thing on the list, so
+    // nothing that fails after it can leave it on the phone.
+    await _quietly(_ownLook.forgetAll);
+    // The three drops both callers always made, in the order they made
+    // them. A failure here still stops the caller, as it did: the first
+    // one is thrown again at the end. It no longer stops the rest of the
+    // list from being dropped first.
+    Object? failure;
+    StackTrace? failedAt;
+    Future<void> loudly(Future<void> Function() drop) async {
+      try {
+        await drop();
+      } on Object catch (error, stack) {
+        failure ??= error;
+        failedAt ??= stack;
+      }
+    }
+
+    await loudly(_acks.clear);
+    await loudly(_messageCursors.resetAllCursors);
+    await loudly(_recentSearches.clear);
     // The rest never stops the caller: a phone that could not drop a note
     // must still be able to register again. A flag that stays behind is
     // still not trusted, because its tag is not this account's.
     await _quietly(_challenges.forgetAll);
     await _quietly(_alarmStyles.forgetAll);
     await _quietly(_soundLock.clear);
-    await _quietly(_ownLook.forgetAll);
     final after = _afterForget;
     if (after != null) await _quietly(after);
+    final failed = failure;
+    if (failed != null) {
+      Error.throwWithStackTrace(failed, failedAt ?? StackTrace.current);
+    }
   }
 
   Future<void> _quietly(Future<void> Function() drop) async {
