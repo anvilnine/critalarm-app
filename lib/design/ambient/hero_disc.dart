@@ -1,5 +1,52 @@
 import 'package:flutter/material.dart';
 
+/// Where the hero's disc and ring sit on the screen, in the units an ambient
+/// shape takes: an [anchor] across the whole display and sizes as a fraction
+/// of its shortest side.
+///
+/// The hero scene works the numbers out from its own layout
+/// (`heroDiscSpot`), so the disc stays behind the face at any width and text
+/// size.
+@immutable
+class HeroDiscSpot {
+  const HeroDiscSpot({
+    required this.anchor,
+    required this.discScale,
+    required this.ringScale,
+  });
+
+  /// Both circles are centred here.
+  final Alignment anchor;
+
+  /// The disc's diameter over the display's shortest side.
+  final double discScale;
+
+  /// The ring's diameter over the display's shortest side.
+  final double ringScale;
+
+  /// A 390 by 844 phone with a 47 point status bar, side by side layout. The
+  /// profile a route gets before the screen has measured its own.
+  static const HeroDiscSpot phone = HeroDiscSpot(
+    anchor: Alignment(-0.26718, -0.47085),
+    discScale: 1.20308,
+    ringScale: 1.51256,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is HeroDiscSpot &&
+      other.anchor == anchor &&
+      other.discScale == discScale &&
+      other.ringScale == ringScale;
+
+  @override
+  int get hashCode => Object.hash(anchor, discScale, ringScale);
+
+  @override
+  String toString() =>
+      'HeroDiscSpot($anchor, disc $discScale, ring $ringScale)';
+}
+
 /// Paints the disc and the ring behind the hero scene's face.
 ///
 /// Two concentric circles about [centre]: a filled disc and, around it, a

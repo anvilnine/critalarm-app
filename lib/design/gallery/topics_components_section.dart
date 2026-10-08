@@ -1,3 +1,4 @@
+import 'package:critalarm/design/ambient/ambient_scope.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/design/components/notice_card.dart';
@@ -668,13 +669,18 @@ class _HeroDemo extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: Spacing.s5),
-                      AppHeroScene(
-                        face: kind.face,
-                        tone: kind.tone,
-                        gaze: kind.gaze,
-                        isLive: kind.isLive,
-                        isPane: isPane,
-                        card: kind.card,
+                      // The tile has a canvas of its own, not the app's, so
+                      // the scene draws its own disc and ring here.
+                      AmbientScope(
+                        isActive: false,
+                        child: AppHeroScene(
+                          face: kind.face,
+                          tone: kind.tone,
+                          gaze: kind.gaze,
+                          isLive: kind.isLive,
+                          isPane: isPane,
+                          card: kind.card,
+                        ),
                       ),
                       // The top of the white sheet, so the disc is seen going
                       // under it.
