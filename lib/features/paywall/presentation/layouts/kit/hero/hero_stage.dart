@@ -5,6 +5,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_ar
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_atmosphere.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_mascot.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -53,11 +54,16 @@ class HeroStage extends StatelessWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.motion = const HeroMotion(),
     super.key,
   });
 
   final Size size;
   final HeroFrame frame;
+
+  /// How the stage moves: the air, the mascot's entrance and idle, and how
+  /// one preview takes over from another. The default is the approved Hero.
+  final HeroMotion motion;
 
   /// The clock, for the drift of the shapes and the cue of a preview on
   /// its way out. Zero when nothing may move.
@@ -133,6 +139,7 @@ class HeroStage extends StatelessWidget {
                   soft: air.soft,
                   strong: air.strong,
                   light: air.light,
+                  style: motion.atmosphere,
                 ),
               ),
             ),
@@ -155,6 +162,7 @@ class HeroStage extends StatelessWidget {
                             frame: frame,
                             isDark: isDark,
                             sceneBuilder: sceneBuilder,
+                            arrival: motion.arrival,
                           ),
                     ),
                   ),
@@ -163,9 +171,23 @@ class HeroStage extends StatelessWidget {
             if (arrangement.kind != HeroStageKind.none)
               Positioned.fromRect(
                 rect: arrangement.mascot,
-                child: HeroMascot.frame(
-                  frame,
-                  size: arrangement.mascot.width,
+                child: _FootClip(
+                  // An entrance from under the stage shows nothing below
+                  // its foot, where the words are.
+                  foot:
+                      heroEntrancePose(
+                        motion.entrance,
+                        e,
+                        size: arrangement.mascot.width,
+                      ).clipsAtFoot
+                      ? size.height - arrangement.mascot.top
+                      : null,
+                  child: HeroMascot.frame(
+                    frame,
+                    size: arrangement.mascot.width,
+                    motion: motion,
+                    footDrop: size.height - arrangement.mascot.top,
+                  ),
                 ),
               ),
           ],
@@ -179,9 +201,33 @@ Size _cardSize(Rect card) => (card.width - card.height).abs() < 0.01
     ? Size.square(card.width)
     : card.size;
 
-/// How far a preview travels sideways as a swipe brings it in or sends it
-/// out, in points.
-const double heroCardSlide = 30;
+/// Hides what is below [foot] points down its child, and nothing else.
+/// With no foot it is its child.
+class _FootClip extends StatelessWidget {
+  const _FootClip({required this.foot, required this.child});
+
+  final double? foot;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final foot = this.foot;
+    if (foot == null) return child;
+    return ClipRect(clipper: _AboveFoot(foot), child: child);
+  }
+}
+
+class _AboveFoot extends CustomClipper<Rect> {
+  const _AboveFoot(this.foot);
+
+  final double foot;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(-4000, -4000, 4000, foot);
+
+  @override
+  bool shouldReclip(_AboveFoot old) => foot != old.foot;
+}
 
 /// The picture of the turn playing, lifted off the stage. The one on
 /// its way out fades under the one coming in. After a swipe the new one
@@ -193,12 +239,26 @@ class _Card extends StatelessWidget {
     required this.frame,
     required this.isDark,
     required this.sceneBuilder,
+    required this.arrival,
   });
 
   final Size size;
   final HeroFrame frame;
   final bool isDark;
   final HeroSceneBuilder? sceneBuilder;
+  final HeroCardArrival arrival;
+
+  /// Turns [child] about its upright axis, with a little depth. A card
+  /// that is flat is left alone.
+  static Widget _turned(double turn, Widget child) => turn == 0
+      ? child
+      : Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0012)
+            ..rotateY(turn),
+          child: child,
+        );
 
   Widget _picture(BuildContext context, HeroScene scene, double? playFrom) {
     final own = sceneBuilder;
@@ -232,11 +292,17 @@ class _Card extends StatelessWidget {
       ),
       boxShadow: AppShadows.shadowLg(isDark: isDark),
     );
-    final side = frame.direction * heroCardSlide;
-    // The finger's pull is handed over: the stage lets go of it as the
-    // old preview takes it away.
-    final out = frame.pull - side * AppCurves.easeOut.transform(enter);
-    final into = side * (1 - AppCurves.easeSpring.transform(enter));
+    final pose = heroCardArrivalPose(
+      arrival,
+      enter,
+      width: size.width,
+      direction: frame.direction,
+      // The finger's pull is handed over: the stage lets go of it as the
+      // old preview takes it away.
+      pull: frame.pull,
+    );
+    final out = pose.outgoing;
+    final into = pose.incoming;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -244,25 +310,31 @@ class _Card extends StatelessWidget {
         if (previous != null && enter < 1)
           Transform.translate(
             key: ValueKey(frame.previousTurn),
-            offset: Offset(out, 0),
+            offset: Offset(out.dx, 0),
             child: Opacity(
-              opacity: 1 - enter,
-              child: DecoratedBox(
-                decoration: decoration,
-                child: _picture(context, previous, frame.previousPlayFrom),
+              opacity: out.opacity,
+              child: _turned(
+                out.turn,
+                DecoratedBox(
+                  decoration: decoration,
+                  child: _picture(context, previous, frame.previousPlayFrom),
+                ),
               ),
             ),
           ),
         Transform.translate(
           key: ValueKey(frame.turn),
-          offset: Offset(into, 0),
+          offset: Offset(into.dx, 0),
           child: Opacity(
-            opacity: enter,
+            opacity: into.opacity,
             child: Transform.scale(
-              scale: 0.94 + 0.06 * AppCurves.easeBack.transform(enter),
-              child: DecoratedBox(
-                decoration: decoration,
-                child: _picture(context, scene, frame.playFrom),
+              scale: into.scale,
+              child: _turned(
+                into.turn,
+                DecoratedBox(
+                  decoration: decoration,
+                  child: _picture(context, scene, frame.playFrom),
+                ),
               ),
             ),
           ),
