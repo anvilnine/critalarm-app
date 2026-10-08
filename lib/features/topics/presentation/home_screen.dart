@@ -80,9 +80,7 @@ class HomeScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) {
-            final cubit = getIt<InAppNoticeCubit>(
-              param1: context.read<ShellCubit>(),
-            );
+            final cubit = getIt<InAppNoticeCubit>();
             unawaited(cubit.load());
             return cubit;
           },
@@ -761,7 +759,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
+          final shell = context.read<ShellCubit>();
           _refreshReadiness();
+          await shell.refresh();
           await noticeCubit.refresh();
           return homeCubit.refresh();
         },
