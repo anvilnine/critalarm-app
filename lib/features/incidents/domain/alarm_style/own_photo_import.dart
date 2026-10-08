@@ -82,11 +82,14 @@ class PickedOwnPhoto {
 }
 
 /// Opens the system's file picker for one image.
-// One method on purpose: it is the port a test replaces.
-// ignore: one_member_abstracts
 abstract interface class OwnPhotoPicker {
   /// The picked file, or null when the person backed out.
   Future<PickedOwnPhoto?> pickOne();
+
+  /// Deletes the copy [pickOne] made in the app's cache. The platform
+  /// copies every picked file there, and a person's photo must not sit in
+  /// a cache once the import is over, kept or not.
+  Future<void> discard(String path);
 }
 
 /// The part of a picture to keep, as fractions of its width and height,

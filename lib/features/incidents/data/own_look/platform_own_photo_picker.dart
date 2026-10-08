@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -25,5 +27,14 @@ class PlatformOwnPhotoPicker implements OwnPhotoPicker {
       name: file.name,
       sizeBytes: await file.length(),
     );
+  }
+
+  @override
+  Future<void> discard(String path) async {
+    try {
+      await File(path).delete();
+    } on FileSystemException {
+      // Already gone, which is what was wanted.
+    }
   }
 }

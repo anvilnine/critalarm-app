@@ -9,6 +9,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -36,6 +37,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
   late final AlarmStyleChoices _choices = getIt<AlarmStyleChoices>();
   StreamSubscription<Object?>? _accessChanges;
   StreamSubscription<void>? _choiceChanges;
+  StreamSubscription<void>? _ownLookChanges;
 
   @override
   void initState() {
@@ -44,6 +46,10 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
         .where((feature) => feature == AppFeature.alarmScreenStyles)
         .listen((_) => _redraw());
     _choiceChanges = _choices.changes.listen((_) => _redraw());
+    // The own look comes and goes with its photo.
+    _ownLookChanges = getIt<OwnAlarmLookKeeper>().changes.listen(
+      (_) => _redraw(),
+    );
   }
 
   void _redraw() {
@@ -54,6 +60,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
   void dispose() {
     unawaited(_accessChanges?.cancel());
     unawaited(_choiceChanges?.cancel());
+    unawaited(_ownLookChanges?.cancel());
     super.dispose();
   }
 
@@ -68,6 +75,10 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
   Future<void> _pick() async {
     AppHaptics.selection();
     final own = _own;
+    // The fixed looks, and the person's own while its photo can be drawn.
+    // Read once, so the index that comes back names the look that was
+    // listed.
+    final styles = pickableAlarmStyles;
     // The index comes back, so the phone's look is told apart from a sheet
     // swiped away.
     final picked = await showAppSheet<int>(
@@ -80,7 +91,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
           value: 0,
           isSelected: own == null,
         ),
-        for (final (index, style) in alarmStyles.indexed)
+        for (final (index, style) in styles.indexed)
           AppSheetOption<int>(
             label: style.nameKey.tr(),
             value: index + 1,
@@ -89,7 +100,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
       ],
     );
     if (picked == null) return;
-    final style = picked == 0 ? null : alarmStyles[picked - 1];
+    final style = picked == 0 ? null : styles[picked - 1];
     if (style == null || style.id.isFree) {
       // Following the phone, or the standard look, needs no plan.
       await _choices.setTopicStyle(widget.topicName, style?.id.id);
