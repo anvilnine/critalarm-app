@@ -131,6 +131,11 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     final selected = topicName == null
         ? defaultId
         : assignments?.soundIdFor(topicName) ?? defaultId;
+    // Asked before the state is copied, never inside the copy. The lock
+    // for own sounds can land while the platform answers, and a copy
+    // started before that would write "open" back over it.
+    final capabilities = await _host.capabilities();
+    if (isClosed) return;
     emit(
       state.copyWith(
         isLoading: false,
@@ -147,7 +152,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
         selectedSoundId: selected,
         defaultSoundId: defaultId,
         topicName: topicName,
-        capabilities: await _host.capabilities(),
+        capabilities: capabilities,
         platform: _platform,
       ),
     );
