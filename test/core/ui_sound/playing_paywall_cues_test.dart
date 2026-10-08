@@ -262,7 +262,6 @@ void main() {
         PaywallCue.ratchet,
         PaywallCue.roll,
         PaywallCue.check,
-        PaywallCue.bulb,
       });
       for (final cue in PaywallCue.values) {
         expect(cue.voices, cue.mayRepeat ? PaywallCue.maxVoices : 1);
@@ -308,13 +307,7 @@ void main() {
 
   group('the cues of the step after a purchase', () {
     test('each has a sound of its own and one short haptic', () {
-      const cues = [
-        PaywallCue.settle,
-        PaywallCue.lock,
-        PaywallCue.key,
-        PaywallCue.cord,
-        PaywallCue.bulb,
-      ];
+      const cues = [PaywallCue.settle, PaywallCue.lock, PaywallCue.key];
       for (final cue in cues) {
         expect(cue.sound, 'ui_${cue.name}');
         expect(cue.haptic, isNot(HapticPattern.none));
@@ -323,22 +316,13 @@ void main() {
     });
 
     test('they are small files: none is long enough to ring', () {
-      for (final cue in [
-        PaywallCue.settle,
-        PaywallCue.lock,
-        PaywallCue.key,
-        PaywallCue.cord,
-        PaywallCue.bulb,
-      ]) {
+      for (final cue in [PaywallCue.settle, PaywallCue.lock, PaywallCue.key]) {
         expect(File(cue.asset!).lengthSync(), lessThan(12 * 1024));
       }
     });
 
-    test('the settle and the bulb are the quiet kind, the cord is felt '
-        'as a click and then the light', () {
+    test('the settle is the quiet kind and the lock is one solid press', () {
       expect(PaywallCue.settle.haptic, HapticPattern.tick);
-      expect(PaywallCue.bulb.haptic, HapticPattern.tick);
-      expect(PaywallCue.cord.haptic, HapticPattern.risingPair);
       expect(PaywallCue.lock.haptic, HapticPattern.medium);
     });
   });
