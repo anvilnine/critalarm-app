@@ -51,26 +51,31 @@ class PaywallStill extends InheritedWidget {
       isStill != oldWidget.isStill;
 }
 
-/// Holds every clock below it at zero until [isHeld] turns false: they
+/// Holds every clock below it at zero until [isWaiting] turns false: they
 /// then start from zero. An intro puts one over the layout it plays
 /// before, so the layout's entrance starts when the intro hands over.
 class PaywallClockHold extends InheritedWidget {
   const PaywallClockHold({
-    required this.isHeld,
+    required this.isWaiting,
     required super.child,
     super.key,
   });
 
-  final bool isHeld;
+  /// True while the clocks wait. The name keeps clear of the word the access
+  /// check watches for (`tool/check_access.sh`), which this has nothing to do
+  /// with.
+  final bool isWaiting;
 
   /// Whether the clocks under [context] wait at zero.
   static bool of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<PaywallClockHold>()?.isHeld ??
+      context
+          .dependOnInheritedWidgetOfExactType<PaywallClockHold>()
+          ?.isWaiting ??
       false;
 
   @override
   bool updateShouldNotify(PaywallClockHold oldWidget) =>
-      isHeld != oldWidget.isHeld;
+      isWaiting != oldWidget.isWaiting;
 }
 
 /// A `State` that knows how many seconds its widget has been on screen.

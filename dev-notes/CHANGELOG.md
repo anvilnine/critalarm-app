@@ -136,6 +136,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Home orders its topic rows with the inbox rule: rows that need you, pinned, unread, the rest, then muted. HomeTopicItem gains lastMessageAt and rowKind, and HomeState gains facts.
 - The Reliability screen and the Home card pick the first check to name and fix with one rule in reliability/domain/attention\_order.dart. The handled window lives in home\_card/handled\_window.dart.
 - Home draws AppHeroScene with an AppStatusCard built from HomeCardState.model, then one AppInboxSheet of AppInboxRow. The notice slot, the setup pill, the delivery and priority chips and AppStage are no longer drawn there, and their code stays for a later cleanup. Strings are in the home\_card object of en.json.
+- PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

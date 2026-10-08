@@ -553,7 +553,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
       intro: intro == null ? PaywallIntroId.none : widget.intro,
       handle: _handle,
       child: PaywallClockHold(
-        isHeld: intro != null && !_hasHandedOver,
+        isWaiting: intro != null && !_hasHandedOver,
         child: Stack(
           fit: StackFit.expand,
           children: [
