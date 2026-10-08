@@ -339,8 +339,9 @@ void main() {
               // The tool stands in for the cubit here.
               // ignore: invalid_use_of_protected_member
               cubit.emit(cubit.state.copyWith(isAcknowledging: true));
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 200));
+              for (var i = 0; i < 4; i++) {
+                await tester.pump(const Duration(milliseconds: 200));
+              }
             }
             if (_isAcked) {
               // "I'm up", through the same call the button makes.
