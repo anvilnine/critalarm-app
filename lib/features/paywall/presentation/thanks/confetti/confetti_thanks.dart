@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
@@ -20,8 +21,9 @@ const PaywallThanks confettiThanks = PaywallThanks(
   builder: _build,
 );
 
-/// What is felt on the way. The purchase cue is sounding the whole time,
-/// so every beat is a haptic alone.
+/// What is felt on the way. While the purchase cue sounds every beat is a
+/// haptic alone. The last one comes as it ends: the confetti settling,
+/// which is heard.
 List<PaywallThanksBeat> confettiBeats(int lines) => [
   // The crown meets the mascot at the top of the jump.
   const PaywallThanksBeat.tap(ConfettiTimeline.apex, HapticPattern.medium),
@@ -33,6 +35,8 @@ List<PaywallThanksBeat> confettiBeats(int lines) => [
       ConfettiTimeline.checkAt(i, lines),
       HapticPattern.tick,
     ),
+  // The last piece lies still.
+  const PaywallThanksBeat(ConfettiTimeline.settled, PaywallCue.settle),
 ];
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>

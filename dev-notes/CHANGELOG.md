@@ -73,6 +73,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The developer page for paywall layouts is a two step picker, intro then paywall, with live tiles (PaywallLayoutTile, PaywallIntroTile).
 - Interface sounds: PaywallCues.play(PaywallCue) gives a sound and a haptic together from one table, 33 cues, HapticPattern and AppHaptics.play, a Settings switch. Silent while an alarm is up.
 - A motion skill and rule for custom animation: one living hero per screen.
+- Two more versions of the step after a purchase, Key and Lights on, and five interface cues for it: settle, lock, key, cord and bulb. Confetti plays the settle as its last piece lands.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

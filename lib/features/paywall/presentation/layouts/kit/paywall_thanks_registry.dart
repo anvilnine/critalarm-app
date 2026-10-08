@@ -1,5 +1,7 @@
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/confetti/confetti_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/thanks/key/key_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/thanks/lights/lights_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/limits/limits_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/stamp/stamp_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/unlock/unlock_thanks.dart';
@@ -12,6 +14,8 @@ final Map<PaywallThanksId, PaywallThanks> paywallThanksBuilders = {
   PaywallThanksId.unlock: unlockThanks,
   PaywallThanksId.stamp: stampThanks,
   PaywallThanksId.limits: limitsThanks,
+  PaywallThanksId.lockAndKey: keyThanks,
+  PaywallThanksId.lights: lightsThanks,
 };
 
 /// Whether [thanks] can be played as asked: `none` always can, and any

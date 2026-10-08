@@ -58,6 +58,8 @@ String paywallThanksNameKey(PaywallThanksId thanks) => switch (thanks) {
   PaywallThanksId.unlock => LocaleKeys.paywall_thanks_names_unlock,
   PaywallThanksId.stamp => LocaleKeys.paywall_thanks_names_stamp,
   PaywallThanksId.limits => LocaleKeys.paywall_thanks_names_limits,
+  PaywallThanksId.lockAndKey => LocaleKeys.paywall_thanks_names_key,
+  PaywallThanksId.lights => LocaleKeys.paywall_thanks_names_lights,
 };
 
 /// The names themselves.
