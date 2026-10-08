@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_showcase_logic.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_state.dart';
@@ -158,11 +157,8 @@ class _AppIconViewState extends State<_AppIconView>
     }
   }
 
-  Future<void> _openPaywall() => openPaywallFor(
-    context,
-    getIt<FeatureAccess>().decide(AppFeature.appIcons),
-    LockSource.appIcon,
-  );
+  Future<void> _openPaywall() =>
+      openPaywallForFeature(context, AppFeature.appIcons, LockSource.appIcon);
 
   @override
   Widget build(BuildContext context) {
@@ -263,9 +259,14 @@ class _AppIconViewState extends State<_AppIconView>
                           ),
                           const SizedBox(height: Spacing.s2),
                           // The button already says In use, so only a locked
-                          // icon gets a mark here.
+                          // icon gets a mark here: the plan badge, with its
+                          // lock.
                           if (locked)
-                            ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+                            const AccessLock.inline(
+                              feature: AppFeature.appIcons,
+                              source: LockSource.appIcon,
+                              child: FeatureLockBadge(),
+                            ),
                         ],
                       ),
                     ),
@@ -441,7 +442,6 @@ class _IconPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final art = AppIconPreview(icon: icon, size: size);
     final face = locked ? ColorFiltered(colorFilter: _tease, child: art) : art;
     final label = locked
@@ -467,23 +467,6 @@ class _IconPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(size * 230 / 1024),
               child: face,
             ),
-            if (locked)
-              Positioned(
-                right: size * 0.06,
-                bottom: size * 0.06,
-                child: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: colors.ink,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.lock_rounded,
-                    size: 16,
-                    color: colors.yellow,
-                  ),
-                ),
-              ),
           ],
         ),
       ),

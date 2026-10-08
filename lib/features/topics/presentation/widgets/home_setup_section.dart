@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:confetti/confetti.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -192,9 +195,13 @@ class _WidgetsCard extends StatelessWidget {
                 child: FaceWidget(state: _SetupFaces.widgets, size: 32),
               ),
               const SizedBox(width: Spacing.s3),
-              // A server of the user's own has no plans, so no badge.
-              if (plan != HomeWidgetsPlan.selfHosted)
-                ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+              // The plan badge, with its lock while widgets are locked. A
+              // server of the user's own has no plans, so no badge there.
+              const AccessLock.inline(
+                feature: AppFeature.widgets,
+                source: LockSource.homeWidgets,
+                child: FeatureLockBadge(staysWhenOpen: true),
+              ),
               const Spacer(),
               // The way out is always there and never the loud thing.
               AppDismissCross(

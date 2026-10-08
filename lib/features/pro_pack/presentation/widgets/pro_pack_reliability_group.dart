@@ -1,12 +1,10 @@
-import 'dart:async';
-
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -56,14 +54,7 @@ class ProPackReliabilityGroup extends StatelessWidget {
         return WeeklyCheckRow(
           view: view,
           body: weeklyCheckBody,
-          onOpenPro: () => unawaited(
-            openPaywallFor(
-              context,
-              access.decideHoldingNothing(AppFeature.weeklyCheck),
-              LockSource.reliability,
-              isSelfHosted: isSelfHosted,
-            ),
-          ),
+          isSelfHosted: isSelfHosted,
         );
       },
     );
@@ -79,21 +70,40 @@ Widget weeklyCheckReadyBody(BuildContext context) => Text(
 /// The weekly delivery check row: the title with the Pro badge, and either
 /// the locked line or the unlocked body. A plain row with no face.
 ///
-/// A locked row is a button: it opens the Pro sheet.
+/// A locked row is a button: it opens the Pro sheet. The badge and the way
+/// to the paywall both come from the one lock, [AccessLock].
 class WeeklyCheckRow extends StatelessWidget {
   const WeeklyCheckRow({
     required this.view,
     required this.body,
-    required this.onOpenPro,
+    this.isSelfHosted = false,
     super.key,
   });
 
   final WeeklyCheckRowView view;
   final WeeklyCheckBodyBuilder body;
-  final VoidCallback onOpenPro;
+
+  /// Handed on to the Pro sheet a locked row opens.
+  final bool isSelfHosted;
 
   @override
   Widget build(BuildContext context) {
+    // The row is locked when its view says so, which can be ahead of the
+    // holdings: the relay may have refused the check already. So the lock
+    // is drawn from the view, and sells what the feature needs when
+    // nothing is held.
+    return AccessLock.inline(
+      feature: AppFeature.weeklyCheck,
+      source: LockSource.reliability,
+      isSelfHosted: isSelfHosted,
+      decide: (access) => view.isLocked
+          ? access.decideHoldingNothing(AppFeature.weeklyCheck)
+          : const FeatureDecision.open(),
+      child: Builder(builder: _row),
+    );
+  }
+
+  Widget _row(BuildContext context) {
     final colors = context.appColors;
     final title = LocaleKeys.pro_pack_weekly_title.tr();
     final badge = LocaleKeys.pro_pack_badge.tr();
@@ -119,7 +129,7 @@ class WeeklyCheckRow extends StatelessWidget {
                     fontSize: 15,
                   ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
                 ),
-                ProBadge(label: badge),
+                const FeatureLockBadge(staysWhenOpen: true),
               ],
             ),
             const SizedBox(height: 2),
@@ -132,11 +142,11 @@ class WeeklyCheckRow extends StatelessWidget {
     final line = view.lineKey.tr();
     return ReliabilityPlainRow(
       title: title,
-      badge: ProBadge(label: badge),
+      badge: const FeatureLockBadge(staysWhenOpen: true),
       lines: [line, ?selfHostedLine],
       label: [title, badge, line, ?selfHostedLine].join(', '),
       hint: LocaleKeys.pro_pack_weekly_locked_hint.tr(),
-      onTap: onOpenPro,
+      onTap: FeatureLockScope.maybeOf(context)?.unlock,
       trailing: AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
     );
   }
