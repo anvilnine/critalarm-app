@@ -1,4 +1,5 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:flutter/foundation.dart';
 
 // When a layout is heard and felt. A layout writes its moments as a list
@@ -88,3 +89,16 @@ bool paywallTurnCues({
 /// quiet, unless the intro says otherwise: the intro's last cue is still
 /// sounding.
 const double paywallQuietAfterIntro = 0.5;
+
+/// Whether a paywall that is leaving plays the close cue, the small let
+/// down sound for a paywall left without buying.
+///
+/// - Leaving with the product in hand is not a dismissal: after a purchase,
+///   a restore that worked, the step after either, or when the product was
+///   held before the paywall opened, nothing plays.
+/// - A thumbnail ([isMuted]) never plays it, so a picker's tiles can come
+///   and go in silence.
+bool paywallSaysClose({
+  required PaywallBuyStatus status,
+  required bool isMuted,
+}) => !isMuted && status != PaywallBuyStatus.done;

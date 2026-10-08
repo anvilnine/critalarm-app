@@ -11,7 +11,9 @@ import 'package:critalarm/design_system/haptics.dart';
 /// the server. The sounds are short interface sounds made for these screens,
 /// kept in their own folder so the sound picker never lists them.
 enum PaywallCue {
-  /// The paywall came on screen.
+  /// The paywall came on screen. An arrival that asks: one strike of a
+  /// tine, level, left hanging. It must never sound like a reward, which
+  /// is [bought]'s alone.
   open(sound: 'ui_open', haptic: HapticPattern.light),
 
   /// An entrance that plays a joke before the pitch. Sound only: it plays
@@ -30,11 +32,14 @@ enum PaywallCue {
   /// The monthly plan was picked.
   pickMonthly(sound: 'ui_pick_monthly', haptic: HapticPattern.light),
 
-  /// The purchase is confirmed.
+  /// The purchase is confirmed. The only celebration: mallets that climb
+  /// into the app's three note call and land home.
   bought(sound: 'ui_buy', haptic: HapticPattern.risingPair),
 
-  /// The paywall was closed without buying.
-  close(sound: 'ui_close', haptic: HapticPattern.tick),
+  /// The paywall was closed without buying. A soft voiced slide down, a
+  /// little let down and kind about it, left open. Unlike [error], which is
+  /// two struck notes for a thing that did not work.
+  close(sound: 'ui_close', haptic: HapticPattern.fallingPair),
 
   /// The mascot, or anything round, lands at the end of an entrance.
   pop(sound: 'ui_pop', haptic: HapticPattern.light),
