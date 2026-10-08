@@ -353,6 +353,37 @@ void main() {
       expect(run.session.count, 4);
     });
 
+    test('when the person picks Tap instead, and the count carries over', () {
+      // The control under the hint calls useTaps, the same call the other
+      // fallbacks make.
+      final run = _Run()..session.open(onTaps: false);
+      run.fake.shake(11);
+      expect(run.session.count, 11);
+      final changes = run.changes;
+      run.session.useTaps();
+      expect(run.session.input, ShakeInput.taps);
+      expect(run.session.isSensorOn, isFalse);
+      expect(run.fake.listening, 0);
+      expect(run.activeTimers, 0);
+      // The screen is told once, so the button is drawn.
+      expect(run.changes, changes + 1);
+      // Eleven shakes are still eleven, and nineteen taps finish it.
+      expect(run.session.count, 11);
+      run.fake.shake(3);
+      expect(run.session.count, 11);
+      for (var i = 0; i < 18; i++) {
+        run.session.tap();
+      }
+      expect(run.session.count, 29);
+      expect(run.passes, 0);
+      run.session.tap();
+      expect(run.session.count, 30);
+      expect(run.passes, 1);
+      // Picking it twice changes nothing more.
+      run.session.useTaps();
+      expect(run.fake.listens, 1);
+    });
+
     test('when the phone has no sensor', () async {
       final sensor = _NoSensor();
       final run = _Run(sensor: sensor)..session.open(onTaps: false);

@@ -21,9 +21,11 @@ import 'package:flutter/material.dart';
 /// the moment it is passed, left, skipped or covered by another app.
 ///
 /// Shaking is never the only way. A button to tap thirty times takes its
-/// place from the start with a screen reader or reduce motion, and by
-/// itself when the phone has no sensor or the sensor says nothing for five
-/// seconds. It reads nothing from the alarm, and it plays no haptic and no
+/// place from the start with a screen reader or reduce motion, by itself
+/// when the phone has no sensor or the sensor says nothing for five
+/// seconds, and whenever the person picks "Tap instead", which is under
+/// the hint for as long as the challenge is on shaking. The count so far is
+/// kept. It reads nothing from the alarm, and it plays no haptic and no
 /// sound.
 final class ShakeChallenge implements Challenge {
   const ShakeChallenge();
@@ -139,6 +141,39 @@ class _ShakeState extends State<_Shake>
     super.dispose();
   }
 
+  /// The Tap button, filled with the colour the stage writes in and
+  /// lettered in the colour of its canvas.
+  ///
+  /// It is the main control of the tap state, so it has to stand out in
+  /// every look. A look names no filled button for the acknowledged stage,
+  /// the filled variant is the canvas colour itself in the standard look,
+  /// and the paper one is near black on black in a dark one. The text
+  /// colour of a stage always reads on its canvas, so the two swapped
+  /// always make a pill that shows. The paper variant draws it: it reads
+  /// `surface` and `ink`, and both are set here, for this button only.
+  Widget _tapButton(BuildContext context, ShakeSession? session) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values.where((ext) => ext is! AppColors),
+          colors.copyWith(
+            surface: colors.onCanvas,
+            cream: colors.onCanvas,
+            ink: colors.canvas,
+          ),
+        ],
+      ),
+      child: AppButton(
+        label: LocaleKeys.challenges_shake_tap.tr(),
+        variant: AppButtonVariant.paper,
+        isFullWidth: true,
+        onPressed: session?.tap,
+      ),
+    );
+  }
+
   Widget _face(BuildContext context, int count) {
     final colors = context.appColors;
     // Crit is yellow here whatever the theme: the face is the point of
@@ -219,21 +254,25 @@ class _ShakeState extends State<_Shake>
             style: hint,
           ),
           const SizedBox(height: Spacing.s3),
-          Semantics(
-            value: counted,
-            child: AppButton(
-              label: LocaleKeys.challenges_shake_tap.tr(),
-              variant: AppButtonVariant.paper,
-              isFullWidth: true,
-              onPressed: session?.tap,
-            ),
-          ),
-        ] else
+          Semantics(value: counted, child: _tapButton(context, session)),
+        ] else ...[
           Text(
             LocaleKeys.challenges_shake_hint_shake.tr(),
             textAlign: TextAlign.center,
             style: hint,
           ),
+          const SizedBox(height: Spacing.s2),
+          // For anyone who cannot shake a phone and has no setting on that
+          // says so. Quiet, and there from the first frame.
+          Center(
+            child: AppButton(
+              label: LocaleKeys.challenges_shake_tap_instead.tr(),
+              variant: AppButtonVariant.tinted,
+              size: AppButtonSize.sm,
+              onPressed: session?.useTaps,
+            ),
+          ),
+        ],
       ],
     );
   }

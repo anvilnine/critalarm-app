@@ -378,8 +378,10 @@ void main() {
               as Map<String, dynamic>;
       final challenges = all['challenges'] as Map<String, dynamic>;
       final shake = challenges['shake'] as Map<String, dynamic>;
-      // The prompt takes no arguments, so its number is written out.
+      // The prompt takes no arguments, so its number is written out. It
+      // is one line for both states, so it names both ways.
       expect(shake['prompt'], contains('${ShakeRule.target}'));
+      expect(shake['prompt'], '${ShakeRule.target} shakes or taps');
       expect(shake['hint_taps'], contains('{target}'));
       expect(shake['count'], contains('{target}'));
     });
