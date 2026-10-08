@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -20,6 +21,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
@@ -628,7 +630,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       onPressed: () {
         AppHaptics.capture();
         unawaited(
-          context.push(hostedPaywallLocation(PaywallSource.createTopicCard)),
+          openPaywallFor(
+            context,
+            getIt<FeatureAccess>().decide(AppFeature.unlimitedCriticalTopics),
+            LockSource.createTopicCard,
+          ),
         );
       },
     );

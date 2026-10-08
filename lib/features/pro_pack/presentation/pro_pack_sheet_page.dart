@@ -28,6 +28,19 @@ Future<void> openProPackSheet(
   },
 );
 
+/// The location [openProPackSheet] opens, for a caller that holds a router
+/// and no context.
+String proPackSheetLocation(
+  ProPackSheetSource source, {
+  bool isSelfHosted = false,
+}) => Uri(
+  path: proPackSheetPath,
+  queryParameters: {
+    'source': source.wire,
+    if (isSelfHosted) _selfHostedParam: '1',
+  },
+).toString();
+
 /// Whether the route to the sheet says the phone is self-hosted.
 bool proPackSheetIsSelfHosted(Uri uri) =>
     uri.queryParameters[_selfHostedParam] == '1';

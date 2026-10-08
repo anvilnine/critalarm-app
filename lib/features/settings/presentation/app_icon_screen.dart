@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_showcase_logic.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
@@ -140,7 +142,7 @@ class _AppIconViewState extends State<_AppIconView>
         return;
       case IconAction.unlock:
         AppHaptics.selection();
-        unawaited(context.push(hostedPaywallLocation(PaywallSource.appIcon)));
+        unawaited(_openPaywall());
       case IconAction.use:
         final pick = await cubit.pick(icon);
         if (!mounted) return;
@@ -151,10 +153,16 @@ class _AppIconViewState extends State<_AppIconView>
             _confetti.play();
           }
         } else if (pick == AppIconPick.locked) {
-          unawaited(context.push(hostedPaywallLocation(PaywallSource.appIcon)));
+          unawaited(_openPaywall());
         }
     }
   }
+
+  Future<void> _openPaywall() => openPaywallFor(
+    context,
+    getIt<FeatureAccess>().decide(AppFeature.appIcons),
+    LockSource.appIcon,
+  );
 
   @override
   Widget build(BuildContext context) {

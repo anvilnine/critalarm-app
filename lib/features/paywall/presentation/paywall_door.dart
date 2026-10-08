@@ -1,8 +1,11 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -154,6 +157,48 @@ Future<void> openProPaywall(
   return layoutLocation == null
       ? openProPackSheet(context, source, isSelfHosted: isSelfHosted)
       : context.push<void>(layoutLocation);
+}
+
+/// The one way from a locked feature to a paywall.
+///
+/// [decision] is `FeatureAccess.decide` for the feature the person reached
+/// for, and [source] is where they met the lock. The caller never names a
+/// product: a decision that offers Hosted opens the Hosted paywall, one
+/// that offers Pro opens the Pro paywall. A decision that is open or
+/// confirming opens nothing, because there is nothing to sell.
+///
+/// [isSelfHosted] is the opener's own knowledge of the phone. Only the Pro
+/// sheet has a line for it.
+Future<void> openPaywallFor(
+  BuildContext context,
+  FeatureDecision decision,
+  LockSource source, {
+  bool isSelfHosted = false,
+}) async {
+  if (decision is! FeatureLocked) return;
+  switch (decision.offer) {
+    case Holding.hosted:
+      await context.push<void>(hostedPaywallLocation(source.hosted));
+    case Holding.pro:
+      await openProPaywall(context, source.pro, isSelfHosted: isSelfHosted);
+  }
+}
+
+/// The location [openPaywallFor] opens, or null when [decision] locks
+/// nothing. For a caller that holds a router and no context, such as a
+/// sheet that closes itself before the paywall opens.
+String? paywallLocationFor(
+  FeatureDecision decision,
+  LockSource source, {
+  bool isSelfHosted = false,
+}) {
+  if (decision is! FeatureLocked) return null;
+  return switch (decision.offer) {
+    Holding.hosted => hostedPaywallLocation(source.hosted),
+    Holding.pro =>
+      _door?.proLayoutLocation(source.pro) ??
+          proPackSheetLocation(source.pro, isSelfHosted: isSelfHosted),
+  };
 }
 
 /// The layout route's gate in a store build: null lets the layout draw.
