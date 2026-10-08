@@ -70,6 +70,20 @@ void main() {
       expect(source.state, HoldingState.held);
     });
 
+    test('as the app builds it, the switch is left to the override', () async {
+      final access = await buildAccess();
+      final source = ProHoldingSource(access, countsDevSwitch: false);
+      devSwitch.value = true;
+      // The pack's own answer still counts the switch, for the Pro sheet.
+      expect(access.isHeld, isTrue);
+      expect(source.state, HoldingState.notHeld);
+
+      api.packs = const PacksAnswer(packs: [proPack]);
+      await access.refresh(force: true);
+      devSwitch.value = false;
+      expect(source.state, HoldingState.held);
+    });
+
     test('a purchase that was only started is not held', () async {
       final access = await buildAccess();
       final source = ProHoldingSource(access);

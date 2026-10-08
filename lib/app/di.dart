@@ -11,7 +11,9 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
@@ -379,17 +381,28 @@ Future<void> configureDependencies({
   }
 
   if (buildSkipsPaywall) {
-    if (!getIt.isRegistered<DevProSwitch>()) {
-      getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
+    // The one store behind every developer plan switch: a state per
+    // holding and a server mode, set by the Plans and features lab. The
+    // only place it is handed to the rest of the app. In a store build
+    // appAccessOverride is a NoAccessOverride and this call does nothing.
+    if (!getIt.isRegistered<DevAccessSwitches>()) {
+      getIt.registerSingleton<DevAccessSwitches>(DevAccessSwitches(prefs));
     }
-    // The only place the switch is handed to the rest of the app. In a store
-    // build appProOverride is a NoProOverride and this call does nothing.
-    appProOverride.watch(getIt<DevProSwitch>());
+    final accessSwitches = getIt<DevAccessSwitches>();
+    appAccessOverride.watch(accessSwitches);
 
-    // The same for the Pro pack: its own switch, its own override. A store
-    // build compiles appProPackOverride as a NoProPackOverride.
+    // The two older toggles are "force held" on that same store. The older
+    // override classes hear it too, for the three readers that are not
+    // Holdings: the shipped Hosted paywall, the Settings plan row and the
+    // Pro sheet. In a store build both are compiled as the No variant.
+    if (!getIt.isRegistered<DevProSwitch>()) {
+      getIt.registerSingleton<DevProSwitch>(DevProSwitch(accessSwitches));
+    }
+    appProOverride.watch(getIt<DevProSwitch>());
     if (!getIt.isRegistered<ProPackDevSwitch>()) {
-      getIt.registerSingleton<ProPackDevSwitch>(PrefsProPackDevSwitch(prefs));
+      getIt.registerSingleton<ProPackDevSwitch>(
+        PrefsProPackDevSwitch(accessSwitches),
+      );
     }
     appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
@@ -637,22 +650,40 @@ Future<void> configureDependencies({
           getIt<DeviceIdentityStore>().changes,
         ],
         readStore: buildSkipsPaywall ? null : getIt.get<SubscriptionRepository>,
+        // The developer switch is not read in here. It reaches Holdings
+        // through the wrapper below, so this source says what the server
+        // and the store say.
+        proOverride: const NoProOverride(),
       ),
     )
+    // Each source with the developer override in front of it: the one seam
+    // that can force a holding's state, for every holding. A store build
+    // compiles the override as a NoAccessOverride, and each wrapper then
+    // answers with its source's own state.
+    ..registerLazySingleton<List<OverriddenHoldingSource>>(
+      () => [
+        OverriddenHoldingSource(getIt<HostedHoldingSource>()),
+        OverriddenHoldingSource(
+          ProHoldingSource(getIt<ProPackAccess>(), countsDevSwitch: false),
+        ),
+      ],
+    )
     ..registerLazySingleton<Holdings>(
-      () => Holdings([
-        getIt<HostedHoldingSource>(),
-        ProHoldingSource(getIt<ProPackAccess>()),
-      ]),
+      () => Holdings(getIt<List<OverriddenHoldingSource>>()),
+    )
+    // The saved session's server mode, with the same override in front.
+    ..registerLazySingleton<OverriddenServerMode>(
+      () => OverriddenServerMode(getIt<ObservedApiSessionStore>().mode),
     )
     // Whether a feature is open. The server mode comes from the saved
     // session: the one on disk at launch, then every connect that writes a
     // new one.
     ..registerLazySingleton<FeatureAccess>(() {
       final sessions = getIt<ObservedApiSessionStore>();
+      final mode = getIt<OverriddenServerMode>();
       final access = FeatureAccess(
         holdings: getIt<Holdings>(),
-        serverMode: sessions.mode.value,
+        serverMode: mode.value,
         // `ready` waits for this, so nothing is taken away from a phone on
         // its own server before the saved session says so.
         serverModeRead: sessions.read().then<void>(
@@ -660,9 +691,7 @@ Future<void> configureDependencies({
           onError: (Object _) {},
         ),
       );
-      sessions.mode.addListener(
-        () => access.setServerMode(sessions.mode.value),
-      );
+      mode.changes.addListener(() => access.setServerMode(mode.value));
       return access;
     })
     // A build that skips the store has nothing on sale.

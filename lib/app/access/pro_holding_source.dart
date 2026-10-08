@@ -5,10 +5,18 @@ import 'package:flutter/foundation.dart';
 /// The Pro pack as a holding. It wraps [ProPackAccess] and adds nothing:
 /// the relay's list, the developer switch and the other-grant function all
 /// stay in there.
+///
+/// The app builds it with `countsDevSwitch: false`. The developer switch
+/// reaches `Holdings` through `OverriddenHoldingSource`, the one override
+/// seam for every holding, and this source then says what the relay says.
 final class ProHoldingSource implements HoldingSource {
-  const ProHoldingSource(this._access);
+  const ProHoldingSource(this._access, {this._countsDevSwitch = true});
 
   final ProPackAccess _access;
+  final bool _countsDevSwitch;
+
+  bool get _isHeld =>
+      _countsDevSwitch ? _access.isHeld : _access.isHeldWithoutSwitch;
 
   @override
   Holding get holding => Holding.pro;
@@ -19,7 +27,7 @@ final class ProHoldingSource implements HoldingSource {
   /// on could not be read: there is nobody to answer for.
   @override
   HoldingState get state {
-    if (_access.isHeld) return HoldingState.held;
+    if (_isHeld) return HoldingState.held;
     if (_access.isStoreAcceptedAwaitingRelay) return HoldingState.pending;
     if (_access.couldNotReadAccount) return HoldingState.unknown;
     return HoldingState.notHeld;
