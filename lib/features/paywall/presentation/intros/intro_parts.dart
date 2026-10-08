@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:flutter/material.dart';
@@ -152,4 +154,153 @@ class IntroWord extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// A button drawn as a pill with its [label], for a joke to play with. It
+/// is a picture: nothing presses it. A direct child of the intro's `Stack`.
+///
+/// It is [size] about [centre], and [scale] shrinks it where it stands.
+class IntroPillButton extends StatelessWidget {
+  const IntroPillButton({
+    required this.label,
+    required this.centre,
+    required this.size,
+    required this.color,
+    required this.labelColor,
+    this.scale = 1,
+    super.key,
+  });
+
+  final String label;
+  final Offset centre;
+  final Size size;
+  final Color color;
+  final Color labelColor;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    left: centre.dx - size.width / 2,
+    top: centre.dy - size.height / 2,
+    width: size.width,
+    height: size.height,
+    child: Transform.scale(
+      scale: scale,
+      child: DecoratedBox(
+        decoration: ShapeDecoration(color: color, shape: const StadiumBorder()),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            textScaler: TextScaler.noScaling,
+            style: AppTypography.title(labelColor),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A finger, drawn as the touch mark a screen recording shows, about
+/// [centre]. A direct child of the intro's `Stack`.
+class IntroTouchMark extends StatelessWidget {
+  const IntroTouchMark({
+    required this.centre,
+    required this.color,
+    this.opacity = 1,
+    super.key,
+  });
+
+  final Offset centre;
+  final Color color;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    left: centre.dx - 24,
+    top: centre.dy - 24,
+    width: 48,
+    height: 48,
+    child: Opacity(
+      opacity: opacity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.18),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The alarm red and the pulse rings around the mascot, for an intro that
+/// is a picture of a ringing screen. As the red gives way it opens in a
+/// circle from the mascot outwards, and nothing is painted inside that
+/// circle: the layout under the intro shows through.
+class IntroAlarmRedPainter extends CustomPainter {
+  const IntroAlarmRedPainter({
+    required this.centre,
+    required this.face,
+    required this.wipe,
+    required this.rings,
+    required this.red,
+    required this.ring,
+  });
+
+  final Offset centre;
+  final double face;
+  final double wipe;
+  final List<double?> rings;
+  final Color red;
+  final Color ring;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final screen = Offset.zero & size;
+    if (wipe > 0) {
+      final reach = [
+        screen.topLeft,
+        screen.topRight,
+        screen.bottomLeft,
+        screen.bottomRight,
+      ].map((corner) => (corner - centre).distance).reduce(math.max);
+      canvas
+        ..save()
+        ..clipPath(
+          Path.combine(
+            PathOperation.difference,
+            Path()..addRect(screen),
+            Path()..addOval(
+              Rect.fromCircle(center: centre, radius: reach * wipe),
+            ),
+          ),
+        );
+    }
+    canvas.drawRect(screen, Paint()..color = red);
+
+    for (final progress in rings) {
+      if (progress == null) continue;
+      final out = AppCurves.easeOut.transform(progress);
+      canvas.drawCircle(
+        centre,
+        face * 0.56 * (1 + 0.7 * out),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..color = ring.withValues(alpha: ring.a * (1 - out)),
+      );
+    }
+    if (wipe > 0) canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(IntroAlarmRedPainter old) =>
+      wipe != old.wipe ||
+      centre != old.centre ||
+      face != old.face ||
+      red != old.red ||
+      ring != old.ring ||
+      rings[0] != old.rings[0] ||
+      rings[1] != old.rings[1];
 }

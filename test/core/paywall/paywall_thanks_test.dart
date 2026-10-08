@@ -15,7 +15,7 @@ void main() {
         'stamp': 'stamp',
         'limits': 'limits',
         'lockAndKey': 'key',
-        'lights': 'lights',
+        'receiptParty': 'party',
       },
     );
   });
@@ -39,6 +39,12 @@ void main() {
     expect(PaywallThanksId.parse('none'), PaywallThanksId.none);
     expect(PaywallThanksId.parse(' confetti '), PaywallThanksId.confetti);
     expect(PaywallThanksId.parse('unlock'), PaywallThanksId.unlock);
+  });
+
+  test('a version that was taken out reads as no thanks', () {
+    expect(PaywallThanksId.fromKey('lights'), isNull);
+    expect(PaywallThanksId.parse('lights'), PaywallThanksId.none);
+    expect(PaywallThanksId.parse(' lights '), PaywallThanksId.none);
   });
 
   group('the developer control', () {
@@ -79,6 +85,15 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'dev.paywall_thanks': 'fireworks',
       });
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        DevPaywallThanksSwitch(prefs, DevPaywallThanksSwitch.hostedKey).value,
+        isNull,
+      );
+    });
+
+    test('a saved version that was taken out follows remote', () async {
+      SharedPreferences.setMockInitialValues({'dev.paywall_thanks': 'lights'});
       final prefs = await SharedPreferences.getInstance();
       expect(
         DevPaywallThanksSwitch(prefs, DevPaywallThanksSwitch.hostedKey).value,

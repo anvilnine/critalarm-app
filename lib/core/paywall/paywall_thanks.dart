@@ -29,9 +29,10 @@ enum PaywallThanksId {
   /// lock, the lock falls open and what was bought comes out of it.
   lockAndKey('key'),
 
-  /// The screen goes dark from the button. The mascot pulls a cord, a lamp
-  /// comes on, and each line lights up like a bulb on a sign.
-  lights('lights');
+  /// A slip prints from the button with the limits that were just lifted
+  /// as its lines. The product's stamp lands on it, confetti bursts from
+  /// the stamp, and each line changes to what the buyer has now.
+  receiptParty('party');
 
   const PaywallThanksId(this.key);
 

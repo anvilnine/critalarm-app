@@ -41,6 +41,16 @@ final class NotificationService: UNNotificationServiceExtension {
             push.needsContentFetch ? "yes" : "no"
         )
 
+        // A reopen starts a new stage, so the mark an earlier "I'm up" left is
+        // stale. The app drops it in its background push handler, which does
+        // not run for an app that was force-quit or not woken. This extension
+        // is then the only code that sees the reopen, so it drops the mark
+        // too, before the sound of this or any later push is decided.
+        if AlarmScheduleRule.clearsAck(kind: push.kind), let incidentId = push.incidentId {
+            AckedIncidentStore.clear(incidentId: incidentId)
+            NSLog("CritAlarmNSE ack_mark_cleared reason=reopen incident_id=%@", incidentId)
+        }
+
         // A repeat for an incident the user already stopped on this phone
         // keeps its banner and loses its sound. The alarm itself is skipped
         // in AppDelegate; this is the notification that rides beside it.

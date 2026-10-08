@@ -87,6 +87,7 @@ import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
@@ -457,6 +458,11 @@ Future<void> configureDependencies({
           ),
         ),
       );
+    }
+    // Which flavour the intro scores play in. A store build has no switch
+    // and plays the first.
+    if (!getIt.isRegistered<DevIntroSoundSwitch>()) {
+      getIt.registerSingleton<DevIntroSoundSwitch>(DevIntroSoundSwitch(prefs));
     }
     final layoutSwitches = getIt<DevPaywallLayoutSwitches>();
     appPaywallLayoutOverride.watch(
@@ -2522,6 +2528,9 @@ Future<void> configureDependencies({
               ? AppHaptics.play
               : null,
           cancelHaptic: AppHaptics.cancelPattern,
+          introFlavour: () => getIt.isRegistered<DevIntroSoundSwitch>()
+              ? getIt<DevIntroSoundSwitch>().value
+              : IntroSoundFlavour.piano,
         ),
       ),
     )
