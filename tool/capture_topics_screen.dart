@@ -7,6 +7,10 @@
 // <state>_<phone>_<theme>_<scale>x.png. Idle is also captured at 375 by 667
 // and at text scales 1.3 and 2.0. The path of every file is printed.
 //
+// It draws the app's ambient canvas the way the app does (AppAmbientShell),
+// so the Topics disc and ring are the canvas's. The transition_* captures step
+// the canvas through a tab change and a push at four points each.
+//
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
 //   --dart-define=STATES=a,b     only these states
@@ -24,11 +28,13 @@
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -49,6 +55,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
@@ -136,6 +143,7 @@ const _scenes = <_Scene>[
   _Scene('acknowledged'),
   _Scene('notopics'),
   _Scene('onetopic'),
+  _Scene('backup'),
   _Scene('noserver', fixedHome: _noServerHome),
   _Scene('loading', fixedHome: _loadingHome),
   _Scene('stale', fixedHome: _staleHome),
@@ -207,9 +215,11 @@ void _seed(MockServer server, _Scene scene) {
   switch (scene.name) {
     case 'notopics':
       server.seedWatching();
-    case 'onetopic':
+    case 'onetopic' || 'backup':
       server.seedCalm();
-      ['nas-backup', 'prod-db', 'home-ha'].forEach(server.deleteTopic);
+      if (scene.name == 'onetopic') {
+        ['nas-backup', 'prod-db', 'home-ha'].forEach(server.deleteTopic);
+      }
     case 'acknowledged':
       server.seedCalm();
       final msg = Message(
@@ -251,6 +261,14 @@ Future<void> _boot(_Scene scene) async {
     // The widgets card is shown once. Only idle keeps it, as a cream card.
     if (scene.name != 'idle') 'home_widgets_card_seen': true,
     'setup_checklist_done': true,
+    // A first topic that is old enough for the backup reminder to be due.
+    // Notices wait for setup to be done, so this scene says it is.
+    if (scene.name == 'backup') ...{
+      'onboarding_completed': true,
+      'home_prompt_first_topic_at': DateTime.now()
+          .subtract(const Duration(days: 3))
+          .millisecondsSinceEpoch,
+    },
     // The guide offer and the asks are other screens' business.
     'tour_guides_seen': '["topics","topic","settings","history"]',
     'has_completed_showcase_tour': true,
@@ -287,6 +305,108 @@ Future<void> _boot(_Scene scene) async {
   }
 }
 
+/// Opens Home on [scene] at [phone] and lets it settle. [animate] false holds
+/// every animation at its resting frame, as reduce motion does.
+Future<GoRouter> _open(
+  WidgetTester tester,
+  _Scene scene, {
+  required Size phone,
+  required ThemeMode mode,
+  required double scale,
+  required bool animate,
+  required GlobalKey key,
+}) async {
+  await tester.runAsync(() => _boot(scene));
+  tester.view.physicalSize = phone * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+
+  final router = buildRouter();
+  await tester.pumpWidget(
+    BlocProvider<ThemeCubit>.value(
+      value: getIt<ThemeCubit>(),
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
+        themeMode: mode,
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            disableAnimations: !animate,
+          ),
+          // The canvas behind every screen, as the app has it.
+          child: RepaintBoundary(
+            key: key,
+            child: AppAmbientShell(
+              router: router,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  router.go('/');
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  // The mock server answers in real time, so let it.
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 400)),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 200)),
+  );
+  await tester.pump(const Duration(milliseconds: 600));
+  return router;
+}
+
+/// Writes what [key] shows to [name].png. [errors] only picks the FIT or BAD
+/// label printed with the path.
+Future<void> _save(
+  WidgetTester tester,
+  GlobalKey key,
+  String name,
+  List<String> errors,
+) => tester.runAsync(() async {
+  final boundary =
+      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final image = await boundary.toImage(pixelRatio: 2);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  final file = File('$_out/$name.png');
+  await file.parent.create(recursive: true);
+  await file.writeAsBytes(bytes!.buffer.asUint8List());
+  print('${errors.isEmpty ? 'FIT ' : 'BAD '} ${file.path}');
+});
+
+/// A move the canvas makes while the user goes somewhere.
+class _Move {
+  const _Move(this.name, this.go, this.back);
+
+  final String name;
+
+  /// Starts the move.
+  final void Function(GoRouter router) go;
+
+  /// Starts the way back, or null.
+  final void Function(GoRouter router)? back;
+}
+
+final _moves = <_Move>[
+  _Move('transition_history', (r) => r.go('/history'), (r) => r.go('/')),
+  _Move(
+    'transition_topic',
+    (r) => unawaited(r.push('/topics/prod-db')),
+    (r) => r.pop(),
+  ),
+];
+
+/// How far through the canvas's own run (a slow duration) each step is.
+const _stepFractions = [0.0, 0.25, 0.5, 0.75, 1.0];
+
 void main() {
   final wanted = _statesArg.split(',').where((s) => s.isNotEmpty).toSet();
   final onlyParts = _only.split(',').where((p) => p.isNotEmpty).toList();
@@ -308,64 +428,150 @@ void main() {
         FlutterError.onError = (d) => errors.add(d.exceptionAsString());
         addTearDown(() => FlutterError.onError = oldHandler);
 
-        await tester.runAsync(() => _boot(scene));
-        tester.view.physicalSize = phone * 2;
-        tester.view.devicePixelRatio = 2;
-        addTearDown(tester.view.reset);
-
         final key = GlobalKey();
-        final router = buildRouter();
-        await tester.pumpWidget(
-          BlocProvider<ThemeCubit>.value(
-            value: getIt<ThemeCubit>(),
-            child: MaterialApp.router(
-              debugShowCheckedModeBanner: false,
-              theme: buildLightTheme(),
-              darkTheme: buildDarkTheme(),
-              themeMode: mode,
-              routerConfig: router,
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(scale),
-                  disableAnimations: second == null,
-                ),
-                child: RepaintBoundary(key: key, child: child),
-              ),
-            ),
-          ),
+        await _open(
+          tester,
+          scene,
+          phone: phone,
+          mode: mode,
+          scale: scale,
+          animate: second != null,
+          key: key,
         );
-        router.go('/');
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        // The mock server answers in real time, so let it.
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 400)),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 200)),
-        );
-        await tester.pump(const Duration(milliseconds: 600));
         if (second != null) {
           await tester.pump(Duration(milliseconds: (second * 1000).round()));
         }
-
-        await tester.runAsync(() async {
-          final boundary =
-              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-          final image = await boundary.toImage(pixelRatio: 2);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          final file = File('$_out/$name.png');
-          await file.parent.create(recursive: true);
-          await file.writeAsBytes(bytes!.buffer.asUint8List());
-          print('${errors.isEmpty ? 'FIT ' : 'BAD '} ${file.path}');
-        });
+        await _save(tester, key, name, errors);
         for (final e in errors) {
           print('  ERROR: ${e.split('\n').first}');
         }
         expect(errors, isEmpty, reason: 'overflow or build error in $name');
       });
     }
+  }
+
+  // The canvas between Topics and History, and between Topics and a topic,
+  // at five points of its run: the frame the move starts on, then a quarter,
+  // a half, three quarters, and the end. The way back is stepped too.
+  for (final move in _moves) {
+    if (wanted.isNotEmpty && !wanted.contains(move.name)) continue;
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      final base = '${move.name}_390x844_${mode.name}';
+      if (onlyParts.isNotEmpty && !onlyParts.any(base.contains)) continue;
+      testWidgets('capture $base', (tester) async {
+        final errors = <String>[];
+        final oldHandler = FlutterError.onError;
+        FlutterError.onError = (d) => errors.add(d.exceptionAsString());
+        addTearDown(() => FlutterError.onError = oldHandler);
+
+        final key = GlobalKey();
+        final router = await _open(
+          tester,
+          _scenes.first,
+          phone: const Size(390, 844),
+          mode: mode,
+          scale: 1,
+          animate: true,
+          key: key,
+        );
+
+        Future<void> step(void Function(GoRouter) start, String leg) async {
+          start(router);
+          // The shell picks the new profile on the frame after the route
+          // changes, so the canvas starts its run two pumps in.
+          await tester.pump();
+          await tester.pump();
+          var done = 0.0;
+          for (final (i, fraction) in _stepFractions.indexed) {
+            final to = Duration(
+              milliseconds: ((fraction - done) * 400).round(),
+            );
+            if (to > Duration.zero) await tester.pump(to);
+            done = fraction;
+            await _save(tester, key, '${base}_${leg}_$i', errors);
+          }
+        }
+
+        await step(move.go, 'out');
+        final back = move.back;
+        if (back != null) {
+          // Let the screen settle, then step the way back.
+          await tester.pump(const Duration(seconds: 1));
+          await step(back, 'back');
+        }
+        for (final e in errors) {
+          print('  ERROR: ${e.split('\n').first}');
+        }
+        expect(errors, isEmpty, reason: 'overflow or build error in $base');
+      });
+    }
+  }
+
+  // The Topics hero profile for every disc tone and every severity canvas,
+  // side by side. The Home captures reach only the states the mock server can
+  // be put in. A ringing Home hands over to the alarm screen, for one.
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    final name = 'canvas_profiles_${mode.name}';
+    if (wanted.isNotEmpty && !wanted.contains('canvas_profiles')) continue;
+    if (onlyParts.isNotEmpty && !onlyParts.any(name.contains)) continue;
+    testWidgets('capture $name', (tester) async {
+      tester.view.physicalSize = const Size(195 * 7, 422) * 2;
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildLightTheme(),
+          darkTheme: buildDarkTheme(),
+          themeMode: mode,
+          home: Builder(
+            builder: (context) {
+              final colors = context.appColors;
+              final profiles = <(String, AmbientProfile)>[
+                for (final tone in AppHeroTone.values)
+                  (
+                    tone.name,
+                    AmbientAppProfiles.topicsHero(colors, tone: tone),
+                  ),
+                for (final severity in const [
+                  SeverityMode.high,
+                  SeverityMode.crit,
+                  SeverityMode.ack,
+                ])
+                  (
+                    severity.name,
+                    AmbientAppProfiles.topicsHero(colors, severity: severity),
+                  ),
+              ];
+              return RepaintBoundary(
+                key: key,
+                child: Row(
+                  textDirection: TextDirection.ltr,
+                  children: [
+                    for (final (label, profile) in profiles)
+                      ClipRect(
+                        child: SizedBox(
+                          width: 195,
+                          height: 422,
+                          child: AmbientCanvas(
+                            key: ValueKey(label),
+                            profile: profile,
+                            variant: AmbientMotionVariant.drift,
+                            direction: AmbientDirection.push,
+                            reduceMotion: true,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await _save(tester, key, name, const []);
+    });
   }
 }
