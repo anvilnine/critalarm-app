@@ -1193,7 +1193,10 @@ enum SoundLibrary {
   /// The lock flag Dart wrote goes with them. While it is set no own sound
   /// is published (`SharedSounds.choicesToPublish`), and the saved choices
   /// stay as they are, so they ring again once the flag clears.
-  private static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
+  ///
+  /// Not private, so the unit tests can hand it two defaults of their own.
+  @discardableResult
+  static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
     var perTopicIds: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),
