@@ -1,5 +1,6 @@
 package app.critalarm.sound
 
+import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -146,5 +147,106 @@ class AlarmSoundOwnLockTest {
             dir = dir.parentFile
         }
         assertTrue("$assetPath is not in the Flutter project", found)
+    }
+
+    // The same, read from preferences under the names Dart writes. A key
+    // spelled differently on this side would read as "never locked".
+
+    /** `FlutterSharedPreferences` as the alarm service finds it. */
+    private fun prefs(
+        topicSound: String? = "user_1",
+        default: String? = "pager_beep",
+        ownLocked: Any? = null,
+    ): SharedPreferences {
+        val values = mutableMapOf<String, Any?>(
+            "flutter.alarm_sound_user_list" to
+                """[{"id":"user_1","path":"${own.path}"},{"id":"user_2","path":"${otherOwn.path}"}]""",
+        )
+        if (default != null) values["flutter.alarm_sound_default"] = default
+        if (topicSound != null) values["flutter.alarm_sound_per_topic"] = """{"prod":"$topicSound"}"""
+        if (ownLocked != null) values["flutter.alarm_sound_own_locked"] = ownLocked
+        return FakePrefs(values)
+    }
+
+    private fun ringsFor(prefs: SharedPreferences, topic: String?) =
+        AlarmSoundStore.resolveFromPrefs(prefs, sounds, topic)
+
+    @Test
+    fun theFlagUnderTheKeyDartWritesLocksATopicOnAnOwnSound() {
+        val choice = ringsFor(prefs(ownLocked = true), "prod")
+        assertEquals(beep, choice.picked)
+        assertEquals("user_1", choice.wanted)
+        assertTrue(choice.ownLocked)
+    }
+
+    @Test
+    fun theSamePrefsWithTheFlagFalseRingTheOwnSound() {
+        val choice = ringsFor(prefs(ownLocked = false), "prod")
+        assertEquals("user_1" to AlarmSoundSource.Imported(own.path), choice.picked)
+        assertFalse(choice.ownLocked)
+    }
+
+    @Test
+    fun theSamePrefsWithNoFlagRingTheOwnSound() {
+        val choice = ringsFor(prefs(), "prod")
+        assertEquals("user_1" to AlarmSoundSource.Imported(own.path), choice.picked)
+        assertFalse(choice.ownLocked)
+    }
+
+    @Test
+    fun theFlagLocksAnOwnDefaultForAPushWithNoTopic() {
+        val locked = prefs(topicSound = null, default = "user_2", ownLocked = true)
+        assertEquals(siren, ringsFor(locked, null).picked)
+        assertEquals(siren, ringsFor(locked, "staging").picked)
+        val open = prefs(topicSound = null, default = "user_2", ownLocked = false)
+        assertEquals("user_2" to AlarmSoundSource.Imported(otherOwn.path), ringsFor(open, null).picked)
+    }
+
+    @Test
+    fun aFlagStoredAsAStringIsNotLockedAndTheAlarmStillResolves() {
+        val choice = ringsFor(prefs(ownLocked = "true"), "prod")
+        assertFalse(choice.ownLocked)
+        assertEquals("user_1" to AlarmSoundSource.Imported(own.path), choice.picked)
+    }
+
+    @Test
+    fun emptyPreferencesRingTheClassicSirenLockedOrNot() {
+        assertEquals(siren, ringsFor(FakePrefs(mutableMapOf()), "prod").picked)
+        assertEquals(
+            siren,
+            ringsFor(FakePrefs(mutableMapOf("flutter.alarm_sound_own_locked" to true)), null).picked,
+        )
+    }
+
+    /** Read-only preferences over a map, typed the way Android's are. */
+    private class FakePrefs(private val values: Map<String, Any?>) : SharedPreferences {
+        override fun getAll(): MutableMap<String, *> = values.toMutableMap()
+
+        override fun getString(key: String?, defValue: String?): String? =
+            if (values.containsKey(key)) values[key] as String? else defValue
+
+        // Throws ClassCastException for another type, as the real one does.
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean =
+            if (values.containsKey(key)) values[key] as Boolean else defValue
+
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+
+        override fun getInt(key: String?, defValue: Int): Int = defValue
+
+        override fun getLong(key: String?, defValue: Long): Long = defValue
+
+        override fun getFloat(key: String?, defValue: Float): Float = defValue
+
+        override fun contains(key: String?): Boolean = values.containsKey(key)
+
+        override fun edit(): SharedPreferences.Editor = throw UnsupportedOperationException()
+
+        override fun registerOnSharedPreferenceChangeListener(
+            listener: SharedPreferences.OnSharedPreferenceChangeListener?,
+        ) = Unit
+
+        override fun unregisterOnSharedPreferenceChangeListener(
+            listener: SharedPreferences.OnSharedPreferenceChangeListener?,
+        ) = Unit
     }
 }

@@ -1,6 +1,7 @@
 package app.critalarm.sound
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.AssetFileDescriptor
 import android.util.Log
 import io.flutter.FlutterInjector
@@ -72,18 +73,36 @@ object AlarmSoundStore {
      */
     fun resolveForTopic(context: Context, topic: String?): Pair<String, AlarmSoundSource> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val choice = resolveFromPrefs(prefs, soundsDir(context), topic)
+        if (choice.picked.first != choice.wanted) {
+            val reason = if (choice.ownLocked && isOwnSound(choice.wanted)) "sound_own_locked" else "sound_missing"
+            Log.w(TAG, "$reason sound_id=${choice.wanted} falling_back_to=${choice.picked.first}")
+        }
+        return choice.picked
+    }
+
+    /** What [resolveFromPrefs] read and picked. */
+    data class Choice(
+        /** The id that rings and where its bytes are. */
+        val picked: Pair<String, AlarmSoundSource>,
+        /** The saved choice for the topic: its own, else the default. */
+        val wanted: String,
+        val ownLocked: Boolean,
+    )
+
+    /**
+     * Everything [resolveForTopic] does after it has the preferences: every
+     * key is read here and nowhere else. No Context and no log, so the JVM
+     * tests can run it over the real key names.
+     */
+    fun resolveFromPrefs(prefs: SharedPreferences, soundsDir: File, topic: String?): Choice {
         val defaultId = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID
         val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)
         val ownLocked = readOwnLocked { prefs.getBoolean(OWN_LOCKED_KEY, false) }
-        val picked = resolveChain(soundsDir(context), listOfNotNull(topicId, defaultId), ownLocked) {
-            importedPath(context, it)
+        val picked = resolveChain(soundsDir, listOfNotNull(topicId, defaultId), ownLocked) {
+            importedPath(prefs, it)
         }
-        val wanted = topicId ?: defaultId
-        if (picked.first != wanted) {
-            val reason = if (ownLocked && isOwnSound(wanted)) "sound_own_locked" else "sound_missing"
-            Log.w(TAG, "$reason sound_id=$wanted falling_back_to=${picked.first}")
-        }
-        return picked
+        return Choice(picked, wanted = topicId ?: defaultId, ownLocked = ownLocked)
     }
 
     /** True for a sound the user brought in themselves. */
@@ -156,9 +175,8 @@ object AlarmSoundStore {
     // BundledSounds.extensionFor (lib/core/sound/bundled_sounds.dart); keep the two in step.
     fun assetPathFor(soundId: String) = "assets/sounds/$soundId.ogg"
 
-    private fun importedPath(context: Context, soundId: String): String? {
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(USER_LIST_KEY, null) ?: return null
+    private fun importedPath(prefs: SharedPreferences, soundId: String): String? {
+        val raw = prefs.getString(USER_LIST_KEY, null) ?: return null
         return runCatching {
             val list = JSONArray(raw)
             (0 until list.length())
