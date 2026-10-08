@@ -41,15 +41,15 @@ void main() {
       }
     });
 
-    test('one light haptic alone marks the reveal', () {
+    test('one haptic alone marks the reveal, in step with the wink', () {
       final beat = falseAlarmIntro.beats.single;
       expect(beat.at, FalseAlarmTimeline.reveal);
-      expect(beat.haptic, HapticPattern.light);
+      expect(beat.haptic, PaywallCue.introWink.haptic);
       expect(beat.cue, isNull);
     });
 
-    test('a tap to skip plays the release', () {
-      expect(falseAlarmIntro.skipCue, PaywallCue.kidding);
+    test('a tap to skip plays its own punchline, the wink', () {
+      expect(falseAlarmIntro.skipCue, PaywallCue.introWink);
       expect(falseAlarmIntro.skipTo, FalseAlarmTimeline.reveal);
     });
 
@@ -63,19 +63,19 @@ void main() {
   });
 
   group('the other intros', () {
-    test('snooze: a bounce for each dodge, a pop, then the release', () {
+    test('snooze: a bounce for each dodge, a pop, then the gulp', () {
       expect(_table(snoozeIntro), [
         (SnoozeTimeline.dodgeLeft, PaywallCue.introBounce),
         (SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
         (SnoozeTimeline.gulp, PaywallCue.pop),
-        (SnoozeTimeline.reveal, PaywallCue.kidding),
+        (SnoozeTimeline.reveal, PaywallCue.introGulp),
       ]);
     });
 
-    test('wake up: a knock at the bonk, then the release', () {
+    test('wake up: a knock at the bonk, then the spring', () {
       expect(_table(wakeUpIntro), [
         (WakeUpTimeline.bonk, PaywallCue.introKnock),
-        (WakeUpTimeline.reveal, PaywallCue.kidding),
+        (WakeUpTimeline.reveal, PaywallCue.introSpring),
       ]);
     });
 
@@ -87,12 +87,12 @@ void main() {
       ]);
     });
 
-    test('countdown: a tick for each count, a drop, then the release', () {
+    test('countdown: a tick for each count, a drop, then the tease', () {
       expect(_table(countdownIntro), [
         (0.0, PaywallCue.tick),
         (CountdownTimeline.two, PaywallCue.tick),
         (CountdownTimeline.squash, PaywallCue.drop),
-        (CountdownTimeline.reveal, PaywallCue.kidding),
+        (CountdownTimeline.reveal, PaywallCue.introTease),
       ]);
     });
 
@@ -107,6 +107,73 @@ void main() {
         expect(intro.skipCue, isNull);
         expect(intro.quietAfter, paywallQuietAfterIntro);
       }
+    });
+  });
+
+  group('the punchlines', () {
+    const punchlines = [
+      PaywallCue.introWink,
+      PaywallCue.introGulp,
+      PaywallCue.introSpring,
+      PaywallCue.introTease,
+    ];
+
+    PaywallCue punchlineOf(PaywallIntro intro) =>
+        intro.skipCue ?? intro.beats.last.cue!;
+
+    test('each joke lands on a punchline of its own', () {
+      final landed = [
+        punchlineOf(falseAlarmIntro),
+        punchlineOf(snoozeIntro),
+        punchlineOf(wakeUpIntro),
+        punchlineOf(countdownIntro),
+      ];
+      expect(landed, punchlines);
+      expect(landed.toSet(), hasLength(4));
+    });
+
+    test('a skipped intro plays the same punchline as one played through', () {
+      // The false alarm's is the end of its one long cue, so a skip plays
+      // it alone. The others have it as the beat a skip lands on.
+      expect(falseAlarmIntro.skipCue, PaywallCue.introWink);
+      for (final intro in [snoozeIntro, wakeUpIntro, countdownIntro]) {
+        expect(intro.skipCue, isNull);
+        expect(intro.beats.last.at, intro.skipTo);
+        expect(punchlines, contains(intro.beats.last.cue));
+      }
+    });
+
+    test('none is the sound of a purchase, a failure or a goodbye', () {
+      for (final cue in punchlines) {
+        for (final other in [
+          PaywallCue.bought,
+          PaywallCue.error,
+          PaywallCue.close,
+          PaywallCue.open,
+        ]) {
+          expect(cue.sound, isNot(other.sound), reason: cue.name);
+        }
+        // A falling pair is for letting go, a double knock for a refusal.
+        expect(cue.haptic, isNot(HapticPattern.fallingPair), reason: cue.name);
+        expect(cue.haptic, isNot(HapticPattern.doubleKnock), reason: cue.name);
+        expect(cue.haptic, isNot(HapticPattern.none), reason: cue.name);
+        expect(cue.mayRepeat, isFalse, reason: cue.name);
+      }
+    });
+
+    test('each has sounded out before the layout may speak', () {
+      // The longest punchline is half a second, and it starts at the
+      // reveal. The layout stays quiet until this long after it.
+      for (final intro in [snoozeIntro, wakeUpIntro, countdownIntro]) {
+        expect(
+          intro.handover + intro.quietAfter - intro.skipTo,
+          greaterThanOrEqualTo(0.6),
+        );
+      }
+      expect(
+        FalseAlarmTimeline.gagEnds - FalseAlarmTimeline.reveal,
+        greaterThanOrEqualTo(0.6),
+      );
     });
   });
 

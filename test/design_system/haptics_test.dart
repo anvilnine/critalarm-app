@@ -85,6 +85,19 @@ void main() {
         HapticPulse.light,
         HapticPulse.tick,
       ]);
+      expect(of(HapticPattern.tripleRise), [
+        HapticPulse.tick,
+        HapticPulse.light,
+        HapticPulse.medium,
+      ]);
+    });
+
+    test('the rising three lands where its sound has its knocks', () {
+      expect(HapticPattern.tripleRise.steps.map((step) => step.atMs), [
+        0,
+        110,
+        250,
+      ]);
     });
   });
 

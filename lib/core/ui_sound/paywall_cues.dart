@@ -16,8 +16,10 @@ enum PaywallCue {
   /// is [bought]'s alone.
   open(sound: 'ui_open', haptic: HapticPattern.light),
 
-  /// An entrance that plays a joke before the pitch. Sound only: it plays
-  /// over a silent picture of a ringing screen, and nothing vibrates then.
+  /// An entrance that plays a joke before the pitch, and lands it on the
+  /// same three knocks as [introWink]. Sound only: it plays over a silent
+  /// picture of a ringing screen, and nothing vibrates then. The app's
+  /// three note call is not in it: that is [bought]'s alone.
   gag(sound: 'ui_gag'),
 
   /// An entrance that prints, such as a till receipt.
@@ -94,9 +96,6 @@ enum PaywallCue {
   /// A line gets its check mark.
   check(sound: 'ui_check', haptic: HapticPattern.tick, mayRepeat: true),
 
-  /// The release after an intro's joke. A warm fall of two notes.
-  kidding(sound: 'ui_kidding', haptic: HapticPattern.light),
-
   /// A restore worked.
   restore(sound: 'ui_restore', haptic: HapticPattern.risingPair),
 
@@ -130,8 +129,30 @@ enum PaywallCue {
   /// An intro sting: a curtain pulled across.
   introSwish(sound: 'ui_intro_swish'),
 
-  /// An intro sting: something dropped that settles.
-  introBounce(sound: 'ui_intro_bounce', haptic: HapticPattern.tripleFade);
+  /// An intro sting: something hops out of the way and lands. A spring up
+  /// and three bounces on one note.
+  introBounce(sound: 'ui_intro_bounce', haptic: HapticPattern.tripleFade),
+
+  // The punchlines: what an intro's joke lands on as it gives way to the
+  // paywall. One for each intro, so no two jokes land the same way. None
+  // of them falls, because a fall is what a failure sounds like ([error])
+  // or a let down ([close]), and none is the call that [bought] ends on.
+
+  /// A punchline: knock, knock, and a bright one. A wink. It dips and
+  /// jumps up.
+  introWink(sound: 'ui_intro_wink', haptic: HapticPattern.tripleRise),
+
+  /// A punchline: one gulp that swoops up, and a hiccup higher still.
+  /// Cheeky and pleased with itself. The gulp is felt, the hiccup is not.
+  introGulp(sound: 'ui_intro_gulp', haptic: HapticPattern.medium),
+
+  /// A punchline: a start and a spring. One knock, then a boing that
+  /// leaps an octave and wobbles where it lands.
+  introSpring(sound: 'ui_intro_spring', haptic: HapticPattern.risingPair),
+
+  /// A punchline: a quick run up the scale on pops and a flick higher at
+  /// the end. A tease.
+  introTease(sound: 'ui_intro_tease', haptic: HapticPattern.light);
 
   const PaywallCue({
     this.sound,
