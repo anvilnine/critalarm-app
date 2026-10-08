@@ -381,7 +381,7 @@ class _AppIconViewState extends State<_AppIconView>
   }
 }
 
-/// "Your Pro icons", fading in above the carousel on the first visit.
+/// "Your extra icons", fading in above the carousel on the first visit.
 class _Headline extends StatelessWidget {
   const _Headline({required this.visible, required this.colors});
 
