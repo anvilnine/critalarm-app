@@ -103,8 +103,11 @@ final class ShakeCounter {
     if (!x.isFinite || !y.isFinite || !z.isFinite) return false;
     final at = reading.at;
     final last = _lastAt;
+    // The same stamp twice is one reading delivered twice. It says nothing
+    // new, and no time has passed to measure it over.
+    if (last != null && at == last) return false;
     _lastAt = at;
-    if (last == null || at <= last || at - last > ShakeRule.streamGap) {
+    if (last == null || at < last || at - last > ShakeRule.streamGap) {
       // The first reading, a clock that went back, or a hole in the stream.
       // Gravity is whatever the phone reads now, and nothing is half made.
       _gravityX = x;

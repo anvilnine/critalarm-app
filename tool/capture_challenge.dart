@@ -170,13 +170,14 @@ final class _HandSensor implements MotionSensor {
   bool get isOn => listens > cancels;
 
   @override
-  Stream<MotionReading> readings() {
+  Stream<MotionReading> readings({void Function()? onStarted}) {
     late final StreamController<MotionReading> controller;
     controller = StreamController<MotionReading>(
       sync: true,
       onListen: () {
         listens++;
         _open = controller;
+        onStarted?.call();
       },
       onCancel: () {
         cancels++;
@@ -1051,6 +1052,48 @@ void main() {
     print(
       'FLOW Tap instead turned the sensor off, kept eleven shakes, and '
       'nineteen taps closed the incident',
+    );
+  });
+
+  capture('flow_shake_covered', (tester, errors) async {
+    if (!_isShake) return;
+    final sensor = _HandSensor();
+    await _useSensor(sensor);
+    await flow(tester, isStill: false);
+    sensor
+      ..rest()
+      ..shake(29);
+    await tester.pump();
+    expect(sensor.isOn, isTrue);
+    // A sheet over the challenge, the way the alarm screen opens its own.
+    unawaited(
+      showModalBottomSheet<void>(
+        context: tester.element(find.byType(ChallengeStep)),
+        builder: (_) => const SizedBox(height: 200),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(sensor.isOn, isFalse);
+    // Shaking under the sheet counts nothing and closes nothing.
+    sensor.shake(5);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsOneWidget);
+    expect(_status(), CriticalAlarmStatus.acknowledged);
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(sensor.isOn, isTrue);
+    expect(_shakeCount(29), findsOneWidget);
+    sensor
+      ..rest()
+      ..shake(2);
+    await _afterClose(tester);
+    expect(find.byType(ChallengeStep), findsNothing);
+    expect(_status(), CriticalAlarmStatus.closed);
+    print(
+      'FLOW a sheet over the challenge turned the sensor off and nothing '
+      'counted under it. With the sheet gone the last shake closed it',
     );
   });
 

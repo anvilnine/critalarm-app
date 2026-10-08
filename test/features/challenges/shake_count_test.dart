@@ -339,6 +339,34 @@ void main() {
       expect(counter.count, 0);
     });
 
+    test('a reading delivered twice counts the same as once', () {
+      final once = _recording(seconds: 10, move: _shaking());
+      final twice = [
+        for (final reading in once) ...[reading, reading],
+      ];
+      expect(countShakes(once), greaterThanOrEqualTo(ShakeRule.target));
+      expect(countShakes(twice), countShakes(once));
+    });
+
+    test('a repeated stamp does not drop a half-made shake', () {
+      final counter = ShakeCounter();
+      MotionReading at(int ms, double x) => MotionReading(
+        x: x,
+        y: 0,
+        z: -1,
+        at: Duration(milliseconds: ms),
+      );
+      for (var ms = 0; ms < 1000; ms += 20) {
+        counter.add(at(ms, 0));
+      }
+      // Out, the same stamp again with another value, then back.
+      expect(counter.add(at(1000, 3)), isFalse);
+      expect(counter.add(at(1000, 2.5)), isFalse);
+      expect(counter.add(at(1020, 3)), isFalse);
+      expect(counter.add(at(1120, -3)), isTrue);
+      expect(counter.count, 1);
+    });
+
     test('a clock that goes back starts over and does not throw', () {
       final counter = ShakeCounter();
       _recording(seconds: 3, move: _shaking()).forEach(counter.add);
