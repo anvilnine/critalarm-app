@@ -1,9 +1,9 @@
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
-import 'package:critalarm/features/topics/domain/home_card/readiness_pips.dart';
+import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'home_card_fixtures.dart';
+import '../topics/domain/home_card/home_card_fixtures.dart';
 
 void main() {
   group('pipsFor', () {
