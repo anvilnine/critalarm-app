@@ -11,6 +11,7 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
@@ -556,6 +557,10 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         // Per-topic wake-up challenge. Kept on the device
                         // only, like the sound.
                         TopicChallengeRow(topicName: state.topicName),
+                        const SizedBox(height: 8),
+                        // Per-topic look of the alarm screen. Kept on the
+                        // device only, like the sound.
+                        TopicAlarmStyleRow(topicName: state.topicName),
                         const AppSectionDivider(),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.
