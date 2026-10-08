@@ -12,13 +12,11 @@ void main() {
         'proof': 'proof',
         'bento': 'bento',
         'reel': 'reel',
-        'falseAlarm': 'false_alarm',
         'stage': 'stage',
         'sentence': 'sentence',
         'wipe': 'wipe',
         'doors': 'doors',
         'receipt': 'receipt',
-        'plain': 'plain',
       },
     );
   });
@@ -41,7 +39,7 @@ void main() {
   });
 
   test('the path of a layout sits under /plans', () {
-    expect(paywallLayoutPathFor('false_alarm'), '/plans/false_alarm');
+    expect(paywallLayoutPathFor('hero'), '/plans/hero');
   });
 
   test('the silent cues take every call and do nothing', () {

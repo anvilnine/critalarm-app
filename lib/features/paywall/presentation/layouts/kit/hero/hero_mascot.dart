@@ -1,10 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_faces.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_props.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/material.dart';
 
 /// Crit as an actor: a face at a size, with a hop, a bob, a blink, a pop
@@ -37,19 +35,31 @@ class HeroMascot extends StatelessWidget {
     this.bob = 0,
     this.entrance = 1,
     this.props = const {},
+    this.entranceStyle = HeroEntranceStyle.pop,
+    this.idle = HeroIdleStyle.bob,
+    this.turnSeconds = 0,
+    this.footDrop,
     super.key,
   });
 
-  /// The mascot as [frame] has it.
-  HeroMascot.frame(HeroFrame frame, {required this.size, super.key})
-    : face = frame.face,
-      fromFace = frame.fromFace,
-      faceBlend = frame.faceBlend,
-      blink = frame.blink,
-      hop = frame.hop,
-      bob = frame.bob,
-      entrance = frame.entrance,
-      props = frame.props;
+  /// The mascot as [frame] has it, moving as [motion] says.
+  HeroMascot.frame(
+    HeroFrame frame, {
+    required this.size,
+    HeroMotion motion = const HeroMotion(),
+    this.footDrop,
+    super.key,
+  }) : entranceStyle = motion.entrance,
+       idle = motion.idle,
+       turnSeconds = frame.sceneSeconds,
+       face = frame.face,
+       fromFace = frame.fromFace,
+       faceBlend = frame.faceBlend,
+       blink = frame.blink,
+       hop = frame.hop,
+       bob = frame.bob,
+       entrance = frame.entrance,
+       props = frame.props;
 
   /// The edge of the square the face is drawn in.
   final double size;
@@ -69,9 +79,23 @@ class HeroMascot extends StatelessWidget {
   /// seconds. Zero holds it level.
   final double bob;
 
-  /// How far through its entrance, 0 to 1: it pops up from a little below,
-  /// past its size and back. Zero draws nothing.
+  /// How far through its entrance, 0 to 1. Zero draws nothing.
   final double entrance;
+
+  /// How it comes on. The approved one pops up from a little below, past
+  /// its size and back.
+  final HeroEntranceStyle entranceStyle;
+
+  /// How far its top is above the foot of the stage it stands on, for an
+  /// entrance that starts under that foot. Null with no stage.
+  final double? footDrop;
+
+  /// What it does while it waits. Every style reads [bob] as its clock.
+  final HeroIdleStyle idle;
+
+  /// How long the turn on the stage has played, for an idle that marks a
+  /// new benefit.
+  final double turnSeconds;
 
   /// How far on each worn prop is, 0 to 1. Empty wears nothing.
   final Map<HeroProp, double> props;
@@ -79,15 +103,24 @@ class HeroMascot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    // The mascot pops up from a little below, past its size and back.
-    final arrive = AppCurves.easeBack.transform(phase(entrance, 0.08, 0.6));
-    final sway = bob == 0 ? 0.0 : -3 * math.sin(2 * math.pi * bob / 3.2);
-    final lift = sway - hop * size * 0.08;
+    final arrive = heroEntrancePose(
+      entranceStyle,
+      entrance,
+      size: size,
+      footDrop: footDrop,
+    );
+    final wait = heroIdlePose(
+      idle,
+      seconds: bob,
+      size: size,
+      turnSeconds: turnSeconds,
+    );
+    final lift = wait.dy - hop * size * 0.08;
 
-    return Transform.translate(
-      offset: Offset(0, 26 * (1 - arrive) + lift),
+    Widget mascot = Transform.translate(
+      offset: Offset(arrive.dx + wait.dx, arrive.dy + lift),
       child: Transform.scale(
-        scale: arrive,
+        scale: arrive.scale,
         alignment: Alignment.bottomCenter,
         child: Stack(
           clipBehavior: Clip.none,
@@ -119,5 +152,17 @@ class HeroMascot extends StatelessWidget {
         ),
       ),
     );
+    // A lean lives inside the idle and is back at zero when it ends.
+    if (wait.angle != 0) {
+      mascot = Transform.rotate(
+        angle: wait.angle,
+        alignment: Alignment.bottomCenter,
+        child: mascot,
+      );
+    }
+    if (arrive.opacity < 1) {
+      mascot = Opacity(opacity: arrive.opacity, child: mascot);
+    }
+    return mascot;
   }
 }

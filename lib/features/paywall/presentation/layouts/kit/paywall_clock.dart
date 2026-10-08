@@ -51,6 +51,28 @@ class PaywallStill extends InheritedWidget {
       isStill != oldWidget.isStill;
 }
 
+/// Holds every clock below it at zero until [isHeld] turns false: they
+/// then start from zero. An intro puts one over the layout it plays
+/// before, so the layout's entrance starts when the intro hands over.
+class PaywallClockHold extends InheritedWidget {
+  const PaywallClockHold({
+    required this.isHeld,
+    required super.child,
+    super.key,
+  });
+
+  final bool isHeld;
+
+  /// Whether the clocks under [context] wait at zero.
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PaywallClockHold>()?.isHeld ??
+      false;
+
+  @override
+  bool updateShouldNotify(PaywallClockHold oldWidget) =>
+      isHeld != oldWidget.isHeld;
+}
+
 /// A `State` that knows how many seconds its widget has been on screen.
 ///
 /// Read [t] in `build`. The widget is rebuilt every frame while the clock
@@ -60,6 +82,7 @@ class PaywallStill extends InheritedWidget {
 ///   no ticker runs. The resting frame must be complete: nothing half way.
 /// - While the route is not on top the clock stops, and carries on from the
 ///   same second when the route is back.
+/// - Under a [PaywallClockHold] it waits at zero and starts when let go.
 abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
@@ -112,7 +135,7 @@ abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
         (MediaQuery.maybeOf(context)?.disableAnimations ?? false) ||
         PaywallStill.of(context);
     _isOnTop = ModalRoute.of(context)?.isCurrent ?? true;
-    final shouldRun = !_isStill && _isOnTop;
+    final shouldRun = !_isStill && _isOnTop && !PaywallClockHold.of(context);
     // The ticker is stopped, not just ignored: a frame callback that does
     // nothing still wakes the engine every frame.
     if (!shouldRun && _ticker.isActive) {

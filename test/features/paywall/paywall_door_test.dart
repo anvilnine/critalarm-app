@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -9,6 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 class _Install {
   String hosted = '';
   String pro = '';
+  String hostedIntro = '';
+  String proIntro = '';
+  PaywallIntroId? devHostedIntro;
   PaywallLayoutSetting? devHosted;
   PaywallLayoutSetting? devPro;
   bool seen = false;
@@ -28,8 +32,12 @@ class _Install {
       seen = true;
       marks++;
     },
-    isBuilt: (layout) =>
-        layout != PaywallLayoutId.falseAlarm || falseAlarmIsBuilt,
+    remoteIntroValue: (product) =>
+        product == PaywallProduct.hosted ? hostedIntro : proIntro,
+    developerIntro: (product) =>
+        product == PaywallProduct.hosted ? devHostedIntro : null,
+    isIntroBuilt: (intro) =>
+        intro != PaywallIntroId.falseAlarm || falseAlarmIsBuilt,
   );
 }
 
@@ -203,12 +211,12 @@ void main() {
     });
   });
 
-  group('the False alarm layout', () {
-    test('opens once from the Settings plan row, then hero', () {
+  group('the false alarm intro', () {
+    test('plays once from the Settings plan row, then hero alone', () {
       final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/false_alarm?product=hosted&source=settings_plan',
+        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
       );
       expect(install.marks, 1);
       expect(
@@ -218,7 +226,19 @@ void main() {
       expect(install.marks, 1);
     });
 
-    test('other entries neither open it nor use up its showing', () {
+    test('a stored value that names it as a layout opens hero with it', () {
+      final install = _Install()..hosted = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
+      );
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+    });
+
+    test('other entries neither play it nor use up its showing', () {
       final install = _Install()..hosted = 'auto';
       for (final source in PaywallSource.values) {
         if (source == PaywallSource.settingsPlan) continue;
@@ -230,13 +250,54 @@ void main() {
       expect(install.marks, 0);
     });
 
-    test('a build that cannot draw it opens hero and keeps the showing', () {
+    test('a build that cannot play it opens hero and keeps the showing', () {
       final install = _Install()
         ..hosted = 'auto'
         ..falseAlarmIsBuilt = false;
       expect(
         install.door.hostedLocation(PaywallSource.settingsPlan),
         '/plans/hero?product=hosted&source=settings_plan',
+      );
+      expect(install.marks, 0);
+    });
+  });
+
+  group('the intro value', () {
+    test('goes in the location beside any layout, for both products', () {
+      final install = _Install()
+        ..hosted = 'sheet'
+        ..hostedIntro = 'false_alarm'
+        ..pro = 'proof'
+        ..proIntro = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/sheet?product=hosted&source=history&intro=false_alarm',
+      );
+      expect(install.marks, 1);
+      // Its one showing is used up, for either product.
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/proof?product=pro&source=direct',
+      );
+    });
+
+    test('alone it changes nothing: empty layout is the shipped surface', () {
+      final install = _Install()..hostedIntro = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/paywall?source=history',
+      );
+      expect(install.marks, 0);
+    });
+
+    test('Developer options outrank it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedIntro = 'false_alarm'
+        ..devHostedIntro = PaywallIntroId.none;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
       );
       expect(install.marks, 0);
     });

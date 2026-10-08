@@ -46,6 +46,14 @@ abstract interface class TelemetryGate {
 
   /// The same for Pro, under `pro_paywall_layout`. Empty is the Pro sheet.
   String get proPaywallLayoutKey;
+
+  /// What Remote Config holds under `paywall_intro`: the short animation
+  /// that plays before a Hosted layout. Empty, the default, is none.
+  /// `PaywallIntroId.parse` reads it, and an unknown value counts as empty.
+  String get paywallIntroKey;
+
+  /// The same for Pro, under `pro_paywall_intro`.
+  String get proPaywallIntroKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
@@ -56,6 +64,8 @@ class NoopTelemetryGate implements TelemetryGate {
     this.onboardingFlowJson = '',
     this.paywallLayoutKey = '',
     this.proPaywallLayoutKey = '',
+    this.paywallIntroKey = '',
+    this.proPaywallIntroKey = '',
   });
 
   @override
@@ -72,6 +82,12 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   final String proPaywallLayoutKey;
+
+  @override
+  final String paywallIntroKey;
+
+  @override
+  final String proPaywallIntroKey;
 
   @override
   bool get isPaywallEnabled => paywallEnabled;

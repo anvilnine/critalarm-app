@@ -1,4 +1,5 @@
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// a layout picked by entry point, or one named layout.
 ///
 /// Remote Config holds one of these per product, as a string, under
-/// `paywall_layout` (Hosted) and `pro_paywall_layout` (Pro).
+/// `paywall_layout` (Hosted) and `pro_paywall_layout` (Pro). The intro that
+/// plays first is a second value beside it: see `PaywallIntroId`.
 @immutable
 final class PaywallLayoutSetting {
   const PaywallLayoutSetting._(this._key, this.layout);
@@ -21,6 +23,11 @@ final class PaywallLayoutSetting {
   factory PaywallLayoutSetting.parse(String? value) {
     final key = value?.trim() ?? '';
     if (key == autoKey) return auto;
+    // The joke was a layout once. Its key still opens `hero`, and
+    // [paywallIntroInLayoutValue] reads the intro out of the same value.
+    if (key == paywallFalseAlarmLayoutKey) {
+      return const PaywallLayoutSetting.pinned(PaywallLayoutId.hero);
+    }
     final layout = PaywallLayoutId.fromKey(key);
     return layout == null ? shipped : PaywallLayoutSetting.pinned(layout);
   }
@@ -95,12 +102,44 @@ class DevPaywallLayoutSwitch extends ValueNotifier<PaywallLayoutSetting?> {
   }
 }
 
-/// The two developer controls, one per product.
+/// The developer control for one product's intro: follow the remote value
+/// (null), or one intro that outranks it, `none` among them. Saved in prefs
+/// under [_key].
+class DevPaywallIntroSwitch extends ValueNotifier<PaywallIntroId?> {
+  DevPaywallIntroSwitch(this._prefs, this._key)
+    : super(PaywallIntroId.fromKey(_prefs.getString(_key)));
+
+  static const hostedKey = 'dev.paywall_intro';
+  static const proKey = 'dev.pro_paywall_intro';
+
+  final SharedPreferences _prefs;
+  final String _key;
+
+  /// Sets what outranks the remote value, or hands the choice back to it
+  /// when [intro] is null. Remembered across launches.
+  Future<void> setIntro(PaywallIntroId? intro) async {
+    value = intro;
+    if (intro == null) {
+      await _prefs.remove(_key);
+      return;
+    }
+    await _prefs.setString(_key, intro.key);
+  }
+}
+
+/// The developer controls, a layout and an intro per product.
 class DevPaywallLayoutSwitches {
-  const DevPaywallLayoutSwitches({required this.hosted, required this.pro});
+  const DevPaywallLayoutSwitches({
+    required this.hosted,
+    required this.pro,
+    required this.hostedIntro,
+    required this.proIntro,
+  });
 
   final DevPaywallLayoutSwitch hosted;
   final DevPaywallLayoutSwitch pro;
+  final DevPaywallIntroSwitch hostedIntro;
+  final DevPaywallIntroSwitch proIntro;
 }
 
 /// Lets a developer build choose what each product's paywall opens.
@@ -116,11 +155,20 @@ abstract interface class PaywallLayoutOverride {
   /// The same for Pro.
   PaywallLayoutSetting? get pro;
 
-  /// Starts reporting the two switches. Does nothing in a build with no
+  /// The intro a developer set for Hosted, or null to follow the remote
+  /// value.
+  PaywallIntroId? get hostedIntro;
+
+  /// The same for Pro.
+  PaywallIntroId? get proIntro;
+
+  /// Starts reporting the switches. Does nothing in a build with no
   /// override.
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
   });
 }
 
@@ -135,9 +183,17 @@ class NoPaywallLayoutOverride implements PaywallLayoutOverride {
   PaywallLayoutSetting? get pro => null;
 
   @override
+  PaywallIntroId? get hostedIntro => null;
+
+  @override
+  PaywallIntroId? get proIntro => null;
+
+  @override
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
   }) {}
 }
 
@@ -145,6 +201,8 @@ class NoPaywallLayoutOverride implements PaywallLayoutOverride {
 class DevPaywallLayoutOverride implements PaywallLayoutOverride {
   ValueListenable<PaywallLayoutSetting?>? _hosted;
   ValueListenable<PaywallLayoutSetting?>? _pro;
+  ValueListenable<PaywallIntroId?>? _hostedIntro;
+  ValueListenable<PaywallIntroId?>? _proIntro;
 
   @override
   PaywallLayoutSetting? get hosted => _hosted?.value;
@@ -153,12 +211,22 @@ class DevPaywallLayoutOverride implements PaywallLayoutOverride {
   PaywallLayoutSetting? get pro => _pro?.value;
 
   @override
+  PaywallIntroId? get hostedIntro => _hostedIntro?.value;
+
+  @override
+  PaywallIntroId? get proIntro => _proIntro?.value;
+
+  @override
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
   }) {
     _hosted = hosted;
     _pro = pro;
+    _hostedIntro = hostedIntro;
+    _proIntro = proIntro;
   }
 }
 

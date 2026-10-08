@@ -9,6 +9,7 @@ export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_fa
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_mascot.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pips.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_props.dart';
