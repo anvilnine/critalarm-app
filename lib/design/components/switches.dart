@@ -14,11 +14,18 @@ enum AppSwitchVariant {
 
   /// On the dark status card. A little larger (56 by 32, with a 44 point
   /// touch target) and outlined with the `panelLine` token. The standard off
-  /// track is a faint dark tint that all but disappears on the panel, and
-  /// the cobalt on track sits at about 2.4 to 1 against it, so the outline
-  /// is what shows where the control ends.
+  /// track is a faint dark tint that all but disappears on the panel, so the
+  /// off track here is the muted panel text colour at half strength, which
+  /// stands 3 to 1 off the card in both themes. The cobalt on track sits at
+  /// about 2.4 to 1 against the card, so the outline is what shows where the
+  /// control ends.
   panel,
 }
+
+/// How much of the muted panel text colour the panel switch's off track takes.
+/// At this strength the track is 3.8 to 1 against the light theme's card and
+/// 3.5 to 1 against the dark theme's.
+const double panelSwitchOffTrackAlpha = 0.55;
 
 /// Custom iOS-style toggle switch (48x28) matching index.html .tsw.
 class AppSwitch extends StatelessWidget {
@@ -57,7 +64,7 @@ class AppSwitch extends StatelessWidget {
     final bg = value
         ? colors.highlight
         : isPanel
-        ? colors.onPanel.withValues(alpha: 0.16)
+        ? colors.onPanelMuted.withValues(alpha: panelSwitchOffTrackAlpha)
         : colors.switchOff;
 
     final duration = context.motion(AppDurations.quick);
@@ -90,7 +97,11 @@ class AppSwitch extends StatelessWidget {
               height: knob,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: value ? colors.onHighlight : colors.switchThumbOff,
+                color: value
+                    ? colors.onHighlight
+                    : isPanel
+                    ? colors.onPanel
+                    : colors.switchThumbOff,
                 boxShadow: AppShadows.lightSm,
               ),
             ),

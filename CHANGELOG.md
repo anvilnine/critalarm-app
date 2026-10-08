@@ -76,6 +76,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 - The Android back button closes search instead of leaving the app.
 - The Topics card says when your last alarm rang instead of no alarm yet. Topic messages show newest first. Settings shows Crit Alarm Cloud in full.
+- A long topic name and message title now show in full, dates read the same on every screen, Settings rows line up and stay clear of the title when scrolled, faces keep their dark outline on orange and red, and Delete topic and the Critical delivery switch are easier to see.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

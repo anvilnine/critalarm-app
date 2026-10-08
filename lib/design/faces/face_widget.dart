@@ -176,14 +176,11 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
 
     // Resolve default colors based on state
     final fill = widget.overrideFillColor ?? colors.faceFill;
-    final stroke =
-        widget.overrideStrokeColor ??
-        switch (widget.state) {
-          FaceState.worried => colors.high,
-          FaceState.alarmed => colors.crit,
-          FaceState.acked => colors.cobalt,
-          _ => colors.faceStroke,
-        };
+    // One outline for every state: the face stroke of the canvas it sits on
+    // (ink on the light canvases, retinted by the severity scope). A state
+    // shows in the canvas and the expression. A hue chosen per state put an
+    // orange outline on the orange canvas and lost the head's shape.
+    final stroke = widget.overrideStrokeColor ?? colors.faceStroke;
     final ink = widget.overrideInkColor ?? colors.faceInk;
     final tongue = widget.overrideTongueColor;
 

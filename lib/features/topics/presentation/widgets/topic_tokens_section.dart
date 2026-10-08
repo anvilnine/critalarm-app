@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
@@ -466,7 +467,11 @@ class _TokenRow extends StatelessWidget {
             ? LocaleKeys.topic_tokens_made_just_now.tr()
             : LocaleKeys.topic_tokens_made_on.tr(
                 namedArgs: {
-                  'date': DateFormat('MMM d, y').format(made.toLocal()),
+                  'date': formatWhen(
+                    at: made,
+                    now: DateTime.now(),
+                    yesterday: LocaleKeys.home_card_row_yesterday.tr(),
+                  ),
                 },
               ),
         faceState: null,

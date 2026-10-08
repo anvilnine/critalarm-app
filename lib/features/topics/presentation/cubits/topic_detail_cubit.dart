@@ -8,6 +8,7 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -255,9 +256,12 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         .map(
           (m) => TopicDetailMessageItem(
             title: m.title ?? m.topic,
-            timestamp: DateFormat('MMM d HH:mm').format(
-              DateTime.fromMillisecondsSinceEpoch(m.time * 1000).toLocal(),
+            timestamp: formatWhen(
+              at: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
+              now: DateTime.now(),
+              yesterday: LocaleKeys.home_card_row_yesterday.tr(),
             ),
+            sentAt: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
             body: m.message,
             source: m.tags.join(', '),
             isHigh: m.priority == 4,
