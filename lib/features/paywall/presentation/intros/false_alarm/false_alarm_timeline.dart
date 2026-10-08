@@ -97,9 +97,10 @@ abstract final class FalseAlarmTimeline {
   /// hand over, so no word of the joke lies over the layout as it comes in.
   static double words(double t) => 1 - phase(t, reveal + 0.1, handover);
 
-  /// How much of the large mascot is left at [t], 1 to 0. It goes as the
-  /// layout's own entrance comes up.
-  static double presence(double t) => 1 - phase(t, handover - 0.05, end);
+  /// How far out the large mascot is at [t], 0 to 1. It travels to where
+  /// the layout's own mascot stands and is gone by the hand over, so two
+  /// faces are never on screen together.
+  static double leave(double t) => phase(t, reveal, handover);
 
   /// True once nothing of the joke is drawn.
   static bool isOver(double t) => t >= end;

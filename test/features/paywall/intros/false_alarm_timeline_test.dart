@@ -40,16 +40,15 @@ void main() {
       expect(FalseAlarmTimeline.words(FalseAlarmTimeline.reveal), 1);
       expect(FalseAlarmTimeline.words(FalseAlarmTimeline.handover), 0);
       expect(FalseAlarmTimeline.words(FalseAlarmTimeline.end), 0);
-      // The mascot is still there at the hand over: the layout comes in on it.
-      expect(
-        FalseAlarmTimeline.presence(FalseAlarmTimeline.handover),
-        greaterThan(0.8),
-      );
+      // The mascot is gone by the hand over: the layout's own comes up
+      // where it went, and two faces never show together.
+      expect(FalseAlarmTimeline.leave(FalseAlarmTimeline.reveal), 0);
+      expect(FalseAlarmTimeline.leave(FalseAlarmTimeline.handover), 1);
     });
 
     test('the first frame is the whole alarm', () {
       expect(FalseAlarmTimeline.wipe(0), 0);
-      expect(FalseAlarmTimeline.presence(0), 1);
+      expect(FalseAlarmTimeline.leave(0), 0);
       expect(FalseAlarmTimeline.saysAlarm(0), isTrue);
       expect(FalseAlarmTimeline.face(0).from, FalseAlarmFace.alarmed);
       expect(FalseAlarmTimeline.face(0).blend, 0);
@@ -144,7 +143,7 @@ void main() {
       expect(tl, greaterThan(FalseAlarmTimeline.end));
       expect(FalseAlarmTimeline.isOver(tl), isTrue);
       expect(FalseAlarmTimeline.wipe(tl), 1);
-      expect(FalseAlarmTimeline.presence(tl), 0);
+      expect(FalseAlarmTimeline.leave(tl), 1);
       expect(FalseAlarmTimeline.shake(tl), 0);
       expect(FalseAlarmTimeline.blink(tl), 0);
     });
