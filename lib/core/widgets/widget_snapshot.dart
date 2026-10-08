@@ -19,9 +19,8 @@ final class WidgetSnapshot {
     this.locked = false,
   });
 
-  /// What a free account on the hosted plan writes: connected, but nothing
-  /// to show. Widgets are part of Pro, so no topic name reaches the home
-  /// screen.
+  /// What a phone without Pro writes: connected, but nothing to show.
+  /// Widgets are part of Pro, so no topic name reaches the home screen.
   factory WidgetSnapshot.lockedFor(DateTime now) => WidgetSnapshot(
     updatedAt: epochSeconds(now),
     connected: true,

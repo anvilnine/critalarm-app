@@ -843,7 +843,8 @@ runs them from the list Home drew.
   answered, the widgets card shows once (`home_widgets_card_seen`), on iOS
   and Android only. Opening the how-to, going to the plans or closing it
   all count as seen. Its main button is the next thing that user can do:
-  the how-to where widgets are unlocked, the plans where they need Hosted. The how-to steps have separate iOS and Android keys
+  the how-to where widgets are unlocked, the plans where they need Pro (Pro alone unlocks widgets, on a server of the
+  user's own too). The how-to steps have separate iOS and Android keys
   (`home_widgets.ios.*`, `home_widgets.android.*`).
 
 The Feature Guide offer is raised after the frame in which the route

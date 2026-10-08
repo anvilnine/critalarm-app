@@ -77,6 +77,14 @@ void main() {
     );
   });
 
+  test('the locked widget link carries the widget_locked source tag', () {
+    expect(PushDeepLink.paywallLocation, '/paywall?source=widget_locked');
+    expect(
+      PushDeepLink.tagged('/paywall'),
+      '/paywall?source=widget_locked',
+    );
+  });
+
   group('fromAppUri', () {
     String? map(String u) => PushDeepLink.fromAppUri(Uri.parse(u));
 

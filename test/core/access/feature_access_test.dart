@@ -13,10 +13,10 @@ const List<AppFeature> _hostedFeatures = [
   AppFeature.longHistory,
   AppFeature.storageRules,
   AppFeature.appIcons,
-  AppFeature.widgets,
 ];
 
 const List<AppFeature> _proFeatures = [
+  AppFeature.widgets,
   AppFeature.ownSounds,
   AppFeature.alarmScreenStyles,
   AppFeature.wakeUpChallenges,

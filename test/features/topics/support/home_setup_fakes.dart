@@ -178,7 +178,7 @@ class HomeSetupHarness {
   List<String> incidentIds = [];
   Set<String> setupIncidentIds = {};
   bool isGuideOfferAnswered = true;
-  HomeWidgetsPlan plan = HomeWidgetsPlan.hosted;
+  HomeWidgetsPlan plan = HomeWidgetsPlan.pro;
   Exception? planFailure;
 
   /// Stands in for `FeatureAccess.changes` for the widgets.

@@ -32,13 +32,13 @@ List<String>? homeWidgetsStepsFor(TargetPlatform platform) {
 }
 
 /// Opens the sheet that says how to add a home screen widget on
-/// [platform]. [onSeeHosted] runs after the sheet has closed, and is only
+/// [platform]. [onSeePro] runs after the sheet has closed, and is only
 /// offered to a user whose widgets are locked.
 Future<void> showHomeWidgetsSheet({
   required BuildContext context,
   required TargetPlatform platform,
   required HomeWidgetsPlan plan,
-  required VoidCallback onSeeHosted,
+  required VoidCallback onSeePro,
 }) async {
   final steps = homeWidgetsStepsFor(platform);
   if (steps == null) return;
@@ -49,10 +49,10 @@ Future<void> showHomeWidgetsSheet({
     minChildSize: 0.3,
     content: (sheetContext) => _HomeWidgetsSheet(
       steps: steps,
-      needsHosted: plan == HomeWidgetsPlan.needsHosted,
-      onSeeHosted: () {
+      needsPro: plan == HomeWidgetsPlan.needsPro,
+      onSeePro: () {
         Navigator.of(sheetContext).pop();
-        onSeeHosted();
+        onSeePro();
       },
     ),
   );
@@ -61,13 +61,13 @@ Future<void> showHomeWidgetsSheet({
 class _HomeWidgetsSheet extends StatelessWidget {
   const _HomeWidgetsSheet({
     required this.steps,
-    required this.needsHosted,
-    required this.onSeeHosted,
+    required this.needsPro,
+    required this.onSeePro,
   });
 
   final List<String> steps;
-  final bool needsHosted;
-  final VoidCallback onSeeHosted;
+  final bool needsPro;
+  final VoidCallback onSeePro;
 
   @override
   Widget build(BuildContext context) {
@@ -80,15 +80,15 @@ class _HomeWidgetsSheet extends StatelessWidget {
           if (index > 0) const SizedBox(height: Spacing.s3),
           AppStepBullet(number: index + 1, text: step),
         ],
-        if (needsHosted) ...[
+        if (needsPro) ...[
           const SizedBox(height: Spacing.s4),
-          AppNote(text: LocaleKeys.home_widgets_needs_hosted.tr()),
+          AppNote(text: LocaleKeys.home_widgets_needs_pro.tr()),
           const SizedBox(height: Spacing.s3),
           // The steps above do nothing without it, so this is the button.
           AppButton(
             label: LocaleKeys.home_widgets_plans_button.tr(),
             isFullWidth: true,
-            onPressed: onSeeHosted,
+            onPressed: onSeePro,
           ),
         ],
       ],

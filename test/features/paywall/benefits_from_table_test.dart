@@ -40,7 +40,6 @@ void main() {
         HostedBenefitId.topics,
         HostedBenefitId.pushes,
         HostedBenefitId.history,
-        HostedBenefitId.widgets,
         HostedBenefitId.appIcons,
       ]);
     });
@@ -53,7 +52,6 @@ void main() {
           // A number the relay enforces. No row in the table.
           HostedBenefitId.pushes: null,
           HostedBenefitId.history: AppFeature.longHistory,
-          HostedBenefitId.widgets: AppFeature.widgets,
           HostedBenefitId.appIcons: AppFeature.appIcons,
         },
       );
@@ -73,13 +71,20 @@ void main() {
 
     test('moving a feature to Pro in the table drops it, and nothing else '
         'moves', () {
-      final moved = hostedBenefitsIn(_tableWith({AppFeature.widgets: _pro}));
+      final moved = hostedBenefitsIn(_tableWith({AppFeature.appIcons: _pro}));
       expect(moved.map((b) => b.id), [
         HostedBenefitId.topics,
         HostedBenefitId.pushes,
         HostedBenefitId.history,
-        HostedBenefitId.appIcons,
       ]);
+    });
+
+    test('widgets are not a Hosted benefit: Hosted does not unlock them', () {
+      expect(featureTable[AppFeature.widgets]!.unlockedBy, {Holding.pro});
+      expect(
+        HostedBenefit.all.map((b) => b.feature),
+        isNot(contains(AppFeature.widgets)),
+      );
     });
 
     test('the push allowance stays whatever the table says', () {
@@ -91,7 +96,7 @@ void main() {
   });
 
   group('the layout lists', () {
-    test('come out as they did before the table built them', () {
+    test('come out as they did before the widgets row moved', () {
       expect(_ids(featureTable, PaywallProduct.hosted), [
         PaywallBenefitId.topics,
         PaywallBenefitId.pushes,
@@ -127,16 +132,31 @@ void main() {
       );
     });
 
-    test('the widgets row moving to Pro changes neither layout list', () {
-      final moved = _tableWith({AppFeature.widgets: _pro});
+    test('widgets are in the Pro list because the table says Pro', () {
       expect(
-        _ids(moved, PaywallProduct.hosted),
-        _ids(featureTable, PaywallProduct.hosted),
-      );
-      expect(
-        _ids(moved, PaywallProduct.pro),
         _ids(featureTable, PaywallProduct.pro),
+        contains(
+          PaywallBenefitId.widgets,
+        ),
       );
+      expect(
+        _ids(featureTable, PaywallProduct.hosted),
+        isNot(
+          contains(
+            PaywallBenefitId.widgets,
+          ),
+        ),
+      );
+    });
+
+    test('a widgets row back on Hosted leaves the Pro list', () {
+      final moved = _tableWith({AppFeature.widgets: _hosted});
+      expect(_ids(moved, PaywallProduct.pro), [
+        PaywallBenefitId.wakeUpChallenges,
+        PaywallBenefitId.reliabilityChecks,
+        PaywallBenefitId.customSounds,
+        PaywallBenefitId.customAlarmScreens,
+      ]);
     });
 
     test('a Pro feature moved to Hosted leaves the Pro list', () {

@@ -2449,6 +2449,8 @@ Future<void> configureDependencies({
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedThanks,
           PaywallProduct.pro => appPaywallLayoutOverride.proThanks,
         },
+        widgetsDecision: () =>
+            getIt<FeatureAccess>().decide(AppFeature.widgets),
         hasSeenFalseAlarm: () =>
             getIt<SharedPreferences>().getBool(
               PaywallDoor.falseAlarmShownKey,

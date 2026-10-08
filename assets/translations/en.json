@@ -33,7 +33,7 @@
     "rings_subtitle": "It keeps ringing until you tap I'm up.",
     "widgets_title": "Keep watch from your home screen",
     "widgets_subtitle": "See what is ringing and answer it without opening the app.",
-    "widgets_pro": "Hosted feature",
+    "widgets_pro": "Pro feature",
     "continue": "Continue",
     "hero_asleep": "The Crit Alarm face, asleep",
     "hero_awake": "The Crit Alarm face, awake",
@@ -481,9 +481,9 @@
     "dismiss_button": "Close card"
   },
   "home_widgets": {
-    "needs_hosted": "Widgets come with Hosted.",
+    "needs_pro": "Widgets come with Pro.",
     "how_button": "Show me how",
-    "plans_button": "See Hosted",
+    "plans_button": "See Pro",
     "dismiss_button": "Not now",
     "sheet_title": "Add a widget",
     "ios": {
@@ -1399,14 +1399,6 @@
       "compare_hosted": "{hosted_history_days} days",
       "lose": "History: {free_history_days} days",
       "phrase": "{hosted_history_days} days of history"
-    },
-    "widgets": {
-      "short": "Home screen widgets: see what is ringing without opening the app.",
-      "compare_label": "Home screen widgets",
-      "compare_free": "Locked",
-      "compare_hosted": "Included",
-      "lose": "Home screen widgets: stop showing alarms",
-      "phrase": "home screen widgets"
     },
     "app_icons": {
       "short": "Three Hosted app icons: a crown, shades, or both.",

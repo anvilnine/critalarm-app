@@ -13,6 +13,7 @@ enum ProPackSheetSource {
   history('history'),
   historyOlder('history_older'),
   homeWidgets('home_widgets'),
+  widgetLocked('widget_locked'),
   appIcon('app_icon'),
   personalizeSound('personalize_sound'),
   personalizeWidgets('personalize_widgets'),

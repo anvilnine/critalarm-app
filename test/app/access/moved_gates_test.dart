@@ -99,23 +99,30 @@ void main() {
     bool isLocked(TestAccess access) =>
         !access.features.can(AppFeature.widgets);
 
-    test('is on without Hosted on Crit Alarm Cloud', () {
-      expect(isLocked(access()), isTrue);
-      expect(isLocked(access(held: {Holding.pro})), isTrue);
+    test('is on without Pro, on Crit Alarm Cloud and on an own server', () {
+      for (final mode in ServerMode.values) {
+        expect(isLocked(access(serverMode: mode)), isTrue, reason: '$mode');
+        expect(
+          isLocked(access(held: {Holding.hosted}, serverMode: mode)),
+          isTrue,
+          reason: 'Hosted does not unlock widgets, $mode',
+        );
+      }
     });
 
-    test('is off with Hosted and on a server of the user own', () {
-      expect(isLocked(access(held: {Holding.hosted})), isFalse);
-      expect(isLocked(access(serverMode: ServerMode.selfhosted)), isFalse);
+    test('is off with Pro, on Crit Alarm Cloud and on an own server', () {
+      for (final mode in ServerMode.values) {
+        expect(
+          isLocked(access(held: {Holding.pro}, serverMode: mode)),
+          isFalse,
+          reason: '$mode',
+        );
+      }
     });
 
     test('with the server unknown it follows what is held', () {
-      // Before, the lock was off here whatever was held.
       expect(isLocked(access(serverMode: null)), isTrue);
-      expect(
-        isLocked(access(held: {Holding.hosted}, serverMode: null)),
-        isFalse,
-      );
+      expect(isLocked(access(held: {Holding.pro}, serverMode: null)), isFalse);
     });
   });
 
@@ -125,22 +132,29 @@ void main() {
       isOwnServer: access.features.isOwnServer,
     );
 
-    test('needs a plan on Crit Alarm Cloud without one', () {
-      expect(planFor(access()), HomeWidgetsPlan.needsHosted);
+    test('needs Pro on Crit Alarm Cloud without it, even with Hosted', () {
+      expect(planFor(access()), HomeWidgetsPlan.needsPro);
+      expect(
+        planFor(access(held: {Holding.hosted})),
+        HomeWidgetsPlan.needsPro,
+      );
     });
 
-    test('is on the plan when the plan is held', () {
-      expect(planFor(access(held: {Holding.hosted})), HomeWidgetsPlan.hosted);
-    });
-
-    test("says there are no plans on a server of the user's own", () {
+    test('needs Pro on a server of the user own without it', () {
       expect(
         planFor(access(serverMode: ServerMode.selfhosted)),
-        HomeWidgetsPlan.selfHosted,
+        HomeWidgetsPlan.needsPro,
       );
+    });
+
+    test('is on the plan when Pro is held', () {
+      expect(planFor(access(held: {Holding.pro})), HomeWidgetsPlan.pro);
+    });
+
+    test('is open on a server of the user own with Pro', () {
       expect(
         planFor(
-          access(held: {Holding.hosted}, serverMode: ServerMode.selfhosted),
+          access(held: {Holding.pro}, serverMode: ServerMode.selfhosted),
         ),
         HomeWidgetsPlan.selfHosted,
       );
@@ -152,7 +166,7 @@ void main() {
           const FeatureDecision.locked(Holding.pro),
           isOwnServer: true,
         ),
-        HomeWidgetsPlan.needsHosted,
+        HomeWidgetsPlan.needsPro,
       );
     });
   });
