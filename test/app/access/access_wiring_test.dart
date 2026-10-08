@@ -32,7 +32,7 @@ void main() {
     await configureDependencies(useMockApi: true);
   });
 
-  tearDown(() => getIt.reset());
+  tearDown(getIt.reset);
 
   test('the managers and their sources build and answer', () async {
     final holdings = getIt<Holdings>();
