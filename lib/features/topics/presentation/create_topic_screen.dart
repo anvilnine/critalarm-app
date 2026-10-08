@@ -44,7 +44,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
-  const CreateTopicScreen({this.onDone, this.isReplay = false, super.key});
+  const CreateTopicScreen({
+    this.onDone,
+    this.isReplay = false,
+    this.initialTool,
+    super.key,
+  });
+
+  /// The tool chip that starts picked, from `?tool=<id>` on the route. Null
+  /// when none is asked for or the id is not one this build knows.
+  final ToolTemplate? initialTool;
 
   /// Called in place of every exit, whether the topic was created or the
   /// screen was closed. Setup passes it to move on to its next step. Null
@@ -65,6 +74,8 @@ class CreateTopicScreen extends StatelessWidget {
           // Setup asks for the topic and nothing else: no token-name step.
           ..isOneStep = onDone != null;
         unawaited(cubit.loadConnection());
+        final tool = initialTool;
+        if (tool != null) cubit.toolTemplateTapped(tool);
         // The shared topic list is already in memory, so a name that is taken
         // can be caught on step 1 instead of by the server after step 2. The
         // first-topic card waits on the list being ready.

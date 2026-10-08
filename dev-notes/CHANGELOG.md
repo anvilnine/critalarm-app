@@ -82,6 +82,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Design system: AppHeroScene, AppStatusCard (full and strip), AppReadinessPips, AppInboxSheet and AppInboxRow, AppCreamCard, AppStatCard and the HeroDisc painter, each with a gallery section, a reduce motion switch and tool/capture\_topics\_components.dart.
 - AppDurations.ambient (9 s) for the slowest loop, and GlyphType.moon.
 - HomeCardCubit, HomeFacts and a missed alarm feed give Home the data for its status card. The feed reads the missed alarm record without the notice slot, and closing an entry from either place closes it in both.
+- home\_list\_rules.dart holds the cream card order, the one-topic card rule (prefs key home\_one\_topic\_card\_closed) and nextGlanceCount, which decides when the face glances at the list. /topics/new takes an optional tool=<ToolTemplate id> query that preselects the chip. tool/capture\_topics\_screen.dart captures the real Topics screen against the mock server.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -134,6 +135,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The animation clock moved to lib/design\_system/screen\_clock.dart and now stops while the app is not resumed. The paywall's paywall\_clock.dart re-exports it.
 - Home orders its topic rows with the inbox rule: rows that need you, pinned, unread, the rest, then muted. HomeTopicItem gains lastMessageAt and rowKind, and HomeState gains facts.
 - The Reliability screen and the Home card pick the first check to name and fix with one rule in reliability/domain/attention\_order.dart. The handled window lives in home\_card/handled\_window.dart.
+- Home draws AppHeroScene with an AppStatusCard built from HomeCardState.model, then one AppInboxSheet of AppInboxRow. The notice slot, the setup pill, the delivery and priority chips and AppStage are no longer drawn there, and their code stays for a later cleanup. Strings are in the home\_card object of en.json.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
