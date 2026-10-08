@@ -1,8 +1,11 @@
+import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -25,8 +28,14 @@ class _Install {
   int marks = 0;
   bool falseAlarmIsBuilt = true;
   bool remoteThrows = false;
+  FeatureDecision widgets = const FeatureDecision.locked(Holding.pro);
+  bool widgetsThrow = false;
 
   late final door = PaywallDoor(
+    widgetsDecision: () {
+      if (widgetsThrow) throw StateError('no access layer');
+      return widgets;
+    },
     remoteValue: (product) {
       if (remoteThrows) throw StateError('no remote config');
       return product == PaywallProduct.hosted ? hosted : pro;
@@ -61,6 +70,8 @@ void main() {
           install.door.hostedLocation(source),
           '/paywall?source=${source.wire}',
         );
+        // A locked widget tap is the one link the door sends elsewhere.
+        if (source == PaywallSource.widgetLocked) continue;
         expect(
           install.door.resolve(paywallLocation(source)),
           paywallLocation(source),
@@ -143,6 +154,65 @@ void main() {
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
         isNull,
+      );
+    });
+  });
+
+  group('a tap on a locked widget', () {
+    final tap = paywallLocation(PaywallSource.widgetLocked);
+
+    test('opens the Pro paywall, because widgets are Pro', () {
+      final install = _Install();
+      expect(install.door.resolve(tap), '/pro?source=widget_locked');
+    });
+
+    test('the whole route from the native tap ends at the Pro paywall', () {
+      final install = _Install();
+      // iOS and the Android notification route say open=paywall. The
+      // Android widget tap route is a bare /paywall and gets tagged.
+      final fromData = PushDeepLink.fromNotificationData({'open': 'paywall'});
+      expect(install.door.resolve(fromData!), '/pro?source=widget_locked');
+      expect(
+        install.door.resolve(PushDeepLink.tagged('/paywall')),
+        '/pro?source=widget_locked',
+      );
+    });
+
+    test('opens the Pro layout when Pro is set to open one', () {
+      final install = _Install()..pro = 'auto';
+      expect(
+        install.door.resolve(tap),
+        '/plans/sheet?product=pro&source=widget_locked',
+      );
+    });
+
+    test('opens the Hosted paywall only if the decision offers Hosted', () {
+      final install = _Install()
+        ..widgets = const FeatureDecision.locked(Holding.hosted);
+      expect(install.door.resolve(tap), tap);
+    });
+
+    test('sells nothing once widgets are open, confirming or unread', () {
+      for (final decision in const [
+        FeatureDecision.open(),
+        FeatureDecision.confirming(Holding.pro),
+        FeatureDecision.unread(Holding.pro),
+      ]) {
+        final install = _Install()..widgets = decision;
+        expect(install.door.resolve(tap), '/', reason: '$decision');
+      }
+    });
+
+    test('sells nothing when the decision cannot be asked', () {
+      final install = _Install()..widgetsThrow = true;
+      expect(install.door.resolve(tap), '/');
+    });
+
+    test('every other paywall link is left to the Hosted logic', () {
+      final install = _Install();
+      expect(
+        install.door.resolve('/paywall?source=history'),
+        '/paywall?source=history',
       );
     });
   });
