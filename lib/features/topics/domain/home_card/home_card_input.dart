@@ -2,16 +2,12 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
-import 'package:critalarm/features/topics/domain/home_face_rule.dart'
-    show handledFaceWindow;
+import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:flutter/foundation.dart';
 
 /// How long the list can go without a message before the card says so.
 const Duration quietAfter = Duration(days: 7);
-
-/// How long the card says "answered in" after a close.
-const Duration handledCardWindow = handledFaceWindow;
 
 /// The desk timer length used when the topic is not known.
 const int defaultDeskTimerS = 600;
