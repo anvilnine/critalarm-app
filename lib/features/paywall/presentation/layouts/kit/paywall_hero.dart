@@ -4,6 +4,7 @@
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_atmosphere.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_composition.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_entrance.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_faces.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';

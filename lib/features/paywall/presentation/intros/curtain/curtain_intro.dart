@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -22,25 +21,16 @@ const PaywallIntro curtainIntro = PaywallIntro(
   tone: PaywallTone.cobalt,
   cue: PaywallEntranceCue.none,
   beats: [
-    PaywallIntroBeat(CurtainTimeline.peek, _onPeek),
-    PaywallIntroBeat(CurtainTimeline.spot, _onSpot),
-    PaywallIntroBeat(CurtainTimeline.reveal, _onReveal),
+    // The halves part and the mascot looks out.
+    PaywallIntroBeat(CurtainTimeline.peek, PaywallCue.introSwish),
+    // The mascot sees you.
+    PaywallIntroBeat(CurtainTimeline.spot, PaywallCue.pop),
+    // The curtain is thrown open.
+    PaywallIntroBeat(CurtainTimeline.reveal, PaywallCue.introSwish),
   ],
   tag: _tag,
   builder: _build,
 );
-
-/// The halves part and the mascot looks out.
-void _onPeek(PaywallCues cues) => cues.tick();
-
-/// The mascot sees you.
-void _onSpot(PaywallCues cues) {
-  cues.gag();
-  AppHaptics.selection();
-}
-
-/// The curtain is thrown open.
-void _onReveal(PaywallCues cues) => cues.open();
 
 String _tag() => LocaleKeys.paywall_intro_curtain_tag.tr();
 

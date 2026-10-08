@@ -14,8 +14,9 @@ enum PaywallCue {
   /// The paywall came on screen.
   open(sound: 'ui_open', haptic: HapticPattern.light),
 
-  /// An entrance that plays a joke before the pitch.
-  gag(sound: 'ui_gag', haptic: HapticPattern.tick),
+  /// An entrance that plays a joke before the pitch. Sound only: it plays
+  /// over a silent picture of a ringing screen, and nothing vibrates then.
+  gag(sound: 'ui_gag'),
 
   /// An entrance that prints, such as a till receipt.
   print(sound: 'ui_print', haptic: HapticPattern.tick),
@@ -179,8 +180,10 @@ abstract class PaywallCues {
   void close() => play(PaywallCue.close);
 }
 
-/// Which cue the frame plays when a layout appears.
-enum PaywallEntranceCue { open, gag, print, none }
+/// Which cue the frame plays when a layout appears. [rise] is for a layout
+/// that comes up as a sheet. [none] is for one whose entrance is marked
+/// moment by moment from its own timeline.
+enum PaywallEntranceCue { open, gag, print, rise, none }
 
 /// Plays nothing. For the web and any platform with no player.
 final class SilentPaywallCues extends PaywallCues {

@@ -28,6 +28,10 @@ abstract final class FalseAlarmTimeline {
   /// Nothing of the joke is drawn from here on.
   static const double end = 1.75;
 
+  /// The gag cue, which starts with the joke, has sounded out by here. The
+  /// layout under it plays no cue of its own entrance before then.
+  static const double gagEnds = 2.3;
+
   /// The widest the mascot leans in a ring, in radians: five degrees.
   static const double shakeReach = 5 * math.pi / 180;
 

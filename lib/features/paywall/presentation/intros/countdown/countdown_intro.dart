@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/countdown/countdown_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -24,26 +23,17 @@ const PaywallIntro countdownIntro = PaywallIntro(
   skipTo: CountdownTimeline.reveal,
   cue: PaywallEntranceCue.none,
   beats: [
-    PaywallIntroBeat(0, _onCount),
-    PaywallIntroBeat(CountdownTimeline.two, _onCount),
-    PaywallIntroBeat(CountdownTimeline.squash, _onSquash),
-    PaywallIntroBeat(CountdownTimeline.reveal, _onReveal),
+    // A number comes up, twice.
+    PaywallIntroBeat(0, PaywallCue.tick),
+    PaywallIntroBeat(CountdownTimeline.two, PaywallCue.tick),
+    // The mascot lands on the one.
+    PaywallIntroBeat(CountdownTimeline.squash, PaywallCue.drop),
+    // The hand sweeps the screen away.
+    PaywallIntroBeat(CountdownTimeline.reveal, PaywallCue.kidding),
   ],
   tag: _tag,
   builder: _build,
 );
-
-/// A number comes up.
-void _onCount(PaywallCues cues) => cues.tick();
-
-/// The mascot lands on the one.
-void _onSquash(PaywallCues cues) {
-  cues.gag();
-  AppHaptics.capture();
-}
-
-/// The hand sweeps the screen away.
-void _onReveal(PaywallCues cues) => cues.open();
 
 String _tag() => LocaleKeys.paywall_intro_countdown_line.tr();
 

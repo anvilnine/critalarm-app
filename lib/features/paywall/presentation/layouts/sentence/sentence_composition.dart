@@ -4,7 +4,6 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/sentence/sentence_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sentence/sentence_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -47,7 +46,8 @@ class _SentenceCompositionState extends State<SentenceComposition> {
 
   HeroPlayer get _playing => _player ??= HeroPlayer(
     clock: scope.clock,
-    onChange: sentenceRollCue,
+    // The hand rolls the ending.
+    onChange: () => playPaywallCue(PaywallCue.roll),
   )..addListener(_onPlayer);
 
   @override
@@ -121,12 +121,13 @@ class _SentenceCompositionState extends State<SentenceComposition> {
         for (final b in benefits) b.previewId,
       ], prelude: prelude);
 
-    return SentenceMoment(
+    return PaywallCueScore(
       clock: scope.clock,
-      // After an intro this is before the clock starts: the hand over has
-      // its own cue.
-      at: prelude + sentenceFirstRollStart,
-      onReached: sentenceRollCue,
+      beats: sentenceCues(prelude: prelude),
+      player: player,
+      // Every change of the ending rolls, the loop's own through its
+      // first pass.
+      turnCue: PaywallCue.roll,
       child: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
         child: Column(

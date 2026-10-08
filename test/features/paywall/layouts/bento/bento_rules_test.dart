@@ -1,6 +1,8 @@
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento/bento_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -265,21 +267,39 @@ void main() {
       );
       expect(touch.dy, closeTo(0, 0.5));
       expect(
-        bentoReached(
-          bentoStageThudAt - 0.016,
+        bentoCues(small: 0).single,
+        const PaywallCueBeat(
           bentoStageThudAt,
-          bentoStageThudAt,
+          PaywallCue.drop,
         ),
-        isTrue,
       );
-      expect(
-        bentoReached(
-          bentoStageThudAt,
-          bentoStageThudAt + 0.016,
-          bentoStageThudAt,
-        ),
-        isFalse,
-      );
+    });
+
+    test('each small tile touches the board when its check plays', () {
+      for (var i = 0; i < 4; i++) {
+        final touch = bentoDropAt(
+          bentoSmallLandAt(bentoSmallThudAt(i), i),
+          from: bentoSmallDropFrom,
+        );
+        expect(touch.dy, closeTo(0, 0.5), reason: 'tile $i');
+      }
+    });
+
+    test('the checks come in order and the landing is heard last', () {
+      for (final small in [1, 3, 5, 8]) {
+        final cues = bentoCues(small: small);
+        expect(cues.last.cue, PaywallCue.drop);
+        final checks = cues.sublist(0, cues.length - 1);
+        expect(checks.length, lessThanOrEqualTo(small));
+        expect(checks, isNotEmpty);
+        for (final (i, beat) in checks.indexed) {
+          expect(beat.cue, PaywallCue.check);
+          expect(beat.at, bentoSmallThudAt(i));
+          expect(beat.at, lessThan(bentoStageThudAt));
+        }
+      }
+      final lead = bentoLeadFor(followsIntro: true);
+      expect(bentoCues(small: 3, lead: lead).last.at, bentoStageThudAt - lead);
     });
 
     test('after an intro the small tiles are already down', () {

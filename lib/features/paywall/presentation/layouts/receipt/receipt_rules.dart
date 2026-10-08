@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 // The receipt as numbers: when each part of the print happens, and where
 // the slot, the paper, the mascot and the card stand on the stage. No
@@ -121,9 +123,19 @@ abstract final class ReceiptTimeline {
   static double peek(double t) =>
       AppCurves.easeBack.transform(phase(t, peekStart, restAt - 0.05));
 
+  /// The second part [step] of a slip of [count] lines starts to print,
+  /// which is as it leaves the slot. Part 0 is the header, parts 1 to
+  /// [count] are the lines, and the total is the part after them.
+  static double printsAt(int step, int count) =>
+      feedStart + (step + 0.2) / (count + 3) * (feedEnd - feedStart);
+
   /// The second the total of a slip of [count] lines starts to print.
-  static double totalAt(int count) =>
-      feedStart + (count + 1.2) / (count + 3) * (feedEnd - feedStart);
+  static double totalAt(int count) => printsAt(count + 1, count);
+
+  /// The second the first preview is heard coming out from behind the
+  /// paper. It starts out at [peekStart], while the stamp is still
+  /// sounding, so its own cue waits until the stamp's is over.
+  static const double peekCueAt = stampAt + 0.35;
 
   /// How high the mascot's nod is at most, against the hop of a reaction.
   static const double nodHeight = 0.3;
@@ -200,6 +212,18 @@ abstract final class ReceiptTimeline {
     );
   }
 }
+
+/// What the print sounds like, by clock second, for a slip of [count]
+/// lines: one small line cue as each line and then the total leaves the
+/// slot, the stamp as it comes down, and a rise as the first preview comes
+/// out. The frame plays no entrance cue under these: one long printing
+/// sound would talk over them.
+List<PaywallCueBeat> receiptCues(int count) => [
+  for (var step = 1; step <= count + 1; step++)
+    PaywallCueBeat(ReceiptTimeline.printsAt(step, count), PaywallCue.line),
+  const PaywallCueBeat(ReceiptTimeline.stampAt, PaywallCue.stamp),
+  const PaywallCueBeat(ReceiptTimeline.peekCueAt, PaywallCue.rise),
+];
 
 /// How the receipt's stage moves, where it is not the print itself. The
 /// mascot is dropped beside the slot, as the paper drops out of it, and
