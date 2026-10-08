@@ -2091,7 +2091,13 @@
       "stamp": "Stamp",
       "limits": "Limits lifted",
       "key": "Key",
-      "lights": "Lights on"
+      "party": "Receipt party"
     }
+  },
+  "paywall_thanks_limits": {
+    "topics_cap": "{count} of {count}",
+    "pushes_label": "High priority pushes",
+    "a_day": "{count} a day",
+    "icons_cap": "Default only"
   }
 }

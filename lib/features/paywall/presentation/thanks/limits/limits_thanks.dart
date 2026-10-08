@@ -11,6 +11,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_than
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/limits/limits_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -41,74 +42,48 @@ List<PaywallThanksBeat> limitsBeats(int lines) => [
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     LimitsThanks(scope: scope);
 
-/// One limit as a row shows it. Every word and number is the app's own:
-/// the compare table's label and cells for the benefit, and the plan
-/// numbers they are written from.
-@immutable
-class LimitsRow {
-  const LimitsRow({
-    required this.label,
-    required this.free,
-    required this.now,
-    this.freeCount,
-    this.nowCount,
-  });
-
-  final String label;
-
-  /// What the free plan stops at, and what the product gives.
-  final String free;
-  final String now;
-
-  /// The two as numbers, where the limit is one on both plans.
-  final int? freeCount;
-  final int? nowCount;
-
-  /// What the value reads [run] of the way through its lift, at [count].
-  /// A row with both numbers rolls from one to the other. Any other row
-  /// reads the free value and then the product's.
-  String valueAt(double run, int count) {
-    if (run <= 0) return free;
-    final to = nowCount;
-    if (run >= 1 || to == null || freeCount == null) return now;
-    return limitsRolling(now, to: to, count: count) ?? now;
-  }
-}
-
-/// The Hosted benefit behind [benefit], where the plan numbers are kept,
-/// or null for a benefit that is not a Hosted limit.
-HostedBenefit? limitsHostedFor(PaywallBenefit benefit) {
-  final id = switch (benefit.id) {
-    PaywallBenefitId.topics => HostedBenefitId.topics,
-    PaywallBenefitId.pushes => HostedBenefitId.pushes,
-    PaywallBenefitId.history => HostedBenefitId.history,
-    PaywallBenefitId.appIcons => HostedBenefitId.appIcons,
-    _ => null,
-  };
-  for (final hosted in HostedBenefit.all) {
-    if (hosted.id == id) return hosted;
-  }
-  return null;
-}
-
-/// The rows for [benefits], or null when one of them has no limit to
-/// show. Then the version draws cards.
-List<LimitsRow>? limitsRowsFor(List<PaywallBenefit> benefits) {
-  final rows = <LimitsRow>[];
-  for (final benefit in benefits) {
-    final hosted = limitsHostedFor(benefit);
-    if (hosted == null) return null;
-    rows.add(
-      LimitsRow(
-        label: hosted.compareLabelKey.tr(namedArgs: HostedBenefit.args),
-        free: hosted.compareFreeKey.tr(namedArgs: HostedBenefit.args),
-        now: hosted.compareHostedKey.tr(namedArgs: HostedBenefit.args),
-        freeCount: hosted.freeValue,
-        nowCount: hosted.hostedValue,
-      ),
-    );
-  }
-  return rows.isEmpty ? null : rows;
+/// The rows for [benefits] with each free value written as the limit it
+/// is: a count that is full, an allowance a day, a number of days. Null
+/// when one of them has no limit to show. Then the version draws cards.
+///
+/// The numbers are the ones [limitsRowsFor] reads. Only the words around
+/// them are this version's.
+List<LimitsRow>? limitsCapRowsFor(List<PaywallBenefit> benefits) {
+  final rows = limitsRowsFor(benefits);
+  if (rows == null) return null;
+  String aDay(int count) => LocaleKeys.paywall_thanks_limits_a_day.tr(
+    namedArgs: {'count': limitsCountText(count)},
+  );
+  return [
+    for (final (i, row) in rows.indexed)
+      switch (limitsHostedFor(benefits[i])?.id) {
+        // A count of things: the free plan's are all in use.
+        HostedBenefitId.topics when row.freeCount != null => LimitsRow(
+          label: row.label,
+          free: LocaleKeys.paywall_thanks_limits_topics_cap.tr(
+            namedArgs: {'count': limitsCountText(row.freeCount!)},
+          ),
+          now: row.now,
+          freeCount: row.freeCount,
+          nowCount: row.nowCount,
+        ),
+        // An allowance: so many a day, on both plans.
+        HostedBenefitId.pushes when row.rolls => LimitsRow(
+          label: LocaleKeys.paywall_thanks_limits_pushes_label.tr(),
+          free: aDay(row.freeCount!),
+          now: aDay(row.nowCount!),
+          freeCount: row.freeCount,
+          nowCount: row.nowCount,
+        ),
+        HostedBenefitId.appIcons => LimitsRow(
+          label: row.label,
+          free: LocaleKeys.paywall_thanks_limits_icons_cap.tr(),
+          now: row.now,
+        ),
+        // A window of days already reads as one.
+        _ => row,
+      },
+  ];
 }
 
 /// Draws the limits version for the second its scope's clock reads.
@@ -122,7 +97,7 @@ class LimitsThanks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = PaywallToneColors.of(context, _tone);
-    final rows = limitsRowsFor(scope.benefits);
+    final rows = limitsCapRowsFor(scope.benefits);
     final count = scope.benefits.length;
     final plan = LimitsPlan.of(
       size: scope.size,
@@ -221,6 +196,7 @@ class LimitsThanks extends StatelessWidget {
                             lifted: LimitsTimeline.lifted(t, i, count),
                             broken: LimitsTimeline.broken(t, i, count),
                             filled: LimitsTimeline.filled(t, i, count),
+                            eased: LimitsTimeline.eased(t, i, count),
                             count: LimitsTimeline.count(
                               t,
                               i,
@@ -268,6 +244,7 @@ class _Limit extends StatelessWidget {
     required this.lifted,
     required this.broken,
     required this.filled,
+    required this.eased,
     required this.count,
   });
 
@@ -277,6 +254,9 @@ class _Limit extends StatelessWidget {
   final double lifted;
   final double broken;
   final double filled;
+
+  /// 0 to 1: how far the bar has let go, once it has run to its end.
+  final double eased;
   final int count;
 
   @override
@@ -335,8 +315,13 @@ class _Limit extends StatelessWidget {
               painter: _BarPainter(
                 filled: filled,
                 broken: broken,
-                track: tone.ink.withValues(alpha: 0.14),
-                fill: tone.ink,
+                // A bar at its cap is heavy. Lifted, it is a light line:
+                // the number beside it is what reads.
+                weight: 1 - (1 - LimitsTimeline.restThick) * eased,
+                track: tone.ink.withValues(alpha: 0.14 * (1 - eased)),
+                fill: tone.ink.withValues(
+                  alpha: 1 - (1 - LimitsTimeline.restInk) * eased,
+                ),
                 stop: colors.crit,
               ),
             ),
@@ -353,6 +338,7 @@ class _BarPainter extends CustomPainter {
   const _BarPainter({
     required this.filled,
     required this.broken,
+    required this.weight,
     required this.track,
     required this.fill,
     required this.stop,
@@ -360,6 +346,9 @@ class _BarPainter extends CustomPainter {
 
   final double filled;
   final double broken;
+
+  /// The bar's height against the box's.
+  final double weight;
   final Color track;
   final Color fill;
   final Color stop;
@@ -367,15 +356,20 @@ class _BarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final h = size.height;
-    final radius = Radius.circular(h / 2);
+    final bar = h * weight;
+    final top = (h - bar) / 2;
+    final radius = Radius.circular(bar / 2);
     canvas
       ..drawRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, radius),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, top, size.width, bar),
+          radius,
+        ),
         Paint()..color = track,
       )
       ..drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(0, 0, size.width * filled, h),
+          Rect.fromLTWH(0, top, size.width * filled, bar),
           radius,
         ),
         Paint()..color = fill,
@@ -411,6 +405,7 @@ class _BarPainter extends CustomPainter {
   bool shouldRepaint(_BarPainter old) =>
       filled != old.filled ||
       broken != old.broken ||
+      weight != old.weight ||
       fill != old.fill ||
       track != old.track;
 }

@@ -393,9 +393,6 @@ class $AssetsTranslationsGen {
 class $AssetsUiSoundsGen {
   const $AssetsUiSoundsGen();
 
-  /// File path: assets/ui_sounds/ui_bulb.m4a
-  String get uiBulb => 'assets/ui_sounds/ui_bulb.m4a';
-
   /// File path: assets/ui_sounds/ui_buy.m4a
   String get uiBuy => 'assets/ui_sounds/ui_buy.m4a';
 
@@ -404,9 +401,6 @@ class $AssetsUiSoundsGen {
 
   /// File path: assets/ui_sounds/ui_close.m4a
   String get uiClose => 'assets/ui_sounds/ui_close.m4a';
-
-  /// File path: assets/ui_sounds/ui_cord.m4a
-  String get uiCord => 'assets/ui_sounds/ui_cord.m4a';
 
   /// File path: assets/ui_sounds/ui_drop.m4a
   String get uiDrop => 'assets/ui_sounds/ui_drop.m4a';
@@ -543,11 +537,9 @@ class $AssetsUiSoundsGen {
 
   /// List of all assets
   List<String> get values => [
-    uiBulb,
     uiBuy,
     uiCheck,
     uiClose,
-    uiCord,
     uiDrop,
     uiError,
     uiFlip,

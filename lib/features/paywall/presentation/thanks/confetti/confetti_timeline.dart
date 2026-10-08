@@ -15,13 +15,7 @@ import 'package:flutter/animation.dart';
 // long tail that is over by 2.2.
 
 /// One piece of confetti at one moment.
-typedef ConfettiPiece = ({
-  Offset at,
-  double angle,
-  double alpha,
-  int shape,
-  int ink,
-});
+typedef ConfettiPiece = ThanksConfettiPiece;
 
 /// The show's timeline. Every value is a pure function of the seconds
 /// since the purchase was confirmed.
@@ -60,7 +54,7 @@ abstract final class ConfettiTimeline {
   static const double end = 2.4;
 
   /// How many pieces fly.
-  static const int pieces = 42;
+  static const int pieces = ThanksConfetti.pieces;
 
   /// The seconds between two checks with [lines] lines: at most a quarter
   /// second, and all of them inside the cue's tail.
@@ -183,73 +177,27 @@ abstract final class ConfettiTimeline {
     return phase(t, at, at + 0.22);
   }
 
-  /// A number from 0 up to 1 that is always the same for one piece and one
-  /// `salt`.
-  static double _roll(int index, int salt) {
-    final x = math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
-    return x - x.floorToDouble();
-  }
-
   /// Whether piece [index] ends lying on the floor. The others fade on
   /// the way down, so the floor is strewn, not buried.
-  static bool settles(int index) => index % 5 < 2;
+  static bool settles(int index) => ThanksConfetti.settles(index);
 
   /// How deep the strip of floor the pieces come to lie on is, in points.
-  static const double floorDepth = 18;
+  static const double floorDepth = ThanksConfetti.floorDepth;
 
   /// Piece [index] at [t], thrown from [origin] over a screen [size] with
   /// the floor at [floor] points down. Null while it is not thrown yet and
   /// once it has faded.
-  ///
-  /// A piece flies up and out to its own high point, then flutters down.
-  /// One that settles lands on the floor and lies flat. At rest every
-  /// piece left is flat on the floor.
   static ConfettiPiece? piece(
     int index,
     double t, {
     required Offset origin,
     required Size size,
     required double floor,
-  }) {
-    final since = t - burst - _roll(index, 1) * 0.07;
-    if (since <= 0) return null;
-    final top = math.max(0, floor - size.width * 0.9).toDouble();
-    final high = Offset(
-      size.width * (0.05 + 0.9 * _roll(index, 2)),
-      top + (floor - top) * 0.62 * _roll(index, 3),
-    );
-    const turn = 0.46;
-    final up = Curves.easeOutCubic.transform(phase(since, 0, turn + 0.1));
-    final falling = math.max(0, since - turn).toDouble();
-    final speed = 150 + 190 * _roll(index, 4);
-    // Each lies at its own depth, so they read as on a floor, not a line.
-    final room = floor - high.dy + floorDepth * _roll(index, 8);
-    // Solved for the moment it reaches the floor.
-    final landsAfter =
-        (-speed + math.sqrt(speed * speed + 4 * 70 * room)) / (2 * 70);
-    final fallen = math.min(falling, landsAfter);
-    final drop = speed * fallen + 70 * fallen * fallen;
-    final sway =
-        math.sin(fallen * (3 + 2 * _roll(index, 5)) + _roll(index, 6) * 6.28) *
-        12 *
-        (1 - phase(falling, landsAfter - 0.2, landsAfter));
-    final at = Offset.lerp(origin, high, up)! + Offset(sway, drop);
-    final spin = (_roll(index, 7) * 2 - 1) * 9;
-    final spun = spin * math.min(since, turn + landsAfter);
-    // It lies flat: the nearest half turn.
-    final flat = (spun / math.pi).roundToDouble() * math.pi;
-    final lies = phase(falling, landsAfter - 0.16, landsAfter);
-    final angle = spun + (flat - spun) * lies;
-    final alpha = settles(index)
-        ? 1.0
-        : 1 - phase(falling, landsAfter * 0.45, landsAfter * 0.95);
-    if (alpha <= 0) return null;
-    return (
-      at: at,
-      angle: lies >= 1 ? 0 : angle,
-      alpha: alpha,
-      shape: index % 3,
-      ink: index % 4,
-    );
-  }
+  }) => ThanksConfetti.piece(
+    index,
+    t - burst,
+    origin: origin,
+    size: size,
+    floor: floor,
+  );
 }

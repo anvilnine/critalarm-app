@@ -174,7 +174,11 @@ paints every pixel. The buy block does not change to its done state under a vers
 
 `thanks/thanks_parts.dart` has the shared parts: `ThanksStage` (where the mascot stands and the
 words go), `ThanksCrit`, `ThanksDisc`, `ThanksCover`, `ThanksWords` (the headline and one line a
-benefit, each led by a mark you draw), `ThanksCheck`, `thanksIdleFace` and `ThanksQuiet`.
+benefit, each led by a mark you draw), `ThanksCheck`, `thanksIdleFace` and `ThanksQuiet`. It also
+has what more than one version draws: confetti thrown from a point (`ThanksConfetti`,
+`ThanksConfettiPainter`), a slip the mascot holds (`ThanksSlipPlan`, `ThanksPaperPainter`,
+`ThanksDashPainter`, `ThanksStampMark`, `thanksHands`), and the plan's limits as rows
+(`limitsRowsFor`, `LimitsRow`).
 
 What the host does, so a version does not:
 
