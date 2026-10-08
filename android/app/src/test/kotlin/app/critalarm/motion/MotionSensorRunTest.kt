@@ -143,6 +143,40 @@ class MotionSensorRunTest {
     }
 
     @Test
+    fun `an old stop cannot end a newer start`() {
+        // A widget that remounts in one frame: start new, then stop old.
+        val run = run()
+        assertEquals(MotionSensorRun.StartAnswer.STARTED, run.start(1))
+        assertEquals(MotionSensorRun.StartAnswer.STARTED, run.start(2))
+        assertEquals(1, source.starts)
+        run.stopFrom(1)
+        assertTrue(run.isRunning)
+        assertTrue(source.isOn)
+        assertEquals(2, run.owner)
+        run.stopFrom(2)
+        assertFalse(run.isRunning)
+        assertFalse(source.isOn)
+    }
+
+    @Test
+    fun `a start that was refused owns nothing`() {
+        val run = run()
+        run.start(1)
+        run.appLeftFront()
+        assertEquals(MotionSensorRun.StartAnswer.NOT_IN_FRONT, run.start(2))
+        assertNull(run.owner)
+    }
+
+    @Test
+    fun `pausing ends it whoever owns it`() {
+        val run = run()
+        run.start(3)
+        run.appLeftFront()
+        assertFalse(source.isOn)
+        assertNull(run.owner)
+    }
+
+    @Test
     fun `a reading is in g with the signs an iPhone uses, and seconds`() {
         // Flat on a desk, screen up: Android says +9.81 on z.
         val flat = MotionUnits.reading(floatArrayOf(0f, 0f, 9.80665f), 2_500_000_000L)!!

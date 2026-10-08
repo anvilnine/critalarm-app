@@ -308,8 +308,10 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onResume() {
-        super.onResume()
+        // First, so a start Dart sends as the Flutter fragment resumes is
+        // not refused.
         motion?.appCameToFront()
+        super.onResume()
     }
 
     override fun onPause() {

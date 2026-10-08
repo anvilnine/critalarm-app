@@ -32,9 +32,20 @@ final class CoreMotionAccelerometer: AccelerometerSource {
   /// second, so that is ten or more readings for each swing.
   static let interval: TimeInterval = 1.0 / 50.0
 
-  /// Made on first use, so an install that never opens the challenge never
-  /// has one.
-  private lazy var manager = CMMotionManager()
+  /// Made the first time the challenge asks for the sensor, so an install
+  /// that never opens it never has one. `stop` runs at every resign
+  /// active and must not be what makes it.
+  private var manager: CMMotionManager?
+
+  /// Whether a `CMMotionManager` exists yet.
+  var hasManager: Bool { manager != nil }
+
+  private func madeManager() -> CMMotionManager {
+    if let manager { return manager }
+    let made = CMMotionManager()
+    manager = made
+    return made
+  }
 
   private lazy var queue: OperationQueue = {
     let queue = OperationQueue()
@@ -43,9 +54,10 @@ final class CoreMotionAccelerometer: AccelerometerSource {
     return queue
   }()
 
-  var isAvailable: Bool { manager.isAccelerometerAvailable }
+  var isAvailable: Bool { madeManager().isAccelerometerAvailable }
 
   func start(onReading: @escaping (Double, Double, Double, Double) -> Void) {
+    let manager = madeManager()
     manager.accelerometerUpdateInterval = CoreMotionAccelerometer.interval
     manager.startAccelerometerUpdates(to: queue) { data, _ in
       guard let data else { return }
@@ -55,8 +67,9 @@ final class CoreMotionAccelerometer: AccelerometerSource {
     }
   }
 
+  /// Nothing to stop when nothing was ever started.
   func stop() {
-    manager.stopAccelerometerUpdates()
+    manager?.stopAccelerometerUpdates()
   }
 }
 
@@ -67,6 +80,11 @@ final class CoreMotionAccelerometer: AccelerometerSource {
 /// is not active, and it never starts again by itself: Dart asks when it
 /// wants it back. So a mistake on the Dart side cannot leave the sensor on
 /// behind a locked screen.
+///
+/// Each Dart stream has a number, sent with its `start` and its `stop`.
+/// The newest start owns the sensor, and a stop with any other number is
+/// ignored. So when one listener goes as the next arrives (start new, stop
+/// old), the old one's stop cannot turn off what the new one started.
 ///
 /// Everything here is called on the main thread. `deliver` moves a reading
 /// from the sensor's queue to it.
@@ -84,6 +102,9 @@ final class MotionSensorRun {
   private var isInFront: Bool
 
   private(set) var isRunning = false
+
+  /// The number of the stream that last started the sensor.
+  private(set) var owner: Int?
 
   /// Where a reading goes: x, y, z and the time in seconds.
   var onReading: (([Double]) -> Void)?
@@ -125,9 +146,10 @@ final class MotionSensorRun {
     source.stop()
   }
 
-  func start() -> StartAnswer {
+  func start(owner: Int? = nil) -> StartAnswer {
     guard source.isAvailable else { return .noAccelerometer }
     guard isInFront else { return .notInFront }
+    self.owner = owner
     guard !isRunning else { return .started }
     isRunning = true
     source.start { [weak self] x, y, z, seconds in
@@ -144,6 +166,14 @@ final class MotionSensorRun {
   /// nothing depends on this class having kept count.
   func stop() {
     isRunning = false
+    owner = nil
     source.stop()
+  }
+
+  /// A stop from the stream numbered `owner`. It counts only when that
+  /// stream is the one that last started the sensor.
+  func stop(owner: Int?) {
+    guard owner == self.owner else { return }
+    stop()
   }
 }

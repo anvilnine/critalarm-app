@@ -54,6 +54,11 @@ object MotionUnits {
  * back. So a mistake on the Dart side cannot leave the sensor on behind a
  * locked screen.
  *
+ * Each Dart stream has a number, sent with its `start` and its `stop`. The
+ * newest start owns the sensor, and a stop with any other number is
+ * ignored. So when one listener goes as the next arrives (start new, stop
+ * old), the old one's stop cannot turn off what the new one started.
+ *
  * Every call arrives on the main thread, and so do the readings.
  */
 class MotionSensorRun(private val source: AccelerometerSource) {
@@ -65,11 +70,16 @@ class MotionSensorRun(private val source: AccelerometerSource) {
     var isRunning = false
         private set
 
+    /** The number of the stream that last started the sensor. */
+    var owner: Int? = null
+        private set
+
     private var isInFront = false
 
-    fun start(): StartAnswer {
+    fun start(owner: Int? = null): StartAnswer {
         if (!source.isAvailable) return StartAnswer.NO_ACCELEROMETER
         if (!isInFront) return StartAnswer.NOT_IN_FRONT
+        this.owner = owner
         if (isRunning) return StartAnswer.STARTED
         isRunning = true
         val started = source.start { reading ->
@@ -89,7 +99,17 @@ class MotionSensorRun(private val source: AccelerometerSource) {
      */
     fun stop() {
         isRunning = false
+        owner = null
         source.stop()
+    }
+
+    /**
+     * A stop from the stream numbered [from]. It counts only when that
+     * stream is the one that last started the sensor.
+     */
+    fun stopFrom(from: Int?) {
+        if (from != owner) return
+        stop()
     }
 
     /** The activity resumed. The sensor stays off until it is asked for. */

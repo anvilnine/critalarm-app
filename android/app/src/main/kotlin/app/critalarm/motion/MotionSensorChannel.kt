@@ -50,8 +50,11 @@ class DeviceAccelerometer(context: Context) : AccelerometerSource, SensorEventLi
 /**
  * The accelerometer for the shake challenge, on two channels of its own.
  *
- * [NAME] has `start` and `stop`. [READINGS_NAME] carries each reading as a
- * list of x, y, z in g and the time in seconds. [MotionSensorRun] decides
+ * [NAME] has `start` and `stop`, each with `run`, the number of the Dart
+ * stream it belongs to. [READINGS_NAME] carries each reading as a list of
+ * x, y, z in g and the time in seconds, and its listen and cancel carry the
+ * same number. A stop or a cancel from a stream that is not the newest is
+ * ignored. [MotionSensorRun] decides
  * when the sensor runs. The Dart half is `lib/core/motion/motion_sensor.dart`.
  *
  * A `start` on a phone with no accelerometer answers the error
@@ -68,20 +71,24 @@ class MotionSensorChannel(context: Context) : EventChannel.StreamHandler {
     private val run = MotionSensorRun(DeviceAccelerometer(context))
     private var sink: EventChannel.EventSink? = null
 
+    /** The number of the stream the sink belongs to. */
+    private var listener: Int? = null
+
     init {
         run.onReading = { reading -> sink?.success(reading) }
     }
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
+        val owner = call.argument<Int>("run")
         when (call.method) {
-            "start" -> when (run.start()) {
+            "start" -> when (run.start(owner)) {
                 MotionSensorRun.StartAnswer.STARTED -> result.success(true)
                 MotionSensorRun.StartAnswer.NOT_IN_FRONT -> result.success(false)
                 MotionSensorRun.StartAnswer.NO_ACCELEROMETER ->
                     result.error(NO_ACCELEROMETER, "This phone has no accelerometer", null)
             }
             "stop" -> {
-                run.stop()
+                run.stopFrom(owner)
                 result.success(null)
             }
             else -> result.notImplemented()
@@ -90,15 +97,21 @@ class MotionSensorChannel(context: Context) : EventChannel.StreamHandler {
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         sink = events
+        listener = arguments as? Int
     }
 
     /**
-     * Dart stopped listening. That alone turns the sensor off, whether or
-     * not a `stop` follows.
+     * A Dart stream stopped listening. If it is the one that owns the
+     * sensor, that alone turns the sensor off, whether or not a `stop`
+     * follows. An older stream going away changes nothing.
      */
     override fun onCancel(arguments: Any?) {
-        sink = null
-        run.stop()
+        val from = arguments as? Int
+        if (from == listener) {
+            sink = null
+            listener = null
+        }
+        run.stopFrom(from)
     }
 
     /** The activity resumed. */
@@ -110,6 +123,7 @@ class MotionSensorChannel(context: Context) : EventChannel.StreamHandler {
     /** The engine is going away. */
     fun dispose() {
         sink = null
+        listener = null
         run.stop()
     }
 }
