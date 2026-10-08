@@ -1844,11 +1844,6 @@
     "sound_name": "My rooster",
     "screen_wake_up": "Wake up"
   },
-  "paywall_bento": {
-    "brand": "Crit Alarm {name}",
-    "headline_hosted": "Your limits, lifted.",
-    "headline_pro": "More for your alarm."
-  },
   "paywall_proof": {
     "headline_hosted": "Hit the limit. Lift it.",
     "headline_pro": "From default to yours",
@@ -1979,5 +1974,21 @@
     "tag_free": "Free",
     "tag_standard": "Standard",
     "compare_label": "Compare {before} and {name}"
+  },
+  "paywall_bento": {
+    "brand": "Crit Alarm {name}",
+    "headline_hosted": "Your limits, lifted.",
+    "headline_pro": "More for your alarm.",
+    "names": {
+      "topics": "Topics",
+      "pushes": "Pushes",
+      "history": "History",
+      "widgets": "Widgets",
+      "app_icons": "Icons",
+      "wake_up_challenges": "Challenges",
+      "reliability_checks": "Checks",
+      "custom_sounds": "Sounds",
+      "custom_alarm_screens": "Screens"
+    }
   }
 }
