@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
 import 'package:critalarm/design_system/haptics.dart';
 
@@ -15,12 +16,6 @@ enum PaywallCue {
   /// tine, level, left hanging. It must never sound like a reward, which
   /// is [bought]'s alone.
   open(sound: 'ui_open', haptic: HapticPattern.light),
-
-  /// An entrance that plays a joke before the pitch, and lands it on the
-  /// same three knocks as [introWink]. Sound only: it plays over a silent
-  /// picture of a ringing screen, and nothing vibrates then. The app's
-  /// three note call is not in it: that is [bought]'s alone.
-  gag(sound: 'ui_gag'),
 
   /// An entrance that prints, such as a till receipt.
   print(sound: 'ui_print', haptic: HapticPattern.tick),
@@ -126,38 +121,41 @@ enum PaywallCue {
   /// An intro sting: two knocks on glass.
   introKnock(sound: 'ui_intro_knock', haptic: HapticPattern.doubleKnock),
 
-  /// An intro sting: a curtain pulled across.
-  introSwish(sound: 'ui_intro_swish'),
+  // The scores: one short piece of music for each intro, started on its
+  // first frame and timed to it. Three parts: a set up, the turn where the
+  // joke lands and the music stops dead, and the arrival as the paywall
+  // shows. Sound only: an intro's beats carry the haptics. Each comes in
+  // every [IntroSoundFlavour]. None is an alarm sound: the set up is a soft
+  // musical figure. None has the call that [bought] ends on.
 
-  /// An intro sting: something hops out of the way and lands. A spring up
-  /// and three bounces on one note.
-  introBounce(sound: 'ui_intro_bounce', haptic: HapticPattern.tripleFade),
+  /// The score of the false alarm: a soft ringing figure, cut dead.
+  scoreFalseAlarm(sound: 'ui_score_false_alarm', hasFlavours: true),
 
-  // The punchlines: what an intro's joke lands on as it gives way to the
-  // paywall. One for each intro, so no two jokes land the same way. None
-  // of them falls, because a fall is what a failure sounds like ([error])
-  // or a let down ([close]), and none is the call that [bought] ends on.
+  /// The score of the snooze snack: it grows until the gulp.
+  scoreSnooze(sound: 'ui_score_snooze', hasFlavours: true),
 
-  /// A punchline: knock, knock, and a bright one. A wink. It dips and
-  /// jumps up.
-  introWink(sound: 'ui_intro_wink', haptic: HapticPattern.tripleRise),
+  /// The score of the rude awakening: soft and slow, then a start.
+  scoreWakeUp(sound: 'ui_score_wake_up', hasFlavours: true),
 
-  /// A punchline: one gulp that swoops up, and a hiccup higher still.
-  /// Cheeky and pleased with itself. The gulp is felt, the hiccup is not.
-  introGulp(sound: 'ui_intro_gulp', haptic: HapticPattern.medium),
+  /// The score of the countdown: a bar for each number.
+  scoreCountdown(sound: 'ui_score_countdown', hasFlavours: true),
 
-  /// A punchline: a start and a spring. One knock, then a boing that
-  /// leaps an octave and wobbles where it lands.
-  introSpring(sound: 'ui_intro_spring', haptic: HapticPattern.risingPair),
+  /// The score of the curtain call: a hush, a look each way.
+  scoreCurtain(sound: 'ui_score_curtain', hasFlavours: true),
 
-  /// A punchline: a quick run up the scale on pops and a flick higher at
-  /// the end. A tease.
-  introTease(sound: 'ui_intro_tease', haptic: HapticPattern.light);
+  /// The arrival alone, the last part of every score: a short pickup and
+  /// the chord it lands on. What a skipped intro plays.
+  introArrive(
+    sound: 'ui_intro_arrive',
+    haptic: HapticPattern.light,
+    hasFlavours: true,
+  );
 
   const PaywallCue({
     this.sound,
     this.haptic = HapticPattern.none,
     this.mayRepeat = false,
+    this.hasFlavours = false,
   });
 
   /// The sound file's name, with no folder and no extension. Null for a cue
@@ -172,12 +170,25 @@ enum PaywallCue {
   /// does not cut itself off. Every other cue replaces whatever is playing.
   final bool mayRepeat;
 
+  /// Whether the cue has a file for each [IntroSoundFlavour], named with
+  /// the flavour at the end.
+  final bool hasFlavours;
+
   /// How many copies of one repeating cue may sound at once.
   static const maxVoices = 3;
 
-  /// The Flutter asset the native player is handed, or null.
-  String? get asset =>
-      sound == null ? null : '${UiSoundHost.assetFolder}$sound.m4a';
+  /// The Flutter asset the native player is handed, or null. A cue with
+  /// flavours answers for the first of them: see [assetIn].
+  String? get asset => assetIn(IntroSoundFlavour.piano);
+
+  /// The asset played when the intro sounds are set to [flavour]. The same
+  /// as [asset] for every cue that has no flavours.
+  String? assetIn(IntroSoundFlavour flavour) {
+    final sound = this.sound;
+    if (sound == null) return null;
+    final suffix = hasFlavours ? '_${flavour.name}' : '';
+    return '${UiSoundHost.assetFolder}$sound$suffix.m4a';
+  }
 
   /// How many copies of this cue may sound at once.
   int get voices => mayRepeat ? maxVoices : 1;
@@ -201,9 +212,6 @@ abstract class PaywallCues {
   /// The paywall came on screen.
   void open() => play(PaywallCue.open);
 
-  /// An entrance that plays a joke before the pitch.
-  void gag() => play(PaywallCue.gag);
-
   /// An entrance that prints, such as a till receipt.
   void print() => play(PaywallCue.print);
 
@@ -224,7 +232,7 @@ abstract class PaywallCues {
 /// Which cue the frame plays when a layout appears. [rise] is for a layout
 /// that comes up as a sheet. [none] is for one whose entrance is marked
 /// moment by moment from its own timeline.
-enum PaywallEntranceCue { open, gag, print, rise, none }
+enum PaywallEntranceCue { open, print, rise, none }
 
 /// Plays nothing. For the web and any platform with no player.
 final class SilentPaywallCues extends PaywallCues {

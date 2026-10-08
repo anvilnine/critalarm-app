@@ -23,128 +23,66 @@ class _Heard extends PaywallCues {
   void play(PaywallCue cue) => cues.add(cue);
 }
 
-List<(double, PaywallCue?)> _table(PaywallIntro intro) => [
-  for (final beat in intro.beats) (beat.at, beat.cue),
+List<(double, HapticPattern)> _felt(PaywallIntro intro) => [
+  for (final beat in intro.beats) (beat.at, beat.haptic),
+];
+
+/// Each intro with its score and the second its joke gives way.
+const List<(PaywallIntro, PaywallCue, double)> _scored = [
+  (falseAlarmIntro, PaywallCue.scoreFalseAlarm, FalseAlarmTimeline.reveal),
+  (snoozeIntro, PaywallCue.scoreSnooze, SnoozeTimeline.reveal),
+  (wakeUpIntro, PaywallCue.scoreWakeUp, WakeUpTimeline.reveal),
+  (curtainIntro, PaywallCue.scoreCurtain, CurtainTimeline.reveal),
+  (countdownIntro, PaywallCue.scoreCountdown, CountdownTimeline.reveal),
 ];
 
 void main() {
-  group('the false alarm', () {
-    test('opens on the gag, which has no haptic', () {
-      expect(falseAlarmIntro.cue, PaywallEntranceCue.gag);
-      expect(PaywallCue.gag.haptic, HapticPattern.none);
-    });
-
-    test('plays no sound of its own and nothing while it rings', () {
-      for (final beat in falseAlarmIntro.beats) {
-        expect(beat.cue, isNull);
-        expect(beat.at, greaterThanOrEqualTo(FalseAlarmTimeline.ringEnd));
-      }
-    });
-
-    test('one haptic alone marks the reveal, in step with the wink', () {
-      final beat = falseAlarmIntro.beats.single;
-      expect(beat.at, FalseAlarmTimeline.reveal);
-      expect(beat.haptic, PaywallCue.introWink.haptic);
-      expect(beat.cue, isNull);
-    });
-
-    test('a tap to skip plays its own punchline, the wink', () {
-      expect(falseAlarmIntro.skipCue, PaywallCue.introWink);
-      expect(falseAlarmIntro.skipTo, FalseAlarmTimeline.reveal);
-    });
-
-    test('keeps the layout quiet until the gag has sounded out', () {
-      expect(
-        falseAlarmIntro.handover + falseAlarmIntro.quietAfter,
-        closeTo(FalseAlarmTimeline.gagEnds, 1e-9),
-      );
-      expect(falseAlarmIntro.quietAfter, greaterThan(paywallQuietAfterIntro));
-    });
-  });
-
-  group('the other intros', () {
-    test('snooze: a bounce for each dodge, a pop, then the gulp', () {
-      expect(_table(snoozeIntro), [
-        (SnoozeTimeline.dodgeLeft, PaywallCue.introBounce),
-        (SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
-        (SnoozeTimeline.gulp, PaywallCue.pop),
-        (SnoozeTimeline.reveal, PaywallCue.introGulp),
-      ]);
-    });
-
-    test('wake up: a knock at the bonk, then the spring', () {
-      expect(_table(wakeUpIntro), [
-        (WakeUpTimeline.bonk, PaywallCue.introKnock),
-        (WakeUpTimeline.reveal, PaywallCue.introSpring),
-      ]);
-    });
-
-    test('curtain: a swish, a pop as it sees you, a swish to open', () {
-      expect(_table(curtainIntro), [
-        (CurtainTimeline.peek, PaywallCue.introSwish),
-        (CurtainTimeline.spot, PaywallCue.pop),
-        (CurtainTimeline.reveal, PaywallCue.introSwish),
-      ]);
-    });
-
-    test('countdown: a tick for each count, a drop, then the tease', () {
-      expect(_table(countdownIntro), [
-        (0.0, PaywallCue.tick),
-        (CountdownTimeline.two, PaywallCue.tick),
-        (CountdownTimeline.squash, PaywallCue.drop),
-        (CountdownTimeline.reveal, PaywallCue.introTease),
-      ]);
-    });
-
-    test('each opens with no cue: its beats are the sound', () {
-      for (final intro in [
-        snoozeIntro,
-        wakeUpIntro,
-        curtainIntro,
-        countdownIntro,
-      ]) {
+  group('the scores', () {
+    test('every intro opens on a score of its own and no other cue', () {
+      for (final (intro, score, _) in _scored) {
+        expect(intro.score, score);
         expect(intro.cue, PaywallEntranceCue.none);
-        expect(intro.skipCue, isNull);
-        expect(intro.quietAfter, paywallQuietAfterIntro);
       }
-    });
-  });
-
-  group('the punchlines', () {
-    const punchlines = [
-      PaywallCue.introWink,
-      PaywallCue.introGulp,
-      PaywallCue.introSpring,
-      PaywallCue.introTease,
-    ];
-
-    PaywallCue punchlineOf(PaywallIntro intro) =>
-        intro.skipCue ?? intro.beats.last.cue!;
-
-    test('each joke lands on a punchline of its own', () {
-      final landed = [
-        punchlineOf(falseAlarmIntro),
-        punchlineOf(snoozeIntro),
-        punchlineOf(wakeUpIntro),
-        punchlineOf(countdownIntro),
-      ];
-      expect(landed, punchlines);
-      expect(landed.toSet(), hasLength(4));
+      expect(_scored.map((row) => row.$2).toSet(), hasLength(_scored.length));
+      expect(
+        paywallIntroBuilders.values.toSet(),
+        _scored.map((row) => row.$1).toSet(),
+      );
     });
 
-    test('a skipped intro plays the same punchline as one played through', () {
-      // The false alarm's is the end of its one long cue, so a skip plays
-      // it alone. The others have it as the beat a skip lands on.
-      expect(falseAlarmIntro.skipCue, PaywallCue.introWink);
-      for (final intro in [snoozeIntro, wakeUpIntro, countdownIntro]) {
-        expect(intro.skipCue, isNull);
-        expect(intro.beats.last.at, intro.skipTo);
-        expect(punchlines, contains(intro.beats.last.cue));
+    test('the score has the player alone: every beat is a haptic', () {
+      for (final (intro, _, _) in _scored) {
+        for (final beat in intro.beats) {
+          expect(beat.cue, isNull);
+          expect(beat.haptic, isNot(HapticPattern.none));
+        }
       }
     });
 
-    test('none is the sound of a purchase, a failure or a goodbye', () {
-      for (final cue in punchlines) {
+    test('a tap to skip plays the arrival alone, from the reveal', () {
+      for (final (intro, _, reveal) in _scored) {
+        expect(intro.skipCue, PaywallCue.introArrive);
+        expect(intro.skipTo, reveal);
+      }
+    });
+
+    test('the layout keeps quiet until the arrival has rung out', () {
+      // Played through or skipped, the arrival starts at the reveal.
+      for (final (intro, _, reveal) in _scored) {
+        expect(
+          intro.handover + intro.quietAfter,
+          closeTo(reveal + paywallIntroArrivalSeconds, 1e-9),
+        );
+        expect(intro.quietAfter, greaterThan(paywallQuietAfterIntro));
+        expect(intro.quietAfter, lessThanOrEqualTo(1.0 + 1e-9));
+      }
+    });
+
+    test('a score is not the sound of a purchase, a failure or a goodbye', () {
+      for (final cue in [
+        for (final (_, score, _) in _scored) score,
+        PaywallCue.introArrive,
+      ]) {
         for (final other in [
           PaywallCue.bought,
           PaywallCue.error,
@@ -153,27 +91,54 @@ void main() {
         ]) {
           expect(cue.sound, isNot(other.sound), reason: cue.name);
         }
-        // A falling pair is for letting go, a double knock for a refusal.
+        expect(cue.haptic, isNot(PaywallCue.bought.haptic), reason: cue.name);
         expect(cue.haptic, isNot(HapticPattern.fallingPair), reason: cue.name);
         expect(cue.haptic, isNot(HapticPattern.doubleKnock), reason: cue.name);
-        expect(cue.haptic, isNot(HapticPattern.none), reason: cue.name);
-        expect(cue.mayRepeat, isFalse, reason: cue.name);
       }
     });
+  });
 
-    test('each has sounded out before the layout may speak', () {
-      // The longest punchline is half a second, and it starts at the
-      // reveal. The layout stays quiet until this long after it.
-      for (final intro in [snoozeIntro, wakeUpIntro, countdownIntro]) {
-        expect(
-          intro.handover + intro.quietAfter - intro.skipTo,
-          greaterThanOrEqualTo(0.6),
-        );
-      }
+  group('what the hand feels', () {
+    test('the false alarm: nothing while it rings, then the reveal', () {
+      expect(_felt(falseAlarmIntro), [
+        (FalseAlarmTimeline.reveal, HapticPattern.tripleRise),
+      ]);
       expect(
-        FalseAlarmTimeline.gagEnds - FalseAlarmTimeline.reveal,
-        greaterThanOrEqualTo(0.6),
+        falseAlarmIntro.beats.single.at,
+        greaterThanOrEqualTo(FalseAlarmTimeline.ringEnd),
       );
+    });
+
+    test('snooze: each hop, the gulp, the reveal', () {
+      expect(_felt(snoozeIntro), [
+        (SnoozeTimeline.dodgeLeft, HapticPattern.tripleFade),
+        (SnoozeTimeline.dodgeRight, HapticPattern.tripleFade),
+        (SnoozeTimeline.gulp, HapticPattern.medium),
+        (SnoozeTimeline.reveal, HapticPattern.light),
+      ]);
+    });
+
+    test('wake up: a knock as the message lands, then the start', () {
+      expect(_felt(wakeUpIntro), [
+        (WakeUpTimeline.bonk, HapticPattern.doubleKnock),
+        (WakeUpTimeline.reveal, HapticPattern.risingPair),
+      ]);
+    });
+
+    test('curtain: a tap as it sees you, and one as it opens', () {
+      expect(_felt(curtainIntro), [
+        (CurtainTimeline.spot, HapticPattern.light),
+        (CurtainTimeline.reveal, HapticPattern.light),
+      ]);
+    });
+
+    test('countdown: a tick for each count, the landing, the reveal', () {
+      expect(_felt(countdownIntro), [
+        (0.0, HapticPattern.tick),
+        (CountdownTimeline.two, HapticPattern.tick),
+        (CountdownTimeline.squash, HapticPattern.tripleFade),
+        (CountdownTimeline.reveal, HapticPattern.light),
+      ]);
     });
   });
 
