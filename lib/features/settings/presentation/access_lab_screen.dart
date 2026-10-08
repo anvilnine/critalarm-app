@@ -222,6 +222,13 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
           ],
         ),
         DeveloperOptionsGroup(
+          title: 'Pages that show several features',
+          rows: [
+            for (final page in accessLabPages)
+              AppValueRow(title: page.label, onTap: () => _open(page)),
+          ],
+        ),
+        DeveloperOptionsGroup(
           title: 'What native was told',
           rows: [
             AppValueRow(
