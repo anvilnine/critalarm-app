@@ -1,0 +1,83 @@
+import 'dart:async';
+
+import 'package:critalarm/core/access/holding.dart';
+import 'package:flutter/foundation.dart';
+
+/// What this install holds: Hosted, Pro, both or neither.
+///
+/// Read only. Buying and restoring stay where they are. After a purchase the
+/// source changes and [stream] announces it.
+///
+/// Every read asks the sources at that moment, so an answer is never older
+/// than the source's own.
+final class Holdings {
+  Holdings(List<HoldingSource> sources)
+    : _sources = List.unmodifiable(sources) {
+    _last = _read();
+    for (final source in _sources) {
+      source.changes.addListener(_sourceChanged);
+    }
+  }
+
+  final List<HoldingSource> _sources;
+  final _changes = StreamController<Set<Holding>>.broadcast();
+  late Map<Holding, HoldingState> _last;
+
+  /// Every holding that is [HoldingState.held] or [HoldingState.pending].
+  ///
+  /// A pending purchase counts, the same way the app already shows a plan
+  /// the store confirmed before the server did. Ask [stateOf] to tell the
+  /// two apart.
+  Set<Holding> get held => _heldIn(_read());
+
+  HoldingState stateOf(Holding holding) =>
+      _read()[holding] ?? HoldingState.notHeld;
+
+  /// Whether [holding] is held or pending. See [held].
+  bool holds(Holding holding) => stateOf(holding) != HoldingState.notHeld;
+
+  /// [held], sent each time the set or the state of a holding changes, and
+  /// only then. Read [held] for the value to start from.
+  Stream<Set<Holding>> get stream => _changes.stream;
+
+  /// The one place that turns what the sources say into what is held.
+  ///
+  /// It changes nothing today. A rule such as "Hosted includes Pro" would
+  /// be one line here.
+  static Map<Holding, HoldingState> _resolve(
+    Map<Holding, HoldingState> said,
+  ) => said;
+
+  Map<Holding, HoldingState> _read() {
+    final said = <Holding, HoldingState>{};
+    for (final source in _sources) {
+      final state = source.state;
+      final before = said[source.holding];
+      // Two sources for one holding: the stronger answer stands.
+      if (before == null || state.index > before.index) {
+        said[source.holding] = state;
+      }
+    }
+    return _resolve(said);
+  }
+
+  static Set<Holding> _heldIn(Map<Holding, HoldingState> states) => {
+    for (final holding in Holding.values)
+      if ((states[holding] ?? HoldingState.notHeld) != HoldingState.notHeld)
+        holding,
+  };
+
+  void _sourceChanged() {
+    final now = _read();
+    if (mapEquals(now, _last) || _changes.isClosed) return;
+    _last = now;
+    _changes.add(_heldIn(now));
+  }
+
+  Future<void> dispose() async {
+    for (final source in _sources) {
+      source.changes.removeListener(_sourceChanged);
+    }
+    await _changes.close();
+  }
+}
