@@ -43,6 +43,15 @@ class WidgetSync {
   /// sign-out in between always leads to a fresh write.
   String? _lastWritten;
 
+  /// The `locked` value of the last snapshot handed to the platform, and
+  /// when. Null until one is written in this run. Only read by the Plans
+  /// and features lab in Developer options, to show what native was told.
+  bool? get lastWrittenLocked => _lastWrittenLocked;
+  bool? _lastWrittenLocked;
+
+  DateTime? get lastWrittenAt => _lastWrittenAt;
+  DateTime? _lastWrittenAt;
+
   void start() {
     _subscriptions
       ..add(_topics.stream.listen((_) => _schedule()))
@@ -106,5 +115,7 @@ class WidgetSync {
     if (key == _lastWritten) return;
     _lastWritten = key;
     await _host.write(jsonEncode(json));
+    _lastWrittenLocked = snapshot.locked;
+    _lastWrittenAt = _now();
   }
 }
