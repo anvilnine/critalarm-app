@@ -5,7 +5,8 @@
 //
 // It writes one PNG per section, phone, theme and text size, each the full
 // height of its section: 390 by 844 and 375 by 667 phones, light and dark,
-// at text scale 1.0 and 1.3, plus 2.0 for the hero scene and the inbox rows.
+// at text scale 1.0 and 1.3, plus 2.0 for the hero scene, the inbox rows and
+// the stat card.
 // Every file is named <section>_<phone>_<theme>_<scale>x_<frame>.png and its
 // path is printed. A section that overflows fails its capture.
 //
@@ -16,7 +17,7 @@
 //   --dart-define=SECTIONS=a,b       only these of status, pips, hero, inbox,
 //                                    cream, stat
 //   --dart-define=SCALES=1.0,2.0     the text scales (default 1.0,1.3 and,
-//                                    for hero and inbox, 2.0)
+//                                    for hero, inbox and stat, 2.0)
 //   --dart-define=ONLY=<part>,<part> only files whose name has one of these
 //                                    parts, such as 390x844_dark
 //   --dart-define=T=<seconds>        let motion run and capture that second,
@@ -60,7 +61,7 @@ const _phones = <(String, Size)>[
 const _frame = Duration(milliseconds: 16);
 
 /// Sections that are also captured at the largest text size.
-const _largestToo = {'hero', 'inbox'};
+const _largestToo = {'hero', 'inbox', 'stat'};
 
 Widget _section(String name, double scale, double phoneWidth) => switch (name) {
   'status' => const StatusCardsGallery(),
