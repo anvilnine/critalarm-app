@@ -53,6 +53,7 @@ import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
+import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -297,8 +298,28 @@ void main() {
             final yours = find.byKey(const ValueKey('sound-yours'));
             await tester.tap(yours, warnIfMissed: false);
             // The lock asks the access layer once it is ready, then tries.
-            await tester.runAsync(
-              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            for (var i = 0; i < 40; i++) {
+              if (find
+                  .descendant(
+                    of: find.byType(PersonalizeTryBar),
+                    matching: find.byType(ProBadge),
+                  )
+                  .evaluate()
+                  .isNotEmpty) {
+                break;
+              }
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 250)),
+              );
+              await tester.pump();
+            }
+            expect(
+              find.descendant(
+                of: find.byType(PersonalizeTryBar),
+                matching: find.byType(ProBadge),
+              ),
+              findsOneWidget,
+              reason: 'The try bar did not show.',
             );
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 300));
