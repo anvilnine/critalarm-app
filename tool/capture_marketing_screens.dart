@@ -23,6 +23,7 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -560,6 +561,13 @@ void main() {
             await db.delete('incidents');
           });
           debugDefaultTargetPlatformOverride = device.platform;
+          // The app works out its platform once, at launch. Say it again for
+          // this size, or an iPhone shot names the other platform's store.
+          getIt
+            ..unregister<PlatformCapabilities>()
+            ..registerSingleton<PlatformCapabilities>(
+              PlatformCapabilities(isWeb: false, platform: device.platform),
+            );
 
           tester.view.physicalSize = Size(
             device.width * device.ratio,
