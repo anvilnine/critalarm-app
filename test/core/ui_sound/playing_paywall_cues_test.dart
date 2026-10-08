@@ -7,6 +7,7 @@ import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,7 +17,8 @@ class _FakePlayer implements UiSoundPlayer {
   final calls = <String>[];
 
   @override
-  void play(String asset) => calls.add('play $asset');
+  void play(String asset, {int voices = 1}) =>
+      calls.add(voices == 1 ? 'play $asset' : 'play $asset x$voices');
 
   @override
   void stop() => calls.add('stop');
@@ -24,7 +26,9 @@ class _FakePlayer implements UiSoundPlayer {
 
 void main() {
   late _FakePlayer player;
-  late int taps;
+  late List<HapticPattern> taps;
+  late int cancels;
+  late Duration now;
 
   PlayingPaywallCues cuesWith({
     bool isSwitchOn = true,
@@ -36,12 +40,16 @@ void main() {
     isSwitchOn: () => isSwitchOn,
     isAlarmUp: () => isAlarmUp,
     alarmStarts: alarmStarts,
-    haptic: hasHaptics ? () => taps += 1 : null,
+    haptic: hasHaptics ? taps.add : null,
+    cancelHaptic: () => cancels += 1,
+    clock: () => now,
   );
 
   setUp(() {
     player = _FakePlayer();
-    taps = 0;
+    taps = [];
+    cancels = 0;
+    now = Duration.zero;
   });
 
   group('the mute rule', () {
@@ -53,29 +61,17 @@ void main() {
     });
 
     test('the switch off plays nothing, for every cue', () {
-      cuesWith(isSwitchOn: false)
-        ..open()
-        ..gag()
-        ..print()
-        ..tick()
-        ..pickPlan(yearly: true)
-        ..pickPlan(yearly: false)
-        ..bought()
-        ..close();
+      final cues = cuesWith(isSwitchOn: false);
+      PaywallCue.values.forEach(cues.play);
       expect(player.calls, isEmpty);
+      expect(taps, isEmpty);
     });
 
     test('an alarm that is up plays nothing, for every cue', () {
-      cuesWith(isAlarmUp: true)
-        ..open()
-        ..gag()
-        ..print()
-        ..tick()
-        ..pickPlan(yearly: true)
-        ..pickPlan(yearly: false)
-        ..bought()
-        ..close();
+      final cues = cuesWith(isAlarmUp: true);
+      PaywallCue.values.forEach(cues.play);
       expect(player.calls, isEmpty);
+      expect(taps, isEmpty);
     });
 
     test('the switch and the alarm are read at each cue, not once', () {
@@ -106,6 +102,8 @@ void main() {
       arrivals.add('inc_1');
       await Future<void>.delayed(Duration.zero);
       expect(player.calls, ['play assets/ui_sounds/ui_gag.m4a', 'stop']);
+      // What is left of the cue's haptic goes with it.
+      expect(cancels, 1);
       focus.add(true);
       await Future<void>.delayed(Duration.zero);
       expect(player.calls.last, 'stop');
@@ -159,8 +157,8 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
       UiSoundHost(channel)
-        ..play(PaywallCueSound.open.asset)
-        ..play(PaywallCueSound.bought.asset)
+        ..play(PaywallCue.open.asset!)
+        ..play(PaywallCue.bought.asset!)
         ..stop();
       await Future<void>.delayed(Duration.zero);
       expect(seen, [
@@ -174,37 +172,213 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
       expect(
         () => UiSoundHost()
-          ..play(PaywallCueSound.open.asset)
+          ..play(PaywallCue.open.asset!)
           ..stop(),
         returnsNormally,
       );
     });
   });
 
-  group('the tap', () {
-    test('one tap with each cue that plays', () {
+  group('one name, one call', () {
+    test('the named methods are the general call', () {
+      cuesWith()
+        ..open()
+        ..gag()
+        ..print()
+        ..tick()
+        ..pickPlan(yearly: true)
+        ..pickPlan(yearly: false)
+        ..bought()
+        ..close();
+      final viaPlay = _FakePlayer();
+      final cues = PlayingPaywallCues(
+        player: viaPlay,
+        isSwitchOn: () => true,
+        isAlarmUp: () => false,
+      );
+      [
+        PaywallCue.open,
+        PaywallCue.gag,
+        PaywallCue.print,
+        PaywallCue.tick,
+        PaywallCue.pickYearly,
+        PaywallCue.pickMonthly,
+        PaywallCue.bought,
+        PaywallCue.close,
+      ].forEach(cues.play);
+      expect(player.calls, viaPlay.calls);
+      expect(player.calls, hasLength(8));
+    });
+
+    test('a cue gives its sound and its haptic in the same call', () {
+      cuesWith().play(PaywallCue.refuse);
+      expect(player.calls, ['play assets/ui_sounds/ui_refuse.m4a']);
+      expect(taps, [HapticPattern.doubleKnock]);
+    });
+
+    test('a touch only cue taps and leaves the sound alone', () {
+      cuesWith()
+        ..play(PaywallCue.print)
+        ..play(PaywallCue.ratchet);
+      expect(player.calls, ['play assets/ui_sounds/ui_print.m4a']);
+      expect(taps, [HapticPattern.tick, HapticPattern.tick]);
+    });
+
+    test('the silent cues take every cue and do nothing', () {
+      const silent = SilentPaywallCues();
+      expect(() => PaywallCue.values.forEach(silent.play), returnsNormally);
+    });
+  });
+
+  group('the cue table', () {
+    test('only a touch only cue has no sound, and it has a haptic', () {
+      for (final cue in PaywallCue.values) {
+        if (cue.sound == null) {
+          expect(cue.asset, isNull);
+          expect(cue.haptic, isNot(HapticPattern.none), reason: cue.name);
+        }
+      }
+      expect(PaywallCue.ratchet.sound, isNull);
+    });
+
+    test('no two cues share a sound', () {
+      final sounds = PaywallCue.values.map((cue) => cue.sound).nonNulls;
+      expect(sounds.toSet(), hasLength(sounds.length));
+    });
+
+    test('what the screen plays by itself, over and over, has no haptic', () {
+      expect(PaywallCue.next.haptic, HapticPattern.none);
+      expect(PaywallCue.whoosh.haptic, HapticPattern.none);
+    });
+
+    test('refuse and its answer feel different', () {
+      expect(PaywallCue.refuse.haptic, HapticPattern.doubleKnock);
+      expect(PaywallCue.lift.haptic, HapticPattern.risingPair);
+    });
+
+    test('only the small quick cues may repeat', () {
+      final repeating = PaywallCue.values.where((cue) => cue.mayRepeat);
+      expect(repeating, {
+        PaywallCue.line,
+        PaywallCue.ratchet,
+        PaywallCue.roll,
+        PaywallCue.check,
+      });
+      for (final cue in PaywallCue.values) {
+        expect(cue.voices, cue.mayRepeat ? PaywallCue.maxVoices : 1);
+        // A cue that repeats never carries more than one pulse.
+        if (cue.mayRepeat) expect(cue.haptic.steps, hasLength(1));
+      }
+      expect(PaywallCue.maxVoices, lessThanOrEqualTo(4));
+    });
+  });
+
+  group('cues that repeat fast', () {
+    test('five receipt lines are all sent, each allowed to overlap', () {
+      final cues = cuesWith();
+      for (var i = 0; i < 5; i++) {
+        now = Duration(milliseconds: 100 * i);
+        cues.play(PaywallCue.line);
+      }
+      expect(
+        player.calls,
+        List.filled(5, 'play assets/ui_sounds/ui_line.m4a x3'),
+      );
+    });
+
+    test('a run of one cue taps three times and then only sounds', () {
+      final cues = cuesWith();
+      for (var i = 0; i < 5; i++) {
+        now = Duration(milliseconds: 100 * i);
+        cues.play(PaywallCue.line);
+      }
+      expect(taps, hasLength(paywallCueTapsPerRun));
+      // After a pause it is a new run.
+      now += paywallCueRunGap;
+      cues.play(PaywallCue.line);
+      expect(taps, hasLength(paywallCueTapsPerRun + 1));
+    });
+
+    test('another cue in between starts the count again', () {
+      final cues = cuesWith();
+      for (var i = 0; i < 3; i++) {
+        cues.play(PaywallCue.line);
+      }
+      cues
+        ..play(PaywallCue.stamp)
+        ..play(PaywallCue.line);
+      expect(taps, hasLength(5));
+    });
+
+    test('the ratchet follows the finger and is never held back', () {
+      final cues = cuesWith();
+      for (var i = 0; i < 8; i++) {
+        now = Duration(milliseconds: 60 * i);
+        cues.play(PaywallCue.ratchet);
+      }
+      expect(taps, hasLength(8));
+      expect(player.calls, isEmpty);
+    });
+
+    test('the rule itself', () {
+      expect(paywallCueTapMayFire(PaywallCue.line, earlierInRun: 2), isTrue);
+      expect(paywallCueTapMayFire(PaywallCue.line, earlierInRun: 3), isFalse);
+      expect(paywallCueTapMayFire(PaywallCue.ratchet, earlierInRun: 9), isTrue);
+      expect(paywallCueTapMayFire(PaywallCue.next, earlierInRun: 0), isFalse);
+    });
+
+    test('the host passes the voices to the native player', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const channel = MethodChannel(UiSoundHost.channelName);
+      final seen = <Object?>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            seen.add(call.arguments);
+            return true;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      UiSoundHost(channel)
+        ..play(PaywallCue.line.asset!, voices: PaywallCue.line.voices)
+        ..play(PaywallCue.open.asset!);
+      await Future<void>.delayed(Duration.zero);
+      expect(seen, [
+        {'asset': 'assets/ui_sounds/ui_line.m4a', 'voices': 3},
+        {'asset': 'assets/ui_sounds/ui_open.m4a', 'voices': 1},
+      ]);
+    });
+  });
+
+  group('the haptic', () {
+    test('one haptic with each cue that plays, its own', () {
       cuesWith()
         ..open()
         ..pickPlan(yearly: false)
         ..bought();
-      expect(taps, 3);
+      expect(taps, [
+        HapticPattern.light,
+        HapticPattern.light,
+        HapticPattern.risingPair,
+      ]);
     });
 
-    test('the switch off means no tap', () {
+    test('the switch off means no haptic', () {
       cuesWith(isSwitchOn: false)
         ..open()
         ..bought();
-      expect(taps, 0);
+      expect(taps, isEmpty);
     });
 
-    test('an alarm that is up means no tap', () {
+    test('an alarm that is up means no haptic', () {
       cuesWith(isAlarmUp: true).open();
-      expect(taps, 0);
+      expect(taps, isEmpty);
     });
 
     test('a platform with no haptics still plays', () {
       cuesWith(hasHaptics: false).open();
-      expect(taps, 0);
+      expect(taps, isEmpty);
       expect(player.calls, ['play assets/ui_sounds/ui_open.m4a']);
     });
   });
@@ -263,18 +437,48 @@ void main() {
       ]);
     });
 
-    test('every cue has a file in the interface sounds folder', () {
-      for (final sound in PaywallCueSound.values) {
-        expect(sound.asset, startsWith(UiSoundHost.assetFolder));
-        expect(File(sound.asset).existsSync(), isTrue, reason: sound.asset);
+    test('every sound has a file in the interface sounds folder', () {
+      for (final cue in PaywallCue.values) {
+        final asset = cue.asset;
+        if (asset == null) continue;
+        expect(asset, startsWith(UiSoundHost.assetFolder));
+        expect(File(asset).existsSync(), isTrue, reason: asset);
       }
+    });
+
+    test('every file in the folder belongs to a cue', () {
+      final used = PaywallCue.values.map((cue) => cue.asset).nonNulls.toSet();
+      final onDisk = Directory(UiSoundHost.assetFolder)
+          .listSync()
+          .map((file) => file.path)
+          .where((path) => path.endsWith('.m4a'))
+          .toSet();
+      expect(onDisk, used);
+    });
+
+    test('the names are ones the native player accepts', () {
+      final accepted = RegExp(r'^[a-z0-9_]+$');
+      for (final cue in PaywallCue.values) {
+        final sound = cue.sound;
+        if (sound != null) expect(accepted.hasMatch(sound), isTrue);
+      }
+    });
+
+    test('the whole set stays small', () {
+      final bytes = Directory(UiSoundHost.assetFolder)
+          .listSync()
+          .whereType<File>()
+          .fold<int>(0, (sum, file) => sum + file.lengthSync());
+      expect(bytes, lessThan(400 * 1024));
     });
 
     test('no cue is one of the alarm sounds', () {
       final alarmNames = BundledSounds.iosExtensions.keys.toSet();
-      for (final sound in PaywallCueSound.values) {
-        expect(sound.asset, isNot(startsWith('assets/sounds/')));
-        expect(alarmNames, isNot(contains(sound.fileName)));
+      for (final cue in PaywallCue.values) {
+        final asset = cue.asset;
+        if (asset == null) continue;
+        expect(asset, isNot(startsWith('assets/sounds/')));
+        expect(alarmNames, isNot(contains(cue.sound)));
       }
     });
   });
