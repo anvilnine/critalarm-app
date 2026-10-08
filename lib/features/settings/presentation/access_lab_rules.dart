@@ -66,9 +66,19 @@ const List<AccessLabJump> accessLabPages = [
 /// has no button.
 const Set<AppFeature> accessLabNotBuilt = {};
 
-/// A feature's name as words, made from its enum name, so a feature added
-/// to the table gets a row with no edit here.
-String accessLabFeatureName(AppFeature feature) => _words(feature.name);
+/// The features the app has a name for on its own screens. The lab uses
+/// the same words, so a row here and the strip or row it opens are called
+/// one thing.
+const Map<AppFeature, String> accessLabAppNames = {
+  AppFeature.alarmScreenStyles: 'Look',
+  AppFeature.wakeUpChallenges: 'Wake-up challenge',
+};
+
+/// A feature's name: the app's own words where it has them
+/// ([accessLabAppNames]), else words made from its enum name, so a feature
+/// added to the table gets a row with no edit here.
+String accessLabFeatureName(AppFeature feature) =>
+    accessLabAppNames[feature] ?? _words(feature.name);
 
 String accessLabHoldingName(Holding holding) => _words(holding.name);
 
