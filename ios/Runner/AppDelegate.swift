@@ -67,6 +67,13 @@ import AlarmKit
     // Shared sound files nobody opened last time. Queued before any scene
     // connects, so it runs before a cold-start share is copied.
     IncomingAudioInbox.startFresh()
+    // A person's own sounds are in no backup. Flagged at import, and again
+    // here for the files that were on the phone before the flag existed.
+    SoundLibrary.workQueue.async {
+      if let directory = SoundLibrary.soundsDirectory {
+        BackupExclusion.excludeOwnSounds(in: directory)
+      }
+    }
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
@@ -128,6 +135,13 @@ import AlarmKit
     )
     identity.setMethodCallHandler { call, result in
       DeviceIdentityKeychain.handle(call, result: result)
+    }
+
+    let backup = FlutterMethodChannel(
+      name: "app.critalarm/backup", binaryMessenger: messenger
+    )
+    backup.setMethodCallHandler { call, result in
+      BackupChannel.handle(call, result: result)
     }
 
     let settings = FlutterMethodChannel(
@@ -1175,6 +1189,8 @@ enum SoundLibrary {
       try? FileManager.default.removeItem(at: destination)
       return nil
     }
+    // The conversion wrote a new file, and a new file starts unflagged.
+    BackupExclusion.exclude(destination)
     let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? Int) ?? 0
     NSLog("CritAlarmSound: sound_imported id=%@ path=%@ duration_ms=%d size_bytes=%d", id, destination.path, ms, size)
     return ["path": destination.path, "duration_ms": ms, "size_bytes": size]
@@ -1704,6 +1720,31 @@ enum DeviceIdentityKeychain {
         return
       }
       result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+}
+
+/// `app.critalarm/backup`: what Dart asks about backups and restores.
+///
+/// - `installMarker` answers `first`, `same`, `moved` or `unknown`
+///   (`InstallMarkerRule.Verdict`).
+/// - `settleInstallMarker` is called once what came from another phone has
+///   been dropped.
+/// - `excludeFromBackup` flags the file or folder at `path`.
+enum BackupChannel {
+  static func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    switch call.method {
+    case "installMarker":
+      result(InstallMarker().check().rawValue)
+    case "settleInstallMarker":
+      result(InstallMarker().settle())
+    case "excludeFromBackup":
+      guard let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String, !path.isEmpty
+      else { result(false); return }
+      result(BackupExclusion.exclude(URL(fileURLWithPath: path)))
     default:
       result(FlutterMethodNotImplemented)
     }
