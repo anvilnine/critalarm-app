@@ -39,9 +39,12 @@ const Color _faceOutline = Color(0xFF1A140F);
 const Color _pill = Color(0x66000000);
 const Color _pillFaint = Color(0x33000000);
 
-/// The card in the dark theme, and the rows inside the details card.
-const Color _darkCard = Color(0xFF1E1915);
-const Color _darkRow = Color(0xFF2B231D);
+/// The card in the dark theme: a clear step off the near-black bar, so
+/// "Back to topics" shows on it. The rows inside the details card are set
+/// in, darker than the card, and the faint ink is lifted to read on both.
+const Color _darkCard = Color(0xFF2A231E);
+const Color _darkRow = Color(0xFF1B1612);
+const Color _darkInk3 = Color(0xFFA99786);
 
 /// The fill of "I'm up" while the acknowledge is on its way. Each is
 /// brighter than anything the scrim leaves of a photo, so the button
@@ -181,7 +184,7 @@ AppColors _ownColors(
     // The spinner in "I'm up" is drawn in this, on the busy fill. In the
     // dark theme the theme's own second ink is too close to that fill.
     ink2: isDark ? AppColors.dark.ink : AppColors.light.ink2,
-    ink3: inks.ink3,
+    ink3: isDark ? _darkInk3 : inks.ink3,
     highlight: accent.fill,
     highlightHover: accent.hover,
     highlightAlt: accent.hover,
