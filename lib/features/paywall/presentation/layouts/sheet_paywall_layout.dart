@@ -1,9 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
@@ -94,8 +91,16 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     _cue();
   }
 
-  // The two moments that are felt: the sheet lands, and the lit row
-  // answers.
+  /// How long the intro before this sheet keeps its entrance quiet.
+  double get _quietUntil {
+    final play = PaywallIntroPlay.peek(context);
+    if (play == null || play.intro == PaywallIntroId.none) return 0;
+    return play.handle.quietFor;
+  }
+
+  // The moments that are heard: the sheet lands, and the lit row answers.
+  // The frame plays the rise as the sheet appears, and the stage plays
+  // the loop's own changes.
   void _cue() {
     final now = t;
     final was = _seenAt;
@@ -110,22 +115,25 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     if (_isMuted || isStill || now <= was) return;
 
     // The sheet lands and bumps the mascot into a hop.
-    if (was < SheetMotion.landAt && now >= SheetMotion.landAt) {
-      AppHaptics.selection();
-    }
+    paywallCuesBetween(
+      SheetMotion.cues,
+      was,
+      now,
+      quietUntil: _quietUntil,
+    ).forEach(playPaywallCue);
     // The lit row answers: the switch goes on, the lock becomes a check.
+    // Heard the first time only, which is the loop's first pass.
     final answers = wasProof <= 0 && proof > 0;
     if (answers &&
         player != null &&
         loop != null &&
-        SheetMotion.cuesAt(
+        paywallLoopCues(
           now,
           entranceEnd: loop.entranceEnd,
           period: loop.period,
           touched: player.hand != null,
         )) {
-      AppHaptics.capture();
-      getIt<PaywallCues>().tick();
+      playPaywallCue(PaywallCue.lift);
     }
   }
 
@@ -418,6 +426,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                       controller: _frame,
                       tone: PaywallTone.surface,
                       closeOnLeft: false,
+                      // A sheet comes up: its own cue, in place of the
+                      // one a full screen opens with.
+                      entranceCue: PaywallEntranceCue.rise,
                       // It comes in as the sheet lands. With nothing moving
                       // it is there from the first frame.
                       buyBlockVisible: isStill || _buyIn,
@@ -478,6 +489,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   ),
                                   showsShapes: false,
                                   motion: SheetMotion.stage,
+                                  // The sheet has its own: the rise and
+                                  // the landing.
+                                  entranceCues: const [],
                                 ),
                               ],
                             ),

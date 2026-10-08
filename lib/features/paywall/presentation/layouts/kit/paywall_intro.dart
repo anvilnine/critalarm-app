@@ -8,6 +8,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -85,6 +86,8 @@ class PaywallIntro {
     this.tone = PaywallTone.canvas,
     this.cue = PaywallEntranceCue.open,
     this.beats = const [],
+    this.skipCue,
+    this.quietAfter = paywallQuietAfterIntro,
     this.tag,
   }) : skipTo = skipTo ?? handover;
 
@@ -108,6 +111,15 @@ class PaywallIntro {
 
   /// What is heard and felt on the way, in order. See [PaywallIntroBeat].
   final List<PaywallIntroBeat> beats;
+
+  /// Played when a tap skips the intro, in place of the beat at the second
+  /// the tap lands on. Null plays that beat as the clock would have.
+  final PaywallCue? skipCue;
+
+  /// How long after the hand over the layout keeps its own entrance quiet,
+  /// in seconds: the intro's last sound still has the room. An intro whose
+  /// opening cue is long says how much of it is left by then.
+  final double quietAfter;
 
   /// The few words the mascot is left saying once the intro is gone, or
   /// null for none. The host draws them as a small tag over the layout's
@@ -136,17 +148,34 @@ class PaywallIntro {
 /// One moment of an intro that is heard or felt: the second it happens and
 /// what plays then.
 ///
-/// [play] is the one call site for that moment: a top level function that
-/// calls a cue and at most one `AppHaptics` tap. The host calls it as the
-/// clock passes [at], never under a `PaywallMuted`, and never for a moment
-/// a tap skipped. Nothing here may sound or feel like an alarm: single
-/// short taps, no run of them, no ring.
+/// A beat is one cue of the palette, which carries its own haptic, or with
+/// [PaywallIntroBeat.tap] a haptic alone, for a moment inside a sound that
+/// is still playing. The host plays it as the clock passes [at], never
+/// under a `PaywallMuted`, and never for a moment a tap skipped. Nothing
+/// here may sound or feel like an alarm: single short cues, no run of
+/// them, no ring.
 @immutable
 class PaywallIntroBeat {
-  const PaywallIntroBeat(this.at, this.play);
+  const PaywallIntroBeat(this.at, PaywallCue this.cue)
+    : haptic = HapticPattern.none;
+
+  /// A haptic with no sound of its own.
+  const PaywallIntroBeat.tap(this.at, this.haptic) : cue = null;
 
   final double at;
-  final void Function(PaywallCues cues) play;
+
+  /// The cue played, or null for a haptic alone.
+  final PaywallCue? cue;
+
+  /// The haptic played alone when there is no [cue].
+  final HapticPattern haptic;
+
+  /// Plays the beat: its cue on [cues], or its haptic alone.
+  void play(PaywallCues cues) {
+    final cue = this.cue;
+    if (cue != null) return cues.play(cue);
+    AppHaptics.play(haptic);
+  }
 }
 
 /// The beats of [intro] the clock passed going from [from] to [to]: after
@@ -218,6 +247,8 @@ void playPaywallEntranceCue(PaywallCues cues, PaywallEntranceCue cue) {
       cues.gag();
     case PaywallEntranceCue.print:
       cues.print();
+    case PaywallEntranceCue.rise:
+      cues.play(PaywallCue.rise);
     case PaywallEntranceCue.none:
       break;
   }
@@ -232,6 +263,10 @@ class PaywallIntroHandle {
   /// Where the layout's mascot stands at rest, in the host's coordinates.
   /// See [PaywallIntroScope.landing].
   Rect? landing;
+
+  /// How many seconds of its own clock the layout keeps its entrance
+  /// quiet for: [PaywallIntro.quietAfter] of the intro playing.
+  double quietFor = 0;
 }
 
 /// Says which intro plays over the layout below. [PaywallIntroHost] puts
@@ -342,12 +377,11 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
     _look(t, intro);
     if (!PaywallMuted.of(context)) {
       final cues = getIt<PaywallCues>();
+      // The reveal's beat is what the hand over feels like. Nothing here
+      // vibrates as an alarm does.
       for (final beat in paywallIntroBeatsBetween(intro, _heard, t)) {
         beat.play(cues);
       }
-      // One light tap as the layout takes over. Nothing here vibrates as
-      // an alarm does.
-      if (handsOver) AppHaptics.selection();
     }
     _heard = t;
     if (finishes) _ticker.stop();
@@ -431,8 +465,14 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
     _skipped += to - now;
     _clock.seconds = to;
     // The moments a tap jumps over are not played. One that falls on the
-    // second it lands on is.
-    _heard = to - 1e-6;
+    // second it lands on is, unless the intro has a cue for the tap.
+    final skipCue = intro.skipCue;
+    if (skipCue == null) {
+      _heard = to - 1e-6;
+    } else {
+      _heard = to;
+      if (!PaywallMuted.of(context)) getIt<PaywallCues>().play(skipCue);
+    }
     _looked = -1;
     _advance();
   }
@@ -455,6 +495,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
       _hasDecided = true;
       _intro = isStill ? null : paywallIntroBuilders[widget.intro];
       final intro = _intro;
+      _handle.quietFor = intro?.quietAfter ?? 0;
       if (intro != null && !PaywallMuted.of(context)) {
         playPaywallEntranceCue(getIt<PaywallCues>(), intro.cue);
       }

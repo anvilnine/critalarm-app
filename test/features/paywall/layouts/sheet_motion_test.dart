@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
@@ -124,13 +125,11 @@ void main() {
       );
     });
 
-    test('only the first pass of an untouched loop is felt', () {
-      bool cues(double t, {bool touched = false}) =>
-          SheetMotion.cuesAt(t, entranceEnd: 1.6, period: 9, touched: touched);
-      expect(cues(1), isFalse);
-      expect(cues(3), isTrue);
-      expect(cues(10.6), isFalse);
-      expect(cues(3, touched: true), isFalse);
+    test('the landing is heard as the mascot is bumped into its hop', () {
+      expect(SheetMotion.cues.single.at, SheetMotion.landAt);
+      expect(SheetMotion.cues.single.cue, PaywallCue.pop);
+      expect(SheetMotion.landingHop(SheetMotion.landAt), 0);
+      expect(SheetMotion.landingHop(SheetMotion.landAt + 0.1), greaterThan(0));
     });
   });
 }

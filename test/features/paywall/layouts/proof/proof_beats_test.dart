@@ -1,6 +1,8 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_beats.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -273,14 +275,34 @@ void main() {
       expect(proofMomentsBetween(refused, 2, 0.5), isEmpty);
     });
 
-    test('only the first pass of an untouched loop is felt', () {
-      bool cues(double t, {bool touched = false}) =>
-          proofCuesAt(t, entranceEnd: 1, period: 10, touched: touched);
-      expect(cues(0.5), isFalse);
-      expect(cues(1), isTrue);
-      expect(cues(10.9), isTrue);
-      expect(cues(11), isFalse);
-      expect(cues(5, touched: true), isFalse);
+    test('a turn the hand asked for is refused and then lifted', () {
+      PaywallCue? cue(ProofMoment moment) =>
+          proofCueFor(moment, byHand: true, inFirstPass: false);
+      expect(cue(ProofMoment.refusal), PaywallCue.refuse);
+      expect(cue(ProofMoment.lift), PaywallCue.lift);
+    });
+
+    test('the loop marks only the lift, and only in its first pass', () {
+      PaywallCue? cue(ProofMoment moment, {required bool inFirstPass}) =>
+          proofCueFor(moment, byHand: false, inFirstPass: inFirstPass);
+      expect(cue(ProofMoment.refusal, inFirstPass: true), isNull);
+      expect(cue(ProofMoment.lift, inFirstPass: true), PaywallCue.flip);
+      expect(cue(ProofMoment.refusal, inFirstPass: false), isNull);
+      expect(cue(ProofMoment.lift, inFirstPass: false), isNull);
+    });
+
+    test('the entrance is the mascot dropped in, then the tag', () {
+      final cues = proofEntranceCues();
+      expect(
+        [for (final beat in cues) beat.cue],
+        [
+          PaywallCue.drop,
+          PaywallCue.flip,
+        ],
+      );
+      expect(cues.first.at, lessThan(cues.last.at));
+      expect(cues.last.at, proofTagAppearsAt * heroEntranceSeconds);
+      expect(cues.last.at, lessThan(heroEntranceSeconds));
     });
 
     test('after an intro the mascot has landed on the first frame', () {

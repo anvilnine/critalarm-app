@@ -37,7 +37,6 @@ class _DoorsCompositionState extends State<DoorsComposition> {
 
   HeroPlayer get _playing => _player ??= HeroPlayer(
     clock: scope.clock,
-    onChange: doorsWidenCue,
   )..addListener(_onPlayer);
 
   @override
@@ -101,82 +100,91 @@ class _DoorsCompositionState extends State<DoorsComposition> {
             namedArgs: {'benefit': lines[frame.activeIndex]},
           );
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (doors == null)
-            // No room for a doorway: the approved stage, moving the same
-            // way.
-            HeroLiveStage(
-              player: player,
-              size: stage,
-              label: showing,
-              bleedTop: MediaQuery.viewPaddingOf(context).top,
-              motion: doorsMotion,
-            )
-          else
-            DoorsStage(
-              player: player,
-              size: stage,
-              geometry: doors,
-              count: benefits.length,
-              label: showing,
-              lead: lead,
-            ),
-          SizedBox(
-            height: room.gap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-              child: HeroPips(
+    return PaywallCueScore(
+      clock: scope.clock,
+      // With no room for a doorway the approved stage has its own sounds.
+      beats: doors == null
+          ? heroEntranceCues(doorsMotion, prelude: prelude)
+          : doorsCues(lead: lead),
+      player: player,
+      turnCue: PaywallCue.next,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (doors == null)
+              // No room for a doorway: the approved stage, moving the same
+              // way.
+              HeroLiveStage(
                 player: player,
-                count: lines.length,
-                color: tones.ink,
+                size: stage,
+                label: showing,
+                bleedTop: MediaQuery.viewPaddingOf(context).top,
+                motion: doorsMotion,
+              )
+            else
+              DoorsStage(
+                player: player,
+                size: stage,
+                geometry: doors,
+                count: benefits.length,
+                label: showing,
+                lead: lead,
+              ),
+            SizedBox(
+              height: room.gap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+                child: HeroPips(
+                  player: player,
+                  count: lines.length,
+                  color: tones.ink,
+                ),
               ),
             ),
-          ),
-          // The room under the last line counts as that line, so it has
-          // its full tap area.
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapUp: (details) {
-              final line = heroLineAt(details.localPosition.dy, centres);
-              if (line != null) player.touch(index: line);
-            },
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: heroSideInset,
-                right: heroSideInset,
-                bottom: math.max(0, room.under),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  HeroRise(
-                    clock: scope.clock,
-                    index: 0,
-                    after: prelude,
-                    child: Semantics(
-                      header: true,
-                      child: Text(headline, style: headlineStyle),
+            // The room under the last line counts as that line, so it has
+            // its full tap area.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapUp: (details) {
+                final line = heroLineAt(details.localPosition.dy, centres);
+                if (line != null) player.touch(index: line);
+              },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: heroSideInset,
+                  right: heroSideInset,
+                  bottom: math.max(0, room.under),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 0,
+                      after: prelude,
+                      child: Semantics(
+                        header: true,
+                        child: Text(headline, style: headlineStyle),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: sizes.headlineGap),
-                  HeroBenefitLines(
-                    player: player,
-                    metrics: metrics,
-                    labels: [for (final b in benefits) b.line],
-                    handlesTaps: false,
-                  ),
-                ],
+                    SizedBox(height: sizes.headlineGap),
+                    HeroBenefitLines(
+                      player: player,
+                      metrics: metrics,
+                      labels: [for (final b in benefits) b.line],
+                      handlesTaps: false,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

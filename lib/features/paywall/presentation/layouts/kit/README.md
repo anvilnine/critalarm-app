@@ -58,10 +58,17 @@ same spot as its clock starts. The screen the intro painted is all but gone by `
 the pop is in the open. The host finds the landing itself: the largest `FaceWidget` in the layout,
 where the layout laid it out. A layout does nothing for it.
 
-**Beats.** `PaywallIntroBeat(seconds, play)` is one moment that is heard or felt. `play` is a top
-level function, the one call site for that moment: one `PaywallCues` call and at most one
-`AppHaptics` tap. The host calls it as the clock passes, never in a tile, and never for a moment a
-tap skipped. Keep them few and single: nothing may ring or buzz like an alarm.
+**Beats.** `PaywallIntroBeat(seconds, cue)` is one moment that is heard or felt: one cue of the
+palette, which carries its own haptic. `PaywallIntroBeat.tap(seconds, pattern)` is a haptic alone,
+for a moment inside a sound that is still playing. The host plays each as the clock passes, never
+in a tile, and never for a moment a tap skipped. `skipCue` is played when a tap skips the intro,
+in place of the beat it lands on. The beat at the reveal is what the hand over feels like, so the
+host adds no tap of its own. Keep them few and single: nothing may ring or buzz like an alarm,
+and nothing is felt while a picture of an alarm rings.
+
+**Quiet after.** The layout plays no cue of its own entrance for `quietAfter` seconds from the
+hand over (`paywallQuietAfterIntro` by default), because the intro's last cue is still sounding.
+An intro that opens on a long cue says how much of it is left by then.
 
 **The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
 small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
@@ -241,6 +248,33 @@ draw the real layout (and intro) at 390 by 844 on the demo buy model, scaled dow
 starts again every few seconds. Its clock runs only while the tile is built, so put tiles in a
 lazy list with no cache: the developer picker shows about three at once.
 
+## Cues
+
+A cue is a sound and its haptic together, by name: `PaywallCue` in
+`lib/core/ui_sound/paywall_cues.dart`. One cue per moment, and never a raw `AppHaptics` call
+beside one. `playPaywallCue(PaywallCue.swap)` plays one from a touch.
+
+A layout writes what its motion sounds like as a list of beats, each a clock second and a cue, in
+its rules file beside the timeline they come from (`doorsCues`, `receiptCues`). It wraps its
+composition in `PaywallCueScore(clock:, beats:, player:, turnCue:)`, which plays them:
+
+- Each beat plays once, on the tick the clock passes its second. Never on a rebuild.
+- `turnCue` marks a benefit the loop changed by itself, through the first pass only and never
+  once the hand has taken over. A screen left open is silent. Use `next`, or the layout's own
+  quiet cue.
+- The hand's own change is `HeroPlayer.onChange`: `tick` by default, or the layout's cue.
+- Nothing plays under reduce motion, where the frame's entrance cue is the only sound, or in a
+  tile (`PaywallMuted`), or in the first moments after an intro.
+
+`HeroComposition` has a score of its own: the approved entrance (`heroEntranceCues`: the mascot
+lands with `pop`, or `drop` for a drop, and the card slides in with `whoosh`) and `next` for the
+loop. Pass `entranceCues` or `turnCue` to change either. A layout built from parts uses
+`heroLandingBeat` for its mascot.
+
+A long entrance cue owns its whole span: play no second sound under it. The rules are pure
+functions in `paywall_cue_rules.dart` and have tests. The buy block plays its own: `press` as a
+finger goes down on the button, then `paywallBuyCue` for how the trip to the store ended.
+
 ## Rules every layout keeps
 
 - One screen at 390 by 844 and 375 by 667 at the default text size. Nothing scrolls there.
@@ -249,7 +283,8 @@ lazy list with no cache: the developer picker shows about three at once.
   your content scroll inside its own box. The frame still does not.
 - Nothing rests at an angle. Rotation lives inside a motion and ends at zero.
 - No timer, no urgency, no made-up proof, no trial toggle. No word about how Pro is paid.
-- Strings go in `en.json`, read through `LocaleKeys`. Sounds go through `PaywallCues`.
+- Strings go in `en.json`, read through `LocaleKeys`. Sounds and haptics go through `PaywallCue`
+  (see Cues).
 
 ## Capture it
 

@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
@@ -73,14 +76,40 @@ double wipeLeanShiftAt(double seconds, {required double mascot}) {
   return pose.dx + math.sin(pose.angle) * mascot / 2;
 }
 
-/// Whether a clock that read [before] and now reads [now] has just passed
-/// the moment [at]. A cue is played on the frame this turns true, once.
-bool wipeReached(double before, double now, double at) =>
-    before < at && now >= at;
-
 /// How near either edge a finger can take the divider.
 const double wipeMin = 0.1;
 const double wipeMax = 0.9;
+
+/// What the mascot's entrance sounds like, by clock second: it lands.
+/// [lead] is the head start after an intro (see [wipeLeadFor]).
+List<PaywallCueBeat> wipeEntranceCues({double lead = 0}) => [
+  heroLandingBeat(wipeMotion.entrance, prelude: -lead),
+];
+
+/// What the divider's own sweep sounds like, by clock second: a whoosh as
+/// it starts in from the right and a snap as it lands on the mascot. A
+/// divider the hand has taken does not sweep, so it plays neither.
+List<PaywallCueBeat> wipeSweepCues({double lead = 0}) => [
+  PaywallCueBeat(wipeSweepStart - lead, PaywallCue.whoosh),
+  PaywallCueBeat(wipeLandsAt - lead, PaywallCue.snap),
+];
+
+/// The notch a divider at [at] has last passed: there is one at every
+/// tenth of the stage's width.
+int wipeNotchOf(double at) => (at * 10 + 1e-9).floor();
+
+/// What a drag that moved the divider from [from] to [to] is felt as, or
+/// null for nothing.
+///
+/// Reaching either stop is a refusal, once: a divider already at the stop
+/// that is pushed further says nothing more. Short of a stop, crossing a
+/// notch is one tick of the ratchet.
+PaywallCue? wipeDragCue(double from, double to) {
+  if (to == from) return null;
+  final isAtStop = to <= wipeMin || to >= wipeMax;
+  if (isAtStop) return PaywallCue.refuse;
+  return wipeNotchOf(to) == wipeNotchOf(from) ? null : PaywallCue.ratchet;
+}
 
 /// Where the divider settles with no mascot to stand on.
 const double wipeSettleAlone = 0.2;

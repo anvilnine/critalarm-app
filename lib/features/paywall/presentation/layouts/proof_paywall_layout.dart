@@ -1,6 +1,3 @@
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/ui_sound/paywall_cues.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
@@ -88,6 +85,8 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
   }
 
   // The two moments of a turn, felt and heard as the clock passes them.
+  // A turn the hand asked for is refused and then lifted. In the loop's
+  // own first pass only the lift is marked, by the tag turning over.
   void _onClock() {
     final clock = _watched;
     final player = _player;
@@ -99,20 +98,23 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
     _seenTurn = frame.turn;
     _seenSeconds = frame.sceneSeconds;
     if (turn == null || _isMuted) return;
-    final cues = proofCuesAt(
+    final hand = player.hand;
+    final byHand = hand != null && frame.turn == hand.since;
+    final inFirstPass = paywallLoopCues(
       t,
       entranceEnd: player.loop.entranceEnd,
       period: player.loop.period,
-      touched: player.hand != null,
+      touched: hand != null,
     );
-    if (!cues) return;
     final moments = proofMomentsBetween(turn, from, frame.sceneSeconds);
-    // The refusal: the card shakes its head.
-    if (moments.contains(ProofMoment.refusal)) AppHaptics.selection();
-    // The lift: the card jumps and the tag turns over.
-    if (moments.contains(ProofMoment.lift)) {
-      AppHaptics.capture();
-      getIt<PaywallCues>().tick();
+    for (final moment in ProofMoment.values) {
+      if (!moments.contains(moment)) continue;
+      final cue = proofCueFor(
+        moment,
+        byHand: byHand,
+        inFirstPass: inFirstPass,
+      );
+      if (cue != null) playPaywallCue(cue);
     }
   }
 
@@ -170,6 +172,9 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
                 player: player,
                 arrange: _arrange,
                 motion: proofMotion,
+                entranceCues: proofEntranceCues(prelude: player.loop.prelude),
+                // The lift is the loop's own cue, so a change has none.
+                turnCue: null,
                 // The benefit's own preview, held on its Free frame first.
                 sceneBuilder: (context, scene, size, playFrom) => ProofScene(
                   scene: scene,
@@ -208,7 +213,11 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
                                 isCompact: scope.isCompact,
                                 frame: proofTagFor(frame, isStill: isStill),
                                 // After the card has landed.
-                                entrance: phase(frame.entrance, 0.7, 1),
+                                entrance: phase(
+                                  frame.entrance,
+                                  proofTagAppearsAt,
+                                  1,
+                                ),
                                 swell: turn == null || isStill
                                     ? 1
                                     : proofTagSwellAt(
