@@ -160,6 +160,57 @@ final class MotionSensorTests: XCTestCase {
     XCTAssertFalse(source.isOn)
   }
 
+  func testAnOldStopCannotEndANewerStart() {
+    // A widget that remounts in one frame: start new, then stop old.
+    let run = makeRun()
+    XCTAssertEqual(run.start(owner: 1), .started)
+    XCTAssertEqual(run.start(owner: 2), .started)
+    XCTAssertEqual(source.starts, 1)
+    run.stop(owner: 1)
+    XCTAssertTrue(run.isRunning)
+    XCTAssertTrue(source.isOn)
+    XCTAssertEqual(run.owner, 2)
+    run.stop(owner: 2)
+    XCTAssertFalse(run.isRunning)
+    XCTAssertFalse(source.isOn)
+  }
+
+  func testAStopFromTheOwnerEndsIt() {
+    let run = makeRun()
+    _ = run.start(owner: 7)
+    run.stop(owner: 7)
+    XCTAssertFalse(source.isOn)
+    XCTAssertNil(run.owner)
+  }
+
+  func testAStartThatWasRefusedOwnsNothing() {
+    let run = makeRun()
+    _ = run.start(owner: 1)
+    post(UIApplication.willResignActiveNotification)
+    XCTAssertEqual(run.start(owner: 2), .notInFront)
+    XCTAssertNil(run.owner)
+  }
+
+  func testResigningActiveEndsItWhoeverOwnsIt() {
+    let run = makeRun()
+    _ = run.start(owner: 3)
+    post(UIApplication.willResignActiveNotification)
+    XCTAssertFalse(source.isOn)
+    XCTAssertNil(run.owner)
+  }
+
+  func testTheRealSourceMakesNoManagerUntilTheSensorIsAskedFor() {
+    // Stop runs at every resign active, in every install.
+    let real = CoreMotionAccelerometer()
+    XCTAssertFalse(real.hasManager)
+    real.stop()
+    real.stop()
+    XCTAssertFalse(real.hasManager)
+    _ = real.isAvailable
+    XCTAssertTrue(real.hasManager)
+    real.stop()
+  }
+
   func testTheRealSourceAsksForFiftyReadingsASecond() {
     XCTAssertEqual(CoreMotionAccelerometer.interval, 0.02, accuracy: 0.0001)
   }
