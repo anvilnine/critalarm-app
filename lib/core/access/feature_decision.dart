@@ -3,8 +3,9 @@ import 'package:flutter/foundation.dart';
 
 /// The answer to "may this install use this feature".
 ///
-/// One of [FeatureOpen], [FeatureLocked], [FeatureConfirming] and
-/// [FeatureUnread]. A caller that only needs yes or no reads [isUsable].
+/// One of [FeatureOpen], [FeatureLocked], [FeatureConfirming],
+/// [FeatureUnread] and [FeatureNotOffered]. A caller that only needs yes or
+/// no reads [isUsable].
 @immutable
 sealed class FeatureDecision {
   const FeatureDecision();
@@ -24,7 +25,12 @@ sealed class FeatureDecision {
   /// the paywall door opens nothing for it.
   const factory FeatureDecision.unread(Holding holding) = FeatureUnread;
 
-  /// True for everything but [FeatureLocked].
+  /// The feature does not exist on the server this phone is connected to,
+  /// whatever is held. It is not usable and there is nothing to sell: a
+  /// screen says so in plain words and never opens a paywall for it.
+  const factory FeatureDecision.notOffered() = FeatureNotOffered;
+
+  /// True for everything but [FeatureLocked] and [FeatureNotOffered].
   bool get isUsable;
 }
 
@@ -47,7 +53,7 @@ final class FeatureOpen extends FeatureDecision {
 final class FeatureLocked extends FeatureDecision {
   const FeatureLocked(this.offer);
 
-  /// The holding to sell: the first entry of the feature's `unlockedBy`.
+  /// The holding to sell: `FeatureRule.offered` for the feature.
   final Holding offer;
 
   @override
@@ -102,4 +108,20 @@ final class FeatureUnread extends FeatureDecision {
 
   @override
   String toString() => 'FeatureDecision.unread(${holding.name})';
+}
+
+final class FeatureNotOffered extends FeatureDecision {
+  const FeatureNotOffered();
+
+  @override
+  bool get isUsable => false;
+
+  @override
+  bool operator ==(Object other) => other is FeatureNotOffered;
+
+  @override
+  int get hashCode => (FeatureNotOffered).hashCode;
+
+  @override
+  String toString() => 'FeatureDecision.notOffered';
 }

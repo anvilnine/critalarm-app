@@ -21,6 +21,9 @@ String featureLockSpoken({
 /// - Open, confirming or unread: the child, untouched. A purchase being
 ///   confirmed and a plan that could not be read both count as usable, so
 ///   neither draws a lock.
+/// - Not offered: the child, untouched, with no badge and nothing to tap.
+///   There is nothing to sell, so the caller says in its own words that
+///   the feature is not available here.
 /// - Locked: the child at full colour with the plan badge on its corner, a
 ///   lock glyph and [planWord]. Nothing is dimmed or blurred. A tap goes to
 ///   [onLockedTap] and never to the child.

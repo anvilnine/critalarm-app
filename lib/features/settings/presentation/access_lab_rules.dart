@@ -37,11 +37,6 @@ const Map<AppFeature, AccessLabJump> accessLabJumps = {
     '/topics/new',
   ),
   AppFeature.longHistory: AccessLabJump('History', '/history', isTab: true),
-  AppFeature.storageRules: AccessLabJump(
-    'Settings, Storage',
-    '/settings',
-    isTab: true,
-  ),
   AppFeature.appIcons: AccessLabJump('App icon', '/app-icon'),
   AppFeature.widgets: AccessLabJump('Home widgets card', '/', isTab: true),
   AppFeature.ownSounds: AccessLabJump('Sound picker', '/sounds'),
@@ -122,6 +117,7 @@ String accessLabDecisionText(FeatureDecision decision) => switch (decision) {
     'Open, confirming ${accessLabHoldingName(holding)}',
   FeatureUnread(:final holding) =>
     'Open, ${accessLabHoldingName(holding)} unread',
+  FeatureNotOffered() => 'Not offered on this server, sells nothing',
 };
 
 /// Who unlocks a feature, read from its row in the table.
@@ -131,8 +127,13 @@ String accessLabRuleText(FeatureRule? rule) {
   final own = switch (rule.onOwnServer) {
     OwnServerRule.open => 'or own server',
     OwnServerRule.sameAsCloud => 'own server too',
+    OwnServerRule.notOffered => 'not offered on own server',
   };
-  return 'Needs $holdings, $own';
+  // Named only where there is a choice to make.
+  final sells = rule.unlockedBy.length > 1
+      ? ', sells ${accessLabHoldingName(rule.offered)}'
+      : '';
+  return 'Needs $holdings, $own$sells';
 }
 
 /// Where a feature's row goes, as the second half of its detail line.
