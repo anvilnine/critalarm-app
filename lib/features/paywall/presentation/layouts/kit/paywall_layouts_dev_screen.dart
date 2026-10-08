@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
@@ -22,6 +23,7 @@ import 'package:go_router/go_router.dart';
 /// Developer options, Paywall layouts: what each product's paywall opens,
 /// picked in three steps. An intro, a paywall, then what plays after a
 /// purchase, each from a sheet of small phones that play the real thing.
+/// A fourth row picks the instruments the intros play, for both products.
 /// "Open it" plays all three as a user would see them: in a build that
 /// skips the store its buy button confirms at once. Under them, the
 /// routing choices that are not one named layout, and a list of every
@@ -57,6 +59,12 @@ List<PaywallThanksId> get _allThanks => [
 
 String _introLabel(PaywallIntroId intro) => paywallIntroName(intro);
 
+String _soundLabel(IntroSoundFlavour flavour) => switch (flavour) {
+  IntroSoundFlavour.piano => LocaleKeys.paywall_picker_intro_sound_piano.tr(),
+  IntroSoundFlavour.kalimba =>
+    LocaleKeys.paywall_picker_intro_sound_kalimba.tr(),
+};
+
 String _routeLabel(PaywallLayoutSetting? setting) {
   if (setting == null) {
     return LocaleKeys.settings_developer_paywall_route_follow.tr();
@@ -90,6 +98,13 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
     PaywallProduct.hosted => _switches.hostedThanks,
     PaywallProduct.pro => _switches.proThanks,
   };
+
+  /// The switch for the intros' instruments, or null in a build that has
+  /// none.
+  DevIntroSoundSwitch? get _soundSwitch =>
+      getIt.isRegistered<DevIntroSoundSwitch>()
+      ? getIt<DevIntroSoundSwitch>()
+      : null;
 
   /// The layout "Open it" opens: the one pinned, or the fallback while the
   /// routing is left to something else.
@@ -237,6 +252,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final arrow = AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16);
+    final soundSwitch = _soundSwitch;
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -262,6 +278,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                 _switches.proIntro,
                 _switches.hostedThanks,
                 _switches.proThanks,
+                ?soundSwitch,
               ]),
               builder: (context, _) {
                 final setting = _layoutSwitch.value;
@@ -313,6 +330,27 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             trailing: arrow,
                             onTap: _pickThanks,
                           ),
+                          if (soundSwitch != null) ...[
+                            const SizedBox(height: Spacing.s2),
+                            AppPickerRow<IntroSoundFlavour>(
+                              title: LocaleKeys.paywall_picker_intro_sound_row
+                                  .tr(),
+                              sheetNote: LocaleKeys
+                                  .paywall_picker_intro_sound_note
+                                  .tr(),
+                              selected: soundSwitch.value,
+                              options: [
+                                for (final flavour in IntroSoundFlavour.values)
+                                  AppPickerOption(
+                                    value: flavour,
+                                    label: _soundLabel(flavour),
+                                  ),
+                              ],
+                              onPick: (flavour) => unawaited(
+                                soundSwitch.setFlavour(flavour),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: Spacing.s3),
                           AppButton(
                             label: LocaleKeys.paywall_picker_open.tr(),

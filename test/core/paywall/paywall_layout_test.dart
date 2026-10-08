@@ -45,7 +45,6 @@ void main() {
   test('the silent cues take every call and do nothing', () {
     const SilentPaywallCues()
       ..open()
-      ..gag()
       ..print()
       ..tick()
       ..pickPlan(yearly: true)

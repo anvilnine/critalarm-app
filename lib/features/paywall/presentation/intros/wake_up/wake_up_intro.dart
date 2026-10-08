@@ -1,8 +1,10 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/intros/wake_up/wake_up_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -13,19 +15,27 @@ import 'package:flutter/material.dart';
 /// drops on its head and it wakes with a start. Then the night rolls up
 /// off the layout like a blind.
 ///
-/// Nothing rings and nothing is sent. The message is a drawn chip.
+/// Nothing rings and nothing is sent. The message is a drawn chip. Its
+/// score is soft and slow, stops dead as the message lands, gives one
+/// bright note for the start, and arrives from the reveal.
 const PaywallIntro wakeUpIntro = PaywallIntro(
   seconds: WakeUpTimeline.end,
   handover: WakeUpTimeline.handover,
   skipTo: WakeUpTimeline.reveal,
   tone: PaywallTone.panel,
   cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreWakeUp,
   beats: [
     // The message lands on the sleeping mascot.
-    PaywallIntroBeat(WakeUpTimeline.bonk, PaywallCue.introKnock),
-    // Up with a start: a spring as the night rolls up.
-    PaywallIntroBeat(WakeUpTimeline.reveal, PaywallCue.introSpring),
+    PaywallIntroBeat.tap(WakeUpTimeline.bonk, HapticPattern.doubleKnock),
+    // Up with a start, as the night rolls up.
+    PaywallIntroBeat.tap(WakeUpTimeline.reveal, HapticPattern.risingPair),
   ],
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      WakeUpTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      WakeUpTimeline.handover,
   tag: _tag,
   builder: _build,
 );

@@ -2015,6 +2015,10 @@
   },
   "paywall_picker": {
     "intro_row": "Intro",
+    "intro_sound_row": "Intro sound",
+    "intro_sound_note": "Which instruments every intro plays. Both have the same timing.",
+    "intro_sound_piano": "Piano",
+    "intro_sound_kalimba": "Kalimba",
     "paywall_row": "Paywall",
     "intro_sheet_title": "Pick an intro",
     "paywall_sheet_title": "Pick a paywall",
