@@ -80,11 +80,11 @@ class PaywallClockHold extends InheritedWidget {
 ///
 /// - With reduce motion on, or inside a [PaywallStill], [t] is [restAt] and
 ///   no ticker runs. The resting frame must be complete: nothing half way.
-/// - While the route is not on top the clock stops, and carries on from the
-///   same second when the route is back.
+/// - While the route is not on top, or the app is not resumed, the clock
+///   stops, and carries on from the same second when it is back.
 /// - Under a [PaywallClockHold] it waits at zero and starts when let go.
 abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final Ticker _ticker;
 
   /// Seconds run before the ticker last started.
@@ -92,6 +92,8 @@ abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
   double _seconds = 0;
   bool _isStill = false;
   bool _isOnTop = true;
+  bool _isResumed = true;
+  bool _isHeld = false;
 
   /// The second a still layout rests on: after its entrance, on the frame
   /// that says the most.
@@ -122,10 +124,21 @@ abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _isResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _ticker = createTicker((elapsed) {
       _seconds = _banked + elapsed.inMicroseconds / 1e6;
       onTick();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final resumed = state == AppLifecycleState.resumed;
+    if (resumed == _isResumed) return;
+    _isResumed = resumed;
+    _syncTicker();
   }
 
   @override
@@ -135,7 +148,12 @@ abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
         (MediaQuery.maybeOf(context)?.disableAnimations ?? false) ||
         PaywallStill.of(context);
     _isOnTop = ModalRoute.of(context)?.isCurrent ?? true;
-    final shouldRun = !_isStill && _isOnTop && !PaywallClockHold.of(context);
+    _isHeld = PaywallClockHold.of(context);
+    _syncTicker();
+  }
+
+  void _syncTicker() {
+    final shouldRun = !_isStill && _isOnTop && _isResumed && !_isHeld;
     // The ticker is stopped, not just ignored: a frame callback that does
     // nothing still wakes the engine every frame.
     if (!shouldRun && _ticker.isActive) {
@@ -148,6 +166,7 @@ abstract class PaywallClockState<T extends StatefulWidget> extends State<T>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     super.dispose();
   }
