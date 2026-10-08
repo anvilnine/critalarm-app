@@ -35,6 +35,9 @@
 //   --dart-define=ONLY=<part>,<part>
 //                                capture only the files whose name has one
 //                                of these parts
+//   --dart-define=STYLE=<id>     the look of the alarm screen the
+//                                challenge step is captured in, for
+//                                example `minimal`
 //
 // A capture fails when anything overflows.
 //
@@ -83,6 +86,12 @@ const _out = String.fromEnvironment(
   defaultValue: 'build/challenge_shots',
 );
 const _only = String.fromEnvironment('ONLY');
+
+/// The look of the alarm screen to capture the challenge in, saved as the
+/// phone's (`AlarmStyleChoices.defaultKey`). Empty leaves the standard
+/// look. A capture that holds the plan for challenges holds it for looks
+/// too: both are unlocked by the same one.
+const _style = String.fromEnvironment('STYLE');
 
 /// Name, size, top inset, bottom inset, keyboard height.
 const _phones = <(String, Size, double, double, double)>[
@@ -308,6 +317,12 @@ void main() {
     await loadTestTranslations();
     await configureDependencies();
     await _loadFonts();
+    if (_style.isNotEmpty) {
+      await getIt<SharedPreferences>().setString(
+        'alarm_style_default',
+        _style,
+      );
+    }
   });
 
   void capture(
