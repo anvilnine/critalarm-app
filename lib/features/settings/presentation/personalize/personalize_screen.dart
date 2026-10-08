@@ -117,13 +117,14 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
         RingingPreviewFrame preview(double maxHeight) => RingingPreviewFrame(
           maxHeight: maxHeight,
           isPlaying: state.isPlaying,
-          onPlay: () => unawaited(
-            cubit.togglePlay(
-              ownSoundsLocked: ownSoundsLockedBy(
-                _access.decide(AppFeature.ownSounds),
-              ),
-            ),
-          ),
+          // Asked once the plan is read, so right after a cold start a
+          // Pro holder hears their own sound and not its stand-in.
+          onPlay: () => unawaited(() async {
+            final ownSounds = await ownSoundsOnceReady(_access);
+            await cubit.togglePlay(
+              ownSoundsLocked: ownSoundsLockedBy(ownSounds),
+            );
+          }()),
           playBelow: isWide,
         );
         final choices = _Choices(sections: widget.sections);

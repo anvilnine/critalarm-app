@@ -168,12 +168,14 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
     // paywall for whatever unlocks long history.
     AppHaptics.selection();
     final router = GoRouter.of(context);
-    final paywall = paywallLocationForFeature(
-      AppFeature.longHistory,
-      LockSource.history,
-    );
     Navigator.of(context).pop();
-    if (paywall != null) unawaited(router.push(paywall));
+    unawaited(() async {
+      final paywall = await paywallLocationForFeature(
+        AppFeature.longHistory,
+        LockSource.history,
+      );
+      if (paywall != null) await router.push(paywall);
+    }());
   }
 
   void _set(HistoryFilter next) {
