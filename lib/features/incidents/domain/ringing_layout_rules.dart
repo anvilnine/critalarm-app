@@ -33,7 +33,7 @@ const double ringingFaceGap = 16;
 
 /// The room the page keeps between the card and the pinned buttons, the
 /// same the list leaves at the end of its scroll.
-const double _barClearance = 16;
+const double ringingBarClearance = 16;
 
 const double _wordLine = 53;
 const double _topicLine = 27;
@@ -105,7 +105,7 @@ double ringingFaceSizeFor({
   final room =
       viewportHeight -
       ringingBarHeightFor(textScale: textScale, pinnedButtons: pinnedButtons) -
-      _barClearance -
+      ringingBarClearance -
       ringingHeaderHeightFor(textScale: textScale, openAlarms: openAlarms) -
       ringingFaceGap -
       cardHeight;
