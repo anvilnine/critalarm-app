@@ -368,6 +368,7 @@ class _AppInboxRowState extends State<AppInboxRow> {
                     state: face,
                     size: 38,
                     overrideFillColor: colors.yellow,
+                    overrideStrokeColor: colors.inkFixed,
                     overrideInkColor: colors.inkFixed,
                   ),
                 ),
