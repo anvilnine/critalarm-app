@@ -169,6 +169,9 @@ final class _HandSensor implements MotionSensor {
   int listens = 0;
   int cancels = 0;
 
+  /// The test clock when the challenge last began to listen.
+  DateTime? listenedAt;
+
   /// Whether the challenge is listening right now.
   bool get isOn => listens > cancels;
 
@@ -179,6 +182,7 @@ final class _HandSensor implements MotionSensor {
       sync: true,
       onListen: () {
         listens++;
+        listenedAt = TestWidgetsFlutterBinding.instance.clock.now();
         _open = controller;
         onStarted?.call();
       },
@@ -1122,8 +1126,11 @@ void main() {
     await _useSensor(sensor);
     await flow(tester, isStill: false);
     expect(sensor.isOn, isTrue);
-    // The flow already let 600 ms go by.
-    await tester.pump(const Duration(milliseconds: 4200));
+    // The five seconds run from when the sensor started, and the flow has
+    // let some of them go by since. Look 200 ms before the mark and 200 ms
+    // after it, whatever the flow took.
+    final gone = tester.binding.clock.now().difference(sensor.listenedAt!);
+    await tester.pump(const Duration(milliseconds: 4800) - gone);
     expect(_tapButton, findsNothing);
     await tester.pump(const Duration(milliseconds: 400));
     expect(_tapButton, findsOneWidget);
