@@ -1,4 +1,5 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -163,6 +164,36 @@ void main() {
         was = began;
       }
       expect(heard, 3);
+    });
+  });
+
+  group('leaving a paywall', () {
+    test('says so when nothing was bought, whatever the buy state', () {
+      for (final status in PaywallBuyStatus.values) {
+        if (status == PaywallBuyStatus.done) continue;
+        expect(
+          paywallSaysClose(status: status, isMuted: false),
+          isTrue,
+          reason: status.name,
+        );
+      }
+    });
+
+    test('is silent with the product in hand', () {
+      expect(
+        paywallSaysClose(status: PaywallBuyStatus.done, isMuted: false),
+        isFalse,
+      );
+    });
+
+    test('is silent in a thumbnail', () {
+      for (final status in PaywallBuyStatus.values) {
+        expect(
+          paywallSaysClose(status: status, isMuted: true),
+          isFalse,
+          reason: status.name,
+        );
+      }
     });
   });
 }

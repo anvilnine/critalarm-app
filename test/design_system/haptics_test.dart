@@ -81,6 +81,10 @@ void main() {
         HapticPulse.light,
         HapticPulse.medium,
       ]);
+      expect(of(HapticPattern.fallingPair), [
+        HapticPulse.light,
+        HapticPulse.tick,
+      ]);
     });
   });
 

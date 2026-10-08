@@ -50,6 +50,12 @@ enum HapticPattern {
   risingPair([
     (atMs: 0, pulse: HapticPulse.light),
     (atMs: 85, pulse: HapticPulse.medium),
+  ]),
+
+  /// A light tap and then a fainter one. Something was let go, gently.
+  fallingPair([
+    (atMs: 0, pulse: HapticPulse.light),
+    (atMs: 110, pulse: HapticPulse.tick),
   ]);
 
   const HapticPattern(this.steps);

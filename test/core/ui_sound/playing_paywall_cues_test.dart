@@ -274,6 +274,39 @@ void main() {
     });
   });
 
+  group('arriving, buying and leaving', () {
+    test('each has a sound and a haptic of its own', () {
+      const three = [PaywallCue.open, PaywallCue.bought, PaywallCue.close];
+      expect(three.map((cue) => cue.sound).toSet(), hasLength(3));
+      expect(three.map((cue) => cue.haptic).toSet(), hasLength(3));
+    });
+
+    test('buying rises under the hand and leaving falls', () {
+      List<HapticPulse> of(PaywallCue cue) =>
+          cue.haptic.steps.map((step) => step.pulse).toList();
+      expect(of(PaywallCue.open), [HapticPulse.light]);
+      expect(of(PaywallCue.bought), [HapticPulse.light, HapticPulse.medium]);
+      expect(of(PaywallCue.close), [HapticPulse.light, HapticPulse.tick]);
+    });
+
+    test('leaving does not feel like a failed purchase', () {
+      expect(PaywallCue.close.haptic, isNot(PaywallCue.error.haptic));
+      expect(PaywallCue.close.sound, isNot(PaywallCue.error.sound));
+    });
+
+    test('the falling pair is two pulses and soon over', () {
+      const steps = [
+        (atMs: 0, pulse: HapticPulse.light),
+        (atMs: 110, pulse: HapticPulse.tick),
+      ];
+      expect(HapticPattern.fallingPair.steps, steps);
+      expect(
+        const Duration(milliseconds: 110),
+        lessThanOrEqualTo(HapticPattern.maxSpan),
+      );
+    });
+  });
+
   group('the cues of the step after a purchase', () {
     test('each has a sound of its own and one short haptic', () {
       const cues = [
