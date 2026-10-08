@@ -1,6 +1,7 @@
 import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/presentation/ops_math_challenge.dart';
+import 'package:critalarm/features/challenges/presentation/scratch_card_challenge.dart';
 import 'package:critalarm/features/challenges/presentation/type_alert_title_challenge.dart';
 import 'package:critalarm/features/challenges/presentation/type_topic_name_challenge.dart';
 import 'package:flutter/widgets.dart';
@@ -76,6 +77,7 @@ const List<Challenge> challenges = [
   TypeTopicNameChallenge(),
   TypeAlertTitleChallenge(),
   OpsMathChallenge(),
+  ScratchCardChallenge(),
 ];
 
 /// The challenge of [kind], or null when this build has none for it.
