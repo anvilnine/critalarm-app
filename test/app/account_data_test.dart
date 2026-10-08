@@ -13,16 +13,20 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
+import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +34,87 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'account_data_fixture.dart';
 
 class _MockGetInfo extends Mock implements GetServerInfoUsecase {}
+
+class _MockPrefs extends Mock implements SharedPreferences {}
+
+class _MockSearches extends Mock implements RecentSearchesRepository {}
+
+class _MockChallenges extends Mock implements ChallengeChoices {}
+
+class _MockLooks extends Mock implements AlarmStyleChoices {}
+
+class _MockSoundLock extends Mock implements OwnSoundLockFlag {}
+
+class _MockOwnLook extends Mock implements OwnLookStore {}
+
+/// The list with every item watched, so the order of the drops and what
+/// one failure does to the rest can be read off. The ack queue and the
+/// cursors are the real classes over preferences that are watched: each
+/// writes there and nowhere else.
+final class _List {
+  _List({this.failing = const {}}) {
+    Future<bool> write(String what) async {
+      if (failing.contains(what)) throw StateError(what);
+      if (order.isEmpty || order.last != what) order.add(what);
+      return true;
+    }
+
+    when(() => ackPrefs.getString(any())).thenReturn('[]');
+    when(
+      () => ackPrefs.setString(any(), any()),
+    ).thenAnswer((_) => write('acks'));
+    when(() => ackPrefs.remove(any())).thenAnswer((_) => write('acks'));
+    when(cursorPrefs.getKeys).thenReturn({'msg_sync_last_id.prod'});
+    when(() => cursorPrefs.remove(any())).thenAnswer((_) => write('cursors'));
+    when(searches.clear).thenAnswer((_) async {
+      await write('searches');
+      return unit.toSuccess();
+    });
+    when(challenges.forgetAll).thenAnswer((_) => write('challenges'));
+    when(looks.forgetAll).thenAnswer((_) => write('looks'));
+    when(soundLock.clear).thenAnswer((_) => write('sound lock'));
+    when(ownLook.forgetAll).thenAnswer((_) => write('own photo'));
+  }
+
+  /// The drops that throw.
+  final Set<String> failing;
+
+  final order = <String>[];
+  final ackPrefs = _MockPrefs();
+  final cursorPrefs = _MockPrefs();
+  final searches = _MockSearches();
+  final challenges = _MockChallenges();
+  final looks = _MockLooks();
+  final soundLock = _MockSoundLock();
+  final ownLook = _MockOwnLook();
+  final _api = MockApiClient(
+    MockServer(
+      serverInfo: const ServerInfo(
+        version: '0.1.0',
+        baseUrl: 'https://server.example',
+        relayUrl: 'https://relay.example',
+        mode: ServerModes.hosted,
+      ),
+    ),
+  );
+
+  late final AckQueue acks = AckQueue(ackPrefs, _api);
+  late final MessageSyncService cursors = MessageSyncService(
+    cursorPrefs,
+    _api,
+  );
+
+  late final AccountData data = AccountData(
+    acks: acks,
+    messageCursors: cursors,
+    recentSearches: searches,
+    challenges: challenges,
+    alarmStyles: looks,
+    soundLock: soundLock,
+    ownLook: ownLook,
+    afterForget: () async => order.add('after'),
+  );
+}
 
 class _MockEstablish extends Mock implements EstablishApiSessionUsecase {}
 
@@ -297,6 +382,99 @@ void main() {
       expectAccountDataGone(phone.prefs);
       expectOwnSoundsKept(phone.prefs);
       await phone.ownLook.expectGone();
+    });
+  });
+
+  group('the order of the wipe, and what one failure does:', () {
+    const everything = [
+      'own photo',
+      'acks',
+      'cursors',
+      'searches',
+      'challenges',
+      'looks',
+      'sound lock',
+      'after',
+    ];
+
+    test('the own photo goes first, then the list in its order', () async {
+      final list = _List();
+      await list.data.forget();
+      expect(list.order, everything);
+    });
+
+    test('acknowledgements that cannot be cleared still stop the caller, '
+        'and everything else is dropped first, the photo before all', () async {
+      final list = _List(failing: {'acks'});
+      await expectLater(
+        list.data.forget,
+        throwsA(isA<StateError>().having((e) => e.message, 'message', 'acks')),
+      );
+      expect(list.order, [...everything]..remove('acks'));
+      expect(list.order.first, 'own photo');
+    });
+
+    test('each of the three loud drops still stops the caller, and the '
+        'first failure is the one thrown', () async {
+      for (final failing in ['cursors', 'searches']) {
+        final list = _List(failing: {failing});
+        await expectLater(
+          list.data.forget,
+          throwsA(
+            isA<StateError>().having((e) => e.message, 'message', failing),
+          ),
+        );
+        expect(list.order, [...everything]..remove(failing));
+      }
+      final list = _List(failing: {'acks', 'searches'});
+      await expectLater(
+        list.data.forget,
+        throwsA(isA<StateError>().having((e) => e.message, 'message', 'acks')),
+      );
+      expect(list.order, [
+        'own photo',
+        'cursors',
+        'challenges',
+        'looks',
+        'sound lock',
+        'after',
+      ]);
+    });
+
+    test('a quiet drop that fails stops nothing and nobody', () async {
+      for (final failing in [
+        'own photo',
+        'challenges',
+        'looks',
+        'sound lock',
+      ]) {
+        final list = _List(failing: {failing});
+        await list.data.forget();
+        expect(list.order, [...everything]..remove(failing), reason: failing);
+      }
+    });
+
+    test('with the real photo store: a sign-out whose ack queue fails '
+        'still takes the photo off the phone', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final onDisk = await OwnLookOnDisk.seed(prefs);
+      final list = _List(failing: {'acks'});
+      final data = AccountData(
+        acks: list.acks,
+        messageCursors: list.cursors,
+        recentSearches: list.searches,
+        challenges: list.challenges,
+        alarmStyles: list.looks,
+        soundLock: list.soundLock,
+        ownLook: onDisk.store,
+      );
+      await onDisk.expectKept();
+      // The account repository swallows this, as it always has.
+      try {
+        await data.forget();
+      } on Object catch (_) {}
+      await onDisk.expectGone();
     });
   });
 
