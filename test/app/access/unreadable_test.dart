@@ -85,7 +85,7 @@ void main() {
         ),
       );
       await expectLater(
-        access.features.decideOnceReady(AppFeature.widgets),
+        access.features.decideOnceReady(AppFeature.longHistory),
         throwsA(isA<HoldingUnreadable>()),
       );
       await expectLater(

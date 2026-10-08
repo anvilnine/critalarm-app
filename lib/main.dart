@@ -98,8 +98,9 @@ Future<void> main() async {
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
   // A locked widget tapped while the app was closed names the shipped
-  // paywall. This is where it learns what that paywall is set to open.
-  final initialLocation = resolvePaywallLocation(
+  // paywall. This is where it learns which paywall that is (the widgets
+  // decision picks the product) and what it is set to open.
+  final initialLocation = await resolvePaywallLocationWhenReady(
     await getIt<InitialRouteResolver>()(deepLink: tappedRoute),
   );
   // Crash reporting is put back here as well, so a crash on a launch where

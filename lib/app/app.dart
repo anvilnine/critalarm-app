@@ -117,10 +117,13 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// another tab is a `go` so the tab bar moves with the user. Everything
   /// else is a push, so the confirm screen and the paywall close back to
   /// where the user was.
-  void _openPath(String tapped) {
+  void _openPath(String tapped) => unawaited(_openResolvedPath(tapped));
+
+  Future<void> _openResolvedPath(String tapped) async {
     // A reminder or a widget tap names the shipped paywall. This is where
-    // it learns what that paywall is set to open.
-    final path = resolvePaywallLocation(tapped);
+    // it learns which paywall that is and what it is set to open.
+    final path = await resolvePaywallLocationWhenReady(tapped);
+    if (!mounted) return;
     final from = _router.routerDelegate.currentConfiguration.uri.toString();
     if (opensWithGo(path, from: from)) {
       _router.go(path);

@@ -59,11 +59,10 @@ const Map<AppFeature, FeatureRule> featureTable = {
     unlockedBy: {Holding.hosted},
     onOwnServer: OwnServerRule.open,
   ),
-  // What the app does today. Moving widgets to Pro is this one row:
-  // `{Holding.pro}` and `sameAsCloud`.
+  // Pro only, also on a server of the user's own.
   AppFeature.widgets: FeatureRule(
-    unlockedBy: {Holding.hosted},
-    onOwnServer: OwnServerRule.open,
+    unlockedBy: {Holding.pro},
+    onOwnServer: OwnServerRule.sameAsCloud,
   ),
   AppFeature.ownSounds: FeatureRule(
     unlockedBy: {Holding.pro},

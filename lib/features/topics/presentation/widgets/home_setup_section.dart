@@ -23,7 +23,7 @@ class HomeSetupSection extends StatelessWidget {
     required this.state,
     required this.hasRowsBelow,
     required this.onShowWidgetsHowTo,
-    required this.onSeeHosted,
+    required this.onSeePro,
     required this.onDismissWidgetsCard,
     super.key,
   });
@@ -35,7 +35,7 @@ class HomeSetupSection extends StatelessWidget {
   final bool hasRowsBelow;
 
   final VoidCallback onShowWidgetsHowTo;
-  final VoidCallback onSeeHosted;
+  final VoidCallback onSeePro;
   final VoidCallback onDismissWidgetsCard;
 
   @override
@@ -52,7 +52,7 @@ class HomeSetupSection extends StatelessWidget {
         key: const ValueKey('setup_widgets'),
         plan: state.widgetsPlan,
         onShowHowTo: onShowWidgetsHowTo,
-        onSeeHosted: onSeeHosted,
+        onSeePro: onSeePro,
         onDismiss: onDismissWidgetsCard,
       ),
     };
@@ -148,36 +148,36 @@ class SetupBlock extends StatelessWidget {
 /// at most one short line, and the action.
 ///
 /// The main button is the next thing this user can do. With widgets
-/// unlocked that is adding one. Without Hosted the steps lead nowhere yet,
+/// unlocked that is adding one. Without Pro the steps lead nowhere yet,
 /// so the plans come first and the steps are the quiet button beside them.
 class _WidgetsCard extends StatelessWidget {
   const _WidgetsCard({
     required this.plan,
     required this.onShowHowTo,
-    required this.onSeeHosted,
+    required this.onSeePro,
     required this.onDismiss,
     super.key,
   });
 
   final HomeWidgetsPlan plan;
   final VoidCallback onShowHowTo;
-  final VoidCallback onSeeHosted;
+  final VoidCallback onSeePro;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final needsHosted = plan == HomeWidgetsPlan.needsHosted;
+    final needsPro = plan == HomeWidgetsPlan.needsPro;
 
     final plans = AppButton(
       label: LocaleKeys.home_widgets_plans_button.tr(),
       size: AppButtonSize.sm,
       isFullWidth: true,
-      onPressed: onSeeHosted,
+      onPressed: onSeePro,
     );
     final how = AppButton(
       label: LocaleKeys.home_widgets_how_button.tr(),
-      variant: needsHosted ? AppButtonVariant.ghost : AppButtonVariant.primary,
+      variant: needsPro ? AppButtonVariant.ghost : AppButtonVariant.primary,
       size: AppButtonSize.sm,
       isFullWidth: true,
       onPressed: onShowHowTo,
@@ -226,15 +226,15 @@ class _WidgetsCard extends StatelessWidget {
                     ).copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                if (needsHosted) ...[
+                if (needsPro) ...[
                   const SizedBox(height: 2),
                   Text(
-                    LocaleKeys.home_widgets_needs_hosted.tr(),
+                    LocaleKeys.home_widgets_needs_pro.tr(),
                     style: AppTypography.small(colors.onCanvasMuted),
                   ),
                 ],
                 const SizedBox(height: Spacing.s3),
-                if (!needsHosted)
+                if (!needsPro)
                   how
                 // Side by side while the labels fit. At large text they
                 // stack, each on its own line.
