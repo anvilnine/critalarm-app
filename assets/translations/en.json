@@ -2148,6 +2148,17 @@
       "q_megabytes": "How many kilobytes in {value} MB?",
       "hint": "Numbers only.",
       "wrong": "Not that one. Same question, try again."
+    },
+    "scratch_card": {
+      "name": "Scratch card",
+      "prompt": "Scratch, then type the code",
+      "hint_scratch": "Rub the card with a finger.",
+      "reveal": "Show the code",
+      "card_label": "Scratch card. Double tap to show the code.",
+      "code_spoken": "The code is {digits}",
+      "field_label": "Type the code: {digits}",
+      "hint_type": "Type the 4 numbers.",
+      "wrong": "Not that code. Look at the card again."
     }
   },
   "alarm_styles": {
