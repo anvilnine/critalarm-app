@@ -206,6 +206,27 @@ final class SoundPublishTests: XCTestCase {
         XCTAssertEqual(rings("prod"), "pager_beep.caf")
     }
 
+    /// The same publish carries the wake-up challenge flags, for the Done
+    /// button on the Live Activity.
+    func testThePublishCarriesTheChallengeFlagsUnderTheKeysDartWrites() {
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.stringArray(forKey: "challenge_owed_topics"), ["prod"])
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+        XCTAssertEqual(DoneButton.forCard(topic: "staging", shared: group), .closes)
+
+        // The flag goes, and the next publish takes the topic out.
+        app.removeObject(forKey: "flutter.topic_challenge_owed.prod")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .closes)
+    }
+
+    func testThePublishWithNoChallengeFlagPublishesNone() {
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.stringArray(forKey: "challenge_owed_topics"), [])
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .closes)
+    }
+
     func testThePublishWithTheFlagFalsePublishesTheOwnFile() {
         app.set(false, forKey: "flutter.alarm_sound_own_locked")
         SoundLibrary.publishChoices(defaults: app, to: group)

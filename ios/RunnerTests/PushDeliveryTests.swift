@@ -153,15 +153,6 @@ final class PushDeliveryTests: XCTestCase {
         XCTAssertEqual(DoneButton.forCard(topic: "", shared: group), .closes)
     }
 
-    /// The app's own publish carries the flags with the sound choices.
-    func testTheSoundPublishCarriesTheChallengeFlags() {
-        let (app, group) = challengeDefaults()
-        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
-        SoundLibrary.publishChoices(defaults: app, to: group)
-        XCTAssertEqual(group.stringArray(forKey: ChallengeFlag.groupKey), ["prod-db"])
-        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .opensApp)
-    }
-
     /// Whatever the flag says, the two buttons that stop a ring never open
     /// the app first.
     @available(iOS 16.2, *)
