@@ -104,19 +104,41 @@ public enum DoneButton: Equatable {
 /// where "I'm up" is.
 public enum DoneHandOffRule {
     /// - [acked]: the incident is in `AckedIncidentStore`, set by "I'm up"
-    ///   on this phone or by an acknowledge from elsewhere, and dropped
-    ///   when the incident opens again.
+    ///   on this phone or by an acknowledge from elsewhere. Needed, and not
+    ///   enough: only the app's own push handler drops the mark when the
+    ///   incident opens again, so with the app force-quit it can be stale.
     /// - [alarmUnderWay]: an AlarmKit alarm exists for the incident,
     ///   alerting, counting down or re-armed.
     /// - [cardState]: the state on the incident's Live Activity, nil when
     ///   it has none. A silenced card and a reopened one say `open`.
+    /// - [widgetState]: the state the widget snapshot holds for the
+    ///   incident (`WidgetIncident.open` or `.acked`), nil when the
+    ///   snapshot does not show it. The notification extension turns it
+    ///   back to open on a reopen push, with no app running.
     ///
-    /// An id this phone has never seen is in no store, and is refused.
+    /// A missing card is not enough. One of the two surfaces that draw
+    /// Done has to say, now, that the incident is acknowledged: the Live
+    /// Activity, or with no Live Activity the widget snapshot. And the
+    /// snapshot saying open refuses whatever the card says.
+    ///
+    /// An id this phone has never seen is in no store, and is refused. A
+    /// refusal costs little: the person closes from the app once online.
     static func mayClose(
-        acked: Bool, alarmUnderWay: Bool, cardState: IncidentActivityState?
+        acked: Bool,
+        alarmUnderWay: Bool,
+        cardState: IncidentActivityState?,
+        widgetState: String?
     ) -> Bool {
         guard acked, !alarmUnderWay else { return false }
-        return cardState == nil || cardState == .acked
+        if widgetState == WidgetIncident.open { return false }
+        if let cardState { return cardState == .acked }
+        return widgetState == WidgetIncident.acked
+    }
+
+    /// The state the widget snapshot holds for [incidentId], or nil when
+    /// no topic in it shows that incident.
+    static func widgetState(incidentId: String, in snapshot: WidgetSnapshot?) -> String? {
+        snapshot?.topics.first { $0.incident?.id == incidentId }?.incident?.state
     }
 }
 
