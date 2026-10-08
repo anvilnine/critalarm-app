@@ -85,8 +85,8 @@ Color inboxRowTimeColor(AppInboxRowKind kind, AppColors colors) {
   Color deeper(Color base, double amount) =>
       Color.lerp(base, colors.ink, amount)!;
   return switch (kind) {
-    AppInboxRowKind.ringing => deeper(colors.crit, 0.4),
-    AppInboxRowKind.missed => deeper(colors.crit, 0.4),
+    AppInboxRowKind.ringing => colors.critText,
+    AppInboxRowKind.missed => colors.critText,
     AppInboxRowKind.warning => deeper(colors.high, 0.45),
     AppInboxRowKind.acknowledged || AppInboxRowKind.handled => colors.ink,
     AppInboxRowKind.normal ||
