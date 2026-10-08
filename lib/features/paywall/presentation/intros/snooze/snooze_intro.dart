@@ -105,28 +105,13 @@ class SnoozeIntro extends StatelessWidget {
               scale: 1 + 0.06 * SnoozeTimeline.swell(t),
             ),
             if (swallowed < 1)
-              Positioned(
-                left: at.dx - button.width / 2,
-                top: at.dy - button.height / 2,
-                width: button.width,
-                height: button.height,
-                child: Transform.scale(
-                  scale: 1 - swallowed,
-                  child: DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: tone.ink,
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Center(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        textScaler: TextScaler.noScaling,
-                        style: AppTypography.title(tone.background),
-                      ),
-                    ),
-                  ),
-                ),
+              IntroPillButton(
+                label: label,
+                centre: at,
+                size: button,
+                scale: 1 - swallowed,
+                color: tone.ink,
+                labelColor: tone.background,
               ),
             IntroWord(
               text: line,
@@ -140,24 +125,10 @@ class SnoozeIntro extends StatelessWidget {
             ),
             // The finger: a touch mark, as a screen recording shows one.
             if (fingerShows > 0)
-              Positioned(
-                left: fingerAt.dx - 24,
-                top: fingerAt.dy - 24,
-                width: 48,
-                height: 48,
-                child: Opacity(
-                  opacity: fingerShows,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: tone.ink.withValues(alpha: 0.18),
-                      border: Border.all(
-                        color: tone.ink.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
+              IntroTouchMark(
+                centre: fingerAt,
+                color: tone.ink,
+                opacity: fingerShows,
               ),
           ],
         );

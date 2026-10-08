@@ -1,7 +1,7 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design_system/haptics.dart';
-import 'package:critalarm/features/paywall/presentation/intros/countdown/countdown_intro.dart';
-import 'package:critalarm/features/paywall/presentation/intros/countdown/countdown_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/intros/alarm_snack/alarm_snack_intro.dart';
+import 'package:critalarm/features/paywall/presentation/intros/alarm_snack/alarm_snack_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_intro.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_intro.dart';
@@ -33,7 +33,11 @@ const List<(PaywallIntro, PaywallCue, double)> _scored = [
   (snoozeIntro, PaywallCue.scoreSnooze, SnoozeTimeline.reveal),
   (wakeUpIntro, PaywallCue.scoreWakeUp, WakeUpTimeline.reveal),
   (curtainIntro, PaywallCue.scoreCurtain, CurtainTimeline.reveal),
-  (countdownIntro, PaywallCue.scoreCountdown, CountdownTimeline.reveal),
+  (
+    alarmSnackIntro,
+    PaywallCue.scoreAlarmSnack,
+    AlarmSnackTimeline.reveal,
+  ),
 ];
 
 void main() {
@@ -132,13 +136,22 @@ void main() {
       ]);
     });
 
-    test('countdown: a tick for each count, the landing, the reveal', () {
-      expect(_felt(countdownIntro), [
-        (0.0, HapticPattern.tick),
-        (CountdownTimeline.two, HapticPattern.tick),
-        (CountdownTimeline.squash, HapticPattern.tripleFade),
-        (CountdownTimeline.reveal, HapticPattern.light),
+    test('alarm snack: one light tap a hop, the gulp, the reveal', () {
+      expect(_felt(alarmSnackIntro), [
+        (AlarmSnackTimeline.dodgeLeft, HapticPattern.light),
+        (AlarmSnackTimeline.dodgeRight, HapticPattern.light),
+        (AlarmSnackTimeline.gulp, HapticPattern.medium),
+        (AlarmSnackTimeline.reveal, HapticPattern.light),
       ]);
+      // A picture of an alarm rings under the hops, so what is felt there
+      // is one pulse at a time and well apart: never a buzz.
+      for (final beat in alarmSnackIntro.beats) {
+        expect(beat.haptic.steps, hasLength(1));
+      }
+      expect(
+        AlarmSnackTimeline.dodgeRight - AlarmSnackTimeline.dodgeLeft,
+        greaterThanOrEqualTo(0.4),
+      );
     });
   });
 

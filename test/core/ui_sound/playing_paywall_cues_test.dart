@@ -348,8 +348,8 @@ void main() {
       PaywallCue.scoreFalseAlarm,
       PaywallCue.scoreSnooze,
       PaywallCue.scoreWakeUp,
-      PaywallCue.scoreCountdown,
       PaywallCue.scoreCurtain,
+      PaywallCue.scoreAlarmSnack,
     ];
 
     test('each is sound only and comes in every flavour', () {

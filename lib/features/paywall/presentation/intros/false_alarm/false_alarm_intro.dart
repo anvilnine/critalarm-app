@@ -106,7 +106,7 @@ class FalseAlarmIntro extends StatelessWidget {
           children: [
             Positioned.fill(
               child: CustomPaint(
-                painter: _RedPainter(
+                painter: IntroAlarmRedPainter(
                   centre: centre,
                   face: face,
                   wipe: Curves.easeInOutCubic.transform(
@@ -162,74 +162,4 @@ class FalseAlarmIntro extends StatelessWidget {
       },
     );
   }
-}
-
-/// The red and the pulse rings around the mascot. As the red gives way it
-/// opens in a circle from the mascot outwards, and nothing is painted
-/// inside that circle: the layout under the intro shows through.
-class _RedPainter extends CustomPainter {
-  const _RedPainter({
-    required this.centre,
-    required this.face,
-    required this.wipe,
-    required this.rings,
-    required this.red,
-    required this.ring,
-  });
-
-  final Offset centre;
-  final double face;
-  final double wipe;
-  final List<double?> rings;
-  final Color red;
-  final Color ring;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final screen = Offset.zero & size;
-    if (wipe > 0) {
-      final reach = [
-        screen.topLeft,
-        screen.topRight,
-        screen.bottomLeft,
-        screen.bottomRight,
-      ].map((corner) => (corner - centre).distance).reduce(math.max);
-      canvas
-        ..save()
-        ..clipPath(
-          Path.combine(
-            PathOperation.difference,
-            Path()..addRect(screen),
-            Path()..addOval(
-              Rect.fromCircle(center: centre, radius: reach * wipe),
-            ),
-          ),
-        );
-    }
-    canvas.drawRect(screen, Paint()..color = red);
-
-    for (final progress in rings) {
-      if (progress == null) continue;
-      final out = AppCurves.easeOut.transform(progress);
-      canvas.drawCircle(
-        centre,
-        face * 0.56 * (1 + 0.7 * out),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
-          ..color = ring.withValues(alpha: ring.a * (1 - out)),
-      );
-    }
-    if (wipe > 0) canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_RedPainter old) =>
-      wipe != old.wipe ||
-      centre != old.centre ||
-      face != old.face ||
-      red != old.red ||
-      ring != old.ring ||
-      rings[0] != old.rings[0] ||
-      rings[1] != old.rings[1];
 }

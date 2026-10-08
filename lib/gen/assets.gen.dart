@@ -478,13 +478,13 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_roll.m4a
   String get uiRoll => 'assets/ui_sounds/ui_roll.m4a';
 
-  /// File path: assets/ui_sounds/ui_score_countdown_kalimba.m4a
-  String get uiScoreCountdownKalimba =>
-      'assets/ui_sounds/ui_score_countdown_kalimba.m4a';
+  /// File path: assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a
+  String get uiScoreAlarmSnackKalimba =>
+      'assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a';
 
-  /// File path: assets/ui_sounds/ui_score_countdown_piano.m4a
-  String get uiScoreCountdownPiano =>
-      'assets/ui_sounds/ui_score_countdown_piano.m4a';
+  /// File path: assets/ui_sounds/ui_score_alarm_snack_piano.m4a
+  String get uiScoreAlarmSnackPiano =>
+      'assets/ui_sounds/ui_score_alarm_snack_piano.m4a';
 
   /// File path: assets/ui_sounds/ui_score_curtain_kalimba.m4a
   String get uiScoreCurtainKalimba =>
@@ -571,8 +571,8 @@ class $AssetsUiSoundsGen {
     uiRestore,
     uiRise,
     uiRoll,
-    uiScoreCountdownKalimba,
-    uiScoreCountdownPiano,
+    uiScoreAlarmSnackKalimba,
+    uiScoreAlarmSnackPiano,
     uiScoreCurtainKalimba,
     uiScoreCurtainPiano,
     uiScoreFalseAlarmKalimba,

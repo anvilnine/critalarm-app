@@ -47,7 +47,8 @@ String paywallIntroNameKey(PaywallIntroId intro) => switch (intro) {
   PaywallIntroId.snooze => LocaleKeys.paywall_picker_intro_names_snooze,
   PaywallIntroId.wakeUp => LocaleKeys.paywall_picker_intro_names_wake_up,
   PaywallIntroId.curtain => LocaleKeys.paywall_picker_intro_names_curtain,
-  PaywallIntroId.countdown => LocaleKeys.paywall_picker_intro_names_countdown,
+  PaywallIntroId.alarmSnack =>
+    LocaleKeys.paywall_picker_intro_names_alarm_snack,
 };
 
 /// The key of the name a person reads for [thanks]. See
