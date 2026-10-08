@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:critalarm/app/access/hosted_holding_source.dart';
+import 'package:critalarm/app/access/observed_api_session_store.dart';
+import 'package:critalarm/app/access/pro_holding_source.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
@@ -499,8 +504,15 @@ Future<void> configureDependencies({
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
+    // The same store as before, wrapped so feature access hears the server
+    // mode of every session that is read or written.
+    ..registerLazySingleton<ObservedApiSessionStore>(
+      () => ObservedApiSessionStore(
+        SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+      ),
+    )
     ..registerLazySingleton<ApiSessionStore>(
-      () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+      getIt.get<ObservedApiSessionStore>,
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => identityStore,
@@ -588,6 +600,33 @@ Future<void> configureDependencies({
         identityChanges: [appAccountIdentityChanges, appPlanChanges],
       ),
     )
+    // What this install holds. One source per thing a person can buy, and
+    // the sources are the only readers of the store, the relay's answer and
+    // the developer switches.
+    ..registerLazySingleton<Holdings>(
+      () => Holdings([
+        HostedHoldingSource(
+          readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+          identityChanges: [appAccountIdentityChanges],
+        ),
+        ProHoldingSource(getIt<ProPackAccess>()),
+      ]),
+    )
+    // Whether a feature is open. The server mode comes from the saved
+    // session: the one on disk at launch, then every connect that writes a
+    // new one.
+    ..registerLazySingleton<FeatureAccess>(() {
+      final sessions = getIt<ObservedApiSessionStore>();
+      final access = FeatureAccess(
+        holdings: getIt<Holdings>(),
+        serverMode: sessions.mode.value,
+      );
+      sessions.mode.addListener(
+        () => access.setServerMode(sessions.mode.value),
+      );
+      unawaited(sessions.read().then<void>((_) {}, onError: (Object _) {}));
+      return access;
+    })
     // A build that skips the store has nothing on sale.
     ..registerLazySingleton<ProPackShop>(
       () => buildSkipsPaywall
