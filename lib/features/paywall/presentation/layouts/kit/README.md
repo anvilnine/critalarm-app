@@ -322,6 +322,28 @@ A cue is a sound and its haptic together, by name: `PaywallCue` in
 `lib/core/ui_sound/paywall_cues.dart`. One cue per moment, and never a raw `AppHaptics` call
 beside one. `playPaywallCue(PaywallCue.swap)` plays one from a touch.
 
+Three cues mark the three moments of every paywall, and no two may sound alike. A person should
+be able to name the moment with eyes shut:
+
+| Cue | Moment | Lead voice | Shape | Ends | Haptic |
+|---|---|---|---|---|---|
+| `open` | The paywall arrives and asks | A tine, struck once | Level: one strike, all of it in the first 30 ms | Hanging, on the second and the fifth | `light` |
+| `bought` | The purchase is confirmed | Mallets, with a bell on top | Rising, into the three note call | Home, on the tonic | `risingPair` |
+| `close` | Left without buying | A soft voice, sliding | Falling a fourth, with a sigh of air | Open, on the fifth | `fallingPair` |
+
+- `open` is never a reward: no mallet, nothing that climbs, no tonic, no sparkle. Six layouts
+  play their next cue about 0.3 s later, so its identity sits at the very start.
+- `bought` is the only celebration and the one place the call plays in full. Its clock is fixed,
+  because the step after a purchase is drawn to it: a click at 0, a swell from 0.40 s to a peak
+  at 0.60 s, silence by 2.15 s.
+- `close` is a little let down and kind about it: "oh, okay". It is a slide where `error` is two
+  struck mallet notes ("that did not work"), so the two are never confused. It never mocks.
+
+The frame plays `close` once, when the paywall goes without the product in hand
+(`paywallSaysClose`): from the cross, and from back or a swipe as the route starts to go. It
+stays silent after a purchase, a restore that worked and the step after either, and in a tile.
+The sound belongs to the app, so it plays on after the screen is gone.
+
 A layout writes what its motion sounds like as a list of beats, each a clock second and a cue, in
 its rules file beside the timeline they come from (`doorsCues`, `receiptCues`). It wraps its
 composition in `PaywallCueScore(clock:, beats:, player:, turnCue:)`, which plays them:

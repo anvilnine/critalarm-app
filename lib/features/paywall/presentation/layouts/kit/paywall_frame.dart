@@ -6,6 +6,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -252,9 +253,11 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   void _sayClose() {
     if (_saidClose) return;
     _saidClose = true;
-    if (_isMuted) return;
-    // Leaving with the product in hand is not a dismissal.
-    if (_buy.state.status != PaywallBuyStatus.done) _cues.close();
+    final says = paywallSaysClose(
+      status: _buy.state.status,
+      isMuted: _isMuted,
+    );
+    if (says) _cues.close();
   }
 
   void _close() {
@@ -273,7 +276,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
 
   @override
   void dispose() {
-    // Back and a swipe leave without the cross.
+    // A route taken away without a pop, such as a jump to another screen.
     _sayClose();
     if (widget.controller?._body == this) widget.controller?._body = null;
     _clock.dispose();
@@ -288,6 +291,23 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     final intro =
         PaywallIntroPlay.maybeOf(context)?.intro ?? PaywallIntroId.none;
 
+    return PopScope<Object?>(
+      // Back and a swipe leave without the cross. The cue plays as the
+      // route starts to go, so it is heard with the leaving and not after.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _sayClose();
+      },
+      child: _buildBody(context, tone, offer, isCompact, intro),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    PaywallToneColors tone,
+    PaywallOffer offer,
+    bool isCompact,
+    PaywallIntroId intro,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
