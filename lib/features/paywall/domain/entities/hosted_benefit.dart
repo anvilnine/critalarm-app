@@ -43,7 +43,7 @@ enum HostedSurface {
       hasOwnServerLine ? LocaleKeys.paywall_self_hosted_note.tr() : null;
 }
 
-enum HostedBenefitId { topics, pushes, history, widgets, appIcons }
+enum HostedBenefitId { topics, pushes, history, appIcons }
 
 /// One thing Hosted gives, with the string keys each surface reads.
 ///
@@ -134,16 +134,6 @@ class HostedBenefit {
       compareHostedKey: LocaleKeys.hosted_benefits_history_compare_hosted,
       loseKey: LocaleKeys.hosted_benefits_history_lose,
       phraseKey: LocaleKeys.hosted_benefits_history_phrase,
-    ),
-    const HostedBenefit(
-      id: HostedBenefitId.widgets,
-      feature: AppFeature.widgets,
-      shortKey: LocaleKeys.hosted_benefits_widgets_short,
-      compareLabelKey: LocaleKeys.hosted_benefits_widgets_compare_label,
-      compareFreeKey: LocaleKeys.hosted_benefits_widgets_compare_free,
-      compareHostedKey: LocaleKeys.hosted_benefits_widgets_compare_hosted,
-      loseKey: LocaleKeys.hosted_benefits_widgets_lose,
-      phraseKey: LocaleKeys.hosted_benefits_widgets_phrase,
     ),
     const HostedBenefit(
       id: HostedBenefitId.appIcons,
