@@ -265,6 +265,14 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         )
         .toList();
     final count = messages.length;
+    DateTime? lastAlarmAt;
+    for (final incident in _incidents.state.forTopic(topicName)) {
+      final opened = incident.openedAt;
+      if (opened == null) continue;
+      if (lastAlarmAt == null || opened.isAfter(lastAlarmAt)) {
+        lastAlarmAt = opened;
+      }
+    }
     // A topic with nothing in it gets its own line. The counted form reads
     // as nonsense at zero.
     final subText = count == 0
@@ -288,6 +296,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       word: word,
       subText: subText,
       messages: messages,
+      messageTimes: [
+        for (final m in polled.reversed)
+          DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
+      ],
+      lastAlarmAt: lastAlarmAt,
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       clearError: true,
     );

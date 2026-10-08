@@ -2,8 +2,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
-import 'package:critalarm/design/components/message_cards.dart';
 import 'package:critalarm/design/components/skeleton.dart';
+import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/components/toasts.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -14,6 +14,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -153,11 +154,11 @@ void main() {
       await tester.pump();
 
       expect(find.byType(AppMessageCardSkeleton), findsOneWidget);
-      expect(find.byType(AppMessageCard), findsNothing);
+      expect(find.byType(TopicMessageRow), findsNothing);
       await cubit.close();
     });
 
-    testWidgets('shows AppMessageCard once messages have loaded', (
+    testWidgets('shows a message row once messages have loaded', (
       tester,
     ) async {
       final cubit = makeDetailCubit()
@@ -189,12 +190,12 @@ void main() {
       await tester.pump();
 
       expect(find.byType(AppMessageCardSkeleton), findsNothing);
-      expect(find.byType(AppMessageCard), findsOneWidget);
+      expect(find.byType(TopicMessageRow), findsOneWidget);
       expect(find.text('High CPU load'), findsOneWidget);
       await cubit.close();
     });
 
-    testWidgets('shows stage skeleton bones when loading', (tester) async {
+    testWidgets('shows dots for the numeral while loading', (tester) async {
       final cubit = makeDetailCubit()
         ..emit(
           const TopicDetailState(
@@ -215,14 +216,13 @@ void main() {
       );
       await tester.pump();
 
-      expect(
-        find.byKey(const ValueKey('stage_vertical_skeleton')),
-        findsOneWidget,
-      );
+      expect(find.text('···'), findsOneWidget);
       await cubit.close();
     });
 
-    testWidgets('transitions stage skeleton to loaded content', (tester) async {
+    testWidgets('replaces the dots with the real answer once loaded', (
+      tester,
+    ) async {
       final cubit = makeDetailCubit()
         ..emit(
           const TopicDetailState(
@@ -242,34 +242,32 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(
-        find.byKey(const ValueKey('stage_vertical_skeleton')),
-        findsOneWidget,
-      );
+      expect(find.text('···'), findsOneWidget);
 
       cubit.emit(
         const TopicDetailState(
           status: TopicDetailStatus.success,
           topicName: 'prod-db',
-          word: 'CLEAR',
-          subText: '0 open incidents',
         ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
+      expect(find.text('···'), findsNothing);
+      // A topic nobody switched on reads Off.
       expect(
-        find.byKey(const ValueKey('stage_vertical_skeleton')),
-        findsNothing,
+        find.descendant(
+          of: find.byType(AppStatusCard),
+          matching: find.text('Off'),
+        ),
+        findsOneWidget,
       );
-      expect(find.text('CLEAR'), findsOneWidget);
-      expect(find.text('0 open incidents'), findsOneWidget);
+      expect(find.text('Nothing sent yet.'), findsOneWidget);
       await cubit.close();
     });
 
     testWidgets(
-      'shows View all messages button alongside message card when multiple '
-      'messages',
+      'shows the newest messages as rows when there are several',
       (tester) async {
         final cubit = makeDetailCubit()
           ..emit(
@@ -305,10 +303,10 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.byType(AppMessageCard), findsOneWidget);
+        expect(find.byType(TopicMessageRow), findsNWidgets(2));
         expect(find.text('High CPU load'), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('messages_card_12:00_1')),
+          find.byKey(const ValueKey('messages_12:00_2')),
           findsOneWidget,
         );
         await cubit.close();

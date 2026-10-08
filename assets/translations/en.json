@@ -676,6 +676,27 @@
     "critical_off_one_way_body": "On the free plan you can't turn this back on.",
     "critical_off_one_way_confirm": "Turn off"
   },
+  "topic_hero": {
+    "card_label": "Critical delivery",
+    "numeral_on": "On",
+    "numeral_off": "Off",
+    "foot_rings_through_silent": "rings through silent",
+    "foot_time_sensitive": "Time-Sensitive push",
+    "foot_normal_push": "normal push, no ring",
+    "foot_needs_alarm": "turn on Alarms first",
+    "summary_nothing": "Nothing sent yet.",
+    "summary_none_today": "No messages today.",
+    "summary_today": {
+      "one": "1 message today.",
+      "other": "{} messages today."
+    },
+    "summary_last_alarm": "Last alarm {time}.",
+    "all_messages": {
+      "one": "All 1 message",
+      "other": "All {} messages"
+    },
+    "no_messages": "No messages yet."
+  },
   "topic_tokens": {
     "header": "Tokens",
     "loading": "Reading this topic's tokens...",

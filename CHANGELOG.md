@@ -57,6 +57,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Topics screen has a new look: one card answers whether your alarms will wake you, and your topics sit below it in one list.
 - History opens on a week at a glance: a small face over a card with your alarms per day and the longest one you answered, and each alarm shows a tick when answered or a red mark when nobody answered
 - Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
+- Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
