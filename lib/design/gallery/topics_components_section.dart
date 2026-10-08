@@ -946,7 +946,7 @@ class CreamCardGallery extends StatelessWidget {
 // Stat card.
 // ---------------------------------------------------------------------------
 
-/// A full week, an empty week and one alarm.
+/// A full week, an empty week, one alarm, and a plan that keeps three days.
 class StatCardGallery extends StatelessWidget {
   const StatCardGallery({super.key});
 
@@ -956,12 +956,16 @@ class StatCardGallery extends StatelessWidget {
     int alarms = 0,
     bool today = false,
     bool unanswered = false,
+    bool hidden = false,
   }) => AppStatDay(
     letter: letter,
     alarms: alarms,
     isToday: today,
     hasUnanswered: unanswered,
-    semanticsLabel: alarms == 0
+    isHidden: hidden,
+    semanticsLabel: hidden
+        ? "$name: outside your plan's history"
+        : alarms == 0
         ? '$name: no alarms'
         : '$name: $alarms ${alarms == 1 ? 'alarm' : 'alarms'}'
               '${unanswered ? ', not answered' : ''}',
@@ -975,7 +979,10 @@ class StatCardGallery extends StatelessWidget {
         const _Heading(
           'Stat card',
           'A week of seven bars and two numbers. Today is yellow, a day with '
-              'an unanswered alarm is red, a quiet day is a short stub.',
+              'an unanswered alarm is red, a quiet day is a short stub and a '
+              'day the plan does not reach has no bar. The numbers sit left '
+              'and the bars right; on a narrow card or at a large text size '
+              'the bars go on top.',
         ),
         const _Caption('a full week'),
         AppStatCard(
@@ -1029,6 +1036,24 @@ class StatCardGallery extends StatelessWidget {
           secondValue: '7 s',
           secondCaption: 'longest answered',
           semanticsLabel: 'Alarms per day, last 7 days',
+        ),
+        const SizedBox(height: Spacing.s4),
+        const _Caption('a plan that keeps three days, with a missed alarm'),
+        AppStatCard(
+          days: [
+            _d('F', 'Friday', hidden: true),
+            _d('S', 'Saturday', hidden: true),
+            _d('S', 'Sunday', hidden: true),
+            _d('M', 'Monday', hidden: true),
+            _d('T', 'Tuesday', alarms: 1, unanswered: true),
+            _d('W', 'Wednesday'),
+            _d('T', 'Thursday', alarms: 2, today: true),
+          ],
+          firstValue: '3',
+          firstCaption: 'alarms, 3 days',
+          secondValue: '6 min',
+          secondCaption: 'longest answered',
+          semanticsLabel: 'Alarms per day, last 3 days',
         ),
       ],
     );
