@@ -89,7 +89,15 @@ class PaywallBuyBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return _BuyCues(
       child: BlocBuilder<PaywallBuyCubit, PaywallBuyState>(
-        builder: (context, state) {
+        builder: (context, held) {
+          // With a step of its own after the purchase, the block keeps
+          // the look it had while confirming: that step grows out of the
+          // button, so nothing here may move under it.
+          final state =
+              held.status == PaywallBuyStatus.done &&
+                  PaywallThanksPlay.takesOver(context)
+              ? held.copyWith(status: PaywallBuyStatus.checking)
+              : held;
           final tone = PaywallToneColors.of(context, style.tone);
           final side = EdgeInsets.symmetric(
             horizontal: style.horizontalPadding,

@@ -45,6 +45,20 @@ String paywallPairText({
   return '${intro ?? remote}, ${layout ?? remote}';
 }
 
+/// What one product's paywall opens, as a few words: the intro, the
+/// layout, then what plays after a purchase. A null is a choice left to
+/// the remote value and reads [remote]. With all three left to it the
+/// answer is [remote] once.
+String paywallStepsText({
+  required String? intro,
+  required String? layout,
+  required String? thanks,
+  required String remote,
+}) {
+  if (intro == null && layout == null && thanks == null) return remote;
+  return '${intro ?? remote}, ${layout ?? remote}, ${thanks ?? remote}';
+}
+
 /// The value of the flow row: [none] with no override, [custom] for a typed
 /// list, and the flow's own id for a bundled one.
 String developerFlowValueText({

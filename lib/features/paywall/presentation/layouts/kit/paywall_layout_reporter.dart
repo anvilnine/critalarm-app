@@ -92,6 +92,16 @@ class PaywallLayoutReporter implements PaywallBuyReporter {
   @override
   void closed() => unawaited(_analytics.closed(source: source));
 
+  /// The step after a purchase came on screen.
+  void thanksShown(String kind) =>
+      unawaited(_analytics.thanksShown(kind: kind));
+
+  /// The buyer left the step after a purchase.
+  void thanksLeft(String kind, {required String how, required bool skipped}) =>
+      unawaited(
+        _analytics.thanksLeft(kind: kind, how: how, skipped: skipped),
+      );
+
   /// The shipped paywall says completed as soon as the store takes the
   /// purchase, and failed for everything else.
   Future<void>? _hostedPurchase(PaywallBuyOutcome outcome, String? plan) {

@@ -2,10 +2,12 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:flutter/widgets.dart';
@@ -16,8 +18,8 @@ import 'package:go_router/go_router.dart';
 /// It reads what [paywallOpeningFor] needs (the remote values, what
 /// Developer options set, whether the false alarm intro was shown) and
 /// answers with a location: the shipped route, exactly as before, or a
-/// layout's, with its intro. Anything that goes wrong while it reads
-/// answers with the shipped route.
+/// layout's, with its intro and its thanks. Anything that goes wrong
+/// while it reads answers with the shipped route.
 class PaywallDoor {
   PaywallDoor({
     required this._remoteValue,
@@ -27,6 +29,9 @@ class PaywallDoor {
     this._remoteIntroValue = _noIntroValue,
     this._developerIntro = _noDeveloperIntro,
     this._isIntroBuilt = paywallIntroIsBuilt,
+    this._remoteThanksValue = _noThanksValue,
+    this._developerThanks = _noDeveloperThanks,
+    this._isThanksBuilt = paywallThanksIsBuilt,
   });
 
   /// The prefs key that says the false alarm intro was shown on this
@@ -35,6 +40,8 @@ class PaywallDoor {
 
   static String _noIntroValue(PaywallProduct product) => '';
   static PaywallIntroId? _noDeveloperIntro(PaywallProduct product) => null;
+  static String _noThanksValue(PaywallProduct product) => '';
+  static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
 
   final String Function(PaywallProduct product) _remoteValue;
   final PaywallLayoutSetting? Function(PaywallProduct product) _developer;
@@ -43,6 +50,9 @@ class PaywallDoor {
   final bool Function() _hasSeenFalseAlarm;
   final Future<void> Function() _markFalseAlarmSeen;
   final bool Function(PaywallIntroId intro) _isIntroBuilt;
+  final String Function(PaywallProduct product) _remoteThanksValue;
+  final PaywallThanksId? Function(PaywallProduct product) _developerThanks;
+  final bool Function(PaywallThanksId thanks) _isThanksBuilt;
 
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
@@ -78,15 +88,24 @@ class PaywallDoor {
             ? paywallIntroInLayoutValue(remoteValue)
             : null,
         hasSeenFalseAlarm: !canDrawFalseAlarm || _hasSeenFalseAlarm(),
+        remoteThanks: PaywallThanksId.parse(_remoteThanksValue(product)),
+        developerThanks: _developerThanks(product),
       );
       if (opening == null) return null;
       if (opening.intro == PaywallIntroId.falseAlarm) {
         _markFalseAlarmSeen().ignore();
       }
-      // An intro this build has no animation for is no intro.
-      return _isIntroBuilt(opening.intro)
-          ? opening
-          : PaywallOpening(opening.layout);
+      // An intro this build has no animation for is no intro, and the
+      // same goes for a thanks.
+      return PaywallOpening(
+        opening.layout,
+        intro: _isIntroBuilt(opening.intro)
+            ? opening.intro
+            : PaywallIntroId.none,
+        thanks: _isThanksBuilt(opening.thanks)
+            ? opening.thanks
+            : PaywallThanksId.none,
+      );
     } on Object catch (_) {
       return null;
     }
@@ -101,6 +120,7 @@ class PaywallDoor {
             opening.layout,
             PaywallProduct.hosted,
             intro: opening.intro,
+            thanks: opening.thanks,
             source: source,
           );
   }
@@ -119,6 +139,7 @@ class PaywallDoor {
             opening.layout,
             PaywallProduct.hosted,
             intro: opening.intro,
+            thanks: opening.thanks,
             source: source,
           );
   }
@@ -136,6 +157,7 @@ class PaywallDoor {
             opening.layout,
             PaywallProduct.pro,
             intro: opening.intro,
+            thanks: opening.thanks,
             sourceWire: source.wire,
           );
   }
