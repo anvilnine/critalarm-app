@@ -22,4 +22,25 @@ object UiSoundRules {
      * or to vibrate stays quiet, the same as the silent switch on an iPhone.
      */
     fun ringerAllows(ringerMode: Int, normalMode: Int): Boolean = ringerMode == normalMode
+
+    /** The most copies of one sound that may play at once, whatever is asked. */
+    const val MAX_VOICES = 4
+
+    /** How many copies the caller may have. Nothing asked means one. */
+    fun voices(asked: Int?): Int = (asked ?: 1).coerceIn(1, MAX_VOICES)
+
+    /**
+     * Which of the sounds now [playing], oldest first, must stop before
+     * [asset] starts with [voices] copies allowed.
+     *
+     * With one voice everything stops: a new sound replaces the old one.
+     * With more, the newest copies of the same sound are left to finish, so
+     * that with the new one there are never more than [voices]. A different
+     * sound always stops.
+     */
+    fun toStop(playing: List<String>, asset: String, voices: Int): List<Int> {
+        val same = playing.indices.filter { playing[it] == asset }
+        val kept = same.takeLast(voices(voices) - 1).toSet()
+        return playing.indices.filter { it !in kept }
+    }
 }
