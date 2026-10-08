@@ -320,9 +320,9 @@ void main() {
       );
     });
 
-    test('its id is the one saved on phones, and it is listed last', () {
+    test('its id is the one saved on phones, and it is listed fourth', () {
       expect(ChallengeKind.scratchCard.id, 'scratch_card');
-      expect(challenges.last.kind, ChallengeKind.scratchCard);
+      expect(challenges[3].kind, ChallengeKind.scratchCard);
     });
   });
 }
