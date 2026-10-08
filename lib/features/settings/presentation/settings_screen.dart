@@ -68,8 +68,15 @@ class _SettingsScreenContent extends StatelessWidget {
     String? value,
   }) {
     final colors = context.appColors;
+    final valueStyle = AppTypography.small(colors.ink3, fontSize: 13);
+    // At larger text the value moves under the title, where the whole row
+    // width is free for it. Before that it sits at the end of the row and
+    // takes the room it needs, ahead of the description.
+    final valueUnderTitle =
+        MediaQuery.textScalerOf(context).scale(1) > kSettingsValueMaxTextScale;
     return AppListRow(
       name: title,
+      preview: valueUnderTitle ? value : null,
       meta: subtitle,
       // No face. A face reports how something is doing, and these rows only
       // open another screen. The readiness card above keeps one because it
@@ -78,7 +85,7 @@ class _SettingsScreenContent extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (value != null) ...[
+          if (value != null && !valueUnderTitle) ...[
             // The value is chrome: it stops growing with the text size so it
             // never squeezes the row's title out.
             MediaQuery(
@@ -87,14 +94,12 @@ class _SettingsScreenContent extends StatelessWidget {
                   context,
                 ).clamp(maxScaleFactor: kChromeMaxTextScale),
               ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 104),
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.small(colors.ink3, fontSize: 13),
-                ),
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: valueStyle,
               ),
             ),
             const SizedBox(width: 8),
