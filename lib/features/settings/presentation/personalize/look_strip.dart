@@ -8,6 +8,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
@@ -17,6 +18,7 @@ import 'package:critalarm/features/settings/domain/personalize/personalize_rules
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/own_look_flow.dart';
+import 'package:critalarm/features/settings/presentation/personalize/own_look_thumbnail.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_chip.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -138,8 +140,9 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
   /// - A photo held in memory: a look like the others, with a pencil on
   ///   its corner that changes the photo or the colour.
   /// - A photo saved that cannot be drawn (alarm looks are locked, so
-  ///   the picture is not kept in memory, or its file is gone or
-  ///   broken): the empty tile, with a cross on its corner.
+  ///   the full picture is not kept in memory, or its file is gone or
+  ///   broken): the tile with a small copy of the photo in it, or empty
+  ///   when the file cannot be read, and a cross on its corner.
   ///
   /// The corner button is there whenever a photo is saved, plan or no
   /// plan, and it sits outside the lock: a person can always remove
@@ -153,12 +156,13 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
         feature: AppFeature.alarmScreenStyles,
         source: LockSource.personalizeLook,
         name: name,
-        badgeOverhang: PersonalizeStrip.badgeRoom,
+        badgeSeat: FeatureLockSeat.above,
+        badgeOverhang: PersonalizeStrip.badgeOverhang,
         child: _AddOwnLook(
           key: const ValueKey('look-own-add'),
-          // Locked with a photo saved, there is nothing to add and no
-          // picture in memory to show. Unlocked with a photo that cannot
-          // be drawn, the tile offers the picker again.
+          // Locked with a photo saved, there is nothing to add: the tile
+          // shows a small copy of the photo. Unlocked with a photo that
+          // cannot be drawn, the tile offers the picker again.
           hasPhoto:
               _ownLook.hasPhoto &&
               _access.decide(AppFeature.alarmScreenStyles) is FeatureLocked,
@@ -172,7 +176,8 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
         name: name,
         tap: LockTap.tryIt,
         onTry: () => _try(style),
-        badgeOverhang: PersonalizeStrip.badgeRoom,
+        badgeSeat: FeatureLockSeat.above,
+        badgeOverhang: PersonalizeStrip.badgeOverhang,
         child: option(style),
       );
     }
@@ -215,14 +220,7 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
           height: PersonalizeLookStrip.height + Spacing.s1,
           // A handful of pictures, all built, so a screen reader can reach
           // the ones off the edge.
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.s4,
-              PersonalizeStrip.badgeRoom,
-              Spacing.s4,
-              Spacing.s1,
-            ),
+          child: PersonalizeStripScroller(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -237,7 +235,8 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
                       name: style.nameKey.tr(),
                       tap: LockTap.tryIt,
                       onTry: () => _try(style),
-                      badgeOverhang: PersonalizeStrip.badgeRoom,
+                      badgeSeat: FeatureLockSeat.above,
+                      badgeOverhang: PersonalizeStrip.badgeOverhang,
                       child: option(style),
                     ),
                 ],
@@ -255,9 +254,10 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
 /// The edge of the square that takes a tap on the own look's edit button.
 const double _editTarget = 44;
 
-/// The button on the corner of the own look's tile: a small ink disc
-/// inside a full-size target. A pencil opens the look's sheet, and a
-/// cross opens it with only "Remove photo" in it.
+/// The button on the corner of the own look's tile: a small disc in the
+/// theme's ink, with its glyph in the theme's surface, inside a full-size
+/// target. It reads on the page in both themes. A pencil opens the look's
+/// sheet, and a cross opens it with only "Remove photo" in it.
 class _OwnLookCorner extends StatelessWidget {
   const _OwnLookCorner({
     required this.glyph,
@@ -290,7 +290,7 @@ class _OwnLookCorner extends StatelessWidget {
               height: 28,
               margin: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: colors.inkFixed,
+                color: colors.ink,
                 shape: BoxShape.circle,
                 border: Border.all(color: colors.surface, width: 1.5),
               ),
@@ -312,9 +312,10 @@ class _OwnLookCorner extends StatelessWidget {
 /// The "Yours" tile while there is no photo to draw: the shape of a look
 /// with a plus in it. A tap opens the picker.
 ///
-/// With [hasPhoto] a photo is saved and cannot be drawn. The tile is then
-/// empty, since the picture is not in memory to show, and says so to a
-/// screen reader in place of "Add your photo".
+/// With [hasPhoto] a photo is saved and the look cannot be drawn. The tile
+/// then shows a small copy of the photo at full colour, so a locked look
+/// keeps its real picture, and says so to a screen reader in place of
+/// "Add your photo". When the file cannot be read the tile is empty.
 class _AddOwnLook extends StatelessWidget {
   const _AddOwnLook({
     required this.onTap,
@@ -354,13 +355,25 @@ class _AddOwnLook extends StatelessWidget {
               Container(
                 width: pictureWidth,
                 height: pictureHeight,
+                clipBehavior: Clip.antiAlias,
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: hasPhoto ? colors.hairline : colors.ink,
+                    width: hasPhoto ? 1 : 1.5,
+                  ),
+                ),
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: radius,
-                  border: Border.all(color: colors.ink, width: 1.5),
                 ),
                 child: hasPhoto
-                    ? null
+                    ? OwnLookThumbnail(
+                        key: const ValueKey('look-own-thumbnail'),
+                        store: getIt<OwnLookStore>(),
+                        height: pictureHeight,
+                        fallback: const SizedBox.expand(),
+                      )
                     : Center(
                         child: AppGlyph(
                           GlyphType.plus,
@@ -398,8 +411,14 @@ class _AddOwnLook extends StatelessWidget {
 }
 
 /// One look: a still picture of the ringing screen in that look, and its
-/// name under it. The picked one carries a tick and a solid outline, so
-/// it reads without colour.
+/// name under it.
+///
+/// The picked one carries a ring that stands clear of the picture, with
+/// the page showing between the two, and a tick on a disc on its corner.
+/// A ring drawn on the picture's own edge was lost against a dark picture
+/// in the light theme. The look being tried carries a dashed ring and no
+/// tick. Neither mark is in the name's row, so every name is drawn at the
+/// same size.
 class _LookOption extends StatelessWidget {
   const _LookOption({
     required this.style,
@@ -411,11 +430,18 @@ class _LookOption extends StatelessWidget {
 
   final AlarmStyle style;
 
-  /// The look that rings: a tick and a solid outline.
+  /// The look that rings: a tick and a solid ring.
   final bool isSelected;
 
-  /// A solid outline with no tick: the look being tried.
+  /// A dashed ring with no tick: the look being tried.
   final bool isMarked;
+
+  /// How far the ring stands off the picture, and how thick it is.
+  static const double _ringGap = 2;
+  static const double _ringWidth = 2.5;
+
+  /// The edge of the disc the tick sits on.
+  static const double _tickDisc = 20;
 
   final VoidCallback onTap;
 
@@ -429,10 +455,11 @@ class _LookOption extends StatelessWidget {
     final media = MediaQuery.of(context);
     final screen = RingingPreview.screenOf(context).size;
     final name = style.nameKey.tr();
-    final strong = isSelected || isMarked;
     const pictureHeight = PersonalizeLookStrip._pictureHeight;
     final pictureWidth = pictureHeight * screen.width / screen.height;
     final radius = BorderRadius.circular(pictureWidth * 0.14);
+    const ringInset = _ringGap + _ringWidth;
+    final ringRadius = BorderRadius.circular(pictureWidth * 0.14 + ringInset);
     return Semantics(
       button: true,
       selected: isSelected,
@@ -450,64 +477,104 @@ class _LookOption extends StatelessWidget {
               SizedBox(
                 width: pictureWidth,
                 height: pictureHeight,
-                child: DecoratedBox(
-                  position: DecorationPosition.foreground,
-                  decoration: BoxDecoration(
-                    borderRadius: radius,
-                    border: Border.all(
-                      color: strong ? colors.ink : colors.hairline,
-                      width: strong ? 2 : 1,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: radius,
-                    child: RepaintBoundary(
-                      child: RingingPreview(
-                        style: style,
-                        fit: BoxFit.fill,
-                        isStill: true,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      position: DecorationPosition.foreground,
+                      decoration: BoxDecoration(
+                        borderRadius: radius,
+                        border: Border.all(color: colors.hairline),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: radius,
+                        child: RepaintBoundary(
+                          child: RingingPreview(
+                            style: style,
+                            fit: BoxFit.fill,
+                            isStill: true,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    if (isSelected || isMarked)
+                      Positioned(
+                        key: ValueKey(
+                          isSelected ? 'look-ring-picked' : 'look-ring-tried',
+                        ),
+                        left: -ringInset,
+                        top: -ringInset,
+                        right: -ringInset,
+                        bottom: -ringInset,
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: isSelected
+                                ? BoxDecoration(
+                                    borderRadius: ringRadius,
+                                    border: Border.all(
+                                      color: colors.onCanvas,
+                                      width: _ringWidth,
+                                    ),
+                                  )
+                                : DashedOutline(
+                                    color: colors.onCanvas,
+                                    radius: ringRadius,
+                                    width: _ringWidth,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    if (isSelected)
+                      PositionedDirectional(
+                        start: -(_tickDisc / 2 + ringInset),
+                        top: -(_tickDisc / 2 + ringInset) + 4,
+                        child: IgnorePointer(
+                          child: Container(
+                            key: const ValueKey('look-tick'),
+                            width: _tickDisc,
+                            height: _tickDisc,
+                            decoration: BoxDecoration(
+                              color: colors.ink,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.surface,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: AppGlyph(
+                                GlyphType.check,
+                                size: 10,
+                                strokeWidth: 3.4,
+                                color: colors.surface,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: PersonalizeLookStrip._labelGap),
               SizedBox(
                 height: PersonalizeLookStrip._labelHeight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isSelected) ...[
-                      AppGlyph(GlyphType.check, size: 12, color: colors.ink),
-                      const SizedBox(width: 4),
-                    ],
-                    Flexible(
-                      child: MediaQuery(
-                        // One line of this fits the room up to here.
-                        data: media.copyWith(
-                          textScaler: media.textScaler.clamp(
-                            maxScaleFactor: 1.3,
-                          ),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            style:
-                                AppTypography.small(
-                                  colors.onCanvas,
-                                  fontSize: 12,
-                                ).copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.15,
-                                ),
-                          ),
-                        ),
-                      ),
+                child: MediaQuery(
+                  // One line of this fits the room up to here.
+                  data: media.copyWith(
+                    textScaler: media.textScaler.clamp(maxScaleFactor: 1.3),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      style: AppTypography.small(
+                        colors.onCanvas,
+                        fontSize: 12,
+                      ).copyWith(fontWeight: FontWeight.w600, height: 1.15),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
