@@ -71,6 +71,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 - The Android back button closes search instead of leaving the app.
+- The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
+- The App icon screen no longer hits a layout error on the first visit with reduce motion on
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

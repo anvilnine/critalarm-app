@@ -130,6 +130,11 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
 - FeatureLock can seat its badge above the option's edge (FeatureLockSeat.above) or leave it to the child (drawsBadge: false). Personalize strips and rows use both, so a badge covers no label and no picture.
 - Personalize: challenge chips are a picture and one word, a tried option has a dashed outline, the picked look has a ring clear of its picture, look thumbnails hold one expression, a lapsed Yours tile shows the saved photo, Widgets shows the widget small, and the wide page uses more width (AppScreenScaffold.contentMaxWidth).
+- Locked app icons draw at full colour, and the locked App icon screen has one Unlock button
+- Wake-up challenges give one instruction each, and the line under a challenge field stays above the way out on a small phone at a large text size
+- A challenge try is drawn in the phone's saved alarm look
+- Plans and features lab shows each feature note whole and uses the app's names for Look and Wake-up challenge
+- Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

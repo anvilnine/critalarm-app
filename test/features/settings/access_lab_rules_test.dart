@@ -126,6 +126,14 @@ void main() {
       expect(accessLabHoldingName(Holding.pro), 'Pro');
     });
 
+    test('a feature the app names on its own screens keeps that name', () {
+      expect(
+        accessLabFeatureName(AppFeature.wakeUpChallenges),
+        'Wake-up challenge',
+      );
+      expect(accessLabFeatureName(AppFeature.alarmScreenStyles), 'Look');
+    });
+
     test('a decision reads as open, locked, confirming or unread', () {
       expect(accessLabDecisionText(const FeatureDecision.open()), 'Open');
       expect(
