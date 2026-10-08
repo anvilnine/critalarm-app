@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
@@ -49,6 +53,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.storageSettings,
     this.onAutoDeleteChanged,
     this.onConnectionChanged,
+    this.holdings,
+    this.featureAccess,
     ProOverride? proOverride,
     PlanChanges? planChanges,
   }) : _proOverride = proOverride ?? appProOverride,
@@ -56,6 +62,10 @@ class SettingsCubit extends Cubit<SettingsState> {
        super(const SettingsState()) {
     _proOverride.listenable?.addListener(_onForceProChanged);
     _planChanges.addListener(_onPlanChanged);
+    _holdingsSub = holdings?.stream.listen((_) => _onHeldChanged());
+    _accessSub = featureAccess?.changes
+        .where((feature) => feature == AppFeature.storageRules)
+        .listen((_) => _onHeldChanged());
   }
 
   final GetConnectionUsecase? getConnectionUsecase;
@@ -92,6 +102,16 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// reminders from what is left, right away. Null in tests.
   final Future<void> Function()? onConnectionChanged;
 
+  /// What this install holds, for the plan row. Null in tests that do not
+  /// look at it, and then the row reads as not holding Hosted.
+  final Holdings? holdings;
+
+  /// Says whether the Storage section is open. Null in tests that do not
+  /// open it, and then it is not drawn.
+  final FeatureAccess? featureAccess;
+  StreamSubscription<Set<Holding>>? _holdingsSub;
+  StreamSubscription<AppFeature>? _accessSub;
+
   final ProOverride _proOverride;
 
   /// Moves when a purchase lands or a registration brings a new tier, so the
@@ -110,17 +130,36 @@ class SettingsCubit extends Cubit<SettingsState> {
     unawaited(_loadAccess());
   }
 
-  /// The developer Force Pro switch moved. The plan row reads
-  /// [AccountAccess.isPaid], so hand it a fresh one and let the screen rebuild.
+  /// The developer Force Pro switch moved. The usage line words itself
+  /// from [AccountAccess], so hand it a fresh one and let the screen rebuild.
   void _onForceProChanged() {
     if (isClosed) return;
     emit(state.copyWith(access: _access(state.access.identity)));
   }
 
+  /// What is held, or whether Storage is open, changed. The plan row and
+  /// the Storage section follow at once.
+  void _onHeldChanged() {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        access: _access(state.access.identity),
+        holdsHosted: _holdsHosted,
+        hasStorageSection: _hasStorageSection,
+      ),
+    );
+  }
+
+  bool get _holdsHosted => holdings?.holds(Holding.hosted) ?? false;
+  bool get _hasStorageSection =>
+      featureAccess?.can(AppFeature.storageRules) ?? false;
+
   @override
   Future<void> close() {
     _proOverride.listenable?.removeListener(_onForceProChanged);
     _planChanges.removeListener(_onPlanChanged);
+    unawaited(_holdingsSub?.cancel());
+    unawaited(_accessSub?.cancel());
     return super.close();
   }
 
@@ -266,11 +305,16 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
+    // The plan is read before the row says Free or the section is left out.
+    await holdings?.ready;
+    await featureAccess?.ready;
     if (isClosed) return;
     emit(
       state.copyWith(
         status: SettingsStatus.success,
         access: _access(identity),
+        holdsHosted: _holdsHosted,
+        hasStorageSection: _hasStorageSection,
         topics: result?.getOrNull() ?? [],
         errorMessage: result?.exceptionOrNull()?.message,
       ),

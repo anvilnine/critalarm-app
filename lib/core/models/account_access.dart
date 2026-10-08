@@ -41,15 +41,17 @@ class AccountAccess {
 
   bool get isPaid =>
       isRegisteredPaid || _plan.storeSaysPro || _override.isForcingPro;
-  bool get canRingUntilAcked => isPaid;
   AccountCaps? get caps => isKnown ? identity!.caps : null;
 
   /// The cap on critical topics to state next to a Critical switch, or
-  /// null where there is none to state: a paid plan, and a server of the
-  /// user's own ([isSelfHosted]), which has no plans. The one answer for
-  /// every screen that draws that line.
-  int? freeCriticalCap({required bool isSelfHosted}) =>
-      isPaid || isSelfHosted ? null : (caps?.criticalTopics ?? 2);
+  /// null where there is none to state. The one answer for every screen
+  /// that draws that line.
+  ///
+  /// [isUnlimited] is `FeatureAccess.can(AppFeature.unlimitedCriticalTopics)`.
+  /// Feature access says who is past the cap. The registration says what
+  /// the cap is.
+  int? freeCriticalCap({required bool isUnlimited}) =>
+      isUnlimited ? null : (caps?.criticalTopics ?? 2);
 
   int criticalCount(Iterable<Topic> topics) =>
       topics.where((topic) => topic.critical).length;

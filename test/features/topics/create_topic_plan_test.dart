@@ -3,8 +3,6 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/device_registration.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
-import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
@@ -13,25 +11,7 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_state
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _Sessions implements ApiSessionStore {
-  _Sessions(this.mode);
-
-  final ServerMode mode;
-
-  @override
-  Future<ApiSession?> read() async => ApiSession(
-    baseUri: Uri.parse('https://example.test'),
-    relayUri: Uri.parse('https://example.test'),
-    mode: mode,
-    managementCredential: 'x',
-  );
-
-  @override
-  Future<void> write(ApiSession session) async {}
-
-  @override
-  Future<void> clear() async {}
-}
+import '../../app/access/store_access.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -57,14 +37,15 @@ void main() {
   }
 
   test('a self-hosted server is never the free tier', () async {
+    final identity = await freeAccount();
     final cubit = CreateTopicCubit(
       createTopic,
       null,
-      await freeAccount(),
+      identity,
       null,
-      const NoProOverride(),
       PlanChanges(),
-    )..sessionStore = _Sessions(ServerMode.selfhosted);
+      accessOver(identity, serverMode: ServerMode.selfhosted).features,
+    );
     addTearDown(cubit.close);
 
     await cubit.loadConnection();
@@ -73,14 +54,15 @@ void main() {
   });
 
   test('a free relay account is the free tier', () async {
+    final identity = await freeAccount();
     final cubit = CreateTopicCubit(
       createTopic,
       null,
-      await freeAccount(),
+      identity,
       null,
-      const NoProOverride(),
       PlanChanges(),
-    )..sessionStore = _Sessions(ServerMode.hosted);
+      accessOver(identity).features,
+    );
     addTearDown(cubit.close);
 
     await cubit.loadConnection();
@@ -90,13 +72,14 @@ void main() {
 
   test('buying Pro drops the free tier on the open screen', () async {
     final plan = PlanChanges();
+    final identity = await freeAccount();
     final cubit = CreateTopicCubit(
       createTopic,
       null,
-      await freeAccount(),
+      identity,
       null,
-      const NoProOverride(),
       plan,
+      accessOver(identity, planChanges: plan).features,
     );
     addTearDown(cubit.close);
     await cubit.loadConnection();

@@ -165,7 +165,7 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
           ),
           const SizedBox(height: 12),
           AppNote(text: LocaleKeys.account_delete_webhooks.tr()),
-          if (state.isPaid) ...[
+          if (state.holdsHosted) ...[
             const SizedBox(height: 12),
             _SubscriptionWarning(onManage: widget.onManageSubscription),
           ],

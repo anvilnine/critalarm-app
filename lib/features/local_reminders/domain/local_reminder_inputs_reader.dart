@@ -16,7 +16,7 @@ import 'package:flutter/foundation.dart';
 /// Reads everything the planner needs, once per plan pass, and turns every
 /// instant into wall-clock time in the zone the phone reports right now.
 ///
-/// Runs on the main isolate: `readIsPaid` goes through a Keychain channel.
+/// Runs on the main isolate: `readHoldsHosted` goes through a Keychain channel.
 final class LocalReminderInputsReader {
   LocalReminderInputsReader({
     required LocalReminderStore store,
@@ -29,7 +29,7 @@ final class LocalReminderInputsReader {
     required Future<List<Incident>?> Function() readIncidents,
     required Future<bool> Function(String topic) topicHasMessages,
     required Future<ServerMode?> Function() readServerMode,
-    required Future<bool> Function() readIsPaid,
+    required Future<bool> Function() readHoldsHosted,
     required Future<bool> Function() readIsSignedIn,
     required Future<bool> Function() proShouldAsk,
     required bool isWeb,
@@ -82,7 +82,7 @@ final class LocalReminderInputsReader {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _readIsPaid = readIsPaid,
+       _readHoldsHosted = readHoldsHosted,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -131,7 +131,7 @@ final class LocalReminderInputsReader {
   final bool Function(String incidentId)? countsAsRealUse;
   final Future<bool> Function(String topic) _topicHasMessages;
   final Future<ServerMode?> Function() _readServerMode;
-  final Future<bool> Function() _readIsPaid;
+  final Future<bool> Function() _readHoldsHosted;
   final Future<bool> Function() _readIsSignedIn;
   final Future<bool> Function() _proShouldAsk;
 
@@ -261,7 +261,7 @@ final class LocalReminderInputsReader {
           skipRules || await (_isSetupDone?.call() ?? Future<bool>.value(true)),
       proShouldAsk: skipRules || await _proShouldAsk(),
       // Failing counts as paid, so no Pro ask.
-      isPaid: await _safe('paid state', _readIsPaid, fallback: true),
+      holdsHosted: await _safe('paid state', _readHoldsHosted, fallback: true),
       proDismissCount: _notices.getProAskDismissCount(),
       proLaterAt: wall(_notices.getProAskLaterAt()),
       consentAskedAt: wall(_notices.getConsentAskedAt()),

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:flutter/foundation.dart';
 
@@ -335,6 +336,17 @@ enum HomeWidgetsPlan {
 
   /// On the user's own server, which has no plans: widgets work.
   selfHosted,
+}
+
+/// The plan the Home widgets card words itself for, from the widgets
+/// decision. [isOwnServer] only picks the words for an open card: whether
+/// the card is locked is [decision]'s answer alone.
+HomeWidgetsPlan homeWidgetsPlanFor(
+  FeatureDecision decision, {
+  required bool isOwnServer,
+}) {
+  if (!decision.isUsable) return HomeWidgetsPlan.needsHosted;
+  return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.hosted;
 }
 
 /// Whether Home draws the widgets card.

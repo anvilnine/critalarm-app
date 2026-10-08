@@ -1,5 +1,4 @@
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -42,7 +41,6 @@ class Day0CardRules {
     required this.accountRepository,
     required this.firstMessageStore,
     required bool isWeb,
-    ProOverride? proOverride,
     DateTime Function()? now,
     Future<bool> Function()? isSetupDone,
     bool Function()? isRinging,
@@ -50,7 +48,6 @@ class Day0CardRules {
        // an initializing formal.
        // ignore: prefer_initializing_formals
        _isWeb = isWeb,
-       _proOverride = proOverride ?? appProOverride,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
@@ -68,7 +65,6 @@ class Day0CardRules {
   final AccountRepository accountRepository;
   final FirstMessageStore firstMessageStore;
   final bool _isWeb;
-  final ProOverride _proOverride;
   final DateTime Function() _now;
 
   /// `SetupGate.isDone` in the app. Null in tests that do not care, and
@@ -87,14 +83,14 @@ class Day0CardRules {
     required bool isNewOpen,
     bool isAskDue = false,
   }) async {
-    final isPaid = (await _readIsPaid()) || _proOverride.isForcingPro;
+    final holdsHosted = await _readHoldsHosted();
     final serverMode = await accountRepository.readServerMode();
     final isSetupDone =
         await (_isSetupDone?.call() ?? Future<bool>.value(true));
 
     return decide(
       isHosted: serverMode == ServerMode.hosted,
-      isPaid: isPaid,
+      holdsHosted: holdsHosted,
       isSetupDone: isSetupDone,
       isFirstMessageReceived: firstMessageStore.isReceived,
       firstRealAckAt: noticeRepository.getFirstRealAcknowledgedAt(),
@@ -117,9 +113,9 @@ class Day0CardRules {
 
   /// A failed read counts as paid, the same as `ProAskRules`, so a paying
   /// user is never shown the card because of a Keychain hiccup.
-  Future<bool> _readIsPaid() async {
+  Future<bool> _readHoldsHosted() async {
     try {
-      return await accountRepository.readIsPaid();
+      return await accountRepository.readHoldsHosted();
     } on Object {
       return true;
     }
@@ -138,7 +134,7 @@ class Day0CardRules {
   /// [endedAt] set means it never comes back.
   static Day0CardDecision decide({
     required bool isHosted,
-    required bool isPaid,
+    required bool holdsHosted,
     required bool isSetupDone,
     required bool isFirstMessageReceived,
     required DateTime? firstRealAckAt,
@@ -154,7 +150,7 @@ class Day0CardRules {
   }) {
     if (endedAt != null) return Day0CardDecision.none;
     if (isWeb || isRinging) return Day0CardDecision.none;
-    if (!isHosted || isPaid || !isSetupDone) return Day0CardDecision.none;
+    if (!isHosted || holdsHosted || !isSetupDone) return Day0CardDecision.none;
 
     if (shownAt != null) {
       if (isNewOpen && openCount >= maxOpens) return Day0CardDecision.end;

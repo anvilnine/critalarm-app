@@ -1,8 +1,9 @@
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
@@ -28,6 +29,7 @@ final class ApiAccountRepository implements AccountRepository {
     this.recentSearches,
     this.signOutBilling,
     this.stopAlarm,
+    this.holdings,
   });
 
   final ApiClient api;
@@ -56,6 +58,10 @@ final class ApiAccountRepository implements AccountRepository {
 
   /// Stops whatever is ringing on this handset.
   final Future<void> Function()? stopAlarm;
+
+  /// What this install holds. Null in tests that never ask, and then
+  /// nothing is held.
+  final Holdings? holdings;
 
   /// True while [recoverFromDeadCredential] is working. Every route on a dead
   /// credential answers 401, so several of them can ask for a recovery at
@@ -150,8 +156,8 @@ final class ApiAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<bool> readIsPaid() async =>
-      AccountAccess(await devices.readOrCreate()).isPaid;
+  Future<bool> readHoldsHosted() async =>
+      await holdings?.holdsOnceReady(Holding.hosted) ?? false;
 
   /// Drops this phone's identity, its connection and its device credential,
   /// then registers again so it lands on a new anonymous account.

@@ -86,7 +86,7 @@ final class FakeAccountRepository implements AccountRepository {
   final List<String?> deleteIdentityTokens = [];
   int wipeCalls = 0;
   int recoverCalls = 0;
-  bool isPaid = false;
+  bool holdsHosted = false;
 
   final List<String> linkTokens = [];
 
@@ -172,7 +172,7 @@ final class FakeAccountRepository implements AccountRepository {
   Future<void> recoverFromDeadCredential() async => recoverCalls++;
 
   @override
-  Future<bool> readIsPaid() async => isPaid;
+  Future<bool> readHoldsHosted() async => holdsHosted;
 
   ServerMode mode = ServerMode.hosted;
 

@@ -33,12 +33,14 @@ class AppIconCubit extends Cubit<AppIconState> {
     required this._readUnlocked,
     Future<bool> Function()? readWelcomed,
     Future<void> Function()? markWelcomed,
+    Stream<Object?>? unlockChanges,
     PlanChanges? planChanges,
   }) : _readWelcomed = readWelcomed ?? _alreadyWelcomed,
        _markWelcomed = markWelcomed ?? _noop,
        _planChanges = planChanges ?? appPlanChanges,
        super(const AppIconState()) {
     _planChanges.addListener(_onPlanChanged);
+    _unlockSub = unlockChanges?.listen((_) => _onPlanChanged());
     unawaited(load());
   }
 
@@ -48,6 +50,9 @@ class AppIconCubit extends Cubit<AppIconState> {
   final Future<bool> Function() _readWelcomed;
   final Future<void> Function() _markWelcomed;
   final PlanChanges _planChanges;
+
+  /// `FeatureAccess.changes` for the app icons in the app: the lock moved.
+  StreamSubscription<Object?>? _unlockSub;
   bool _welcomeAsked = false;
 
   // Without a store the welcome never plays, so a test or a build that does
@@ -133,6 +138,7 @@ class AppIconCubit extends Cubit<AppIconState> {
   @override
   Future<void> close() {
     _planChanges.removeListener(_onPlanChanged);
+    unawaited(_unlockSub?.cancel());
     return super.close();
   }
 }

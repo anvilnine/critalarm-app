@@ -91,7 +91,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   late final LocalReminderBindings _reminders = LocalReminderBindings(
     scheduler: getIt<LocalReminderScheduler>(),
     notices: getIt<InAppNoticeRepository>(),
-    readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+    readHoldsHosted: () => getIt<AccountRepository>().readHoldsHosted(),
     focus: getIt<AlarmFocus>(),
     navigate: _openPath,
     openUrl: (url) async {

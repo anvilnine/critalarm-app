@@ -81,7 +81,7 @@ void main() {
     ]) {
       final action = LocalReminderTapRoute.resolve(
         LocalReminderTap(kind: kind, actionId: 'open'),
-        isPaid: true,
+        holdsHosted: true,
       );
       expect(path(action), '/');
     }

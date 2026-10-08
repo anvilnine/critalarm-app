@@ -9,14 +9,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/fake_in_app_notice_repository.dart';
 
 class FakeAccountRepository implements AccountRepository {
-  bool isPaid = false;
-  bool isPaidThrows = false;
+  bool holdsHosted = false;
+  bool holdsHostedThrows = false;
   ServerMode? serverMode = ServerMode.hosted;
 
   @override
-  Future<bool> readIsPaid() async {
-    if (isPaidThrows) throw StateError('keychain');
-    return isPaid;
+  Future<bool> readHoldsHosted() async {
+    if (holdsHostedThrows) throw StateError('keychain');
+    return holdsHosted;
   }
 
   @override
@@ -69,7 +69,7 @@ void main() {
     test('asks a free hosted user who has never been asked', () {
       expect(
         ProAskRules.decide(
-          isPaid: false,
+          holdsHosted: false,
           isSelfHosted: false,
           dismissCount: 0,
           lastAskedAt: null,
@@ -82,7 +82,7 @@ void main() {
 
     test('being asked once buys 30 days of quiet', () {
       bool askAfter(Duration since) => ProAskRules.decide(
-        isPaid: false,
+        holdsHosted: false,
         isSelfHosted: false,
         dismissCount: 0,
         lastAskedAt: today.subtract(since),
@@ -99,7 +99,7 @@ void main() {
     test('a second "Not now" means never again', () {
       expect(
         ProAskRules.decide(
-          isPaid: false,
+          holdsHosted: false,
           isSelfHosted: false,
           dismissCount: 2,
           lastAskedAt: today.subtract(const Duration(days: 365)),
@@ -113,7 +113,7 @@ void main() {
     test('somebody who already pays is never asked', () {
       expect(
         ProAskRules.decide(
-          isPaid: true,
+          holdsHosted: true,
           isSelfHosted: false,
           dismissCount: 0,
           lastAskedAt: null,
@@ -127,7 +127,7 @@ void main() {
     test('a self hosted server is never asked', () {
       expect(
         ProAskRules.decide(
-          isPaid: false,
+          holdsHosted: false,
           isSelfHosted: true,
           dismissCount: 0,
           lastAskedAt: null,
@@ -143,7 +143,7 @@ void main() {
       () {
         expect(
           ProAskRules.decide(
-            isPaid: false,
+            holdsHosted: false,
             isSelfHosted: false,
             dismissCount: 0,
             lastAskedAt: null,
@@ -215,12 +215,12 @@ void main() {
     });
 
     test('never asks a paid user', () async {
-      accountRepo.isPaid = true;
+      accountRepo.holdsHosted = true;
       expect(await buildRules().shouldAsk(), isFalse);
     });
 
     test('a failed paid read counts as paid, so no ask', () async {
-      accountRepo.isPaidThrows = true;
+      accountRepo.holdsHostedThrows = true;
       expect(await buildRules().shouldAsk(), isFalse);
     });
 
