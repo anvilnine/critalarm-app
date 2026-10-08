@@ -24,6 +24,8 @@ final class Holdings {
   late Map<Holding, HoldingState> _last;
 
   /// Every holding that is [HoldingState.held] or [HoldingState.pending].
+  /// A holding that could not be read is left out. Ask [isUnknown] before
+  /// treating "not in the set" as "not held".
   ///
   /// A pending purchase counts, the same way the app already shows a plan
   /// the store confirmed before the server did. Ask [stateOf] to tell the
@@ -33,8 +35,15 @@ final class Holdings {
   HoldingState stateOf(Holding holding) =>
       _read()[holding] ?? HoldingState.notHeld;
 
-  /// Whether [holding] is held or pending. See [held].
-  bool holds(Holding holding) => stateOf(holding) != HoldingState.notHeld;
+  /// Whether [holding] is held or pending. See [held]. False while it
+  /// could not be read, which is not the same as not held: see [isUnknown].
+  bool holds(Holding holding) => _counts(stateOf(holding));
+
+  /// Whether [holding] could not be read, so nobody knows if it is held.
+  bool isUnknown(Holding holding) => stateOf(holding) == HoldingState.unknown;
+
+  static bool _counts(HoldingState state) =>
+      state == HoldingState.held || state == HoldingState.pending;
 
   /// Done once every source is current. See [HoldingSource.ready].
   Future<void> get ready async {
@@ -49,8 +58,13 @@ final class Holdings {
 
   /// [holds], asked once every source is current. For a caller that asks
   /// once and does not listen for changes.
+  ///
+  /// Throws [HoldingUnreadable] when [holding] could not be read. A caller
+  /// that would lock, trim or offer something on "false" catches it and
+  /// does none of those.
   Future<bool> holdsOnceReady(Holding holding) async {
     await ready;
+    if (isUnknown(holding)) throw HoldingUnreadable(holding);
     return holds(holding);
   }
 
@@ -72,7 +86,7 @@ final class Holdings {
       final state = source.state;
       final before = said[source.holding];
       // Two sources for one holding: the stronger answer stands.
-      if (before == null || state.index > before.index) {
+      if (before == null || _rank(state) > _rank(before)) {
         said[source.holding] = state;
       }
     }
@@ -81,8 +95,16 @@ final class Holdings {
 
   static Set<Holding> _heldIn(Map<Holding, HoldingState> states) => {
     for (final holding in Holding.values)
-      if ((states[holding] ?? HoldingState.notHeld) != HoldingState.notHeld)
-        holding,
+      if (_counts(states[holding] ?? HoldingState.notHeld)) holding,
+  };
+
+  /// A source that knows beats one that does not, and among those that
+  /// know the stronger answer stands.
+  static int _rank(HoldingState state) => switch (state) {
+    HoldingState.notHeld => 1,
+    HoldingState.unknown => 0,
+    HoldingState.pending => 2,
+    HoldingState.held => 3,
   };
 
   void _sourceChanged() {

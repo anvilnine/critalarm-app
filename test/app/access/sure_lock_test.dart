@@ -171,14 +171,23 @@ void main() {
     });
 
     test("a server of the user's own is never locked", () async {
-      for (final mode in [ServerMode.selfhosted, ServerMode.relay]) {
+      final lock = build(
+        store: InMemorySubscriptionRepository(),
+        serverMode: ServerMode.selfhosted,
+      );
+      expect(await lock.isLocked(AppFeature.appIcons), isFalse);
+    });
+
+    test(
+      'the relay itself has plans, so it locks like Crit Alarm Cloud',
+      () async {
         final lock = build(
           store: InMemorySubscriptionRepository(),
-          serverMode: mode,
+          serverMode: ServerMode.relay,
         );
-        expect(await lock.isLocked(AppFeature.appIcons), isFalse);
-      }
-    });
+        expect(await lock.isLocked(AppFeature.appIcons), isTrue);
+      },
+    );
 
     test('a phone connected to nothing is never locked for sure', () async {
       final lock = build(store: InMemorySubscriptionRepository());

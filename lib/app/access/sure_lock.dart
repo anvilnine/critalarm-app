@@ -19,6 +19,10 @@ import 'package:critalarm/core/access/holding.dart';
 ///   Hosted is active. The server's tier can trail a purchase by a few
 ///   seconds. A store that cannot answer counts as "may still be held".
 ///
+/// When a holding that would unlock the feature could not be read, nobody
+/// knows, and [isLocked] throws [HoldingUnreadable] like every other "once
+/// ready" ask. The caller keeps what is there.
+///
 /// A screen that only draws a lock reads [FeatureAccess] and never this.
 final class SureLock {
   const SureLock({
@@ -31,6 +35,7 @@ final class SureLock {
   final HostedHoldingSource _hosted;
   final Map<AppFeature, FeatureRule> _table;
 
+  /// Throws [HoldingUnreadable] when nobody knows.
   Future<bool> isLocked(AppFeature feature) async {
     if ((await _access.decideOnceReady(feature)) is! FeatureLocked) {
       return false;

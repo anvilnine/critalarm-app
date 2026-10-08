@@ -48,7 +48,7 @@ final class ProPackAccess {
     for (final changes in _identityChanges) {
       changes.addListener(_identityChanged);
     }
-    ready = _syncScope();
+    ready = _startSync();
   }
 
   /// api.md §4.2: the relay takes this many refresh calls per account in
@@ -80,6 +80,31 @@ final class ProPackAccess {
   /// Done once the kept list has been checked against this phone's account.
   /// Until then nothing is held from the relay.
   late final Future<void> ready;
+
+  late Future<void> _latestSync;
+  int _syncsOut = 0;
+  bool _accountUnread = false;
+
+  /// Done once the account has been read for the last thing that may have
+  /// moved it: the first read, and every sign-in, sign-out or plan change
+  /// since. [ready] is only the first of those.
+  ///
+  /// When the last read of the account failed and nothing is trying again,
+  /// asking this reads again.
+  Future<void> get synced async {
+    if (_accountUnread && _syncsOut == 0) unawaited(_startSync());
+    Future<void> waitedFor;
+    do {
+      waitedFor = _latestSync;
+      await waitedFor;
+    } while (!identical(waitedFor, _latestSync));
+  }
+
+  /// Whether the account this phone is on could not be read, so nobody
+  /// knows whose packs to answer for. False once any answer names it.
+  bool get couldNotReadAccount => _accountUnread && _scope == null;
+
+  Future<void> _startSync() => _latestSync = _syncScope();
 
   /// This phone's account, or null while it is not known.
   ProPackScope? _scope;
@@ -410,7 +435,7 @@ final class ProPackAccess {
     return run;
   }
 
-  void _identityChanged() => unawaited(_syncScope());
+  void _identityChanged() => unawaited(_startSync());
 
   Future<String?> _sessionRelay() async {
     try {
@@ -425,6 +450,8 @@ final class ProPackAccess {
   Future<void> _syncScope() async {
     final epoch = _scopeEpoch;
     ProPackScope? scope;
+    var didFail = false;
+    _syncsOut++;
     try {
       final accountId = await _readAccountId();
       final sessionRelay = await _sessionRelay();
@@ -445,9 +472,13 @@ final class ProPackAccess {
       }
     } on Object catch (_) {
       scope = null;
+      didFail = true;
+    } finally {
+      _syncsOut--;
     }
     // A registration named the account while this was reading.
     if (epoch != _scopeEpoch) return;
+    _accountUnread = didFail;
     await _useScope(scope);
   }
 

@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 
 /// The answer to "may this install use this feature".
 ///
-/// One of [FeatureOpen], [FeatureLocked] and [FeatureConfirming]. A caller
-/// that only needs yes or no reads [isUsable].
+/// One of [FeatureOpen], [FeatureLocked], [FeatureConfirming] and
+/// [FeatureUnread]. A caller that only needs yes or no reads [isUsable].
 @immutable
 sealed class FeatureDecision {
   const FeatureDecision();
@@ -19,7 +19,12 @@ sealed class FeatureDecision {
   /// usable and the screen may say the purchase is being confirmed.
   const factory FeatureDecision.confirming(Holding holding) = FeatureConfirming;
 
-  /// True for [FeatureOpen] and [FeatureConfirming].
+  /// Whether [holding], which would unlock the feature, could not be read.
+  /// Nothing is taken away and nothing is sold: the feature is usable and
+  /// the paywall door opens nothing for it.
+  const factory FeatureDecision.unread(Holding holding) = FeatureUnread;
+
+  /// True for everything but [FeatureLocked].
   bool get isUsable;
 }
 
@@ -77,4 +82,24 @@ final class FeatureConfirming extends FeatureDecision {
 
   @override
   String toString() => 'FeatureDecision.confirming(${holding.name})';
+}
+
+final class FeatureUnread extends FeatureDecision {
+  const FeatureUnread(this.holding);
+
+  /// The holding that could not be read.
+  final Holding holding;
+
+  @override
+  bool get isUsable => true;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FeatureUnread && other.holding == holding;
+
+  @override
+  int get hashCode => Object.hash(FeatureUnread, holding);
+
+  @override
+  String toString() => 'FeatureDecision.unread(${holding.name})';
 }

@@ -15,18 +15,23 @@ final class ProHoldingSource implements HoldingSource {
 
   /// Held when the pack is held. Pending while the store has finished a
   /// purchase and the relay has not listed the pack yet. A purchase that
-  /// was only started is not held.
+  /// was only started is not held. Unknown while the account this phone is
+  /// on could not be read: there is nobody to answer for.
   @override
   HoldingState get state {
     if (_access.isHeld) return HoldingState.held;
     if (_access.isStoreAcceptedAwaitingRelay) return HoldingState.pending;
+    if (_access.couldNotReadAccount) return HoldingState.unknown;
     return HoldingState.notHeld;
   }
 
   @override
   Listenable get changes => _access.changes;
 
+  /// The account read for the latest sign-in, sign-out or plan change, not
+  /// only the first one, so an ask after an account switch answers for the
+  /// new account.
   @override
   Future<void> get ready =>
-      _access.ready.then<void>((_) {}, onError: (Object _) {});
+      _access.synced.then<void>((_) {}, onError: (Object _) {});
 }
