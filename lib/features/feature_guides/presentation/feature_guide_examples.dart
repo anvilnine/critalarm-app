@@ -3,42 +3,44 @@ import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-
-/// The status stage while an example is ringing.
-typedef TroubleStage = ({
-  FaceState faceState,
-  String word,
-  String subText,
-  SeverityMode severity,
-});
 
 /// Made-up topics the guide shows to someone who has none yet, so every step
 /// has something real-looking to point at. None of it reaches the server.
 abstract final class FeatureGuideExamples {
   /// One topic with critical delivery on and one with it off, so the
   /// difference is on screen side by side.
-  static List<HomeTopicItem> homeTopics() => [
-    HomeTopicItem(
-      name: FeatureGuideCubit.exampleTopicName,
-      meta: LocaleKeys.home_meta_quiet.tr(),
-      priority: PriorityLevel.defaultPriority,
-      ringsThroughSilent: true,
-    ),
-    HomeTopicItem(
-      name: 'nightly-backup',
-      meta: LocaleKeys.home_meta_quiet.tr(),
-      priority: PriorityLevel.defaultPriority,
-    ),
-  ];
+  static List<HomeTopicItem> homeTopics({DateTime? now}) {
+    final at = now ?? DateTime.now();
+    return [
+      HomeTopicItem(
+        name: FeatureGuideCubit.exampleTopicName,
+        meta: LocaleKeys.home_meta_quiet.tr(),
+        priority: PriorityLevel.defaultPriority,
+        ringsThroughSilent: true,
+        preview: LocaleKeys.home_card_example_message_quiet.tr(),
+        lastMessageAt: at.subtract(const Duration(hours: 3)),
+      ),
+      HomeTopicItem(
+        name: 'nightly-backup',
+        meta: LocaleKeys.home_meta_quiet.tr(),
+        priority: PriorityLevel.defaultPriority,
+        preview: LocaleKeys.home_card_example_message_quiet.tr(),
+        lastMessageAt: at.subtract(const Duration(days: 1)),
+      ),
+    ];
+  }
 
-  /// A topic in the middle of a page: alarmed face, critical chip. Shown to
-  /// everyone during the guide, next to their own topics, so the list has
+  /// A topic in the middle of a page: alarmed face, critical delivery. Shown
+  /// to everyone during the guide, next to their own topics, so the list has
   /// something going wrong on it to point at.
-  static HomeTopicItem troubleTopic() => HomeTopicItem(
+  static HomeTopicItem troubleTopic({DateTime? now}) => HomeTopicItem(
     name: 'payments-api',
     meta: LocaleKeys.home_meta_alert_active.tr(),
     priority: PriorityLevel.critical,
@@ -46,17 +48,28 @@ abstract final class FeatureGuideExamples {
     isCrit: true,
     isLive: true,
     ringsThroughSilent: true,
+    preview: LocaleKeys.home_card_example_message_ringing.tr(),
+    lastMessageAt: (now ?? DateTime.now()).subtract(
+      const Duration(minutes: 2),
+    ),
+    rowKind: InboxRowKind.ringing,
   );
 
-  /// What the status stage shows while [troubleTopic] is in the list: the
-  /// same trouble, so the face and the row never disagree.
-  static TroubleStage troubleStage() => (
-    faceState: FaceState.alarmed,
-    word: LocaleKeys.home_stage_word_critical.tr(),
-    subText: LocaleKeys.home_stage_sub_critical.tr(
-      namedArgs: {'topic': troubleTopic().name},
+  /// What the dark card shows while [troubleTopic] is in the list: the same
+  /// trouble, so the card and the row never disagree. Its button opens
+  /// nothing, because the incident is made up.
+  static HomeCardModel troubleCard({DateTime? now}) => HomeCardModel(
+    kind: HomeCardKind.ringing,
+    label: HomeCardLabel.ringing,
+    numeral: Elapsed(
+      (now ?? DateTime.now()).subtract(const Duration(minutes: 2, seconds: 17)),
     ),
+    foot: HomeCardFoot(HomeCardFootSlot.topic, topic: troubleTopic().name),
+    action: const OpenAlarm('example'),
+    face: FaceState.alarmed,
     severity: SeverityMode.crit,
+    discTone: HomeCardDiscTone.red,
+    numeralTone: HomeCardNumeralTone.redAlt,
   );
 
   /// The example topic's own screen.
