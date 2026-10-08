@@ -85,9 +85,8 @@ Future<void> _loadFonts() async {
 
 /// The tree without the parts that change from run to run: node ids, and
 /// the seconds the alarm has rung for.
-String _steady(String tree) => tree
-    .replaceAll(RegExp('#[0-9a-f]+'), '#')
-    .replaceAll(_clock, 'CLOCK');
+String _steady(String tree) =>
+    tree.replaceAll(RegExp('#[0-9a-f]+'), '#').replaceAll(_clock, 'CLOCK');
 
 /// A time of day, or how long the alarm has rung.
 final _clock = RegExp(
@@ -165,12 +164,14 @@ void main() {
             tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
           );
           final sent = <String>[];
-          tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
-            dynamic
-          >(SystemChannels.accessibility, (message) async {
-            sent.add('$message');
-            return null;
-          });
+          tester.binding.defaultBinaryMessenger
+              .setMockDecodedMessageHandler<dynamic>(
+                SystemChannels.accessibility,
+                (message) async {
+                  sent.add('$message');
+                  return null;
+                },
+              );
           addTearDown(
             () => tester.binding.defaultBinaryMessenger
                 .setMockDecodedMessageHandler<dynamic>(
@@ -210,11 +211,14 @@ void main() {
             await tester.pump();
 
             final tree = _steady(
-              tester.binding.renderViews.first.owner!.semanticsOwner!
+              tester
+                  .binding
+                  .renderViews
+                  .first
+                  .owner!
+                  .semanticsOwner!
                   .rootSemanticsNode!
-                  .toStringDeep(
-                    childOrder: DebugSemanticsDumpOrder.traversalOrder,
-                  ),
+                  .toStringDeep(),
             );
             final reader = _steady(sent.join('\n'));
 
@@ -227,21 +231,21 @@ void main() {
               r.width,
               r.height,
             ].map((v) => v.toStringAsFixed(1)).join(' ');
-            for (final element in find
-                .byWidgetPredicate(
-                  (w) =>
-                      w is ShufflingRingingFace ||
-                      w is PulseRingWidget ||
-                      w is AppSheet ||
-                      w is AppButton ||
-                      w is Text,
-                )
-                .evaluate()) {
+            for (final element
+                in find
+                    .byWidgetPredicate(
+                      (w) =>
+                          w is ShufflingRingingFace ||
+                          w is PulseRingWidget ||
+                          w is AppSheet ||
+                          w is AppButton ||
+                          w is Text,
+                    )
+                    .evaluate()) {
               final widget = element.widget;
               final rect = tester.getRect(find.byWidget(widget));
               final words = widget is Text ? (widget.data ?? '') : '';
-              if (widget is ShufflingRingingFace ||
-                  _clock.hasMatch(words)) {
+              if (widget is ShufflingRingingFace || _clock.hasMatch(words)) {
                 // Steam and stars are thrown a little past the face's stage.
                 final spill = widget is ShufflingRingingFace
                     ? rect.width * 0.25
@@ -257,7 +261,8 @@ void main() {
               }
               lines.add(
                 '${widget.runtimeType} ${box(rect)} '
-                '${_steady(words)}'.trimRight(),
+                        '${_steady(words)}'
+                    .trimRight(),
               );
             }
             final geometry = lines.join('\n');
