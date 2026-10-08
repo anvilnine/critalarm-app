@@ -3,6 +3,7 @@ import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -46,10 +47,6 @@ class HomeFaceResult {
   /// counting down, or a HANDLED face that only lasts a while.
   bool get needsTick => hasAckedRow || hero.faceState == FaceState.success;
 }
-
-/// How long the big face says HANDLED after a close before it goes back to
-/// the resting face. The row keeps the handled time for the hour.
-const handledFaceWindow = Duration(seconds: 30);
 
 HomeFaceResult resolveHomeFace({
   required List<Topic> topics,
@@ -241,7 +238,7 @@ HomeFaceResult resolveHomeFace({
       .where(
         (h) =>
             h.incident.state == IncidentStates.closed &&
-            now.difference(h.closedAt) < handledFaceWindow,
+            now.difference(h.closedAt) < handledCardWindow,
       )
       .toList();
   if (heroEntries.isNotEmpty) {
