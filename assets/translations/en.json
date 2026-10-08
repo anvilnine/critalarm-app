@@ -2083,7 +2083,9 @@
     "names": {
       "none": "Nothing extra",
       "confetti": "Confetti",
-      "unlock": "Unlock"
+      "unlock": "Unlock",
+      "key": "Key",
+      "lights": "Lights on"
     }
   }
 }
