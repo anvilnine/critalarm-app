@@ -77,6 +77,12 @@ class RingingScreen extends StatelessWidget {
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
     final look = AlarmStyleScope.of(context).ringing;
+    // A look whose quiet wash cannot be seen on its canvas says so, and
+    // the two quiet buttons get a thin edge. Null draws nothing.
+    final quietEdge = look.quietButtonEdge?.call(
+      colors,
+      Theme.of(context).brightness,
+    );
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
@@ -109,11 +115,14 @@ class RingingScreen extends StatelessWidget {
         // still a full-size pill, in a tint of the canvas.
         Semantics(
           sortKey: _orderSilence,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-            variant: look.quietButton,
-            isFullWidth: true,
-            onPressed: onSilence,
+          child: _quietEdge(
+            quietEdge,
+            AppButton(
+              label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
+              variant: look.quietButton,
+              isFullWidth: true,
+              onPressed: onSilence,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -126,13 +135,16 @@ class RingingScreen extends StatelessWidget {
         if (!state.ackedExits.isSetupTest)
           Semantics(
             sortKey: _orderReadMessage,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_read_message_button.tr(),
-              variant: look.quietButton,
-              isFullWidth: true,
-              // Reading is not acknowledging, so this leaves the alarm
-              // ringing and takes the user to the messages on the topic.
-              onPressed: onReadMessage,
+            child: _quietEdge(
+              quietEdge,
+              AppButton(
+                label: LocaleKeys.critical_alarm_read_message_button.tr(),
+                variant: look.quietButton,
+                isFullWidth: true,
+                // Reading is not acknowledging, so this leaves the alarm
+                // ringing and takes the user to the messages on the topic.
+                onPressed: onReadMessage,
+              ),
             ),
           ),
       ],
@@ -148,42 +160,123 @@ class RingingScreen extends StatelessWidget {
   }
 
   /// A tablet or a phone on its side: the face beside the words.
+  ///
+  /// The row sits in the middle of the room above the pinned buttons. The
+  /// scaffold leaves the buttons' room under the list, so a message taller
+  /// than that room scrolls clear of them and never ends under "I'm up".
   Widget _wide(BuildContext context, AlarmRingingLook look, Widget bottomBar) {
+    final media = MediaQuery.of(context);
+    // The room above the buttons, by the same sums the upright phone uses.
+    // A wrong guess only moves the row off the middle or lets the page
+    // scroll a little: the scaffold measures the real bar for the room it
+    // leaves, so nothing is hidden either way.
+    final room = math
+        .max(
+          0,
+          media.size.height -
+              media.padding.vertical -
+              ringingBarHeightFor(
+                textScale: media.textScaler.scale(16) / 16,
+                pinnedButtons: state.ackedExits.isSetupTest ? 2 : 3,
+              ) -
+              ringingBarClearance,
+        )
+        .toDouble();
+    // On a phone on its side the face gives way to the room there is.
+    final faceSize = math
+        .min(
+          math.min(300, look.maxFace),
+          math.max(ringingFaceFloor, room),
+        )
+        .toDouble();
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderContent,
       slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Row(
-            children: [
-              _face(look, math.min(300, look.maxFace)),
-              const SizedBox(width: 40),
-              Expanded(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _word(look, TextAlign.left),
-                      const SizedBox(height: Spacing.s2),
-                      _topic(look, TextAlign.left),
-                      _alarmCountPill(context),
-                      const SizedBox(height: Spacing.s2),
-                      _subtext(look, TextAlign.left),
-                      const SizedBox(height: Spacing.s4),
-                      _detailSheet(look),
-                    ],
+        SliverToBoxAdapter(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: room),
+            child: Row(
+              children: [
+                _face(look, faceSize),
+                const SizedBox(width: 40),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _word(look, TextAlign.left),
+                        const SizedBox(height: Spacing.s2),
+                        _topic(look, TextAlign.left),
+                        _alarmCountPill(context),
+                        const SizedBox(height: Spacing.s2),
+                        _subtext(look, TextAlign.left),
+                        const SizedBox(height: Spacing.s4),
+                        _detailSheet(look),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
       bottomBar: bottomBar,
     );
+  }
+
+  /// Marks the edge of a quiet button, so a test can find it.
+  @visibleForTesting
+  static const Key quietButtonEdgeKey = ValueKey('ringing-quiet-button-edge');
+
+  /// [button] with a thin edge in [edge] around its pill, or [button] as
+  /// it is when the look asks for none.
+  ///
+  /// The edge is drawn over the button and takes no touch. It is one and
+  /// a half pixels of a faint colour, so "I'm up", which is filled, stays
+  /// the heaviest thing in the bar.
+  static Widget _quietEdge(Color? edge, Widget button) {
+    if (edge == null) return button;
+    return DecoratedBox(
+      key: quietButtonEdgeKey,
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: Radii.fullAll,
+        border: Border.all(color: edge, width: 1.5),
+      ),
+      child: button,
+    );
+  }
+
+  /// Whether the ringing screen draws its face for [state] on this
+  /// display, in [look].
+  ///
+  /// For the owner of the canvas, which draws a shape behind the face and
+  /// leaves it out when the face is (`AlarmRingingLook.ambientFor`). It is
+  /// the same sum the screen does, on the width the scaffold gives the
+  /// page. Called from above the screen's own scaffold, so the text style
+  /// the card's lines inherit is the theme's.
+  static bool drawsFace(
+    BuildContext context, {
+    required CriticalAlarmState state,
+    required AlarmRingingLook look,
+  }) {
+    final size = AppSize.of(context);
+    // Beside the words the face is always drawn.
+    if (size.isExpanded || size.isShort) return true;
+    final layout = _tallLayoutFor(
+      context,
+      state,
+      look,
+      math.min(size.width, AppSize.contentMaxWidth),
+      inherited:
+          Theme.of(context).textTheme.bodyMedium ??
+          DefaultTextStyle.of(context).style,
+    );
+    return math.min(layout.faceSize, look.maxFace) > 0;
   }
 
   /// The upright phone: everything in one column over the pinned buttons.
@@ -202,7 +295,13 @@ class RingingScreen extends StatelessWidget {
           // style its lines inherit are known.
           child: LayoutBuilder(
             builder: (context, box) {
-              final layout = _tallLayout(context, look, box.maxWidth);
+              final layout = _tallLayoutFor(
+                context,
+                state,
+                look,
+                box.maxWidth,
+                inherited: DefaultTextStyle.of(context).style,
+              );
               // The layout decides the face. A look may only cap it.
               final faceSize = math.min(layout.faceSize, look.maxFace);
               final header = Column(
@@ -271,11 +370,16 @@ class RingingScreen extends StatelessWidget {
   /// The size of the face and whether the header is compact, for a page
   /// [width] wide. The card is measured with the message it holds, because
   /// the length of the message is what decides the room.
-  ({double faceSize, bool isCompact}) _tallLayout(
+  ///
+  /// [inherited] is the text style the card's lines inherit where they
+  /// are drawn. Only sizes are read, so no colour is needed.
+  static ({double faceSize, bool isCompact}) _tallLayoutFor(
     BuildContext context,
+    CriticalAlarmState state,
     AlarmRingingLook look,
-    double width,
-  ) {
+    double width, {
+    required TextStyle inherited,
+  }) {
     final media = MediaQuery.of(context);
     final textScale = media.textScaler.scale(16) / 16;
     final textWidth = width - 2 * _cardInset - _cardPadding.horizontal;
@@ -283,7 +387,7 @@ class RingingScreen extends StatelessWidget {
       final painter = TextPainter(
         text: TextSpan(
           text: text,
-          style: DefaultTextStyle.of(context).style.merge(style),
+          style: inherited.merge(style),
         ),
         textDirection: Directionality.of(context),
         textScaler: media.textScaler,
@@ -295,13 +399,13 @@ class RingingScreen extends StatelessWidget {
     }
 
     final titleBottom =
-        _cardPadding.top + lines(state.title, _titleStyle(look));
+        _cardPadding.top + lines(state.title, look.type.messageTitle);
     final cardHeight =
         titleBottom +
         _titleGap +
-        lines(state.body, _bodyStyle(look)) +
+        lines(state.body, look.type.messageBody) +
         _bodyGap +
-        lines(state.meta, _metaStyle(look)) +
+        lines(state.meta, look.type.messageMeta) +
         _cardPadding.bottom;
     final viewportHeight = media.size.height - media.padding.vertical;
     // A setup test has no Read the full message button.
@@ -369,6 +473,12 @@ class RingingScreen extends StatelessWidget {
                   child: ShufflingRingingFace(
                     size: faceSize * _ringingStageScale,
                     isLive: state.isLive,
+                    strokeColor: look.faceOutline,
+                    // The waves are drawn beside the head, on the canvas,
+                    // so they take the colour of the words on it. The
+                    // features' ink is dark in every look and would be
+                    // lost on a dark canvas.
+                    canvasInkColor: colors.onCanvas,
                   ),
                 ),
               ),

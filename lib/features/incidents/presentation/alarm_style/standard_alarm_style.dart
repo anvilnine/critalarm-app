@@ -69,17 +69,30 @@ AmbientProfile _acknowledgedCanvas(
   Brightness brightness,
 ) => AmbientAppProfiles.criticalAlarmAcknowledged(appColors);
 
-/// The look the alarm screen has always had, written as a look. Every
-/// value here is the one the screen used before looks existed, so it
-/// draws exactly what it drew.
+/// The edge of the two quiet buttons. In the dark theme the wash is the
+/// dark card colour over a dark canvas and cannot be told from it (1.01
+/// to 1), so the buttons read as loose text. A faint line in the colour
+/// of the words gives them their shape back. The light theme's wash is
+/// white on a strong colour and needs none.
+Color? _quietButtonEdge(AppColors colors, Brightness brightness) =>
+    brightness == Brightness.dark
+    ? colors.onCanvas.withValues(alpha: 0.4)
+    : null;
+
+/// The look the alarm screen has always had, written as a look. The
+/// canvas, the type and the buttons are the ones the screen used before
+/// looks existed. The face is the yellow one in both themes, as in every
+/// look: in the dark theme it used to be the theme's dark face.
 final AlarmStyle standardAlarmStyle = AlarmStyle(
   id: AlarmStyleId.standard,
   nameKey: LocaleKeys.alarm_styles_standard,
-  keepsThemeFace: true,
   ringing: AlarmRingingLook(
     colors: _severityColors,
     ambient: _ringingCanvas,
     type: standardRingingType,
+    quietButtonEdge: _quietButtonEdge,
+    // The first shape of the ringing profile is the disc behind the face.
+    faceShape: 0,
   ),
   acknowledged: AlarmAcknowledgedLook(
     colors: _severityColors,
