@@ -17,19 +17,8 @@ enum SetupChecklistRow {
   firstMessage,
 }
 
-/// Whether the setup checklist may take the spot above the tab bar.
-///
-/// That spot holds one floating card. A pinned In-App Notice (the sign-up
-/// reminder, battery, the plan ending) wins it, and the checklist waits
-/// until the notice is gone, so two cards never stack. A running Feature
-/// Guide has the screen to itself. The guide offer is a sheet, not a guide
-/// yet, so the checklist stays put under it.
-bool setupPillHasTheSpot({
-  required bool hasPinnedNotice,
-  required bool isGuideRunning,
-}) => !hasPinnedNotice && !isGuideRunning;
-
-/// The setup checklist Home floats above its tab bar.
+/// The setup checklist the status card on Home counts and names the next row
+/// of.
 ///
 /// Home content: it is not an In-App Notice and not an ask, and it never
 /// opens anything on its own.
