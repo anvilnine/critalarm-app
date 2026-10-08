@@ -42,6 +42,14 @@ abstract interface class TelemetryGate {
   /// `onboarding_offer`, as the raw JSON text. Empty when none has been set
   /// or fetched yet. Answers at once and never waits for the network.
   String get onboardingOfferJson;
+  /// What Remote Config holds under `paywall_layout`: what the Hosted
+  /// paywall opens. Empty, the default, is the paywall that ships today.
+  /// `PaywallLayoutSetting.parse` reads it, and an unknown value counts as
+  /// empty. Already activated, never fetched here.
+  String get paywallLayoutKey;
+
+  /// The same for Pro, under `pro_paywall_layout`. Empty is the Pro sheet.
+  String get proPaywallLayoutKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
@@ -51,6 +59,8 @@ class NoopTelemetryGate implements TelemetryGate {
     this.paywallVariantKey = '',
     this.onboardingFlowJson = '',
     this.onboardingOfferJson = '',
+    this.paywallLayoutKey = '',
+    this.proPaywallLayoutKey = '',
   });
 
   @override
@@ -64,6 +74,12 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   final String onboardingFlowJson;
+
+  @override
+  final String paywallLayoutKey;
+
+  @override
+  final String proPaywallLayoutKey;
 
   @override
   bool get isPaywallEnabled => paywallEnabled;

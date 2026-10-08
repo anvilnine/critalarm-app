@@ -57,7 +57,11 @@ class PaywallLayoutsDevScreen extends StatelessWidget {
                           size: 16,
                         ),
                         onTap: () => context.push(
-                          paywallLayoutLocation(layout, product),
+                          paywallLayoutLocation(
+                            layout,
+                            product,
+                            showsUnbuilt: true,
+                          ),
                         ),
                       ),
                       const SizedBox(height: Spacing.s2),

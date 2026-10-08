@@ -29,14 +29,20 @@ void main() {
       }
     });
 
-    test('a widget leads with widgets, from either entry point', () {
+    test('a widget leads with widgets where widgets are sold: under Pro', () {
       for (final source in [
         PaywallSource.widgetLocked,
         PaywallSource.homeWidgets,
       ]) {
         expect(
-          sheetLeadBenefit(source, hosted)?.id,
+          sheetLeadBenefit(source, pro)?.id,
           PaywallBenefitId.widgets,
+          reason: source.wire,
+        );
+        // Hosted no longer lists widgets, so it leads with its first.
+        expect(
+          sheetLeadBenefit(source, hosted)?.id,
+          hosted.first.id,
           reason: source.wire,
         );
       }
@@ -77,25 +83,30 @@ void main() {
     });
   });
 
-  group('sheetOtherBenefits', () {
-    test('is every benefit but the lead, in the same order', () {
-      final lead = sheetLeadBenefit(PaywallSource.history, hosted);
-      final others = sheetOtherBenefits(lead, hosted);
+  group('sheetBenefitsLeadFirst', () {
+    test('puts the lead first and keeps the others in their order', () {
+      final ordered = sheetBenefitsLeadFirst(PaywallSource.history, hosted);
 
-      expect(others.length, hosted.length - 1);
-      expect(others.map((b) => b.id), isNot(contains(lead!.id)));
+      expect(ordered.first.id, PaywallBenefitId.history);
+      expect(ordered.length, hosted.length);
       expect(
-        others.map((b) => b.id).toList(),
+        ordered.skip(1).map((b) => b.id).toList(),
         [
           for (final b in hosted)
-            if (b.id != lead.id) b.id,
+            if (b.id != PaywallBenefitId.history) b.id,
         ],
       );
     });
 
-    test('one benefit leaves nothing under the lead', () {
-      final one = [hosted.first];
-      expect(sheetOtherBenefits(one.first, one), isEmpty);
+    test('a place that names no benefit keeps the product order', () {
+      expect(
+        sheetBenefitsLeadFirst(PaywallSource.direct, pro).map((b) => b.id),
+        pro.map((b) => b.id),
+      );
+    });
+
+    test('no benefits, an empty list', () {
+      expect(sheetBenefitsLeadFirst(PaywallSource.direct, const []), isEmpty);
     });
   });
 }

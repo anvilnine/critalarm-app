@@ -7,6 +7,7 @@ void main() {
     expect(
       {for (final l in PaywallLayoutId.values) l.name: l.key},
       {
+        'hero': 'hero',
         'sheet': 'sheet',
         'proof': 'proof',
         'bento': 'bento',
@@ -20,6 +21,10 @@ void main() {
         'plain': 'plain',
       },
     );
+  });
+
+  test('hero is listed first, so the developer page opens on it', () {
+    expect(PaywallLayoutId.values.first, PaywallLayoutId.hero);
   });
 
   test('fromKey finds each layout by its key', () {

@@ -27,6 +27,7 @@ class PaywallToneColors {
   const PaywallToneColors({
     required this.background,
     required this.ink,
+    required this.note,
     required this.muted,
   });
 
@@ -36,27 +37,32 @@ class PaywallToneColors {
       PaywallTone.canvas => PaywallToneColors(
         background: c.canvas,
         ink: c.onCanvas,
+        note: c.onCanvasMuted,
         muted: c.onCanvasMuted,
       ),
       PaywallTone.surface => PaywallToneColors(
         background: c.surface,
         ink: c.ink,
+        note: c.ink2,
         muted: c.ink3,
       ),
       PaywallTone.panel => PaywallToneColors(
         background: c.panel,
         ink: c.onPanel,
+        note: c.onPanelMuted,
         muted: c.onPanelMuted,
       ),
       PaywallTone.cobalt => PaywallToneColors(
         background: c.ackCanvas,
         ink: c.ackText,
+        note: c.ackTextMuted,
         muted: c.ackTextMuted,
       ),
       // Muted text on the red is under 4.5:1, so both are the full ink.
       PaywallTone.crit => PaywallToneColors(
         background: c.critCanvas,
         ink: c.onCanvas,
+        note: c.onCanvas,
         muted: c.onCanvas,
       ),
     };
@@ -67,7 +73,11 @@ class PaywallToneColors {
   /// Headings and anything that must be read.
   final Color ink;
 
-  /// Notes, the legal lines and the links.
+  /// A second line that still has to be read: the line under a plan's
+  /// price, the own-server promise.
+  final Color note;
+
+  /// The legal lines and the links.
   final Color muted;
 }
 

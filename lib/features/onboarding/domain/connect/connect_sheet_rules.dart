@@ -46,8 +46,12 @@ class ConnectSheetSituation {
 /// Screens that own the display. A purchase, an alarm and the lock screen
 /// each end in one thing the person is doing, and a sheet over them is in
 /// the way.
+///
+/// A paywall layout (`/plans/<layout>`) is a paywall like the shipped one.
 bool isConnectSheetBlockedPath(String path) =>
-    _blockedPaths.contains(path) || path.startsWith('/incidents/');
+    _blockedPaths.contains(path) ||
+    path.startsWith('/incidents/') ||
+    path.startsWith('/plans/');
 
 const _blockedPaths = {
   '/paywall',

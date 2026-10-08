@@ -31,12 +31,16 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const String paywallVariantKeyName = 'paywall_variant';
   static const String onboardingFlowKey = 'onboarding_flow';
   static const String onboardingOfferKey = 'onboarding_offer';
+  static const String paywallLayoutKeyName = 'paywall_layout';
+  static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
     paywallEnabledKey: false,
     paywallVariantKeyName: 'straight',
     onboardingFlowKey: '',
     onboardingOfferKey: '',
+    paywallLayoutKeyName: '',
+    proPaywallLayoutKeyName: '',
   };
 
   bool _isInitialized = false;
@@ -192,6 +196,21 @@ class FirebaseTelemetryGate implements TelemetryGate {
   String get onboardingOfferJson {
     try {
       return remoteConfig?.getString(onboardingOfferKey) ?? '';
+    } on Object catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  String get paywallLayoutKey => _layoutValue(paywallLayoutKeyName);
+
+  @override
+  String get proPaywallLayoutKey => _layoutValue(proPaywallLayoutKeyName);
+
+  /// Empty when Firebase is missing or the read fails: the shipped paywall.
+  String _layoutValue(String key) {
+    try {
+      return remoteConfig?.getString(key) ?? '';
     } on Object catch (_) {
       return '';
     }

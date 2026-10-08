@@ -41,6 +41,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
@@ -113,7 +114,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// another tab is a `go` so the tab bar moves with the user. Everything
   /// else is a push, so the confirm screen and the paywall close back to
   /// where the user was.
-  void _openPath(String path) {
+  void _openPath(String tapped) {
+    // A reminder or a widget tap names the shipped paywall. This is where
+    // it learns what that paywall is set to open.
+    final path = resolvePaywallLocation(tapped);
     final from = _router.routerDelegate.currentConfiguration.uri.toString();
     if (opensWithGo(path, from: from)) {
       _router.go(path);

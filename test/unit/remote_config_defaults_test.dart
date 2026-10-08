@@ -72,7 +72,8 @@ void main() {
         );
 
         // Typed defaults map: paywall_enabled false, paywall_variant
-        // straight, onboarding_flow and onboarding_offer empty.
+        // straight, onboarding_flow and onboarding_offer empty, and both
+        // paywall layout values empty, which is the paywall that ships today.
         expect(
           FirebaseTelemetryGate.remoteConfigDefaults,
           equals(
@@ -81,6 +82,8 @@ void main() {
               'paywall_variant': 'straight',
               'onboarding_flow': '',
               'onboarding_offer': '',
+              'paywall_layout': '',
+              'pro_paywall_layout': '',
             },
           ),
         );
@@ -121,6 +124,8 @@ void main() {
             'paywall_variant': 'straight',
             'onboarding_flow': '',
             'onboarding_offer': '',
+            'paywall_layout': '',
+            'pro_paywall_layout': '',
           }),
         ).called(1);
 

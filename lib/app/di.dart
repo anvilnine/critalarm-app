@@ -42,6 +42,7 @@ import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -197,6 +198,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/hosted_paywa
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/pro_paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
@@ -391,6 +393,28 @@ Future<void> configureDependencies({
     // appPaywallVariantOverride as a NoPaywallVariantOverride, so this call
     // does nothing and Remote Config stays in charge.
     appPaywallVariantOverride.watch(getIt<DevPaywallVariantSwitch>());
+  }
+
+  if (buildHasPaywallLayoutSwitch) {
+    // What each product's paywall opens, set in Developer options. A store
+    // build compiles appPaywallLayoutOverride as a NoPaywallLayoutOverride,
+    // registers nothing here and follows the remote values.
+    if (!getIt.isRegistered<DevPaywallLayoutSwitches>()) {
+      getIt.registerSingleton<DevPaywallLayoutSwitches>(
+        DevPaywallLayoutSwitches(
+          hosted: DevPaywallLayoutSwitch(
+            prefs,
+            DevPaywallLayoutSwitch.hostedKey,
+          ),
+          pro: DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.proKey),
+        ),
+      );
+    }
+    final layoutSwitches = getIt<DevPaywallLayoutSwitches>();
+    appPaywallLayoutOverride.watch(
+      hosted: layoutSwitches.hosted,
+      pro: layoutSwitches.pro,
+    );
   }
 
   final identityStore = DeviceIdentityStore.forPlatform(prefs);
@@ -2159,6 +2183,33 @@ Future<void> configureDependencies({
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
           getIt<WidgetSync>().rewrite();
         },
+      ),
+    )
+    // The one way into either paywall. With both remote values empty and
+    // nothing set in Developer options it answers with the shipped routes.
+    ..registerLazySingleton<PaywallDoor>(
+      () => PaywallDoor(
+        remoteValue: (product) {
+          if (!getIt.isRegistered<TelemetryGate>()) return '';
+          final gate = getIt<TelemetryGate>();
+          return switch (product) {
+            PaywallProduct.hosted => gate.paywallLayoutKey,
+            PaywallProduct.pro => gate.proPaywallLayoutKey,
+          };
+        },
+        developer: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hosted,
+          PaywallProduct.pro => appPaywallLayoutOverride.pro,
+        },
+        hasSeenFalseAlarm: () =>
+            getIt<SharedPreferences>().getBool(
+              PaywallDoor.falseAlarmShownKey,
+            ) ??
+            false,
+        markFalseAlarmSeen: () => getIt<SharedPreferences>().setBool(
+          PaywallDoor.falseAlarmShownKey,
+          true,
+        ),
       ),
     )
     // The sounds a paywall layout asks for. Silent until a playing one is

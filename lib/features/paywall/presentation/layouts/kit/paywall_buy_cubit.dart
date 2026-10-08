@@ -176,6 +176,22 @@ class PaywallBuyState {
       'selected: $selectedId, message: $messageKey, paused: $isPaused)';
 }
 
+/// A trip to the store the buyer asked for.
+enum PaywallBuyAction { purchase, restore }
+
+/// Hears what the buyer did on one paywall, to report it. The route sets
+/// it on the cubit. It draws nothing and changes no state.
+abstract interface class PaywallBuyReporter {
+  /// The buyer asked for [action]. [state] is the state it started from.
+  void started(PaywallBuyAction action, PaywallBuyState state);
+
+  /// [action] came to rest in [state], or the paywall closed on it.
+  void finished(PaywallBuyAction action, PaywallBuyState state);
+
+  /// The paywall went away.
+  void closed();
+}
+
 /// The one thing every layout buys through, whatever it sells.
 ///
 /// A layout never calls it: the buy block does. There is one small class
@@ -203,9 +219,38 @@ abstract class PaywallBuyCubit extends Cubit<PaywallBuyState> {
   /// Asks again after a check that paused. Does nothing in any other state.
   Future<void> checkAgain();
 
+  /// Set by the route that shows this paywall. Null reports nothing.
+  PaywallBuyReporter? reporter;
+
+  /// The purchase or restore that has not come to rest yet.
+  PaywallBuyAction? _running;
+
+  /// Every `buy` and `restore` calls this once it is past its own guard
+  /// and before it shows a state.
+  @protected
+  void began(PaywallBuyAction action) {
+    _running = action;
+    reporter?.started(action, state);
+  }
+
   /// Emits unless the paywall already closed.
   @protected
   void show(PaywallBuyState next) {
-    if (!isClosed) emit(next);
+    if (isClosed) return;
+    emit(next);
+    final running = _running;
+    if (running == null || next.isBusy) return;
+    _running = null;
+    reporter?.finished(running, next);
+  }
+
+  @override
+  Future<void> close() {
+    final running = _running;
+    _running = null;
+    if (running != null) reporter?.finished(running, state);
+    reporter?.closed();
+    reporter = null;
+    return super.close();
   }
 }

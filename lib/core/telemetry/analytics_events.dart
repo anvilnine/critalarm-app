@@ -24,6 +24,13 @@ abstract final class AnalyticsEvents {
   static const proPackSheetOpened = 'pro_pack_sheet_opened';
   static const proPackPurchaseFinished = 'pro_pack_purchase_finished';
   static const proPackRestoreFinished = 'pro_pack_restore_finished';
+
+  // Sent by the paywall layouts alone. The shipped paywall and the Pro
+  // sheet have no event for these moments.
+  static const paywallRestoreFinished = 'paywall_restore_finished';
+  static const paywallClosed = 'paywall_closed';
+  static const proPackPurchaseStarted = 'pro_pack_purchase_started';
+  static const proPackClosed = 'pro_pack_closed';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.

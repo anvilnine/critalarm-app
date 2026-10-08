@@ -4,6 +4,8 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +16,10 @@ enum WidgetsPreviewState { ringing, awake, quiet }
 /// The loop is this many seconds long.
 const double widgetsPreviewLoop = 12;
 
-/// The second a still preview rests on: the quiet widget.
-const double widgetsPreviewRestAt = 9;
+/// The second a still preview rests on: the ringing widget, the state that
+/// says what the widget is for. The ring has not started to swell yet, so
+/// the face is upright and nothing is on its way.
+const double widgetsPreviewRestAt = 0.12;
 
 /// When each state starts, in seconds into the loop. The widget rings, its
 /// button is pressed, it is awake, its button is pressed, it goes quiet and
@@ -122,9 +126,10 @@ WidgetsPreviewFrame widgetsPreviewFrameAt(double t) {
 /// The home screen widget stepping through ringing, awake and quiet, with
 /// its button pressed between them.
 ///
-/// Small, it is a face over its button. From [extrasPreviewFullEdge] up it
-/// is the topic widget as the home screen draws it: face, state, topic,
-/// running time and button.
+/// Small, it is a home screen mark on the shared tile. As a scene it is the
+/// topic widget as the home screen draws it: face, state, topic, running
+/// time and button. Its red and its blue are the widget's own: ringing and
+/// acknowledged.
 class WidgetsPreview extends StatelessWidget {
   const WidgetsPreview({required this.size, super.key});
 
@@ -132,6 +137,9 @@ class WidgetsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.mark(PreviewMark.homeWidget, size: size);
+    }
     return ExtrasPreviewTile(
       size: size,
       color: context.appColors.cream,
@@ -186,48 +194,19 @@ class _Scene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final u = size.shortestSide;
     final aspect = size.width / size.height;
-    if (u < extrasPreviewFullEdge) return _glance(u, isWide: aspect >= 1.6);
     return aspect >= 1.9 ? _medium(context) : _small(context);
   }
 
   Widget _face(double edge) => _Face(state: state, frame: frame, size: edge);
 
-  Widget _button(double height, {double? width, bool showsLabel = true}) =>
-      _Button(
-        state: state,
-        frame: frame,
-        height: height,
-        width: width,
-        showsLabel: showsLabel,
-        showsTap: isFront,
-      );
-
-  /// A face and its button, with no words.
-  Widget _glance(double u, {required bool isWide}) {
-    final face = _face(u * 0.5);
-    final button = _button(u * 0.18, width: u * 0.58, showsLabel: false);
-    return Center(
-      child: isWide
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                face,
-                SizedBox(width: u * 0.16),
-                button,
-              ],
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                face,
-                SizedBox(height: u * 0.09),
-                button,
-              ],
-            ),
-    );
-  }
+  Widget _button(double height, {double? width}) => _Button(
+    state: state,
+    frame: frame,
+    height: height,
+    width: width,
+    showsTap: isFront,
+  );
 
   /// The small topic widget: face and state on top, the topic and its
   /// running time under them, the button along the bottom.
@@ -485,7 +464,6 @@ class _Button extends StatelessWidget {
     required this.state,
     required this.frame,
     required this.height,
-    required this.showsLabel,
     required this.showsTap,
     this.width,
   });
@@ -496,7 +474,6 @@ class _Button extends StatelessWidget {
 
   /// Null sizes the capsule to its label.
   final double? width;
-  final bool showsLabel;
   final bool showsTap;
 
   @override
@@ -520,7 +497,7 @@ class _Button extends StatelessWidget {
           strokeWidth: 3,
         );
       }
-    } else if (showsLabel) {
+    } else {
       label = Text(
         state == WidgetsPreviewState.ringing
             ? LocaleKeys.paywall_previews_extras_widget_im_up.tr()
@@ -539,7 +516,7 @@ class _Button extends StatelessWidget {
       height: height,
       alignment: Alignment.center,
       padding: EdgeInsets.symmetric(
-        horizontal: showsLabel && !isQuiet ? height * 0.45 : 0,
+        horizontal: isQuiet ? 0 : height * 0.45,
       ),
       decoration: ShapeDecoration(
         color: fill,
@@ -574,7 +551,7 @@ class _Button extends StatelessWidget {
               maxHeight: double.infinity,
               child: ExtrasPreviewTap(
                 tap: frame.tap,
-                diameter: height * (showsLabel ? 0.9 : 1.5),
+                diameter: height * 0.9,
               ),
             ),
           ),
