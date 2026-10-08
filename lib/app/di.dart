@@ -125,10 +125,15 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
+import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
+import 'package:critalarm/features/incidents/data/own_look/platform_own_photo_picker.dart';
+import 'package:critalarm/features/incidents/data/own_look/ui_own_photo_codec.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -136,6 +141,7 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
@@ -346,6 +352,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1583,6 +1590,7 @@ Future<void> configureDependencies({
         challenges: getIt<ChallengeChoices>(),
         alarmStyles: getIt<AlarmStyleChoices>(),
         soundLock: getIt<OwnSoundLockFlag>(),
+        ownLook: getIt<OwnLookStore>(),
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {
@@ -1657,6 +1665,31 @@ Future<void> configureDependencies({
             (feature) => feature == AppFeature.alarmScreenStyles,
           ),
         ],
+        // A field read: the alarm screen asks this while it rings.
+        isOwnLookReady: () => getIt<OwnAlarmLookKeeper>().isReady,
+      ),
+    )
+    // The person's own alarm look: one photo in the app's own storage,
+    // its record and its accent in the preferences. The keeper decodes
+    // the photo at launch and holds it, so an alarm that rings loads
+    // nothing. The photo never leaves the phone.
+    ..registerLazySingleton<OwnLookStore>(
+      () => FileOwnLookStore(
+        getIt<SharedPreferences>(),
+        getApplicationSupportDirectory,
+      ),
+    )
+    ..registerLazySingleton(() => OwnAlarmLookKeeper(getIt<OwnLookStore>()))
+    ..registerLazySingleton<OwnPhotoPicker>(PlatformOwnPhotoPicker.new)
+    ..registerLazySingleton(
+      () => ImportOwnPhotoUsecase(
+        const UiOwnPhotoCodec(),
+        getIt<OwnLookStore>(),
+        // The last check that looks are open, as the sound import has for
+        // own sounds. Only a sure lock turns a photo away.
+        isLocked: () async => !await getIt<FeatureAccess>().canOnceReady(
+          AppFeature.alarmScreenStyles,
+        ),
       ),
     )
     ..registerLazySingleton(

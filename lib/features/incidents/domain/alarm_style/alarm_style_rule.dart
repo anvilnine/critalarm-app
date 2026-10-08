@@ -21,15 +21,20 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.d
 /// - [isSetupAlarm] is true for an alarm setup itself caused, or a test
 ///   run again from Settings. Those screens have their own layout and
 ///   always draw the standard look.
+/// - [isOwnLookReady] is whether the person's own photo is decoded and
+///   held in memory at this moment. The alarm screen never waits for a
+///   file or a decode, so an own look that is not ready is not drawn.
 ///
 /// In order:
 ///
 /// 1. A setup alarm: standard.
 /// 2. Nothing saved, the standard look saved, or an id this build does not
 ///    know: standard.
-/// 3. Open, or a purchase being confirmed: the saved look.
-/// 4. Locked, and the plan was read: standard.
-/// 5. The plan could not be read, or a "locked" from before it was read:
+/// 3. The own look saved, and its photo not ready (none saved, the file
+///    gone or broken, the decode not finished): standard.
+/// 4. Open, or a purchase being confirmed: the saved look.
+/// 5. Locked, and the plan was read: standard.
+/// 6. The plan could not be read, or a "locked" from before it was read:
 ///    the saved look when the last sure answer was "open", else standard.
 ///
 /// When in doubt the answer is the standard look, which is the alarm
@@ -41,10 +46,14 @@ AlarmStyleId alarmStyleFor({
   required bool wasOpenWhenLastSure,
   String? topicName,
   bool isSetupAlarm = false,
+  bool isOwnLookReady = false,
 }) {
   if (isSetupAlarm) return AlarmStyleId.standard;
   final chosen = AlarmStyleId.fromId(saved.styleIdFor(topicName));
   if (chosen == null || chosen.isFree) return AlarmStyleId.standard;
+  if (chosen == AlarmStyleId.own && !isOwnLookReady) {
+    return AlarmStyleId.standard;
+  }
   return switch (decision) {
     FeatureOpen() || FeatureConfirming() => chosen,
     FeatureLocked() when isPlanRead => AlarmStyleId.standard,

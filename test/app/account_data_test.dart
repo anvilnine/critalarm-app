@@ -55,6 +55,7 @@ final class _Phone {
   late final SoundLockSync soundSync;
   late final ChallengeFlagSync challengeSync;
   late final AlarmStyleGate lookGate;
+  late final OwnLookOnDisk ownLook;
   late final AccountData accountData;
 
   /// The account the phone is on. Null for none.
@@ -121,7 +122,9 @@ final class _Phone {
       readAccountId: () async => this.accountId,
       planRead: Future<void>.value(),
     );
+    ownLook = await OwnLookOnDisk.seed(prefs);
     accountData = AccountData(
+      ownLook: ownLook.store,
       acks: AckQueue(prefs, api),
       messageCursors: MessageSyncService(prefs, api),
       recentSearches: SharedPrefsRecentSearchesRepository(prefs),
@@ -170,11 +173,15 @@ void main() {
       final phone = _Phone();
       await phone.start(accountDataFor('acc_1'), accountId: 'acc_1');
       expectAccountDataKept(phone.prefs);
+      await phone.ownLook.expectKept();
 
       await phone.accountData.forget();
 
       expectAccountDataGone(phone.prefs);
       expectOwnSoundsKept(phone.prefs);
+      // The own photo, its record and its accent: a person's picture does
+      // not stay on a phone that left their account.
+      await phone.ownLook.expectGone();
       expect(phone.challenges.choices, isEmpty);
       expect(phone.challenges.defaultForNewTopics, isNull);
       expect(phone.challenges.flaggedTopics, isEmpty);
@@ -280,6 +287,7 @@ void main() {
       );
       expect(same, isA<Connected>());
       expectAccountDataKept(phone.prefs);
+      await phone.ownLook.expectKept();
 
       final other = await connectFrom('https://old.example.com')(
         serverUrl: _info.baseUrl,
@@ -288,6 +296,7 @@ void main() {
       expect(other, isA<Connected>());
       expectAccountDataGone(phone.prefs);
       expectOwnSoundsKept(phone.prefs);
+      await phone.ownLook.expectGone();
     });
   });
 

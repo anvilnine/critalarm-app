@@ -3,6 +3,7 @@ import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 
 /// What belongs to one account on this phone. This is the one list.
@@ -20,11 +21,19 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// 5. Alarm looks: the phone's look, every topic's look, and the note
 ///    `alarm_style_open_when_last_sure`.
 /// 6. The own sounds lock flag `alarm_sound_own_locked` with its tag.
+/// 7. The own alarm look: the photo file, the record of how bright it is
+///    (`alarm_style_own_photo`) and the accent (`alarm_style_own_accent`).
 ///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
 /// not a plan state. The lock flag decides whether an own sound rings, and
 /// that is the only part of sounds that follows the account.
+///
+/// The own photo is on the list, and that differs from own sounds on
+/// purpose. A sound is heard and tells nobody anything. A photo is on
+/// screen, full size, for anyone holding the phone the next time it
+/// rings: a person's own picture must not stay on a phone they signed out
+/// of, deleted their account on, or pointed at another server.
 ///
 /// Settings, permissions and the archive are not here either. The connect
 /// to a different server drops the archive itself.
@@ -36,6 +45,7 @@ class AccountData {
     required this._challenges,
     required this._alarmStyles,
     required this._soundLock,
+    required this._ownLook,
     this._afterForget,
   });
 
@@ -45,6 +55,7 @@ class AccountData {
   final ChallengeChoices _challenges;
   final AlarmStyleChoices _alarmStyles;
   final OwnSoundLockFlag _soundLock;
+  final OwnLookStore _ownLook;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -64,6 +75,7 @@ class AccountData {
     await _quietly(_challenges.forgetAll);
     await _quietly(_alarmStyles.forgetAll);
     await _quietly(_soundLock.clear);
+    await _quietly(_ownLook.forgetAll);
     final after = _afterForget;
     if (after != null) await _quietly(after);
   }

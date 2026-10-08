@@ -114,7 +114,10 @@ void main() {
     late bool isUnreadable;
     late String? account;
 
+    var isOwnLookReady = false;
+
     AlarmStyleGate gate({Stream<Object?>? changes}) => AlarmStyleGate(
+      isOwnLookReady: () => isOwnLookReady,
       choices: choices,
       decide: () => now,
       decideOnceReady: () async {
@@ -128,6 +131,7 @@ void main() {
     );
 
     setUp(() {
+      isOwnLookReady = false;
       now = _open;
       planRead = Completer<void>();
       isUnreadable = false;
@@ -147,6 +151,33 @@ void main() {
         styles.styleFor('prod-db', isSetupAlarm: true),
         AlarmStyleId.standard,
       );
+    });
+
+    test('the own look draws only while its photo is held, and is asked '
+        'each time', () async {
+      await start({'alarm_style_default': 'own'});
+      final styles = gate();
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      isOwnLookReady = true;
+      expect(styles.styleFor('prod-db'), AlarmStyleId.own);
+      // The photo was removed, or the account left.
+      isOwnLookReady = false;
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      // What is saved was never touched.
+      expect(choices.assignments.defaultStyleId, 'own');
+    });
+
+    test('a gate that is told nothing about the photo never draws the own '
+        'look', () async {
+      await start({'alarm_style_default': 'own'});
+      final styles = AlarmStyleGate(
+        choices: choices,
+        decide: () => _open,
+        decideOnceReady: () async => _open,
+        readAccountId: () async => _account,
+        planRead: Future<void>.value(),
+      );
+      expect(styles.styleFor(null), AlarmStyleId.standard);
     });
 
     test('a sure lock draws Standard and keeps what is saved, and the plan '

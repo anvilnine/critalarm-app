@@ -187,11 +187,16 @@ class AlarmContrastReport {
 /// a `surfaceOpacity`, which no card reads today. The message's faintest
 /// line is measured a second time on a card of that opacity and reported,
 /// so the number is known before a card ever takes it up.
+///
+/// [behindTheStage] is for a look whose painter covers the canvas: one
+/// flat colour the painter can put behind the stage, measured in place of
+/// the look's canvas. Left out, the canvas is the look's own.
 AlarmContrastReport alarmStyleContrast(
   AlarmStyle style,
   AlarmStage stage, {
   required Brightness brightness,
   SeverityMode severity = SeverityMode.crit,
+  Color? behindTheStage,
 }) {
   final base = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
   final colors = style.colorsFor(
@@ -201,7 +206,7 @@ AlarmContrastReport alarmStyleContrast(
     brightness: brightness,
   );
   final profile = style.lookOf(stage).ambient(base, brightness);
-  final canvas = profile.canvas;
+  final canvas = behindTheStage ?? profile.canvas;
   // The two things a pinned button can have behind it.
   final behind = <(String, Color)>[
     ('the canvas', canvas),
