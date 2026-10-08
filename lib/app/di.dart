@@ -122,7 +122,6 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
-import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
@@ -253,8 +252,6 @@ import 'package:critalarm/features/reliability/data/platform_scheduled_summary_r
 import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
@@ -2703,45 +2700,15 @@ Future<void> configureDependencies({
         },
       ),
     )
-    ..registerFactoryParam<InAppNoticeCubit, ShellCubit?, void>(
-      (shellCubit, _) => InAppNoticeCubit(
+    ..registerFactory<InAppNoticeCubit>(
+      () => InAppNoticeCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
-        shellCubit: shellCubit ?? getIt<ShellCubit>(),
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         noticeRepository: getIt<InAppNoticeRepository>(),
         readTopics: () async =>
             (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
         proEnding: getIt<ProEnding>(),
-        // The same check the Reliability screen lists. Reading it also
-        // stamps an OS version change.
-        readSystemUpdate: () async {
-          final checks = await getIt<SystemUpdateSource>().read();
-          final needsLook = checks.any(
-            (check) =>
-                check.id == ReliabilityCheckIds.systemUpdate &&
-                check.state == ReliabilityState.needsLook,
-          );
-          return SystemUpdateReading(
-            needsLook: needsLook,
-            osMajor: getIt<OsVersionStore>().read().major,
-          );
-        },
-        readMissedAlarms: getIt<MissedAlarmReader>().read,
-        readDismissedMissedAlarms: () =>
-            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
-        // Closing goes through the feed, so the card on Home hears of it.
-        dismissMissedAlarms: getIt<MissedAlarmFeed>().dismiss,
-        // An alarm ran out, or an entry was closed from the card.
-        missedAlarmChanges: getIt<MissedAlarmFeed>().changes,
-        // Two weekly check rounds missed in a row, by the relay's count or
-        // by this phone's own clock. A card on Home, never a notification.
-        readWeeklyCheckStopped: () async =>
-            getIt<WeeklyCheckMonitor>().shouldShowNotice(
-              isSetupDone: await getIt<SetupGate>().isDone(),
-            ),
-        dismissWeeklyCheck: getIt<WeeklyCheckMonitor>().dismissNotice,
-        weeklyCheckChanges: getIt<WeeklyCheckMonitor>().changes,
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),

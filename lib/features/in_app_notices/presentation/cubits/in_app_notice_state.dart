@@ -1,72 +1,31 @@
-import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:flutter/foundation.dart';
 
-enum InAppNoticeType {
-  none,
-  noServer,
-  criticalHealth,
-  batteryOptimization,
-  proEnding,
-  accountBackup,
-  systemUpdate,
-  missedAlarm,
-  weeklyCheck,
-}
+/// The reminders Home can pin above the tab bar. One at a time.
+enum InAppNoticeType { none, proEnding, accountBackup }
 
 @immutable
 class InAppNoticeState {
   const InAppNoticeState({
     this.noticeType = InAppNoticeType.none,
     this.isDismissing = false,
-    this.missingPermissions = const [],
     this.proEndsAt,
-    this.missedAlarm,
   });
 
   final InAppNoticeType noticeType;
   final bool isDismissing;
-  final List<DevicePermissionItem> missingPermissions;
 
   /// When Pro ends, while [noticeType] is [InAppNoticeType.proEnding].
   final DateTime? proEndsAt;
 
-  /// What the missed alarm entry says, while [noticeType] is
-  /// [InAppNoticeType.missedAlarm].
-  final MissedAlarmNotice? missedAlarm;
-
-  bool get isVisible => noticeType != InAppNoticeType.none;
-
-  /// True while the card in the slot asks the person to take a look: a
-  /// missed alarm, missed weekly checks, or a phone update. Home's big face
-  /// answers with the look face while this is true
-  /// (`heroWhileLookNoticeShows`). A card that is closing no longer asks.
-  bool get asksForLook =>
-      !isDismissing &&
-      switch (noticeType) {
-        InAppNoticeType.missedAlarm => missedAlarm != null,
-        InAppNoticeType.weeklyCheck || InAppNoticeType.systemUpdate => true,
-        InAppNoticeType.none ||
-        InAppNoticeType.noServer ||
-        InAppNoticeType.criticalHealth ||
-        InAppNoticeType.batteryOptimization ||
-        InAppNoticeType.proEnding ||
-        InAppNoticeType.accountBackup => false,
-      };
-
   InAppNoticeState copyWith({
     InAppNoticeType? noticeType,
     bool? isDismissing,
-    List<DevicePermissionItem>? missingPermissions,
     DateTime? proEndsAt,
-    MissedAlarmNotice? missedAlarm,
   }) {
     return InAppNoticeState(
       noticeType: noticeType ?? this.noticeType,
       isDismissing: isDismissing ?? this.isDismissing,
-      missingPermissions: missingPermissions ?? this.missingPermissions,
       proEndsAt: proEndsAt ?? this.proEndsAt,
-      missedAlarm: missedAlarm ?? this.missedAlarm,
     );
   }
 
@@ -76,16 +35,8 @@ class InAppNoticeState {
       other is InAppNoticeState &&
           noticeType == other.noticeType &&
           isDismissing == other.isDismissing &&
-          proEndsAt == other.proEndsAt &&
-          missedAlarm == other.missedAlarm &&
-          listEquals(missingPermissions, other.missingPermissions);
+          proEndsAt == other.proEndsAt;
 
   @override
-  int get hashCode => Object.hash(
-    noticeType,
-    isDismissing,
-    proEndsAt,
-    missedAlarm,
-    Object.hashAll(missingPermissions),
-  );
+  int get hashCode => Object.hash(noticeType, isDismissing, proEndsAt);
 }
