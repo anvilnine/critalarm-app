@@ -266,10 +266,10 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
 
   Widget _featureRow(AppFeature feature, FeatureAccess access) {
     final jump = accessLabJumps[feature];
-    return AppValueRow(
+    return AccessLabFeatureRow(
       title: accessLabFeatureName(feature),
       value: accessLabDecisionText(access.decide(feature)),
-      detail:
+      note:
           '${accessLabRuleText(featureTable[feature])}. '
           '${accessLabJumpText(feature)}.',
       glyph: jump == null ? GlyphType.minus : GlyphType.arrow,
@@ -292,6 +292,92 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
     final prefs = getIt<SharedPreferences>();
     const key = AccessLabScreen.ownSoundsLockedKey;
     return prefs.containsKey(key) ? '${prefs.get(key)}' : 'not written yet';
+  }
+}
+
+/// One feature of the lab: its name and what was decided on one line, and
+/// under them the rule and where the row goes.
+///
+/// The note has the row's whole width and no line limit, so it is never
+/// cut. `AppValueRow` keeps a detail to two lines beside the value, which
+/// cut the longer rules short.
+class AccessLabFeatureRow extends StatelessWidget {
+  const AccessLabFeatureRow({
+    required this.title,
+    required this.value,
+    required this.note,
+    required this.glyph,
+    this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String value;
+  final String note;
+  final GlyphType glyph;
+
+  /// Null greys the row out.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isOff = onTap == null;
+    return Semantics(
+      button: !isOff,
+      enabled: !isOff,
+      child: Material(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s3,
+              vertical: 10,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isOff ? colors.ink3 : colors.ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.s3),
+                    Flexible(
+                      child: Text(
+                        value,
+                        textAlign: TextAlign.end,
+                        style: AppTypography.small(colors.ink3, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.s2),
+                    AppGlyph(glyph, color: colors.ink3, size: 16),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  note,
+                  style: AppTypography.small(colors.ink3, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
