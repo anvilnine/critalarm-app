@@ -2111,9 +2111,64 @@
     }
   },
   "personalize_passes": {
+    "root": {
+      "back_label": "Back to Settings",
+      "stack_label": "Look, sound, wake-up challenge, widgets and app icon",
+      "pass_label": "{label}, {value}",
+      "pass_label_locked": "{label}, {value}, {plan}",
+      "pass_hint": "Opens the {label} page",
+      "widgets_value": {
+        "one": "{} kind",
+        "other": "{} kinds"
+      },
+      "sound_unknown": "Default sound"
+    },
+
     "page": {
       "back_label": "Back to Personalize",
       "back_generic": "Back"
+    },
+
+    "look": {
+      "use": "Use this look",
+      "in_use": "In use",
+      "trying": "Trying it. Not saved.",
+      "hint_swipe": "Swipe for more looks",
+      "hint_swipe_locked": "Swipe. {count} more with {plan}",
+      "dot_label": "Look {index} of {count}, {name}",
+      "card_label": "{name}"
+    },
+
+    "sound": {
+      "playing": "playing",
+      "stop": "Stop the sound",
+      "play": "Play the sound",
+      "topic_label": "Sound for {topic}"
+    },
+
+    "challenge": {
+      "tile_type_topic": "Type the topic name",
+      "tile_type_title": "Type the first words of the title",
+      "tile_math": "One question about numbers",
+      "tile_scratch": "Scratch, then type the code",
+      "tile_shake": "30 shakes or taps",
+      "tile_off": "No challenge",
+      "pick_label": "Use {name} for new topics",
+      "pick_label_locked": "{name}, needs {plan}",
+      "scope_note": "Applies to topics made from now on. Existing topics keep their own.",
+      "see_plan": "Try any. Keep one with {plan}"
+    },
+
+    "widgets": {
+      "name_open_count": "Open incidents",
+      "name_topic": "Topic",
+      "name_topics": "Topics",
+      "line": "See what is ringing and answer it from your home screen.",
+      "see_plan": "See {plan}"
+    },
+
+    "app_icon": {
+      "state_in_use": "in use"
     }
   },
 
