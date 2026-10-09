@@ -116,9 +116,36 @@ void main() {
         message: 'Test alarm',
       );
 
-      expect(line, contains('curl https://alerts.example.com/prod-db'));
+      expect(line, contains('curl alerts.example.com/prod-db'));
       expect(line, contains('-H "Priority: urgent"'));
       expect(line, contains("-d 'Test alarm'"));
+    });
+
+    test('leaves the https scheme out of the shown address only', () {
+      final shown = CurlLine.forTerminal(
+        serverUrl: 'https://api.critalarm.app/',
+        topic: 'uptime-kuma',
+        message: 'disk full',
+      );
+      final copied = CurlLine.build(
+        serverUrl: 'https://api.critalarm.app/',
+        topic: 'uptime-kuma',
+        token: 'tk_abc',
+        message: 'disk full',
+      );
+
+      expect(shown, startsWith('curl api.critalarm.app/uptime-kuma \\\n'));
+      expect(copied, contains("'https://api.critalarm.app/uptime-kuma'"));
+    });
+
+    test('keeps a plain http scheme in the shown address', () {
+      final shown = CurlLine.forTerminal(
+        serverUrl: 'http://192.168.1.5:8080',
+        topic: 'nas',
+        message: 'disk full',
+      );
+
+      expect(shown, startsWith('curl http://192.168.1.5:8080/nas'));
     });
 
     test('shows a masked placeholder where a token would be', () {
