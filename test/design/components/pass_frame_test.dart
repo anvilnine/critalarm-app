@@ -169,24 +169,75 @@ void main() {
     test('rest at the start', () {
       final frame = _forward(0);
       expect(frame.othersOffset, 0);
+      expect(frame.aboveOffset, 0);
       expect(frame.othersOpacity, 1);
+      expect(frame.openCardOpacity, 0);
     });
 
-    test('are 120 points down by 450 ms and clear by 300 ms', () {
-      expect(_forward(_in(450)).othersOffset, closeTo(120, 1e-9));
-      expect(_forward(_in(300)).othersOpacity, 0);
-      expect(_forward(_in(150)).othersOpacity, inExclusiveRange(0, 1));
-      expect(_forward(1).othersOffset, closeTo(120, 1e-9));
+    test('stay whole until the page nearly fills the display', () {
+      for (var p = 0.0; p <= 1.0; p += 0.05) {
+        for (final frame in [_forward(p), _back(p)]) {
+          if (frame.grow <= 0.9) expect(frame.othersOpacity, 1);
+          expect(frame.othersOpacity, inInclusiveRange(0, 1));
+        }
+      }
       expect(_forward(1).othersOpacity, 0);
+      expect(_back(1).othersOpacity, 0);
     });
 
-    test('come back over the same times', () {
-      expect(_back(_out(0)).othersOffset, closeTo(120, 1e-9));
-      expect(_back(_out(0)).othersOpacity, 0);
-      expect(_back(_out(300)).othersOpacity, 1);
-      expect(_back(_out(450)).othersOffset, closeTo(0, 1e-9));
+    test('below the page are never under its bottom edge', () {
+      for (var i = 0; i < 4; i++) {
+        final origin = _origin(i);
+        for (var p = 0.0; p <= 1.0; p += 0.02) {
+          for (final frame in [_forward(p, origin), _back(p, origin)]) {
+            expect(
+              origin.rect.bottom + frame.othersOffset,
+              greaterThanOrEqualTo(frame.rect.bottom),
+              reason: 'card $i at $p',
+            );
+          }
+        }
+      }
+    });
+
+    test('above the page are never under its top edge', () {
+      final origin = _origin(3);
+      for (var p = 0.0; p <= 1.0; p += 0.02) {
+        for (final frame in [_forward(p, origin), _back(p, origin)]) {
+          expect(frame.aboveOffset, lessThanOrEqualTo(0));
+          expect(
+            origin.rect.top + frame.aboveOffset,
+            lessThanOrEqualTo(frame.rect.top + 1e-9),
+            reason: 'at $p',
+          );
+        }
+      }
+    });
+
+    test(
+      'step 120 points down over 450 ms, further once the page is wider',
+      () {
+        final origin = _origin(4);
+        // The last card has no page edge below it, so only the step shows.
+        expect(
+          _forward(_in(450), origin).othersOffset,
+          greaterThanOrEqualTo(120),
+        );
+        expect(_forward(_in(100), origin).othersOffset, greaterThan(0));
+      },
+    );
+
+    test('come back and are home when the route is', () {
       expect(_back(0).othersOffset, closeTo(0, 1e-9));
+      expect(_back(0).aboveOffset, closeTo(0, 1e-9));
       expect(_back(0).othersOpacity, 1);
+    });
+
+    test('are pushed all the way off while the page is open', () {
+      final origin = _origin(1);
+      final open = _forward(1, origin);
+      expect(open.othersOffset, closeTo(844 - origin.rect.bottom, 1e-9));
+      expect(open.aboveOffset, closeTo(-origin.rect.top, 1e-9));
     });
   });
 
@@ -202,15 +253,24 @@ void main() {
       expect(end.thumbOffset.dy, closeTo(236, 1e-9));
     });
 
-    test('is whole until 55% of the grow, then fades to nothing', () {
-      expect(_forward(_in(0.55 * 520 - 1)).thumbOpacity, 1);
-      expect(_forward(_in(0.8 * 520)).thumbOpacity, inExclusiveRange(0, 1));
+    test('is whole until 15% of the grow and gone by 55%', () {
+      expect(_forward(_in(0.15 * 520 - 1)).thumbOpacity, 1);
+      expect(_forward(_in(0.35 * 520)).thumbOpacity, inExclusiveRange(0, 1));
+      expect(_forward(_in(0.55 * 520)).thumbOpacity, 0);
+      expect(_forward(_in(0.75 * 520)).thumbOpacity, 0);
       expect(_forward(_in(520)).thumbOpacity, 0);
     });
 
-    test('is back before the card is on the way out', () {
+    test('is gone before the page body starts', () {
+      expect(_forward(_in(300)).thumbOpacity, 0);
+      expect(_forward(_in(300)).bodyOpacity, 0);
+    });
+
+    test('comes back over the mirror of those times', () {
       expect(_back(_out(0)).thumbOpacity, 0);
-      expect(_back(_out(0.45 * 520)).thumbOpacity, 1);
+      expect(_back(_out(0.45 * 520)).thumbOpacity, 0);
+      expect(_back(_out(0.65 * 520)).thumbOpacity, inExclusiveRange(0, 1));
+      expect(_back(_out(0.9 * 520)).thumbOpacity, closeTo(1, 1e-9));
       expect(_back(0).thumbOpacity, 1);
     });
 
@@ -230,7 +290,7 @@ void main() {
       reduceMotion: true,
     );
 
-    test('fades the finished page and grows nothing', () {
+    test('grows nothing', () {
       for (final p in [0.0, 0.25, 0.5, 1.0]) {
         final frame = reduced(p);
         expect(frame.rect, _display.rect);
@@ -238,7 +298,30 @@ void main() {
         expect(frame.valueSize, 42);
         expect(frame.headerOffset, Offset.zero);
         expect(frame.thumbOpacity, 0);
-        expect(frame.pageOpacity, p);
+      }
+    });
+
+    test('fades the cards out first and the page in after', () {
+      expect(reduced(0).othersOpacity, 1);
+      expect(reduced(0).pageOpacity, 0);
+      expect(reduced(0.25).othersOpacity, closeTo(0.5, 1e-9));
+      expect(reduced(0.25).pageOpacity, 0);
+      expect(reduced(0.5).othersOpacity, 0);
+      expect(reduced(0.5).pageOpacity, 0);
+      expect(reduced(0.75).othersOpacity, 0);
+      expect(reduced(0.75).pageOpacity, closeTo(0.5, 1e-9));
+      expect(reduced(1).pageOpacity, 1);
+    });
+
+    test('never shows the card and the page together', () {
+      for (var p = 0.0; p <= 1.0; p += 0.05) {
+        final frame = reduced(p);
+        expect(frame.openCardOpacity, frame.othersOpacity);
+        expect(
+          frame.openCardOpacity * frame.pageOpacity,
+          0,
+          reason: 'at $p',
+        );
       }
     });
 
@@ -249,13 +332,14 @@ void main() {
     });
 
     test('moves none of the other cards', () {
-      final frame = reduced(0.5);
+      final frame = reduced(0.25);
       expect(frame.othersOffset, 0);
-      expect(frame.othersOpacity, 1);
+      expect(frame.aboveOffset, 0);
     });
 
     test('fades the same way out', () {
-      expect(reduced(0.3, reverse: true).pageOpacity, 0.3);
+      expect(reduced(0.75, reverse: true).pageOpacity, closeTo(0.5, 1e-9));
+      expect(reduced(0.25, reverse: true).othersOpacity, closeTo(0.5, 1e-9));
     });
 
     test('is taken from the origin when not asked', () {
@@ -268,9 +352,9 @@ void main() {
         display: _display,
         reduceMotion: true,
       );
-      final frame = passFrameAt(0.5, origin);
+      final frame = passFrameAt(0.75, origin);
       expect(frame.rect, _display.rect);
-      expect(frame.pageOpacity, 0.5);
+      expect(frame.pageOpacity, closeTo(0.5, 1e-9));
     });
   });
 
