@@ -11,6 +11,7 @@ import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_pages.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_word_timeline.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
@@ -30,6 +31,7 @@ part 'onboarding_intro_steps.dart';
 part 'onboarding_welcome_product_stories.dart';
 part 'onboarding_welcome_stories.dart';
 part 'onboarding_welcome_variants.dart';
+part 'onboarding_welcome_word_story.dart';
 
 /// The older welcome animations, kept for the Developer options preview and
 /// for the steps that still use one. The first five are only faces, the next
@@ -156,6 +158,10 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   /// True while the phone asks for reduced motion.
   bool _isStill = false;
 
+  /// Whether the first page is drawing its own title. It reports through
+  /// this, so the small shared title hides only while it is.
+  final _HeroDrawn _wordHeroDrawn = _HeroDrawn();
+
   List<ModalRoute<Object?>> _pagesAbove = const [];
 
   /// Whether the pictures follow the finger. They do not with animations
@@ -178,6 +184,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   @override
   void dispose() {
     _pages.dispose();
+    _wordHeroDrawn.dispose();
     super.dispose();
   }
 
@@ -308,34 +315,39 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
       onHorizontalDragUpdate: _onSwipeUpdate,
       onHorizontalDragEnd: _onSwipeEnd,
       onHorizontalDragCancel: () => _drag?.cancel(),
-      child: _IntroLayout(
-        isHeroSpoken: true,
-        hero: _storyPages(ringsOnSilent: ringsOnSilent),
-        underHero: PermissionStepDots(
-          count: WelcomePage.values.length,
-          index: _page.index,
-          label: LocaleKeys.onboarding_welcome_page_progress.tr(
-            namedArgs: {
-              'page': '${_page.index + 1}',
-              'count': '${WelcomePage.values.length}',
-            },
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _wordHeroDrawn,
+        builder: (context, isWordDrawn, _) => _IntroLayout(
+          isHeroSpoken: true,
+          isTitleHidden: isWordDrawn && _page == WelcomePage.rings,
+          hero: _storyPages(ringsOnSilent: ringsOnSilent),
+          underHero: PermissionStepDots(
+            count: WelcomePage.values.length,
+            index: _page.index,
+            label: LocaleKeys.onboarding_welcome_page_progress.tr(
+              namedArgs: {
+                'page': '${_page.index + 1}',
+                'count': '${WelcomePage.values.length}',
+              },
+            ),
           ),
+          title: LocaleKeys.onboarding_welcome_title.tr(),
+          subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+          // Each page has its own line, in the place of the one line the
+          // older animations share.
+          caption: _StoryCaption(page: _page, ringsOnSilent: ringsOnSilent),
+          button: switch (button) {
+            WelcomeButton.next => LocaleKeys.onboarding_welcome_next.tr(),
+            WelcomeButton.getStarted =>
+              LocaleKeys.onboarding_welcome_button.tr(),
+          },
+          onPressed: switch (button) {
+            WelcomeButton.next => _onNext,
+            WelcomeButton.getStarted => () => unawaited(
+              finishOnboardingStep(context, OnboardingStepId.welcome),
+            ),
+          },
         ),
-        title: LocaleKeys.onboarding_welcome_title.tr(),
-        subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
-        // Each page has its own line, in the place of the one line the
-        // older animations share.
-        caption: _StoryCaption(page: _page, ringsOnSilent: ringsOnSilent),
-        button: switch (button) {
-          WelcomeButton.next => LocaleKeys.onboarding_welcome_next.tr(),
-          WelcomeButton.getStarted => LocaleKeys.onboarding_welcome_button.tr(),
-        },
-        onPressed: switch (button) {
-          WelcomeButton.next => _onNext,
-          WelcomeButton.getStarted => () => unawaited(
-            finishOnboardingStep(context, OnboardingStepId.welcome),
-          ),
-        },
       ),
     );
   }
@@ -379,6 +391,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
                         page,
                         ringsOnSilent: ringsOnSilent,
                         onDone: () => _onStoryDone(page),
+                        wordHeroDrawn: _wordHeroDrawn,
                       ),
                     ),
                   ),
@@ -484,6 +497,7 @@ class _IntroLayout extends StatelessWidget {
     this.caption,
     this.underHero,
     this.isHeroSpoken = false,
+    this.isTitleHidden = false,
   });
 
   /// The room left free on each side of the page.
@@ -494,6 +508,11 @@ class _IntroLayout extends StatelessWidget {
   /// True when [hero] gives a screen reader its own label. Otherwise it is
   /// a mock-up and a screen reader skips it.
   final bool isHeroSpoken;
+
+  /// True when the animation draws the title itself. The small title then
+  /// fades out, its row folds away and a screen reader skips it. It comes
+  /// back as soon as this is false again.
+  final bool isTitleHidden;
   final String title;
   final String subtitle;
   final String button;
@@ -514,6 +533,42 @@ class _IntroLayout extends StatelessWidget {
 
   /// The most the system text size may grow the title.
   static const double _titleMaxTextScale = 1.4;
+
+  /// The small title. While [isTitleHidden] it fades out and its row folds
+  /// away, so the animation can have the room. With animations switched off
+  /// it goes at once.
+  Widget _titleRow(BuildContext context, AppColors colors) {
+    final row = Align(
+      alignment: Alignment.topLeft,
+      heightFactor: isTitleHidden ? 0 : 1,
+      child: ExcludeSemantics(
+        excluding: isTitleHidden,
+        child: AnimatedOpacity(
+          duration: context.motion(AppDurations.base),
+          opacity: isTitleHidden ? 0 : 1,
+          child: Text(
+            title,
+            // The display size is already large. Capped, it holds to about
+            // three lines at the largest system size, while the words below
+            // keep the full scale.
+            textScaler: MediaQuery.textScalerOf(
+              context,
+            ).clamp(maxScaleFactor: _titleMaxTextScale),
+            style: AppTypography.display(colors.onCanvas, fontSize: 36),
+          ),
+        ),
+      ),
+    );
+    // A zero length AnimatedSize marks itself dirty while it lays out, which
+    // a debug build reports. Without motion there is nothing to animate.
+    if (context.reduceMotion) return row;
+    return AnimatedSize(
+      duration: AppDurations.base,
+      curve: AppCurves.easeOut,
+      alignment: Alignment.topCenter,
+      child: row,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -617,19 +672,7 @@ class _IntroLayout extends StatelessWidget {
                     Center(child: underHero),
                   ],
                   const SizedBox(height: Spacing.s5),
-                  Text(
-                    title,
-                    // The display size is already large. Capped, it holds
-                    // to about three lines at the largest system size, while
-                    // the words below keep the full scale.
-                    textScaler: MediaQuery.textScalerOf(
-                      context,
-                    ).clamp(maxScaleFactor: _titleMaxTextScale),
-                    style: AppTypography.display(
-                      colors.onCanvas,
-                      fontSize: 36,
-                    ),
-                  ),
+                  _titleRow(context, colors),
                   if (badge != null) ...[
                     const SizedBox(height: Spacing.s3),
                     Align(alignment: Alignment.centerLeft, child: badge),
