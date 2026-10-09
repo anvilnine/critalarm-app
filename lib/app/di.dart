@@ -254,12 +254,14 @@ import 'package:critalarm/features/reliability/data/platform_scheduled_summary_r
 import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_proof_log_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/domain/os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
@@ -628,6 +630,11 @@ Future<void> configureDependencies({
       final Object api = getIt<ApiClient>();
       return api is WeeklyCheckApi ? api : const NoWeeklyCheckApi();
     })
+    // The phone's own record of the weeks an alarm or a check got through.
+    // Three writers observe into it, and the account's data list drops it.
+    ..registerLazySingleton(
+      () => ProofLog(SharedPrefsProofLogStore(getIt<SharedPreferences>())),
+    )
     ..registerLazySingleton<WeeklyCheckStore>(
       () => SharedPrefsWeeklyCheckStore(getIt<SharedPreferences>()),
     )
@@ -638,6 +645,7 @@ Future<void> configureDependencies({
         readDeviceId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
         readAccess: _weeklyCheckAccess,
+        proofLog: getIt<ProofLog>(),
         // The relay says the account is not on Hosted. A registration
         // brings the tier the relay holds now, and the Hosted source reads
         // it from the saved identity.
@@ -1608,6 +1616,7 @@ Future<void> configureDependencies({
         alarmStyles: getIt<AlarmStyleChoices>(),
         soundLock: getIt<OwnSoundLockFlag>(),
         ownLook: getIt<OwnLookStore>(),
+        proofLog: getIt<ProofLog>(),
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {
@@ -2436,6 +2445,7 @@ Future<void> configureDependencies({
         ),
         getIt<EndSetupTestUsecase>(),
         getIt<SetupTestRing>(),
+        getIt<ProofLog>(),
       ),
     )
     ..registerFactory(
@@ -2500,6 +2510,7 @@ Future<void> configureDependencies({
         store: getIt<LocalReminderStore>(),
         canTestNormalTopics: LocalReminderServerSupport.testsNormalTopics,
         analytics: getIt<LocalReminderAnalytics>(),
+        proofLog: getIt<ProofLog>(),
       ),
     )
     ..registerFactory(
