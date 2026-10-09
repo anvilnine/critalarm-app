@@ -56,6 +56,10 @@ const double _ringDelayMs = 200;
 const double _ringMs = 300;
 const double _bodyDelayMs = 300;
 const double _bodyMs = 300;
+
+/// On the way out the body is gone sooner, so none of it is left on the part
+/// of the page that is still bigger than the card.
+const double _bodyOutMs = 120;
 const double _othersSlideMs = 450;
 
 /// The cards are whole until the page covers this much of the way, then fade
@@ -111,6 +115,7 @@ class PassOrigin {
     required this.display,
     this.thumbnail,
     this.bottomRadius = 0,
+    this.visibleHeight,
     this.reduceMotion = false,
     this.handoff,
   });
@@ -119,6 +124,20 @@ class PassOrigin {
 
   /// The card's rect in display coordinates.
   final Rect rect;
+
+  /// How much of the card shows, from its top, or null when all of it does.
+  ///
+  /// In the overlapped stack the next card covers the lower part of a card, so
+  /// only a band of it shows. The page grows from that band and closes back
+  /// into it, so the page never draws over the card below.
+  final double? visibleHeight;
+
+  /// The part of the card that shows: [rect], cut to [visibleHeight].
+  Rect get shownRect {
+    final height = visibleHeight;
+    if (height == null || height >= rect.height) return rect;
+    return Rect.fromLTWH(rect.left, rect.top, rect.width, height);
+  }
 
   final PassTone tone;
 
@@ -361,7 +380,7 @@ PassFrame passFrameAt(
       ? 1 - ramp(t, delay: _ringDelayMs)
       : ramp(t, delay: _ringDelayMs);
   final body = reverse
-      ? 1 - Curves.ease.transform(_unit(t / _bodyMs))
+      ? 1 - Curves.ease.transform(_unit(t / _bodyOutMs))
       : Curves.ease.transform(_unit((t - _bodyDelayMs) / _bodyMs));
   assert(_ringMs == _bodyMs, 'ring and body share one fade length');
 
@@ -389,7 +408,8 @@ PassFrame passFrameAt(
     shown.safeTop + kPassHeaderTop,
   );
 
-  final rect = Rect.lerp(origin.rect, shown.rect, grow)!;
+  final shownCard = origin.shownRect;
+  final rect = Rect.lerp(shownCard, shown.rect, grow)!;
   final step = reverse
       ? kPassOthersTravel * (1 - slide)
       : kPassOthersTravel * slide;
@@ -410,7 +430,7 @@ PassFrame passFrameAt(
     thumbOpacity: thumb,
     ringOpacity: ring,
     bodyOpacity: body,
-    othersOffset: math.max(step, rect.bottom - origin.rect.bottom),
+    othersOffset: math.max(step, rect.bottom - shownCard.bottom),
     othersOpacity: 1 - _unit((grow - _othersFadeFrom) / (1 - _othersFadeFrom)),
     aboveOffset: math.min(0, rect.top - origin.rect.top),
     isClosing: reverse,
@@ -591,8 +611,8 @@ class PassGrow extends StatelessWidget {
       top: Radius.circular(frame.topRadius),
       bottom: Radius.circular(frame.bottomRadius),
     );
-    Widget page = ClipRRect(
-      clipper: _FrameClipper(frame),
+    Widget page = ClipPath(
+      clipper: _FrameClipper(frame, origin),
       child: child,
     );
     if (frame.pageOpacity < 1) {
@@ -632,22 +652,57 @@ class PassGrow extends StatelessWidget {
   }
 }
 
-class _FrameClipper extends CustomClipper<RRect> {
-  const _FrameClipper(this.frame);
+class _FrameClipper extends CustomClipper<Path> {
+  const _FrameClipper(this.frame, this.origin);
 
   final PassFrame frame;
+  final PassOrigin? origin;
 
   @override
-  RRect getClip(Size size) => RRect.fromRectAndCorners(
-    frame.rect,
-    topLeft: Radius.circular(frame.topRadius),
-    topRight: Radius.circular(frame.topRadius),
-    bottomLeft: Radius.circular(frame.bottomRadius),
-    bottomRight: Radius.circular(frame.bottomRadius),
-  );
+  Path getClip(Size size) {
+    final rect = frame.rect;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndCorners(
+          rect,
+          topLeft: Radius.circular(frame.topRadius),
+          topRight: Radius.circular(frame.topRadius),
+          bottomLeft: Radius.circular(frame.bottomRadius),
+          bottomRight: Radius.circular(frame.bottomRadius),
+        ),
+      );
+    // In the overlapped stack the card below has rounded top corners, and the
+    // card above it shows in the two pockets they leave. The page is that card
+    // while it sits against the one below, so it fills the pockets too.
+    final card = origin;
+    if (card != null && card.visibleHeight != null) {
+      final nextTop = card.shownRect.bottom + frame.othersOffset;
+      if (nextTop - rect.bottom <= 0.5 &&
+          rect.bottom < card.display.size.height) {
+        const r = kPassCardRadius;
+        for (final isLeft in const [true, false]) {
+          final x = isLeft ? card.rect.left : card.rect.right - r;
+          final corner = Path()..addRect(Rect.fromLTWH(x, nextTop, r, r));
+          final arc = Path()
+            ..addOval(
+              Rect.fromCircle(
+                center: Offset(isLeft ? x + r : x, nextTop + r),
+                radius: r,
+              ),
+            );
+          path.addPath(
+            Path.combine(PathOperation.difference, corner, arc),
+            Offset.zero,
+          );
+        }
+      }
+    }
+    return path;
+  }
 
   @override
-  bool shouldReclip(_FrameClipper oldClipper) => oldClipper.frame != frame;
+  bool shouldReclip(_FrameClipper oldClipper) =>
+      oldClipper.frame != frame || oldClipper.origin != origin;
 }
 
 /// A go_router page for a Personalize pass page.
