@@ -246,6 +246,18 @@ and for which page may play haptics are in that file.
 - While the pager moves, the first page's big title, face and rings fade and
   travel clear of the page edge instead of being cut by it
   (`welcomeWordPartingAt`, driven by the `PageController` page value).
+- The picture on page 1 is one choice, `welcomeFirstPage` in
+  `domain/welcome_pages.dart` (`WelcomeFirstPage`: `word`, the default,
+  `nightFalls` and `staysSilent`). The other two are built and do not ship.
+  Settings > Developer options > Setup flow > Open a step lists "Welcome: night
+  falls" and "Welcome: stays silent", which open the real three pages as a
+  replay (`?demo=true&first=night`, `?demo=true&first=silent`). Showing one on
+  first launch is a change of that constant. Each has a timeline in
+  `domain/welcome_night_falls_timeline.dart` or
+  `domain/welcome_stays_silent_timeline.dart` and a part file that paints a
+  frame. Both fade and travel clear of the page edge with the pager like the
+  word page does. `nightFalls` draws its own title and hides the small one,
+  `staysSilent` keeps the small one under the picture.
 - The shapes behind the welcome follow the page value: each page has its own
   arrangement (`OnboardingAmbientProfiles.welcomePages`), and the shell
   paints the blend of two neighbours (`welcomeAmbientAt`) while a swipe moves

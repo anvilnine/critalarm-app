@@ -19,6 +19,33 @@ enum WelcomePage {
   WelcomePage get previous => index == 0 ? this : values[index - 1];
 }
 
+/// The picture the first welcome page shows. Promoting one of the others to
+/// first launch is a change of [welcomeFirstPage] and nothing else: pages 2
+/// and 3 do not depend on it.
+enum WelcomeFirstPage {
+  /// "Welcome to Crit Alarm" with a red block behind "Alarm", and the face
+  /// shouting.
+  word,
+
+  /// A day that turns to night. The face sleeps, and when the alarm rings
+  /// it wakes and shouts.
+  nightFalls,
+
+  /// Other notifications queue up muted while the one alarm gets through.
+  staysSilent;
+
+  /// The first page a Developer options link asks for: `first=night` and
+  /// `first=silent`. Anything else, or nothing, is [welcomeFirstPage].
+  static WelcomeFirstPage fromQuery(String? value) => switch (value) {
+    'night' => nightFalls,
+    'silent' => staysSilent,
+    _ => welcomeFirstPage,
+  };
+}
+
+/// The first page of the welcome on first launch.
+const WelcomeFirstPage welcomeFirstPage = WelcomeFirstPage.word;
+
 /// What the button under the welcome pages does.
 enum WelcomeButton {
   /// Moves to the next page.
@@ -123,5 +150,36 @@ WelcomeWordParting welcomeWordPartingAt(double slide) {
     faceShift: welcomeFaceDrift * t,
     titleOpacity: 1 - (t / welcomeTitleFadeBy).clamp(0.0, 1.0),
     titleShift: welcomeTitleDrift * t,
+  );
+}
+
+/// How the backdrop of a first page leaves while the page moves off the
+/// screen: a panel, a sky or a stage that the first page's title and face
+/// sit on. Like the word page's parts it fades out early and holds near
+/// where it was, so the screen's edge never cuts through it while it is
+/// still clearly drawn. The shift is in page widths, on top of the page's
+/// own move.
+class WelcomeBackdropParting {
+  const WelcomeBackdropParting({required this.opacity, required this.shift});
+
+  /// The backdrop at rest: drawn, and not moved.
+  static const rest = WelcomeBackdropParting(opacity: 1, shift: 0);
+
+  /// How much of the backdrop shows, from 0 to 1.
+  final double opacity;
+
+  /// Page widths to the right, on top of the page's own move.
+  final double shift;
+}
+
+const double welcomeBackdropDrift = 0.9;
+const double welcomeBackdropFadeBy = 0.5;
+
+/// The backdrop's parting at [slide], from [welcomeFirstPageSlide].
+WelcomeBackdropParting welcomeBackdropPartingAt(double slide) {
+  final t = slide.clamp(0.0, 1.0);
+  return WelcomeBackdropParting(
+    opacity: 1 - (t / welcomeBackdropFadeBy).clamp(0.0, 1.0),
+    shift: welcomeBackdropDrift * t,
   );
 }
