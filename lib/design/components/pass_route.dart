@@ -57,8 +57,12 @@ const double _ringMs = 300;
 const double _bodyDelayMs = 300;
 const double _bodyMs = 300;
 const double _othersSlideMs = 450;
-const double _othersFadeMs = 300;
-const double _thumbFadeFrom = 0.55;
+
+/// The cards are whole until the page covers this much of the way, then fade
+/// so no sliver of one shows at the display's edge as the page fills it.
+const double _othersFadeFrom = 0.9;
+const double _thumbFadeStart = 0.15;
+const double _thumbFadeEnd = 0.55;
 const double _thumbFlightX = 112;
 const double _thumbFlightY = 236;
 const double _thumbGrow = 1.6;
@@ -162,27 +166,37 @@ class PassFrame {
     required this.bodyOpacity,
     required this.othersOffset,
     required this.othersOpacity,
+    this.aboveOffset = 0,
+    this.openCardOpacity = 0,
     this.pageOpacity = 1,
+    this.isClosing = false,
   });
 
   /// A page that has finished opening, or one that arrives without an origin.
-  factory PassFrame.settled(PassDisplay display, {double pageOpacity = 1}) =>
-      PassFrame(
-        rect: display.rect,
-        topRadius: 0,
-        bottomRadius: 0,
-        grow: 1,
-        headerOffset: Offset.zero,
-        valueSize: kPassPageValueSize,
-        thumbOffset: Offset.zero,
-        thumbScale: 1,
-        thumbOpacity: 0,
-        ringOpacity: 1,
-        bodyOpacity: 1,
-        othersOffset: 0,
-        othersOpacity: 1,
-        pageOpacity: pageOpacity,
-      );
+  factory PassFrame.settled(
+    PassDisplay display, {
+    double pageOpacity = 1,
+    double othersOpacity = 1,
+    double openCardOpacity = 0,
+    bool isClosing = false,
+  }) => PassFrame(
+    rect: display.rect,
+    topRadius: 0,
+    bottomRadius: 0,
+    grow: 1,
+    headerOffset: Offset.zero,
+    valueSize: kPassPageValueSize,
+    thumbOffset: Offset.zero,
+    thumbScale: 1,
+    thumbOpacity: 0,
+    ringOpacity: 1,
+    bodyOpacity: 1,
+    othersOffset: 0,
+    othersOpacity: othersOpacity,
+    openCardOpacity: openCardOpacity,
+    pageOpacity: pageOpacity,
+    isClosing: isClosing,
+  );
 
   /// The page's visible rect. It runs from the card's rect to the display.
   final Rect rect;
@@ -210,13 +224,29 @@ class PassFrame {
   /// The page body's opacity.
   final double bodyOpacity;
 
-  /// How far down the other cards are, and how opaque.
+  /// How far down the cards below the open one are, and how opaque every
+  /// other card is. The page edge pushes the cards below it, so no card is
+  /// ever cut by it.
   final double othersOffset;
   final double othersOpacity;
 
+  /// How far the cards above the open one are moved, up (zero or less). The
+  /// page's top edge pushes them the same way.
+  final double aboveOffset;
+
+  /// The opacity of the open card itself. Zero while a page stands in its
+  /// place, and above zero only under reduce motion, where the root fades out
+  /// before the page fades in.
+  final double openCardOpacity;
+
   /// The opacity of the whole page. Below 1 only under reduce motion, where
-  /// the finished page fades over the root and nothing grows.
+  /// the finished page fades in over the empty root and nothing grows.
   final double pageOpacity;
+
+  /// Whether the page is on its way back to the card, by the route closing or
+  /// a finger dragging it. The page lets go of the canvas colour then, so the
+  /// canvas is the root's again when the cards are home.
+  final bool isClosing;
 
   /// The shadow around the card, which the page loses as it fills the
   /// display.
@@ -238,7 +268,10 @@ class PassFrame {
       other.bodyOpacity == bodyOpacity &&
       other.othersOffset == othersOffset &&
       other.othersOpacity == othersOpacity &&
-      other.pageOpacity == pageOpacity;
+      other.aboveOffset == aboveOffset &&
+      other.openCardOpacity == openCardOpacity &&
+      other.pageOpacity == pageOpacity &&
+      other.isClosing == isClosing;
 
   @override
   int get hashCode => Object.hash(
@@ -255,7 +288,10 @@ class PassFrame {
     bodyOpacity,
     othersOffset,
     othersOpacity,
+    aboveOffset,
+    openCardOpacity,
     pageOpacity,
+    isClosing,
   );
 }
 
@@ -268,16 +304,24 @@ class PassFrame {
 ///
 /// - the rect, the value size and the label's place follow
 ///   [AppCurves.passGrow] over 520 ms; the radius follows the standard ease;
-/// - the thumbnail flies with the grow and fades out over its last 45%;
+/// - the thumbnail flies with the grow and is gone by 55% of it, before the
+///   page body starts, so two unlike copies of one picture are never on
+///   screen together. On the way back it returns over the mirror of those
+///   times;
 /// - the back ring fades over 300 ms after 200 ms, the body over 300 ms after
 ///   300 ms (on the way out the ring waits 200 ms and the body goes first);
-/// - the other cards slide 120 points over 450 ms and fade over 300 ms.
+/// - the other cards are pushed by the page's edge: the ones below move down
+///   as far as its bottom edge moves, the ones above move up as far as its top
+///   edge moves. A card is never under the edge, so it is never cut, and on
+///   the way back it returns whole after the edge has passed it. The ones
+///   below also step 120 points down over 450 ms. They fade only as the page
+///   nears the display's edges, so no sliver of one shows there.
 ///
 /// With no [origin] (a deep link, a restored route) the page is already
 /// where it belongs and the route uses the shell's own transition, so the
 /// frame is the settled one. With [reduceMotion] nothing grows or moves: the
-/// finished page fades in over the root, so [PassFrame.pageOpacity] is
-/// [progress].
+/// root's cards fade out over the first half of [progress] and the finished
+/// page fades in over the second half, so the two never overlap.
 PassFrame passFrameAt(
   double progress,
   PassOrigin? origin, {
@@ -289,7 +333,14 @@ PassFrame passFrameAt(
   if (origin == null) return PassFrame.settled(shown);
   final p = _unit(progress);
   if (reduceMotion ?? origin.reduceMotion) {
-    return PassFrame.settled(shown, pageOpacity: p);
+    final cards = 1 - _unit(p * 2);
+    return PassFrame.settled(
+      shown,
+      pageOpacity: _unit((p - 0.5) * 2),
+      othersOpacity: cards,
+      openCardOpacity: cards,
+      isClosing: reverse,
+    );
   }
 
   // Milliseconds since the move began, in the direction it runs.
@@ -315,11 +366,12 @@ PassFrame passFrameAt(
   assert(_ringMs == _bodyMs, 'ring and body share one fade length');
 
   final slide = AppCurves.passGrow.transform(_unit(t / _othersSlideMs));
-  final fade = Curves.ease.transform(_unit(t / _othersFadeMs));
 
-  final thumb = reverse
-      ? 1 - _unit((1 - _thumbFadeFrom - u) / (1 - _thumbFadeFrom))
-      : 1 - _unit((u - _thumbFadeFrom) / (1 - _thumbFadeFrom));
+  // Opening the thumbnail is whole at first and gone by the time the page
+  // body starts. Closing it is the same run backwards.
+  double thumbAt(double x) =>
+      1 - _unit((x - _thumbFadeStart) / (_thumbFadeEnd - _thumbFadeStart));
+  final thumb = reverse ? thumbAt(1 - u) : thumbAt(u);
   final flight = math.min(
     1,
     math.min(
@@ -337,8 +389,13 @@ PassFrame passFrameAt(
     shown.safeTop + kPassHeaderTop,
   );
 
+  final rect = Rect.lerp(origin.rect, shown.rect, grow)!;
+  final step = reverse
+      ? kPassOthersTravel * (1 - slide)
+      : kPassOthersTravel * slide;
+
   return PassFrame(
-    rect: Rect.lerp(origin.rect, shown.rect, grow)!,
+    rect: rect,
     topRadius: kPassCardRadius * (1 - radius),
     bottomRadius: origin.bottomRadius * (1 - radius),
     grow: grow,
@@ -353,10 +410,10 @@ PassFrame passFrameAt(
     thumbOpacity: thumb,
     ringOpacity: ring,
     bodyOpacity: body,
-    othersOffset: reverse
-        ? kPassOthersTravel * (1 - slide)
-        : kPassOthersTravel * slide,
-    othersOpacity: reverse ? fade : 1 - fade,
+    othersOffset: math.max(step, rect.bottom - origin.rect.bottom),
+    othersOpacity: 1 - _unit((grow - _othersFadeFrom) / (1 - _othersFadeFrom)),
+    aboveOffset: math.min(0, rect.top - origin.rect.top),
+    isClosing: reverse,
   );
 }
 

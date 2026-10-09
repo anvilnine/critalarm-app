@@ -25,10 +25,9 @@
 //   reduce   the resting frame under reduce motion
 //   motion   the two moving thumbnails at a chosen second of their clock
 //   grow     the transition from the card to the page and back, at progress
-//            0, 0.25, 0.5, 0.75 and 1, for the Look page and the Sound page,
-//            light and dark, plus the Challenge, Widgets and App icon pages
-//            once open, a page opened with no card (a deep link), and the
-//            reduce motion fade
+//            0, 0.25, 0.5, 0.75 and 1, for each of the five pages, light and
+//            dark, each page once open, a page opened with no card (a deep
+//            link), and the reduce motion fade at the same steps
 //
 // Optional:
 //   --dart-define=OUT=<folder>        where the PNGs go (default
@@ -656,7 +655,7 @@ void main() {
 
   // The grow, open and back, from the real route.
   for (final mode in passThemes) {
-    for (final pass in const [PassId.look, PassId.sound]) {
+    for (final pass in PassId.values) {
       final base = passFileName(
         page: 'grow-${pass.name}',
         device: passPhone,
@@ -749,9 +748,17 @@ void main() {
         await _grow(tester, run, PassId.look, reduceMotion: true, (
           frame,
         ) async {
-          if (!const ['open-t000', 'open-t050', 'open-t100'].contains(frame)) {
-            return;
-          }
+          const wanted = [
+            'open-t000',
+            'open-t025',
+            'open-t050',
+            'open-t075',
+            'open-t100',
+            'back-t025',
+            'back-t050',
+            'back-t075',
+          ];
+          if (!wanted.contains(frame)) return;
           await _save(
             tester,
             run,
