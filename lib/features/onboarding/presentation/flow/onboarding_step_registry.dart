@@ -191,9 +191,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       id: OnboardingStepId.offer,
       route: '/onboarding/offer',
       routeName: 'onboardingOffer',
-      // The paywall layout covers the whole screen. The canvas under it
-      // only has to differ from the steps on either side.
-      ambientStep: OnboardingAmbientStep.firstTopic,
+      // The paywall layout covers the whole screen, so the canvas under it
+      // is only seen as it glides in and out.
+      ambientStep: OnboardingAmbientStep.offer,
       hasTopBar: false,
       // The stores sell on a phone only.
       isAvailable: _onMobileOnly,
@@ -206,7 +206,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       id: OnboardingStepId.legacyTest,
       route: '/onboarding/test',
       routeName: 'onboardingTest',
-      ambientStep: OnboardingAmbientStep.connected,
+      ambientStep: OnboardingAmbientStep.legacyTest,
       requires: const {OnboardingStepId.connect},
       screen: (context, state) =>
           const OnboardingConnectScreen(part: OnboardingConnectPart.test),

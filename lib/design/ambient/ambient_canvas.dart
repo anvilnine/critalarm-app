@@ -14,6 +14,7 @@ class AmbientCanvas extends StatefulWidget {
     required this.variant,
     required this.direction,
     required this.reduceMotion,
+    this.isLive = false,
     super.key,
   });
 
@@ -21,6 +22,12 @@ class AmbientCanvas extends StatefulWidget {
   final AmbientMotionVariant variant;
   final AmbientDirection direction;
   final bool reduceMotion;
+
+  /// True while [profile] follows something else frame by frame, such as a
+  /// finger dragging a pager. The canvas then paints each profile as it is,
+  /// with no glide of its own, and a later change of target starts from the
+  /// last one drawn.
+  final bool isLive;
 
   @override
   State<AmbientCanvas> createState() => _AmbientCanvasState();
@@ -47,6 +54,15 @@ class _AmbientCanvasState extends State<AmbientCanvas>
   @override
   void didUpdateWidget(covariant AmbientCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.isLive) {
+      _controller
+        ..stop()
+        ..value = 1;
+      _from = widget.profile;
+      _to = widget.profile;
+      return;
+    }
 
     final targetChanged =
         widget.profile != oldWidget.profile ||

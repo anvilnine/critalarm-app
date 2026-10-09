@@ -92,7 +92,7 @@ enum WelcomeVariant {
 
 /// Onboarding welcome screen (/onboarding/welcome), the first thing a new
 /// user sees. With no [variant] it is three pages, each a picture with its
-/// own caption: the ring story, the priority ladder and the curl. The user
+/// own caption: the ring story, the curl and the widgets. The user
 /// swipes between them or taps Next, and the button on the last page starts
 /// setup. Until the user moves by hand, each story hands on to the next page
 /// when it ends. It always starts on the first one. Developer options opens
@@ -162,6 +162,15 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   /// this, so the small shared title hides only while it is.
   final _HeroDrawn _wordHeroDrawn = _HeroDrawn();
 
+  /// How far the first page has moved off the screen, from 0 to 1. The big
+  /// title, the face and the rings of that page leave by it, so a swipe
+  /// never cuts through them.
+  final ValueNotifier<double> _wordSlide = ValueNotifier(0);
+
+  /// Where the canvas behind the screen is told the pager is, so the shapes
+  /// glide with a swipe. Null outside the shell.
+  AmbientPagePosition? _ambientPosition;
+
   List<ModalRoute<Object?>> _pagesAbove = const [];
 
   /// Whether the pictures follow the finger. They do not with animations
@@ -172,6 +181,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   void initState() {
     super.initState();
     if (_isPlaylist) unawaited(_readRingClaim());
+    _pages.addListener(_onPagesMoved);
   }
 
   @override
@@ -179,11 +189,26 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     super.didChangeDependencies();
     _isStill = context.reduceMotion;
     _pagesAbove = pagesAbove(context);
+    _ambientPosition = _isPlaylist
+        ? OnboardingAmbientScope.maybeOf(context)?.pagePosition
+        : null;
+  }
+
+  /// The pager moved: tells the first page how far it has left, and the
+  /// canvas where the pager is.
+  void _onPagesMoved() {
+    if (!_pages.hasClients) return;
+    final value = _pages.page ?? _page.index.toDouble();
+    _wordSlide.value = welcomeFirstPageSlide(value);
+    _ambientPosition?.report(value);
   }
 
   @override
   void dispose() {
-    _pages.dispose();
+    _pages
+      ..removeListener(_onPagesMoved)
+      ..dispose();
+    _wordSlide.dispose();
     _wordHeroDrawn.dispose();
     super.dispose();
   }
@@ -212,9 +237,14 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     } else {
       // No pictures on screen to move. Should they come back, they open on
       // this page.
-      _pages.dispose();
+      // No pager moves, so the canvas glides to the page's arrangement.
+      _ambientPosition?.report(page.index.toDouble(), followsPager: false);
+      _pages
+        ..removeListener(_onPagesMoved)
+        ..dispose();
       setState(() {
-        _pages = PageController(initialPage: page.index);
+        _pages = PageController(initialPage: page.index)
+          ..addListener(_onPagesMoved);
         _page = page;
         _restingOn = page;
       });
@@ -320,6 +350,11 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
         builder: (context, isWordDrawn, _) => _IntroLayout(
           isHeroSpoken: true,
           isTitleHidden: isWordDrawn && _page == WelcomePage.rings,
+          titleChoices: [
+            LocaleKeys.onboarding_welcome_title.tr(),
+            LocaleKeys.onboarding_welcome_rings_title.tr(),
+            LocaleKeys.onboarding_welcome_widgets_title.tr(),
+          ],
           hero: _storyPages(ringsOnSilent: ringsOnSilent),
           underHero: PermissionStepDots(
             count: WelcomePage.values.length,
@@ -331,7 +366,17 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
               },
             ),
           ),
-          title: LocaleKeys.onboarding_welcome_title.tr(),
+          // While page 1 draws its own title this one is hidden. It holds the
+          // words of the next page, so it unfolds already reading right.
+          title: switch (_page) {
+            WelcomePage.rings =>
+              isWordDrawn
+                  ? LocaleKeys.onboarding_welcome_rings_title.tr()
+                  : LocaleKeys.onboarding_welcome_title.tr(),
+            WelcomePage.curl => LocaleKeys.onboarding_welcome_rings_title.tr(),
+            WelcomePage.widgets =>
+              LocaleKeys.onboarding_welcome_widgets_title.tr(),
+          },
           subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
           // Each page has its own line, in the place of the one line the
           // older animations share.
@@ -392,6 +437,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
                         ringsOnSilent: ringsOnSilent,
                         onDone: () => _onStoryDone(page),
                         wordHeroDrawn: _wordHeroDrawn,
+                        wordSlide: _wordSlide,
                       ),
                     ),
                   ),
@@ -498,6 +544,7 @@ class _IntroLayout extends StatelessWidget {
     this.underHero,
     this.isHeroSpoken = false,
     this.isTitleHidden = false,
+    this.titleChoices = const [],
   });
 
   /// The room left free on each side of the page.
@@ -513,6 +560,11 @@ class _IntroLayout extends StatelessWidget {
   /// fades out, its row folds away and a screen reader skips it. It comes
   /// back as soon as this is false again.
   final bool isTitleHidden;
+
+  /// Every title the page may show, when [title] changes with the page. The
+  /// title row keeps the height of the tallest one, and [title] fades in
+  /// place of the one before it.
+  final List<String> titleChoices;
   final String title;
   final String subtitle;
   final String button;
@@ -538,6 +590,39 @@ class _IntroLayout extends StatelessWidget {
   /// away, so the animation can have the room. With animations switched off
   /// it goes at once.
   Widget _titleRow(BuildContext context, AppColors colors) {
+    // The display size is already large. Capped, it holds to about three
+    // lines at the largest system size, while the words below keep the full
+    // scale.
+    final scaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: _titleMaxTextScale);
+    final style = AppTypography.display(colors.onCanvas, fontSize: 36);
+    Widget titleText(String text, {Key? key}) =>
+        Text(text, key: key, textScaler: scaler, style: style);
+    final shown = titleChoices.isEmpty
+        ? titleText(title)
+        : Stack(
+            children: [
+              // Every title, unseen, so the room is that of the tallest.
+              for (final each in titleChoices.toSet())
+                ExcludeSemantics(
+                  child: Opacity(opacity: 0, child: titleText(each)),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: AnimatedSwitcher(
+                  duration: context.motion(AppDurations.base),
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, ?current],
+                  ),
+                  child: titleText(title, key: ValueKey(title)),
+                ),
+              ),
+            ],
+          );
     final row = Align(
       alignment: Alignment.topLeft,
       heightFactor: isTitleHidden ? 0 : 1,
@@ -546,16 +631,7 @@ class _IntroLayout extends StatelessWidget {
         child: AnimatedOpacity(
           duration: context.motion(AppDurations.base),
           opacity: isTitleHidden ? 0 : 1,
-          child: Text(
-            title,
-            // The display size is already large. Capped, it holds to about
-            // three lines at the largest system size, while the words below
-            // keep the full scale.
-            textScaler: MediaQuery.textScalerOf(
-              context,
-            ).clamp(maxScaleFactor: _titleMaxTextScale),
-            style: AppTypography.display(colors.onCanvas, fontSize: 36),
-          ),
+          child: shown,
         ),
       ),
     );

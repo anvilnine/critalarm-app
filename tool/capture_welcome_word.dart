@@ -11,13 +11,19 @@
 //            under reduced motion (the settled frame). Light and dark at 390
 //            by 844, light at 320 by 640, and the text sizes 1.3 and 2.0.
 //            At 2.0 the picture is dropped and the shared title is back.
-//   pages    pages 2 and 3 at rest, in the same sizes, for a before and after
-//            comparison. Run it on the old code with --dart-define=OUT=...
-//            and on the new code, then compare the two folders byte by byte.
+//   pages    pages 2 and 3 at rest (the curl and the widgets), in the same
+//            sizes, light, dark and under reduced motion.
+//   swipe    the three pages at rest and the frames between them while a
+//            finger holds the pager at page values 0.25, 0.5 and 0.75, going
+//            forward from page 1 to 2 and from 2 to 3 and coming back from
+//            3 to 2 and from 2 to 1. Light and dark at 390 by 844, light at
+//            320 by 640, and the text sizes 1.3 and 2.0. Under reduced
+//            motion the pager does not follow a finger, so it shows the
+//            three pages at rest only.
 //
 // Optional:
 //   --dart-define=OUT=<folder>        where the PNGs go (default
-//                                     .scratch-a217/captures)
+//                                     .scratch-a228/captures)
 //   --dart-define=ONLY=<part>,<part>  only files whose name has one of these
 //
 // A capture fails when anything overflows. A capture is a still of one
@@ -49,7 +55,7 @@ import 'capture_fonts.dart';
 
 const _out = String.fromEnvironment(
   'OUT',
-  defaultValue: '.scratch-a217/captures',
+  defaultValue: '.scratch-a228/captures',
 );
 const _partsArg = String.fromEnvironment('PARTS');
 const _onlyArg = String.fromEnvironment('ONLY');
@@ -67,8 +73,9 @@ class _Phone {
 const _tall = _Phone('390x844', Size(390, 844), top: 47, bottom: 34);
 const _narrow = _Phone('320x640', Size(320, 640), top: 20);
 
-Set<String> get _parts =>
-    _partsArg.isEmpty ? {'word', 'pages'} : _partsArg.split(',').toSet();
+Set<String> get _parts => _partsArg.isEmpty
+    ? {'word', 'pages', 'swipe'}
+    : _partsArg.split(',').toSet();
 
 bool _wanted(String name) {
   final only = _onlyArg.split(',').where((p) => p.isNotEmpty);
@@ -323,6 +330,158 @@ void _pageShots({
   );
 }
 
+PageController _pager(WidgetTester tester) =>
+    tester.widget<PageView>(find.byType(PageView)).controller!;
+
+/// Holds [gesture] until the pager shows [target] as its page value.
+Future<void> _holdAt(
+  WidgetTester tester,
+  TestGesture gesture,
+  double target,
+  double width,
+) async {
+  final pager = _pager(tester);
+  for (var i = 0; i < 80; i++) {
+    final remaining = target - pager.page!;
+    if (remaining.abs() < 0.003) break;
+    await gesture.moveBy(Offset(-remaining * width, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await tester.pump(const Duration(milliseconds: 16));
+}
+
+/// The three pages at rest, and the pager held at 0.25, 0.5 and 0.75 of the
+/// way between neighbours, forward and back.
+void _swipeShots({
+  required _Phone phone,
+  required ThemeMode mode,
+  required double scale,
+  bool reduceMotion = false,
+}) {
+  if (!_parts.contains('swipe')) return;
+  const marks = [0.25, 0.5, 0.75];
+  String mark(double v) => (v * 100).round().toString().padLeft(3, '0');
+  String name(String frame) => _name('swipe', phone, mode, scale, frame);
+  final rests = reduceMotion
+      ? ['still1', 'still2', 'still3']
+      : ['rest1', 'rest2', 'rest3'];
+  final names = [
+    for (final r in rests) name(r),
+    if (!reduceMotion) ...[
+      name('wiggle_025'),
+      for (final v in marks) name('fwd12_${mark(v)}'),
+      for (final v in marks) name('fwd23_${mark(v)}'),
+      for (final v in marks) name('back32_${mark(v)}'),
+      for (final v in marks) name('back21_${mark(v)}'),
+    ],
+  ];
+  if (!names.any(_wanted)) return;
+  testWidgets(
+    'capture swipe ${phone.name} ${mode.name} ${scale}x'
+    '${reduceMotion ? ' reduced' : ''}',
+    (tester) async {
+      await _guarded(names.first, (errors) async {
+        final run = await _open(
+          tester,
+          phone: phone,
+          mode: mode,
+          scale: scale,
+          reduceMotion: reduceMotion,
+        );
+        final width = phone.size.width;
+        Future<void> shot(String frame) async {
+          if (_wanted(name(frame))) {
+            await _save(tester, run, name(frame), errors);
+          }
+        }
+
+        Future<void> rest({int seconds = 5}) async {
+          for (var i = 0; i < seconds * 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+        }
+
+        if (reduceMotion) {
+          await rest(seconds: 1);
+          await shot(rests[0]);
+          final next = find.text('Next');
+          for (var i = 1; i < 3; i++) {
+            await tester.ensureVisible(next);
+            await tester.tap(next);
+            await tester.pump();
+            await rest(seconds: 1);
+            await shot(rests[i]);
+          }
+          return;
+        }
+
+        // Page 1, with the block up and the face shouting.
+        await rest();
+        await shot(rests[0]);
+
+        Future<void> drag({
+          required String label,
+          required double from,
+          required double to,
+          required List<double> values,
+          required String rest0,
+        }) async {
+          final gesture = await tester.startGesture(
+            Offset(width / 2, phone.size.height * 0.4),
+          );
+          for (final v in values) {
+            await _holdAt(tester, gesture, from + (to - from) * v, width);
+            await shot('${label}_${mark(v)}');
+          }
+          await gesture.up();
+          await rest(seconds: 3);
+          if (rest0.isNotEmpty) await shot(rest0);
+        }
+
+        // The pager out to half way and back to a quarter, with the first page
+        // still alive: its face and title fade back in, uncut.
+        final wiggle = await tester.startGesture(
+          Offset(width / 2, phone.size.height * 0.4),
+        );
+        await _holdAt(tester, wiggle, 0.5, width);
+        await _holdAt(tester, wiggle, 0.25, width);
+        await shot('wiggle_025');
+        await wiggle.up();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        await drag(
+          label: 'fwd12',
+          from: 0,
+          to: 1,
+          values: marks,
+          rest0: rests[1],
+        );
+        await drag(
+          label: 'fwd23',
+          from: 1,
+          to: 2,
+          values: marks,
+          rest0: rests[2],
+        );
+        await drag(
+          label: 'back32',
+          from: 2,
+          to: 1,
+          values: marks,
+          rest0: '',
+        );
+        await drag(
+          label: 'back21',
+          from: 1,
+          to: 0,
+          values: marks,
+          rest0: '',
+        );
+      });
+    },
+  );
+}
+
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
@@ -420,6 +579,26 @@ void main() {
   _pageShots(
     phone: _narrow,
     mode: ThemeMode.light,
+    scale: 1,
+    reduceMotion: true,
+  );
+
+  // The swipe, with a finger holding the pager between pages.
+  _swipeShots(phone: _tall, mode: ThemeMode.light, scale: 1);
+  _swipeShots(phone: _tall, mode: ThemeMode.dark, scale: 1);
+  _swipeShots(phone: _narrow, mode: ThemeMode.light, scale: 1);
+  _swipeShots(phone: _tall, mode: ThemeMode.light, scale: 1.3);
+  _swipeShots(phone: _tall, mode: ThemeMode.light, scale: 2);
+  _swipeShots(phone: _narrow, mode: ThemeMode.light, scale: 1.3);
+  _swipeShots(
+    phone: _tall,
+    mode: ThemeMode.light,
+    scale: 1,
+    reduceMotion: true,
+  );
+  _swipeShots(
+    phone: _narrow,
+    mode: ThemeMode.dark,
     scale: 1,
     reduceMotion: true,
   );
