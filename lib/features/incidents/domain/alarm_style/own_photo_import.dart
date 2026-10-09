@@ -200,6 +200,18 @@ class OwnPhotoPixels {
   final Uint8List encoded;
 }
 
+/// A framed part of a photo, drawn at the size it would be kept at and
+/// measured, with nothing written anywhere.
+@immutable
+class OwnPhotoPrepared {
+  const OwnPhotoPrepared({required this.pixels, required this.measure});
+
+  final OwnPhotoPixels pixels;
+
+  /// Taken on [pixels], so it describes them and nothing else.
+  final OwnPhotoMeasure measure;
+}
+
 /// Reads and redraws image files. The one thing in the import that
 /// decodes anything.
 abstract interface class OwnPhotoCodec {
@@ -345,13 +357,37 @@ class ImportOwnPhotoUsecase {
     required double screenWidth,
     required double screenHeight,
   }) async {
-    var locked = false;
-    try {
-      locked = await _isLocked();
-    } on Object catch (_) {
-      // Nobody knows, so nothing is turned away.
+    if (await _lockedNow()) return _fail(lockedCode);
+    final prepared = await prepare(
+      photo: photo,
+      crop: crop,
+      screenWidth: screenWidth,
+      screenHeight: screenHeight,
+    );
+    final kept = prepared.getOrNull();
+    if (kept == null) {
+      return prepared.exceptionOrNull()!.toFailure<OwnPhotoRecord>();
     }
-    if (locked) return _fail(lockedCode);
+    return _write(
+      kept.pixels.encoded,
+      width: kept.pixels.width,
+      height: kept.pixels.height,
+      measure: kept.measure,
+    );
+  }
+
+  /// The part [crop] of [photo], scaled and measured exactly as [save]
+  /// would keep it, and written nowhere. The caller holds the answer in
+  /// memory, to show it, and keeps it later with [keep] or lets it go.
+  ///
+  /// It never reads the plan and never touches the store, so a person who
+  /// cannot keep a photo can still see it.
+  Future<AppResult<OwnPhotoPrepared>> prepare({
+    required OwnPhotoWorkingCopy photo,
+    required OwnPhotoCrop crop,
+    required double screenWidth,
+    required double screenHeight,
+  }) async {
     if (!crop.isSane || screenWidth < 1 || screenHeight < 1) {
       return _fail(unreadableCode);
     }
@@ -381,12 +417,50 @@ class ImportOwnPhotoUsecase {
     }
     // Measured on the pixels that are kept, so the numbers beside the
     // file are the numbers of the file.
-    final measure = measureOwnPhoto(pixels.rgba, pixels.width, pixels.height);
+    return OwnPhotoPrepared(
+      pixels: pixels,
+      measure: measureOwnPhoto(pixels.rgba, pixels.width, pixels.height),
+    ).toSuccess();
+  }
+
+  /// Writes a photo that [prepare] made, or that was held in memory since,
+  /// as the one photo. [encoded] is an image file of [width] by [height]
+  /// pixels and [measure] was taken on those pixels.
+  ///
+  /// Turns the photo away while alarm looks are locked, as [save] does.
+  Future<AppResult<OwnPhotoRecord>> keep(
+    Uint8List encoded, {
+    required int width,
+    required int height,
+    required OwnPhotoMeasure measure,
+  }) async {
+    if (await _lockedNow()) return _fail(lockedCode);
+    if (encoded.isEmpty || width < 1 || height < 1) {
+      return _fail(unreadableCode);
+    }
+    return _write(encoded, width: width, height: height, measure: measure);
+  }
+
+  Future<bool> _lockedNow() async {
+    try {
+      return await _isLocked();
+    } on Object catch (_) {
+      // Nobody knows, so nothing is turned away.
+      return false;
+    }
+  }
+
+  Future<AppResult<OwnPhotoRecord>> _write(
+    Uint8List encoded, {
+    required int width,
+    required int height,
+    required OwnPhotoMeasure measure,
+  }) async {
     try {
       await _store.savePhoto(
-        pixels.encoded,
-        width: pixels.width,
-        height: pixels.height,
+        encoded,
+        width: width,
+        height: height,
         measure: measure,
       );
     } on Object catch (_) {
