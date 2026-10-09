@@ -978,4 +978,21 @@ void main() {
     mode: ThemeMode.light,
     frame: 'deeplink',
   );
+
+  // Scroll: the header at rest, half way through its collapse and collapsed,
+  // on both phones and both text scales. A tall phone does not scroll the
+  // page, so its three shots match.
+  forEachPassScroll((device, mode, scale, at) {
+    _shot(
+      part: 'scroll',
+      state: 'free',
+      setup: const _Setup(),
+      device: device,
+      mode: mode,
+      scale: scale,
+      frame: at.frame,
+      act: (tester, run) =>
+          scrollPassPage(tester, at, device: device, scale: scale),
+    );
+  });
 }

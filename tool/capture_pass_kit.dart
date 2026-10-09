@@ -30,8 +30,10 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:critalarm/core/access/dev_access_switches.dart';
+import 'package:critalarm/design/components/pass_header_geometry.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -321,3 +323,88 @@ Future<void> _save(
   await file.writeAsBytes(bytes!.buffer.asUint8List());
   print('${isGood ? 'FIT ' : 'BAD '} ${file.path}');
 });
+
+/// Where a page is scrolled to in a scroll shot.
+enum PassScrollAt {
+  /// At rest: the header under the ring.
+  top('scroll-top'),
+
+  /// Half way through the header's collapse.
+  half('scroll-half'),
+
+  /// Past the collapse, as far as the page goes (at most 600 points).
+  collapsed('scroll-end');
+
+  const PassScrollAt(this.frame);
+
+  /// The frame word in the file name.
+  final String frame;
+}
+
+/// The scroll position of the pass page on screen: the first scrollable under
+/// the `AppPassPage`, which is the body's.
+ScrollPosition passPagePosition(WidgetTester tester) {
+  final page = find.byType(AppPassPage);
+  expect(page, findsOneWidget, reason: 'no pass page on screen');
+  final scrollable = find.descendant(
+    of: page,
+    matching: find.byType(Scrollable),
+  );
+  return tester.state<ScrollableState>(scrollable.first).position;
+}
+
+/// Scrolls the pass page to [at] and lets the header follow.
+///
+/// Half way is half of the distance the header takes to collapse for a one
+/// line value. A page that does not scroll that far goes as far as it can,
+/// and one that does not scroll at all keeps its resting header, which is
+/// what the shot should show.
+Future<void> scrollPassPage(
+  WidgetTester tester,
+  PassScrollAt at, {
+  required PassDevice device,
+  required double scale,
+}) async {
+  // A phone draws the edge blur with a shader, which a test cannot run. The
+  // slice blur is the same picture, so the shots show content blurring under
+  // the bar as it does on a phone.
+  appEdgeEffect.value = EdgeEffect.sliceBlur;
+  addTearDown(() => appEdgeEffect.value = EdgeEffect.fade);
+  final position = passPagePosition(tester);
+  final distance = passHeaderPoseAt(
+    offset: 0,
+    width: device.size.width,
+    textScale: scale,
+    safeTop: device.safeTop,
+  ).distance;
+  final target = switch (at) {
+    PassScrollAt.top => 0.0,
+    PassScrollAt.half => distance / 2,
+    PassScrollAt.collapsed => 600.0,
+  };
+  position.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+/// The two phones, the two text scales and the three scroll places of the
+/// scroll shots. [register] gets each combination.
+void forEachPassScroll(
+  void Function(
+    PassDevice device,
+    ThemeMode mode,
+    double scale,
+    PassScrollAt at,
+  )
+  register,
+) {
+  for (final mode in passThemes) {
+    for (final device in const [passPhone, passNarrowPhone]) {
+      for (final scale in const [1.0, 2.0]) {
+        for (final at in PassScrollAt.values) {
+          register(device, mode, scale, at);
+        }
+      }
+    }
+  }
+}
