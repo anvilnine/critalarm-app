@@ -90,6 +90,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
 - Pass card, pass stack, pass page and the grow route in the design system, with gallery entries and a capture tool.
 - One rule decides what a tap on a locked option does, the lock draws its badge only once the plan is read, option sheets can carry a badge, and the Plans and features lab has a Plan still being read preset
+- Widgets page of Personalize: `HomeScreenWidgets` draws the Open incidents, Topic and Topics widgets upright, `widgetsRingAngle` is the one ring of the Open incidents face, `widgetsPageButtonsFor` and `widgetsSheetPlanFor` pick the buttons and the steps sheet's plan, and `tool/capture_pass_widgets.dart` captures it.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
