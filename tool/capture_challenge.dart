@@ -16,9 +16,6 @@
 //                        screen reader walks it
 //   topic_row_locked     the topic page, nothing held
 //   topic_row_open       the topic page, Pro held, a challenge picked
-//   strip_locked         Personalize, nothing held
-//   strip_trying         Personalize, nothing held, the locked chip tapped
-//   strip_open           Personalize, Pro held, the challenge picked
 //   try_page             the try on the whole screen, nothing held: a
 //                        saved look is not drawn without its plan, so this
 //                        is the standard look whatever STYLE says
@@ -79,7 +76,6 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
-import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
@@ -96,10 +92,7 @@ import 'package:critalarm/features/challenges/presentation/topic_challenge_row.d
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
-import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
-import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
-import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -817,56 +810,31 @@ void main() {
           });
         }
 
-        for (final state in [
-          'locked',
-          'trying',
-          'open',
-          'try_page',
-          'try_page_pro',
-        ]) {
-          final isTryPage = state.startsWith('try_page');
-          final name = isTryPage ? state : 'strip_$state';
+        for (final isPro in [false, true]) {
+          final name = isPro ? 'try_page_pro' : 'try_page';
           capture('${name}_$tail', (tester, errors) async {
-            final isPro = state == 'open' || state == 'try_page_pro';
             await _hold(isPro: isPro);
             if (isPro) {
               await getIt<ChallengeChoices>().setDefaultForNewTopics(_kind);
             }
             final key = await _open(
               tester,
-              location: '/settings/personalize',
+              location: '/settings/personalize/challenge',
               size: size,
               topInset: top,
               bottomInset: bottom,
               mode: mode,
               scale: scale,
             );
-            final chip = find.byKey(ValueKey('challenge-${_kind.id}'));
-            if (state != 'locked') {
-              // What a tap on the chip calls once the plan is read. In
-              // this harness the access layer is ready for the first
-              // capture only, so the tap is stood in for.
-              BlocProvider.of<PersonalizeCubit>(
-                tester.element(find.byType(PersonalizeTryBar)),
-              ).tryOption(
-                PersonalizeTry(
-                  AppFeature.wakeUpChallenges,
-                  optionId: _kind.id,
-                ),
-              );
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 300));
-              expect(find.byType(ChallengePicture), findsOneWidget);
-            }
-            if (isTryPage) {
-              await tester.tap(find.byType(ChallengePicture));
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 400));
-              expect(find.byType(ChallengeTryPage), findsOneWidget);
-            } else {
-              await tester.ensureVisible(chip);
-              await tester.pump(const Duration(milliseconds: 300));
-            }
+            // The tile of the challenge on the Wake-up challenge page opens
+            // the try, for every plan.
+            final tile = find.byKey(ValueKey('challenge-tile-${_kind.id}'));
+            await tester.ensureVisible(tile);
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(tile);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+            expect(find.byType(ChallengeTryPage), findsOneWidget);
             await _save(tester, key, '${name}_$tail', isGood: errors.isEmpty);
           });
         }
@@ -1188,29 +1156,6 @@ void main() {
     expect(_tapButton, findsOneWidget);
     expect(sensor.listens, 0);
     print('FLOW with a screen reader the button was there and no sensor ran');
-  });
-
-  capture('flow_shake_picture', (tester, errors) async {
-    if (!_isShake) return;
-    final sensor = _HandSensor();
-    await _useSensor(sensor);
-    tester.view.physicalSize = const Size(780, 1688);
-    tester.view.devicePixelRatio = 2;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildLightTheme(),
-        home: ChallengePicture(
-          challenge: challengeOf(ChallengeKind.shake)!,
-          screen: const MediaQueryData(size: Size(390, 844)),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(seconds: 6));
-    expect(_shakeCount(0), findsOneWidget);
-    expect(_tapButton, findsNothing);
-    expect(sensor.listens, 0);
-    print('FLOW the Personalize picture started no sensor');
   });
 
   // A title of many words, to show the first three set apart from the rest.
