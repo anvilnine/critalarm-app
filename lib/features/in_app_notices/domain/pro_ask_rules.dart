@@ -1,5 +1,4 @@
-import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -15,12 +14,10 @@ class ProAskRules {
   ProAskRules({
     required this.noticeRepository,
     required this.accountRepository,
-    ProOverride? proOverride,
     DateTime Function()? now,
     bool Function()? offersOn,
     Future<bool> Function()? isSetupDone,
-  }) : _proOverride = proOverride ?? appProOverride,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
        // ignore: prefer_initializing_formals
@@ -37,7 +34,6 @@ class ProAskRules {
 
   final InAppNoticeRepository noticeRepository;
   final AccountRepository accountRepository;
-  final ProOverride _proOverride;
   final DateTime Function() _now;
 
   /// Reads the Offers switch. With Offers on, a "Remind me later" comes back
@@ -50,15 +46,15 @@ class ProAskRules {
 
   /// Reads what is stored and answers.
   Future<bool> shouldAsk() async {
-    final isPaid = (await _readIsPaid()) || _proOverride.isForcingPro;
+    final holdsHosted = await _readHoldsHosted();
     final serverMode = await accountRepository.readServerMode();
     final isSetupDone =
         await (_isSetupDone?.call() ?? Future<bool>.value(true));
 
     return decide(
       isSetupDone: isSetupDone,
-      isPaid: isPaid,
-      isSelfHosted: serverMode == ServerMode.selfhosted,
+      holdsHosted: holdsHosted,
+      isSelfHosted: isOwnServerMode(serverMode),
       dismissCount: noticeRepository.getProAskDismissCount(),
       lastAskedAt: noticeRepository.getProAskedAt(),
       otherAskedAt: [
@@ -76,9 +72,9 @@ class ProAskRules {
 
   /// A failed read counts as paid, the same as the reminder inputs reader,
   /// so a paying user is never asked because of a Keychain hiccup.
-  Future<bool> _readIsPaid() async {
+  Future<bool> _readHoldsHosted() async {
     try {
-      return await accountRepository.readIsPaid();
+      return await accountRepository.readHoldsHosted();
     } on Object {
       return true;
     }
@@ -97,7 +93,7 @@ class ProAskRules {
   /// feedback ask and the day-0 card. The Pro sheet waits out
   /// `HomeAskRules.gap` after any of them.
   static bool decide({
-    required bool isPaid,
+    required bool holdsHosted,
     required bool isSelfHosted,
     required int dismissCount,
     required DateTime? lastAskedAt,
@@ -107,7 +103,7 @@ class ProAskRules {
     bool isHandedToNotification = false,
   }) {
     if (!isSetupDone) return false;
-    if (isPaid || isSelfHosted) return false;
+    if (holdsHosted || isSelfHosted) return false;
     if (isHandedToNotification) return false;
     if (HomeAskRules.isWithinGap(now: now, askedAt: otherAskedAt)) {
       return false;

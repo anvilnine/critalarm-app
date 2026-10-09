@@ -40,6 +40,7 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
     required this._readWidgetsPlan,
     required this.platform,
     required bool isWeb,
+    Stream<Object?>? widgetsPlanChanges,
     FirstMessageTimerFactory? timer,
     DateTime Function()? now,
     this.sweepEvery = const Duration(seconds: 30),
@@ -51,7 +52,11 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
          platform: platform,
          isWeb: isWeb,
        ),
-       super(const HomeSetupState());
+       super(const HomeSetupState()) {
+    _planSub = widgetsPlanChanges?.listen(
+      (_) => unawaited(_refreshWidgetsPlan()),
+    );
+  }
 
   final SetupChecklistStore _store;
   final FirstMessageStore _firstMessage;
@@ -70,6 +75,24 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   final bool Function() _isGuideOfferAnswered;
 
   final Future<HomeWidgetsPlan> Function() _readWidgetsPlan;
+
+  /// `FeatureAccess.changes` for the widgets in the app. The card keeps
+  /// the plan it read when it appeared, so it reads again on this: a card
+  /// that still said "locked" after the lock went would open nothing.
+  StreamSubscription<Object?>? _planSub;
+
+  Future<void> _refreshWidgetsPlan() async {
+    if (isClosed || state.phase != HomeSetupPhase.widgetsCard) return;
+    final HomeWidgetsPlan plan;
+    try {
+      plan = await _readWidgetsPlan();
+    } on Exception {
+      // Nobody knows right now. What is on screen stays.
+      return;
+    }
+    if (isClosed || state.phase != HomeSetupPhase.widgetsCard) return;
+    _show(HomeSetupState(phase: HomeSetupPhase.widgetsCard, widgetsPlan: plan));
+  }
 
   /// The platform this build runs on, handed in as a value. The how-to
   /// sheet picks its iOS or Android steps from it.
@@ -182,6 +205,7 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   Future<void> close() async {
     _momentTimer?.cancel();
     _seedRetryTimer?.cancel();
+    await _planSub?.cancel();
     await _stopWatching();
     return super.close();
   }

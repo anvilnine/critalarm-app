@@ -1,14 +1,13 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/models/account_access.dart';
-import 'package:critalarm/core/models/device_identity.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
-import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
@@ -33,11 +32,14 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     this._getConnection,
     this._identityStore,
     this._getTopics,
-    this._proOverride,
     PlanChanges? planChanges,
+    this._featureAccess,
   ]) : _planChanges = planChanges ?? appPlanChanges,
        super(const CreateTopicState()) {
     _planChanges.addListener(_onPlanChanged);
+    _accessSub = _featureAccess?.changes
+        .where((feature) => feature == AppFeature.unlimitedCriticalTopics)
+        .listen((_) => _onPlanChanged());
   }
 
   final CreateTopicUsecase _createTopicUsecase;
@@ -46,14 +48,14 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// under the critical switch match what the phone will do. Null in tests.
   AlarmHost? alarm;
 
-  /// Says whether the server is self-hosted. A self-hosted server has no
-  /// tier, so it is never the free tier. Null in tests, and then the server
-  /// is treated as not self-hosted.
-  ApiSessionStore? sessionStore;
-
   /// Where the picked tool chip is kept once the topic exists. Null in tests
   /// that do not need it.
   ToolTemplateStore? toolTemplates;
+
+  /// Gives the new topic what this phone keeps for a topic it made: today
+  /// the default wake-up challenge, which is none unless the user picked
+  /// one. Null in tests that do not need it.
+  Future<void> Function(String topicName)? applyPhoneDefaults;
 
   /// Holds the new topic for the steps after this one in setup. Null in tests
   /// that do not need it.
@@ -73,21 +75,24 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   final GetConnectionUsecase? _getConnection;
   final DeviceIdentityStore? _identityStore;
   final GetTopicsUsecase? _getTopics;
-  final ProOverride? _proOverride;
 
-  /// Moves when a purchase lands, so the free-tier banner and the Go Pro
-  /// button go away right after buying.
+  /// Says whether this phone is past the cap on critical topics: Hosted, or
+  /// a server of the user's own, which has no cap. Null in tests that do
+  /// not care, and then the cap applies.
+  final FeatureAccess? _featureAccess;
+  StreamSubscription<AppFeature>? _accessSub;
+
+  /// Moves when a registration brings new caps, so the count under the
+  /// Critical switch follows.
   final PlanChanges _planChanges;
 
-  /// The last identity read, kept so a cap refusal can tell "Pro is still
-  /// turning on" from "you are on the free plan".
-  DeviceIdentity? _identity;
-
-  AccountAccess _access(DeviceIdentity? identity) => AccountAccess(
-    identity,
-    proOverride: _proOverride,
-    planChanges: _planChanges,
-  );
+  /// Whether the cap on critical topics applies here. Waits for the plan
+  /// to be read, so a paying person never sees the free count first.
+  Future<bool> _isCapped() async =>
+      !(await _featureAccess?.usableOnceReady(
+            AppFeature.unlimitedCriticalTopics,
+          ) ??
+          false);
 
   /// Reads the plan again and redraws the free-tier parts of the screen.
   void _onPlanChanged() {
@@ -99,24 +104,20 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final identityStore = _identityStore;
     if (identityStore == null) return;
     final identity = await identityStore.readOrCreate();
-    final isSelfHosted = await _isSelfHosted();
+    final isCapped = await _isCapped();
     if (isClosed) return;
-    _identity = identity;
-    final access = _access(identity);
     emit(
       state.copyWith(
-        isFreeTier: access.freeCriticalCap(isSelfHosted: isSelfHosted) != null,
-        criticalLimit: access.caps?.criticalTopics,
+        isFreeTier: isCapped,
+        criticalLimit: AccountAccess(identity).caps?.criticalTopics,
       ),
     );
   }
 
-  Future<bool> _isSelfHosted() async =>
-      (await sessionStore?.read())?.mode == ServerMode.selfhosted;
-
   @override
   Future<void> close() {
     _planChanges.removeListener(_onPlanChanged);
+    unawaited(_accessSub?.cancel());
     return super.close();
   }
 
@@ -148,12 +149,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final identityStore = _identityStore;
     if (identityStore != null) {
       final identity = await identityStore.readOrCreate();
-      _identity = identity;
-      final access = _access(identity);
+      final access = AccountAccess(identity);
       // Matches the Settings screen: a self-hosted server has no tier, so
       // it is never treated as the free plan.
-      isFreeTier =
-          access.freeCriticalCap(isSelfHosted: await _isSelfHosted()) != null;
+      isFreeTier = await _isCapped();
       limit = access.caps?.criticalTopics;
       final getTopics = _getTopics;
       if (getTopics != null) {
@@ -266,6 +265,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// write never turns a created topic into an error.
   Future<void> _rememberTopic(Topic topic) async {
     final template = state.selectedTool;
+    try {
+      await applyPhoneDefaults?.call(topic.name);
+    } on Object catch (_) {
+      // The topic exists. It starts with no challenge, as every topic did
+      // before there were any.
+    }
     try {
       if (template != null) await toolTemplates?.save(topic.name, template);
       final token = topic.token;
@@ -388,7 +393,9 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             capReached: cap,
             // The store says Pro but the server has not caught up, so a cap
             // here means "wait a moment", not "go Pro".
-            isProPending: _access(_identity).isProPending,
+            isPlanConfirming:
+                _featureAccess?.decide(AppFeature.unlimitedCriticalTopics)
+                    is FeatureConfirming,
           ),
         );
       },

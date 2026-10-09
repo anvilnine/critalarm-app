@@ -6,14 +6,20 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/challenges/presentation/topic_challenge_row.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
+import 'package:critalarm/features/topics/domain/topic_hero_card.dart';
+import 'package:critalarm/features/topics/domain/topic_summary.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -191,18 +197,66 @@ class _TopicDetailScreenContent extends StatelessWidget {
         ],
       );
 
+  /// Flips Critical delivery. Everything the old row did stays: the haptic,
+  /// the one-way-off confirm, the cap and the error states in the cubit.
+  Future<void> _setCritical(BuildContext context, bool value) async {
+    AppHaptics.selection();
+    final cubit = context.read<TopicDetailCubit>();
+    if (!value && await cubit.turningOffIsOneWay()) {
+      if (!context.mounted) return;
+      final confirmed = await _confirmTurnOffCritical(context);
+      if (confirmed != true) return;
+    }
+    await cubit.toggleCriticalDelivery(isCritical: value);
+  }
+
+  void _showCriticalInfo(BuildContext context, TopicDetailState state) {
+    unawaited(
+      showAppDialog<void>(
+        context: context,
+        title: LocaleKeys.topic_detail_critical_info_title.tr(),
+        body: _criticalInfoText(state),
+        actions: [
+          AppDialogAction<void>(
+            label: LocaleKeys.common_close.tr(),
+            variant: AppButtonVariant.ghost,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TopicDetailCubit, TopicDetailState>(
       builder: (context, state) {
-        final latest = state.messages.isEmpty ? null : state.messages.first;
-        final olderCount = state.messages.isEmpty
-            ? 0
-            : state.messages.length - 1;
-
         // Nothing is ringing, so there is nothing to stop. The button used to
         // sit at the bottom of the sheet on every topic, whatever its state.
         final isRinging = state.openIncidentIds.isNotEmpty;
+
+        final isLoading =
+            state.status == TopicDetailStatus.initial ||
+            state.status == TopicDetailStatus.loading;
+        final card = topicHeroCardFor(
+          critical: state.critical,
+          canEditCritical: state.canEditCritical,
+          claim: RingClaim.forPhone(state.alarm),
+          isLoading: isLoading,
+        );
+        final summary = topicSummaryFor(
+          messageTimes: state.messageTimes,
+          lastAlarmAt: state.lastAlarmAt,
+          now: DateTime.now(),
+        );
+
+        // Where the hero's disc sits. The name and the summary stand between
+        // the top bar and the scene, so the canvas is told how tall they are.
+        final headerHeight = topicHeaderHeight(
+          context,
+          name: state.topicName,
+          width: MediaQuery.sizeOf(context).width,
+        );
+        final tone = _heroTone(card, state.severity);
 
         final scaffold = SeverityScope(
           severity: state.severity,
@@ -245,340 +299,117 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         }
                       },
                     ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const RefreshActivityIndicator(),
-                  const SizedBox(width: 8),
-                  AppTopicChip(
-                    text: 'POST /${state.topicName}',
-                    onTap: () {
-                      unawaited(
-                        Clipboard.setData(
-                          ClipboardData(
-                            text: 'POST /${state.topicName}',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              // In the title slot, which is the one slot that is given a
+              // width, so the chip shrinks with an ellipsis for a long name.
+              titleWidget: SizedBox(
+                width: double.infinity,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const RefreshActivityIndicator(),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: AppTopicChip(
+                        text: 'POST /${state.topicName}',
+                        onTap: () {
+                          unawaited(
+                            Clipboard.setData(
+                              ClipboardData(
+                                text: 'POST /${state.topicName}',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             slivers: [
               SliverToBoxAdapter(
+                // The hero and the sheet are one box, so the sheet paints
+                // over the part of the disc that reaches down behind it.
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: Spacing.s3),
-                    AppStage(
-                      faceState: state.faceState,
-                      faceSize: 170,
-                      word: state.word,
-                      topicName: state.topicName,
-                      sub: state.subText,
-                      isLoading: state.status == TopicDetailStatus.loading,
+                    TopicHeader(
+                      name: state.topicName,
+                      summary: topicSummaryText(summary),
+                    ),
+                    const SizedBox(height: Spacing.s3),
+                    AppHeroScene(
+                      face: state.faceState,
+                      tone: tone,
+                      gaze: AppHeroGaze.card,
+                      isPane: isPane,
+                      card: FeatureGuideAnchor(
+                        id: FeatureGuideAnchorId.topicCritical,
+                        child: TopicCriticalCard(
+                          card: card,
+                          onChanged: card.canSwitch
+                              ? (value) => unawaited(
+                                  _setCritical(context, value),
+                                )
+                              : null,
+                          onInfo: () => _showCriticalInfo(context, state),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: Spacing.s4),
-                  ],
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: AppSheet(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedSize(
-                          duration: context.motion(AppDurations.base),
-                          curve: AppCurves.easeOut,
-                          alignment: Alignment.topCenter,
-                          child: AnimatedSwitcher(
-                            duration: context.motion(AppDurations.base),
-                            switchInCurve: AppCurves.easeOut,
-                            switchOutCurve: AppCurves.easeOut,
-                            layoutBuilder: (currentChild, previousChildren) =>
-                                Stack(
-                                  alignment: Alignment.topCenter,
-                                  children: [
-                                    ...previousChildren,
-                                    ?currentChild,
-                                  ],
-                                ),
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                ),
-                            child: state.capReached != null
-                                ? KeyedSubtree(
-                                    key: const ValueKey('sheet_cap_reached'),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 10,
-                                      ),
-                                      child: AppEmptyState(
-                                        title: state.capReached!.message,
-                                        description: LocaleKeys
-                                            .create_topic_limit_review_plan_hint
-                                            .tr(),
-                                        faceState: FaceState.worried,
-                                        isLive: false,
-                                      ),
-                                    ),
-                                  )
-                                : state.errorMessage != null
-                                ? KeyedSubtree(
-                                    key: ValueKey(
-                                      'sheet_error_${state.errorMessage}',
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Center(
-                                          child: AppToast(
-                                            faceState: FaceState.worried,
-                                            message: state.errorMessage,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        AppButton(
-                                          label: LocaleKeys
-                                              .topic_detail_retry_button
-                                              .tr(),
-                                          variant: AppButtonVariant.ghost,
-                                          size: AppButtonSize.sm,
-                                          isFullWidth: true,
-                                          onPressed: () => unawaited(
-                                            context
-                                                .read<TopicDetailCubit>()
-                                                .load(state.topicName),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                      ],
-                                    ),
-                                  )
-                                : const SizedBox.shrink(
-                                    key: ValueKey('sheet_no_error'),
-                                  ),
-                          ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                      child: _TopicSheet(
+                        state: state,
+                        isExample: isExample,
+                        startCurlFlow: startCurlFlow,
+                        onDelete: () => unawaited(
+                          _confirmDelete(context, state.topicName),
                         ),
-                        AppSectionHeader(
-                          LocaleKeys.topic_detail_messages_header.tr(),
-                        ),
-                        AnimatedSize(
-                          duration: context.motion(AppDurations.base),
-                          curve: AppCurves.easeOut,
-                          alignment: Alignment.topCenter,
-                          child: AnimatedSwitcher(
-                            duration: context.motion(AppDurations.base),
-                            switchInCurve: AppCurves.easeOut,
-                            switchOutCurve: AppCurves.easeOut,
-                            layoutBuilder: (currentChild, previousChildren) =>
-                                Stack(
-                                  alignment: Alignment.topCenter,
-                                  children: [
-                                    ...previousChildren,
-                                    ?currentChild,
-                                  ],
-                                ),
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                ),
-                            child:
-                                state.showMessagesSkeleton &&
-                                    state.messages.isEmpty
-                                ? const KeyedSubtree(
-                                    key: ValueKey('messages_skeleton'),
-                                    child: Padding(
-                                      padding: EdgeInsets.only(bottom: 10),
-                                      child: AppMessageCardSkeleton(),
-                                    ),
-                                  )
-                                : latest != null
-                                ? KeyedSubtree(
-                                    key: ValueKey(
-                                      'messages_card_'
-                                      '${latest.timestamp}_$olderCount',
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Hero(
-                                          tag: topicLatestMessageHeroTag(
-                                            state.topicName,
-                                            latest.timestamp,
-                                          ),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: AppMessageCard(
-                                              title: latest.title,
-                                              timestamp: latest.timestamp,
-                                              body: latest.body,
-                                              source: latest.source,
-                                              isHigh: latest.isHigh,
-                                              shareLabel: LocaleKeys
-                                                  .topic_messages_share_label
-                                                  .tr(),
-                                              onShare: (origin) => shareMessage(
-                                                latest,
-                                                state.topicName,
-                                                origin,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        if (olderCount > 0) ...[
-                                          const SizedBox(height: 8),
-                                          AppButton(
-                                            label: LocaleKeys
-                                                .topic_detail_view_all_messages
-                                                .plural(olderCount),
-                                            variant: AppButtonVariant.ghost,
-                                            size: AppButtonSize.sm,
-                                            isFullWidth: true,
-                                            onPressed: () => unawaited(
-                                              context.push(
-                                                '${GoRouterState.of(context).uri.path}/messages',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                        const SizedBox(height: 10),
-                                      ],
-                                    ),
-                                  )
-                                : const SizedBox.shrink(
-                                    key: ValueKey('messages_empty'),
-                                  ),
-                          ),
-                        ),
-                        if (!isExample)
-                          TopicTokensSection(
-                            topicName: state.topicName,
-                            startCurlFlow: startCurlFlow,
-                          ),
-                        const AppSectionDivider(),
-                        AppSectionHeader(
-                          LocaleKeys.topic_detail_settings_header.tr(),
-                        ),
-                        FeatureGuideAnchor(
-                          id: FeatureGuideAnchorId.topicCritical,
-                          child: AppToggleRow(
-                            title: LocaleKeys.topic_detail_critical_toggle_title
-                                .tr(),
-                            // A bare glyph, not a ringed button, so it sits
-                            // quietly next to the switch.
-                            action: Semantics(
-                              button: true,
-                              label: LocaleKeys.topic_detail_critical_info_aria
-                                  .tr(),
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => unawaited(
-                                  showAppDialog<void>(
-                                    context: context,
-                                    title: LocaleKeys
-                                        .topic_detail_critical_info_title
-                                        .tr(),
-                                    body: _criticalInfoText(state),
-                                    actions: [
-                                      AppDialogAction<void>(
-                                        label: LocaleKeys.common_close.tr(),
-                                        variant: AppButtonVariant.ghost,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                child: SizedBox.square(
-                                  dimension: 36,
-                                  child: Center(
-                                    child: AppGlyph(
-                                      GlyphType.info,
-                                      color: context.appColors.ink3,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            value: state.critical,
-                            // No alarm permission, no critical delivery: the
-                            // push would arrive as a plain notification and
-                            // never ring.
-                            onChanged: state.canEditCritical
-                                ? (val) async {
-                                    AppHaptics.selection();
-                                    final cubit = context
-                                        .read<TopicDetailCubit>();
-                                    if (!val &&
-                                        await cubit.turningOffIsOneWay()) {
-                                      if (!context.mounted) return;
-                                      final confirmed =
-                                          await _confirmTurnOffCritical(
-                                            context,
-                                          );
-                                      if (confirmed != true) return;
-                                    }
-                                    await cubit.toggleCriticalDelivery(
-                                      isCritical: val,
-                                    );
-                                  }
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Per-topic sound. Stored on the device only, so it
-                        // is not part of the topic the server knows about.
-                        FeatureGuideAnchor(
-                          id: FeatureGuideAnchorId.topicSound,
-                          child: AppListRow(
-                            name: LocaleKeys.topic_detail_sound_row_title.tr(),
-                            meta: LocaleKeys.topic_detail_sound_row_default
-                                .tr(),
-                            trailing: AppGlyph(
-                              GlyphType.arrow,
-                              color: context.appColors.ink3,
-                              size: 16,
-                            ),
-                            onTap: () => context.push(
-                              '${GoRouterState.of(context).uri.path}/sounds',
-                            ),
-                          ),
-                        ),
-                        const AppSectionDivider(),
-                        // Last on the sheet, so nothing is reached past to
-                        // get to it.
-                        FeatureGuideAnchor(
-                          id: FeatureGuideAnchorId.topicDelete,
-                          child: AppButton(
-                            label: LocaleKeys.topic_detail_delete_button.tr(),
-                            variant: AppButtonVariant.dangerText,
-                            size: AppButtonSize.sm,
-                            isFullWidth: true,
-                            onPressed: () => unawaited(
-                              _confirmDelete(context, state.topicName),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         );
 
-        return scaffold;
+        // The pane draws on the surface beside the list, and the list owns the
+        // canvas there. A pushed page gives the canvas its own backdrop: the
+        // Topics hero profile, with the disc under this screen's face. Read
+        // outside the severity scope, so it is the app's own colours.
+        //
+        // It is an override and not a profile registered for the route's path:
+        // the router's current location ignores a pushed page, so the shell
+        // never sees a path change when Home pushes this screen. The override
+        // goes when the screen does, and the canvas morphs back to Home's.
+        if (isPane) return scaffold;
+        return AmbientOverride(
+          direction: AmbientDirection.push,
+          profile: AmbientAppProfiles.topicsHero(
+            context.appColors,
+            severity: state.severity,
+            tone: tone,
+            spot: heroDiscSpotOf(
+              context,
+              above: headerHeight + Spacing.s3,
+            ),
+          ),
+          child: scaffold,
+        );
       },
     );
   }
+
+  /// The disc tint: quiet while Critical delivery is off. Under a warning or
+  /// ringing canvas the disc is the canvas's own lighter step, so it stays
+  /// calm there.
+  static AppHeroTone _heroTone(TopicHeroCard card, SeverityMode severity) =>
+      card.hasQuietDisc && severity == SeverityMode.none
+      ? AppHeroTone.quiet
+      : AppHeroTone.calm;
 }
 
 /// Copy explaining critical delivery. Older iPhones cannot ring through silent
@@ -592,4 +423,313 @@ String _criticalInfoText(TopicDetailState state) {
       LocaleKeys.topic_detail_critical_toggle_subtitle_time_sensitive.tr(),
     RingClaim.alarm => LocaleKeys.topic_detail_critical_toggle_subtitle.tr(),
   };
+}
+
+/// How many of the newest messages the sheet shows. The rest open on their
+/// own screen.
+const int _kSheetMessages = 3;
+
+/// The white sheet under the hero: the messages to read, then the topic's
+/// tokens and settings, then Delete topic.
+class _TopicSheet extends StatelessWidget {
+  const _TopicSheet({
+    required this.state,
+    required this.isExample,
+    required this.startCurlFlow,
+    required this.onDelete,
+  });
+
+  final TopicDetailState state;
+  final bool isExample;
+  final bool startCurlFlow;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return AppInboxSheet(
+      children: [
+        _MessagesBlock(state: state),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+          // The tokens and the settings sit on one cream panel, so they read
+          // as tiles apart from the messages above.
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.cream,
+              borderRadius: Radii.lgAll,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!isExample) ...[
+                    TopicTokensSection(
+                      topicName: state.topicName,
+                      startCurlFlow: startCurlFlow,
+                      hasDivider: false,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  // Per-topic sound. Stored on the device only, so it is not
+                  // part of the topic the server knows about.
+                  FeatureGuideAnchor(
+                    id: FeatureGuideAnchorId.topicSound,
+                    child: AppListRow(
+                      name: LocaleKeys.topic_detail_sound_row_title.tr(),
+                      meta: LocaleKeys.topic_detail_sound_row_default.tr(),
+                      trailing: AppGlyph(
+                        GlyphType.arrow,
+                        color: colors.ink3,
+                        size: 16,
+                      ),
+                      onTap: () => context.push(
+                        '${GoRouterState.of(context).uri.path}/sounds',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Per-topic wake-up challenge. Kept on the device only,
+                  // like the sound.
+                  TopicChallengeRow(topicName: state.topicName),
+                  const SizedBox(height: 8),
+                  // Per-topic look of the alarm screen. Kept on the device
+                  // only, like the sound.
+                  TopicAlarmStyleRow(topicName: state.topicName),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Last on the sheet, so nothing is reached past to get to it.
+        FeatureGuideAnchor(
+          id: FeatureGuideAnchorId.topicDelete,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: AppButton(
+              label: LocaleKeys.topic_detail_delete_button.tr(),
+              variant: AppButtonVariant.dangerText,
+              size: AppButtonSize.sm,
+              isFullWidth: true,
+              onPressed: onDelete,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A cap or an error, the newest messages, and the way to all of them.
+class _MessagesBlock extends StatelessWidget {
+  const _MessagesBlock({required this.state});
+
+  final TopicDetailState state;
+
+  /// Keeps the old child in place while the new one fades in, and animates the
+  /// height between the two.
+  Widget _swap(BuildContext context, {required Widget child}) => AnimatedSize(
+    duration: context.motion(AppDurations.base),
+    curve: AppCurves.easeOut,
+    alignment: Alignment.topCenter,
+    child: AnimatedSwitcher(
+      duration: context.motion(AppDurations.base),
+      switchInCurve: AppCurves.easeOut,
+      switchOutCurve: AppCurves.easeOut,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          ...previousChildren,
+          ?currentChild,
+        ],
+      ),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: child,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final messages = state.messages;
+    final shown = messages.take(_kSheetMessages).toList();
+    final newest = messages.isEmpty ? null : messages.first;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _swap(
+          context,
+          child: state.capReached != null
+              ? KeyedSubtree(
+                  key: const ValueKey('sheet_cap_reached'),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                    child: AppEmptyState(
+                      title: state.capReached!.message,
+                      description: LocaleKeys
+                          .create_topic_limit_review_plan_hint
+                          .tr(),
+                      faceState: FaceState.worried,
+                      isLive: false,
+                    ),
+                  ),
+                )
+              : state.errorMessage != null
+              ? KeyedSubtree(
+                  key: ValueKey('sheet_error_${state.errorMessage}'),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                    child: Column(
+                      children: [
+                        Center(
+                          child: AppToast(
+                            faceState: FaceState.worried,
+                            message: state.errorMessage,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AppButton(
+                          label: LocaleKeys.topic_detail_retry_button.tr(),
+                          variant: AppButtonVariant.ghost,
+                          size: AppButtonSize.sm,
+                          isFullWidth: true,
+                          onPressed: () => unawaited(
+                            context.read<TopicDetailCubit>().load(
+                              state.topicName,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey('sheet_no_error')),
+        ),
+        AppSectionHeader(
+          LocaleKeys.topic_detail_messages_header.tr(),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        ),
+        _swap(
+          context,
+          child: state.showMessagesSkeleton && messages.isEmpty
+              ? const KeyedSubtree(
+                  key: ValueKey('messages_skeleton'),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(8, 8, 8, 10),
+                    child: AppMessageCardSkeleton(),
+                  ),
+                )
+              : messages.isEmpty
+              ? KeyedSubtree(
+                  key: const ValueKey('messages_empty'),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
+                    child: Text(
+                      LocaleKeys.topic_hero_no_messages.tr(),
+                      style: AppTypography.small(colors.ink3),
+                    ),
+                  ),
+                )
+              : KeyedSubtree(
+                  key: ValueKey(
+                    'messages_${newest!.timestamp}_${messages.length}',
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < shown.length; i++) ...[
+                        if (i > 0)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            child: ColoredBox(
+                              color: colors.hairline,
+                              child: const SizedBox(height: 1),
+                            ),
+                          ),
+                        _row(context, shown[i], isNewest: i == 0),
+                      ],
+                      if (messages.length > shown.length)
+                        _AllMessagesLink(
+                          count: messages.length,
+                          onTap: () => unawaited(
+                            context.push(
+                              '${GoRouterState.of(context).uri.path}/messages',
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _row(
+    BuildContext context,
+    TopicDetailMessageItem message, {
+    required bool isNewest,
+  }) {
+    final row = TopicMessageRow(
+      title: message.title,
+      timestamp: message.timestamp,
+      body: message.body,
+      source: message.source,
+      isHigh: message.isHigh,
+      shareLabel: LocaleKeys.topic_messages_share_label.tr(),
+      onShare: (origin) => shareMessage(message, state.topicName, origin),
+    );
+    if (!isNewest) return row;
+    // The newest message flies to the messages screen when it is opened.
+    return Hero(
+      tag: topicLatestMessageHeroTag(state.topicName, message.timestamp),
+      child: Material(color: Colors.transparent, child: row),
+    );
+  }
+}
+
+/// "All 14 messages", in the accent, opening the messages screen.
+class _AllMessagesLink extends StatelessWidget {
+  const _AllMessagesLink({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: Radii.mdAll,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Text(
+                LocaleKeys.topic_hero_all_messages.plural(count),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colors.highlight,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

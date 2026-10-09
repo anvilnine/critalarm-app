@@ -368,7 +368,9 @@ class BackgroundConnect {
     } on FormatException {
       return _fail(BackgroundConnectFailure.refused, isStale);
     }
-    if (mode == ServerMode.selfhosted) {
+    // How to connect, not a plan: a self-hosted server wants its token.
+    final needsToken = mode == ServerMode.selfhosted; // access-ok: connect
+    if (needsToken) {
       return _fail(BackgroundConnectFailure.needsAdminToken, isStale);
     }
 

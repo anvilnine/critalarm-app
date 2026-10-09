@@ -471,6 +471,73 @@ void main() {
     );
   });
 
+  group('whether the store accepted the purchase', () {
+    test('at the store sheet nothing is accepted yet', () async {
+      api.refreshes = [_unknown];
+      final a = access();
+      bool? atStore;
+      shop.onBuy = () => atStore = a.isStoreAcceptedAwaitingRelay;
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(atStore, isFalse);
+    });
+
+    test('a finished purchase the relay has not listed is accepted', () async {
+      api.refreshes = [_unknown];
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(cubit.state.stage, ProPackSheetStage.checkingPaused);
+      expect(store.pending?.storeAccepted, isTrue);
+      expect(a.isStoreAcceptedAwaitingRelay, isTrue);
+    });
+
+    test('backing out accepts nothing', () async {
+      shop.buyResult = ProPackStoreResult.cancelled;
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(a.isStoreAcceptedAwaitingRelay, isFalse);
+    });
+
+    // A failed payment, and one the store holds for an approval or a
+    // payment, both come back from the shop as a problem.
+    test('a store problem accepts nothing, and the record stays', () async {
+      shop.buyResult = ProPackStoreResult.problem;
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(store.pending, isNotNull);
+      expect(store.pending?.storeAccepted, isFalse);
+      expect(a.isStoreAcceptedAwaitingRelay, isFalse);
+      expect(api.refreshCalls, 0);
+    });
+
+    test('a restore accepts nothing', () async {
+      api.refreshes = [_unknown];
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.restore();
+      expect(store.pending, isNull);
+      expect(a.isStoreAcceptedAwaitingRelay, isFalse);
+    });
+
+    test('once the relay lists the pack nothing is left waiting', () async {
+      api.refreshes = [_held];
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(a.isHeld, isTrue);
+      expect(a.isStoreAcceptedAwaitingRelay, isFalse);
+    });
+  });
+
   test('no event carries more than a source or a result word', () async {
     api.refreshes = [_readEmpty, _held];
     final cubit = build();

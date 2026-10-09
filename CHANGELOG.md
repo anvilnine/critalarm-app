@@ -54,6 +54,10 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The welcome screen shows what the app does: a phone that rings until you tap I'm up, which alerts ring and which stay quiet, and one command from your own tools ringing your phone. Tap I'm up in the picture to stop it yourself.
 - Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 - The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
+- The Topics screen has a new look: one card answers whether your alarms will wake you, and your topics sit below it in one list.
+- History opens on a week at a glance: a small face over a card with your alarms per day and the longest one you answered, and each alarm shows a tick when answered or a red mark when nobody answered
+- Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
+- Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -71,6 +75,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 - The Android back button closes search instead of leaving the app.
+- The Topics card says when your last alarm rang instead of no alarm yet. Topic messages show newest first. Settings shows Crit Alarm Cloud in full.
+- A long topic name and message title now show in full, dates read the same on every screen, Settings rows line up and stay clear of the title when scrolled, faces keep their dark outline on orange and red, and Delete topic and the Critical delivery switch are easier to see.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

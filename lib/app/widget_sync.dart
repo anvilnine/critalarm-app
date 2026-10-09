@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/core/widgets/widget_snapshot.dart';
 
@@ -41,6 +42,15 @@ class WidgetSync {
   /// moves the clock is skipped. It carries the host's clear count, so a
   /// sign-out in between always leads to a fresh write.
   String? _lastWritten;
+
+  /// The `locked` value of the last snapshot handed to the platform, and
+  /// when. Null until one is written in this run. Only read by the Plans
+  /// and features lab in Developer options, to show what native was told.
+  bool? get lastWrittenLocked => _lastWrittenLocked;
+  bool? _lastWrittenLocked;
+
+  DateTime? get lastWrittenAt => _lastWrittenAt;
+  DateTime? _lastWrittenAt;
 
   void start() {
     _subscriptions
@@ -83,11 +93,20 @@ class WidgetSync {
   }
 
   Future<void> _write() async {
+    final bool locked;
+    try {
+      locked = await _isLocked();
+    } on HoldingUnreadable {
+      // Nobody knows what this phone holds right now (the Keychain is
+      // locked on a background launch). The snapshot the widgets already
+      // have stays: a guess here would lock them or unlock them wrongly.
+      return;
+    }
     final snapshot = buildWidgetSnapshot(
       topics: _topics.state.topics,
       incidents: _incidents.state.incidents,
       connected: await _isConnected(),
-      locked: await _isLocked(),
+      locked: locked,
       now: _now(),
     );
     final json = snapshot.toJson();
@@ -96,5 +115,7 @@ class WidgetSync {
     if (key == _lastWritten) return;
     _lastWritten = key;
     await _host.write(jsonEncode(json));
+    _lastWrittenLocked = snapshot.locked;
+    _lastWrittenAt = _now();
   }
 }

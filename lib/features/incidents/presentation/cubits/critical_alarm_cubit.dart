@@ -9,6 +9,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/incidents/domain/done_hand_off.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -218,7 +219,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  Future<void> load({String? incidentId}) async {
+  /// [cameFromDone] is true when a native Done button opened the screen.
+  /// It changes nothing while the server answers. Only when the load gets
+  /// no answer at all does the failed screen then offer "At my desk"
+  /// ([handCloseToNative]), because that Done would have closed the
+  /// incident with no signal and the app must not be a dead end for it.
+  Future<void> load({String? incidentId, bool cameFromDone = false}) async {
     _stopRingTicker();
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
     // Only a setup test needs to know where setup stands: the phone-only
@@ -280,7 +286,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           incident,
           openIncidents: incident.isOpen ? [incident] : const <Incident>[],
         ),
-        _showFailure,
+        (failure) => _showFailure(
+          failure,
+          doneIncidentId: cameFromDone && serverGaveNoAnswer(failure)
+              ? incidentId
+              : null,
+        ),
       );
       return;
     }
@@ -295,14 +306,57 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }, _showFailure);
   }
 
-  void _showFailure(Failure failure) {
+  void _showFailure(Failure failure, {String? doneIncidentId}) {
     _stopRingTicker();
     emit(
       CriticalAlarmState(
         status: CriticalAlarmStatus.failure,
         errorMessage: failure.message,
+        doneIncidentId: doneIncidentId,
       ),
     );
+  }
+
+  bool _isHandingOff = false;
+
+  /// "At my desk" on the failed screen a native Done button opened.
+  ///
+  /// It hands the close to the native code that Done ran before wake-up
+  /// challenges existed. That code sends it, queues it with no signal,
+  /// knows which answers end an incident, and takes the card down when it
+  /// should. Nothing is decided here: this does not stop a ring, does not
+  /// touch the card, does not mark anything acknowledged or closed, and
+  /// does not write the shared list.
+  ///
+  /// No challenge is asked. The app could not load the incident, so it is
+  /// what Done did before this feature.
+  Future<void> handCloseToNative() async {
+    final incidentId = state.doneIncidentId;
+    final alarm = _alarm;
+    if (incidentId == null || alarm == null || _isHandingOff) return;
+    _isHandingOff = true;
+    try {
+      await alarm.closeFromDone(incidentId);
+    } on Object catch (_) {
+      // Not handed over: native refused because the incident is not
+      // acknowledged on this phone, or this platform has no such call, or
+      // the call failed. In every case the button goes, the plain failed
+      // screen stays, and nothing is claimed.
+      if (!isClosed && state.doneIncidentId == incidentId) {
+        emit(
+          state.copyWith(
+            clearDoneHandOff: true,
+            // Kept non-null, so the screen still reads as a failed load.
+            errorMessage: state.errorMessage ?? '',
+          ),
+        );
+      }
+      return;
+    } finally {
+      _isHandingOff = false;
+    }
+    if (isClosed || state.doneIncidentId != incidentId) return;
+    emit(const CriticalAlarmState(isDoneHandedOff: true));
   }
 
   /// Shows [incidentId] instead of the newest. Used when the user taps the
@@ -794,6 +848,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     emit(
       state.copyWith(
         openIncidents: open,
+        // An incident on screen ends anything a failed load left behind.
+        clearDoneHandOff: true,
         firstToolIncidentId: firstToolId,
         clearFirstTool: firstToolId == null,
         meta: firstMsg == null

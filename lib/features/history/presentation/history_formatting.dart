@@ -26,3 +26,14 @@ String historyMetaText(HistoryEntry entry) {
   };
   return key.tr(namedArgs: {'duration': duration});
 }
+
+/// A ring time short enough for a big numeral: "11 s", "6 min" or
+/// "1 h 5 min". Seconds are dropped from a minute on.
+String formatCompactDuration(Duration duration) {
+  final totalMinutes = duration.inMinutes;
+  if (totalMinutes <= 0) return '${duration.inSeconds} s';
+  if (totalMinutes < 60) return '$totalMinutes min';
+  final hours = duration.inHours;
+  final minutes = totalMinutes % 60;
+  return minutes == 0 ? '$hours h' : '$hours h $minutes min';
+}

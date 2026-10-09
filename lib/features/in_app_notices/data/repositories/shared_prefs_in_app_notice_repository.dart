@@ -8,7 +8,6 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
 
   static const _accountDismissedKey = 'home_prompt_account_dismissed_at';
   static const _firstTopicKey = 'home_prompt_first_topic_at';
-  static const _batteryDismissedKey = 'home_prompt_battery_dismissed_at';
   static const _proAskedKey = 'home_prompt_pro_asked_at';
   static const _proDismissedKey = 'home_prompt_pro_dismissed_at';
   static const _proDismissCountKey = 'home_prompt_pro_dismiss_count';
@@ -25,8 +24,6 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   static const _day0OpenCountKey = 'home_prompt_day0_open_count';
   static const _day0EndedKey = 'home_prompt_day0_ended_at';
   static const _afterAckSheetKey = 'home_prompt_after_ack_sheet_at';
-  static const _systemUpdateNoticeKey =
-      'home_prompt_system_update_dismissed_major';
 
   DateTime? _readTime(String key) {
     final ms = _prefs.getInt(key);
@@ -102,15 +99,6 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   Future<void> markFirstTopicOwned() async {
     if (_prefs.containsKey(_firstTopicKey)) return;
     await _stampNow(_firstTopicKey);
-  }
-
-  @override
-  DateTime? getBatteryNoticeDismissedAt() => _readTime(_batteryDismissedKey);
-
-  @override
-  Future<void> dismissBatteryNotice() async {
-    await _stampNow(_batteryDismissedKey);
-    await markNoticeResolvedOrDismissed();
   }
 
   @override
@@ -258,12 +246,4 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   Future<void> setProEndedSheetDueFor(String? accountId) => accountId == null
       ? _prefs.remove(_proEndedDueKey)
       : _prefs.setString(_proEndedDueKey, accountId);
-
-  @override
-  int? getSystemUpdateNoticeDismissedFor() =>
-      _prefs.getInt(_systemUpdateNoticeKey);
-
-  @override
-  Future<void> dismissSystemUpdateNotice(int osMajor) =>
-      _prefs.setInt(_systemUpdateNoticeKey, osMajor);
 }

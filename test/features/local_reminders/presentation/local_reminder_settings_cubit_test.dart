@@ -32,13 +32,13 @@ void main() {
 
   LocalReminderSettingsCubit build({
     ServerMode mode = ServerMode.hosted,
-    Future<bool> Function()? readIsPaid,
+    Future<bool> Function()? readHoldsHosted,
   }) => LocalReminderSettingsCubit(
     store: store,
     scheduler: scheduler,
     readServerMode: () async => mode,
     trigger: trigger,
-    readIsPaid: readIsPaid,
+    readHoldsHosted: readHoldsHosted,
   );
 
   test('loads Reminders on, Offers off, and the OS state', () async {
@@ -73,21 +73,23 @@ void main() {
   });
 
   test('shows Offers to a free hosted user', () async {
-    final cubit = build(readIsPaid: () async => false);
+    final cubit = build(readHoldsHosted: () async => false);
     await cubit.load();
-    expect(cubit.state.isPaid, isFalse);
+    expect(cubit.state.holdsHosted, isFalse);
     expect(cubit.state.showsOffers, isTrue);
   });
 
   test('a paid user does not see Offers', () async {
-    final cubit = build(readIsPaid: () async => true);
+    final cubit = build(readHoldsHosted: () async => true);
     await cubit.load();
-    expect(cubit.state.isPaid, isTrue);
+    expect(cubit.state.holdsHosted, isTrue);
     expect(cubit.state.showsOffers, isFalse);
   });
 
   test('a failed paid read hides Offers', () async {
-    final cubit = build(readIsPaid: () async => throw StateError('keychain'));
+    final cubit = build(
+      readHoldsHosted: () async => throw StateError('keychain'),
+    );
     await cubit.load();
     expect(cubit.state.showsOffers, isFalse);
   });

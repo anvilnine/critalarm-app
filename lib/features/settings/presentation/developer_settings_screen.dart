@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -12,6 +14,7 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/settings/presentation/access_lab_rules.dart';
 import 'package:critalarm/features/settings/presentation/developer_options_group.dart';
 import 'package:critalarm/features/settings/presentation/developer_options_rules.dart';
 import 'package:critalarm/features/settings/presentation/developer_setup_section.dart';
@@ -66,6 +69,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (buildSkipsPaywall) const _ForcedStateLine(),
                   for (final section in sections)
                     switch (section) {
                       DeveloperSection.plans => const _PlansSection(),
@@ -79,6 +83,38 @@ class DeveloperSettingsScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Says, at the top of Developer options, that a plan state is forced and
+/// which one, so it is never mistaken for a real one. Draws nothing while
+/// every holding and the server mode follow the real sources.
+///
+/// Plain English like the lab it points at: it only exists in a build that
+/// has the developer plan switches.
+class _ForcedStateLine extends StatelessWidget {
+  const _ForcedStateLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final switches = getIt<DevAccessSwitches>();
+    return ListenableBuilder(
+      listenable: switches,
+      builder: (context, _) {
+        final line = accessLabForcedLine(
+          forced: {
+            for (final holding in Holding.values)
+              holding: switches.forcedState(holding),
+          },
+          serverMode: switches.serverMode,
+        );
+        if (line == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: AppNote(text: line),
+        );
+      },
     );
   }
 }
@@ -112,6 +148,13 @@ class _PlansSection extends StatelessWidget {
               getIt<ProPackDevSwitch>().setHeld(isHeld: val),
             ),
           ),
+        ),
+        // Every plan state, what each feature decides in it, and a way to
+        // each feature. The two toggles above are two of its presets.
+        AppValueRow(
+          title: 'Plans and features',
+          detail: 'Any plan state, and what each feature does in it',
+          onTap: () => unawaited(context.push('/settings/developer/access')),
         ),
       ],
     );

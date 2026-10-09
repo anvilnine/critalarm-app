@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_config.dart';
@@ -195,7 +196,7 @@ class OnboardingOfferGate {
       final accountId = await readAccountId();
       return decideOnboardingOffer(
         config: config,
-        isSelfHosted: await readServerMode() == ServerMode.selfhosted,
+        isSelfHosted: isOwnServerMode(await readServerMode()),
         builtLayoutKeys: builtLayoutKeys(),
         hasAccountId: accountId != null && accountId.isNotEmpty,
         holdsPro: holdsPro(),

@@ -1,9 +1,13 @@
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../core/access/access_fakes.dart';
 
 HistoryEntry _entry({
   required String id,
@@ -175,16 +179,23 @@ void main() {
     });
 
     test('shownDays is 90 for paid and self-hosted, the cap for Free', () {
-      expect(HistoryWindow.shownDays(isPaid: true, historyDays: 7), 90);
+      expect(
+        HistoryWindow.shownDays(hasLongHistory: true, historyDays: 7),
+        90,
+      );
+      final ownServer = TestAccess(serverMode: ServerMode.selfhosted);
+      addTearDown(ownServer.dispose);
       expect(
         HistoryWindow.shownDays(
-          isPaid: false,
+          hasLongHistory: ownServer.features.can(AppFeature.longHistory),
           historyDays: 7,
-          isSelfHosted: true,
         ),
         90,
       );
-      expect(HistoryWindow.shownDays(isPaid: false, historyDays: 7), 7);
+      expect(
+        HistoryWindow.shownDays(hasLongHistory: false, historyDays: 7),
+        7,
+      );
     });
 
     test('effective window: Free default resolves to 7 days', () {

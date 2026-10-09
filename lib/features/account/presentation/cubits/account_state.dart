@@ -35,7 +35,7 @@ class AccountState {
     this.choice,
     this.errorMessage,
     this.liveIncidentId,
-    this.isPaid = false,
+    this.holdsHosted = false,
     this.linkingProvider,
     this.joinToken,
     this.joinTokenMints = 0,
@@ -64,7 +64,7 @@ class AccountState {
   /// Whether this device sits on a paid tier. The delete prompt has to warn
   /// that a store subscription keeps billing, and only a payer needs to read
   /// it.
-  final bool isPaid;
+  final bool holdsHosted;
 
   /// The provider whose add-row is waiting on its sheet, so one row spins
   /// instead of the whole screen.
@@ -84,7 +84,11 @@ class AccountState {
 
   /// Sign-in exists everywhere except on a self-hosted server, which has one
   /// operator and no accounts.
-  bool get isAvailable => mode != null && mode != ServerMode.selfhosted;
+  /// About what the server is, not about plans.
+  bool get isAvailable {
+    if (mode == null) return false;
+    return mode != ServerMode.selfhosted; // access-ok: accounts exist
+  }
 
   bool get isBusy => status == AccountStatus.working;
 
@@ -99,7 +103,7 @@ class AccountState {
     AccountLinkChoose? choice,
     String? errorMessage,
     String? liveIncidentId,
-    bool? isPaid,
+    bool? holdsHosted,
     IdentityProvider? linkingProvider,
     String? joinToken,
     int? joinTokenMints,
@@ -122,7 +126,7 @@ class AccountState {
       liveIncidentId: clearLiveIncident
           ? null
           : (liveIncidentId ?? this.liveIncidentId),
-      isPaid: isPaid ?? this.isPaid,
+      holdsHosted: holdsHosted ?? this.holdsHosted,
       linkingProvider: clearLinkingProvider
           ? null
           : (linkingProvider ?? this.linkingProvider),
@@ -146,7 +150,7 @@ class AccountState {
           choice == other.choice &&
           errorMessage == other.errorMessage &&
           liveIncidentId == other.liveIncidentId &&
-          isPaid == other.isPaid &&
+          holdsHosted == other.holdsHosted &&
           linkingProvider == other.linkingProvider &&
           joinToken == other.joinToken &&
           joinTokenMints == other.joinTokenMints &&
@@ -161,7 +165,7 @@ class AccountState {
     choice,
     errorMessage,
     liveIncidentId,
-    isPaid,
+    holdsHosted,
     linkingProvider,
     joinToken,
     joinTokenMints,

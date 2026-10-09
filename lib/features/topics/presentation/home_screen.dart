@@ -4,6 +4,10 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -20,25 +24,34 @@ import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
+import 'package:critalarm/features/in_app_notices/presentation/missed_alarm_notice_view.dart';
 import 'package:critalarm/features/in_app_notices/presentation/notice_return_rule.dart';
-import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
-import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
-import 'package:critalarm/features/topics/domain/home_face_rule.dart';
+import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
+import 'package:critalarm/features/topics/domain/home_card/setup_finish_card.dart';
+import 'package:critalarm/features/topics/domain/home_list_rules.dart';
+import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/setup_checklist_store.dart';
 import 'package:critalarm/features/topics/domain/setup_finish_glow.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_card_effect.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_card_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:critalarm/features/topics/presentation/home_card_view.dart';
+import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_day0_card.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_setup_pill.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_confetti.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -48,6 +61,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// HomeScreen matching docs/design-system/index.html mobile mockup.
 class HomeScreen extends StatelessWidget {
@@ -66,9 +80,7 @@ class HomeScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) {
-            final cubit = getIt<InAppNoticeCubit>(
-              param1: context.read<ShellCubit>(),
-            );
+            final cubit = getIt<InAppNoticeCubit>();
             unawaited(cubit.load());
             return cubit;
           },
@@ -78,6 +90,13 @@ class HomeScreen extends StatelessWidget {
         BlocProvider(create: (_) => getIt<HomeSetupCubit>()),
         // The day-0 card. Decided after the asks, in `runHomeAsk`.
         BlocProvider(create: (_) => getIt<Day0CardCubit>()),
+        // The dark card. It follows the list and the setup cubit above.
+        BlocProvider(
+          create: (context) => getIt<HomeCardCubit>(
+            param1: context.read<HomeCubit>(),
+            param2: context.read<HomeSetupCubit>(),
+          ),
+        ),
       ],
       child: const _HomeScreenContent(),
     );
@@ -103,6 +122,21 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   final FeatureGuideCubit _guides = getIt<FeatureGuideCubit>();
   StreamSubscription<FeatureGuideState>? _guideSub;
   StreamSubscription<FeatureGuideState>? _guideSetupSub;
+
+  /// What this phone can ring through, so a line never promises more. Read
+  /// once; the answer is the same for the whole run.
+  RingClaim _ringClaim = RingClaim.alarm;
+
+  /// The newest message time of each topic at the last build, or null before
+  /// the first list. See [nextGlanceCount].
+  MessageTimes? _messageTimes;
+
+  /// Goes up each time a topic gets a newer message while Home is in front.
+  /// The hero face glances at the list when it moves.
+  int _glance = 0;
+
+  /// The "One topic so far" card was closed on this install.
+  bool _isOneTopicClosed = false;
 
   /// Another screen is on top of Home.
   bool _isCovered = false;
@@ -169,7 +203,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // Taken once: only the Home that setup hands over to finds a topic here.
     _glowTopic = setupFinishSignal.take();
     WidgetsBinding.instance.addObserver(this);
-    homeSetupPreview.addListener(_onSetupPreview);
+    final prefs = getIt<SharedPreferences>();
+    _isOneTopicClosed = prefs.getBool(oneTopicCardClosedKey) ?? false;
+    unawaited(_readRingClaim());
     // The FeatureGuideHost asks for this screen's guide on the first visit.
     // The notices and the asks hold off until no guide is running, and come
     // back once one ends.
@@ -195,9 +231,41 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     });
   }
 
-  /// A developer asked for a look at the setup pill, or closed it.
-  void _onSetupPreview() {
-    if (mounted) setState(() {});
+  Future<void> _readRingClaim() async {
+    // The host answers "unsupported" when it cannot be reached, which
+    // RingClaim reads as the quiet wording on an iPhone.
+    final alarm = await getIt<AlarmHost>().authorizationStatus();
+    if (mounted) setState(() => _ringClaim = RingClaim.forPhone(alarm));
+  }
+
+  /// Reads the phone's checks and the missed alarm entry again. Home does it
+  /// on open, on resume, on pull to refresh and when a screen above it goes.
+  void _refreshReadiness() {
+    if (!mounted) return;
+    unawaited(context.read<HomeCardCubit>().refreshReadiness());
+  }
+
+  /// Whether Home is the screen in front and the app is resumed.
+  bool get _isHomeInFront =>
+      !_isCovered &&
+      !_isRouteElsewhere &&
+      isHomeFrontScreen(location: _routerLocation(), isAppResumed: _isResumed);
+
+  /// Counts a glance when a topic got a newer message since the last build.
+  void _trackGlance(HomeState state) {
+    if (state.status != HomeStatus.success || state.isStale) return;
+    final after = <String, DateTime>{
+      for (final topic in state.topicItems) topic.name: ?topic.lastMessageAt,
+    };
+    final next = nextGlanceCount(
+      count: _glance,
+      before: _messageTimes,
+      after: after,
+      isInFront: _isHomeInFront,
+      now: DateTime.now(),
+    );
+    _messageTimes = after;
+    if (next != _glance) setState(() => _glance = next);
   }
 
   /// Tells the setup checklist whether the user is looking at Home. It
@@ -216,11 +284,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         isInFront: isSetupChecklistInFront(
           isCovered: _isCovered,
           isRouteElsewhere: _isRouteElsewhere,
-          // A pinned notice holds the checklist's spot. Nothing ticks or
-          // celebrates behind it: that waits until the checklist is back.
-          hasPinnedNotice: _isPinnedNotice(
-            context.read<InAppNoticeCubit>().state,
-          ),
+          // The checklist lives in the dark card now, and the pinned bar
+          // does not cover it.
+          hasPinnedNotice: false,
           isHomeFront: isHomeFrontScreen(
             location: _routerLocation(),
             isAppResumed: _isResumed,
@@ -276,6 +342,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       return;
     }
     if (!_isRouteElsewhere) return;
+    _refreshReadiness();
     // Back from another tab: what happened there (a missed alarm closed on
     // the Reliability screen) shows now, not at the next resume. The card
     // has the same key, so one that is still due does not slide in again.
@@ -317,7 +384,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void dispose() {
     _glowEnds?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    homeSetupPreview.removeListener(_onSetupPreview);
     unawaited(_guideSub?.cancel());
     unawaited(_guideSetupSub?.cancel());
     appRouteObserver.unsubscribe(this);
@@ -330,6 +396,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     _isResumed = state == AppLifecycleState.resumed;
     _tellSetup();
     if (state == AppLifecycleState.resumed && mounted) {
+      _refreshReadiness();
       unawaited(context.read<InAppNoticeCubit>().onAppResumed());
       // Only a resume with Home in front counts as one of the card's opens.
       unawaited(
@@ -351,6 +418,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     if (!mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
     unawaited(context.read<InAppNoticeCubit>().refresh());
+    _refreshReadiness();
     // Home counts as back in view once the screen above has slid away, so a
     // row that turned true over there ticks where it can be seen.
     final change = ++_viewChange;
@@ -374,11 +442,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     _tellSetup();
   }
 
-  void _openSetupRoute(String route) => unawaited(context.push(route));
-
   void _openWidgetsPaywall() {
     unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
-    unawaited(context.push(hostedPaywallLocation(PaywallSource.homeWidgets)));
+    unawaited(
+      openPaywallForFeature(
+        context,
+        AppFeature.widgets,
+        LockSource.homeWidgets,
+      ),
+    );
   }
 
   void _openDay0Plans() {
@@ -394,10 +466,14 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         context: context,
         platform: setup.platform,
         plan: plan,
-        onSeeHosted: () {
+        onSeePro: () {
           if (!mounted) return;
           unawaited(
-            context.push(hostedPaywallLocation(PaywallSource.homeWidgets)),
+            openPaywallForFeature(
+              context,
+              AppFeature.widgets,
+              LockSource.homeWidgets,
+            ),
           );
         },
       ),
@@ -486,6 +562,61 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     );
   }
 
+  /// Carries out what the card's button asked for.
+  Future<void> _runEffect(HomeCardEffect effect) async {
+    if (!mounted) return;
+    switch (effect) {
+      case OpenPath(:final path):
+        openAppPath(context, path);
+      case OpenRoute(:final name):
+        unawaited(context.pushNamed<void>(name));
+      case RunReliabilityFix(:final fix):
+        await getIt<ReliabilityFixRunner>().run(fix);
+        _refreshReadiness();
+      case RefreshHome():
+        unawaited(context.read<HomeCubit>().refresh());
+      case NoEffect():
+        break;
+    }
+  }
+
+  /// The card's button.
+  Future<void> _onCardAction(HomeCardAction action) async {
+    final card = context.read<HomeCardCubit>();
+    if (action is SeeMissed) return _seeMissed(card);
+    await _runEffect(card.actionFor(action));
+  }
+
+  /// "See why" opens the missed alarm sheet, which can also close the entry.
+  Future<void> _seeMissed(HomeCardCubit card) async {
+    final feed = getIt<MissedAlarmFeed>();
+    final fact = await feed.read();
+    if (fact == null || !mounted) return;
+    final notice = fact.notice;
+    final next = card.actionFor(const SeeMissed());
+    await showNoticeDetailSheet(
+      context: context,
+      face: missedAlarmFace(notice.reason),
+      title: notice.count > 1
+          ? LocaleKeys.notices_missed_alarm_title_many.tr(
+              namedArgs: {'count': '${notice.count}'},
+            )
+          : LocaleKeys.notices_missed_alarm_title.tr(),
+      body: missedAlarmReasonKey(notice.reason).tr(),
+      actionLabel: missedAlarmButtonKey(notice.reason).tr(),
+      dismissLabel: LocaleKeys.home_card_close_this.tr(),
+      onAction: () => unawaited(_runEffect(next)),
+      onDismiss: () => unawaited(feed.dismiss(notice.incidentIds)),
+    );
+  }
+
+  void _openReliability() => openAppPath(context, AppLinkRoutes.reliability);
+
+  void _closeOneTopic() {
+    setState(() => _isOneTopicClosed = true);
+    unawaited(getIt<SharedPreferences>().setBool(oneTopicCardClosedKey, true));
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = AppSize.of(context);
@@ -493,6 +624,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return BlocConsumer<HomeCubit, HomeState>(
       listener: (context, state) {
         _handOverIfRinging(state);
+        _trackGlance(state);
         _updateSetupGlow();
         unawaited(context.read<HomeSetupCubit>().homeChanged(state));
       },
@@ -500,24 +632,34 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           BlocBuilder<FeatureGuideCubit, FeatureGuideState>(
             bloc: _guides,
             builder: (context, guide) =>
-                BlocConsumer<InAppNoticeCubit, InAppNoticeState>(
-                  listenWhen: (previous, current) =>
-                      _isPinnedNotice(previous) != _isPinnedNotice(current),
-                  listener: (context, notice) => _tellSetup(),
+                BlocBuilder<InAppNoticeCubit, InAppNoticeState>(
                   builder: (context, notice) =>
                       BlocBuilder<HomeSetupCubit, HomeSetupState>(
-                        builder: (context, setup) => _build(
-                          context,
-                          size,
-                          state,
-                          guide,
-                          notice,
-                          setup,
-                        ),
+                        builder: (context, setup) =>
+                            BlocBuilder<HomeCardCubit, HomeCardState>(
+                              builder: (context, card) => _build(
+                                context,
+                                size,
+                                state,
+                                guide,
+                                notice,
+                                setup,
+                                card.model,
+                              ),
+                            ),
                       ),
                 ),
           ),
     );
+  }
+
+  /// The card for the moment setup finishes, or [model] as it is.
+  static HomeCardModel _withFinish(HomeCardModel model, HomeSetupState setup) {
+    final isFinishing =
+        (setup.phase == HomeSetupPhase.checklist ||
+            setup.phase == HomeSetupPhase.celebration) &&
+        setup.checklist.isComplete;
+    return isFinishing ? setupFinishCard() : model;
   }
 
   Widget _build(
@@ -527,6 +669,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     FeatureGuideState guide,
     InAppNoticeState notice,
     HomeSetupState setup,
+    HomeCardModel realCard,
   ) {
     // While the guide runs, the list gets an example topic that is ringing,
     // so the user sees what trouble looks like before it happens. Someone
@@ -534,43 +677,19 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // does.
     final showExamples =
         guide.showsHomeExamples && real.status == HomeStatus.success;
-    // The stage says what the list says: the example is ringing, so the face
-    // is alarmed too. It has no ringing incident, so it hands nothing to the
-    // takeover screen.
-    final exampleStage = showExamples
-        ? FeatureGuideExamples.troubleStage()
-        : null;
-    final staged = !showExamples
+    final card = showExamples
+        ? FeatureGuideExamples.troubleCard()
+        : _withFinish(realCard, setup);
+    final state = !showExamples
         ? real
-        : real.isEmpty
-        ? real.copyWith(
-            topicItems: [
-              FeatureGuideExamples.troubleTopic(),
-              ...FeatureGuideExamples.homeTopics(),
-            ],
-            faceState: exampleStage!.faceState,
-            word: exampleStage.word,
-            subText: exampleStage.subText,
-            severity: exampleStage.severity,
-          )
         : real.copyWith(
             topicItems: [
               FeatureGuideExamples.troubleTopic(),
-              ...real.topicItems,
+              ...(real.isEmpty
+                  ? FeatureGuideExamples.homeTopics()
+                  : real.topicItems),
             ],
-            faceState: exampleStage!.faceState,
-            word: exampleStage.word,
-            subText: exampleStage.subText,
-            severity: exampleStage.severity,
           );
-    // While a notice that asks for a look is up (a missed alarm, missed
-    // weekly checks, a phone update), the stage does not say "All clear" over
-    // a glad face. It wears the look face. A live alarm keeps the stage as
-    // it is.
-    final state =
-        _lookNoticeShows(notice, guide) && staged.status == HomeStatus.success
-        ? _lookStage(staged)
-        : staged;
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
     // rather than trusted.
@@ -578,108 +697,71 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         ? _selectedTopic
         : null;
 
-    // Built once, because a list that cannot be reached shows the same rows
-    // as a live one, only dimmed.
     final home = context.read<HomeCubit>();
+    final now = DateTime.now();
     final rows = <Widget>[
-      for (final topic in state.topicItems) ...[
+      for (final topic in state.topicItems)
         _swipe(
           home,
           topic,
           // Guide rows are examples, not topics, so there is nothing to pin.
           // Old rows from an unreachable server are look-only.
           enabled: !showExamples && !state.isStale,
-          child: AppListRow(
-            name: topic.name,
-            meta: topic.meta,
-            preview: topic.preview,
-            unreadCount: topic.unreadCount,
-            isPinned: topic.isPinned,
-            isMuted: topic.isMuted,
+          child: _row(
+            home,
+            topic,
+            now: now,
             isSelected: size.isExpanded && topic.name == selected,
-            faceState: topic.faceState,
-            isCrit: topic.isCrit,
-            isQuiet: topic.isQuiet,
-            // The priority that came in is only shown while there is
-            // something live. Once the alarm is acknowledged the row goes
-            // back to saying how the topic is set up, so a red chip never
-            // contradicts the calm face above.
-            trailing: topic.isLive
-                ? AppPriorityChip(priority: topic.priority)
-                : AppDeliveryChip(
-                    rings: topic.ringsThroughSilent,
-                    label: topic.ringsThroughSilent
-                        ? LocaleKeys.home_delivery_rings.tr()
-                        : LocaleKeys.home_delivery_normal.tr(),
-                  ),
-            onTap: () {
-              // Opening a topic reads it.
-              if (!showExamples) unawaited(home.markRead(topic.name));
-              if (size.isExpanded) {
-                AppHaptics.selection();
-                setState(() => _selectedTopic = topic.name);
-              } else {
-                unawaited(context.push('/topics/${topic.name}'));
-              }
-            },
+            isExample: showExamples,
+            isExpanded: size.isExpanded,
           ),
         ),
-        const SizedBox(height: 10),
-      ],
     ];
 
-    // The setup checklist, its finished line or the widgets card, at the
-    // top of the list sheet. Home content, drawn here and nowhere else.
-    // Only over a list that loaded, and never beside a running guide's
-    // example rows. The offer sheet is not a guide yet, so the checklist
-    // stays put under it instead of jumping when it closes.
+    // The setup content shows only over a list that loaded, and never beside
+    // a running guide's example rows.
     final showsSetup =
         real.status == HomeStatus.success &&
         !real.isStale &&
         (!guide.isActive || guide.status == FeatureGuideStatus.offering);
     final setupState = showsSetup ? setup : const HomeSetupState();
-    // The day-0 card, under the same conditions as the setup content.
     final showsDay0Card = showsSetup && context.watch<Day0CardCubit>().state;
+    final cream = !showsSetup
+        ? null
+        : creamCardFor(
+            widgets: setupState.phase == HomeSetupPhase.widgetsCard,
+            day0: showsDay0Card,
+          );
 
-    // The one card floating above the tab bar. A pinned notice has it
-    // first; the setup checklist takes it when no notice does. Nothing but
-    // the guide while one is up: the card comes back after.
-    final noticeBar = guide.isActive ? null : _noticeBar(context, notice);
-    final preview = buildHasOnboardingDeveloperTools
-        ? homeSetupPreview.value
-        : null;
-    final pillState = preview != null ? homeSetupPreviewState : setupState;
-    final showsPill =
-        (pillState.phase == HomeSetupPhase.checklist ||
-            pillState.phase == HomeSetupPhase.celebration) &&
-        setupPillHasTheSpot(
-          hasPinnedNotice: noticeBar != null,
-          isGuideRunning:
-              guide.isActive && guide.status != FeatureGuideStatus.offering,
+    // The one bar floating above the tab bar. A running guide holds it back.
+    final oneTopicDue =
+        showsSetup &&
+        !showExamples &&
+        _sheetShows(state) &&
+        showsOneTopicCard(
+          topicCount: state.topicItems.length,
+          isClosed: _isOneTopicClosed,
+          isSetupDone: getIt<SetupChecklistStore>().isDone,
+          cardKind: card.kind,
         );
-    final setupPill = showsPill
-        ? HomeSetupPill(
-            // A preview is its own widget, so it opens the way it was asked.
-            key: ValueKey(preview),
-            state: pillState,
-            startsOpen: preview == HomeSetupPreview.open,
-            onRowTap: _openSetupRoute,
-            onDismiss: () {
-              if (preview != null) {
-                homeSetupPreview.value = null;
-                return;
-              }
-              unawaited(context.read<HomeSetupCubit>().checklistDismissed());
-            },
-          )
-        : null;
+    final pinned = guide.isActive
+        ? null
+        : pinnedBarFor(
+            hostedEnding: notice.noticeType == InAppNoticeType.proEnding,
+            accountBackup: notice.noticeType == InAppNoticeType.accountBackup,
+            oneTopic: oneTopicDue,
+          );
+    final noticeBar = pinned == null ? null : _pinnedBar(pinned, notice);
 
     final screen = SeverityScope(
-      severity: state.severity,
+      severity: card.severity,
       child: AppScreenScaffold(
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
+          final shell = context.read<ShellCubit>();
+          _refreshReadiness();
+          await shell.refresh();
           await noticeCubit.refresh();
           return homeCubit.refresh();
         },
@@ -695,7 +777,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         ),
         // Narrower than the topics card and wider than the tab bar, so the
         // three step in towards the bottom.
-        bottomBar: switch (noticeBar ?? setupPill) {
+        bottomBar: switch (noticeBar) {
           final bar? => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: bar,
@@ -715,196 +797,54 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       isPane: true,
                     )),
         slivers: [
-          // Single slot orchestrating blocker errors, health warnings,
-          // and dismissible growth notices above the stage.
-          // Hidden while a guide is up, so no card slides in under it.
+          // The hero and the sheet are one box, so the sheet paints over
+          // the part of the hero's disc that reaches down behind it.
           SliverToBoxAdapter(
-            child: guide.isActive
-                ? const SizedBox.shrink()
-                : const InAppNoticeSlot(),
-          ),
-          // A failed load has something to say too, and it says it up here
-          // rather than leaving the face out and the screen silent.
-          if (state.topicItems.isNotEmpty || state.status == HomeStatus.failure)
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  const SizedBox(height: Spacing.s3),
-                  FeatureGuideAnchor(
-                    id: FeatureGuideAnchorId.homeStage,
-                    child: AppStage(
-                      faceState: state.faceState,
-                      faceSize: _stageFaceSize(context),
-                      word: state.word,
-                      sub: state.subText,
-                      // Nothing is happening, so the face gets something to
-                      // do. Any other state means something real, and those
-                      // faces are left alone to say it. The stage hands this
-                      // to the refresh face rather than replacing it, so
-                      // pulling the list still moves the face.
-                      idleWhenCalm: true,
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: Spacing.s3),
+                FeatureGuideAnchor(
+                  id: FeatureGuideAnchorId.homeStage,
+                  child: _HeroBlock(
+                    model: card,
+                    glance: _glance,
+                    isPane: size.isExpanded,
+                    onAction: showExamples ? null : _onCardAction,
+                    onTapBody: showExamples ? null : _openReliability,
                   ),
-                  const SizedBox(height: Spacing.s4),
-                ],
-              ),
-            ),
-          // With no server saved there is nothing to list and nothing to say
-          // that the red card above is not already saying, so the sheet does
-          // not draw at all. An empty one is a blank white box with a shadow.
-          if (state.hasServer)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  12,
-                  state.topicItems.isEmpty ? Spacing.s3 : 0,
-                  12,
-                  16,
                 ),
-                child: FeatureGuideAnchor(
-                  id: FeatureGuideAnchorId.topicList,
-                  child: AppSheet(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        HomeSetupSection(
-                          state: setupState,
-                          hasRowsBelow: true,
-                          onShowWidgetsHowTo: () =>
-                              _showWidgetsHowTo(setupState.widgetsPlan),
-                          onSeeHosted: _openWidgetsPaywall,
-                          onDismissWidgetsCard: () => unawaited(
-                            context
-                                .read<HomeSetupCubit>()
-                                .widgetsCardDismissed(),
-                          ),
+                const SizedBox(height: Spacing.s4),
+                // With no server saved there is nothing to list and nothing
+                // to say that the card above is not already saying, so the
+                // sheet does not draw at all. A failed load is said by the
+                // card too.
+                if (_sheetShows(state))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    child: FeatureGuideAnchor(
+                      id: FeatureGuideAnchorId.topicList,
+                      child: _OnSurface(
+                        child: _sheet(
+                          context,
+                          state,
+                          rows,
+                          cream: cream,
+                          setup: setupState,
                         ),
-                        // One card at a time: the widgets card goes first.
-                        if (showsDay0Card &&
-                            setupState.phase != HomeSetupPhase.widgetsCard)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: Spacing.s4),
-                            child: HomeDay0Card(
-                              onSeePlans: _openDay0Plans,
-                              onDismiss: () => unawaited(
-                                context.read<Day0CardCubit>().dismiss(),
-                              ),
-                            ),
-                          ),
-                        // Loading and failure both used to fall through to
-                        // the empty state, so a slow network or a dead
-                        // server told the user every topic they own was
-                        // gone, and the error was never shown at all.
-                        if (state.isStale) ...[
-                          AppToast(
-                            faceState: FaceState.watching,
-                            message: LocaleKeys.home_unreachable_strip.tr(
-                              namedArgs: {
-                                'time': DateFormat.Hm().format(
-                                  state.lastKnownGoodAt!.toLocal(),
-                                ),
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          AppButton(
-                            label: LocaleKeys.home_retry_button.tr(),
-                            variant: AppButtonVariant.ghost,
-                            size: AppButtonSize.sm,
-                            isFullWidth: true,
-                            onPressed: () => unawaited(
-                              context.read<HomeCubit>().refresh(),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              LocaleKeys.home_stale_list_label.tr(
-                                namedArgs: {
-                                  'time': DateFormat.Hm().format(
-                                    state.lastKnownGoodAt!.toLocal(),
-                                  ),
-                                },
-                              ),
-                              style: AppTypography.mono(
-                                context.appColors.ink3,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          // The rows are the user's own, just old, so they
-                          // stay. Dimmed and dead to the touch, because
-                          // opening one would show numbers from then, not now.
-                          Opacity(
-                            opacity: 0.45,
-                            child: IgnorePointer(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: rows,
-                              ),
-                            ),
-                          ),
-                        ] else if (state.status == HomeStatus.failure) ...[
-                          AppToast(
-                            faceState: FaceState.worried,
-                            message:
-                                state.errorMessage ??
-                                LocaleKeys.home_load_failed.tr(),
-                          ),
-                          const SizedBox(height: 10),
-                          AppButton(
-                            label: LocaleKeys.home_retry_button.tr(),
-                            variant: AppButtonVariant.ghost,
-                            size: AppButtonSize.sm,
-                            isFullWidth: true,
-                            onPressed: () => unawaited(
-                              context.read<HomeCubit>().refresh(),
-                            ),
-                          ),
-                        ] else if (state.topicItems.isEmpty &&
-                            state.status != HomeStatus.success) ...[
-                          AppEmptyState(
-                            title: LocaleKeys.home_loading_title.tr(),
-                            description: '',
-                            followsRefresh: true,
-                            radius: Radii.md,
-                          ),
-                        ] else if (state.isEmpty) ...[
-                          AppEmptyState(
-                            title: LocaleKeys.home_stage_word_no_topics.tr(),
-                            description: LocaleKeys.home_empty_body.tr(),
-                            buttonLabel: LocaleKeys.home_empty_button.tr(),
-                            onButtonPressed: () => context.push('/topics/new'),
-                            followsRefresh: true,
-                            // The sheet is Radii.xl (32) with 16 of padding, so
-                            // the dashed card inside is Radii.md (18) to sit
-                            // concentric rather than 32 on 32.
-                            radius: Radii.md,
-                          ),
-                        ] else ...[
-                          // Opening one row's buttons closes any other.
-                          SlidableAutoCloseBehavior(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: rows,
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
 
     // One short throw of confetti when the checklist finishes, over the
     // whole screen and dead to the touch.
-    return Stack(
+    final content = Stack(
       fit: StackFit.passthrough,
       children: [
         screen,
@@ -912,65 +852,166 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           const Positioned.fill(child: HomeSetupConfetti()),
       ],
     );
+
+    // The canvas behind the screen is the ambient one. It gets the profile
+    // for the card, and morphs to the next one when the card changes.
+    return AmbientRouteProfile(
+      path: '/',
+      profile: homeAmbientProfile(
+        card,
+        context.appColors,
+        spot: heroDiscSpotOf(context),
+      ),
+      child: content,
+    );
   }
 
-  /// The face on the stage. At the larger text sizes its words take more
-  /// room, so the face gives some back and the line under it stays clear of
-  /// the tab bar. The normal size is unchanged up to 1.3x.
-  static double _stageFaceSize(BuildContext context) {
-    const normal = 190.0;
-    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-    if (scale <= kChromeMaxTextScale) return normal;
-    return (normal * kChromeMaxTextScale / scale).clamp(96.0, normal);
+  /// Whether the white sheet is drawn at all.
+  static bool _sheetShows(HomeState state) =>
+      state.hasServer && (state.status != HomeStatus.failure || state.isStale);
+
+  Widget _row(
+    HomeCubit home,
+    HomeTopicItem topic, {
+    required DateTime now,
+    required bool isSelected,
+    required bool isExample,
+    required bool isExpanded,
+  }) {
+    final row = AppInboxRow(
+      name: topic.name,
+      message: topic.preview ?? LocaleKeys.home_card_row_no_message.tr(),
+      time: inboxTimeText(
+        state: topic.rowKind,
+        lastMessageAt: topic.lastMessageAt,
+        now: now,
+      ),
+      kind: inboxRowKindFor(
+        state: topic.rowKind,
+        isMuted: topic.isMuted,
+        unreadCount: topic.unreadCount,
+      ),
+      unreadCount: topic.unreadCount,
+      hasCriticalDelivery: topic.ringsThroughSilent,
+      criticalLabel: topic.ringsThroughSilent
+          ? inboxBellLabel(_ringClaim)
+          : null,
+      isPinned: topic.isPinned,
+      onTap: () {
+        // Opening a topic reads it.
+        if (!isExample) unawaited(home.markRead(topic.name));
+        if (isExpanded) {
+          AppHaptics.selection();
+          setState(() => _selectedTopic = topic.name);
+        } else if (!isExample) {
+          unawaited(context.push('/topics/${topic.name}'));
+        }
+      },
+    );
+    if (!isSelected) return row;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.appColors.cobaltTint.withValues(alpha: 0.6),
+        borderRadius: Radii.mdAll,
+      ),
+      child: row,
+    );
   }
 
-  /// True while a card that asks for a look is drawn in the notice slot. The
-  /// slot is hidden under a running guide and while a card is closing.
-  static bool _lookNoticeShows(
-    InAppNoticeState notice,
-    FeatureGuideState guide,
-  ) => !guide.isActive && notice.asksForLook;
+  Widget _sheet(
+    BuildContext context,
+    HomeState state,
+    List<Widget> rows, {
+    required HomeCreamCard? cream,
+    required HomeSetupState setup,
+  }) {
+    final colors = context.appColors;
+    // Loading: the sheet holds placeholder rows until the list answers.
+    if (state.topicItems.isEmpty && state.status != HomeStatus.success) {
+      return const _LoadingSheet();
+    }
+    if (state.isEmpty) return _EmptyTopics(onTool: _newTopic);
 
-  /// [home] with its stage changed by `heroWhileLookNoticeShows`.
-  static HomeState _lookStage(HomeState home) {
-    final hero = heroWhileLookNoticeShows(
-      HomeHero(
-        faceState: home.faceState,
-        word: home.word,
-        subText: home.subText,
-        severity: home.severity,
-        ringingIncidentId: home.ringingIncidentId,
+    if (state.isStale) {
+      final at = state.lastKnownGoodAt;
+      return AppInboxSheet(
+        children: [
+          if (at != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+              child: Text(
+                LocaleKeys.home_card_stale_caption
+                    .tr(
+                      namedArgs: {'time': DateFormat.Hm().format(at.toLocal())},
+                    )
+                    .toUpperCase(),
+                style: AppTypography.mono(colors.ink3, fontSize: 11),
+              ),
+            ),
+          // The rows are the user's own, just old, so they stay. Dimmed and
+          // dead to the touch, because opening one would show numbers from
+          // then, not now.
+          for (final row in rows)
+            Opacity(opacity: 0.45, child: IgnorePointer(child: row)),
+        ],
+      );
+    }
+
+    return SlidableAutoCloseBehavior(
+      child: AppInboxSheet(
+        children: [
+          if (cream != null) _creamCard(cream, setup),
+          ...rows,
+        ],
       ),
     );
-    return home.copyWith(
-      faceState: hero.faceState,
-      word: hero.word,
-      subText: hero.subText,
-      severity: hero.severity,
-    );
   }
 
-  /// Whether [notice] is one of the notices [_noticeBar] pins above the tab
-  /// bar. The rest are cards in the list, or nothing.
-  static bool _isPinnedNotice(InAppNoticeState notice) =>
-      switch (notice.noticeType) {
-        InAppNoticeType.proEnding ||
-        InAppNoticeType.batteryOptimization ||
-        InAppNoticeType.accountBackup => true,
-        InAppNoticeType.none ||
-        InAppNoticeType.noServer ||
-        InAppNoticeType.systemUpdate ||
-        InAppNoticeType.missedAlarm ||
-        InAppNoticeType.weeklyCheck ||
-        InAppNoticeType.criticalHealth => false,
-      };
+  void _newTopic([ToolTemplate? tool]) => unawaited(
+    context.push(
+      tool == null ? '/topics/new' : '/topics/new?tool=${tool.id}',
+    ),
+  );
 
-  /// The one pill floating above the tab bar: battery first, then Pro ending,
-  /// then the sign-in notice.
-  Widget? _noticeBar(BuildContext context, InAppNoticeState notice) {
+  /// The one cream card at the top of the sheet.
+  Widget _creamCard(HomeCreamCard which, HomeSetupState setup) {
+    final Widget card;
+    switch (which) {
+      case HomeCreamCard.widgets:
+        final needsPro = setup.widgetsPlan == HomeWidgetsPlan.needsPro;
+        card = AppCreamCard(
+          title: LocaleKeys.onboarding_welcome_widgets_title.tr(),
+          body: needsPro ? LocaleKeys.home_widgets_needs_pro.tr() : null,
+          actionLabel: needsPro
+              ? LocaleKeys.home_widgets_plans_button.tr()
+              : LocaleKeys.home_widgets_how_button.tr(),
+          onAction: needsPro
+              ? _openWidgetsPaywall
+              : () => _showWidgetsHowTo(setup.widgetsPlan),
+          isOnSheet: true,
+          onClose: () =>
+              unawaited(context.read<HomeSetupCubit>().widgetsCardDismissed()),
+          closeLabel: LocaleKeys.home_widgets_dismiss_button.tr(),
+        );
+      case HomeCreamCard.day0:
+        card = AppCreamCard(
+          title: LocaleKeys.home_day0_title.tr(),
+          body: LocaleKeys.home_day0_free_line.tr(),
+          actionLabel: LocaleKeys.home_day0_plans_button.tr(),
+          onAction: _openDay0Plans,
+          isOnSheet: true,
+          onClose: () => unawaited(context.read<Day0CardCubit>().dismiss()),
+          closeLabel: LocaleKeys.home_day0_dismiss_button.tr(),
+        );
+    }
+    return Padding(padding: const EdgeInsets.all(4), child: card);
+  }
+
+  /// The one bar floating above the tab bar.
+  Widget _pinnedBar(HomePinnedBar which, InAppNoticeState notice) {
     final cubit = context.read<InAppNoticeCubit>();
-    switch (notice.noticeType) {
-      case InAppNoticeType.proEnding:
+    switch (which) {
+      case HomePinnedBar.hostedEnding:
         final endsAt = notice.proEndsAt!;
         return AppPinnedNoticeBar(
           face: FaceState.watching,
@@ -987,28 +1028,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case InAppNoticeType.batteryOptimization:
-        return AppPinnedNoticeBar(
-          face: FaceState.watching,
-          title: LocaleKeys.notices_battery_title.tr(),
-          linkLabel: LocaleKeys.notices_why.tr(),
-          onTap: () => unawaited(
-            showNoticeDetailSheet(
-              context: context,
-              face: FaceState.watching,
-              title: LocaleKeys.notices_battery_title.tr(),
-              body: LocaleKeys.notices_battery_body.tr(),
-              actionLabel: LocaleKeys.notices_battery_button.tr(),
-              onAction: () {
-                unawaited(cubit.dismissCurrent());
-                openAppPath(context, '/settings/permissions');
-              },
-              onDismiss: () => unawaited(cubit.dismissCurrent()),
-            ),
-          ),
-          onDismiss: () => unawaited(cubit.dismissCurrent()),
-        );
-      case InAppNoticeType.accountBackup:
+      case HomePinnedBar.accountBackup:
         return AppPinnedNoticeBar(
           face: FaceState.watching,
           title: LocaleKeys.notices_account_backup_title.tr(),
@@ -1026,13 +1046,201 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case InAppNoticeType.none:
-      case InAppNoticeType.noServer:
-      case InAppNoticeType.systemUpdate:
-      case InAppNoticeType.missedAlarm:
-      case InAppNoticeType.weeklyCheck:
-      case InAppNoticeType.criticalHealth:
-        return null;
+      case HomePinnedBar.oneTopic:
+        return AppPinnedNoticeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.home_card_one_topic_title.tr(),
+          linkLabel: LocaleKeys.home_card_one_topic_button.tr(),
+          onTap: _newTopic,
+          onDismiss: _closeOneTopic,
+        );
     }
+  }
+}
+
+/// The hero: the face and the dark card. It redraws each second while the
+/// card shows a clock.
+class _HeroBlock extends StatefulWidget {
+  const _HeroBlock({
+    required this.model,
+    required this.glance,
+    required this.isPane,
+    required this.onAction,
+    required this.onTapBody,
+  });
+
+  final HomeCardModel model;
+  final int glance;
+  final bool isPane;
+
+  /// Null for an example card, whose button opens nothing.
+  final Future<void> Function(HomeCardAction action)? onAction;
+  final VoidCallback? onTapBody;
+
+  @override
+  State<_HeroBlock> createState() => _HeroBlockState();
+}
+
+class _HeroBlockState extends State<_HeroBlock> {
+  Timer? _clock;
+
+  bool get _ticks =>
+      widget.model.numeral is Elapsed || widget.model.numeral is Remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncClock();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncClock();
+  }
+
+  void _syncClock() {
+    if (_ticks) {
+      _clock ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _clock?.cancel();
+      _clock = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final model = widget.model;
+    final view = homeCardViewFor(model, now: DateTime.now());
+    final action = model.action;
+    final onAction = widget.onAction;
+    return AppHeroScene(
+      face: model.face,
+      tone: view.heroTone,
+      gaze: view.gaze,
+      isLive: view.isLive,
+      isPane: widget.isPane,
+      glance: widget.glance,
+      card: AppStatusCard(
+        label: view.label,
+        numeral: view.numeral,
+        numeralTone: view.numeralTone,
+        foot: view.foot,
+        footTone: view.footTone,
+        pips: view.pips,
+        actionLabel: view.actionLabel,
+        onAction: action == null
+            ? null
+            : () => unawaited(onAction?.call(action) ?? Future<void>.value()),
+        onTap: model.tapsReliability ? widget.onTapBody : null,
+        // A clock changes every second, which is no news.
+        popsOnChange: !view.ticks,
+        liveRegion: view.isLive,
+      ),
+    );
+  }
+}
+
+/// Placeholder rows while the list has not answered.
+class _LoadingSheet extends StatelessWidget {
+  const _LoadingSheet();
+
+  @override
+  Widget build(BuildContext context) => AppInboxSheet(
+    children: [
+      for (var i = 0; i < 3; i++)
+        const AppSkeleton(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSkeletonBone.text(width: 120),
+                SizedBox(height: 8),
+                AppSkeletonBone.text(),
+              ],
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+/// No topics yet: the dashed card, the tools a first topic is usually for,
+/// and the button.
+class _EmptyTopics extends StatelessWidget {
+  const _EmptyTopics({required this.onTool});
+
+  final void Function([ToolTemplate? tool]) onTool;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppEmptyState(
+          title: LocaleKeys.home_card_empty_title.tr(),
+          description: LocaleKeys.home_card_empty_body.tr(),
+          buttonLabel: LocaleKeys.home_card_empty_button.tr(),
+          onButtonPressed: onTool,
+          showFace: false,
+          radius: Radii.md,
+        ),
+        const SizedBox(height: Spacing.s4),
+        Text(
+          LocaleKeys.home_card_empty_tools.tr(),
+          style: AppTypography.small(
+            colors.onCanvasMuted,
+            fontSize: 12,
+          ).copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final template in ToolTemplate.values)
+              if (template.label case final label?)
+                AppTopicChip(
+                  text: label,
+                  hitSlop: 4,
+                  onTap: () => onTool(template),
+                ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The sheet is white in every state, but text that follows the canvas (the
+/// buttons on a cream card) would turn white on a blue or red canvas. This
+/// gives it the sheet's own ink.
+class _OnSurface extends StatelessWidget {
+  const _OnSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values.where((ext) => ext is! AppColors),
+          colors.copyWith(onCanvas: colors.ink, onCanvasMuted: colors.ink2),
+        ],
+      ),
+      child: child,
+    );
   }
 }

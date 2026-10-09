@@ -56,7 +56,21 @@ PaywallEntry paywallEntryOf(PaywallSource source) => switch (source) {
 /// The row each Pro entry point belongs to.
 PaywallEntry paywallEntryOfProSheet(ProPackSheetSource source) =>
     switch (source) {
-      ProPackSheetSource.reliability => PaywallEntry.lockedRow,
+      ProPackSheetSource.createTopicCard ||
+      ProPackSheetSource.history ||
+      ProPackSheetSource.historyOlder => PaywallEntry.capHit,
+      ProPackSheetSource.reliability ||
+      ProPackSheetSource.homeWidgets ||
+      ProPackSheetSource.widgetLocked ||
+      ProPackSheetSource.appIcon ||
+      ProPackSheetSource.personalizeSound ||
+      ProPackSheetSource.personalizeWidgets ||
+      ProPackSheetSource.personalizeAppIcon ||
+      ProPackSheetSource.personalizeChallenge ||
+      ProPackSheetSource.topicChallenge ||
+      ProPackSheetSource.personalizeLook ||
+      ProPackSheetSource.topicLook ||
+      ProPackSheetSource.sounds => PaywallEntry.lockedRow,
       ProPackSheetSource.direct => PaywallEntry.other,
     };
 

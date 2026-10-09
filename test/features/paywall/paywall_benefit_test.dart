@@ -68,7 +68,7 @@ void main() {
     }
   });
 
-  test('Hosted lists four of the benefits in HostedBenefit.all, in its order: '
+  test('Hosted lists the benefits in HostedBenefit.all, in its order: '
       'widgets are listed under Pro', () {
     final hosted = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.hosted)
@@ -81,9 +81,7 @@ void main() {
     ]);
     expect(
       hosted.map((b) => b.id.name),
-      HostedBenefit.all
-          .where((b) => b.id != HostedBenefitId.widgets)
-          .map((b) => b.id.name),
+      HostedBenefit.all.map((b) => b.id.name),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
     expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));
@@ -121,10 +119,13 @@ void main() {
     ]);
   });
 
-  test('a store build lists only the two Pro benefits the app has today', () {
+  test('a store build lists only the three Pro benefits the app has '
+      'today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
       PaywallBenefitId.widgets,
       PaywallBenefitId.reliabilityChecks,
+      // Four fixed looks and the person's own photo are in the app.
+      PaywallBenefitId.customAlarmScreens,
     ]);
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
@@ -132,7 +133,6 @@ void main() {
     expect(waiting, [
       PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.customSounds,
-      PaywallBenefitId.customAlarmScreens,
     ]);
   });
 

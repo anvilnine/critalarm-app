@@ -79,6 +79,14 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Each intro plays one score from its first frame (PaywallIntro.score): a set up, a turn and an arrival, in a piano and a kalimba flavour (IntroSoundFlavour, developer row Intro sound, pref dev.paywall\_intro\_sound). A skipped intro plays introArrive. The gag, kidding and intro one shot cues are gone, intro beats are haptics alone, and the Crit call plays on a purchase alone.
 - The Alarm Snack intro (PaywallIntroId.alarmSnack) joins the fake alarm screen with the dodging Snooze button. The Countdown intro is gone; a stored or remote value countdown reads as no intro. Leaving a paywall without buying plays three music box notes that fall and lift.
 - The Receipt party step after a purchase (PaywallThanksId.receiptParty, key party): a slip of the lifted limits, a stamp and confetti. Lights on and its cord and bulb cues are gone; a value lights reads as no step. Limits lifted shows its before values as limits. Confetti, slip and limit row parts moved to thanks\_parts.dart.
+- Design system: AppHeroScene, AppStatusCard (full and strip), AppReadinessPips, AppInboxSheet and AppInboxRow, AppCreamCard, AppStatCard and the HeroDisc painter, each with a gallery section, a reduce motion switch and tool/capture\_topics\_components.dart.
+- AppDurations.ambient (9 s) for the slowest loop, and GlyphType.moon.
+- HomeCardCubit, HomeFacts and a missed alarm feed give Home the data for its status card. The feed reads the missed alarm record without the notice slot, and closing an entry from either place closes it in both.
+- home\_list\_rules.dart holds the cream card order, the one-topic card rule (prefs key home\_one\_topic\_card\_closed) and nextGlanceCount, which decides when the face glances at the list. /topics/new takes an optional tool=<ToolTemplate id> query that preselects the chip. tool/capture\_topics\_screen.dart captures the real Topics screen against the mock server.
+- AmbientShape gains ring (fill to outline) and scales up to 2, AmbientController gains per-route profiles, and the capture tool steps the canvas through a tab change and a push.
+- AppSwitch takes a panel variant for the dark status card: 56 by 32, a panelLine outline and a 44 point touch target. It is in the status card gallery.
+- topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
+- tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -128,6 +136,20 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
 - Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 - Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
+- The animation clock moved to lib/design\_system/screen\_clock.dart and now stops while the app is not resumed. The paywall's paywall\_clock.dart re-exports it.
+- Home orders its topic rows with the inbox rule: rows that need you, pinned, unread, the rest, then muted. HomeTopicItem gains lastMessageAt and rowKind, and HomeState gains facts.
+- The Reliability screen and the Home card pick the first check to name and fix with one rule in reliability/domain/attention\_order.dart. The handled window lives in home\_card/handled\_window.dart.
+- Home draws AppHeroScene with an AppStatusCard built from HomeCardState.model, then one AppInboxSheet of AppInboxRow. The notice slot, the setup pill, the delivery and priority chips and AppStage are no longer drawn there, and their code stays for a later cleanup. Strings are in the home\_card object of en.json.
+- PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
+- Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
+- The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
+- InAppNoticeCubit picks only the Hosted ending and the account backup reminder, and no longer takes a ShellCubit. Pull to refresh on Home refreshes the shell health itself. HomeState drops the face, word, sub line and severity, and HomeTopicItem drops meta, priority, face, isCrit, isQuiet and isLive. resolveHomeFace and orderTopics are removed: HomeFacts, rowKindFor and orderInbox replace them.
+- History screen rebuilt on the Topics design language: still refresh face over AppStatCard, week rule in week\_bars.dart, flat rows with answered and not answered marks, historyHero ambient profile registered through AmbientRouteProfile, history\_hero strings, and history.meta\_expired now says Nobody answered
+- AppStatCard puts the numbers in a column on the left and the bars on the right, stacks them on a narrow card or large text, and takes isHidden days with no bar
+- Settings drops the Will it wake me? row for AppStatusCard.strip, fed by ReadinessSummary, the same rule the Topics card reads. The count, pips, check lines and fix come from reliability, and tool/capture\_settings\_screen.dart captures every state.
+- The Topic screen uses the Topics hero: the face looks at a dark Critical delivery card with the switch in it, and the messages sit on a white sheet under it. The disc behind the face is drawn by the ambient canvas through an AmbientOverride.
+- Review fixes on the redesigned screens: formatWhen (lib/core/format/when\_label.dart) is the one date rule, TopicHeader sets a long name on two lines and steps its type down (topicHeaderHeight takes the name and the width), AppScreenScaffold topBackingPlateau, FaceWidget draws the canvas face stroke in every state, AppColors.critText, and the panel switch off track is the muted panel colour at 0.55.
+- Topic message rows always show the time (Yesterday 00:45, 8 Oct 00:45), the token line reads Made yesterday, and History keeps its title clear of scrolled rows.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -140,6 +162,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
 - Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
+- Phone defects: the Topics card foot reads the newest alarm held (HomeFacts drops the setup incident ids), Settings row values show in full, the Topic screen sorts messages with newestFirst, and AppStatusCard.strip stacks its numeral under a title that does not fit.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
@@ -147,6 +170,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
+- Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

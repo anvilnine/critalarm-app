@@ -1,5 +1,6 @@
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/missed_alarm_notice_view.dart';
+import 'package:critalarm/features/reliability/domain/attention_order.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -17,29 +18,11 @@ import 'package:flutter/foundation.dart';
 /// The checks to draw, the ones that need attention first.
 ///
 /// Checks that are not on this phone are dropped. Inside one state the order
-/// the sources gave is kept.
+/// the sources gave is kept. The rule is shared with the Home card
+/// (`orderByAttention`).
 List<ReliabilityCheck> orderReliabilityChecks(
   Iterable<ReliabilityCheck> checks,
-) {
-  final shown = [
-    for (final check in checks)
-      if (check.state.isOnThisPhone) check,
-  ];
-  // List.sort is not stable, so the position breaks ties.
-  final indexed = shown.asMap().entries.toList()
-    ..sort((a, b) {
-      final byState = _rank(a.value.state).compareTo(_rank(b.value.state));
-      return byState != 0 ? byState : a.key.compareTo(b.key);
-    });
-  return [for (final entry in indexed) entry.value];
-}
-
-int _rank(ReliabilityState state) => switch (state) {
-  ReliabilityState.broken => 0,
-  ReliabilityState.needsLook => 1,
-  ReliabilityState.fine => 2,
-  ReliabilityState.notOnThisPhone => 3,
-};
+) => orderByAttention(checks);
 
 /// The row title for a check, as a `LocaleKeys` key. Null for an id this
 /// screen has no words for yet: the row then shows the id itself.
@@ -269,16 +252,8 @@ String? reliabilityClearLabelKey(ReliabilityFix? fix) => switch (fix) {
 /// Every later action is drawn quieter. Null when no row has an action.
 ///
 /// It reads the state and the fix only, so a check from any source counts.
-int? reliabilityPrimaryRow(List<ReliabilityCheck> ordered) {
-  for (var i = 0; i < ordered.length; i++) {
-    final check = ordered[i];
-    final needsAction =
-        check.state == ReliabilityState.needsLook ||
-        check.state == ReliabilityState.broken;
-    if (needsAction && check.fix != null) return i;
-  }
-  return null;
-}
+int? reliabilityPrimaryRow(List<ReliabilityCheck> ordered) =>
+    indexOfFirstFixable(ordered);
 
 /// One row of the screen's list: a check, and whether its action is the
 /// screen's one primary button.
@@ -347,10 +322,7 @@ reliabilityScreenLayout(
       rows.add(ReliabilityListRow(check: check, isPrimary: i == primary));
       continue;
     }
-    final needsAttention =
-        check.state == ReliabilityState.needsLook ||
-        check.state == ReliabilityState.broken;
-    if (needsAttention && placed.add(group)) {
+    if (needsAttention(check.state) && placed.add(group)) {
       rows.add(
         ReliabilityListRow(
           check: check,
@@ -429,8 +401,7 @@ FaceState? reliabilityStateFace(ReliabilityState state) => switch (state) {
 };
 
 /// Whether a state asks the user to do something.
-bool reliabilityNeedsAction(ReliabilityState state) =>
-    state == ReliabilityState.needsLook || state == ReliabilityState.broken;
+bool reliabilityNeedsAction(ReliabilityState state) => needsAttention(state);
 
 /// The rows of [rows] that need action and the rows that do not, each in
 /// the order it was given. The ones that need action share one card, and

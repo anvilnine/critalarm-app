@@ -29,6 +29,7 @@ import 'package:critalarm/design/faces/pulse_ring_widget.dart';
 import 'package:critalarm/design/gallery/glyphs_and_curves_section.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
+import 'package:critalarm/design/gallery/topics_components_section.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -52,6 +53,7 @@ class GalleryScreen extends StatefulWidget {
 class _GalleryScreenState extends State<GalleryScreen> {
   SeverityMode _severity = SeverityMode.none;
   bool _isDark = false;
+  bool _reduceMotion = false;
 
   bool _liveCalm = false;
   bool _liveWatching = true;
@@ -131,6 +133,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           _buildEmptyStateSection(colors),
                           const SizedBox(height: 48),
                           _buildSetupComponentsSection(colors),
+                          const SizedBox(height: 48),
+                          // The status screens' pieces, with a switch for
+                          // reduce motion in the top bar.
+                          MediaQuery(
+                            data: MediaQuery.of(
+                              context,
+                            ).copyWith(disableAnimations: _reduceMotion),
+                            child: const TopicsComponentsSection(),
+                          ),
                           const SizedBox(height: 48),
                           _buildControlsAndCardsSection(colors),
                           const SizedBox(height: 48),
@@ -239,6 +250,30 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              InkWell(
+                onTap: () => setState(() => _reduceMotion = !_reduceMotion),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: Radii.fullAll,
+                    border: Border.all(color: colors.hairline),
+                  ),
+                  child: Text(
+                    _reduceMotion ? 'Reduce motion: on' : 'Reduce motion: off',
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: colors.ink,
+                    ),
+                  ),
                 ),
               ),
               InkWell(

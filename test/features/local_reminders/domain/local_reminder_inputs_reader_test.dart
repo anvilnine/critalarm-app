@@ -82,7 +82,7 @@ void main() {
     bool proShouldAsk = false,
     Future<ServerMode?> Function()? readServerMode,
     Future<bool> Function(String topic)? topicHasMessages,
-    Future<bool> Function()? readIsPaid,
+    Future<bool> Function()? readHoldsHosted,
     Future<bool> Function()? readIsSignedIn,
     bool privacyFails = false,
   }) => LocalReminderInputsReader(
@@ -113,7 +113,7 @@ void main() {
           return topic == 'old';
         },
     readServerMode: readServerMode ?? () async => mode,
-    readIsPaid: readIsPaid ?? () async => false,
+    readHoldsHosted: readHoldsHosted ?? () async => false,
     readIsSignedIn: readIsSignedIn ?? () async => false,
     proShouldAsk: () async => proShouldAsk,
     isWeb: false,
@@ -185,8 +185,10 @@ void main() {
   });
 
   test('a failed paid read counts as paid', () async {
-    final inputs = (await reader(readIsPaid: () async => throw boom).read())!;
-    expect(inputs.isPaid, isTrue);
+    final inputs = (await reader(
+      readHoldsHosted: () async => throw boom,
+    ).read())!;
+    expect(inputs.holdsHosted, isTrue);
   });
 
   test('a failed sign-in read counts as signed in', () async {

@@ -20,7 +20,7 @@ class PlatformDeviceReportRepository implements DeviceReportRepository {
     final package = await PackageInfo.fromPlatform();
     final (device, os) = await _readDevice();
     final serverMode = await accountRepository.readServerMode();
-    final isPaid = await accountRepository.readIsPaid();
+    final holdsHosted = await accountRepository.readHoldsHosted();
 
     return DeviceReport(
       appVersion: package.version,
@@ -28,7 +28,7 @@ class PlatformDeviceReportRepository implements DeviceReportRepository {
       device: device,
       os: os,
       server: serverMode?.name ?? 'none',
-      plan: isPaid ? 'pro' : 'free',
+      plan: holdsHosted ? 'pro' : 'free',
       locale: locale,
     );
   }

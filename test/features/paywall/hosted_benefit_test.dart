@@ -35,7 +35,6 @@ void main() {
       HostedBenefitId.topics,
       HostedBenefitId.pushes,
       HostedBenefitId.history,
-      HostedBenefitId.widgets,
       HostedBenefitId.appIcons,
     ]);
   });
@@ -144,21 +143,22 @@ void main() {
     }
   });
 
-  test(
-    'widget badge and Home card say Hosted only while widgets are listed',
-    () {
-      final widgetsListed = HostedBenefit.all.any(
-        (b) => b.id == HostedBenefitId.widgets,
-      );
-      final badge = strings['onboarding_welcome.widgets_pro']!;
-      final card = strings['home_widgets.needs_hosted']!;
-      for (final text in [badge, card]) {
-        if (text.contains('Hosted')) {
-          expect(widgetsListed, isTrue, reason: text);
-        }
+  test('no string ties home screen widgets to Hosted', () {
+    for (final entry in strings.entries) {
+      if (entry.key.startsWith('hosted_benefits.widgets')) {
+        fail('${entry.key} is a Hosted widgets string');
       }
-    },
-  );
+    }
+    for (final key in [
+      'onboarding_welcome.widgets_pro',
+      'home_widgets.needs_pro',
+      'home_widgets.plans_button',
+    ]) {
+      expect(strings[key], isNotNull, reason: key);
+      expect(strings[key], isNot(contains('Hosted')), reason: key);
+      expect(strings[key], contains('Pro'), reason: key);
+    }
+  });
 
   group('joinBenefitPhrases', () {
     test('one item stands alone', () {

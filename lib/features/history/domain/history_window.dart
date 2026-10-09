@@ -9,30 +9,31 @@
 /// with no download. A plan lapsing hides them again and removes nothing.
 abstract final class HistoryWindow {
   /// How many days back the plan shows, for the summary line and the filter
-  /// chips. Pro keeps 90. Self-hosted has no tier, so it gets the same.
+  /// chips. Long history keeps 90.
   static const int paidDays = 90;
 
+  /// [hasLongHistory] is `FeatureAccess.can(AppFeature.longHistory)`: true
+  /// on Hosted and on a server of the user's own, which has no tier.
+  /// [historyDays] is the cap the registration sent.
   static int shownDays({
-    required bool isPaid,
+    required bool hasLongHistory,
     required int historyDays,
-    bool isSelfHosted = false,
-  }) => (isSelfHosted || isPaid) ? paidDays : historyDays;
+  }) => hasLongHistory ? paidDays : historyDays;
 
   /// The oldest `opened_at` allowed on screen.
   ///
-  /// A null lower bound means "show everything on the phone". That is a paid
-  /// account, and self-hosted mode, which is never sent a tier at all and has
-  /// no caps to apply.
+  /// A null lower bound means "show everything on the phone". That is
+  /// anyone with long history.
   ///
-  /// [isPaid] comes from `AccountAccess.isPaid`, so the store saying Pro and
-  /// the developer Force Pro switch count the same as the server saying so.
+  /// [hasLongHistory] is `FeatureAccess.can(AppFeature.longHistory)`, so a
+  /// purchase the store confirmed and the developer switch count the same
+  /// as the server saying so.
   static DateTime? lowerBound({
-    required bool isPaid,
+    required bool hasLongHistory,
     required int historyDays,
     required DateTime now,
-    bool isSelfHosted = false,
   }) {
-    if (isSelfHosted || isPaid) return null;
+    if (hasLongHistory) return null;
     return now.subtract(Duration(days: historyDays));
   }
 }

@@ -15,10 +15,16 @@ class TopicDetailMessageItem {
     required this.body,
     required this.source,
     this.isHigh = false,
+    this.sentAt,
   });
 
   final String title;
+
+  /// When it arrived, short enough for a row ("02:41", "Yesterday", "8 Oct").
   final String timestamp;
+
+  /// When it arrived, for text that leaves the screen and is read later.
+  final DateTime? sentAt;
   final String body;
   final String source;
   final bool isHigh;
@@ -29,6 +35,7 @@ class TopicDetailMessageItem {
     String? body,
     String? source,
     bool? isHigh,
+    DateTime? sentAt,
   }) {
     return TopicDetailMessageItem(
       title: title ?? this.title,
@@ -36,6 +43,7 @@ class TopicDetailMessageItem {
       body: body ?? this.body,
       source: source ?? this.source,
       isHigh: isHigh ?? this.isHigh,
+      sentAt: sentAt ?? this.sentAt,
     );
   }
 
@@ -48,7 +56,8 @@ class TopicDetailMessageItem {
           timestamp == other.timestamp &&
           body == other.body &&
           source == other.source &&
-          isHigh == other.isHigh;
+          isHigh == other.isHigh &&
+          sentAt == other.sentAt;
 
   @override
   int get hashCode => Object.hash(
@@ -57,6 +66,7 @@ class TopicDetailMessageItem {
     body,
     source,
     isHigh,
+    sentAt,
   );
 }
 
@@ -80,6 +90,8 @@ class TopicDetailState {
     this.isMarkingAsRead = false,
     this.openIncidentIds = const [],
     this.isMessagesLoading = false,
+    this.messageTimes = const [],
+    this.lastAlarmAt,
   });
 
   /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
@@ -110,6 +122,13 @@ class TopicDetailState {
   final bool isUpdatingCritical;
   final bool isMarkingAsRead;
 
+  /// When each message in [messages] arrived, in the same order. Kept apart
+  /// from the items because they hold the time as text for the card.
+  final List<DateTime> messageTimes;
+
+  /// When this topic last raised an alarm, or null if it never has.
+  final DateTime? lastAlarmAt;
+
   /// Whether messages are currently being polled or loaded.
   final bool isMessagesLoading;
 
@@ -138,6 +157,8 @@ class TopicDetailState {
     bool? isMarkingAsRead,
     List<String>? openIncidentIds,
     bool? isMessagesLoading,
+    List<DateTime>? messageTimes,
+    DateTime? lastAlarmAt,
     bool clearError = false,
   }) {
     return TopicDetailState(
@@ -156,6 +177,8 @@ class TopicDetailState {
       isMarkingAsRead: isMarkingAsRead ?? this.isMarkingAsRead,
       openIncidentIds: openIncidentIds ?? this.openIncidentIds,
       isMessagesLoading: isMessagesLoading ?? this.isMessagesLoading,
+      messageTimes: messageTimes ?? this.messageTimes,
+      lastAlarmAt: lastAlarmAt ?? this.lastAlarmAt,
     );
   }
 
@@ -178,7 +201,9 @@ class TopicDetailState {
           isUpdatingCritical == other.isUpdatingCritical &&
           isMarkingAsRead == other.isMarkingAsRead &&
           listEquals(openIncidentIds, other.openIncidentIds) &&
-          isMessagesLoading == other.isMessagesLoading;
+          isMessagesLoading == other.isMessagesLoading &&
+          listEquals(messageTimes, other.messageTimes) &&
+          lastAlarmAt == other.lastAlarmAt;
 
   @override
   int get hashCode => Object.hash(
@@ -197,5 +222,7 @@ class TopicDetailState {
     isMarkingAsRead,
     Object.hashAll(openIncidentIds),
     isMessagesLoading,
+    Object.hashAll(messageTimes),
+    lastAlarmAt,
   );
 }

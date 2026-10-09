@@ -11,6 +11,13 @@ import java.net.URLEncoder
  */
 object TapRoute {
     /**
+     * The link a Done button opens while its topic owes a wake-up
+     * challenge: the incident, marked as coming from Done.
+     */
+    fun doneLink(encodedIncidentId: String): String =
+        "critalarm://incidents/$encodedIncidentId?${MainActivity.EXTRA_FROM}=${MainActivity.FROM_DONE}"
+
+    /**
      * The map Dart gets for a tap. A link opened from outside the app goes
      * over whole, under `link`, and Dart's parser decides what it opens.
      */
@@ -20,12 +27,15 @@ object TapRoute {
         topic: String?,
         open: String?,
         link: String?,
+        from: String? = null,
     ): Map<String, String> {
         val tap = mutableMapOf(MainActivity.KEY_TAP_ID to sequence.toString())
         if (incidentId != null) tap[MainActivity.EXTRA_INCIDENT_ID] = incidentId
         if (topic != null) tap[MainActivity.EXTRA_TOPIC] = topic
         if (open != null) tap[MainActivity.EXTRA_OPEN] = open
         if (link != null) tap[MainActivity.EXTRA_LINK] = link
+        // Only the one marker, and only beside an incident.
+        if (incidentId != null && from == MainActivity.FROM_DONE) tap[MainActivity.EXTRA_FROM] = from
         return tap
     }
 
@@ -35,7 +45,10 @@ object TapRoute {
      */
     fun routeFor(tap: Map<String, String>?): String? {
         if (tap == null) return null
-        tap[MainActivity.EXTRA_INCIDENT_ID]?.let { return "/incidents/${encode(it)}" }
+        tap[MainActivity.EXTRA_INCIDENT_ID]?.let {
+            val fromDone = tap[MainActivity.EXTRA_FROM] == MainActivity.FROM_DONE
+            return "/incidents/${encode(it)}" + if (fromDone) "?from=done" else ""
+        }
         tap[MainActivity.EXTRA_TOPIC]?.let { return "/topics/${encode(it)}" }
         if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_HOME) return "/"
         if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_PAYWALL) return "/paywall"

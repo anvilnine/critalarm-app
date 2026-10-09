@@ -13,6 +13,8 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/access/store_access.dart';
+
 /// Answers with the list it was handed, cut to whatever the caller asked for,
 /// the way the server cuts to `limit`.
 class _FixedIncidents implements IncidentRepository {
@@ -98,6 +100,7 @@ void main() {
       'account_caps': jsonEncode(caps.toJson()),
     });
     final prefs = await SharedPreferences.getInstance();
+    final identity = DeviceIdentityStore(prefs);
     final shared = IncidentsCubit(
       GetIncidentsUsecase(_FixedIncidents(incidents)),
     );
@@ -105,7 +108,8 @@ void main() {
     final history = HistoryCubit(
       shared,
       now: () => now,
-      identityStore: DeviceIdentityStore(prefs),
+      identityStore: identity,
+      featureAccess: accessOver(identity).features,
     );
     addTearDown(history.close);
     await history.load();

@@ -13,7 +13,7 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _isHeldLine =
-    '_relayHolds() || _override.isForcing || _otherGrant(_other);';
+    'bool get isHeldWithoutSwitch => _relayHolds() || _otherGrant(_other);';
 
 void main() {
   group('the packs list', () {

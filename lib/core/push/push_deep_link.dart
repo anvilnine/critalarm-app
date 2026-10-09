@@ -27,8 +27,37 @@ abstract final class PushDeepLink {
   static String tagged(String location) =>
       location == paywall.paywallPath ? paywallLocation : location;
 
-  static String incidentLocation(String incidentId) =>
-      AppLinkRoutes.incident(incidentId);
+  /// `from=done` rides on an incident link that a native Done button
+  /// opened: the Done on an acknowledged card, a Live Activity or a widget
+  /// whose topic owes a wake-up challenge, which opens the app where it
+  /// used to close. Native only draws Done on an incident it holds as
+  /// acknowledged, so the marker means "native says this one is
+  /// acknowledged". A plain tap on a card never carries it.
+  ///
+  /// Android `MainActivity.FROM_DONE` and iOS `WidgetLink.fromDone` hold
+  /// the same two words. Keep the three in step.
+  static const fromKey = 'from';
+  static const fromDone = 'done';
+
+  static String incidentLocation(
+    String incidentId, {
+    bool cameFromDone = false,
+  }) {
+    final location = AppLinkRoutes.incident(incidentId);
+    return cameFromDone ? '$location?$fromKey=$fromDone' : location;
+  }
+
+  /// Whether a route the router is building came from a native Done.
+  static bool cameFromDone(Uri location) =>
+      location.queryParameters[fromKey] == fromDone;
+
+  /// The incident id an incident route names, or null for any other
+  /// route. The marker and anything else after `?` is not part of it.
+  static String? incidentIdIn(String location) {
+    final segments = Uri.tryParse(location)?.pathSegments ?? const <String>[];
+    if (segments.length != 2 || segments.first != 'incidents') return null;
+    return segments[1].isEmpty ? null : segments[1];
+  }
 
   static String topicLocation(String topic) => AppLinkRoutes.topic(topic);
 
@@ -55,7 +84,11 @@ abstract final class PushDeepLink {
   static String? fromAppUri(Uri location) {
     if (location.scheme != appScheme) return null;
     return switch (parseAppLink(location)) {
-      AppLinkRoute(location: final route) => route,
+      AppLinkRoute(location: final route) =>
+        // The marker survives on an incident link and on nothing else.
+        cameFromDone(location) && incidentIdIn(route) != null
+            ? '$route?$fromKey=$fromDone'
+            : route,
       _ => homeLocation,
     };
   }
@@ -64,7 +97,10 @@ abstract final class PushDeepLink {
   static String? fromNotificationData(Map<String, String> data) {
     final incidentId = data[incidentIdKey];
     if (incidentId != null && incidentId.isNotEmpty) {
-      return incidentLocation(incidentId);
+      return incidentLocation(
+        incidentId,
+        cameFromDone: data[fromKey] == fromDone,
+      );
     }
     final topic = data[topicKey];
     if (topic != null && topic.isNotEmpty) return topicLocation(topic);

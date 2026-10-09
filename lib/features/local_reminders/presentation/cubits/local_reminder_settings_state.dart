@@ -7,7 +7,7 @@ class LocalReminderSettingsState {
     this.switches = LocalReminderSwitches.defaults,
     this.notificationsAllowed = true,
     this.isSelfHosted = false,
-    this.isPaid = false,
+    this.holdsHosted = false,
     this.isLoaded = false,
   });
 
@@ -21,23 +21,23 @@ class LocalReminderSettingsState {
   final bool isSelfHosted;
 
   /// Hides the Offers switch: Pro offers mean nothing to someone with Pro.
-  final bool isPaid;
+  final bool holdsHosted;
   final bool isLoaded;
 
   /// Whether the "News about Pro" switch shows at all.
-  bool get showsOffers => !isSelfHosted && !isPaid;
+  bool get showsOffers => !isSelfHosted && !holdsHosted;
 
   LocalReminderSettingsState copyWith({
     LocalReminderSwitches? switches,
     bool? notificationsAllowed,
     bool? isSelfHosted,
-    bool? isPaid,
+    bool? holdsHosted,
     bool? isLoaded,
   }) => LocalReminderSettingsState(
     switches: switches ?? this.switches,
     notificationsAllowed: notificationsAllowed ?? this.notificationsAllowed,
     isSelfHosted: isSelfHosted ?? this.isSelfHosted,
-    isPaid: isPaid ?? this.isPaid,
+    holdsHosted: holdsHosted ?? this.holdsHosted,
     isLoaded: isLoaded ?? this.isLoaded,
   );
 
@@ -47,7 +47,7 @@ class LocalReminderSettingsState {
       other.switches == switches &&
       other.notificationsAllowed == notificationsAllowed &&
       other.isSelfHosted == isSelfHosted &&
-      other.isPaid == isPaid &&
+      other.holdsHosted == holdsHosted &&
       other.isLoaded == isLoaded;
 
   @override
@@ -55,7 +55,7 @@ class LocalReminderSettingsState {
     switches,
     notificationsAllowed,
     isSelfHosted,
-    isPaid,
+    holdsHosted,
     isLoaded,
   );
 }

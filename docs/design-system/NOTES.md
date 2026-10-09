@@ -81,9 +81,9 @@ Two more came later and are listed after them.
   - `calm`: the cobalt tint with a cobalt stroke, for a row that is done.
 
   Text on it takes `onCanvas`: muted text on the light `crit` tone is 3.85:1.
-- Cream and the stroke: a cream card on the yellow canvas has no stroke (`AppNoticeCard`, tone
-  `AppNoticeTone.cream`). A cream card on the white sheet has the ink stroke
-  (`AppHighlightTone.choice`), because cream on white does not separate by itself.
+- Cream and the stroke: a cream card on the yellow canvas has no stroke. A cream card on the white
+  sheet has the ink stroke (`AppCreamCard.isOnSheet`, drawn as `AppHighlightTone.choice`), because
+  cream on white does not separate by itself.
 - `AppAnimatedTick`: use it when one thing finishes while the user watches, such as a first message
   landing or a checklist step. The ring fills, then the tick draws, once, in 600 ms. For a static
   "included" mark in a list, use `AppFeatureBullet`. The caller wraps it in `Semantics` with a
@@ -130,6 +130,26 @@ Two more came later and are listed after them.
   an arrow, for a row that opens a page. `AppPickerRow` is for a choice from a list: it shows the
   current value and opens a bottom sheet of `AppSheetOptionRow`s that closes on a pick. A list of
   more than six opens the sheet that scrolls. Use a toggle row for on and off, never a picker.
+
+## Status screen components
+
+All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce motion switch.
+
+- `AppHeroScene`: the face, a card slot that overlaps it by 10 points, and a breathing disc and
+  ring. It stacks below 340 points, above text scale 1.3 and in a list pane. Nothing plays when it
+  first appears.
+- `AppStatusCard`: the dark card (label, numeral, pips, foot, action). `AppStatusCard.strip` is
+  the Settings version with a 40 point face. In the dark theme the panel is 1.06 to 1 against the
+  canvas, so the card takes `surfaceElevated` and a `panelLine` outline instead.
+- `AppReadinessPips`: one pip per check, fine, look, broken or open. The numeral carries the count.
+- `AppInboxSheet` and `AppInboxRow`: one white sheet, hairlines between rows, a face only for a
+  topic that needs a look. The bell and moon labels come from the caller.
+- `AppCreamCard` (in `notice_card.dart`): title, body, an outline action and an optional bare cross.
+  On the white sheet it takes the ink stroke.
+- `AppStatCard`: History's week of seven bars and two numbers on the same dark surface. The numbers
+  sit in a column on the left and the bars fill the right. On a narrow card or above the chrome text
+  limit the bars go on top, spread across the width. A day the plan does not reach (`isHidden`)
+  has a letter and no bar.
 
 ## Glyphs and motion curves
 

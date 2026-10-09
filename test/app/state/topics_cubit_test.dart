@@ -207,6 +207,59 @@ void main() {
       ]);
     });
 
+    test('a deleted topic is handed on once the server took it, so what '
+        'the phone keeps for it can go', () async {
+      final scripted = _ScriptedTopics();
+      final forgotten = <String>[];
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        onDeleted: (name) async => forgotten.add(name),
+      );
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('prod-db');
+      await pumpEventQueue();
+      expect(forgotten, isEmpty, reason: 'not before the server answers');
+      scripted.deletes[0].complete(unit.toSuccess());
+      expect(await delete, isNull);
+      expect(forgotten, ['prod-db']);
+    });
+
+    test('a refused delete hands nothing on', () async {
+      final scripted = _ScriptedTopics();
+      final forgotten = <String>[];
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        onDeleted: (name) async => forgotten.add(name),
+      );
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('prod-db');
+      await pumpEventQueue();
+      scripted.deletes[0].complete(
+        const Failure.api(statusCode: 500).toFailure(),
+      );
+      expect(await delete, isNotNull);
+      expect(forgotten, isEmpty);
+    });
+
+    test('a failure while forgetting never fails the delete', () async {
+      final scripted = _ScriptedTopics();
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        onDeleted: (name) async => throw StateError('prefs'),
+      );
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('prod-db');
+      await pumpEventQueue();
+      scripted.deletes[0].complete(unit.toSuccess());
+      expect(await delete, isNull);
+    });
+
     test('a refused delete puts the topic back where it was', () async {
       final scripted = _ScriptedTopics();
       final cubit = await loaded(scripted);
