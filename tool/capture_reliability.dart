@@ -1,7 +1,11 @@
 // Captures the real "Will it wake me?" screen against the mock server, off
 // the device.
 //
-//   fvm flutter test tool/capture_reliability.dart
+//   fvm flutter test tool/capture_reliability.dart \
+//     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true
+//
+// The proof card scenes set the plan through the developer switches, which
+// exist only in a SKIP_PAYWALL build.
 //
 // It boots the app's own dependencies on the mock server, hands the
 // reliability cubit the checks a scene says, opens the screen and writes a
@@ -28,16 +32,23 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
+import 'package:critalarm/core/access/access_override.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_entry.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -52,6 +63,21 @@ const _out = String.fromEnvironment('OUT', defaultValue: 'build/captures');
 const _statesArg = String.fromEnvironment('STATES');
 const _only = String.fromEnvironment('ONLY');
 
+/// What the install holds, for the weekly check row in the proof card.
+enum _Plan {
+  /// Crit Alarm Cloud, Hosted not held.
+  cloud,
+
+  /// Crit Alarm Cloud, Hosted held.
+  hosted,
+
+  /// A server of the user's own.
+  ownServer,
+
+  /// The plan is still being read.
+  unread,
+}
+
 /// One thing the screen can be, and how the capture sets it up.
 class _Scene {
   const _Scene(
@@ -61,6 +87,11 @@ class _Scene {
     this.incomplete = false,
     this.testedAgo,
     this.openPassing = false,
+    this.plan,
+    this.weeks,
+    this.weeklyState = WeeklyCheckState.received,
+    this.scrollBy,
+    this.refuseSwitch = false,
   });
 
   final String name;
@@ -75,7 +106,28 @@ class _Scene {
 
   /// Taps the folded "N checks pass" row.
   final bool openPassing;
+
+  /// What the install holds, or null to leave the app as it boots.
+  final _Plan? plan;
+
+  /// The eight weeks of the proof log, oldest first, or null to leave the
+  /// log empty (except for [testedAgo]). The last is this week.
+  final List<ProofMark>? weeks;
+
+  /// The relay's answer for the weekly check when Hosted is held.
+  final WeeklyCheckState weeklyState;
+
+  /// Scrolls the page up by this much before the capture.
+  final double? scrollBy;
+
+  /// Taps the weekly check switch while the relay is on a plan that refuses
+  /// it, so the line under the row shows.
+  final bool refuseSwitch;
 }
+
+const ProofMark _n = ProofMark.none;
+const ProofMark _r = ProofMark.rang;
+const ProofMark _f = ProofMark.failed;
 
 const _phoneChecks = <ReliabilityCheckId>[
   ReliabilityCheckIds.notifications,
@@ -128,6 +180,89 @@ ReliabilityCheck _relay() => const ReliabilityCheck(
 );
 
 final _scenes = <_Scene>[
+  // The proof card.
+  const _Scene(
+    'proof_locked',
+    checks: _fine,
+    testedAgo: Duration(hours: 2),
+    plan: _Plan.cloud,
+    weeks: [_n, _n, _n, _n, _n, _n, _r, _r],
+  ),
+  _Scene(
+    'proof_on',
+    checks: () => _with({ReliabilityCheckIds.batteryOptimization: _battery()}),
+    testedAgo: const Duration(hours: 2),
+    plan: _Plan.hosted,
+    weeks: const [_r, _r, _r, _r, _r, _f, _r, _r],
+  ),
+  const _Scene(
+    'proof_off',
+    checks: _fine,
+    testedAgo: Duration(hours: 2),
+    plan: _Plan.hosted,
+    weeklyState: WeeklyCheckState.off,
+    weeks: [_n, _n, _r, _n, _r, _n, _r, _r],
+  ),
+  _Scene(
+    'proof_three',
+    checks: () => _with({
+      ReliabilityCheckIds.notifications: _notifications(),
+      ReliabilityCheckIds.fullScreenAlarm: _fullScreen(),
+      ReliabilityCheckIds.pushTokenConfirmed: _relay(),
+    }),
+    plan: _Plan.cloud,
+    weeks: const [_n, _n, _n, _n, _n, _n, _n, _n],
+  ),
+  const _Scene('proof_empty', checks: _fine, plan: _Plan.hosted),
+  const _Scene(
+    'proof_own',
+    checks: _fine,
+    testedAgo: Duration(hours: 2),
+    plan: _Plan.ownServer,
+    weeks: [_n, _n, _n, _n, _n, _n, _r, _r],
+  ),
+  const _Scene(
+    'proof_unread',
+    checks: _fine,
+    testedAgo: Duration(hours: 2),
+    plan: _Plan.unread,
+    weeks: [_n, _n, _n, _n, _n, _n, _r, _r],
+  ),
+  const _Scene(
+    'proof_refused',
+    checks: _fine,
+    testedAgo: Duration(hours: 2),
+    plan: _Plan.hosted,
+    weeklyState: WeeklyCheckState.off,
+    weeks: [_n, _r, _n, _r, _n, _n, _r, _r],
+    refuseSwitch: true,
+  ),
+  _Scene(
+    'proof_missed',
+    checks: () => [
+      ..._fine(),
+      const ReliabilityCheck(
+        id: WeeklyCheckSource.id,
+        state: ReliabilityState.needsLook,
+        reason: WeeklyCheckSource.reasonMissed,
+        fix: OpenRouteFix(AppRoute.testRing),
+      ),
+    ],
+    plan: _Plan.hosted,
+    weeklyState: WeeklyCheckState.missedRepeatedly,
+    weeks: const [_r, _r, _r, _n, _n, _n, _f, _n],
+  ),
+  // The bar's title comes in once the header has scrolled under the bar.
+  _Scene(
+    'scrolled',
+    checks: () => _with({
+      ReliabilityCheckIds.notifications: _notifications(),
+      ReliabilityCheckIds.fullScreenAlarm: _fullScreen(),
+      ReliabilityCheckIds.pushTokenConfirmed: _relay(),
+    }),
+    plan: _Plan.cloud,
+    scrollBy: 260,
+  ),
   const _Scene('yes', checks: _fine, testedAgo: Duration(hours: 2)),
   const _Scene('yes_untested', checks: _fine),
   _Scene(
@@ -189,8 +324,34 @@ typedef _Variant = (String, Size, ThemeMode, double, int?);
 const _phone = Size(390, 844);
 const _narrow = Size(320, 640);
 const _tall = Size(390, 1500);
+const _narrowTall = Size(320, 1500);
 
-List<_Variant> _variants(String scene) => [
+List<_Variant> _variants(String scene) {
+  if (scene.startsWith('proof_')) {
+    const full = ['proof_locked', 'proof_on', 'proof_three'];
+    return [
+      ('390x844', _phone, ThemeMode.light, 1.0, null),
+      ('390x1500', _tall, ThemeMode.light, 1.0, null),
+      ('390x1500', _tall, ThemeMode.dark, 1.0, null),
+      ('320x1500', _narrowTall, ThemeMode.light, 1.0, null),
+      if (full.contains(scene)) ...[
+        ('320x1500', _narrowTall, ThemeMode.dark, 1.0, null),
+        ('390x1500', _tall, ThemeMode.light, 1.3, null),
+        ('390x1500', _tall, ThemeMode.light, 2.0, null),
+        ('320x1500', _narrowTall, ThemeMode.light, 2.0, null),
+      ],
+    ];
+  }
+  if (scene == 'scrolled') {
+    return [
+      ('390x844', _phone, ThemeMode.light, 1.0, null),
+      ('390x844', _phone, ThemeMode.dark, 1.0, null),
+    ];
+  }
+  return _regularVariants(scene);
+}
+
+List<_Variant> _regularVariants(String scene) => [
   ('390x844', _phone, ThemeMode.light, 1.0, null),
   ('390x844', _phone, ThemeMode.dark, 1.0, null),
   if (const ['yes', 'maybe', 'no_one', 'no_three'].contains(scene)) ...[
@@ -262,12 +423,63 @@ Future<void> _boot(_Scene scene) async {
       if (scene.incomplete) _ThrowingSource(),
     ]);
   });
-  final ago = scene.testedAgo;
-  if (ago != null) {
-    await getIt<LocalReminderStore>().markTested(
-      'prod-db',
-      DateTime.now().subtract(ago),
-    );
+  await _setPlan(scene);
+}
+
+/// Puts the install in the plan the scene says, through the developer
+/// switches, and the relay's answer for the weekly check with it.
+Future<void> _setPlan(_Scene scene) async {
+  final plan = scene.plan;
+  if (plan == null) return;
+  final switches = getIt<DevAccessSwitches>();
+  if (plan == _Plan.unread) {
+    await switches.apply(AccessPreset.planReading);
+    return;
+  }
+  await switches.force(
+    Holding.hosted,
+    plan == _Plan.hosted ? HoldingState.held : HoldingState.notHeld,
+  );
+  await switches.force(Holding.pro, HoldingState.notHeld);
+  await switches.setServerMode(
+    plan == _Plan.ownServer
+        ? ServerModeChoice.ownServer
+        : ServerModeChoice.cloud,
+  );
+  await getIt<FeatureAccess>().ready;
+  if (plan == _Plan.hosted) {
+    getIt<MockServer>().seedWeeklyCheck(scene.weeklyState);
+    // A read may be out already. The second is sure to read after the seed.
+    final monitor = getIt<WeeklyCheckMonitor>();
+    await monitor.refresh(force: true);
+    await monitor.refresh(force: true);
+  }
+}
+
+/// Writes the proof log the scene says: a mark per week, the last one this
+/// week, at [_Scene.testedAgo] before now.
+Future<void> _fillLog(_Scene scene) async {
+  final log = getIt<ProofLog>();
+  final now = DateTime.now();
+  final ago = scene.testedAgo ?? const Duration(minutes: 5);
+  final weeks = scene.weeks;
+  if (weeks == null) {
+    if (scene.testedAgo != null) await log.markRang(now.subtract(ago));
+    return;
+  }
+  for (var i = 0; i < weeks.length; i++) {
+    final back = weeks.length - 1 - i;
+    final at = back == 0
+        ? now.subtract(ago)
+        : now.subtract(Duration(days: 7 * back));
+    switch (weeks[i]) {
+      case ProofMark.rang:
+        await log.markRang(at);
+      case ProofMark.failed:
+        await log.markFailed(at);
+      case ProofMark.none:
+        break;
+    }
   }
 }
 
@@ -330,6 +542,33 @@ Future<void> _open(
     if (folded.evaluate().isNotEmpty) {
       await tester.tap(folded.first);
       await tester.pump(const Duration(milliseconds: 400));
+    }
+  }
+  // The log is written once the screen is up: starting the app clears the
+  // phone's account data, the proof log with it.
+  await tester.runAsync(() => _fillLog(scene));
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 600));
+  final scrollBy = scene.scrollBy;
+  if (scrollBy != null) {
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      Offset(0, -scrollBy),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 600));
+  }
+  if (scene.refuseSwitch) {
+    // The relay refuses the switch for an account that is not on Hosted.
+    getIt<MockServer>().accountTier = 'free';
+    final toggle = find.byType(AppSwitch);
+    if (toggle.evaluate().isNotEmpty) {
+      await tester.tap(toggle.first);
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
     }
   }
   if (atMs != null) {
