@@ -910,11 +910,16 @@ void main() {
     device: passPhone,
     mode: ThemeMode.light,
     at: 5,
-    frame: 'tap-add-photo-paywall',
+    frame: 'tap-add-photo-try',
     act: (tester, run) async {
+      // Adding a photo is a try, open to everyone. The tap opens no paywall
+      // and saves nothing: the paywall comes only from "Use this look" once
+      // the photo is framed (the `try` part draws that).
       await tester.tap(find.byKey(const ValueKey('look-add-photo')));
       await _settle(tester);
-      expect(run.path, isNot('/settings/personalize/look'));
+      expect(run.path, '/settings/personalize/look');
+      expect(getIt<OwnLookStore>().photo, isNull);
+      expect(getIt<AlarmStyleChoices>().assignments.defaultStyleId, isNull);
     },
   );
   _shot(
