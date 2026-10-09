@@ -932,7 +932,7 @@ server of the user's own. The Pro pack does not unlock it. The code is in
   and not a lock. A screen says in plain words that the feature is not
   available and opens no paywall. `weeklyCheckAccessFor` turns the decision
   into the four words this feature acts on (`WeeklyCheckAccess`).
-- The Reliability row (`WeeklyCheckGroup`) is one of three: the switch
+- The weekly row inside the proof card on Will it wake me (`WeeklyCheckCardRow`) is one of three: the switch
   with Hosted held, a locked row that opens the Hosted paywall through
   `AccessLock`, or one line saying it is not available on a server of your
   own.
