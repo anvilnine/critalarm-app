@@ -5,7 +5,10 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_tile_art.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumb_motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -71,8 +74,8 @@ abstract final class PassThumbs {
   }) =>
       (context) => PassSoundThumb(tone: tone, clock: clock, peaks: peaks);
 
-  /// The Wake-up challenge pass: the art of the chosen kind, or the first
-  /// kind's art in the muted colour while the challenge is Off.
+  /// The Wake-up challenge pass: the art of the chosen kind, or the word
+  /// "default" in the muted colour when none is chosen.
   static WidgetBuilder challenge({
     required PassTone tone,
     ChallengeKind? kind,
@@ -206,62 +209,68 @@ class PassSoundThumb extends StatelessWidget {
   }
 }
 
-/// The Wake-up challenge thumbnail: a still mark of the chosen challenge.
-/// With none chosen it is the first challenge's mark in the muted colour.
+/// The Wake-up challenge thumbnail, still. With a challenge chosen it is the
+/// art of that challenge's tile on the Wake-up challenge page, drawn small.
+/// With none chosen it is the word "default" in the muted colour.
 class PassChallengeThumb extends StatelessWidget {
   const PassChallengeThumb({required this.tone, this.kind, super.key});
 
   static const double height = 64;
+
+  /// The width the tile art is drawn at before it is scaled down to the 62
+  /// point slot. It is a little narrower than a tile on the page, so the sum
+  /// and the code stay as large as they can while still clear of the edges.
+  static const double _artWidth = 160;
 
   final PassTone tone;
   final ChallengeKind? kind;
 
   @override
   Widget build(BuildContext context) {
-    final shown = kind ?? ChallengeKind.typeTopicName;
-    // With none chosen the mark is all in the muted text colour at full
-    // strength: dimmed yellow on the dark card was under 4.5 to 1.
-    final quiet = tone.valueMuted;
-    final accent = kind == null ? quiet : tone.valueOn;
-    final mark = switch (shown) {
-      ChallengeKind.typeTopicName => _MonoMark(
-        typed: 'pro',
-        rest: 'd-db',
-        typedColor: accent,
-        restColor: quiet,
-      ),
-      ChallengeKind.typeAlertTitle => _TitleMark(accent: accent, quiet: quiet),
-      ChallengeKind.opsMath => _MonoMark(
-        typed: '7+5',
-        rest: '=?',
-        typedColor: accent,
-        restColor: quiet,
-      ),
-      ChallengeKind.scratchCard => _ScratchMark(accent: accent, quiet: quiet),
-      ChallengeKind.shake => const _YellowFace(size: 44),
-    };
-    return ExcludeSemantics(
-      child: SizedBox(
-        width: kPassThumbWidth,
-        height: height,
-        child: Align(alignment: Alignment.topRight, child: mark),
+    final kind = this.kind;
+    final mark = kind == null
+        ? _DefaultWord(color: tone.valueMuted)
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            // The hairline keeps a tile whose ground matches the card, the
+            // typed name on the dark card, readable as a picture.
+            child: FittedBox(
+              child: SizedBox(
+                width: _artWidth,
+                height: kChallengeArtHeight,
+                child: DecoratedBox(
+                  position: DecorationPosition.foreground,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8 * _artWidth / 62),
+                    border: Border.all(
+                      color: tone.edge,
+                      width: _artWidth / 62,
+                    ),
+                  ),
+                  child: ChallengeTileArt(kind: kind),
+                ),
+              ),
+            ),
+          );
+    // A thumbnail does not grow with the text size.
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: kPassThumbWidth,
+          height: height,
+          child: Align(alignment: Alignment.topRight, child: mark),
+        ),
       ),
     );
   }
 }
 
-class _MonoMark extends StatelessWidget {
-  const _MonoMark({
-    required this.typed,
-    required this.rest,
-    required this.typedColor,
-    required this.restColor,
-  });
+/// "default", in the mono type, shrunk to fit the slot.
+class _DefaultWord extends StatelessWidget {
+  const _DefaultWord({required this.color});
 
-  final String typed;
-  final String rest;
-  final Color typedColor;
-  final Color restColor;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -270,107 +279,13 @@ class _MonoMark extends StatelessWidget {
     child: FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerRight,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: typed,
-              style: TextStyle(color: typedColor),
-            ),
-            TextSpan(
-              text: rest,
-              style: TextStyle(color: restColor),
-            ),
-          ],
-        ),
-        style: AppTypography.monoBold(restColor, fontSize: 22),
+      child: Text(
+        LocaleKeys.personalize_passes_root_thumb_default.tr(),
         maxLines: 1,
+        style: AppTypography.monoBold(color, fontSize: 22),
       ),
     ),
   );
-}
-
-class _TitleMark extends StatelessWidget {
-  const _TitleMark({required this.accent, required this.quiet});
-
-  final Color accent;
-  final Color quiet;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget line(double width, Color color) => Container(
-      width: width,
-      height: 8,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        const SizedBox(height: 8),
-        line(54, accent),
-        const SizedBox(height: 6),
-        line(36, quiet),
-      ],
-    );
-  }
-}
-
-class _ScratchMark extends StatelessWidget {
-  const _ScratchMark({required this.accent, required this.quiet});
-
-  final Color accent;
-  final Color quiet;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: kPassThumbWidth,
-    height: 40,
-    child: CustomPaint(painter: _ScratchPainter(accent, quiet)),
-  );
-}
-
-class _ScratchPainter extends CustomPainter {
-  const _ScratchPainter(this.accent, this.quiet);
-
-  final Color accent;
-  final Color quiet;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final card = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(8),
-    );
-    canvas
-      ..save()
-      ..clipRRect(card);
-    final hatch = Paint()
-      ..color = quiet
-      ..strokeWidth = 2;
-    for (var x = -size.height; x < size.width; x += 7) {
-      canvas.drawLine(
-        Offset(x, size.height),
-        Offset(x + size.height, 0),
-        hatch,
-      );
-    }
-    canvas
-      ..restore()
-      ..drawRRect(
-        card,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = accent,
-      );
-  }
-
-  @override
-  bool shouldRepaint(_ScratchPainter old) =>
-      old.accent != accent || old.quiet != quiet;
 }
 
 /// The home screen widget, small: the yellow face and the red button, and no
