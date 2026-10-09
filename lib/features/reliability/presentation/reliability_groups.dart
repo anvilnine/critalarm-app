@@ -41,7 +41,7 @@ final class ReliabilityGroup {
 }
 
 /// The groups the screen draws after the rows built from the checks, in this
-/// order. One today: the Pro rows, which is the weekly delivery check.
+/// order. One today: the weekly delivery check.
 ///
 /// To add a group, append one here. The screen's layout code does not
 /// change: it draws each group in the list, with the same gap between them.
@@ -49,15 +49,15 @@ final class ReliabilityGroup {
 /// See `ReliabilityScreen`.
 const List<ReliabilityGroup> reliabilityExtraGroups = [
   ReliabilityGroup(
-    builder: _proPackGroup,
+    builder: _weeklyCheckGroup,
     checkId: WeeklyCheckSource.id,
-    plainTail: _proPackTail,
+    plainTail: _weeklyCheckTail,
   ),
 ];
 
-Widget _proPackTail(BuildContext context) => const WeeklyCheckRoundsTail();
+Widget _weeklyCheckTail(BuildContext context) => const WeeklyCheckRoundsTail();
 
-Widget _proPackGroup(
+Widget _weeklyCheckGroup(
   BuildContext context,
   ReliabilitySnapshot snapshot, {
   required bool isPrimary,

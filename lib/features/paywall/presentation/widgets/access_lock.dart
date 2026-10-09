@@ -40,18 +40,12 @@ String planWordFor(Holding holding) => switch (holding) {
 Future<void> openPaywallForFeature(
   BuildContext context,
   AppFeature feature,
-  LockSource source, {
-  bool isSelfHosted = false,
-}) async {
+  LockSource source,
+) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
   if (!context.mounted) return;
-  await openPaywallFor(
-    context,
-    access.decide(feature),
-    source,
-    isSelfHosted: isSelfHosted,
-  );
+  await openPaywallFor(context, access.decide(feature), source);
 }
 
 /// The location [openPaywallForFeature] would open, or null when [feature]
@@ -60,16 +54,11 @@ Future<void> openPaywallForFeature(
 /// read, as [openPaywallForFeature] does.
 Future<String?> paywallLocationForFeature(
   AppFeature feature,
-  LockSource source, {
-  bool isSelfHosted = false,
-}) async {
+  LockSource source,
+) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
-  return paywallLocationFor(
-    access.decide(feature),
-    source,
-    isSelfHosted: isSelfHosted,
-  );
+  return paywallLocationFor(access.decide(feature), source);
 }
 
 /// [FeatureLock], fed from `FeatureAccess` for one [feature].
@@ -92,9 +81,10 @@ class AccessLock extends StatefulWidget {
     this.tap = LockTap.sell,
     this.onTry,
     this.onLockedTap,
-    this.isSelfHosted = false,
     this.badgeAlignment = AlignmentDirectional.topEnd,
     this.badgeOverhang = 6,
+    this.badgeSeat = FeatureLockSeat.corner,
+    this.drawsBadge = true,
     this.decide,
     super.key,
   }) : _isInline = false;
@@ -103,7 +93,6 @@ class AccessLock extends StatefulWidget {
     required this.feature,
     required this.source,
     required this.child,
-    this.isSelfHosted = false,
     this.decide,
     super.key,
   }) : name = null,
@@ -112,6 +101,8 @@ class AccessLock extends StatefulWidget {
        onLockedTap = null,
        badgeAlignment = AlignmentDirectional.topEnd,
        badgeOverhang = 0,
+       badgeSeat = FeatureLockSeat.corner,
+       drawsBadge = false,
        _isInline = true;
 
   final AppFeature feature;
@@ -134,18 +125,21 @@ class AccessLock extends StatefulWidget {
   /// screen with a gate of its own in front of the paywall.
   final VoidCallback? onLockedTap;
 
-  /// The opener's own knowledge of the phone. Only the Pro sheet has a
-  /// line for it.
-  final bool isSelfHosted;
-
   final AlignmentGeometry badgeAlignment;
 
   /// How far the badge hangs past the child's edge. Negative sets it in.
   final double badgeOverhang;
 
+  /// See [FeatureLock.badgeSeat].
+  final FeatureLockSeat badgeSeat;
+
+  /// See [FeatureLock.drawsBadge].
+  final bool drawsBadge;
+
   /// The decision to draw, for a surface that is locked by something
-  /// besides the holdings, such as a row the relay refused. Left out, it
-  /// is `FeatureAccess.decide(feature)`.
+  /// besides the holdings, such as a row that stays locked while a
+  /// purchase is being confirmed. Left out, it is
+  /// `FeatureAccess.decide(feature)`.
   final FeatureDecision Function(FeatureAccess access)? decide;
 
   final bool _isInline;
@@ -192,12 +186,7 @@ class _AccessLockState extends State<AccessLock> {
   Future<void> _unlock() async {
     final decision = await _sureDecision();
     if (decision == null || !mounted) return;
-    await openPaywallFor(
-      context,
-      decision,
-      widget.source,
-      isSelfHosted: widget.isSelfHosted,
-    );
+    await openPaywallFor(context, decision, widget.source);
   }
 
   Future<void> _try() async {
@@ -209,7 +198,9 @@ class _AccessLockState extends State<AccessLock> {
   Widget build(BuildContext context) {
     final decision = _decide();
     // The plan that would unlock it here, held or not, so an open option
-    // can still be labelled with it. Null where no plan does.
+    // can still be labelled with it. Null where no plan does: a feature
+    // with no row, one a server of the user's own opens, and one that is
+    // not offered there. No badge is drawn for any of them.
     final nothing = _access.decideHoldingNothing(widget.feature);
     final holding = switch (decision) {
       FeatureLocked(:final offer) => offer,
@@ -242,6 +233,8 @@ class _AccessLockState extends State<AccessLock> {
       onUnlock: unlock,
       badgeAlignment: widget.badgeAlignment,
       badgeOverhang: widget.badgeOverhang,
+      badgeSeat: widget.badgeSeat,
+      drawsBadge: widget.drawsBadge,
       child: widget.child,
     );
   }

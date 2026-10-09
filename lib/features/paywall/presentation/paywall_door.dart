@@ -247,17 +247,10 @@ Future<String> resolvePaywallLocationWhenReady(String location) async {
 
 /// Opens the Pro paywall for [source]: the Pro sheet, or a layout. Every
 /// place that opens it asks here.
-///
-/// [isSelfHosted] is the opener's own knowledge of the phone. Only the
-/// sheet has a line for it.
-Future<void> openProPaywall(
-  BuildContext context,
-  ProPackSheetSource source, {
-  bool isSelfHosted = false,
-}) {
+Future<void> openProPaywall(BuildContext context, ProPackSheetSource source) {
   final layoutLocation = _door?.proLayoutLocation(source);
   return layoutLocation == null
-      ? openProPackSheet(context, source, isSelfHosted: isSelfHosted)
+      ? openProPackSheet(context, source)
       : context.push<void>(layoutLocation);
 }
 
@@ -266,40 +259,42 @@ Future<void> openProPaywall(
 /// [decision] is `FeatureAccess.decide` for the feature the person reached
 /// for, and [source] is where they met the lock. The caller never names a
 /// product: a decision that offers Hosted opens the Hosted paywall, one
-/// that offers Pro opens the Pro paywall. A decision that is open or
-/// confirming opens nothing, because there is nothing to sell.
-///
-/// [isSelfHosted] is the opener's own knowledge of the phone. Only the Pro
-/// sheet has a line for it.
+/// that offers Pro opens the Pro paywall. A decision that is open,
+/// confirming, unread or not offered opens nothing, because there is
+/// nothing to sell.
 Future<void> openPaywallFor(
   BuildContext context,
   FeatureDecision decision,
-  LockSource source, {
-  bool isSelfHosted = false,
-}) async {
-  if (decision is! FeatureLocked) return;
-  switch (decision.offer) {
+  LockSource source,
+) async {
+  final Holding offer;
+  switch (decision) {
+    case FeatureLocked():
+      offer = decision.offer;
+    case FeatureOpen() ||
+        FeatureConfirming() ||
+        FeatureUnread() ||
+        FeatureNotOffered():
+      return;
+  }
+  switch (offer) {
     case Holding.hosted:
       await context.push<void>(hostedPaywallLocation(source.hosted));
     case Holding.pro:
-      await openProPaywall(context, source.pro, isSelfHosted: isSelfHosted);
+      await openProPaywall(context, source.pro);
   }
 }
 
 /// The location [openPaywallFor] opens, or null when [decision] locks
 /// nothing. For a caller that holds a router and no context, such as a
 /// sheet that closes itself before the paywall opens.
-String? paywallLocationFor(
-  FeatureDecision decision,
-  LockSource source, {
-  bool isSelfHosted = false,
-}) {
+String? paywallLocationFor(FeatureDecision decision, LockSource source) {
   if (decision is! FeatureLocked) return null;
   return switch (decision.offer) {
     Holding.hosted => hostedPaywallLocation(source.hosted),
     Holding.pro =>
       _door?.proLayoutLocation(source.pro) ??
-          proPackSheetLocation(source.pro, isSelfHosted: isSelfHosted),
+          proPackSheetLocation(source.pro),
   };
 }
 

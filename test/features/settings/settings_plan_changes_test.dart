@@ -30,20 +30,17 @@ void main() {
     final cubit = SettingsCubit(
       identityStore: identity,
       holdings: access.holdings,
-      featureAccess: access.features,
       proOverride: const NoProOverride(),
       planChanges: plan,
     );
     addTearDown(cubit.close);
     await cubit.load();
     expect(cubit.state.holdsHosted, isFalse);
-    expect(cubit.state.hasStorageSection, isFalse);
 
     plan.setStoreSaysPro(value: true);
     await pumpEventQueue();
 
     expect(cubit.state.holdsHosted, isTrue);
-    expect(cubit.state.hasStorageSection, isTrue);
   });
 
   test('a bump reads the new tier and caps from the store', () async {

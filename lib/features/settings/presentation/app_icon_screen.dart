@@ -18,9 +18,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// The four home screen icons as a showcase. Pro picks any of them; everyone
-/// else sees the three Pro icons tilting and glinting with a lock, and the
-/// button under them opens the paywall.
+/// The four home screen icons as a showcase. With the icons unlocked a
+/// person picks any of them. Everyone else sees the three paid icons at
+/// full colour with the plan badge under the name, and the one button
+/// under them opens the paywall.
 ///
 /// Only reachable where the platform can change its icon: Appearance hides the
 /// row that leads here, and the route sends anything else back.
@@ -195,14 +196,6 @@ class _AppIconViewState extends State<_AppIconView>
                 AppNote(text: LocaleKeys.settings_app_icon_failed.tr()),
                 const SizedBox(height: Spacing.s3),
               ],
-              if (locked) ...[
-                Text(
-                  LocaleKeys.settings_app_icon_pro_feature.tr(),
-                  textAlign: TextAlign.center,
-                  style: AppTypography.small(colors.onCanvas),
-                ),
-                const SizedBox(height: Spacing.s2),
-              ],
               // The icon in use is a status, not a disabled button, which read
               // as a dead primary. Same height as the button, so the slot
               // never shifts as the carousel moves.
@@ -215,8 +208,10 @@ class _AppIconViewState extends State<_AppIconView>
                   label: switch (action) {
                     IconAction.use =>
                       LocaleKeys.settings_app_icon_action_use.tr(),
+                    // Names no plan: the badge under the icon's name
+                    // does, and the paywall shows what unlocks it.
                     IconAction.unlock =>
-                      LocaleKeys.settings_app_icon_go_pro.tr(),
+                      LocaleKeys.settings_app_icon_action_unlock.tr(),
                     IconAction.inUse => '',
                   },
                   isFullWidth: true,
@@ -381,7 +376,7 @@ class _AppIconViewState extends State<_AppIconView>
   }
 }
 
-/// "Your Pro icons", fading in above the carousel on the first visit.
+/// "Your extra icons", fading in above the carousel on the first visit.
 class _Headline extends StatelessWidget {
   const _Headline({required this.visible, required this.colors});
 
@@ -390,27 +385,33 @@ class _Headline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final line = visible
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.s3),
+            child: Text(
+              LocaleKeys.settings_app_icon_welcome.tr(),
+              style: AppTypography.headline(colors.onCanvas, fontSize: 26),
+            ),
+          )
+        : const SizedBox.shrink();
+    // Under reduce motion the line is just there. An AnimatedSize with no
+    // time to run marks itself for layout while the fill-remaining sliver
+    // is still laying it out, which Flutter reports as an error.
+    if (context.reduceMotion) return line;
     return AnimatedSize(
-      duration: context.motion(AppDurations.base),
+      duration: AppDurations.base,
       curve: AppCurves.easeOut,
       child: AnimatedOpacity(
         opacity: visible ? 1 : 0,
-        duration: context.motion(AppDurations.slow),
-        child: visible
-            ? Padding(
-                padding: const EdgeInsets.only(bottom: Spacing.s3),
-                child: Text(
-                  LocaleKeys.settings_app_icon_welcome.tr(),
-                  style: AppTypography.headline(colors.onCanvas, fontSize: 26),
-                ),
-              )
-            : const SizedBox.shrink(),
+        duration: AppDurations.slow,
+        child: line,
       ),
     );
   }
 }
 
-/// One tile: the artwork, tilting by itself, with a lock when it needs Pro.
+/// One tile: the artwork, tilting by itself. A locked one is drawn the
+/// same as an open one. The badge under its name says it is locked.
 class _IconPage extends StatelessWidget {
   const _IconPage({
     required this.icon,
@@ -432,18 +433,8 @@ class _IconPage extends StatelessWidget {
   final bool current;
   final VoidCallback onTap;
 
-  // Slightly desaturated, so a locked icon looks held back, not greyed out.
-  static const _tease = ColorFilter.matrix(<double>[
-    0.8, 0.15, 0.05, 0, 0, //
-    0.1, 0.85, 0.05, 0, 0, //
-    0.1, 0.15, 0.75, 0, 0, //
-    0, 0, 0, 1, 0,
-  ]);
-
   @override
   Widget build(BuildContext context) {
-    final art = AppIconPreview(icon: icon, size: size);
-    final face = locked ? ColorFiltered(colorFilter: _tease, child: art) : art;
     final label = locked
         ? LocaleKeys.settings_app_icon_page_locked
         : current
@@ -465,7 +456,7 @@ class _IconPage extends StatelessWidget {
               phase: index * 1.3,
               animate: animate,
               borderRadius: BorderRadius.circular(size * 230 / 1024),
-              child: face,
+              child: AppIconPreview(icon: icon, size: size),
             ),
           ],
         ),

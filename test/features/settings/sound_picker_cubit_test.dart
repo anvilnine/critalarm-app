@@ -49,6 +49,9 @@ void main() {
   /// When set, reading peaks for a bundled sound waits on this.
   Completer<void>? holdBundledPeaks;
   late int bundledReads;
+
+  /// Runs when the platform is asked what it can do.
+  void Function()? whenCapabilitiesAsked;
   late Completer<void> userPeaksAsked;
   late MemoryAlarmSoundRepository repository;
   late _FixedPicker picker;
@@ -74,10 +77,12 @@ void main() {
     holdUserPeaks = null;
     holdBundledPeaks = null;
     bundledReads = 0;
+    whenCapabilitiesAsked = null;
     userPeaksAsked = Completer<void>();
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
       if (call.method == 'startPreview') previewCalls.add(call);
+      if (call.method == 'capabilities') whenCapabilitiesAsked?.call();
       if (call.method == 'readPeaks') {
         final args = call.arguments as Map<Object?, Object?>;
         if (args['is_asset'] != true) {
@@ -465,6 +470,37 @@ void main() {
         const FeatureDecision.open(),
       );
     });
+  });
+
+  test('a lock read while the list loads is still there once it has '
+      'loaded', () async {
+    // The first trusted answer lands while the platform is still being
+    // asked what it can do.
+    const locked = FeatureDecision.locked(Holding.pro);
+    ownSounds = locked;
+    final read = Completer<FeatureDecision>();
+    whenCapabilitiesAsked = () => read.complete(locked);
+    final host = SoundHost();
+    final warm = SoundPickerCubit(
+      repository,
+      host,
+      DeleteUserSoundUsecase(repository, host),
+      picker,
+      SoundPeaksCache(host),
+      platform: TargetPlatform.iOS,
+      readOwnSounds: () => ownSounds,
+      readOwnSoundsOnceReady: () => read.future,
+      ownSoundsChanges: ownSoundsChanges.stream,
+    );
+    addTearDown(warm.close);
+    repository.sounds.add(userSound);
+    repository.assignments = repository.assignments.withDefault(userSound.id);
+    await warm.load();
+
+    expect(warm.state.ownSoundsLocked, isTrue);
+    expect(warm.state.isLocked(userSound), isTrue);
+    expect(warm.state.selectedSoundId, userSound.id);
+    expect(warm.state.ringingSoundId, BundledSounds.fallbackId);
   });
 
   SoundPickerCubit freshCubit(SoundPeaksCache cache) {

@@ -36,9 +36,9 @@ const Color _canvasAlt = Color(0xFF151311);
 /// The words on the photo, in both themes and both stages.
 const Color ownLookWords = Color(0xFFFFFBF5);
 
-/// The outline of the ringing face. Ink, so the yellow face stands off
-/// any photo.
-const Color _faceOutline = Color(0xFF1A140F);
+/// The alarm colour of the ringing face's extras, such as the anger vein
+/// on its head. Ink, which reads on the yellow head.
+const Color _faceAccent = Color(0xFF1A140F);
 
 /// The topic pill once acknowledged. A dark tint: over the photo it can
 /// only make what is behind the topic darker, never lighter.
@@ -205,7 +205,7 @@ AppColors _ownColors(
     highlightHover: accent.hover,
     highlightAlt: accent.hover,
     onHighlight: accent.label,
-    crit: _faceOutline,
+    crit: _faceAccent,
     hairline: ownLookWords.withValues(alpha: 0.18),
     focus: ownLookWords,
     focusGap: _canvas,
@@ -349,6 +349,11 @@ AlarmStyle buildOwnAlarmStyle({
       ambient: _ownCanvas,
       type: standardRingingType,
       showsPulseRing: false,
+      // The outline of the face is the colour of the words. The scrim is
+      // built so that colour reads on everything it leaves of the photo,
+      // which an ink outline does not: over a dark photo it was lost. The
+      // sound waves take the same colour from `onCanvas`.
+      faceOutline: ownLookWords,
       // The quiet buttons keep the standard look's wash. An outline in
       // the colour of the words would be a stronger shape than any
       // coloured fill, and "I'm up" must be the heaviest. The scrim is

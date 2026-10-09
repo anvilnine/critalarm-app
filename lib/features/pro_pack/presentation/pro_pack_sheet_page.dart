@@ -9,53 +9,27 @@ import 'package:go_router/go_router.dart';
 const proPackSheetRouteName = 'proPack';
 const proPackSheetPath = '/pro';
 
-/// The query parameter that says the phone is on a server of its own.
-const _selfHostedParam = 'self_hosted';
-
 /// Opens the Pro sheet, naming what opened it.
-///
-/// [isSelfHosted] is the opener's own knowledge of the phone. The sheet
-/// then says the check covers the push relay and not that server.
 Future<void> openProPackSheet(
   BuildContext context,
-  ProPackSheetSource source, {
-  bool isSelfHosted = false,
-}) => context.pushNamed<void>(
+  ProPackSheetSource source,
+) => context.pushNamed<void>(
   proPackSheetRouteName,
-  queryParameters: {
-    'source': source.wire,
-    if (isSelfHosted) _selfHostedParam: '1',
-  },
+  queryParameters: {'source': source.wire},
 );
 
 /// The location [openProPackSheet] opens, for a caller that holds a router
 /// and no context.
-String proPackSheetLocation(
-  ProPackSheetSource source, {
-  bool isSelfHosted = false,
-}) => Uri(
+String proPackSheetLocation(ProPackSheetSource source) => Uri(
   path: proPackSheetPath,
-  queryParameters: {
-    'source': source.wire,
-    if (isSelfHosted) _selfHostedParam: '1',
-  },
+  queryParameters: {'source': source.wire},
 ).toString();
-
-/// Whether the route to the sheet says the phone is self-hosted.
-bool proPackSheetIsSelfHosted(Uri uri) =>
-    uri.queryParameters[_selfHostedParam] == '1';
 
 /// A router page that shows [ProPackSheet] as a modal bottom sheet.
 class ProPackSheetPage extends Page<void> {
-  const ProPackSheetPage({
-    required this.source,
-    this.isSelfHosted = false,
-    super.key,
-    super.name,
-  });
+  const ProPackSheetPage({required this.source, super.key, super.name});
 
   final ProPackSheetSource source;
-  final bool isSelfHosted;
 
   @override
   Route<void> createRoute(BuildContext context) => ModalBottomSheetRoute<void>(
@@ -66,6 +40,6 @@ class ProPackSheetPage extends Page<void> {
     sheetAnimationStyle: context.reduceMotion
         ? AnimationStyle.noAnimation
         : null,
-    builder: (_) => ProPackSheet(source: source, isSelfHosted: isSelfHosted),
+    builder: (_) => ProPackSheet(source: source),
   );
 }

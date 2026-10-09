@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
-import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -44,15 +42,10 @@ class SearchCubit extends Cubit<SearchState> {
     required this._addRecentSearch,
     required this._clearRecentSearches,
     required this._includeDevOnlySettings,
-    this.featureAccess,
     this.sessionStore,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       super(const SearchState()) {
-    _accessSub = featureAccess?.changes
-        .where((feature) => feature == AppFeature.storageRules)
-        .listen((_) => _onPlanChanged());
-  }
+       super(const SearchState());
 
   final TopicsCubit _topics;
   final IncidentsCubit _incidents;
@@ -63,49 +56,14 @@ class SearchCubit extends Cubit<SearchState> {
   final bool _includeDevOnlySettings;
   final DateTime Function() _now;
 
-  /// Says whether the Storage rows exist in Settings, and when that
-  /// changes, so Storage becomes searchable the moment a purchase lands.
-  /// Null in tests that do not care, and then the rows are left out.
-  final FeatureAccess? featureAccess;
-  StreamSubscription<AppFeature>? _accessSub;
-
   /// Says whether the server is self-hosted, which has no plan row to find.
   final ApiSessionStore? sessionStore;
-
-  /// Whether Settings draws its Storage section. Same rule as
-  /// `SettingsState.hasStorageSection`.
-  bool _showsStorage = false;
 
   /// Whether this phone is on its own server, which has no plans to search.
   bool _isSelfHosted = false;
 
-  Future<({bool showsStorage, bool selfHosted})> _readPlanFlags() async {
-    final session = await sessionStore?.read();
-    return (
-      showsStorage:
-          await featureAccess?.usableOnceReady(AppFeature.storageRules) ??
-          false,
-      selfHosted: isOwnServerMode(session?.mode),
-    );
-  }
-
-  void _onPlanChanged() {
-    if (isClosed || state.status != SearchStatus.ready) return;
-    unawaited(_refreshStorage());
-  }
-
-  Future<void> _refreshStorage() async {
-    final flags = await _readPlanFlags();
-    if (isClosed ||
-        (flags.showsStorage == _showsStorage &&
-            flags.selfHosted == _isSelfHosted)) {
-      return;
-    }
-    _showsStorage = flags.showsStorage;
-    _isSelfHosted = flags.selfHosted;
-    _catalogue = _buildCatalogue();
-    emit(state.copyWith(results: _rank(state.query)));
-  }
+  Future<bool> _readIsSelfHosted() async =>
+      isOwnServerMode((await sessionStore?.read())?.mode);
 
   /// Every searchable thing, in the order sections should break ties: topics,
   /// past alarms, settings, documentation.
@@ -145,9 +103,7 @@ class SearchCubit extends Cubit<SearchState> {
     await incidentsCall;
     _docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
     final recent = (await recentCall).getOrNull() ?? const <String>[];
-    final flags = await _readPlanFlags();
-    _showsStorage = flags.showsStorage;
-    _isSelfHosted = flags.selfHosted;
+    _isSelfHosted = await _readIsSelfHosted();
 
     if (isClosed) return;
 
@@ -202,7 +158,6 @@ class SearchCubit extends Cubit<SearchState> {
 
   @override
   Future<void> close() async {
-    await _accessSub?.cancel();
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();
@@ -300,7 +255,6 @@ class SearchCubit extends Cubit<SearchState> {
   List<SearchResult> _settingsResults() {
     final destinations = SettingsSearchIndex.forBuild(
       includeDevOnly: _includeDevOnlySettings,
-      showsStorage: _showsStorage,
       isSelfHosted: _isSelfHosted,
     );
     return <SearchResult>[

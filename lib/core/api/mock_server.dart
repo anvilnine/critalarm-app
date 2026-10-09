@@ -93,6 +93,13 @@ class MockServer {
   static const packRefreshLimit = 6;
   static const packRefreshWindow = Duration(seconds: 60);
 
+  /// The tier the relay holds for the fixture account: `free`, `hosted` or
+  /// `relay`. The weekly check goes by it (api.md §4.5): only `hosted` gets
+  /// one. The developer switch for Hosted writes here in a mock build, and
+  /// a test sets it to stand in for a purchase, a lapse or a return. A
+  /// registration answer does not carry it.
+  String accountTier = 'free';
+
   /// Whether the fixture device is enrolled in the weekly check.
   bool weeklyCheckEnabled = false;
 
@@ -144,6 +151,7 @@ class MockServer {
     packsCheckedAt = null;
     packsClock = DateTime.now;
     _packRefreshes.clear();
+    accountTier = 'free';
     weeklyCheckEnabled = false;
     weeklyCheckRounds.clear();
     weeklyCheckOpenCheckId = null;
@@ -1219,8 +1227,9 @@ class MockServer {
   /// Puts the fixture device in one state of the weekly check, with the
   /// rounds that lead to it. For captures and tests.
   ///
-  /// [WeeklyCheckState.off] is switched off. For a lost pack, seed another
-  /// state and take the pack away.
+  /// [WeeklyCheckState.off] is switched off. For a lapsed plan, seed another
+  /// state and set [accountTier] to `free`: the device stays enrolled and
+  /// the answer is `off` with the reason `tier`.
   void seedWeeklyCheck(WeeklyCheckState state) {
     final now = _checkNow();
     weeklyCheckRounds.clear();
@@ -1315,7 +1324,6 @@ class MockServer {
 
   /// GET /relay/v1/devices/{device_id}/check
   WeeklyCheck getWeeklyCheck() {
-    final hasPack = heldPacks().any((pack) => pack.id == 'pro');
     final closed = [
       for (final round in weeklyCheckRounds)
         if (!round.isOpen) round,
@@ -1335,12 +1343,13 @@ class MockServer {
     final lastSentAt = sent.isEmpty ? null : sent.first;
     final lastReceivedAt = receipts.isEmpty ? null : receipts.first;
 
-    if (!weeklyCheckEnabled || !hasPack) {
+    // Only `hosted` gets the check. A pack changes nothing.
+    if (!weeklyCheckEnabled || accountTier != 'hosted') {
       return WeeklyCheck(
         enabled: weeklyCheckEnabled,
         state: WeeklyCheckState.off,
         reason: weeklyCheckEnabled
-            ? WeeklyCheckOffReason.pack
+            ? WeeklyCheckOffReason.tier
             : WeeklyCheckOffReason.disabled,
         lastSentAt: lastSentAt,
         lastReceivedAt: lastReceivedAt,
@@ -1398,8 +1407,15 @@ class MockServer {
 
   /// PUT /relay/v1/devices/{device_id}/check
   WeeklyCheck setWeeklyCheck({required bool enabled}) {
-    if (enabled && !heldPacks().any((pack) => pack.id == 'pro')) {
-      throw const ApiException(statusCode: 403, message: 'pack', pack: 'pro');
+    // Enabling on any tier but `hosted` answers the tier error and changes
+    // nothing, also for a device that is already enrolled. Switching off
+    // always works.
+    if (enabled && accountTier != 'hosted') {
+      throw const ApiException(
+        statusCode: 403,
+        message: 'tier',
+        tier: 'hosted',
+      );
     }
     if (enabled && !weeklyCheckEnabled) weeklyCheckEnrolledAt = _checkNow();
     weeklyCheckEnabled = enabled;
@@ -2334,6 +2350,7 @@ class MockServer {
       if (e.code != null) body['code'] = e.code;
       if (e.cap != null) body['cap'] = e.cap;
       if (e.pack != null) body['pack'] = e.pack;
+      if (e.tier != null) body['tier'] = e.tier;
       return _jsonResponse(body, e.statusCode);
     } on Exception catch (e) {
       return _jsonResponse({'error': e.toString()}, 500);

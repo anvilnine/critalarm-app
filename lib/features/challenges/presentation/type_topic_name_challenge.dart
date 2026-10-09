@@ -165,8 +165,8 @@ class _TypeTopicNameState extends State<_TypeTopicName> {
                 keyboardType: TextInputType.visiblePassword,
                 textInputAction: TextInputAction.done,
                 textAlign: TextAlign.center,
-                // Room for the way out, pinned under the field.
-                scrollPadding: const EdgeInsets.fromLTRB(20, 120, 20, 120),
+                // Room for the line under the field and the way out.
+                scrollPadding: challengeFieldScrollPadding,
                 style: AppTypography.monoBold(colors.ink, fontSize: 24),
                 cursorColor: colors.cobalt,
                 onChanged: _check,

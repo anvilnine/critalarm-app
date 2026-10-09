@@ -36,9 +36,10 @@ final class FeatureAccess {
   ///
   /// Before that an answer can say "locked" for something that is open:
   /// a tier not read yet counts as not held, and a mode not read yet
-  /// counts as Crit Alarm Cloud. A screen that only draws a lock can skip
-  /// the wait and listen to [changes]. Code that takes something away, or
-  /// that decides once and does not look again, waits for this first.
+  /// counts as Crit Alarm Cloud. For the same reason "not offered" is never
+  /// said early. A screen that only draws a lock can skip the wait and
+  /// listen to [changes]. Code that takes something away, or that decides
+  /// once and does not look again, waits for this first.
   Future<void> get ready async {
     await _holdings.ready;
     try {
@@ -102,9 +103,8 @@ final class FeatureAccess {
     if (rule == null || rule.unlockedBy.isEmpty) {
       return const FeatureDecision.open();
     }
-    if (isOwnServer && rule.onOwnServer == OwnServerRule.open) {
-      return const FeatureDecision.open();
-    }
+    final here = _onThisServer(rule);
+    if (here != null) return here;
     Holding? waiting;
     Holding? unread;
     for (final holding in rule.unlockedBy) {
@@ -123,11 +123,23 @@ final class FeatureAccess {
     // One of the holdings that would unlock it could not be read. That is
     // never a lock.
     if (unread != null) return FeatureDecision.unread(unread);
-    return FeatureDecision.locked(rule.unlockedBy.first);
+    return FeatureDecision.locked(rule.offered);
+  }
+
+  /// What the server this phone is on settles by itself, before anything
+  /// held is looked at. Null where the holdings decide.
+  FeatureDecision? _onThisServer(FeatureRule rule) {
+    if (!isOwnServer) return null;
+    return switch (rule.onOwnServer) {
+      OwnServerRule.open => const FeatureDecision.open(),
+      OwnServerRule.notOffered => const FeatureDecision.notOffered(),
+      OwnServerRule.sameAsCloud => null,
+    };
   }
 
   /// What [decide] answers for [feature] here when nothing is held: the
-  /// lock, with the holding to sell.
+  /// lock, with the holding to sell. Where the server settles it, that
+  /// answer: open, or not offered.
   ///
   /// For a place that is locked by something other than the holdings and
   /// still has to open the right paywall: a row the relay refused, a row
@@ -137,10 +149,7 @@ final class FeatureAccess {
     if (rule == null || rule.unlockedBy.isEmpty) {
       return const FeatureDecision.open();
     }
-    if (isOwnServer && rule.onOwnServer == OwnServerRule.open) {
-      return const FeatureDecision.open();
-    }
-    return FeatureDecision.locked(rule.unlockedBy.first);
+    return _onThisServer(rule) ?? FeatureDecision.locked(rule.offered);
   }
 
   /// Each feature whose [decide] answer changed, once per change. Read

@@ -3,63 +3,9 @@ import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_s
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
-// What the Pro row and the Pro sheet show, decided without drawing. Pure, so
+// What the Pro sheet shows, decided without drawing. Pure, so
 // it is unit tested and the widgets only draw what they are handed. Words
 // are `LocaleKeys` keys, translated by the widget.
-
-/// The weekly delivery check row on the Reliability screen.
-@immutable
-final class WeeklyCheckRowView {
-  const WeeklyCheckRowView({
-    required this.isLocked,
-    required this.lineKey,
-    this.selfHostedLineKey,
-  });
-
-  /// Locked rows open the Pro sheet. An unlocked row draws its body.
-  final bool isLocked;
-
-  /// The one short line of a locked row, or of the unlocked row until the
-  /// check itself is built.
-  final String lineKey;
-
-  /// A second line for a locked row on a phone with a server of its own:
-  /// the check covers the push relay, not that server. Said before anyone
-  /// pays. Null on any other phone, and on an unlocked row, whose body
-  /// says it itself.
-  final String? selfHostedLineKey;
-
-  @override
-  bool operator ==(Object other) =>
-      other is WeeklyCheckRowView &&
-      other.isLocked == isLocked &&
-      other.lineKey == lineKey &&
-      other.selfHostedLineKey == selfHostedLineKey;
-
-  @override
-  int get hashCode => Object.hash(isLocked, lineKey, selfHostedLineKey);
-}
-
-/// The row for an install that holds the pack, or does not. Neither has a
-/// face: only a state that needs a look does.
-///
-/// [isSelfHosted] is the same fact the weekly check row has. The caller
-/// hands it in. Nothing here reads it.
-WeeklyCheckRowView weeklyCheckRowView({
-  required bool isHeld,
-  bool isSelfHosted = false,
-}) => isHeld
-    ? const WeeklyCheckRowView(
-        isLocked: false,
-        lineKey: LocaleKeys.pro_pack_weekly_ready_line,
-      )
-    : WeeklyCheckRowView(
-        isLocked: true,
-        lineKey: LocaleKeys.pro_pack_weekly_locked_line,
-        selfHostedLineKey: isSelfHosted
-            ? LocaleKeys.weekly_check_self_hosted_line
-            : null,
-      );
 
 /// The top of the Pro sheet for one stage.
 @immutable
@@ -135,25 +81,6 @@ ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
     titleKey: LocaleKeys.pro_pack_sheet_held_title,
     lineKey: LocaleKeys.pro_pack_sheet_held_line,
   ),
-};
-
-/// The line under what Pro is, on a phone with a server of its own: the
-/// check covers the push relay to the phone and not that server. It shows
-/// on the stages that say what Pro is, which are the ones a person reads
-/// before paying. Null on every other stage and every other phone.
-///
-/// [isSelfHosted] is handed in by whoever opened the sheet.
-String? proPackSheetSelfHostedLineKey(
-  ProPackSheetStage stage, {
-  required bool isSelfHosted,
-}) => switch (stage) {
-  ProPackSheetStage.notOnSale || ProPackSheetStage.offers =>
-    isSelfHosted ? LocaleKeys.weekly_check_self_hosted_line : null,
-  ProPackSheetStage.loading ||
-  ProPackSheetStage.atStore ||
-  ProPackSheetStage.checking ||
-  ProPackSheetStage.checkingPaused ||
-  ProPackSheetStage.held => null,
 };
 
 /// The words for a note over the offers.

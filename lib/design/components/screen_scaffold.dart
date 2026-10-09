@@ -43,11 +43,17 @@ class AppScreenScaffold extends StatefulWidget {
     this.topBackingPlateau,
     this.bodyClearsBottomBar = false,
     this.contentSortKey,
+    this.contentMaxWidth = AppSize.contentMaxWidth,
     super.key,
   }) : assert(
          onRefresh == null || onFaceRefresh == null,
          'Pick one: the spinner (onRefresh) or the face (onFaceRefresh).',
        );
+
+  /// How wide the body and the top bar get on a wide display. One column
+  /// of rows keeps the default. A page that lays two columns side by side
+  /// asks for more, so neither column is narrower than a phone.
+  final double contentMaxWidth;
 
   /// The body. Plain slivers, no padding of their own at the edges.
   final List<Widget> slivers;
@@ -325,7 +331,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         : boxWidth;
     final gutter = twoPane
         ? 0.0
-        : math.max(railGap, (paneWidth - AppSize.contentMaxWidth) / 2);
+        : math.max(railGap, (paneWidth - widget.contentMaxWidth) / 2);
 
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : railGap;

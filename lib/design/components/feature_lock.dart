@@ -14,6 +14,19 @@ String featureLockSpoken({
   ?planWord,
 ].where((part) => part.trim().isNotEmpty).join(', ');
 
+/// Where the corner badge of a [FeatureLock] sits.
+enum FeatureLockSeat {
+  /// On the corner, over the child. For a child with nothing to read in
+  /// that corner, such as a wide button with its label in the middle.
+  corner,
+
+  /// Above the child's top edge, reaching down over it by
+  /// [FeatureLock.badgeTuck] and no more, so it covers no label and no
+  /// picture. The caller leaves [FeatureLock.badgeRoomAbove] free over the
+  /// child.
+  above,
+}
+
 /// The one way the app draws something a plan would unlock.
 ///
 /// It wraps any option and draws it from a [FeatureDecision]:
@@ -21,9 +34,14 @@ String featureLockSpoken({
 /// - Open, confirming or unread: the child, untouched. A purchase being
 ///   confirmed and a plan that could not be read both count as usable, so
 ///   neither draws a lock.
+/// - Not offered: the child, untouched, with no badge and nothing to tap.
+///   There is nothing to sell, so the caller says in its own words that
+///   the feature is not available here.
 /// - Locked: the child at full colour with the plan badge on its corner, a
 ///   lock glyph and [planWord]. Nothing is dimmed or blurred. A tap goes to
-///   [onLockedTap] and never to the child.
+///   [onLockedTap] and never to the child. Where the corner holds a label
+///   or a picture, [FeatureLockSeat.above] seats the badge over the edge
+///   instead.
 ///
 /// It knows no feature, no paywall and no strings. A wrapper on the feature
 /// side reads the decision, listens for it changing and passes the words
@@ -45,6 +63,8 @@ class FeatureLock extends StatelessWidget {
     this.onUnlock,
     this.badgeAlignment = AlignmentDirectional.topEnd,
     this.badgeOverhang = 6,
+    this.badgeSeat = FeatureLockSeat.corner,
+    this.drawsBadge = true,
     super.key,
   }) : _isScopeOnly = false;
 
@@ -60,6 +80,8 @@ class FeatureLock extends StatelessWidget {
        onLockedTap = null,
        badgeAlignment = AlignmentDirectional.topEnd,
        badgeOverhang = 0,
+       badgeSeat = FeatureLockSeat.corner,
+       drawsBadge = false,
        _isScopeOnly = true;
 
   /// `FeatureAccess.decide` for the feature this option belongs to.
@@ -93,8 +115,28 @@ class FeatureLock extends StatelessWidget {
   final AlignmentGeometry badgeAlignment;
 
   /// How far the badge hangs past the child's edge. Negative sets it in
-  /// from the edge instead.
+  /// from the edge instead. With [FeatureLockSeat.above] it is sideways
+  /// only.
   final double badgeOverhang;
+
+  /// On the corner, or above the edge. See [FeatureLockSeat].
+  final FeatureLockSeat badgeSeat;
+
+  /// False for a child that places a [FeatureLockBadge] in its own layout,
+  /// where its words can wrap before it. The lock still takes the tap and
+  /// speaks for the option.
+  final bool drawsBadge;
+
+  /// How far a badge seated above the child reaches down over its edge.
+  static const double badgeTuck = 5;
+
+  /// The text size a badge seated above stops growing at, so the room
+  /// over the child can be a fixed one.
+  static const double badgeMaxTextScale = 1.3;
+
+  /// The room a badge seated above needs over the child, at any text
+  /// size.
+  static const double badgeRoomAbove = 22;
 
   final bool _isScopeOnly;
 
@@ -140,20 +182,60 @@ class FeatureLock extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IgnorePointer(ignoring: takesTap, child: child),
-            if (locked && word != null)
-              Positioned(
-                left: -badgeOverhang,
-                top: -badgeOverhang,
-                right: -badgeOverhang,
-                bottom: -badgeOverhang,
-                child: IgnorePointer(
-                  child: Align(
-                    alignment: badgeAlignment,
-                    child: ProBadge(label: word, isLocked: true),
+            if (locked && word != null && drawsBadge)
+              if (badgeSeat == FeatureLockSeat.above)
+                _BadgeAbove(overhang: badgeOverhang, word: word)
+              else
+                Positioned(
+                  left: -badgeOverhang,
+                  top: -badgeOverhang,
+                  right: -badgeOverhang,
+                  bottom: -badgeOverhang,
+                  child: IgnorePointer(
+                    child: Align(
+                      alignment: badgeAlignment,
+                      child: ProBadge(label: word, isLocked: true),
+                    ),
                   ),
                 ),
-              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The badge above the child's top end corner: its bottom edge sits
+/// [FeatureLock.badgeTuck] under the child's top edge, whatever its own
+/// height, so nothing of the child's content is under it.
+class _BadgeAbove extends StatelessWidget {
+  const _BadgeAbove({required this.overhang, required this.word});
+
+  final double overhang;
+  final String word;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return PositionedDirectional(
+      start: -overhang,
+      end: -overhang,
+      top: FeatureLock.badgeTuck,
+      child: IgnorePointer(
+        child: FractionalTranslation(
+          translation: const Offset(0, -1),
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            heightFactor: 1,
+            child: MediaQuery(
+              data: media.copyWith(
+                textScaler: media.textScaler.clamp(
+                  maxScaleFactor: FeatureLock.badgeMaxTextScale,
+                ),
+              ),
+              child: ProBadge(label: word, isLocked: true),
+            ),
+          ),
         ),
       ),
     );

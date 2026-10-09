@@ -37,11 +37,6 @@ const Map<AppFeature, AccessLabJump> accessLabJumps = {
     '/topics/new',
   ),
   AppFeature.longHistory: AccessLabJump('History', '/history', isTab: true),
-  AppFeature.storageRules: AccessLabJump(
-    'Settings, Storage',
-    '/settings',
-    isTab: true,
-  ),
   AppFeature.appIcons: AccessLabJump('App icon', '/app-icon'),
   AppFeature.widgets: AccessLabJump('Home widgets card', '/', isTab: true),
   AppFeature.ownSounds: AccessLabJump('Sound picker', '/sounds'),
@@ -71,9 +66,19 @@ const List<AccessLabJump> accessLabPages = [
 /// has no button.
 const Set<AppFeature> accessLabNotBuilt = {};
 
-/// A feature's name as words, made from its enum name, so a feature added
-/// to the table gets a row with no edit here.
-String accessLabFeatureName(AppFeature feature) => _words(feature.name);
+/// The features the app has a name for on its own screens. The lab uses
+/// the same words, so a row here and the strip or row it opens are called
+/// one thing.
+const Map<AppFeature, String> accessLabAppNames = {
+  AppFeature.alarmScreenStyles: 'Look',
+  AppFeature.wakeUpChallenges: 'Wake-up challenge',
+};
+
+/// A feature's name: the app's own words where it has them
+/// ([accessLabAppNames]), else words made from its enum name, so a feature
+/// added to the table gets a row with no edit here.
+String accessLabFeatureName(AppFeature feature) =>
+    accessLabAppNames[feature] ?? _words(feature.name);
 
 String accessLabHoldingName(Holding holding) => _words(holding.name);
 
@@ -122,6 +127,7 @@ String accessLabDecisionText(FeatureDecision decision) => switch (decision) {
     'Open, confirming ${accessLabHoldingName(holding)}',
   FeatureUnread(:final holding) =>
     'Open, ${accessLabHoldingName(holding)} unread',
+  FeatureNotOffered() => 'Not offered on this server, sells nothing',
 };
 
 /// Who unlocks a feature, read from its row in the table.
@@ -131,8 +137,13 @@ String accessLabRuleText(FeatureRule? rule) {
   final own = switch (rule.onOwnServer) {
     OwnServerRule.open => 'or own server',
     OwnServerRule.sameAsCloud => 'own server too',
+    OwnServerRule.notOffered => 'not offered on own server',
   };
-  return 'Needs $holdings, $own';
+  // Named only where there is a choice to make.
+  final sells = rule.unlockedBy.length > 1
+      ? ', sells ${accessLabHoldingName(rule.offered)}'
+      : '';
+  return 'Needs $holdings, $own$sells';
 }
 
 /// Where a feature's row goes, as the second half of its detail line.

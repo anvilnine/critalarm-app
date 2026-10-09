@@ -11,9 +11,10 @@ import 'package:flutter/semantics.dart';
 /// Type the first words of the alert title.
 ///
 /// The title is on screen, right over the field, with the words to type in
-/// bold. What is typed is compared with those words by a plain string
-/// match (see `type_alert_title_match.dart`). Nothing is read, logged or
-/// sent.
+/// bold. The prompt over it says to type the bold words, and the one line
+/// under the field only adds that capitals do not matter. What is typed is
+/// compared with those words by a plain string match (see
+/// `type_alert_title_match.dart`). Nothing is read, logged or sent.
 final class TypeAlertTitleChallenge implements Challenge {
   const TypeAlertTitleChallenge();
 
@@ -175,7 +176,7 @@ class _TypeAlertTitleState extends State<_TypeAlertTitle> {
                 keyboardType: TextInputType.visiblePassword,
                 textInputAction: TextInputAction.done,
                 textAlign: TextAlign.center,
-                scrollPadding: const EdgeInsets.fromLTRB(20, 120, 20, 120),
+                scrollPadding: challengeFieldScrollPadding,
                 style: AppTypography.monoBold(colors.ink, fontSize: 20),
                 cursorColor: colors.cobalt,
                 onChanged: _check,

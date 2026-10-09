@@ -38,8 +38,8 @@ class AlarmStyleScope extends InheritedWidget {
 /// - puts the look's background painter behind [child], where it takes no
 ///   touch and a screen reader never meets it;
 /// - sets the [AlarmStyleScope] the two screens read;
-/// - tells the ringing face to keep its head yellow (`RingingFaceFill`)
-///   in every look but the standard one, whichever face is shuffled in.
+/// - tells the ringing face to keep its head yellow (`RingingFaceFill`),
+///   whichever face is shuffled in.
 ///
 /// The tree it builds has the same shape whatever the colours are, so a
 /// severity that changes mid-alarm keeps every widget under it mounted. A

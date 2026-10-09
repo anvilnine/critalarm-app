@@ -15,7 +15,6 @@ class SettingsDestination {
     required this.parentTitleKey,
     this.keywords = const <String>[],
     this.devOnly = false,
-    this.needsStorageSection = false,
     this.hiddenWhenSelfHosted = false,
   });
 
@@ -36,10 +35,6 @@ class SettingsDestination {
 
   /// Only in a build that skips the paywall, matching the Settings screen.
   final bool devOnly;
-
-  /// Lives in the Storage section, which Settings only draws on a paid plan
-  /// or a self-hosted server. Search must not find a row that is not there.
-  final bool needsStorageSection;
 
   /// Leads to a plan or a purchase. A self-hosted server has no plans, so
   /// Settings does not draw the row and search must not find it.
@@ -247,7 +242,6 @@ abstract final class SettingsSearchIndex {
         'history',
         'space',
       ],
-      needsStorageSection: true,
     ),
     const SettingsDestination(
       id: 'storage-keep-critical',
@@ -261,7 +255,6 @@ abstract final class SettingsSearchIndex {
         'keep forever',
         'storage',
       ],
-      needsStorageSection: true,
     ),
     SettingsDestination(
       id: 'plan',
@@ -327,18 +320,14 @@ abstract final class SettingsSearchIndex {
   /// The rows a given build should search. A release build never offers the
   /// developer screen, so it must never find it either.
   ///
-  /// [showsStorage] matches `SettingsState.hasStorageSection`: true on a paid
-  /// plan or a self-hosted server. Without it the Storage rows are left out.
   /// [isSelfHosted] leaves out the rows that lead to a plan.
   static List<SettingsDestination> forBuild({
     required bool includeDevOnly,
-    required bool showsStorage,
     bool isSelfHosted = false,
   }) {
     return <SettingsDestination>[
       for (final destination in all)
         if ((includeDevOnly || !destination.devOnly) &&
-            (showsStorage || !destination.needsStorageSection) &&
             !(isSelfHosted && destination.hiddenWhenSelfHosted))
           destination,
     ];

@@ -160,38 +160,6 @@ void main() {
     });
   });
 
-  group('the row on the Reliability screen', () {
-    test('without the pack it is locked and opens Pro', () {
-      final view = weeklyCheckRowView(isHeld: false);
-      expect(view.isLocked, isTrue);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
-    });
-
-    test('with the pack it is ready and not locked', () {
-      final view = weeklyCheckRowView(isHeld: true);
-      expect(view.isLocked, isFalse);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_ready_line);
-    });
-
-    test('locked on a self-hosted phone: it says relay, not your server', () {
-      final view = weeklyCheckRowView(isHeld: false, isSelfHosted: true);
-      expect(view.isLocked, isTrue);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
-      expect(view.selfHostedLineKey, LocaleKeys.weekly_check_self_hosted_line);
-    });
-
-    test('locked on a cloud phone has no such line', () {
-      expect(weeklyCheckRowView(isHeld: false).selfHostedLineKey, isNull);
-    });
-
-    test('the unlocked row leaves that line to its body', () {
-      expect(
-        weeklyCheckRowView(isHeld: true, isSelfHosted: true).selfHostedLineKey,
-        isNull,
-      );
-    });
-  });
-
   group('the sheet', () {
     test('every stage has a view, and waiting stages watch', () {
       for (final stage in ProPackSheetStage.values) {
@@ -259,48 +227,10 @@ void main() {
       );
     });
 
-    test('on a self-hosted phone the sheet says relay, not your server', () {
+    test('the route to the sheet carries what opened it and nothing else', () {
       expect(
-        {
-          for (final stage in ProPackSheetStage.values)
-            stage: proPackSheetSelfHostedLineKey(stage, isSelfHosted: true),
-        },
-        {
-          ProPackSheetStage.loading: null,
-          ProPackSheetStage.notOnSale: LocaleKeys.weekly_check_self_hosted_line,
-          ProPackSheetStage.offers: LocaleKeys.weekly_check_self_hosted_line,
-          ProPackSheetStage.atStore: null,
-          ProPackSheetStage.checking: null,
-          ProPackSheetStage.checkingPaused: null,
-          ProPackSheetStage.held: null,
-        },
-      );
-    });
-
-    test('on a cloud phone the sheet has no such line', () {
-      for (final stage in ProPackSheetStage.values) {
-        expect(
-          proPackSheetSelfHostedLineKey(stage, isSelfHosted: false),
-          isNull,
-          reason: '$stage',
-        );
-      }
-    });
-
-    test('the route carries the self-hosted fact to the sheet', () {
-      expect(
-        proPackSheetIsSelfHosted(Uri.parse('/pro?source=reliability')),
-        isFalse,
-      );
-      expect(
-        proPackSheetIsSelfHosted(
-          Uri.parse('/pro?source=reliability&self_hosted=1'),
-        ),
-        isTrue,
-      );
-      expect(
-        proPackSheetIsSelfHosted(Uri.parse('/pro?self_hosted=0')),
-        isFalse,
+        proPackSheetLocation(ProPackSheetSource.homeWidgets),
+        '/pro?source=${ProPackSheetSource.homeWidgets.wire}',
       );
     });
 

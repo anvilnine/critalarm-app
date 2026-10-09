@@ -65,13 +65,13 @@ void main() {
       unlocked: access.features.can(AppFeature.appIcons),
     );
 
-    test('lock on Crit Alarm Cloud without Hosted', () {
+    test('lock on Crit Alarm Cloud with neither Hosted nor Pro', () {
       expect(isLocked(access()), isTrue);
-      expect(isLocked(access(held: {Holding.pro})), isTrue);
     });
 
-    test('open with Hosted and on a server of the user own', () {
+    test('open with Hosted, with Pro, and on a server of the user own', () {
       expect(isLocked(access(held: {Holding.hosted})), isFalse);
+      expect(isLocked(access(held: {Holding.pro})), isFalse);
       expect(isLocked(access(serverMode: ServerMode.selfhosted)), isFalse);
     });
 
@@ -172,46 +172,85 @@ void main() {
   });
 
   group('the weekly check row', () {
-    bool isOpen(TestAccess access) =>
-        access.features.decide(AppFeature.weeklyCheck) is FeatureOpen;
+    FeatureDecision decide(TestAccess access) =>
+        access.features.decide(AppFeature.weeklyCheck);
+    const sellsHosted = FeatureDecision.locked(Holding.hosted);
 
-    test('needs Pro, on Crit Alarm Cloud and on an own server', () {
-      for (final mode in ServerMode.values) {
-        expect(isOpen(access(serverMode: mode)), isFalse, reason: '$mode');
+    test('needs Hosted on Crit Alarm Cloud and on the relay itself, and Pro '
+        'changes nothing', () {
+      for (final mode in [ServerMode.hosted, ServerMode.relay]) {
+        expect(decide(access(serverMode: mode)), sellsHosted, reason: '$mode');
         expect(
-          isOpen(access(held: {Holding.hosted}, serverMode: mode)),
-          isFalse,
+          decide(access(held: {Holding.pro}, serverMode: mode)),
+          sellsHosted,
           reason: '$mode',
         );
         expect(
-          isOpen(access(held: {Holding.pro}, serverMode: mode)),
-          isTrue,
+          decide(access(held: {Holding.hosted}, serverMode: mode)),
+          const FeatureDecision.open(),
+          reason: '$mode',
+        );
+        expect(
+          decide(access(held: {Holding.hosted, Holding.pro}, serverMode: mode)),
+          const FeatureDecision.open(),
           reason: '$mode',
         );
       }
     });
 
-    test('stays locked while a Pro purchase is being confirmed', () {
-      final confirming = access()..pro.set(HoldingState.pending);
+    test('is not offered on a server of the user own, whatever is held', () {
+      for (final held in <Set<Holding>>[
+        {},
+        {Holding.pro},
+        {Holding.hosted},
+        {Holding.hosted, Holding.pro},
+      ]) {
+        expect(
+          decide(access(held: held, serverMode: ServerMode.selfhosted)),
+          const FeatureDecision.notOffered(),
+          reason: '$held',
+        );
+      }
+    });
+
+    test('stays locked while a Hosted purchase is being confirmed', () {
+      final confirming = access()..hosted.set(HoldingState.pending);
       expect(confirming.features.can(AppFeature.weeklyCheck), isTrue);
-      expect(isOpen(confirming), isFalse);
+      expect(decide(confirming), isNot(const FeatureDecision.open()));
+    });
+  });
+
+  group('the app icons', () {
+    test('are open with Hosted alone, with Pro alone, and on a server of '
+        'the user own', () {
+      expect(access().features.can(AppFeature.appIcons), isFalse);
+      expect(
+        access(held: {Holding.hosted}).features.can(AppFeature.appIcons),
+        isTrue,
+      );
+      expect(
+        access(held: {Holding.pro}).features.can(AppFeature.appIcons),
+        isTrue,
+      );
+      expect(
+        access(
+          serverMode: ServerMode.selfhosted,
+        ).features.can(AppFeature.appIcons),
+        isTrue,
+      );
     });
   });
 
   group('the Storage rows in search', () {
-    bool findsStorage(TestAccess access) => SettingsSearchIndex.forBuild(
-      includeDevOnly: false,
-      showsStorage: access.features.can(AppFeature.storageRules),
-    ).any((destination) => destination.needsStorageSection);
-
-    test('are found with Hosted and on a server of the user own', () {
-      expect(findsStorage(access(held: {Holding.hosted})), isTrue);
-      expect(findsStorage(access(serverMode: ServerMode.selfhosted)), isTrue);
-    });
-
-    test('are left out on Crit Alarm Cloud without Hosted', () {
-      expect(findsStorage(access()), isFalse);
-      expect(findsStorage(access(held: {Holding.pro})), isFalse);
+    test('are found by everyone: nothing held on Crit Alarm Cloud '
+        'included', () {
+      final ids = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+      ).map((destination) => destination.id);
+      expect(
+        ids,
+        containsAll(['storage-delete-after', 'storage-keep-critical']),
+      );
     });
   });
 }

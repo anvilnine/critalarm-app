@@ -12,8 +12,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// The one place Pro is offered: what it is, why it costs money, what the
-/// store has on sale, and Restore.
+/// The Pro sheet: what Pro is, that it is a purchase of its own beside
+/// Hosted, what the store has on sale, and Restore.
 ///
 /// Every title and price on it is the store's own string. With nothing on
 /// sale it says so and offers nothing to buy. Restore stays, so a buyer on
@@ -21,18 +21,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// `ProPackSheetCubit`; the face and words for each stage come from
 /// `proPackSheetView`.
 class ProPackSheet extends StatelessWidget {
-  const ProPackSheet({
-    this.source = ProPackSheetSource.direct,
-    this.isSelfHosted = false,
-    super.key,
-  });
+  const ProPackSheet({this.source = ProPackSheetSource.direct, super.key});
 
   final ProPackSheetSource source;
-
-  /// The phone is on a server of its own, as whoever opened the sheet
-  /// knows it. The sheet then says, before anything can be bought, that the
-  /// check covers the push relay and not that server.
-  final bool isSelfHosted;
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +33,13 @@ class ProPackSheet extends StatelessWidget {
         unawaited(cubit.open(source));
         return cubit;
       },
-      child: _ProPackSheetBody(isSelfHosted: isSelfHosted),
+      child: const _ProPackSheetBody(),
     );
   }
 }
 
 class _ProPackSheetBody extends StatefulWidget {
-  const _ProPackSheetBody({required this.isSelfHosted});
-
-  final bool isSelfHosted;
+  const _ProPackSheetBody();
 
   @override
   State<_ProPackSheetBody> createState() => _ProPackSheetBodyState();
@@ -77,10 +66,6 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
         builder: (context, state) {
           final view = proPackSheetView(state.stage);
           final note = state.note;
-          final selfHostedLine = proPackSheetSelfHostedLineKey(
-            state.stage,
-            isSelfHosted: widget.isSelfHosted,
-          );
           final showsOffers = state.stage == ProPackSheetStage.offers;
 
           return AppBottomSheet(
@@ -119,14 +104,6 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                       style: AppTypography.body(colors.ink2, fontSize: 15),
                     ),
                   ],
-                ],
-                if (selfHostedLine != null) ...[
-                  const SizedBox(height: Spacing.s1),
-                  Text(
-                    selfHostedLine.tr(),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.body(colors.ink2, fontSize: 15),
-                  ),
                 ],
                 if (showsOffers ||
                     state.stage == ProPackSheetStage.notOnSale) ...[

@@ -94,10 +94,7 @@ void main() {
       );
       // The other holding was read. Its answers are not held up.
       expect(await access.holdings.holdsOnceReady(Holding.pro), isFalse);
-      expect(
-        await access.features.canOnceReady(AppFeature.weeklyCheck),
-        isFalse,
-      );
+      expect(await access.features.canOnceReady(AppFeature.widgets), isFalse);
     });
 
     test('never locks a feature and never sells one', () {
@@ -125,7 +122,7 @@ void main() {
         isTrue,
       );
       expect(
-        await access.features.usableOnceReady(AppFeature.weeklyCheck),
+        await access.features.usableOnceReady(AppFeature.widgets),
         isFalse,
       );
     });

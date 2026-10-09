@@ -172,7 +172,7 @@ class _OpsMathState extends State<_OpsMath> {
                 ],
                 textInputAction: TextInputAction.done,
                 textAlign: TextAlign.center,
-                scrollPadding: const EdgeInsets.fromLTRB(20, 120, 20, 120),
+                scrollPadding: challengeFieldScrollPadding,
                 style: AppTypography.monoBold(colors.ink, fontSize: 24),
                 cursorColor: colors.cobalt,
                 onChanged: _check,
@@ -186,17 +186,19 @@ class _OpsMathState extends State<_OpsMath> {
             ),
           ),
         ),
-        const SizedBox(height: Spacing.s2),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            _wasWrong
-                ? LocaleKeys.challenges_ops_math_wrong.tr()
-                : LocaleKeys.challenges_ops_math_hint.tr(),
-            textAlign: TextAlign.center,
-            style: AppTypography.small(colors.onCanvas, fontSize: 13),
+        // The number pad has nothing but numbers, so no line says so. The
+        // only line here is the one after a wrong answer.
+        if (_wasWrong) ...[
+          const SizedBox(height: Spacing.s2),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              LocaleKeys.challenges_ops_math_wrong.tr(),
+              textAlign: TextAlign.center,
+              style: AppTypography.small(colors.onCanvas, fontSize: 13),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

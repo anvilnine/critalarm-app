@@ -6,6 +6,7 @@ class ApiException implements Exception {
     this.code,
     this.cap,
     this.pack,
+    this.tier,
   });
 
   final int statusCode;
@@ -17,10 +18,14 @@ class ApiException implements Exception {
   /// of a `403 {"error":"pack","pack":"..."}` (api.md §1.8).
   final String? pack;
 
+  /// The tier a route needed and the account is not on: the `tier` field of
+  /// a `403 {"error":"tier","tier":"..."}` (api.md §1.8).
+  final String? tier;
+
   @override
   String toString() =>
       'ApiException(statusCode: $statusCode, message: $message, code: $code, '
-      'cap: $cap, pack: $pack)';
+      'cap: $cap, pack: $pack, tier: $tier)';
 }
 
 /// Thrown when a call needs a server and none is set up yet, such as the app

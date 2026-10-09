@@ -247,21 +247,18 @@ class _SettingsScreenContent extends StatelessWidget {
                         ),
                       ],
                       // Storage is the only thing left of the old Alarms
-                      // page, and it only shows on a paid tier or a
-                      // self-hosted server.
-                      if (state.hasStorageSection) ...[
-                        const SizedBox(height: 8),
-                        _buildNavRow(
-                          context,
-                          title: LocaleKeys.settings_storage_row_title.tr(),
-                          subtitle: LocaleKeys.settings_storage_row_subtitle
-                              .tr(),
-                          path: '/settings/alarms',
-                          value: settingsStorageValueKey(
-                            state.storage.retention,
-                          ).tr(),
-                        ),
-                      ],
+                      // page. It only touches this phone's own copy, so it
+                      // is there on every plan.
+                      const SizedBox(height: 8),
+                      _buildNavRow(
+                        context,
+                        title: LocaleKeys.settings_storage_row_title.tr(),
+                        subtitle: LocaleKeys.settings_storage_row_subtitle.tr(),
+                        path: '/settings/alarms',
+                        value: settingsStorageValueKey(
+                          state.storage.retention,
+                        ).tr(),
+                      ),
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,

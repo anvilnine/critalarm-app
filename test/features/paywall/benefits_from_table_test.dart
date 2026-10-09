@@ -30,17 +30,19 @@ List<PaywallBenefitId> _ids(
 
 void main() {
   group('HostedBenefit.all', () {
-    test('is what the feature table says, and the same list as before', () {
+    test('is what the feature table says, with the weekly check last', () {
       expect(
         HostedBenefit.all.map((b) => b.id),
         hostedBenefitsIn(featureTable).map((b) => b.id),
       );
-      // Pinned: the items and the order every Hosted surface has shown.
+      // Pinned: the items and the order every Hosted surface shows. The
+      // weekly delivery check joined at the end when it moved from Pro.
       expect(HostedBenefit.all.map((b) => b.id), [
         HostedBenefitId.topics,
         HostedBenefitId.pushes,
         HostedBenefitId.history,
         HostedBenefitId.appIcons,
+        HostedBenefitId.weeklyCheck,
       ]);
     });
 
@@ -53,7 +55,37 @@ void main() {
           HostedBenefitId.pushes: null,
           HostedBenefitId.history: AppFeature.longHistory,
           HostedBenefitId.appIcons: AppFeature.appIcons,
+          HostedBenefitId.weeklyCheck: AppFeature.weeklyCheck,
         },
+      );
+    });
+
+    test('the weekly check is a Hosted benefit because the table says '
+        'Hosted, and is not one when the table says Pro', () {
+      expect(featureTable[AppFeature.weeklyCheck]!.unlockedBy, {
+        Holding.hosted,
+      });
+      expect(
+        HostedBenefit.all.map((b) => b.feature),
+        contains(AppFeature.weeklyCheck),
+      );
+      final asPro = hostedBenefitsIn(
+        _tableWith({AppFeature.weeklyCheck: _pro}),
+      );
+      expect(
+        asPro.map((b) => b.id),
+        isNot(contains(HostedBenefitId.weeklyCheck)),
+      );
+    });
+
+    test('the app icons stay a Hosted benefit though Pro unlocks them too', () {
+      expect(featureTable[AppFeature.appIcons]!.unlockedBy, {
+        Holding.hosted,
+        Holding.pro,
+      });
+      expect(
+        HostedBenefit.all.map((b) => b.id),
+        contains(HostedBenefitId.appIcons),
       );
     });
 
@@ -76,6 +108,7 @@ void main() {
         HostedBenefitId.topics,
         HostedBenefitId.pushes,
         HostedBenefitId.history,
+        HostedBenefitId.weeklyCheck,
       ]);
     });
 
@@ -96,7 +129,10 @@ void main() {
   });
 
   group('the layout lists', () {
-    test('come out as they did before the widgets row moved', () {
+    test('follow the table: the weekly check is off the Pro list', () {
+      // The Hosted layout list is the four it was. The weekly check is in
+      // `HostedBenefit.all` and has no line and preview for a layout yet,
+      // so a layout does not list it.
       expect(_ids(featureTable, PaywallProduct.hosted), [
         PaywallBenefitId.topics,
         PaywallBenefitId.pushes,
@@ -106,17 +142,34 @@ void main() {
       expect(_ids(featureTable, PaywallProduct.pro), [
         PaywallBenefitId.wakeUpChallenges,
         PaywallBenefitId.widgets,
-        PaywallBenefitId.reliabilityChecks,
         PaywallBenefitId.customSounds,
         PaywallBenefitId.customAlarmScreens,
       ]);
       // What this build really has. The alarm screen looks joined the
-      // day the own photo look was built.
+      // day the own photo look was built, and the own sounds once Pro
+      // gated them.
       expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
         PaywallBenefitId.widgets,
-        PaywallBenefitId.reliabilityChecks,
+        PaywallBenefitId.customSounds,
         PaywallBenefitId.customAlarmScreens,
       ]);
+    });
+
+    test('no layout lists the weekly check under Pro', () {
+      for (final benefit in allPaywallBenefits) {
+        if (benefit.product != PaywallProduct.pro) continue;
+        expect(benefit.feature, isNot(AppFeature.weeklyCheck));
+        expect(benefit.id, isNot(PaywallBenefitId.reliabilityChecks));
+      }
+    });
+
+    test('the weekly check comes back to the Pro list if the table says '
+        'Pro again', () {
+      final moved = _tableWith({AppFeature.weeklyCheck: _pro});
+      expect(
+        _ids(moved, PaywallProduct.pro),
+        contains(PaywallBenefitId.reliabilityChecks),
+      );
     });
 
     test('each Pro benefit names the feature it stands for', () {
@@ -128,7 +181,6 @@ void main() {
         {
           PaywallBenefitId.wakeUpChallenges: AppFeature.wakeUpChallenges,
           PaywallBenefitId.widgets: AppFeature.widgets,
-          PaywallBenefitId.reliabilityChecks: AppFeature.weeklyCheck,
           PaywallBenefitId.customSounds: AppFeature.ownSounds,
           PaywallBenefitId.customAlarmScreens: AppFeature.alarmScreenStyles,
         },
@@ -156,20 +208,30 @@ void main() {
       final moved = _tableWith({AppFeature.widgets: _hosted});
       expect(_ids(moved, PaywallProduct.pro), [
         PaywallBenefitId.wakeUpChallenges,
-        PaywallBenefitId.reliabilityChecks,
         PaywallBenefitId.customSounds,
         PaywallBenefitId.customAlarmScreens,
       ]);
     });
 
     test('a Pro feature moved to Hosted leaves the Pro list', () {
-      final moved = _tableWith({AppFeature.weeklyCheck: _hosted});
+      final moved = _tableWith({AppFeature.alarmScreenStyles: _hosted});
       expect(_ids(moved, PaywallProduct.pro), [
         PaywallBenefitId.wakeUpChallenges,
         PaywallBenefitId.widgets,
         PaywallBenefitId.customSounds,
-        PaywallBenefitId.customAlarmScreens,
       ]);
+    });
+
+    test('the app icons stay on the Hosted list, and are not on the Pro '
+        'list yet though Pro unlocks them', () {
+      expect(
+        _ids(featureTable, PaywallProduct.hosted),
+        contains(PaywallBenefitId.appIcons),
+      );
+      expect(
+        _ids(featureTable, PaywallProduct.pro),
+        isNot(contains(PaywallBenefitId.appIcons)),
+      );
     });
 
     test('a Hosted feature moved to Pro leaves the Hosted list', () {

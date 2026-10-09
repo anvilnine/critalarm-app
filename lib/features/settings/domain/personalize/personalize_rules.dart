@@ -228,3 +228,8 @@ bool personalizeIsWide({
   required double height,
   required double mediumMinWidth,
 }) => width >= mediumMinWidth && width > height;
+
+/// How wide the page gets when the preview sits beside the choices. Half
+/// of it is about a large phone's width, so the strips and rows on the
+/// right have the room they have on a phone.
+const double personalizeWideMaxWidth = 960;
