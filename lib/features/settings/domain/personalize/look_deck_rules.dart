@@ -197,29 +197,26 @@ class LookHint {
   String toString() => 'LookHint($key, $lockedCount)';
 }
 
-/// The hint line for the centred look.
+/// The hint line for the centred look, or null when there is nothing to say.
 ///
-/// - While a locked look is shown and nothing is saved: "Swipe for more
-///   looks". The try bar under it already says "Not saved".
-/// - While looks are locked and the plan is read: "Swipe. 5 more with Pro",
-///   counting the positions that need the plan.
-/// - Otherwise: "Swipe for more looks". A plan not read yet sells nothing.
-LookHint lookHintFor({
+/// - While looks are locked and the plan is read: "5 more with Pro", counting
+///   the positions that need the plan.
+/// - Otherwise: no line. The deck shows that it swipes, and a try bar under
+///   it already says "Not saved". A plan not read yet sells nothing.
+LookHint? lookHintFor({
   required LookAction action,
   required FeatureDecision decision,
   required bool isPlanRead,
   required List<AlarmStyleId> deck,
 }) {
-  if (action.showsTryBar) {
-    return const LookHint(LocaleKeys.personalize_passes_look_hint_swipe);
-  }
+  if (action.showsTryBar) return null;
   if (isPlanRead && decision is FeatureLocked) {
     return LookHint(
       LocaleKeys.personalize_passes_look_hint_swipe_locked,
       lockedCount: deck.where((id) => !id.isFree).length,
     );
   }
-  return const LookHint(LocaleKeys.personalize_passes_look_hint_swipe);
+  return null;
 }
 
 /// The ground and the text of every look in the deck, and the colour of the

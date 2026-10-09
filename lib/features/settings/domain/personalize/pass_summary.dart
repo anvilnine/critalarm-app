@@ -8,36 +8,26 @@ import 'package:flutter/foundation.dart';
 // What each card of the Personalize root says, with nothing drawn. Pure, so it
 // is unit tested and the screen only draws what it is handed.
 
-/// How many kinds of home screen widget the app has: Topic, Topics and Open
-/// incidents, on iOS and on Android alike. Neither platform can say how many
-/// the person has added, so the card says what the app offers.
-const int personalizeWidgetKinds = 3;
-
 /// The words a card shows as its value, before they are translated.
 @immutable
 sealed class PassValue {
   const PassValue();
 }
 
-/// A value that is a translation key, with a plural count when the key has
-/// forms.
+/// A value that is a translation key.
 final class PassValueKey extends PassValue {
-  const PassValueKey(this.key, {this.count});
+  const PassValueKey(this.key);
 
   final String key;
 
-  /// Picks the plural form of [key]. Null for a key with one form.
-  final int? count;
+  @override
+  bool operator ==(Object other) => other is PassValueKey && other.key == key;
 
   @override
-  bool operator ==(Object other) =>
-      other is PassValueKey && other.key == key && other.count == count;
+  int get hashCode => Object.hash(PassValueKey, key);
 
   @override
-  int get hashCode => Object.hash(PassValueKey, key, count);
-
-  @override
-  String toString() => 'PassValueKey($key, $count)';
+  String toString() => 'PassValueKey($key)';
 }
 
 /// A value that is already words, such as the name of a sound.
@@ -185,7 +175,6 @@ PersonalizeSummary personalizeSummaryFor({
       exists: hasWidgets,
       value: const PassValueKey(
         LocaleKeys.personalize_passes_root_widgets_value,
-        count: personalizeWidgetKinds,
       ),
       isOn: true,
       feature: AppFeature.widgets,
