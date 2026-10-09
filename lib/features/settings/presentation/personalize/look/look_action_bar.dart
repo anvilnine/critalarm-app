@@ -149,6 +149,11 @@ class _Hint extends StatelessWidget {
       builder: (context, page, _) => Text(
         text,
         textAlign: TextAlign.center,
+        // A label, so it stops growing at the chrome's text size and leaves
+        // the room under the deck to the action.
+        textScaler: MediaQuery.textScalerOf(
+          context,
+        ).clamp(maxScaleFactor: kChromeMaxTextScale),
         style: AppTypography.mono(fade.textAt(page), fontSize: 12),
       ),
     ),

@@ -398,10 +398,24 @@ Future<void> _moveTo(WidgetTester tester, double page) async {
   if (page == page.roundToDouble()) {
     final dot = find.byKey(ValueKey('look-dot-${page.round()}'));
     expect(dot, findsOneWidget);
+    // At large text the dots can sit below the fold. Scroll to them, tap,
+    // and put the page back at the top for the picture.
+    await tester.ensureVisible(dot);
+    await tester.pump();
     await tester.tap(dot);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 200));
+    final outer = tester.state<ScrollableState>(
+      find
+          .ancestor(
+            of: find.byType(PageView),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    outer.position.jumpTo(0);
+    await tester.pump();
     return;
   }
   final scrollable = tester

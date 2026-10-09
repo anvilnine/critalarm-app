@@ -52,10 +52,16 @@ class RingingPreview extends StatefulWidget {
     this.fit = BoxFit.contain,
     this.style,
     this.isStill = false,
+    this.screenSize,
     super.key,
   });
 
   final BoxFit fit;
+
+  /// The screen to lay the picture out for, when it is not this display's.
+  /// A phone drawn upright on a display that is wider than tall asks for a
+  /// portrait one. Null lays it out for this display.
+  final Size? screenSize;
 
   /// The look to draw. Null draws the standard one.
   final AlarmStyle? style;
@@ -70,9 +76,21 @@ class RingingPreview extends StatefulWidget {
 
   /// The screen the preview is laid out for: this display, with the text
   /// size and motion setting of [context].
-  static MediaQueryData screenOf(BuildContext context) {
+  ///
+  /// With [size] the screen is that size instead, upright, with the insets
+  /// of a phone held that way.
+  static MediaQueryData screenOf(BuildContext context, {Size? size}) {
     final here = MediaQuery.of(context);
-    return MediaQueryData.fromView(View.of(context)).copyWith(
+    final view = MediaQueryData.fromView(View.of(context));
+    final base = size == null
+        ? view
+        : view.copyWith(
+            size: size,
+            padding: const EdgeInsets.only(top: _uprightTop, bottom: 16),
+            viewPadding: const EdgeInsets.only(top: _uprightTop, bottom: 16),
+            viewInsets: EdgeInsets.zero,
+          );
+    return base.copyWith(
       textScaler: here.textScaler,
       disableAnimations: here.disableAnimations,
       boldText: here.boldText,
@@ -80,6 +98,10 @@ class RingingPreview extends StatefulWidget {
       platformBrightness: here.platformBrightness,
     );
   }
+
+  /// The top inset of an upright phone, for a picture laid out upright on a
+  /// display that is not.
+  static const double _uprightTop = 28;
 
   @override
   State<RingingPreview> createState() => _RingingPreviewState();
@@ -94,7 +116,7 @@ class _RingingPreviewState extends State<RingingPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final here = RingingPreview.screenOf(context);
+    final here = RingingPreview.screenOf(context, size: widget.screenSize);
     final screen = widget.isStill
         ? here.copyWith(disableAnimations: true)
         : here;

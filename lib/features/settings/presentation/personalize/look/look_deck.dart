@@ -9,7 +9,6 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
 import 'package:critalarm/features/settings/presentation/personalize/look/look_phone.dart';
-import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -179,7 +178,8 @@ class _LookDeckState extends State<LookDeck> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final screen = RingingPreview.screenOf(context).size;
+      // The phones are upright on any display.
+      final screen = lookScreenSize(MediaQuery.sizeOf(context));
       final aspect = screen.width / screen.height;
       final phoneRoom = math
           .max(
@@ -195,7 +195,10 @@ class _LookDeckState extends State<LookDeck> {
       final controller = _controllerFor(
         lookPhoneStep(phone.width) / box.maxWidth,
       );
+      // On a display with more room than the phones need, the deck sits in
+      // the middle of it and not at the top.
       return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
             height: phone.height + 2 * LookDeck._shadowRoom,
@@ -258,7 +261,6 @@ class _LookPhone extends StatelessWidget {
               isLive: isCentred,
               height: size.height,
               fade: deck.fade,
-              page: deck.page,
             ),
             if (isCentred &&
                 id == AlarmStyleId.own &&
@@ -346,6 +348,7 @@ class _LookPhone extends StatelessWidget {
 
 /// One dot per look. Each is 8 points drawn in a 44 point target and a
 /// labelled button, and the one for the look in the middle is stretched.
+/// The others keep 3 to 1 with the page.
 class _LookDots extends StatelessWidget {
   const _LookDots({required this.deck, required this.onTap});
 
@@ -384,20 +387,24 @@ class _LookDots extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => onTap(i),
                   child: SizedBox(
-                    width: LookDeck.dotsHeight - 4,
+                    width: LookDeck.dotsHeight,
                     height: LookDeck.dotsHeight,
                     child: Center(
                       child: ListenableBuilder(
                         listenable: deck.page,
                         builder: (context, _) {
                           final near =
-                              1 - math.min(1.0, (i - deck.page.value).abs());
-                          final text = deck.fade.textAt(deck.page.value);
+                              1.0 - math.min(1.0, (i - deck.page.value).abs());
+                          final page = deck.page.value;
                           return Container(
                             width: _dot + (_wide - _dot) * near,
                             height: _dot,
                             decoration: BoxDecoration(
-                              color: text.withValues(alpha: 0.35 + 0.65 * near),
+                              color: lookDotColor(
+                                text: deck.fade.textAt(page),
+                                ground: deck.fade.groundAt(page),
+                                near: near,
+                              ),
                               borderRadius: BorderRadius.circular(_dot / 2),
                             ),
                           );
