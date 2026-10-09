@@ -165,6 +165,15 @@ durations from `AppDurations.pass` (520 ms) and `AppDurations.passPage` (600 ms)
 - `AppPassStack` and `PassStackLayout`: the header row (ringed back button and title) and the cards,
   overlapped under text scale 1.3 and a flat column from 1.3. Scrolls, and sits in a column up to 560
   wide. It places the `PassOriginScope` its cards read.
+- `AppPassBands` and `PassBandsLayout`: the compact stack, for a page that has its own header and
+  scroll (a topic page). The same `AppPassCard`s, with no header, no back ring and no scroll. It takes
+  the width it is given. Cards are 190 points tall with a 104 point step, and the last card is 124
+  tall with all four corners round (`PassCardEnd`). From text scale 1.3 the cards stand in a column
+  with a 10 point gap, the same switch `AppPassStack` makes. A card in a band drops to one line of
+  value when a second line would run under the next card. An empty value draws nothing and keeps the
+  height of one line. `hasInsets` sits the cards 12 points in from the sides, for a parent that does
+  not pad. A tap gives the caller a `PassOrigin`, as in `AppPassStack`. `PassId.tokens` is the
+  cream tone for a Tokens card, and the Personalize root never lists it.
 - `AppPassPage`: the page a card grows into. A ground in the pass colour, a pinned top row with the
   back ring (and an optional trailing control), the header block (label, state word, tag, value,
   foot), body slivers and an optional bottom bar. It sets an `AmbientOverride` of the same colour, so
