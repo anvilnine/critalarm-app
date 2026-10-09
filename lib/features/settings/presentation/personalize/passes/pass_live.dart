@@ -61,8 +61,7 @@ class PassLive {
   /// The pass's value, translated.
   String valueOf(PassId pass) => switch (summary.of(pass).value) {
     PassValueText(:final text) => text,
-    PassValueKey(:final key, :final count) =>
-      count == null ? key.tr() : key.plural(count),
+    PassValueKey(:final key) => key.tr(),
   };
 
   /// Whether the setting is a saved choice, which decides the value colour.

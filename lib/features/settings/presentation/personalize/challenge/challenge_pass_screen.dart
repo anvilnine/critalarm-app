@@ -133,25 +133,14 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
         value: live.valueOf(PassId.challenge),
         tag: live.tagOf(PassId.challenge),
         isOn: live.isOn(PassId.challenge),
-        foot: LocaleKeys.challenges_sheet_note.tr(),
+        foot: LocaleKeys.personalize_passes_challenge_page_note.tr(),
         slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                kPassSidePadding,
-                6,
-                kPassSidePadding,
-                24,
-              ),
-              child: Text(
-                LocaleKeys.personalize_passes_challenge_scope_note.tr(),
-                style: AppTypography.mono(tone.valueMuted, fontSize: 12),
-              ),
-            ),
-          ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: kShelfSidePadding,
+            padding: const EdgeInsets.fromLTRB(
+              kShelfSidePadding,
+              20,
+              kShelfSidePadding,
+              0,
             ),
             sliver: SliverToBoxAdapter(
               child: _Shelf(
@@ -161,6 +150,21 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
                 isPlanRead: isPlanRead,
                 onOpen: _open,
                 onPick: (tile) => unawaited(_pick(tile)),
+              ),
+            ),
+          ),
+          // Said once, on every plan, under the last row of tiles.
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              kPassSidePadding,
+              kShelfGap,
+              kPassSidePadding,
+              0,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                LocaleKeys.personalize_passes_challenge_scope_note.tr(),
+                style: AppTypography.mono(tone.valueMuted, fontSize: 12),
               ),
             ),
           ),
@@ -174,7 +178,7 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
               ),
               sliver: SliverToBoxAdapter(
                 child: AppButton(
-                  label: LocaleKeys.personalize_passes_challenge_see_plan.tr(
+                  label: LocaleKeys.personalize_passes_widgets_see_plan.tr(
                     namedArgs: {'plan': plan},
                   ),
                   size: AppButtonSize.lg,
@@ -231,6 +235,8 @@ class _Shelf extends StatelessWidget {
   final void Function(Challenge challenge) onOpen;
   final void Function(ShelfTile tile) onPick;
 
+  /// What the tile asks, for a screen reader only. It is not drawn, so the
+  /// tiles stay apart by ear.
   String _descriptorOf(ChallengeKind? kind) => switch (kind) {
     null => LocaleKeys.personalize_passes_challenge_tile_off.tr(),
     ChallengeKind.typeTopicName =>
@@ -272,7 +278,6 @@ class _Shelf extends StatelessWidget {
       tile: tile,
       pick: pick,
       name: name,
-      descriptor: descriptor,
       tileLabel: '$name, $descriptor',
       // "No challenge" has nothing to try: its tile keeps it for new topics.
       tileHint: challenge == null ? '' : LocaleKeys.challenges_try_hint.tr(),

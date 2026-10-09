@@ -152,7 +152,7 @@ class _HomeScreenSliver extends StatelessWidget {
                     fadesSides: isNarrowerThanDisplay,
                   ),
                 ),
-                _HomeScreenContent(tone: tone),
+                const _HomeScreenContent(),
               ],
             ),
           ),
@@ -163,9 +163,7 @@ class _HomeScreenSliver extends StatelessWidget {
 }
 
 class _HomeScreenContent extends StatelessWidget {
-  const _HomeScreenContent({required this.tone});
-
-  final PassTone tone;
+  const _HomeScreenContent();
 
   /// The room kept either side of the widgets on a narrow phone.
   static const double _side = 16;
@@ -178,33 +176,17 @@ class _HomeScreenContent extends StatelessWidget {
       // never reflows, so the three keep their places.
       final scale = math.min(1, room / kWidgetsBlockWidth);
       final blockWidth = kWidgetsBlockWidth * scale;
-      final left = (constraints.maxWidth - blockWidth) / 2;
       return Padding(
         padding: const EdgeInsets.only(top: 28, bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: SizedBox(
-                width: blockWidth,
-                child: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.topCenter,
-                  child: HomeScreenWidgets(),
-                ),
-              ),
+        child: Center(
+          child: SizedBox(
+            width: blockWidth,
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: HomeScreenWidgets(),
             ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: EdgeInsets.only(left: left, right: left),
-              child: Text(
-                LocaleKeys.personalize_passes_widgets_line.tr(),
-                style: AppTypography.body(
-                  tone.onGround,
-                ).copyWith(height: 1.4),
-              ),
-            ),
-          ],
+          ),
         ),
       );
     },

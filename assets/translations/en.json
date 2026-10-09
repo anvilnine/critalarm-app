@@ -984,7 +984,7 @@
     "app_icon_shades_crown": "Shades and crown",
     "app_icon_failed": "The icon did not change. Try again.",
     "app_icon_action_use": "Use this icon",
-    "app_icon_action_in_use": "This is your icon",
+    "app_icon_action_in_use": "In use",
     "app_icon_action_unlock": "Unlock",
     "app_icon_welcome": "Your extra icons",
     "app_icon_page_in_use": "{name}, in use",
@@ -2104,10 +2104,7 @@
       "pass_label": "{label}, {value}",
       "pass_label_locked": "{label}, {value}, {plan}",
       "pass_hint": "Opens the {label} page",
-      "widgets_value": {
-        "one": "{} kind",
-        "other": "{} kinds"
-      },
+      "widgets_value": "Home screen",
       "sound_unknown": "Default sound",
       "thumb_default": "default"
     },
@@ -2120,8 +2117,7 @@
     "look": {
       "use": "Use this look",
       "in_use": "In use",
-      "hint_swipe": "Swipe for more looks",
-      "hint_swipe_locked": "Swipe. {count} more with {plan}",
+      "hint_swipe_locked": "{count} more with {plan}",
       "dot_label": "Look {index} of {count}, {name}",
       "card_label": "{name}",
       "card_label_in_use": "{name}, in use",
@@ -2148,15 +2144,14 @@
       "tile_off": "At my desk closes at once",
       "pick_label": "Use {name} for new topics",
       "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
-      "scope_note": "Applies to new topics.",
-      "see_plan": "Try any. Keep one with {plan}"
+      "page_note": "At my desk needs a challenge. I'm up always stops the alarm.",
+      "scope_note": "Existing topics won't change."
     },
 
     "widgets": {
       "name_open_count": "Open incidents",
       "name_topic": "Topic",
       "name_topics": "Topics",
-      "line": "See what is ringing. Answer from your home screen.",
       "see_plan": "See {plan}",
       "how_to": "How to add one",
       "open_label": "open",
