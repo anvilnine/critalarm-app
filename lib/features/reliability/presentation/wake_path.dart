@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
@@ -259,23 +260,62 @@ class _Stop extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style:
-                  AppTypography.small(
-                    isBad ? colors.critText : colors.onCanvas,
-                    fontSize: 12.5,
-                  ).copyWith(
-                    fontWeight: isBad ? FontWeight.w700 : FontWeight.w600,
-                    height: 1.2,
-                  ),
-            ),
+            child: _StopLabel(label: label, isBad: isBad),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The name under a stop. The text follows the phone's text size up to the
+/// chrome cap, and the size then shrinks until the longest word fits the
+/// column, so a word never breaks in the middle.
+class _StopLabel extends StatelessWidget {
+  const _StopLabel({required this.label, required this.isBad});
+
+  final String label;
+  final bool isBad;
+
+  static const double _fontSize = 12.5;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final scaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: kChromeMaxTextScale);
+    final style =
+        AppTypography.small(
+          isBad ? colors.critText : colors.onCanvas,
+          fontSize: _fontSize,
+        ).copyWith(
+          fontWeight: isBad ? FontWeight.w700 : FontWeight.w600,
+          height: 1.2,
+        );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var widest = 0.0;
+        for (final word in label.split(' ')) {
+          final painter = TextPainter(
+            text: TextSpan(text: word, style: style),
+            textDirection: ui.TextDirection.ltr,
+            textScaler: scaler,
+          )..layout();
+          widest = math.max(widest, painter.width);
+          painter.dispose();
+        }
+        final shrink = widest > constraints.maxWidth && widest > 0
+            ? constraints.maxWidth / widest
+            : 1.0;
+        return Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          textScaler: scaler,
+          style: style.copyWith(fontSize: _fontSize * shrink),
+        );
+      },
     );
   }
 }

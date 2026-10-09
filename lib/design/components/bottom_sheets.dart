@@ -4,6 +4,7 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -246,6 +247,10 @@ Future<T?> showAppSheet<T>({
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.45),
+    // Under reduce motion the sheet is there on the first frame.
+    sheetAnimationStyle: context.reduceMotion
+        ? AnimationStyle.noAnimation
+        : null,
     builder: (sheetContext) {
       return AppBottomSheet(
         title: title,
@@ -284,6 +289,10 @@ Future<T?> showExpandingSheet<T>({
     useRootNavigator: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.45),
+    // Under reduce motion the sheet is there on the first frame.
+    sheetAnimationStyle: context.reduceMotion
+        ? AnimationStyle.noAnimation
+        : null,
     builder: (sheetContext) {
       return DraggableScrollableSheet(
         initialChildSize: initialChildSize,

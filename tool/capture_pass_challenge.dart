@@ -649,7 +649,7 @@ void main() {
   });
   _flow('locked-wide', const _Setup(), (tester, run, shot) async {
     await _scrollToEnd(tester);
-    await tester.tap(find.text('Try any. Keep one with Pro'));
+    await tester.tap(find.text('See Pro'));
     await tester.pump();
     await _real(tester);
     await tester.pump(const Duration(milliseconds: 800));
