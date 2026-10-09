@@ -319,8 +319,10 @@ class PassCardsGallery extends StatelessWidget {
       children: [
         const _Heading(
           'Pass cards',
-          'One card per setting: a mono label, a tag while the feature is '
-              'locked, the value, a thumbnail. A card is 260 points tall in '
+          'One card per setting: a mono label, a lock badge with the plan word '
+              'while the feature is locked, the value, a thumbnail. The badge '
+              'is yellow where that reads on the ground and the text colour of '
+              'the card where it does not. A card is 260 points tall in '
               'the stack and shows a 134 point band. It is drawn here 150 '
               'points tall.',
         ),
@@ -329,13 +331,23 @@ class PassCardsGallery extends StatelessWidget {
           _card(context, demo),
           const SizedBox(height: Spacing.s3),
         ],
-        const _Caption('with a tag, and the same card without one'),
+        const _Caption('with a badge, and the same card without one'),
         _card(context, kPassDemos[3]),
         const SizedBox(height: Spacing.s3),
         _card(
           context,
           const PassDemo(pass: PassId.widgets, label: 'Widgets', value: '3'),
           hasThumb: false,
+        ),
+        const _Caption('a badge on the red look ground'),
+        _card(
+          context,
+          const PassDemo(
+            pass: PassId.look,
+            label: 'Look',
+            value: 'Standard',
+            tag: 'Pro',
+          ),
         ),
         const _Caption('a challenge that is on: the value is yellow'),
         _card(context, challenge),

@@ -19,6 +19,20 @@ void main() {
   late TestAccess access;
   late bool welcomed;
 
+  /// The plan badges in the page body. The page header draws its own on the
+  /// label line, which this does not count.
+  Finder bodyBadges() => find.byWidgetPredicate(
+    (widget) =>
+        widget is ProBadge &&
+        find
+            .ancestor(
+              of: find.byWidget(widget),
+              matching: find.byType(PassLabelLine),
+            )
+            .evaluate()
+            .isEmpty,
+  );
+
   /// The screen on a router that also has the two paywalls, as stubs.
   GoRouter routerFor() => GoRouter(
     routes: [
@@ -130,7 +144,7 @@ void main() {
         ),
         findsNothing,
       );
-      expect(find.byType(ProBadge), findsOneWidget);
+      expect(bodyBadges(), findsOneWidget);
     });
 
     testWidgets('says the plan once: the badge, and one button that names '
@@ -141,7 +155,7 @@ void main() {
       expect(find.widgetWithText(AppButton, 'Unlock'), findsOneWidget);
       expect(find.text('Go Hosted'), findsNothing);
       expect(find.text('Comes with Hosted or Pro'), findsNothing);
-      expect(find.byType(ProBadge), findsOneWidget);
+      expect(bodyBadges(), findsOneWidget);
 
       await tester.tap(find.widgetWithText(AppButton, 'Unlock'));
       await tester.pump();
