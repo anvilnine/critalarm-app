@@ -56,6 +56,7 @@ class PassLive {
     PassId.challenge => LocaleKeys.challenges_strip_title.tr(),
     PassId.widgets => LocaleKeys.personalize_widgets_row.tr(),
     PassId.appIcon => LocaleKeys.personalize_app_icon_row.tr(),
+    PassId.tokens => LocaleKeys.topic_tokens_header.tr(),
   };
 
   /// The pass's value, translated.
