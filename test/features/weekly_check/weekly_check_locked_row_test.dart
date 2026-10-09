@@ -8,8 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../core/access/access_fakes.dart';
 
 void main() {
-  testWidgets('the locked weekly check row is the real switch row, drawn off '
-      'and badged', (tester) async {
+  testWidgets('the locked weekly check row has the badge and a See Hosted '
+      'button, and no switch', (tester) async {
     final access = TestAccess();
     addTearDown(access.dispose);
     await getIt.reset();
@@ -32,8 +32,8 @@ void main() {
       find.text('Checks each week whether a push reaches this phone.'),
       findsOneWidget,
     );
-    expect(find.byType(AppSwitch), findsOneWidget);
-    expect(tester.widget<AppSwitch>(find.byType(AppSwitch)).value, isFalse);
+    expect(find.byType(AppSwitch), findsNothing);
+    expect(find.widgetWithText(AppButton, 'See Hosted'), findsOneWidget);
     // A screen reader hears the title, the line and the plan, once each.
     expect(
       find.bySemanticsLabel(

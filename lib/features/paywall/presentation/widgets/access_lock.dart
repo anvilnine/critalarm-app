@@ -145,13 +145,15 @@ class AccessLock extends StatefulWidget {
     this.drawsBadge = true,
     this.decide,
     super.key,
-  }) : _isInline = false;
+  }) : unlockTap = LockTapKind.keep,
+       _isInline = false;
 
   const AccessLock.inline({
     required this.feature,
     required this.source,
     required this.child,
     this.decide,
+    this.unlockTap = LockTapKind.keep,
     super.key,
   }) : name = null,
        tap = LockTap.sell,
@@ -199,6 +201,12 @@ class AccessLock extends StatefulWidget {
   /// purchase is being confirmed. Left out, it is
   /// `FeatureAccess.decide(feature)`.
   final FeatureDecision Function(FeatureAccess access)? decide;
+
+  /// What the child's unlock button is for, when it is an inline lock:
+  /// [LockTapKind.keep] for the act that keeps or uses the option,
+  /// [LockTapKind.seePlan] for a button that says "See Hosted" or "See
+  /// Pro".
+  final LockTapKind unlockTap;
 
   final bool _isInline;
 
@@ -285,7 +293,7 @@ class _AccessLockState extends State<AccessLock> {
     final planWord = holding == null || !isPlanRead
         ? null
         : planWordFor(holding);
-    void unlock() => unawaited(_act(LockTapKind.keep));
+    void unlock() => unawaited(_act(widget.unlockTap));
 
     if (widget._isInline) {
       return FeatureLock.scope(
