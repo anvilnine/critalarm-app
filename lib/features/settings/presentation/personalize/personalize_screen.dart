@@ -1,37 +1,38 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
-import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/app_icon/app_icon.dart';
+import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
+import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design/size_class.dart';
-import 'package:critalarm/features/challenges/presentation/challenge_try.dart';
-import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
-import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
-import 'package:critalarm/features/settings/presentation/personalize/challenge_strip.dart';
-import 'package:critalarm/features/settings/presentation/personalize/look_strip.dart';
-import 'package:critalarm/features/settings/presentation/personalize/personalize_section.dart';
-import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
-import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
+import 'package:critalarm/features/settings/presentation/personalize/passes/pass_live.dart';
+import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumbs.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Personalize: a live copy of the ringing alarm on top, and under it the
-/// choices that change it.
+/// Personalize: a stack of five coloured cards, Look, Sound, Wake-up
+/// challenge, Widgets and App icon.
 ///
-/// The page is [sections] and nothing more. It sets the defaults for the
-/// phone and saves to the same places the older Settings rows do.
+/// Each card shows what is set now and one thumbnail. A tap grows the card
+/// into the pass's own page. Every tap opens its page, whatever the plan: a
+/// plan word on a card is a tag and never a door to the paywall. A pass this
+/// phone cannot use (widgets on the web, the icon where it cannot change) is
+/// left out.
+///
+/// The page sets the defaults for the phone and saves to the same places the
+/// older Settings rows do.
 class PersonalizeScreen extends StatelessWidget {
-  const PersonalizeScreen({this.sections = personalizeSections, super.key});
-
-  final List<PersonalizeSection> sections;
+  const PersonalizeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +42,13 @@ class PersonalizeScreen extends StatelessWidget {
         unawaited(cubit.load());
         return cubit;
       },
-      child: _PersonalizeView(sections: sections),
+      child: const _PersonalizeView(),
     );
   }
 }
 
 class _PersonalizeView extends StatefulWidget {
-  const _PersonalizeView({required this.sections});
-
-  final List<PersonalizeSection> sections;
+  const _PersonalizeView();
 
   @override
   State<_PersonalizeView> createState() => _PersonalizeViewState();
@@ -57,42 +56,40 @@ class _PersonalizeView extends StatefulWidget {
 
 class _PersonalizeViewState extends State<_PersonalizeView> {
   late final FeatureAccess _access = getIt<FeatureAccess>();
-  StreamSubscription<AppFeature>? _changes;
-  StreamSubscription<void>? _lookChanges;
+  StreamSubscription<AppFeature>? _ownSoundChanges;
+  AppIcon? _icon;
 
-  Set<AppFeature> get _features => {
-    for (final section in widget.sections) ?section.feature,
-  };
-
-  /// What the access layer says for each section's feature, read each
-  /// build: the stream only carries changes.
-  Map<AppFeature, FeatureDecision> get _decisions => {
-    for (final feature in _features) feature: _access.decide(feature),
-  };
+  /// The sounds whose peaks were asked for, so each is read once.
+  final Set<String> _peaksAsked = {};
 
   @override
   void initState() {
     super.initState();
-    _changes = _access.changes.listen((feature) {
-      if (!mounted || !_features.contains(feature)) return;
-      // A tried option that just opened is a real choice now, so the try
-      // ends and the bar goes, in place.
-      final cubit = context.read<PersonalizeCubit>();
-      if (!tryStillStands(cubit.state.tried, _decisions)) cubit.clearTry();
-      setState(() {});
-    });
-    // The preview draws the look that rings, so a look saved from the
-    // strip shows in it at once.
-    _lookChanges = getIt<AlarmStyleChoices>().changes.listen((_) {
-      if (mounted) setState(() {});
-    });
+    // The sound that rings follows the lock on own sounds.
+    _ownSoundChanges = _access.changes
+        .where((feature) => feature == AppFeature.ownSounds)
+        .listen((_) {
+          if (mounted) setState(() {});
+        });
+    unawaited(_readIcon());
   }
 
   @override
   void dispose() {
-    unawaited(_lookChanges?.cancel());
-    unawaited(_changes?.cancel());
+    unawaited(_ownSoundChanges?.cancel());
     super.dispose();
+  }
+
+  Future<void> _readIcon() async {
+    final icon = await getIt<AppIconHost>().current();
+    if (mounted) setState(() => _icon = icon);
+  }
+
+  /// What the pages may have changed: the sound and the icon.
+  Future<void> _reload() async {
+    if (!mounted) return;
+    await context.read<PersonalizeCubit>().load();
+    await _readIcon();
   }
 
   void _close() {
@@ -103,212 +100,120 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
     }
   }
 
+  void _open(PassId pass, PassOrigin origin) {
+    final name = switch (pass) {
+      PassId.look => AppRoute.personalizeLook,
+      PassId.sound => AppRoute.soundPicker,
+      PassId.challenge => AppRoute.personalizeChallenge,
+      PassId.widgets => AppRoute.personalizeWidgets,
+      PassId.appIcon => AppRoute.appIcon,
+    };
+    unawaited(
+      context.pushNamed<void>(name, extra: origin).then((_) => _reload()),
+    );
+  }
+
+  /// The loudness of [sound] if it is known. Asks for it once if it is not,
+  /// and redraws when it arrives.
+  List<double>? _peaksOf(AlarmSound? sound) {
+    if (sound == null) return null;
+    final own = sound.peaks;
+    if (own != null && own.isNotEmpty) return own;
+    final cache = getIt<SoundPeaksCache>();
+    final cached = cache.cached(sound.id);
+    if (cached != null) return cached;
+    if (_peaksAsked.add(sound.id)) {
+      unawaited(
+        cache.load(sound).then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final media = MediaQuery.of(context);
-    final size = AppSize.of(context);
-    final isWide = personalizeIsWide(
-      width: size.width,
-      height: size.height,
-      mediumMinWidth: AppSize.mediumMinWidth,
-    );
     return BlocBuilder<PersonalizeCubit, PersonalizeState>(
       builder: (context, state) {
-        final cubit = context.read<PersonalizeCubit>();
-        final tryBar = PersonalizeTryBar(
-          bar: tryBarFor(tried: state.tried, decisions: _decisions),
-          sourceFor: (bar) {
-            for (final section in widget.sections) {
-              if (section.feature == bar.feature) return section.lockSource;
-            }
-            return null;
-          },
-        );
-        // A challenge being shown takes the frame: it is not a look of the
-        // ringing screen, it is what comes after "I'm up".
-        final challenge = challengeShownBy(state);
-        // The look being tried, or else the one that really rings.
-        final look = lookShownBy(state);
-        RingingPreviewFrame preview(double maxHeight) => RingingPreviewFrame(
-          maxHeight: maxHeight,
-          style: look,
-          picture: challenge == null
-              ? null
-              : (screen) =>
-                    ChallengePicture(challenge: challenge, screen: screen),
-          pictureLabel: challenge?.nameKey.tr(),
-          pictureHint: LocaleKeys.challenges_try_hint.tr(),
-          onOpenPicture: challenge == null
-              ? null
-              : () => unawaited(
-                  Navigator.of(
-                    context,
-                    rootNavigator: true,
-                  ).push(ChallengeTryPage.route(challenge)),
-                ),
-          isPlaying: state.isPlaying,
-          // Asked once the plan is read, so right after a cold start a
-          // Pro holder hears their own sound and not its stand-in.
-          onPlay: () => unawaited(() async {
-            final ownSounds = await ownSoundsOnceReady(_access);
-            await cubit.togglePlay(
-              ownSoundsLocked: ownSoundsLockedBy(ownSounds),
-            );
-          }()),
-          playBelow: isWide,
-        );
-        final choices = _Choices(sections: widget.sections);
-
-        return AppScreenScaffold(
-          // Full screen, on the root navigator: no tab bar to leave room for.
-          hasTabBar: false,
-          // Two columns side by side need more than one reading column,
-          // or each is narrower than a phone.
-          contentMaxWidth: isWide
-              ? personalizeWideMaxWidth
-              : AppSize.contentMaxWidth,
-          topBar: AppTopBar(
-            title: LocaleKeys.personalize_title.tr(),
-            trailing: AppDismissCross(
-              onPressed: _close,
-              label: LocaleKeys.common_close.tr(),
-              color: colors.onCanvas,
-            ),
-          ),
-          slivers: [
-            if (isWide)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: Spacing.s2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // The two halves share a column wide enough for
-                      // each to be as wide as a phone.
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: Spacing.s4,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              preview(
-                                (media.size.height - media.padding.vertical) *
-                                    0.6,
-                              ),
-                              tryBar,
-                            ],
-                          ),
-                        ),
-                      ),
-                      Expanded(child: choices),
-                    ],
-                  ),
-                ),
-              )
-            else ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Spacing.s4,
-                    Spacing.s2,
-                    Spacing.s4,
-                    0,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      preview(
-                        personalizePreviewHeight(
-                          viewportHeight: media.size.height,
-                          textScale: media.textScaler.scale(1),
-                        ),
-                      ),
-                      tryBar,
-                    ],
-                  ),
-                ),
+        final sound = state
+            .soundStrip(
+              ownSoundsLocked: ownSoundsLockedBy(
+                _access.decide(AppFeature.ownSounds),
               ),
-              SliverToBoxAdapter(child: choices),
-            ],
-          ],
+            )
+            .current;
+        final peaks = _peaksOf(sound);
+        return PassThumbClock(
+          builder: (context, clock) => PassLiveBuilder(
+            soundName: sound?.name,
+            appIcon: _icon,
+            builder: (context, live) {
+              WidgetBuilder thumbOf(PassId pass) {
+                final tone = live.toneOf(pass);
+                return switch (pass) {
+                  PassId.look => PassThumbs.look(tone: tone, clock: clock),
+                  PassId.sound => PassThumbs.sound(
+                    tone: tone,
+                    clock: clock,
+                    peaks: peaks,
+                  ),
+                  PassId.challenge => PassThumbs.challenge(
+                    tone: tone,
+                    kind: live.challengeKind,
+                  ),
+                  PassId.widgets => PassThumbs.widgets(),
+                  PassId.appIcon => PassThumbs.appIcon(
+                    _icon ?? AppIcon.standard,
+                  ),
+                };
+              }
+
+              return Material(
+                type: MaterialType.transparency,
+                child: AppPassStack(
+                  title: LocaleKeys.personalize_title.tr(),
+                  backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
+                  groupLabel: LocaleKeys.personalize_passes_root_stack_label
+                      .tr(),
+                  onBack: _close,
+                  cards: [
+                    for (final item in live.summary.present)
+                      _card(live, item.pass, thumbOf(item.pass)),
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
   }
-}
 
-/// The sections under the preview: the strips, a divider, the rows.
-class _Choices extends StatelessWidget {
-  const _Choices({required this.sections});
-
-  final List<PersonalizeSection> sections;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final strips = sections.where(
-      (section) => section.kind == PersonalizeSectionKind.strip,
-    );
-    final rows = sections.where(
-      (section) => section.kind == PersonalizeSectionKind.row,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final section in strips) ...[
-          if (section.titleKey != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.s4,
-                Spacing.s4,
-                Spacing.s4,
-                0,
-              ),
-              child: Semantics(
-                header: true,
-                child: Text(
-                  section.titleKey!.tr(),
-                  style: AppTypography.small(
-                    colors.onCanvas,
-                    fontSize: 13,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
+  AppPassCard _card(PassLive live, PassId pass, WidgetBuilder thumbnail) {
+    final label = live.labelOf(pass);
+    final value = live.valueOf(pass);
+    final tag = live.tagOf(pass);
+    return AppPassCard(
+      key: ValueKey('pass-${pass.name}'),
+      pass: pass,
+      tone: live.toneOf(pass),
+      label: label,
+      value: value,
+      tag: tag,
+      isOn: live.isOn(pass),
+      thumbnail: thumbnail,
+      semanticLabel: tag == null
+          ? LocaleKeys.personalize_passes_root_pass_label.tr(
+              namedArgs: {'label': label, 'value': value},
+            )
+          : LocaleKeys.personalize_passes_root_pass_label_locked.tr(
+              namedArgs: {'label': label, 'value': value, 'plan': tag},
             ),
-          KeyedSubtree(
-            key: ValueKey('personalize-${section.id}'),
-            child: Builder(builder: section.builder),
-          ),
-        ],
-        if (rows.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.s4,
-              vertical: Spacing.s4,
-            ),
-            child: Divider(height: 1, thickness: 1, color: colors.hairline),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.s4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final section in rows)
-                  KeyedSubtree(
-                    key: ValueKey('personalize-${section.id}'),
-                    child: Builder(builder: section.builder),
-                  ),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: Spacing.s5),
-      ],
+      semanticHint: LocaleKeys.personalize_passes_root_pass_hint.tr(
+        namedArgs: {'label': label},
+      ),
+      onTap: (origin) => _open(pass, origin),
     );
   }
 }

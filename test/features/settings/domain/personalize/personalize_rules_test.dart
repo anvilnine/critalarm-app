@@ -90,34 +90,6 @@ void main() {
     });
   });
 
-  group('"Yours"', () {
-    test('open: picks the own sound when a built-in rings', () {
-      expect(
-        yoursTapFor(strip(defaultId: 'a', userSounds: own)),
-        YoursTap.pick,
-      );
-    });
-
-    test('open: opens the picker with no own sound', () {
-      expect(yoursTapFor(strip(defaultId: 'a')), YoursTap.openPicker);
-    });
-
-    test('open: opens the picker when an own sound already rings', () {
-      expect(
-        yoursTapFor(strip(defaultId: 'user_2', userSounds: own)),
-        YoursTap.openPicker,
-      );
-    });
-
-    test('locked: can be tried only with an own sound to play', () {
-      expect(
-        yoursCanBeTried(strip(defaultId: 'a', userSounds: own, locked: true)),
-        isTrue,
-      );
-      expect(yoursCanBeTried(strip(defaultId: 'a', locked: true)), isFalse);
-    });
-  });
-
   group('tryBarFor', () {
     const tried = PersonalizeTry(AppFeature.ownSounds, optionId: 'user_2');
 
@@ -196,29 +168,6 @@ void main() {
         isFalse,
       );
       expect(tryStillStands(null, const {}), isFalse);
-    });
-  });
-
-  group('layout', () {
-    test('the preview is a third of the screen, a quarter at large text', () {
-      expect(
-        personalizePreviewHeight(viewportHeight: 840, textScale: 1),
-        280,
-      );
-      expect(
-        personalizePreviewHeight(viewportHeight: 840, textScale: 1.3),
-        210,
-      );
-    });
-
-    test('wide is a tablet or a phone on its side', () {
-      bool wide(double w, double h) =>
-          personalizeIsWide(width: w, height: h, mediumMinWidth: 600);
-      expect(wide(390, 844), isFalse);
-      expect(wide(844, 390), isTrue);
-      expect(wide(1024, 768), isTrue);
-      expect(wide(768, 1024), isFalse);
-      expect(wide(568, 320), isFalse);
     });
   });
 }
