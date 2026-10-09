@@ -52,7 +52,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Settings'), findsOneWidget);
-        expect(find.text('WILL IT WAKE ME'), findsOneWidget);
+        expect(find.text('PHONE CHECKS'), findsOneWidget);
         expect(find.text('Default sound'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
         expect(find.text('Privacy'), findsOneWidget);
@@ -64,7 +64,7 @@ void main() {
         expect(find.text('Per-topic priority'), findsNothing);
         expect(find.text('Device permissions'), findsNothing);
 
-        await tester.tap(find.text('WILL IT WAKE ME'));
+        await tester.tap(find.text('PHONE CHECKS'));
         // Not pumpAndSettle: until the checks are read the screen shows the
         // waiting face, which never stops moving.
         await tester.pump();
