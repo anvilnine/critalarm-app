@@ -978,8 +978,6 @@
     "appearance_theme_header": "Theme",
     "appearance_motion_header": "Motion and touch",
     "app_icon_row_title": "App icon",
-    "app_icon_title": "App icon",
-    "app_icon_header": "Home screen icon",
     "app_icon_default": "Default",
     "app_icon_crowned": "Crowned",
     "app_icon_shades": "Shades",
@@ -988,7 +986,6 @@
     "app_icon_action_use": "Use this icon",
     "app_icon_action_in_use": "This is your icon",
     "app_icon_action_unlock": "Unlock",
-    "app_icon_in_use_tag": "In use",
     "app_icon_welcome": "Your extra icons",
     "app_icon_page_in_use": "{name}, in use",
     "app_icon_page_locked": "{name}, locked. Needs Hosted or Pro.",
@@ -2095,20 +2092,11 @@
     "sample_body": "The nightly backup did not finish.",
     "sample_tag": "backup",
     "sound_title": "Sound",
-    "sound_yours": "Yours",
-    "sound_more": "All sounds",
     "widgets_row": "Widgets",
     "app_icon_row": "App icon",
     "try_not_saved": "Not saved",
     "try_button": "Use this look",
-    "try_confirming": "Confirming your purchase",
-    "challenge_chips": {
-      "topic": "Topic",
-      "title": "Title",
-      "math": "Math",
-      "scratch": "Scratch",
-      "shake": "Shake"
-    }
+    "try_confirming": "Confirming your purchase"
   },
   "personalize_passes": {
     "root": {
