@@ -196,6 +196,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The label on the Look page button sits in the middle of the button in every state (it sat near the top)
 - Settings screens open and close with the same slide and fade as a Topic: the tab shell now fades and drifts out under them (TabShellPage, AmbientPage.leavesTabBehind)
 - The Topic screen opens with Critical delivery, the canvas behind the hero and the sound already right, built from the lists the app holds, so the card no longer shows dots and the canvas no longer changes a moment after the screen opens.
+- Messages page: the count stands alone and the 7 day caption sits with the bars, and a message is linked to its alarm by id instead of by matching its words
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
