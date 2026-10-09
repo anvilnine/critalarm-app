@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_morph.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_routes.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -14,6 +15,7 @@ import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambi
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/connect_morph_layout.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/connect_routes_picture.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
@@ -104,9 +106,19 @@ class _OnboardingConnectView extends StatefulWidget {
 }
 
 class _OnboardingConnectViewState extends State<_OnboardingConnectView>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   late final TextEditingController _urlController;
   late final TextEditingController _tokenController;
+
+  /// How far the step has moved from Crit Alarm Cloud (0) to your own server
+  /// (1). The picture, the titles, the card and the pinned bar all follow
+  /// this one number, so the switch reads as one layout changing.
+  late final AnimationController _morph;
+
+  /// Switches the user asked for that the listener has not seen yet. A form
+  /// restored from the last visit changes the same state without one, and
+  /// comes up already open.
+  int _askedSwitches = 0;
 
   /// The face every setup step shares, so it flies between them and stays
   /// put from the form to the check to the answer.
@@ -117,6 +129,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final cubit = context.read<OnboardingConnectCubit>();
+    _morph = AnimationController(
+      vsync: this,
+      duration: AppDurations.base,
+      value: cubit.state.isSelfHosting ? 1 : 0,
+    );
     _urlController = TextEditingController(text: cubit.state.serverUrl);
     _tokenController = TextEditingController(text: cubit.state.adminToken);
     unawaited(_checkConnectivity());
@@ -170,9 +187,37 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   void dispose() {
     _connectivityRetryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _morph.dispose();
     _urlController.dispose();
     _tokenController.dispose();
     super.dispose();
+  }
+
+  /// The toggle in the pinned bar. Closes the keyboard when it leaves the
+  /// form, so the field does not keep it open behind the Cloud card.
+  void _toggleServer() {
+    final cubit = context.read<OnboardingConnectCubit>();
+    if (cubit.state.isSelfHosting) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+    _askedSwitches++;
+    cubit.toggleSelfHosting();
+  }
+
+  /// Moves the layout to the state the cubit now holds. A new switch in the
+  /// middle of one turns it around from where it is, so they never stack.
+  void _followServerChoice(bool isSelfHosting) {
+    final target = isSelfHosting ? 1.0 : 0.0;
+    final userAsked = _askedSwitches > 0;
+    if (userAsked) _askedSwitches--;
+    if (!connectMorphPlays(
+      userAsked: userAsked,
+      reduceMotion: context.reduceMotion,
+    )) {
+      _morph.value = target;
+      return;
+    }
+    unawaited(_morph.animateTo(target, curve: AppCurves.easeOut));
   }
 
   bool _connectStepFinished = false;
@@ -260,11 +305,21 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<OnboardingConnectCubit, OnboardingConnectState>(
-      listenWhen: (prev, curr) =>
-          prev.testAlarmStatus != curr.testAlarmStatus && curr.isAlarmFailure,
-      listener: (context, state) =>
-          unawaited(explainLocalTestAlarmFailure(context, state.alarm)),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<OnboardingConnectCubit, OnboardingConnectState>(
+          listenWhen: (prev, curr) =>
+              prev.testAlarmStatus != curr.testAlarmStatus &&
+              curr.isAlarmFailure,
+          listener: (context, state) =>
+              unawaited(explainLocalTestAlarmFailure(context, state.alarm)),
+        ),
+        BlocListener<OnboardingConnectCubit, OnboardingConnectState>(
+          listenWhen: (prev, curr) => prev.isSelfHosting != curr.isSelfHosting,
+          listener: (context, state) =>
+              _followServerChoice(state.isSelfHosting),
+        ),
+      ],
       child: _buildContent(context),
     );
   }
@@ -335,9 +390,16 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
         final isTest = widget.isTest;
         final showsChoice = _showsChoice(state);
-        final bottomAligned = !isTest && !state.isSelfHosting && !showsChoice;
+        // Cloud and your own server share one layout while the user picks, and
+        // it changes from one to the other. Every other state (connected, the
+        // address being checked, the test alarm) has a layout of its own.
+        final isPick =
+            !isTest &&
+            state.confirmation == null &&
+            !showsChoice &&
+            !(state.isSelfHosting && state.isConnecting);
 
-        // What the pinned bar takes off the bottom of the viewport: its own
+        // What the pinned bar takes off the bottom of the viewport is its own
         // buttons, the 12 the scaffold puts under them, and the home
         // indicator. AppButton is lg 60, md 48, sm 36, and each grows once
         // its label does.
@@ -352,33 +414,30 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           fontSize: 19,
           textScale: scale,
         );
-        final barButtons = switch (state) {
-          _ when isTest && state.isCountingDown => 48.0,
-          // lg + Spacing.s3 + sm, on both the connected bar and the
-          // self-hosted form's Connect + "use the cloud instead" pair.
-          _ when isTest || state.isSelfHosting => lgButton + 12 + smButton,
-          // The cloud bar is the self-host toggle plus the text button.
-          _ =>
+        // The cloud bar is the self-host toggle plus the text button.
+        final cloudBarButtons =
             smButton +
-                4 +
-                setupButtonHeightFor(
-                  minHeight: 36,
-                  fontSize: 15 * 1.3,
-                  textScale: scale,
-                  verticalPadding: 0,
-                ),
-        };
-        final bottomBarHeight =
-            barButtons + 12 + MediaQuery.paddingOf(context).bottom;
+            4 +
+            setupButtonHeightFor(
+              minHeight: 36,
+              fontSize: 15 * 1.3,
+              textScale: scale,
+              verticalPadding: 0,
+            );
+        // lg + Spacing.s3 + sm, on both the connected bar and the
+        // self-hosted form's Connect + "use the cloud instead" pair.
+        final ownBarButtons = lgButton + 12 + smButton;
 
         return AppScreenScaffold(
           // Still while the card fits above the buttons. At a large text
           // size the card outgrows the room, and then the page scrolls
           // instead of putting the card out of reach.
-          physics: bottomAligned ? const ClampingScrollPhysics() : null,
-          // The cloud card's column fills the screen and keeps the room for
-          // the buttons itself, so the list adds none on top of it.
-          bodyClearsBottomBar: bottomAligned,
+          physics: isPick && !state.isSelfHosting
+              ? const ClampingScrollPhysics()
+              : null,
+          // The picking column fills the screen and keeps the room for the
+          // buttons itself, so the list adds none on top of it.
+          bodyClearsBottomBar: isPick,
           backgroundColor: Colors.transparent,
           withGhosts: false,
           withFades: false,
@@ -398,6 +457,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           ),
           bottomBar: isTest
               ? _buildHookBottomBar(context, state, cubit)
+              : isPick
+              ? _buildPickBottomBar(context, state, cubit)
               : _buildConnectBottomBar(context, state, cubit),
           slivers: [
             SliverPadding(
@@ -408,19 +469,26 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 0,
               ),
               // The scaffold leaves room for the pinned bar under the list,
-              // but SliverFillRemaining measures itself against the whole
-              // viewport and ignores anything that comes after it, so the
-              // bottom aligned state carries that room on its own child.
+              // but a sliver that fills the viewport measures itself against
+              // the whole viewport and ignores anything that comes after it,
+              // so the picking column carries that room itself.
               //
-              // The cloud card fills the viewport so it can sit at the bottom,
-              // within thumb reach, and still scroll once the content outgrows
-              // it. The other two states run top down as usual.
-              sliver: bottomAligned
-                  ? SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: bottomBarHeight + 12),
-                        child: _buildConnectOptions(context, state, cubit),
+              // It fills the viewport so the Cloud card can sit at the bottom,
+              // within thumb reach, and still scroll once the content
+              // outgrows it. The other states run top down as usual.
+              sliver: isPick
+                  ? SliverLayoutBuilder(
+                      builder: (context, constraints) => SliverToBoxAdapter(
+                        child: _buildPickBody(
+                          context,
+                          state,
+                          cubit,
+                          minHeight:
+                              constraints.viewportMainAxisExtent -
+                              constraints.precedingScrollExtent,
+                          cloudBarButtons: cloudBarButtons,
+                          ownBarButtons: ownBarButtons,
+                        ),
                       ),
                     )
                   : SliverToBoxAdapter(
@@ -435,212 +503,272 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     );
   }
 
+  /// The states that are not a pick: the server answered, the user came
+  /// back to it, or the address is being checked.
   Widget _buildConnectOptions(
     BuildContext context,
     OnboardingConnectState state,
     OnboardingConnectCubit cubit,
   ) {
-    final colors = context.appColors;
-    final errorMsg = state.errorMessage;
-
     final confirmation = state.confirmation;
     if (confirmation != null) {
       return _buildSelfHostConfirmation(context, confirmation);
     }
     if (_showsChoice(state)) return _buildCurrentChoice(context, state, cubit);
-    if (state.isSelfHosting && state.isConnecting) {
-      // The address is being checked. The face waits with the user and one
-      // line says what is going on.
-      return Center(
-        child: AppWaitingFace(
-          message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
-            namedArgs: {'host': cubit.typedHost},
-          ),
-          faceSize: SetupFace.waitingSizeOf(context),
-          heroTag: _faceHeroTag,
+    // The address is being checked. The face waits with the user and one
+    // line says what is going on.
+    return Center(
+      child: AppWaitingFace(
+        message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
+          namedArgs: {'host': cubit.typedHost},
         ),
-      );
-    }
+        faceSize: SetupFace.waitingSizeOf(context),
+        heroTag: _faceHeroTag,
+      ),
+    );
+  }
 
+  /// Picking a server: Crit Alarm Cloud or your own. One column serves both.
+  /// The picture, the card and the pinned bar stay mounted and follow
+  /// [_morph]. What only one of them has (the title over the Cloud card, the
+  /// title over the form) grows and shrinks in place.
+  Widget _buildPickBody(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit, {
+    required double minHeight,
+    required double cloudBarButtons,
+    required double ownBarButtons,
+  }) {
+    final colors = context.appColors;
+    final heroFull = ConnectRoutesHeader.heightFor(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final fadeOut = ReverseAnimation(_morph);
+
+    // Built once for a state. The column below only moves them.
+    final children = <Widget>[
+      // The Cloud state's title, over the picture. Gone in the other.
+      _Reveal(
+        progress: fadeOut,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              LocaleKeys.onboarding_connect_title.tr(),
+              style: AppTypography.display(colors.onCanvas, fontSize: 32),
+            ),
+            const SizedBox(height: Spacing.s4),
+          ],
+        ),
+      ),
+      // The two routes an alert can take. The lit one follows the choice,
+      // and the picture grows or shrinks as the form opens and closes.
+      ConnectStepRoutes(
+        state: state,
+        background: cubit.backgroundConnect,
+        fadesIn: true,
+      ),
+      AnimatedBuilder(
+        animation: _morph,
+        // The own server state has no gap under a picture that is not there.
+        builder: (context, _) => SizedBox(
+          height: heroFull == 0 ? Spacing.s4 * (1 - _morph.value) : Spacing.s4,
+        ),
+      ),
+      // The own server state's title, under the picture. Gone in the other.
+      _Reveal(
+        progress: _morph,
+        child: Column(
+          children: [
+            Center(
+              child: AppFittedTitle(
+                LocaleKeys.onboarding_connect_self_host_title.tr(),
+                minFontSize: setupTitleMinFontSize,
+                style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+              ),
+            ),
+            const SizedBox(height: Spacing.s5),
+          ],
+        ),
+      ),
+      // Says why a tap is about to fail, without stopping the user taking
+      // it. Onboarding never blocks on the network.
+      _ConnectNotices(
+        isOffline: state.cloudOnline == false,
+        errorMessage: state.errorMessage,
+      ),
+      _buildPickCard(context, state, cubit),
+    ];
+
+    return AnimatedBuilder(
+      animation: _morph,
+      builder: (context, _) {
+        final own = _morph.value;
+        final bar = connectMorphBarButtons(
+          own: own,
+          cloud: cloudBarButtons,
+          ownServer: ownBarButtons,
+        );
+        return ConnectMorphLayout(
+          own: own,
+          heroIndex: 1,
+          heroBase: connectMorphHeroBase(own: own, full: heroFull),
+          minHeight: minHeight,
+          // The pinned bar, the 12 the scaffold puts under it, the home
+          // indicator, and the 12 the body keeps clear above the bar.
+          bottomRoom: bar + 12 + bottomInset + 12,
+          children: children,
+        );
+      },
+    );
+  }
+
+  /// The card of the pick: one sheet whose face is the Cloud card or the
+  /// address and token form. Both faces stay laid out, the card is as tall as
+  /// the one that shows, and its colour follows too.
+  Widget _buildPickCard(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit,
+  ) {
+    final colors = context.appColors;
+    final cloudFace = _MorphFace(
+      morph: _morph,
+      opacityAt: (own) => connectMorphFades(own).cloud,
+      isActiveAt: (own) => own < 0.5,
+      child: _buildCloudCard(context, state),
+    );
+    final ownFace = _MorphFace(
+      morph: _morph,
+      opacityAt: (own) => connectMorphFades(own).own,
+      isActiveAt: (own) => own >= 0.5,
+      child: _buildOwnServerForm(context, state, cubit),
+    );
+    return AnimatedBuilder(
+      animation: _morph,
+      builder: (context, _) => AppSheet(
+        color: Color.lerp(
+          colors.surface.withValues(alpha: 0.88),
+          colors.surface,
+          _morph.value,
+        ),
+        child: ConnectMorphCross(
+          own: _morph.value,
+          children: [cloudFace, ownFace],
+        ),
+      ),
+    );
+  }
+
+  /// Crit Alarm Cloud as the primary card.
+  Widget _buildCloudCard(BuildContext context, OnboardingConnectState state) {
+    final colors = context.appColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (state.isSelfHosting)
-          // The form is a task screen like the steps after it: the face
-          // waits for an address, over the one title.
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The same picture as the two choices, with the route
-                // through the user's own server lit.
-                ConnectStepRoutes(state: state, isHeader: true),
-                AppFittedTitle(
-                  LocaleKeys.onboarding_connect_self_host_title.tr(),
-                  minFontSize: setupTitleMinFontSize,
-                  style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+        // The badge drops under the title when the title is too wide for
+        // both, as it is at a large text size.
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            // Title left and badge right while both fit.
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                LocaleKeys.onboarding_connect_cloud_title.tr(),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontDisplay,
+                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: colors.ink,
                 ),
-              ],
+              ),
+              AppBadge(
+                text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          LocaleKeys.onboarding_connect_cloud_description.tr(),
+          style: AppTypography.body(colors.ink2, fontSize: 14),
+        ),
+        const SizedBox(height: 16),
+        if (state.isConnecting)
+          // Only when the screen was opened on its own: it waits here, with
+          // the face and one line, until the connect lands.
+          Center(
+            child: AppWaitingFace(
+              message: state.cloudWaitLine ?? '',
+              faceSize: 56,
             ),
           )
         else
-          // The two buttons below say the rest.
-          Text(
-            LocaleKeys.onboarding_connect_title.tr(),
-            style: AppTypography.display(colors.onCanvas, fontSize: 32),
+          AppButton(
+            label: LocaleKeys.onboarding_connect_cloud_button.tr(),
+            size: AppButtonSize.lg,
+            isFullWidth: true,
+            onPressed: widget.isReplay
+                ? _finishConnectStep
+                : _continueWithCloud,
           ),
+        // What the push relay sees, in the words the Cloud's own answer
+        // supports, as the small print of the choice it belongs to. Its room
+        // is kept, so the card does not jump when the answer arrives.
+        _PrivacyLine(line: state.cloudPrivacyLine),
+      ],
+    );
+  }
 
-        // Everything above sits at the top; the card drops to the bottom,
-        // with the face centered in the middle area.
-        if (!state.isSelfHosting) ...[
-          const SizedBox(height: Spacing.s4),
-          // The two routes an alert can take. The lit one follows the
-          // choice.
-          Expanded(
-            child: ConnectStepRoutes(
-              state: state,
-              background: cubit.backgroundConnect,
-            ),
+  /// The address and the token in one card, like every other form in the
+  /// app. Paste sits in the token field's own header.
+  Widget _buildOwnServerForm(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit,
+  ) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppTextField(
+          label: LocaleKeys.onboarding_connect_url_label.tr(),
+          controller: _urlController,
+          placeholder: 'https://api.critalarm.app',
+          errorText: state.serverUrlError,
+          // A long address wraps onto a second line rather than scrolling
+          // out of sight, so the user can check what they typed.
+          growToFit: true,
+          onChanged: cubit.serverUrlChanged,
+          onSubmitted: (_) =>
+              widget.isReplay ? _finishConnectStep() : cubit.connect(),
+        ),
+        const SizedBox(height: Spacing.s4),
+        AppTextField(
+          label: LocaleKeys.onboarding_connect_admin_token_label.tr(),
+          headerTrailing: AppButton(
+            label: LocaleKeys.onboarding_connect_paste_button.tr(),
+            size: AppButtonSize.sm,
+            variant: AppButtonVariant.ghost,
+            icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
+            onPressed: _handlePaste,
           ),
-          const SizedBox(height: Spacing.s4),
-        ] else
-          const SizedBox(height: Spacing.s5),
-
-        // Says why a tap is about to fail, without stopping the user taking
-        // it. Onboarding never blocks on the network.
-        if (state.cloudOnline == false) ...[
-          AppToast(
-            key: const ValueKey('connect-offline-toast'),
-            faceState: FaceState.concerned,
-            message: LocaleKeys.onboarding_connect_offline_notice.tr(),
-          ),
-          const SizedBox(height: Spacing.s4),
-        ],
-
-        if (errorMsg != null) ...[
-          AppToast(
-            key: const ValueKey('connect-error-toast'),
-            faceState: FaceState.worried,
-            message: errorMsg,
-          ),
-          const SizedBox(height: Spacing.s4),
-        ],
-
-        if (!state.isSelfHosting) ...[
-          // Default: Crit Alarm Cloud primary card
-          AppSheet(
-            color: colors.surface.withValues(alpha: 0.88),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // The badge drops under the title when the title is too wide
-                // for both, as it is at a large text size.
-                SizedBox(
-                  width: double.infinity,
-                  child: Wrap(
-                    // Title left and badge right while both fit.
-                    alignment: WrapAlignment.spaceBetween,
-                    spacing: 10,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        LocaleKeys.onboarding_connect_cloud_title.tr(),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontDisplay,
-                          fontFamilyFallback:
-                              AppTypography.fontDisplayFallbacks,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: colors.ink,
-                        ),
-                      ),
-                      AppBadge(
-                        text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  LocaleKeys.onboarding_connect_cloud_description.tr(),
-                  style: AppTypography.body(colors.ink2, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                if (state.isConnecting)
-                  // Only when the screen was opened on its own: it waits
-                  // here, with the face and one line, until the connect
-                  // lands.
-                  Center(
-                    child: AppWaitingFace(
-                      message: state.cloudWaitLine ?? '',
-                      faceSize: 56,
-                    ),
-                  )
-                else
-                  AppButton(
-                    label: LocaleKeys.onboarding_connect_cloud_button.tr(),
-                    size: AppButtonSize.lg,
-                    isFullWidth: true,
-                    onPressed: widget.isReplay
-                        ? _finishConnectStep
-                        : _continueWithCloud,
-                  ),
-                // What the push relay sees, in the words the Cloud's own
-                // answer supports, as the small print of the choice it
-                // belongs to. Its room is kept, so the card does not jump
-                // when the answer arrives.
-                _PrivacyLine(line: state.cloudPrivacyLine),
-              ],
-            ),
-          ),
-        ] else ...[
-          // The address and the token in one card, like every other form
-          // in the app. Paste sits in the token field's own header.
-          AppSheet(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(
-                  label: LocaleKeys.onboarding_connect_url_label.tr(),
-                  controller: _urlController,
-                  placeholder: 'https://api.critalarm.app',
-                  errorText: state.serverUrlError,
-                  // A long address wraps onto a second line rather than
-                  // scrolling out of sight, so the user can check what they
-                  // typed.
-                  growToFit: true,
-                  onChanged: cubit.serverUrlChanged,
-                  onSubmitted: (_) =>
-                      widget.isReplay ? _finishConnectStep() : cubit.connect(),
-                ),
-                const SizedBox(height: Spacing.s4),
-                AppTextField(
-                  label: LocaleKeys.onboarding_connect_admin_token_label.tr(),
-                  headerTrailing: AppButton(
-                    label: LocaleKeys.onboarding_connect_paste_button.tr(),
-                    size: AppButtonSize.sm,
-                    variant: AppButtonVariant.ghost,
-                    icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
-                    onPressed: _handlePaste,
-                  ),
-                  controller: _tokenController,
-                  placeholder: LocaleKeys
-                      .onboarding_connect_admin_token_placeholder
-                      .tr(),
-                  helperText: LocaleKeys.onboarding_connect_admin_token_helper
-                      .tr(),
-                  errorText: state.adminTokenError,
-                  growToFit: true,
-                  onChanged: cubit.adminTokenChanged,
-                  onSubmitted: (_) =>
-                      widget.isReplay ? _finishConnectStep() : cubit.connect(),
-                ),
-              ],
-            ),
-          ),
-        ],
+          controller: _tokenController,
+          placeholder: LocaleKeys.onboarding_connect_admin_token_placeholder
+              .tr(),
+          helperText: LocaleKeys.onboarding_connect_admin_token_helper.tr(),
+          errorText: state.adminTokenError,
+          growToFit: true,
+          onChanged: cubit.adminTokenChanged,
+          onSubmitted: (_) =>
+              widget.isReplay ? _finishConnectStep() : cubit.connect(),
+        ),
       ],
     );
   }
@@ -779,13 +907,120 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     );
   }
 
-  /// Pinned actions for the not-yet-connected states.
+  /// The way out: the user has not connected, and neither Cloud nor the
+  /// address has to be tried first.
+  Widget _buildSkipButton(
+    BuildContext context,
+    OnboardingConnectCubit cubit,
+  ) {
+    final colors = context.appColors;
+    return TextButton(
+      onPressed: () => unawaited(
+        cubit.navigateToHome(isReplay: widget.isReplay),
+      ),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(double.infinity, 36),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        LocaleKeys.onboarding_connect_skip_for_now.tr(),
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  /// Pinned actions while the user picks a server. One bar serves both:
+  /// the toggle stays and its words change in place, Connect grows in above
+  /// it for your own server, and the way out shrinks away under it.
+  Widget _buildPickBottomBar(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Reveal(
+          progress: _morph,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppButton(
+                label: LocaleKeys.onboarding_connect_connect_button.tr(),
+                size: AppButtonSize.lg,
+                isFullWidth: true,
+                onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
+              ),
+              // The small pill's tap area takes its extra room out of the gap
+              // above it, so the pill stays where it was.
+              SizedBox(
+                height:
+                    Spacing.s3 -
+                    math.min(
+                      Spacing.s3,
+                      setupTapRoomFor(
+                        setupButtonHeightFor(
+                          minHeight: 36,
+                          fontSize: 14,
+                          textScale: setupTextScaleOf(context),
+                        ),
+                      ),
+                    ),
+              ),
+            ],
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _morph,
+          // The Cloud bar keeps its pill narrower than the bar.
+          builder: (context, child) => Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: Spacing.s5 * (1 - _morph.value),
+            ),
+            child: child,
+          ),
+          // A small pill, so its tap area runs a little above it.
+          child: SetupTapRoom(
+            onTap: _toggleServer,
+            child: AppButton(
+              label: state.isSelfHosting
+                  ? LocaleKeys.onboarding_connect_self_host_hide.tr()
+                  : LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+              isFullWidth: true,
+              animatesLabel: true,
+              onPressed: _toggleServer,
+            ),
+          ),
+        ),
+        _Reveal(
+          progress: ReverseAnimation(_morph),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: Spacing.s1),
+              _buildSkipButton(context, cubit),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Pinned actions for the states that are not a pick.
   Widget _buildConnectBottomBar(
     BuildContext context,
     OnboardingConnectState state,
     OnboardingConnectCubit cubit,
   ) {
-    final colors = context.appColors;
     if (state.confirmation != null) {
       return AppButton(
         label: LocaleKeys.onboarding_connect_self_host_continue.tr(),
@@ -816,94 +1051,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         ],
       );
     }
-    // No server has answered yet, so offer the way out. Without it a user who
-    // is offline or has the address wrong has no forward exit and no back.
-    final skipButton = TextButton(
-      onPressed: () => unawaited(
-        cubit.navigateToHome(isReplay: widget.isReplay),
-      ),
-      style: TextButton.styleFrom(
-        minimumSize: const Size(double.infinity, 36),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(
-        LocaleKeys.onboarding_connect_skip_for_now.tr(),
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: colors.onCanvas,
-        ),
-      ),
-    );
-
-    if (!state.isSelfHosting) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
-            // A small pill, so its tap area runs a little above it.
-            child: SetupTapRoom(
-              onTap: cubit.toggleSelfHosting,
-              child: AppButton(
-                label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
-                variant: AppButtonVariant.ghost,
-                size: AppButtonSize.sm,
-                isFullWidth: true,
-                onPressed: cubit.toggleSelfHosting,
-              ),
-            ),
-          ),
-          const SizedBox(height: Spacing.s1),
-          skipButton,
-        ],
-      );
-    }
-
     // While the address is being checked the face and its line carry the
-    // wait, so the bar only keeps the way out.
-    if (state.isConnecting) return skipButton;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppButton(
-          label: LocaleKeys.onboarding_connect_connect_button.tr(),
-          size: AppButtonSize.lg,
-          isFullWidth: true,
-          onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
-        ),
-        // The small pill's tap area takes its extra room out of the gap
-        // above it, so the pill stays where it was.
-        SizedBox(
-          height:
-              Spacing.s3 -
-              math.min(
-                Spacing.s3,
-                setupTapRoomFor(
-                  setupButtonHeightFor(
-                    minHeight: 36,
-                    fontSize: 14,
-                    textScale: setupTextScaleOf(context),
-                  ),
-                ),
-              ),
-        ),
-        SetupTapRoom(
-          onTap: cubit.toggleSelfHosting,
-          child: AppButton(
-            label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
-            variant: AppButtonVariant.ghost,
-            size: AppButtonSize.sm,
-            isFullWidth: true,
-            onPressed: cubit.toggleSelfHosting,
-          ),
-        ),
-      ],
-    );
+    // wait, so the bar only keeps the way out. Without it a user who is
+    // offline or has the address wrong has no forward exit and no back.
+    return _buildSkipButton(context, cubit);
   }
 
   Widget _buildHookTestState(
@@ -1068,6 +1219,155 @@ class _PrivacyLine extends StatelessWidget {
                   style: style,
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// A part that only one of the two states has. It grows to its height and
+/// fades in as [progress] goes from 0 to 1, and shrinks away as it goes back.
+/// At 0 it takes no room and is not there for a screen reader or a tap.
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.progress, required this.child});
+
+  final Animation<double> progress;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: progress,
+      child: child,
+      builder: (context, child) {
+        final amount = progress.value.clamp(0.0, 1.0);
+        if (amount <= 0) return const SizedBox.shrink();
+        final isSettled = amount >= 1;
+        return ExcludeSemantics(
+          excluding: !isSettled,
+          child: IgnorePointer(
+            ignoring: !isSettled,
+            // Not clipped once it is whole, so a shadow keeps its edge.
+            child: ClipRect(
+              clipBehavior: isSettled ? Clip.none : Clip.hardEdge,
+              child: Align(
+                alignment: AlignmentDirectional.topStart,
+                heightFactor: amount,
+                // The words go before the room does and come after it starts
+                // to open, so a part never shows as a crushed line of text.
+                child: Opacity(opacity: amount * amount, child: child),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One face of a card that is two things in turn. It shows at [opacityAt] of
+/// the way across, and only the face that is in front takes taps, focus and
+/// a screen reader's attention.
+class _MorphFace extends StatelessWidget {
+  const _MorphFace({
+    required this.morph,
+    required this.opacityAt,
+    required this.isActiveAt,
+    required this.child,
+  });
+
+  final Animation<double> morph;
+  final double Function(double own) opacityAt;
+  final bool Function(double own) isActiveAt;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: morph,
+      child: child,
+      builder: (context, child) {
+        final isActive = isActiveAt(morph.value);
+        return ExcludeSemantics(
+          excluding: !isActive,
+          child: ExcludeFocus(
+            excluding: !isActive,
+            child: IgnorePointer(
+              ignoring: !isActive,
+              child: Opacity(opacity: opacityAt(morph.value), child: child),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The toasts over the card: no internet, and the last error. A toast comes
+/// in and goes out by growing and shrinking, so what is under it moves
+/// smoothly, and switching servers (which clears an error) does not make it
+/// vanish in one frame.
+class _ConnectNotices extends StatefulWidget {
+  const _ConnectNotices({required this.isOffline, required this.errorMessage});
+
+  final bool isOffline;
+  final String? errorMessage;
+
+  @override
+  State<_ConnectNotices> createState() => _ConnectNoticesState();
+}
+
+class _ConnectNoticesState extends State<_ConnectNotices> {
+  /// Counts the changes, so a toast that comes back while its last run is
+  /// still going out is a new child of the switcher, not a duplicate.
+  int _run = 0;
+
+  @override
+  void didUpdateWidget(_ConnectNotices oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isOffline != widget.isOffline ||
+        oldWidget.errorMessage != widget.errorMessage) {
+      _run++;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final error = widget.errorMessage;
+    return AnimatedSwitcher(
+      duration: context.motion(AppDurations.base),
+      switchInCurve: AppCurves.easeOut,
+      switchOutCurve: AppCurves.easeOut,
+      transitionBuilder: (child, animation) => SizeTransition(
+        sizeFactor: animation,
+        alignment: Alignment.topCenter,
+        child: FadeTransition(opacity: animation, child: child),
+      ),
+      layoutBuilder: (current, previous) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [...previous, ?current],
+      ),
+      child: Column(
+        key: ValueKey(_run),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.isOffline) ...[
+            AppToast(
+              key: const ValueKey('connect-offline-toast'),
+              faceState: FaceState.concerned,
+              message: LocaleKeys.onboarding_connect_offline_notice.tr(),
+            ),
+            const SizedBox(height: Spacing.s4),
+          ],
+          if (error != null) ...[
+            AppToast(
+              key: const ValueKey('connect-error-toast'),
+              faceState: FaceState.worried,
+              message: error,
+            ),
+            const SizedBox(height: Spacing.s4),
+          ],
+        ],
       ),
     );
   }

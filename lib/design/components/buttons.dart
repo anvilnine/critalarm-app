@@ -78,10 +78,16 @@ class AppButton extends StatefulWidget {
     this.isFocused = false,
     this.foregroundColor,
     this.onPressDown,
+    this.animatesLabel = false,
     super.key,
   });
 
   final String label;
+
+  /// True when the label may change while the button stays: the old words
+  /// fade out and the new ones fade in, in place. The button itself does not
+  /// move or blink.
+  final bool animatesLabel;
   final VoidCallback? onPressed;
 
   /// Called as a finger goes down on an enabled button, before the tap is
@@ -107,6 +113,16 @@ class AppButton extends StatefulWidget {
 class _AppButtonState extends State<AppButton> {
   bool _isHovered = false;
   bool _isActive = false;
+
+  /// Counts the label changes, so words that come back while their last run
+  /// is still fading out are a new child of the switcher, not a duplicate.
+  int _labelRun = 0;
+
+  @override
+  void didUpdateWidget(AppButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.label != widget.label) _labelRun++;
+  }
 
   bool get _isEnabled => widget.onPressed != null && !widget.isLoading;
 
@@ -260,11 +276,33 @@ class _AppButtonState extends State<AppButton> {
         Flexible(
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              widget.label,
-              style: textStyle,
-              maxLines: 1,
-            ),
+            child: widget.animatesLabel
+                ? AnimatedSwitcher(
+                    duration: context.motion(AppDurations.base),
+                    // The old words go first and the new ones come in once
+                    // they are gone, so the two never overprint.
+                    switchInCurve: const Interval(
+                      0.25,
+                      1,
+                      curve: AppCurves.easeOut,
+                    ),
+                    switchOutCurve: Interval(
+                      0.5,
+                      1,
+                      curve: AppCurves.easeOut.flipped,
+                    ),
+                    child: Text(
+                      widget.label,
+                      key: ValueKey(_labelRun),
+                      style: textStyle,
+                      maxLines: 1,
+                    ),
+                  )
+                : Text(
+                    widget.label,
+                    style: textStyle,
+                    maxLines: 1,
+                  ),
           ),
         ),
         if (widget.trailingIcon != null) ...[
