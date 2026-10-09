@@ -62,6 +62,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Locked options on a topic's page and the weekly check show what they are first, and the plan page opens only when you try to use one
 - Personalize is a stack of colour cards, and Look, Sound, Wake-up challenge, Widgets and App icon each open into their own page.
 - The Look page shows your alarm looks as a deck of phones, you can swipe to try any, and you pay only when you choose to use one.
+- The sound picker has a new look with the wave of the sound that rings, and the sounds are listed on a white page.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

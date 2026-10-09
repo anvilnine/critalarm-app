@@ -10,6 +10,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/settings/presentation/personalize/sound/sound_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -75,12 +76,16 @@ void main() {
     }
   }
 
-  AppRadioRow rowOf(WidgetTester tester, String title) => tester.widget(
-    find.byWidgetPredicate((w) => w is AppRadioRow && w.title == title),
-  );
-
   Finder rowFinder(String title) =>
-      find.byWidgetPredicate((w) => w is AppRadioRow && w.title == title);
+      find.byWidgetPredicate((w) => w is SoundRow && w.sound.name == title);
+
+  /// Whether the radio dot of the row is filled: the mark on the sound that
+  /// rings.
+  bool isMarked(WidgetTester tester, String title) => tester
+      .widget<AppRadio>(
+        find.descendant(of: rowFinder(title), matching: find.byType(AppRadio)),
+      )
+      .selected;
 
   testWidgets('nothing held, one own sound saved: the own sound is locked, '
       'the mark is on the sound that rings, and every way in opens the '
@@ -112,7 +117,10 @@ void main() {
       BlocProvider<ThemeCubit>.value(
         value: getIt<ThemeCubit>(),
         child: MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
+          data: const MediaQueryData(
+            size: Size(390, 844),
+            disableAnimations: true,
+          ),
           child: MaterialApp.router(
             theme: buildLightTheme(),
             routerConfig: router,
@@ -140,14 +148,15 @@ void main() {
       findsOneWidget,
       reason: 'the locked own sound carries the plan badge',
     );
-    expect(rowOf(tester, ownSound.name).selected, isFalse);
+    expect(isMarked(tester, ownSound.name), isFalse);
 
     // The mark is on the sound that will ring in its place.
     const ringing = 'Classic siren';
     expect(BundledSounds.fallbackId, 'classic_siren');
-    expect(rowOf(tester, ringing).selected, isTrue);
-    expect(find.text('Use $ringing'), findsOneWidget);
-    expect(find.text('Use ${ownSound.name}'), findsNothing);
+    expect(isMarked(tester, ringing), isTrue);
+    // The choice is saved the moment it is made, so there is no button that
+    // confirms it.
+    expect(find.text('Use $ringing'), findsNothing);
 
     Future<void> opensPaywall(Finder target, String what) async {
       await tester.ensureVisible(target);
