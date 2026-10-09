@@ -14,6 +14,10 @@ const double kPassCardHeight = 260;
 /// The last card is at least this tall, and bleeds off the bottom edge.
 const double kPassLastCardMinHeight = 220;
 
+/// The last card is never taller than a card, so a stack of three or four
+/// ends in a card and then the canvas, not a slab down to the bottom edge.
+const double kPassLastCardMaxHeight = kPassCardHeight;
+
 /// How far past the display's bottom edge the last card reaches.
 const double kPassCardBleed = 34;
 
@@ -52,9 +56,9 @@ enum PassStackMode {
 /// On a 390 by 844 phone with a 47 point inset, the cards' tops are 122, 256,
 /// 390, 524 and 658; each is 260 tall except the last, which is 220 and
 /// bleeds off the bottom edge. A stack with fewer cards ends the last one
-/// lower, so it reaches the bottom edge all the same. All positions are
-/// relative to the display; the cards sit [cardLeft] from its left edge and
-/// are [cardWidth] wide.
+/// at the height of any other card, and the canvas shows below it. All
+/// positions are relative to the display; the cards sit [cardLeft] from its
+/// left edge and are [cardWidth] wide.
 @immutable
 class PassStackLayout {
   const PassStackLayout._({
@@ -114,9 +118,9 @@ class PassStackLayout {
     final heights = [
       for (var i = 0; i < count; i++)
         i == count - 1
-            ? math.max(
+            ? (height - tops[i] + kPassCardBleed).clamp(
                 kPassLastCardMinHeight,
-                height - tops[i] + kPassCardBleed,
+                kPassLastCardMaxHeight,
               )
             : kPassCardHeight,
     ];

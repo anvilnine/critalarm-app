@@ -49,16 +49,26 @@ void main() {
   });
 
   group('the last card', () {
-    test('with three passes reaches 34 points past the bottom edge', () {
+    test('with three passes is as tall as a card, with canvas below', () {
       final layout = _phone(count: 3);
       expect(layout.tops, [122, 256, 390]);
-      expect(layout.heights, [260, 260, 844 - 390 + 34]);
-      expect(layout.tops.last + layout.heights.last, 844 + 34);
+      expect(layout.heights, [260, 260, 260]);
+      expect(layout.tops.last + layout.heights.last, lessThan(844));
     });
 
-    test('with one pass is as tall as the rest of the display', () {
+    test('with four passes is as tall as a card', () {
+      final layout = _phone(count: 4);
+      expect(layout.heights, [260, 260, 260, 260]);
+    });
+
+    test('with one pass is as tall as a card', () {
       final layout = _phone(count: 1);
-      expect(layout.heights, [844 - 122 + 34]);
+      expect(layout.heights, [260]);
+    });
+
+    test('with five passes still bleeds 34 points past the edge', () {
+      final layout = _phone();
+      expect(layout.tops.last + layout.heights.last, 844 + 34 - 0);
     });
 
     test('is never under 220, so a short display scrolls', () {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/motion.dart';
@@ -98,6 +100,38 @@ TextStyle passValueStyle(Color color, double size) => TextStyle(
   letterSpacing: -0.03 * size,
   color: color,
 );
+
+/// The smallest size a value steps down to before one of its words breaks.
+const double kPassValueMinSize = 30;
+
+/// The size a value is drawn at so that its longest word fits on one line.
+///
+/// A value wraps between words and never inside one. When a single word is
+/// wider than the [available] width at [size], the size steps down until the
+/// word fits, and stops at [kPassValueMinSize]. Below that the word breaks,
+/// which only a name with no spaces in it and a very large text size reach.
+///
+/// [longestWord] is the width of the widest word when drawn at the size it
+/// is given. It is called a few times, because a text scaler need not be
+/// linear.
+double passFitValueSize({
+  required double size,
+  required double available,
+  required double Function(double size) longestWord,
+  double minSize = kPassValueMinSize,
+}) {
+  final floor = math.min(size, minSize);
+  var fit = size;
+  for (var pass = 0; pass < 4; pass++) {
+    final width = longestWord(fit);
+    if (width <= available || width <= 0) return fit;
+    if (fit <= floor) return floor;
+    // Width follows the size closely, so one step lands near the answer and
+    // a second settles it. The small drop keeps rounding from tipping it over.
+    fit = math.max(floor, fit * available / width - 0.1);
+  }
+  return fit;
+}
 
 /// Tells the cards below whether the stack is laid out flat (text scale 1.3
 /// and above): full radius, no cap on the value's lines, the thumbnail under
@@ -237,19 +271,20 @@ class _AppPassCardState extends State<AppPassCard> {
         final open = handoff.open;
         if (open == null) return card;
         if (open == widget.pass) {
-          // The page stands where this card was. Under reduce motion it
-          // fades in over the root, so the card stays until it is done.
+          // The page stands where this card was. Under reduce motion the
+          // card fades out first and the page fades in after it.
           final animation = handoff.animation;
           if (animation == null) return Opacity(opacity: 0, child: card);
           return AnimatedBuilder(
             animation: animation,
             child: card,
             builder: (context, child) => Opacity(
-              opacity: (handoff.frame?.pageOpacity ?? 1) < 1 ? 1 : 0,
+              opacity: handoff.frame?.openCardOpacity ?? 0,
               child: child,
             ),
           );
         }
+        final isBelow = widget.pass.index > open.index;
         final animation = handoff.animation;
         if (animation == null) return card;
         return AnimatedBuilder(
@@ -259,7 +294,10 @@ class _AppPassCardState extends State<AppPassCard> {
             final frame = handoff.frame;
             if (frame == null) return child!;
             return Transform.translate(
-              offset: Offset(0, frame.othersOffset),
+              offset: Offset(
+                0,
+                isBelow ? frame.othersOffset : frame.aboveOffset,
+              ),
               child: Opacity(opacity: frame.othersOpacity, child: child),
             );
           },
