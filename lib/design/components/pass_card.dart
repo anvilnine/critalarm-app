@@ -27,8 +27,13 @@ class PassLabelLine extends StatelessWidget {
     required this.color,
     this.state,
     this.tag,
+    this.isSingleLine = false,
     super.key,
   });
+
+  /// Keeps the label on one line and cuts it with an ellipsis, with the tag
+  /// after it. The collapsed page header uses it.
+  final bool isSingleLine;
 
   /// The pass label, such as "Wake-up challenge".
   final String label;
@@ -52,39 +57,53 @@ class PassLabelLine extends StatelessWidget {
     final capped = MediaQuery.textScalerOf(
       context,
     ).clamp(maxScaleFactor: kChromeMaxTextScale);
+    final labelText = Text(
+      text.toUpperCase(),
+      maxLines: isSingleLine ? 1 : null,
+      overflow: isSingleLine ? TextOverflow.ellipsis : TextOverflow.clip,
+      style: TextStyle(
+        fontFamily: AppTypography.fontMono,
+        fontFamilyFallback: AppTypography.fontMonoFallbacks,
+        fontWeight: FontWeight.w700,
+        fontSize: 11,
+        height: 1.2,
+        letterSpacing: 0.1 * 11,
+        color: color,
+      ),
+    );
+    final tagText = tag == null
+        ? null
+        : Text(
+            tag!.toUpperCase(),
+            maxLines: isSingleLine ? 1 : null,
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontWeight: FontWeight.w700,
+              fontSize: 10.5,
+              height: 1.2,
+              letterSpacing: 0.08 * 10.5,
+              color: color,
+            ),
+          );
+    if (isSingleLine) {
+      return MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: capped),
+        child: Row(
+          children: [
+            Flexible(child: labelText),
+            if (tagText != null) ...[const SizedBox(width: 8), tagText],
+          ],
+        ),
+      );
+    }
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: capped),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 8,
         runSpacing: 2,
-        children: [
-          Text(
-            text.toUpperCase(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-              height: 1.2,
-              letterSpacing: 0.1 * 11,
-              color: color,
-            ),
-          ),
-          if (tag != null)
-            Text(
-              tag!.toUpperCase(),
-              style: TextStyle(
-                fontFamily: AppTypography.fontMono,
-                fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                fontWeight: FontWeight.w700,
-                fontSize: 10.5,
-                height: 1.2,
-                letterSpacing: 0.08 * 10.5,
-                color: color,
-              ),
-            ),
-        ],
+        children: [labelText, ?tagText],
       ),
     );
   }
@@ -152,6 +171,25 @@ class PassCardLayout extends InheritedWidget {
   @override
   bool updateShouldNotify(PassCardLayout oldWidget) =>
       isFlat != oldWidget.isFlat;
+}
+
+/// Tells a card how much of it shows in the overlapped stack, because the next
+/// card covers the rest. `AppPassStack` wraps every card but the last in one.
+class PassCardBand extends InheritedWidget {
+  const PassCardBand({
+    required this.height,
+    required super.child,
+    super.key,
+  });
+
+  /// The distance from this card's top to the next card's top.
+  final double height;
+
+  static double? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PassCardBand>()?.height;
+
+  @override
+  bool updateShouldNotify(PassCardBand oldWidget) => height != oldWidget.height;
 }
 
 /// One card of the Personalize stack.
@@ -248,6 +286,7 @@ class _AppPassCardState extends State<AppPassCard> {
         ),
         thumbnail: widget.thumbnail,
         bottomRadius: isFlat ? kPassCardRadius : 0,
+        visibleHeight: isFlat ? null : PassCardBand.maybeOf(context),
         reduceMotion: context.reduceMotion,
         handoff: PassOriginScope.maybeOf(context),
       ),
