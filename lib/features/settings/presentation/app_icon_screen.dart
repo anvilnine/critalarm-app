@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
@@ -7,8 +8,10 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/settings/presentation/app_icon_fit.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_showcase_logic.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_state.dart';
@@ -18,6 +21,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+/// The height of the page's own tail under the body (`AppPassPage`).
+const double _kTailSpace = 24;
+
+/// The size of the icon's name under the carousel.
+const double _kNameSize = 24;
 
 /// The four home screen icons as a showcase, on the App icon pass: the white
 /// ground, the shared Personalize header (the label, the plan word while the
@@ -226,55 +235,19 @@ class _AppIconViewState extends State<_AppIconView>
             },
           ),
           slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: Spacing.s6),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _Headline(visible: _headline, color: tone.onGround),
-                    // Screen width, not a LayoutBuilder: the
-                    // fill-remaining sliver measures its child's
-                    // intrinsic height first.
-                    _carousel(state, MediaQuery.sizeOf(context).width),
-                    const SizedBox(height: Spacing.s3),
-                    _Dots(
-                      count: AppIcon.values.length,
-                      index: _index,
-                      color: tone.onGround,
-                      onTap: _goTo,
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                    AnimatedSwitcher(
-                      duration: context.motion(AppDurations.quick),
-                      child: Column(
-                        key: ValueKey(icon),
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            appIconName(icon),
-                            textAlign: TextAlign.center,
-                            style: AppTypography.title(
-                              tone.onGround,
-                              fontSize: 24,
-                            ),
-                          ),
-                          const SizedBox(height: Spacing.s2),
-                          // The button already says In use, so only a
-                          // locked icon gets a mark here: the plan badge,
-                          // with its lock.
-                          if (locked)
-                            const AccessLock.inline(
-                              feature: AppFeature.appIcons,
-                              source: LockSource.appIcon,
-                              child: FeatureLockBadge(),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+            SliverLayoutBuilder(
+              builder: (context, constraints) => _body(
+                state: state,
+                icon: icon,
+                locked: locked,
+                tone: tone,
+                width: constraints.crossAxisExtent,
+                // What the page's own header and the tail below the body
+                // leave, so the body fits without a scroll.
+                height:
+                    constraints.viewportMainAxisExtent -
+                    constraints.precedingScrollExtent -
+                    _kTailSpace,
               ),
             ),
           ],
@@ -283,8 +256,143 @@ class _AppIconViewState extends State<_AppIconView>
     );
   }
 
-  Widget _carousel(AppIconState state, double width) {
-    final tile = showcaseTileSize(width);
+  /// The icons, the dots and the name, sized to the room the page has: the
+  /// icon shrinks before the name or its badge can be cut off, and on a short
+  /// display the name and the dots stand beside the icons.
+  Widget _body({
+    required AppIconState state,
+    required AppIcon icon,
+    required bool locked,
+    required PassTone tone,
+    required double width,
+    required double height,
+  }) {
+    final sideBySide = AppSize.of(context).isShort;
+    final scaler = MediaQuery.textScalerOf(context);
+    final textWidth = sideBySide ? width * 0.4 - kPassSidePadding : width;
+    final nameHeight = _tallestName(tone.onGround, scaler, textWidth);
+    final showHeadline = _headline || state.welcome;
+    final fit = fitIconPage(
+      width: width,
+      height: height,
+      nameHeight: nameHeight,
+      headlineHeight: showHeadline
+          ? _headlineHeight(tone.onGround, scaler, textWidth)
+          : 0,
+      // A slot for the badge only while some icon is locked.
+      badgeHeight: state.unlocked ? 0 : iconBadgeHeight(scaler.scale(1)),
+      sideBySide: sideBySide,
+    );
+    final dots = _Dots(
+      count: AppIcon.values.length,
+      index: _index,
+      color: tone.onGround,
+      onTap: _goTo,
+    );
+    final name = _NameSlot(
+      icon: icon,
+      locked: locked,
+      color: tone.onGround,
+      // The slot is as tall as the tallest name and the badge, so swiping
+      // never moves the icons.
+      height:
+          nameHeight +
+          (state.unlocked
+              ? 0
+              : kIconBadgeGap + iconBadgeHeight(scaler.scale(1))),
+    );
+    final headline = _Headline(visible: _headline, color: tone.onGround);
+    final Widget content;
+    if (fit.sideBySide) {
+      content = Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: _carousel(state, width * 0.6, fit),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: kPassSidePadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  headline,
+                  name,
+                  const SizedBox(height: kIconDotsGap),
+                  dots,
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          headline,
+          _carousel(state, width, fit),
+          const SizedBox(height: kIconDotsGap),
+          dots,
+          const SizedBox(height: kIconNameGap),
+          name,
+        ],
+      );
+    }
+    return SliverToBoxAdapter(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: math.max(0, height)),
+        child: Center(child: content),
+      ),
+    );
+  }
+
+  /// The height of the tallest of the four names, wrapped at [width].
+  double _tallestName(Color color, TextScaler scaler, double width) {
+    var tallest = 0.0;
+    for (final icon in AppIcon.values) {
+      tallest = math.max(
+        tallest,
+        _textHeight(
+          appIconName(icon),
+          AppTypography.title(color, fontSize: _kNameSize),
+          scaler,
+          width,
+        ),
+      );
+    }
+    return tallest;
+  }
+
+  double _headlineHeight(Color color, TextScaler scaler, double width) =>
+      _textHeight(
+        LocaleKeys.settings_app_icon_welcome.tr(),
+        AppTypography.headline(color, fontSize: 26),
+        scaler,
+        width,
+      ) +
+      Spacing.s3;
+
+  double _textHeight(
+    String text,
+    TextStyle style,
+    TextScaler scaler,
+    double width,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: scaler,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: math.max(1, width));
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
+  Widget _carousel(AppIconState state, double width, IconPageFit fit) {
+    final tile = fit.tile;
     final colors = context.appColors;
     final confettiColors = [
       colors.yellow,
@@ -295,7 +403,7 @@ class _AppIconViewState extends State<_AppIconView>
     ];
     final reduce = context.reduceMotion;
     final carousel = SizedBox(
-      height: tile + 56,
+      height: fit.carouselHeight,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -381,6 +489,57 @@ class _AppIconViewState extends State<_AppIconView>
     return t < 0.4
         ? 1 + 0.08 * AppCurves.easeOut.transform(t / 0.4)
         : 1.08 - 0.08 * AppCurves.easeSpring.transform((t - 0.4) / 0.6);
+  }
+}
+
+/// The icon's name, with the plan badge under it while the icon is locked.
+/// It is [height] tall for every icon, so swiping never moves what is above.
+class _NameSlot extends StatelessWidget {
+  const _NameSlot({
+    required this.icon,
+    required this.locked,
+    required this.color,
+    required this.height,
+  });
+
+  final AppIcon icon;
+  final bool locked;
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: AnimatedSwitcher(
+        duration: context.motion(AppDurations.quick),
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.topCenter,
+          children: [...previous, ?current],
+        ),
+        child: Column(
+          key: ValueKey(icon),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              appIconName(icon),
+              textAlign: TextAlign.center,
+              style: AppTypography.title(color, fontSize: _kNameSize),
+            ),
+            // The button already says In use, so only a locked icon gets a
+            // mark here: the plan badge, with its lock.
+            if (locked) ...[
+              const SizedBox(height: kIconBadgeGap),
+              const AccessLock.inline(
+                feature: AppFeature.appIcons,
+                source: LockSource.appIcon,
+                child: FeatureLockBadge(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -520,6 +679,8 @@ class _IconPage extends StatelessWidget {
               clock: clock,
               phase: index * 1.3,
               animate: animate,
+              // Under reduce motion the icon stands upright.
+              maxAngle: animate ? 11 * math.pi / 180 : 0,
               borderRadius: BorderRadius.circular(size * 230 / 1024),
               child: AppIconPreview(icon: icon, size: size),
             ),
