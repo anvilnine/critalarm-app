@@ -4,7 +4,6 @@ import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/previews/widgets_preview.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumb_motion.dart';
 import 'package:flutter/foundation.dart';
@@ -73,7 +72,7 @@ abstract final class PassThumbs {
       (context) => PassSoundThumb(tone: tone, clock: clock, peaks: peaks);
 
   /// The Wake-up challenge pass: the art of the chosen kind, or the first
-  /// kind's art at 60% while the challenge is Off.
+  /// kind's art in the muted colour while the challenge is Off.
   static WidgetBuilder challenge({
     required PassTone tone,
     ChallengeKind? kind,
@@ -208,7 +207,7 @@ class PassSoundThumb extends StatelessWidget {
 }
 
 /// The Wake-up challenge thumbnail: a still mark of the chosen challenge.
-/// With none chosen it is the first challenge's mark at 60%.
+/// With none chosen it is the first challenge's mark in the muted colour.
 class PassChallengeThumb extends StatelessWidget {
   const PassChallengeThumb({required this.tone, this.kind, super.key});
 
@@ -220,8 +219,10 @@ class PassChallengeThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = kind ?? ChallengeKind.typeTopicName;
-    final accent = tone.valueOn;
+    // With none chosen the mark is all in the muted text colour at full
+    // strength: dimmed yellow on the dark card was under 4.5 to 1.
     final quiet = tone.valueMuted;
+    final accent = kind == null ? quiet : tone.valueOn;
     final mark = switch (shown) {
       ChallengeKind.typeTopicName => _MonoMark(
         typed: 'pro',
@@ -243,10 +244,7 @@ class PassChallengeThumb extends StatelessWidget {
       child: SizedBox(
         width: kPassThumbWidth,
         height: height,
-        child: Opacity(
-          opacity: kind == null ? 0.6 : 1,
-          child: Align(alignment: Alignment.topRight, child: mark),
-        ),
+        child: Align(alignment: Alignment.topRight, child: mark),
       ),
     );
   }
@@ -375,56 +373,37 @@ class _ScratchPainter extends CustomPainter {
       old.accent != accent || old.quiet != quiet;
 }
 
-/// The home screen widget as the phone draws it, small: the same drawing the
-/// paywall shows large, scaled down. It holds its resting frame, the ringing
-/// widget.
+/// The home screen widget, small: the yellow face and the red button, and no
+/// words. At 62 points a name or a time would be 5 points tall and could not
+/// be read, so the picture keeps the two shapes that say what the widget is
+/// for: a face that is ringing and a button to answer it.
 class WidgetMiniature extends StatelessWidget {
   const WidgetMiniature({required this.size, super.key});
 
   /// The edge of the picture.
   final double size;
 
-  /// The edge the widget is laid out at before it is scaled down: large
-  /// enough for it to be drawn as the widget and not as a mark.
-  static const double _drawnAt = 132;
+  static const double _face = 40;
+  static const double _button = 16;
 
   @override
-  Widget build(BuildContext context) {
-    // The face on the widget is the yellow one in both themes.
-    final theme = Theme.of(context);
-    final colors = context.appColors.copyWith(
-      faceFill: AppColors.light.faceFill,
-      faceInk: AppColors.light.faceInk,
-      faceStroke: AppColors.light.faceStroke,
-    );
-    return SizedBox.square(
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: SizedBox.square(
       dimension: size,
-      child: FittedBox(
-        child: Theme(
-          data: theme.copyWith(
-            extensions: [
-              ...theme.extensions.values.where((ext) => ext is! AppColors),
-              colors,
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _YellowFace(size: _face),
+          const Spacer(),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.appColors.crit,
+              borderRadius: BorderRadius.circular(_button / 2),
+            ),
+            child: const SizedBox(width: double.infinity, height: _button),
           ),
-          child: _picture(context),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _picture(BuildContext context) {
-    return MediaQuery(
-      // A picture of a widget: its words do not follow the text size.
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.noScaling,
-        disableAnimations: true,
-      ),
-      child: const ExcludeSemantics(
-        child: IgnorePointer(
-          child: WidgetsPreview(size: Size.square(_drawnAt)),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
