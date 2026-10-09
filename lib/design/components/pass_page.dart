@@ -10,6 +10,7 @@ import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/pass_tones.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -557,6 +558,13 @@ class _Header extends StatelessWidget {
       label: label,
       state: state,
       tag: tag,
+      badge: tag == null
+          ? null
+          : passBadgeColorsFor(
+              tone,
+              yellow: context.appColors.yellow,
+              inkFixed: context.appColors.inkFixed,
+            ),
       color: tone.onGround,
       isSingleLine: true,
     );
