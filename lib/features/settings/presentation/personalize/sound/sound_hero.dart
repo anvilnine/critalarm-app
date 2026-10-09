@@ -148,7 +148,7 @@ class SoundHeroPainter extends CustomPainter {
   }
 }
 
-/// The 60 point yellow Play or Stop circle. Yellow on the page's blue is
+/// The yellow Play or Stop circle. Yellow on the page's blue is
 /// 5.03 to 1, the glyph in ink on the yellow is far above that.
 class SoundPlayCircle extends StatelessWidget {
   const SoundPlayCircle({
@@ -159,7 +159,8 @@ class SoundPlayCircle extends StatelessWidget {
     super.key,
   });
 
-  static const double size = 60;
+  /// As tall as the back ring, which it sits level with at the top right.
+  static const double size = kPassRingSize;
 
   final bool isPlaying;
   final String playLabel;
@@ -190,7 +191,7 @@ class SoundPlayCircle extends StatelessWidget {
           ),
           child: AppGlyph(
             isPlaying ? GlyphType.stop : GlyphType.play,
-            size: 26,
+            size: 20,
             strokeWidth: 2,
             color: colors.inkFixed,
           ),

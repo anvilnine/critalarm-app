@@ -157,11 +157,48 @@ void main() {
       expect(_forward(_in(600)).bodyOpacity, 1);
     });
 
-    test('fades out over 300 ms with no delay on the way back', () {
+    test('is gone within 120 ms on the way back, with no delay', () {
       expect(_back(_out(0)).bodyOpacity, 1);
-      expect(_back(_out(150)).bodyOpacity, inExclusiveRange(0, 1));
+      expect(_back(_out(60)).bodyOpacity, inExclusiveRange(0, 1));
+      expect(_back(_out(150)).bodyOpacity, 0);
       expect(_back(_out(300)).bodyOpacity, 0);
       expect(_back(_out(520)).bodyOpacity, 0);
+    });
+  });
+
+  group('a card whose lower part the next card covers', () {
+    // The first card of the overlapped stack shows a 134 point band.
+    final origin = PassOrigin(
+      pass: PassId.look,
+      rect: const Rect.fromLTWH(12, 122, 366, 260),
+      tone: passToneFor(PassId.look, AppColors.light),
+      label: 'Label',
+      value: 'Value',
+      display: _display,
+      visibleHeight: 134,
+    );
+
+    test('shows the band, cut from its top', () {
+      expect(origin.shownRect, const Rect.fromLTWH(12, 122, 366, 134));
+      expect(_origin(0).shownRect, _origin(0).rect);
+    });
+
+    test('starts and ends as the band, not as the whole card', () {
+      expect(_forward(0, origin).rect, origin.shownRect);
+      expect(_back(_out(520), origin).rect, origin.shownRect);
+    });
+
+    test('the card below is never under the page edge, and ends home', () {
+      for (var ms = 0.0; ms <= 520; ms += 20) {
+        final frame = _back(_out(ms), origin);
+        final nextTop = origin.shownRect.bottom + frame.othersOffset;
+        expect(
+          nextTop,
+          greaterThanOrEqualTo(frame.rect.bottom - 0.001),
+          reason: 'at $ms ms',
+        );
+      }
+      expect(_back(_out(520), origin).othersOffset, 0);
     });
   });
 

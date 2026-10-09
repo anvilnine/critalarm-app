@@ -295,7 +295,10 @@ class AppPassStack extends StatelessWidget {
                     width: layout.cardWidth,
                     top: layout.tops[i],
                     height: layout.heights[i],
-                    child: cards[i],
+                    // The next card covers the rest of this one.
+                    child: i == cards.length - 1
+                        ? cards[i]
+                        : PassCardBand(height: layout.step, child: cards[i]),
                   ),
               ],
             ),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
@@ -165,13 +164,11 @@ class _SoundPickerViewState extends State<_SoundPickerView>
     }
   }
 
-  /// The wave and the play circle, over the sheet.
+  /// The wave, over the sheet.
   Widget _hero(
     BuildContext context, {
     required SoundPickerState state,
     required PassTone tone,
-    required bool circleInHero,
-    required Widget circle,
   }) {
     final playing = state.previewingSoundId;
     final shown = playing ?? state.ringingSoundId;
@@ -190,14 +187,6 @@ class _SoundPickerViewState extends State<_SoundPickerView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (circleInHero)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: circle,
-              ),
-            ),
           SoundHero(
             peaks: peaks,
             isPlaying: playing != null,
@@ -208,31 +197,6 @@ class _SoundPickerViewState extends State<_SoundPickerView>
         ],
       ),
     );
-  }
-
-  /// Whether the value's first line would run under the play circle that
-  /// sits beside the header. A long name does, and then the circle sits over
-  /// the wave instead.
-  bool _clashesWithCircle(
-    BuildContext context,
-    String value,
-    double columnWidth,
-    Color color,
-  ) {
-    if (value.isEmpty) return false;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: passValueStyle(color, kPassPageValueSize),
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout(maxWidth: math.max(0, columnWidth - 2 * kPassSidePadding));
-    final lines = painter.computeLineMetrics();
-    final firstLine = lines.isEmpty ? 0.0 : lines.first.width;
-    painter.dispose();
-    const room = SoundPlayCircle.size + 12;
-    return firstLine > columnWidth - 2 * kPassSidePadding - room;
   }
 
   @override
@@ -270,15 +234,6 @@ class _SoundPickerViewState extends State<_SoundPickerView>
               )
             : LocaleKeys.personalize_sound_title.tr();
 
-        final media = MediaQuery.of(context);
-        final columnWidth = math.min(media.size.width, AppSize.contentMaxWidth);
-        final circleInHero = _clashesWithCircle(
-          context,
-          value,
-          columnWidth,
-          tone.onGround,
-        );
-
         void togglePlay() {
           if (isPlaying) {
             unawaited(cubit.stopPreview());
@@ -301,15 +256,10 @@ class _SoundPickerViewState extends State<_SoundPickerView>
           state: stateKey?.tr(),
           controller: _scroll,
           onBack: () => _leave(context),
+          trailing: circle,
           slivers: [
             SliverToBoxAdapter(
-              child: _hero(
-                context,
-                state: state,
-                tone: tone,
-                circleInHero: circleInHero,
-                circle: circle,
-              ),
+              child: _hero(context, state: state, tone: tone),
             ),
             SliverToBoxAdapter(
               child: SoundSheet(
@@ -325,74 +275,8 @@ class _SoundPickerViewState extends State<_SoundPickerView>
 
         // A Scaffold gives the error snack bar somewhere to show. The page
         // paints its own ground, so it shows nothing of its own.
-        return Scaffold(
-          backgroundColor: tone.ground,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              page,
-              if (!circleInHero)
-                _HeaderCircle(
-                  scroll: _scroll,
-                  columnWidth: columnWidth,
-                  circle: circle,
-                ),
-            ],
-          ),
-        );
+        return Scaffold(backgroundColor: tone.ground, body: page);
       },
-    );
-  }
-}
-
-/// Holds the play circle at the right of the header block, level with the
-/// label, and lets it scroll away with the header. It is not in the pinned
-/// row: it belongs to the page, not to the way out.
-class _HeaderCircle extends StatelessWidget {
-  const _HeaderCircle({
-    required this.scroll,
-    required this.columnWidth,
-    required this.circle,
-  });
-
-  final ScrollController scroll;
-  final double columnWidth;
-  final Widget circle;
-
-  /// How far the page scrolls before the circle is gone, so it never shows
-  /// over the pinned strip.
-  static const double _fadeOver = 18;
-
-  /// The circle's top sits this far under the label's top.
-  static const double _belowLabel = 4;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final frame = PassFrameScope.maybeOf(context)?.frame;
-    final gutter = (media.size.width - columnWidth) / 2;
-    return AnimatedBuilder(
-      animation: scroll,
-      builder: (context, child) {
-        final offset = scroll.hasClients ? scroll.offset : 0.0;
-        final visible = (1 - offset / _fadeOver).clamp(0.0, 1.0);
-        final body = frame?.bodyOpacity ?? 1;
-        final shift = frame?.headerOffset ?? Offset.zero;
-        return Positioned(
-          top:
-              media.padding.top +
-              kPassHeaderTop +
-              _belowLabel -
-              offset +
-              shift.dy,
-          right: gutter + kPassSidePadding,
-          child: IgnorePointer(
-            ignoring: visible < 1 || body < 1,
-            child: Opacity(opacity: visible * body, child: child),
-          ),
-        );
-      },
-      child: circle,
     );
   }
 }
