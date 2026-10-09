@@ -657,8 +657,6 @@
       "other": "{count} messages. Rings at {priority} priority."
     },
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it an alarm arrives as a quiet notification.",
-    "sound_row_title": "Alarm sound",
-    "sound_row_default": "Using the default",
     "messages_header": "Messages",
     "settings_header": "Topic settings",
     "stop_alarm_button": "Stop the alarm",
@@ -678,6 +676,10 @@
     "critical_off_one_way_title": "Turn off critical delivery?",
     "critical_off_one_way_body": "On the free plan you can't turn this back on.",
     "critical_off_one_way_confirm": "Turn off"
+  },
+  "topic_passes": {
+    "group_label": "Look, sound, wake-up challenge and tokens",
+    "group_label_example": "Look, sound and wake-up challenge"
   },
   "topic_hero": {
     "card_label": "Critical delivery",
@@ -2220,7 +2222,6 @@
 
   "challenges": {
     "off": "Off",
-    "row_title": "Wake-up challenge",
     "sheet_note": "At my desk asks a challenge. I'm up stops the alarm with one tap.",
     "strip_title": "Wake-up challenge",
     "skip_hold": "Hold {seconds} s to skip",
@@ -2278,8 +2279,6 @@
     "red_alert": "Red alert",
     "crit_panic": "Crit panic",
     "strip_title": "Look",
-    "row_title": "Alarm look",
-    "row_default": "Phone default",
     "sheet_note": "Changes only how the alarm looks.",
     "own": "Yours",
     "own_add_label": "Add your photo",

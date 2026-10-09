@@ -1,6 +1,10 @@
 // Captures the real Topic screen against the mock server, off the device.
 //
-//   fvm flutter test tool/capture_topic_screen.dart
+//   fvm flutter test tool/capture_topic_screen.dart \
+//     --dart-define=SKIP_PAYWALL=true
+//
+// SKIP_PAYWALL turns the developer plan switches on, which the `stack` part
+// needs to hold or lift a plan.
 //
 // It boots the app's own dependencies on the mock server, seeds one state,
 // opens Home, pushes the topic and writes a PNG named
@@ -9,6 +13,17 @@
 //
 // It draws the app's ambient canvas the way the app does (AppAmbientShell),
 // so the hero's disc and ring are the canvas's.
+//
+// Two parts, picked with --dart-define=PARTS=screen,stack (default: both):
+//   screen   the whole screen in every state, named topic_<state>_...
+//   stack    the pass stack at the foot of the sheet, named
+//            stack_<state>_<phone>_<theme>_<scale>x_<frame>.png: following
+//            the phone, its own look, sound and challenge, a locked plan, a
+//            plan not read, the example topic, the tokens loading then two
+//            then six, a long topic name and a long sound name, light, dark,
+//            320 wide, text scale 1.3 and 2.0 (the flat stack), reduce
+//            motion, the whole screen at full height, and the grow into the
+//            Look, Sound and Wake-up challenge pages at 0, 0.5 and 1.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
@@ -28,15 +43,22 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
+import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
@@ -44,6 +66,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -51,11 +74,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
+import 'capture_pass_kit.dart';
 
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/captures');
 const _statesArg = String.fromEnvironment('STATES');
 const _only = String.fromEnvironment('ONLY');
 const _t = String.fromEnvironment('T');
+const _partsArg = String.fromEnvironment('PARTS');
 
 const _longName = 'payments-service-eu-west-primary-db-replica-lag';
 
@@ -68,6 +93,9 @@ class _Scene {
     this.isPane = false,
     this.isExample = false,
     this.extra = false,
+    this.plan,
+    this.prepare,
+    this.isLoadingHeld = false,
   });
 
   final String name;
@@ -86,6 +114,156 @@ class _Scene {
 
   /// Also captured at 375 by 667 and at text scales 1.3 and 2.0.
   final bool extra;
+
+  /// The plan the phone holds, or null for the developer default.
+  final PassPlanState? plan;
+
+  /// Saves what the stack shows (a look, a sound, a challenge, more tokens)
+  /// once the app is booted.
+  final Future<void> Function(MockServer server)? prepare;
+
+  /// Captures before the mock server has answered, so the tokens and the
+  /// sound are still loading.
+  final bool isLoadingHeld;
+}
+
+/// The preferences that hold [plan], as the developer switches save them.
+Map<String, Object> _planPrefs(PassPlanState plan) {
+  final preset = plan.preset;
+  return {
+    if (preset != null)
+      for (final entry in preset.holdings.entries)
+        DevAccessSwitches.holdingKey(entry.key): entry.value.name,
+    if (preset != null && preset.holdsPlanRead)
+      DevAccessSwitches.holdsPlanReadKey: true,
+    // The kit's plan not read yet holds the plan read open.
+    if (!plan.isPlanRead) DevAccessSwitches.holdsPlanReadKey: true,
+    if (plan.isOwnServer) DevAccessSwitches.serverModeKey: 'ownServer',
+  };
+}
+
+/// A sound of the user's own with a name that has to be cut.
+const _longSoundName =
+    'Morning rooster recorded at the farm with the barn door open';
+
+AlarmSound _ownSound(String name) => AlarmSound(
+  id: 'user_capture',
+  name: name,
+  source: AlarmSoundSource.user,
+  path: '/sounds/user_capture.caf',
+  duration: const Duration(seconds: 4),
+  peaks: [for (var i = 0; i < 48; i++) 0.25 + 0.7 * ((i * 7) % 11) / 10],
+);
+
+/// Everything the card of a topic can hold of its own: a look, a sound, a
+/// challenge and more tokens.
+Future<void> _ownThings(MockServer server) async {
+  await getIt<AlarmStyleChoices>().setTopicStyle('prod-db', 'terminal');
+  await getIt<AlarmSoundRepository>().setTopicSoundId(
+    'prod-db',
+    'pager_beep',
+  );
+  await getIt<ChallengeChoices>().setChoice('prod-db', ChallengeKind.opsMath);
+  server.createTopicToken('prod-db');
+}
+
+/// The same, on a plan that holds none of it: the look and the challenge are
+/// saved but do not ring, and the sound is an own one.
+Future<void> _ownThingsLocked(MockServer server) async {
+  await getIt<AlarmStyleChoices>().setTopicStyle('prod-db', 'terminal');
+  final sounds = getIt<AlarmSoundRepository>();
+  await sounds.addUserSound(_ownSound('My voice'));
+  await sounds.setTopicSoundId('prod-db', 'user_capture');
+  await getIt<ChallengeChoices>().setChoice('prod-db', ChallengeKind.opsMath);
+}
+
+Future<void> _longSound(MockServer server) async {
+  final sounds = getIt<AlarmSoundRepository>();
+  await sounds.addUserSound(_ownSound(_longSoundName));
+  await sounds.setTopicSoundId('prod-db', 'user_capture');
+}
+
+Future<void> Function(MockServer) _moreTokens(int total) => (server) async {
+  for (var i = 1; i < total; i++) {
+    server.createTopicToken('prod-db');
+  }
+};
+
+/// The scenes of the `stack` part. The plan holds the Pro pack unless a scene
+/// says otherwise, so every card can show what a topic holds.
+final _stackScenes = <_Scene>[
+  const _Scene('follows', 'prod-db', plan: PassPlanState.pro),
+  const _Scene(
+    'own',
+    'prod-db',
+    plan: PassPlanState.pro,
+    prepare: _ownThings,
+  ),
+  const _Scene(
+    'locked',
+    'prod-db',
+    plan: PassPlanState.free,
+    prepare: _ownThingsLocked,
+  ),
+  const _Scene('notread', 'prod-db', plan: PassPlanState.notRead),
+  const _Scene(
+    'example',
+    'example',
+    isExample: true,
+    plan: PassPlanState.pro,
+  ),
+  const _Scene(
+    'tokens0',
+    'prod-db',
+    plan: PassPlanState.pro,
+    isLoadingHeld: true,
+  ),
+  _Scene(
+    'tokens2',
+    'prod-db',
+    plan: PassPlanState.pro,
+    prepare: _moreTokens(2),
+  ),
+  _Scene(
+    'tokens6',
+    'prod-db',
+    plan: PassPlanState.pro,
+    prepare: _moreTokens(6),
+  ),
+  const _Scene(
+    'longname',
+    _longName,
+    seed: _seedLongName,
+    plan: PassPlanState.pro,
+  ),
+  const _Scene(
+    'longsound',
+    'prod-db',
+    plan: PassPlanState.pro,
+    prepare: _longSound,
+  ),
+];
+
+/// Lets the sound host answer a read of peaks, so the Sound card's bars move.
+void _mockSoundHost() {
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        ..setMockMethodCallHandler(
+          const MethodChannel(SoundHost.channelName),
+          (call) async => switch (call.method) {
+            'readPeaks' => <double>[
+              for (var i = 0; i < 48; i++) 0.2 + 0.75 * ((i * 5) % 9) / 8,
+            ],
+            'capabilities' => <String, Object?>{'can_import_sounds': false},
+            _ => null,
+          },
+        );
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(
+      const MethodChannel(SoundHost.channelName),
+      null,
+    ),
+  );
 }
 
 Message _msg(
@@ -288,6 +466,7 @@ Future<void> _boot(_Scene scene) async {
     'setup_checklist_done': true,
     'tour_guides_seen': '["topics","topic","settings","history"]',
     'has_completed_showcase_tour': true,
+    if (scene.plan != null) ..._planPrefs(scene.plan!),
   });
   await getIt.reset();
   await configureDependencies(useMockApi: true);
@@ -298,6 +477,7 @@ Future<void> _boot(_Scene scene) async {
   } else {
     seed(server, DateTime.now().toUtc());
   }
+  await scene.prepare?.call(server);
   await getIt.unregister<ReliabilityCubit>();
   getIt.registerLazySingleton<ReliabilityCubit>(
     () => ReliabilityCubit([
@@ -381,12 +561,13 @@ Future<void> _open(
   required bool animate,
   required GlobalKey key,
 }) async {
+  _mockSoundHost();
   await tester.runAsync(() => _boot(scene));
   tester.view.physicalSize = phone * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
 
-  if (scene.isExample || !animate) {
+  if (scene.isExample || scene.isLoadingHeld || !animate) {
     // The guide's made-up topic, or the resting frame: the screen on its own,
     // with no router and no canvas, so it draws its own disc. A pushed page
     // keeps the page under it drawn when reduce motion is on (the page is not
@@ -431,12 +612,13 @@ Future<void> _open(
           child: TopicDetailScreen(
             topicName: scene.isExample ? 'example' : scene.topic,
             cubit: cubit,
+            isExample: scene.isExample,
           ),
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 600));
-    if (!scene.isExample) {
+    if (!scene.isExample && !scene.isLoadingHeld) {
       // The mock server answers in real time.
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 600)),
@@ -485,6 +667,213 @@ Future<void> _save(
 bool _isKnownReduceMotionAssert(String error) =>
     error.contains('RenderAnimatedSize was mutated in its own performLayout');
 
+Set<String> get _parts =>
+    _partsArg.isEmpty ? {'screen', 'stack'} : _partsArg.split(',').toSet();
+
+/// Scrolls the screen to its foot, where the stack and Delete topic are.
+Future<void> _toFoot(WidgetTester tester) async {
+  final delete = find.text('Delete topic');
+  if (delete.evaluate().isEmpty) return;
+  await tester.scrollUntilVisible(
+    delete,
+    400,
+    scrollable: find
+        .descendant(
+          of: find.byType(TopicDetailScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await tester.pump(const Duration(seconds: 1));
+  await _frames(tester);
+}
+
+/// Runs [body] with every framework error collected, then fails on one.
+Future<void> _guarded(
+  String name,
+  Future<void> Function(List<String> errors) body, {
+  bool isRest = false,
+}) async {
+  final errors = <String>[];
+  final oldHandler = FlutterError.onError;
+  FlutterError.onError = (d) {
+    final text = d.exceptionAsString();
+    if (isRest && _isKnownReduceMotionAssert(text)) {
+      print('  NOTE: $text');
+      return;
+    }
+    errors.add(d.toString());
+  };
+  debugDisableShadows = false;
+  try {
+    await body(errors);
+  } finally {
+    debugDisableShadows = true;
+    FlutterError.onError = oldHandler;
+  }
+  for (final e in errors) {
+    print('  ERROR: ${e.split('\n').take(40).join('\n')}');
+  }
+  expect(errors, isEmpty, reason: 'overflow or build error in $name');
+}
+
+String _stackName(
+  String state,
+  String phone,
+  ThemeMode mode,
+  double scale,
+  String frame,
+) => 'stack_${state}_${phone}_${mode.name}_${scale}x_$frame';
+
+/// The pass stack: one capture per state, size, theme and text scale, the
+/// resting frame under reduce motion, the whole screen at full height, and
+/// the grow into the three pages.
+void _registerStackCaptures() {
+  if (!_parts.contains('stack')) return;
+  final wanted = _statesArg.split(',').where((s) => s.isNotEmpty).toSet();
+  const phone = Size(390, 844);
+  const narrow = Size(320, 640);
+  const tall = Size(390, 1700);
+  const light = ThemeMode.light;
+
+  void shot(
+    _Scene scene, {
+    required String phoneName,
+    required Size size,
+    required ThemeMode mode,
+    double scale = 1,
+    String frame = 'foot',
+    bool isRest = false,
+  }) {
+    if (wanted.isNotEmpty && !wanted.contains(scene.name)) return;
+    final name = _stackName(scene.name, phoneName, mode, scale, frame);
+    if (_only.isNotEmpty && !_only.split(',').any(name.contains)) return;
+    testWidgets('capture $name', (tester) async {
+      await _guarded(name, (errors) async {
+        final key = GlobalKey();
+        await _open(
+          tester,
+          scene,
+          phone: size,
+          mode: mode,
+          scale: scale,
+          animate: !isRest,
+          key: key,
+        );
+        if (!isRest) await tester.pump(const Duration(seconds: 3));
+        await _frames(tester);
+        if (frame == 'foot' && !scene.isLoadingHeld) await _toFoot(tester);
+        await _save(tester, key, name, errors);
+      }, isRest: isRest);
+    });
+  }
+
+  for (final scene in _stackScenes) {
+    shot(scene, phoneName: '390x844', size: phone, mode: light);
+    shot(scene, phoneName: '390x844', size: phone, mode: ThemeMode.dark);
+  }
+  final main = [
+    for (final scene in _stackScenes)
+      if (const {'follows', 'own', 'locked'}.contains(scene.name)) scene,
+  ];
+  for (final scene in main) {
+    shot(scene, phoneName: '320x640', size: narrow, mode: light);
+    shot(scene, phoneName: '320x640', size: narrow, mode: ThemeMode.dark);
+    shot(scene, phoneName: '390x844', size: phone, mode: light, scale: 1.3);
+    shot(scene, phoneName: '390x844', size: phone, mode: light, scale: 2);
+    shot(scene, phoneName: '320x640', size: narrow, mode: light, scale: 2);
+    shot(
+      scene,
+      phoneName: '390x844',
+      size: phone,
+      mode: light,
+      frame: 'rest',
+      isRest: true,
+    );
+    shot(
+      scene,
+      phoneName: '390x1700',
+      size: tall,
+      mode: light,
+      frame: 'full',
+    );
+  }
+  // The long values at the sizes where they are cut.
+  for (final scene in _stackScenes) {
+    if (!const {'longname', 'longsound'}.contains(scene.name)) continue;
+    shot(scene, phoneName: '320x640', size: narrow, mode: light);
+    shot(scene, phoneName: '390x844', size: phone, mode: light, scale: 2);
+  }
+  for (final scene in _stackScenes) {
+    if (scene.name == 'example') {
+      shot(
+        scene,
+        phoneName: '390x1700',
+        size: tall,
+        mode: light,
+        frame: 'full',
+      );
+    }
+    if (scene.name == 'tokens2') {
+      shot(scene, phoneName: '390x844', size: phone, mode: light, scale: 2);
+    }
+  }
+
+  // The grow from a card into its page, at 0, 0.5 and 1 of the route.
+  final own = _stackScenes.firstWhere((scene) => scene.name == 'own');
+  for (final pass in [PassId.look, PassId.sound, PassId.challenge]) {
+    for (final mode in [light, ThemeMode.dark]) {
+      final base = _stackName(
+        'grow-${pass.name}',
+        '390x844',
+        mode,
+        1,
+        'open',
+      );
+      if (_only.isNotEmpty && !_only.split(',').any(base.contains)) continue;
+      testWidgets('capture $base', (tester) async {
+        await _guarded(base, (errors) async {
+          final key = GlobalKey();
+          await _open(
+            tester,
+            own,
+            phone: phone,
+            mode: mode,
+            scale: 1,
+            animate: true,
+            key: key,
+          );
+          await tester.pump(const Duration(seconds: 1));
+          await _toFoot(tester);
+          final card = find.byKey(ValueKey('topic-pass-${pass.name}'));
+          expect(card, findsOneWidget, reason: 'no card for ${pass.name}');
+          await tester.tapAt(tester.getTopLeft(card) + const Offset(120, 40));
+          // The route is built and its clock is at zero.
+          await tester.pump();
+          await tester.pump();
+          const openMs = 600;
+          var elapsed = 0;
+          for (final fraction in const [0.0, 0.5, 1.0]) {
+            final target = (openMs * fraction).round();
+            if (target > elapsed) {
+              await tester.pump(Duration(milliseconds: target - elapsed));
+              elapsed = target;
+            }
+            final frame =
+                't${(fraction * 100).round().toString().padLeft(3, '0')}';
+            await _save(
+              tester,
+              key,
+              _stackName('grow-${pass.name}', '390x844', mode, 1, frame),
+              errors,
+            );
+          }
+        });
+      });
+    }
+  }
+}
+
 void main() {
   final wanted = _statesArg.split(',').where((s) => s.isNotEmpty).toSet();
   final onlyParts = _only.split(',').where((p) => p.isNotEmpty).toList();
@@ -495,12 +884,15 @@ void main() {
     await loadAppFonts();
   });
 
+  _registerStackCaptures();
+
   // Every state with motion on, after three seconds, so each fade and each
   // size change has finished. The disc, the dots and the face are wherever
   // their loops are at that second.
   //
   // `rest` is the same screen with reduce motion on: the resting frame.
   for (final scene in _scenes) {
+    if (!_parts.contains('screen')) break;
     if (wanted.isNotEmpty && !wanted.contains(scene.name)) continue;
     final variants = [
       for (final v in _variants(scene)) (v.$1, v.$2, v.$3, v.$4, ''),
