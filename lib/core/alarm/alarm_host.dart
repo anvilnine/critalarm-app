@@ -110,12 +110,19 @@ final class AlarmHost {
   Future<void> setMagicTapArmed({required bool isArmed}) async =>
       _invoke<void>('setMagicTapArmed', {'armed': isArmed});
 
-  Future<AlarmAuthorization> authorizationStatus() async =>
+  /// The newest answer [authorizationStatus] or [requestAuthorization] gave
+  /// since the app started, or null before any. A screen that draws on its
+  /// first frame reads this to show the switch it will end up with, and asks
+  /// again right after to catch a change.
+  AlarmAuthorization? get lastKnownAuthorization => _lastAuthorization;
+  AlarmAuthorization? _lastAuthorization;
+
+  Future<AlarmAuthorization> authorizationStatus() async => _lastAuthorization =
       AlarmAuthorization.fromName(await _invoke<String>('authorizationStatus'));
 
   /// Shows the system prompt. Answers with whatever the user chose.
   Future<AlarmAuthorization> requestAuthorization() async =>
-      AlarmAuthorization.fromName(
+      _lastAuthorization = AlarmAuthorization.fromName(
         await _invoke<String>('requestAuthorization'),
       );
 

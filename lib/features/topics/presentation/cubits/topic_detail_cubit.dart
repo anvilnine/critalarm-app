@@ -8,11 +8,9 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
-import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
-import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -20,6 +18,8 @@ import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/topic_message_order.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -37,6 +37,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this.alarm,
     this.identityStore,
     this.featureAccess,
+    this.glances,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -60,6 +61,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// Null in tests, and then the caps apply.
   final FeatureAccess? featureAccess;
 
+  /// What the topic list and earlier visits read of each topic's messages, so
+  /// the first frame can use it. Null in tests, and then nothing is known
+  /// about the messages until they load.
+  final TopicGlances? glances;
+
   Future<bool> _can(AppFeature feature) async =>
       await featureAccess?.usableOnceReady(feature) ?? false;
 
@@ -73,26 +79,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   int _buildId = 0;
 
-  /// The oldest message this tier may show, or null for everything held.
-  /// Same rule as History (api.md §4.2), read from one place.
-  Future<DateTime?> _lowerBound() async {
-    final identity = await identityStore?.readOrCreate();
-    if (identity == null) return null;
-    return HistoryWindow.lowerBound(
-      hasLongHistory: await _can(AppFeature.longHistory),
-      historyDays: identity.caps.historyDays ?? 7,
-      now: _now(),
-    );
-  }
-
-  static List<Message> _insideWindow(List<Message> messages, DateTime? bound) {
-    if (bound == null) return messages;
-    final seconds = bound.toUtc().millisecondsSinceEpoch ~/ 1000;
-    return [
-      for (final message in messages)
-        if (message.time >= seconds) message,
-    ];
-  }
+  late final TopicMessageWindow _window = TopicMessageWindow(
+    identityStore: identityStore,
+    featureAccess: featureAccess,
+    now: _now,
+  );
 
   /// An acknowledge is still on the wire. Separate from
   /// [TopicDetailState.isMarkingAsRead], which is only the spinner on the
@@ -116,11 +107,17 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     _builtFromIncidents = null;
     _builtFromTopics = null;
 
+    // The shared lists already hold the topic when it was opened from a list,
+    // so the first state is the real one and the read below only confirms it.
+    // A topic they do not hold (a link with nothing loaded yet) starts as
+    // loading.
+    final seed = state.topicName == topicName ? null : seedFor(topicName);
     emit(
-      state.copyWith(
-        status: TopicDetailStatus.loading,
-        topicName: topicName,
-      ),
+      seed ??
+          state.copyWith(
+            status: TopicDetailStatus.loading,
+            topicName: topicName,
+          ),
     );
 
     final authorization = await alarm?.authorizationStatus();
@@ -130,6 +127,60 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
     await Future.wait([_incidents.ensureLoaded(), _topics.ensureLoaded()]);
     await _rebuildIfChanged();
+  }
+
+  /// The state for [topicName] built from what the app holds in memory right
+  /// now, or null when the topic list or the incident list has not loaded or
+  /// does not hold the topic.
+  ///
+  /// Everything the card and the canvas draw is in it: Critical delivery,
+  /// the severity, whether an alarm is ringing, when the last one rang and,
+  /// when this phone already read the messages, the summary line and the
+  /// rows. What it cannot know yet (the rows of a topic never opened) is
+  /// marked as loading. The status is success only when the iPhone's alarm
+  /// permission is known too, because the switch and the foot of the card
+  /// depend on it. Without it the card stays on its dots.
+  TopicDetailState? seedFor(String topicName) {
+    final topics = _topics.state;
+    final incidents = _incidents.state;
+    if (!topics.isReady || !incidents.isReady) return null;
+    final topic = topics.named(topicName);
+    if (topic == null) return null;
+
+    final host = alarm;
+    final authorization = host == null
+        ? state.alarm
+        : host.lastKnownAuthorization;
+    final glance = glances?.of(topic.name, createdAt: topic.createdAt);
+    final openIncidents = incidents
+        .forTopic(topic.name)
+        .where((i) => i.state == 'open')
+        .toList();
+    final stage = _stageOf(
+      topic: topic,
+      openIncidents: openIncidents,
+      hasHighMessage: glance?.hasHighMessage ?? false,
+    );
+    final rows = glance?.messages;
+    return state.copyWith(
+      status: authorization == null
+          ? TopicDetailStatus.loading
+          : TopicDetailStatus.success,
+      topicName: topic.name,
+      critical: topic.critical,
+      alarm: authorization,
+      severity: stage.severity,
+      faceState: stage.face,
+      word: stage.word,
+      subText: rows == null ? '' : _subTextOf(rows.length, stage.priority),
+      messages: rows ?? const [],
+      isMessagesLoading: rows == null,
+      messageTimes: glance?.messageTimes ?? const [],
+      areMessageTimesKnown: glance != null,
+      lastAlarmAt: _lastAlarmOf(topic.name),
+      openIncidentIds: openIncidents.map((i) => i.id).toList(),
+      clearError: true,
+    );
   }
 
   /// Draws [example] and nothing else: no server, no updates. The guide uses
@@ -175,6 +226,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         state.copyWith(
           status: TopicDetailStatus.failure,
           errorMessage: failure,
+          isMessagesLoading: false,
         ),
       );
       return;
@@ -200,6 +252,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       return state.copyWith(
         status: TopicDetailStatus.failure,
         errorMessage: LocaleKeys.api_errors_not_found.tr(),
+        isMessagesLoading: false,
       );
     }
 
@@ -211,10 +264,14 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       return state.copyWith(
         status: TopicDetailStatus.failure,
         errorMessage: pollResult.exceptionOrNull()?.message,
+        isMessagesLoading: false,
       );
     }
     final polled = newestFirst(
-      _insideWindow(pollResult.getOrNull() ?? <Message>[], await _lowerBound()),
+      TopicMessageWindow.inside(
+        pollResult.getOrNull() ?? <Message>[],
+        await _window.lowerBound(),
+      ),
     );
 
     final openIncidents = _incidents.state
@@ -222,93 +279,106 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         .where((i) => i.state == 'open')
         .toList();
 
+    final stage = _stageOf(
+      topic: topic,
+      openIncidents: openIncidents,
+      hasHighMessage: polled.any((m) => m.priority == 4),
+    );
+    final messages = topicMessageRows(polled, now: DateTime.now());
+    final messageTimes = [
+      for (final m in polled)
+        DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
+    ];
+
+    final built = state.copyWith(
+      status: TopicDetailStatus.success,
+      topicName: topic.name,
+      critical: topic.critical,
+      severity: stage.severity,
+      faceState: stage.face,
+      word: stage.word,
+      subText: _subTextOf(messages.length, stage.priority),
+      messages: messages,
+      isMessagesLoading: false,
+      messageTimes: messageTimes,
+      areMessageTimesKnown: true,
+      lastAlarmAt: _lastAlarmOf(topic.name),
+      openIncidentIds: openIncidents.map((i) => i.id).toList(),
+      clearError: true,
+    );
+    glances?.remember(
+      topic.name,
+      TopicGlance(
+        topicCreatedAt: topic.createdAt,
+        messageTimes: messageTimes,
+        hasHighMessage: polled.any((m) => m.priority == 4),
+        messages: messages,
+      ),
+    );
+    return built;
+  }
+
+  /// How loud the topic is right now: ringing, a warning, or quiet. One rule
+  /// for the seed and for the full build, so they cannot disagree.
+  ///
+  /// [hasHighMessage] is a message of priority 4 in the window, which a
+  /// warning needs even when no open incident carries one.
+  _Stage _stageOf({
+    required Topic topic,
+    required List<Incident> openIncidents,
+    required bool hasHighMessage,
+  }) {
     final hasCrit =
         topic.critical &&
         openIncidents.any((i) => i.messages.any((m) => m.priority == 5));
     final hasHigh =
         openIncidents.any((i) => i.messages.any((m) => m.priority == 4)) ||
-        polled.any((m) => m.priority == 4);
-
-    SeverityMode severity;
-    FaceState face;
-    String word;
-
+        hasHighMessage;
     if (hasCrit) {
-      severity = SeverityMode.crit;
-      face = FaceState.alarmed;
-      word = LocaleKeys.topic_detail_stage_word_critical.tr();
-    } else if (hasHigh) {
-      severity = SeverityMode.high;
-      face = FaceState.worried;
-      word = LocaleKeys.topic_detail_stage_word_warning.tr();
-    } else {
-      severity = SeverityMode.none;
-      face = FaceState.calm;
-      word = LocaleKeys.topic_detail_stage_word_clear.tr();
+      return _Stage(
+        severity: SeverityMode.crit,
+        face: FaceState.alarmed,
+        word: LocaleKeys.topic_detail_stage_word_critical.tr(),
+        priority: 'critical',
+      );
     }
+    if (hasHigh) {
+      return _Stage(
+        severity: SeverityMode.high,
+        face: FaceState.worried,
+        word: LocaleKeys.topic_detail_stage_word_warning.tr(),
+        priority: 'high',
+      );
+    }
+    return _Stage(
+      severity: SeverityMode.none,
+      face: FaceState.calm,
+      word: LocaleKeys.topic_detail_stage_word_clear.tr(),
+      priority: 'default',
+    );
+  }
 
-    final priorityLabel = hasCrit
-        ? 'critical'
-        : hasHigh
-        ? 'high'
-        : 'default';
-    final messages = polled
-        .map(
-          (m) => TopicDetailMessageItem(
-            title: m.title ?? m.topic,
-            timestamp: formatWhenWithTime(
-              at: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-              now: DateTime.now(),
-              yesterday: LocaleKeys.home_card_row_yesterday.tr(),
-            ),
-            sentAt: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-            body: m.message,
-            source: m.tags.join(', '),
-            isHigh: m.priority == 4,
-          ),
-        )
-        .toList();
-    final count = messages.length;
-    DateTime? lastAlarmAt;
+  /// When the newest incident on [topicName] opened, or null if none has.
+  DateTime? _lastAlarmOf(String topicName) {
+    DateTime? last;
     for (final incident in _incidents.state.forTopic(topicName)) {
       final opened = incident.openedAt;
       if (opened == null) continue;
-      if (lastAlarmAt == null || opened.isAfter(lastAlarmAt)) {
-        lastAlarmAt = opened;
-      }
+      if (last == null || opened.isAfter(last)) last = opened;
     }
-    // A topic with nothing in it gets its own line. The counted form reads
-    // as nonsense at zero.
-    final subText = count == 0
-        ? LocaleKeys.topic_detail_stage_sub_empty.tr(
-            namedArgs: {'priority': priorityLabel},
-          )
-        : LocaleKeys.topic_detail_stage_sub.plural(
-            count,
-            namedArgs: {
-              'priority': priorityLabel,
-              'count': count.toString(),
-            },
-          );
-
-    return state.copyWith(
-      status: TopicDetailStatus.success,
-      topicName: topic.name,
-      critical: topic.critical,
-      severity: severity,
-      faceState: face,
-      word: word,
-      subText: subText,
-      messages: messages,
-      messageTimes: [
-        for (final m in polled)
-          DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-      ],
-      lastAlarmAt: lastAlarmAt,
-      openIncidentIds: openIncidents.map((i) => i.id).toList(),
-      clearError: true,
-    );
+    return last;
   }
+
+  /// A topic with nothing in it gets its own line. The counted form reads as
+  /// nonsense at zero.
+  String _subTextOf(int count, String priority) => count == 0
+      ? LocaleKeys.topic_detail_stage_sub_empty.tr(
+          namedArgs: {'priority': priority},
+        )
+      : LocaleKeys.topic_detail_stage_sub.plural(
+          count,
+          namedArgs: {'priority': priority, 'count': count.toString()},
+        );
 
   /// True when turning critical off here cannot be undone on the free plan:
   /// the account already has more critical topics than the plan allows, so
@@ -499,4 +569,21 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       }
     }
   }
+}
+
+/// What [TopicDetailCubit] works out of a topic's incidents and messages.
+class _Stage {
+  const _Stage({
+    required this.severity,
+    required this.face,
+    required this.word,
+    required this.priority,
+  });
+
+  final SeverityMode severity;
+  final FaceState face;
+  final String word;
+
+  /// The priority word the summary line uses.
+  final String priority;
 }

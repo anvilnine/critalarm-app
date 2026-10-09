@@ -290,13 +290,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
           now: DateTime.now(),
         );
 
-        // Where the hero's disc sits. The name and the summary stand between
-        // the top bar and the scene, so the canvas is told how tall they are.
-        final headerHeight = topicHeaderHeight(
-          context,
-          name: state.topicName,
-          width: MediaQuery.sizeOf(context).width,
-        );
         final tone = _heroTone(card, state.severity);
 
         final scaffold = SeverityScope(
@@ -377,7 +370,11 @@ class _TopicDetailScreenContent extends StatelessWidget {
                     const SizedBox(height: Spacing.s3),
                     TopicHeader(
                       name: state.topicName,
-                      summary: topicSummaryText(summary),
+                      // Blank until the messages have been read, so the line
+                      // does not say "nothing yet" and then change.
+                      summary: state.areMessageTimesKnown
+                          ? topicSummaryText(summary)
+                          : '',
                     ),
                     const SizedBox(height: Spacing.s3),
                     AppHeroScene(
@@ -428,28 +425,72 @@ class _TopicDetailScreenContent extends StatelessWidget {
         if (isPane) return scaffold;
         return AmbientOverride(
           direction: AmbientDirection.push,
-          profile: AmbientAppProfiles.topicsHero(
-            context.appColors,
-            severity: state.severity,
-            tone: tone,
-            spot: heroDiscSpotOf(
-              context,
-              above: headerHeight + Spacing.s3,
-            ),
-          ),
+          profile: topicCanvasProfileFor(context, state),
           child: scaffold,
         );
       },
     );
   }
 
-  /// The disc tint: quiet while Critical delivery is off. Under a warning or
-  /// ringing canvas the disc is the canvas's own lighter step, so it stays
-  /// calm there.
   static AppHeroTone _heroTone(TopicHeroCard card, SeverityMode severity) =>
-      card.hasQuietDisc && severity == SeverityMode.none
-      ? AppHeroTone.quiet
-      : AppHeroTone.calm;
+      topicHeroToneFor(card, severity);
+}
+
+/// The disc tint: quiet while Critical delivery is off. Under a warning or
+/// ringing canvas the disc is the canvas's own lighter step, so it stays
+/// calm there.
+AppHeroTone topicHeroToneFor(TopicHeroCard card, SeverityMode severity) =>
+    card.hasQuietDisc && severity == SeverityMode.none
+    ? AppHeroTone.quiet
+    : AppHeroTone.calm;
+
+/// The canvas behind the Topic screen for [state]: the Topics hero profile
+/// with the disc under this screen's face.
+///
+/// Where the hero's disc sits depends on how tall the name and the summary
+/// are, which stand between the top bar and the scene. The tone depends on
+/// Critical delivery, so it is read from [TopicDetailState.critical] even
+/// while the card still shows its dots.
+AmbientProfile topicCanvasProfileFor(
+  BuildContext context,
+  TopicDetailState state,
+) {
+  final card = topicHeroCardFor(
+    critical: state.critical,
+    canEditCritical: state.canEditCritical,
+    claim: RingClaim.forPhone(state.alarm),
+  );
+  final headerHeight = topicHeaderHeight(
+    context,
+    name: state.topicName,
+    width: MediaQuery.sizeOf(context).width,
+  );
+  return AmbientAppProfiles.topicsHero(
+    context.appColors,
+    severity: state.severity,
+    tone: topicHeroToneFor(card, state.severity),
+    spot: heroDiscSpotOf(context, above: headerHeight + Spacing.s3),
+  );
+}
+
+/// Gives the canvas the Topic screen's arrangement before the screen is
+/// pushed, so it starts gliding to it with the route and the screen's first
+/// frame is already on it. The screen would hand it over after its first
+/// frame otherwise. Call it from the list, just before pushing the topic.
+/// Does nothing when the app holds nothing about the topic yet, and the
+/// screen then sets the canvas itself.
+void primeTopicCanvas(BuildContext context, String topicName) {
+  unawaited(warmTopicSoundPeaks());
+  final controller = AmbientScope.controllerOf(context);
+  if (controller == null || !getIt.isRegistered<TopicDetailCubit>()) return;
+  final cubit = getIt<TopicDetailCubit>();
+  final seed = cubit.seedFor(topicName);
+  unawaited(cubit.close());
+  if (seed == null) return;
+  controller.setOverride(
+    profile: topicCanvasProfileFor(context, seed),
+    direction: AmbientDirection.push,
+  );
 }
 
 /// Copy explaining critical delivery. Older iPhones cannot ring through silent
