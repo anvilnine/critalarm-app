@@ -164,6 +164,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
 - Personalize root rebuilt on the pass stack: a summary rule for each card, a look tone read from the look registry, thumbnails for the five passes with the Look and Sound ones on one clock, routes and stub pages for Look, Wake-up challenge and Widgets, and the old strips, rows and chips removed.
 - The Look page is a deck of phones with its own look\_deck\_rules, a LookFade between two looks, a try bar that hands its button to the page, and no picture slot on RingingPreviewFrame.
+- The Wake-up challenge page is a shelf of tiles. challenge\_shelf\_rules.dart holds the tile list, the column count, the pick control state and the answer to each tap through lockTapFor. ChallengePicture, challenge\_chip\_picture.dart and the strip states of tool/capture\_challenge.dart are gone. tool/capture\_pass\_challenge.dart captures the page and checks every tap.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
