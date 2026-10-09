@@ -69,6 +69,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The weekly delivery check row shows a See Hosted button in place of a switch when Hosted is not held. Only that button opens the paywall.
 - Add your photo on the Look page is now a try open to everyone: pick, crop and colour a photo to see it as your alarm. It stays in memory for that visit and nothing is saved until you press Use this look.
 - Personalize pages use fewer words: the Look, Wake-up challenge and Widgets pages lose lines the pictures already say, and a few labels are shorter.
+- Will it wake me answers Yes, Maybe or No, shows where an alarm would stop, and lists what to fix.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
