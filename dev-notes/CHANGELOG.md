@@ -191,6 +191,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
 - Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
 - AppScreenScaffold.topBackingPlateau. Settings and History use the default bar backing like every other screen.
+- Unused strings personalize.challenge\_chips.\*, personalize.sound\_yours, personalize.sound\_more, settings.app\_icon\_title, settings.app\_icon\_header and settings.app\_icon\_in\_use\_tag. App icon body sizing lives in app\_icon\_fit.dart.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
