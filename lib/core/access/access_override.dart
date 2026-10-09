@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -25,6 +27,10 @@ abstract interface class AccessSwitches implements Listenable {
   HoldingState? forcedState(Holding holding);
 
   ServerModeChoice get serverMode;
+
+  /// True while the plan read is held open, so a screen can be looked at in
+  /// the state before the plan is known.
+  bool get holdsPlanRead;
 }
 
 /// Lets a developer build put the app in any plan state with no purchase.
@@ -53,6 +59,14 @@ abstract interface class AccessOverride {
   /// The mode to act on, given the [real] one from the saved session.
   ServerMode? serverModeOver(ServerMode? real);
 
+  /// True while a developer holds the plan read open with the "Plan still
+  /// being read" preset. Always false in a store build.
+  bool get holdsPlanRead;
+
+  /// Done once the plan read may finish: when a developer releases the
+  /// hold. Done at once when nothing is held.
+  Future<void> untilPlanReadReleased();
+
   /// Starts reporting [switches]. Does nothing in a build with no override.
   void watch(AccessSwitches switches);
 }
@@ -73,6 +87,12 @@ class NoAccessOverride implements AccessOverride {
 
   @override
   ServerMode? serverModeOver(ServerMode? real) => real;
+
+  @override
+  bool get holdsPlanRead => false;
+
+  @override
+  Future<void> untilPlanReadReleased() => Future<void>.value();
 
   @override
   void watch(AccessSwitches switches) {}
@@ -99,6 +119,26 @@ class DevAccessOverride implements AccessOverride {
     ServerModeChoice.ownServer => ServerMode.selfhosted,
     ServerModeChoice.unknown => null,
   };
+
+  @override
+  bool get holdsPlanRead => _switches?.holdsPlanRead ?? false;
+
+  @override
+  Future<void> untilPlanReadReleased() {
+    final switches = _switches;
+    if (switches == null || !switches.holdsPlanRead) {
+      return Future<void>.value();
+    }
+    final released = Completer<void>();
+    void check() {
+      if (switches.holdsPlanRead) return;
+      switches.removeListener(check);
+      released.complete();
+    }
+
+    switches.addListener(check);
+    return released.future;
+  }
 
   @override
   void watch(AccessSwitches switches) => _switches = switches;
@@ -141,8 +181,12 @@ final class OverriddenHoldingSource implements HoldingSource {
         : Listenable.merge([_real.changes, forced]);
   }();
 
+  /// The real source's read, once a developer is no longer holding the plan
+  /// read open.
   @override
-  Future<void> get ready => _real.ready;
+  Future<void> get ready => _override.holdsPlanRead
+      ? _override.untilPlanReadReleased().then((_) => _real.ready)
+      : _real.ready;
 }
 
 /// The server mode feature access acts on: the saved session's, with the

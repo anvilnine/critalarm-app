@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/dev_access_switches.dart';
@@ -70,6 +72,8 @@ Future<DevAccessSwitches> _switches([
 /// The truth table's column for what a preset forces, or null when the
 /// preset has a state the table has no column for.
 int? _column(AccessPreset preset, {required bool isOwnServer}) {
+  // Holds the same holdings as Free and differs only in the plan read.
+  if (preset.holdsPlanRead) return null;
   final states = preset.holdings.values.toSet();
   if (states.contains(HoldingState.pending) ||
       states.contains(HoldingState.unknown)) {
@@ -139,6 +143,18 @@ void main() {
         expect(mode.value, real);
         expect(identical(mode.changes, session), isTrue);
       }
+    });
+
+    test('the plan read is never held, whatever a preset says', () async {
+      final switches = await _switches({'dev.access.hold_plan_read': true});
+      expect(switches.holdsPlanRead, isTrue);
+      const override = NoAccessOverride();
+      final stack = _Stack(override..watch(switches));
+      addTearDown(stack.dispose);
+      await switches.apply(AccessPreset.planReading);
+      await stack.holdings.ready;
+      await stack.features.ready;
+      expect(stack.features.isPlanRead, isTrue);
     });
 
     test('a change of the switches moves no decision', () async {
@@ -226,6 +242,76 @@ void main() {
           AccessPreset.pro,
           AccessPreset.hostedAndPro,
         ]);
+      });
+    });
+
+    group('plan still being read', () {
+      test('answers as a phone that holds nothing', () async {
+        final stack = _Stack(override, hosted: HoldingState.held);
+        addTearDown(stack.dispose);
+        await switches.apply(AccessPreset.planReading);
+
+        expect(switches.preset, AccessPreset.planReading);
+        expect(switches.holdsPlanRead, isTrue);
+        for (final feature in AppFeature.values) {
+          expect(
+            stack.features.decide(feature),
+            featureTruth[feature]![0],
+            reason: feature.name,
+          );
+        }
+      });
+
+      test('holds ready open until it is released', () async {
+        await switches.apply(AccessPreset.planReading);
+        final stack = _Stack(override);
+        addTearDown(stack.dispose);
+        await settle();
+        expect(stack.features.isPlanRead, isFalse);
+
+        var isDone = false;
+        unawaited(stack.features.ready.then((_) => isDone = true));
+        await settle();
+        expect(isDone, isFalse);
+        expect(stack.features.isPlanRead, isFalse);
+
+        // Another holding preset is a release.
+        await switches.apply(AccessPreset.free);
+        await settle();
+        expect(isDone, isTrue);
+        expect(stack.features.isPlanRead, isTrue);
+        expect(switches.holdsPlanRead, isFalse);
+      });
+
+      test('is told apart from Free, which has the same holdings', () async {
+        await switches.apply(AccessPreset.free);
+        expect(switches.preset, AccessPreset.free);
+        await switches.apply(AccessPreset.planReading);
+        expect(switches.preset, AccessPreset.planReading);
+        expect(switches.isAnyOn, isTrue);
+      });
+
+      test('is remembered, and Real releases it', () async {
+        await switches.apply(AccessPreset.planReading);
+        final again = DevAccessSwitches(await SharedPreferences.getInstance());
+        expect(again.holdsPlanRead, isTrue);
+        expect(again.preset, AccessPreset.planReading);
+
+        await switches.releaseAll();
+        expect(switches.holdsPlanRead, isFalse);
+        expect(switches.isAnyOn, isFalse);
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getKeys().where((key) => key.startsWith('dev.')),
+          isEmpty,
+        );
+      });
+
+      test('forcing one holding on its own leaves the hold alone', () async {
+        await switches.apply(AccessPreset.planReading);
+        await switches.force(Holding.hosted, HoldingState.held);
+        expect(switches.holdsPlanRead, isTrue);
+        expect(switches.preset, isNull);
       });
     });
 

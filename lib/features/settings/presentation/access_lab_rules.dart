@@ -8,6 +8,7 @@ library;
 
 import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -163,12 +164,14 @@ String _forcedPart(Holding holding, HoldingState state) =>
 String? accessLabForcedLine({
   required Map<Holding, HoldingState?> forced,
   required ServerModeChoice serverMode,
+  bool holdsPlanRead = false,
 }) {
   final parts = <String>[
     for (final holding in Holding.values)
       if (forced[holding] != null) _forcedPart(holding, forced[holding]!),
     if (serverMode != ServerModeChoice.real)
       'server ${accessLabServerChoiceText(serverMode).toLowerCase()}',
+    if (holdsPlanRead) 'plan read held open',
   ];
   if (parts.isEmpty) return null;
   return 'Forced, not real: ${parts.join(', ')}';
@@ -182,3 +185,11 @@ String accessLabHoldingLine({
 }) =>
     'App sees ${accessLabStateText(seen)}. '
     'Real source says ${accessLabStateText(real)}.';
+
+/// One line under the presets for the preset that needs saying, or null.
+String? accessLabPresetNote(AccessPreset? preset) => switch (preset) {
+  AccessPreset.planReading =>
+    'The plan read never finishes. Restart the app to see locks wait for '
+        'it. Real releases it.',
+  _ => null,
+};

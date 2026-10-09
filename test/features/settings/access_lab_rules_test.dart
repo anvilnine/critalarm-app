@@ -2,6 +2,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -277,6 +278,52 @@ void main() {
           serverMode: ServerModeChoice.unknown,
         ),
         'Forced, not real: server unknown',
+      );
+    });
+
+    test('says when the plan read is held open', () {
+      expect(
+        accessLabForcedLine(
+          forced: const {
+            Holding.hosted: HoldingState.notHeld,
+            Holding.pro: HoldingState.notHeld,
+          },
+          serverMode: ServerModeChoice.real,
+          holdsPlanRead: true,
+        ),
+        'Forced, not real: Hosted not held, Pro not held, '
+        'plan read held open',
+      );
+      expect(
+        accessLabForcedLine(
+          forced: const {},
+          serverMode: ServerModeChoice.real,
+          holdsPlanRead: true,
+        ),
+        'Forced, not real: plan read held open',
+      );
+    });
+  });
+
+  group('the note under the presets', () {
+    test('is for the preset that holds the plan read, and no other', () {
+      for (final preset in AccessPreset.values) {
+        final note = accessLabPresetNote(preset);
+        if (preset == AccessPreset.planReading) {
+          expect(note, contains('plan read never finishes'));
+        } else {
+          expect(note, isNull, reason: preset.name);
+        }
+      }
+      expect(accessLabPresetNote(null), isNull);
+    });
+
+    test('the preset has a row like the others', () {
+      expect(AccessPreset.planReading.label, 'Plan still being read');
+      expect(AccessPreset.planReading.holdsPlanRead, isTrue);
+      expect(
+        AccessPreset.values.where((preset) => preset.holdsPlanRead),
+        [AccessPreset.planReading],
       );
     });
   });
