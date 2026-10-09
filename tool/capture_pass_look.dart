@@ -27,6 +27,11 @@
 //              and the full-screen preview
 //   sheets     the pencil and the cross on Yours, the sheets behind them
 //   crop       the crop screen
+//   try        adding a photo: with no Pro the empty Yours phone, the crop
+//              screen, the accent sheet, the page with the picked photo and
+//              the try bar, the tap on "Use this look" (the paywall) and the
+//              page after leaving and coming back; with Pro the saved flow.
+//              Each shot also checks that nothing was written without Pro.
 //   reduce     the resting frame under reduce motion
 //   rock       the centred phone at the top of its rock
 //   grow       the page reached from the root, at progress 0, 0.25, 0.5, 0.75
@@ -58,6 +63,7 @@ import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
@@ -156,6 +162,7 @@ Future<void> _boot(WidgetTester tester, _Setup setup, Size phone) async {
   await configureDependencies(useMockApi: true);
   getIt<MockServer>().seedCalm();
   await useCaptureOwnLookStore();
+  await useCaptureOwnLookPicker(CapturePhoto.bright);
   if (setup.photo != _Photo.none) {
     await importCaptureOwnLook(
       CapturePhoto.bright,
@@ -342,6 +349,7 @@ Set<String> get _parts => _partsArg.isEmpty
         'taps',
         'sheets',
         'crop',
+        'try',
         'reduce',
         'rock',
         'grow',
@@ -431,6 +439,80 @@ Future<void> _moveTo(WidgetTester tester, double page) async {
   position.jumpTo(page * position.viewportDimension * fraction);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
+}
+
+/// Lets real time pass, in steps, until [done] is true or the steps run out.
+/// The pick, the one decode and the cut of a photo run on the engine, off the
+/// test clock.
+Future<void> _until(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 40 && !done(); i++) {
+    await tester.pump();
+    await _real(tester, 150);
+    await tester.pump(const Duration(milliseconds: 150));
+  }
+  expect(done(), isTrue, reason: 'the step did not finish');
+}
+
+/// Taps "Add your photo" on Yours and waits for the crop screen.
+Future<void> _pickPhoto(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('look-add-photo')));
+  await _until(
+    tester,
+    () => find.byType(OwnPhotoCropScreen).evaluate().isNotEmpty,
+  );
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
+/// Taps "Use this photo" on the crop screen and waits for it to close.
+Future<void> _useCrop(WidgetTester tester) async {
+  await tester.tap(find.text('Use this photo'));
+  await _until(
+    tester,
+    () => find.byType(OwnPhotoCropScreen).evaluate().isEmpty,
+  );
+  await tester.pump(const Duration(seconds: 1));
+  await _real(tester);
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
+/// Taps the pencil on Yours, waits for the sheet, and picks the colour at
+/// [pick] of the eight, when it is given.
+Future<void> _openAccentSheet(WidgetTester tester, {int? pick}) async {
+  final corner = find.byKey(const ValueKey('look-own-edit'));
+  expect(corner, findsOneWidget);
+  await tester.tap(corner);
+  await tester.pump();
+  await _real(tester);
+  for (var i = 0; i < 5; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  if (pick == null) return;
+  final swatches = find.byWidgetPredicate(
+    (w) => w.runtimeType.toString() == '_AccentSwatch',
+  );
+  expect(swatches, findsNWidgets(8));
+  await tester.ensureVisible(swatches.at(pick));
+  await tester.tap(swatches.at(pick));
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+/// Shuts the sheet with a tap on the barrier above it.
+Future<void> _closeSheet(WidgetTester tester) async {
+  await tester.tapAt(const Offset(8, 80));
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+}
+
+/// With no Pro nothing of the own look is written: no file, no record, no
+/// accent, no note of a pick.
+void _expectNothingKept() {
+  expect(
+    captureOwnLookTraces(),
+    isEmpty,
+    reason: 'a photo that was only tried left something on the phone',
+  );
+  expect(getIt<OwnLookStore>().photo, isNull);
 }
 
 /// Taps the card of the Look pass on the root.
@@ -877,6 +959,128 @@ void main() {
           onUse: (crop) async => null,
         ),
       );
+    }
+  }
+
+  // Adding a photo. With no Pro the photo is a try: it is picked, framed and
+  // coloured, drawn on the Yours phone and written nowhere. "Use this look"
+  // is what reaches the paywall. Every step checks that nothing was kept.
+  for (final device in [passPhone, passNarrowPhone]) {
+    for (final scale in const [1.0, 2.0]) {
+      for (final mode in passThemes) {
+        void step(
+          String frame,
+          Future<void> Function(WidgetTester tester, _Run run) act, {
+          String state = 'try-free',
+          _Setup setup = free,
+        }) => _shot(
+          part: 'try',
+          state: state,
+          setup: setup,
+          device: device,
+          mode: mode,
+          scale: scale,
+          at: 5,
+          frame: frame,
+          act: act,
+        );
+
+        Future<void> toCrop(WidgetTester tester) async {
+          await _pickPhoto(tester);
+          _expectNothingKept();
+        }
+
+        Future<void> toPage(WidgetTester tester) async {
+          await toCrop(tester);
+          await _useCrop(tester);
+          _expectNothingKept();
+          expect(find.byKey(const ValueKey('look-own-edit')), findsOneWidget);
+        }
+
+        Future<void> toPaywall(WidgetTester tester, _Run run) async {
+          await toPage(tester);
+          final keep = find.descendant(
+            of: find.byType(PersonalizeTryBar),
+            matching: find.byType(AppButton),
+          );
+          await tester.tap(keep.last);
+          await _settle(tester);
+          expect(run.path, isNot('/settings/personalize/look'));
+          _expectNothingKept();
+        }
+
+        step('1-empty', (tester, run) async {
+          expect(find.byKey(const ValueKey('look-add-photo')), findsOneWidget);
+          _expectNothingKept();
+        });
+        step('2-crop', (tester, run) => toCrop(tester));
+        step('3-accent', (tester, run) async {
+          await toPage(tester);
+          await _openAccentSheet(tester, pick: 6);
+          _expectNothingKept();
+        });
+        step('4-page', (tester, run) async {
+          await toPage(tester);
+          await _openAccentSheet(tester, pick: 6);
+          await _closeSheet(tester);
+          expect(find.text('Not saved'), findsWidgets);
+          _expectNothingKept();
+        });
+        step('5-paywall', toPaywall);
+        step('6-back', (tester, run) async {
+          await toPaywall(tester, run);
+          // Out of the paywall, out of the page, and back in.
+          run.router.pop();
+          await _settle(tester);
+          run.router.pop();
+          await _settle(tester);
+          unawaited(run.router.push('/settings/personalize/look'));
+          await _settle(tester);
+          await tester.pump(const Duration(seconds: 1));
+          await _moveTo(tester, 5);
+          expect(find.byKey(const ValueKey('look-add-photo')), findsOneWidget);
+          _expectNothingKept();
+        });
+        // Pro held: the flow saves as it always did.
+        step(
+          '7-saved',
+          state: 'try-pro',
+          setup: const _Setup(plan: PassPlanState.pro),
+          (tester, run) async {
+            await _pickPhoto(tester);
+            await _useCrop(tester);
+            expect(getIt<OwnLookStore>().photo, isNotNull);
+            expect(find.byKey(const ValueKey('look-in-use')), findsOneWidget);
+          },
+        );
+        // Pro arrives while the page is open: the photo in memory is saved,
+        // with no second pick.
+        step(
+          '8-bought',
+          state: 'try-bought',
+          (tester, run) async {
+            await toPage(tester);
+            await getIt<DevAccessSwitches>().apply(AccessPreset.pro);
+            await tester.pump(const Duration(milliseconds: 300));
+            await _real(tester);
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(find.byKey(const ValueKey('look-use')), findsOneWidget);
+            await tester.tap(find.byKey(const ValueKey('look-use')));
+            await _until(
+              tester,
+              () =>
+                  getIt<OwnLookStore>().photo != null &&
+                  getIt<AlarmStyleChoices>().assignments.defaultStyleId ==
+                      'own',
+            );
+            await tester.pump(const Duration(seconds: 1));
+            await _real(tester);
+            await tester.pump(const Duration(milliseconds: 600));
+            expect(getIt<OwnLookStore>().photo, isNotNull);
+            expect(find.byKey(const ValueKey('look-in-use')), findsOneWidget);
+          },
+        );
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/lock_tap_rule.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -14,9 +15,11 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choi
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_photo_hold.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
+import 'package:critalarm/features/settings/domain/personalize/own_photo_try_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/look/look_action_bar.dart';
@@ -85,6 +88,10 @@ class _LookPageState extends State<_LookPage> {
   late final ValueNotifier<int> _settled;
   late final ValueNotifier<int> _centred;
 
+  /// The photo picked here and not saved. It lives in memory for this visit
+  /// to the page only, and the page frees it when it closes.
+  final OwnPhotoHold _hold = OwnPhotoHold();
+
   /// One ambient profile per settled ground: a new object on each build would
   /// ask the canvas to retint again and again.
   AmbientProfile? _profile;
@@ -97,17 +104,27 @@ class _LookPageState extends State<_LookPage> {
     _page = ValueNotifier<double>(start.toDouble());
     _settled = ValueNotifier<int>(start);
     _centred = ValueNotifier<int>(start);
+    _hold.addListener(_onHold);
   }
 
   @override
   void dispose() {
+    _hold
+      ..removeListener(_onHold)
+      ..dispose();
     _page.dispose();
     _settled.dispose();
     _centred.dispose();
     super.dispose();
   }
 
+  /// The held photo changed: it is drawn, or gone.
+  void _onHold() {
+    if (mounted) setState(() {});
+  }
+
   OwnLookPhase get _ownPhase {
+    if (_hold.hasPhoto) return OwnLookPhase.tried;
     final keeper = getIt<OwnAlarmLookKeeper>();
     if (keeper.isReady) return OwnLookPhase.held;
     return keeper.hasPhoto ? OwnLookPhase.saved : OwnLookPhase.none;
@@ -120,7 +137,11 @@ class _LookPageState extends State<_LookPage> {
     final colors = context.appColors;
     final tones = [
       for (final id in _deck)
-        lookPassToneFor(lookStyleFor(id), brightness, colors),
+        lookPassToneFor(
+          lookStyleFor(id, tried: _hold.style),
+          brightness,
+          colors,
+        ),
     ];
     return LookFade(
       grounds: [for (final tone in tones) tone.ground],
@@ -149,28 +170,54 @@ class _LookPageState extends State<_LookPage> {
       case LookControl.inUse:
         return;
       case LookControl.addPhoto:
-        // The photo flow asks the same rule before it picks anything.
-        await addOwnPhoto(context);
+        // Adding a photo is a try, open to everyone: nothing is asked of the
+        // plan until the photo is framed, and a locked one is held here.
+        if (action.keep is Nothing) return;
+        await addOwnPhoto(context, hold: _hold);
       case LookControl.use:
+        final isTried = id == AlarmStyleId.own && _hold.hasPhoto;
         final go =
-            id.isFree ||
-            await keepOrOpenPaywall(
-              context,
-              AppFeature.alarmScreenStyles,
-              LockSource.personalizeLook,
-            );
+            id.isFree || (isTried ? await _mayKeepTried() : await _mayKeep());
         if (!go || !mounted) return;
         AppHaptics.selection();
+        if (isTried) {
+          // From the photo in memory: there is no second pick.
+          await keepHeldOwnPhoto(context, _hold);
+          return;
+        }
         await getIt<AlarmStyleChoices>().setDefault(id.id);
     }
   }
 
+  Future<bool> _mayKeep() => keepOrOpenPaywall(
+    context,
+    AppFeature.alarmScreenStyles,
+    LockSource.personalizeLook,
+  );
+
+  /// The same keep for the photo held in memory. The paywall closes with a
+  /// decision: if the plan was bought in it, the look is open now and the
+  /// photo is saved from memory, with no second pick.
+  Future<bool> _mayKeepTried() async {
+    if (await _mayKeep()) return true;
+    if (!mounted) return false;
+    return ownPhotoDestinationFor(
+          decision: _access.decide(AppFeature.alarmScreenStyles),
+          isPlanRead: _access.isPlanRead,
+        ) ==
+        OwnPhotoDestination.save;
+  }
+
   void _openPreview(AlarmStyleId id) {
     // Yours has a picture to show only while its photo is held.
-    if (id == AlarmStyleId.own && _ownPhase != OwnLookPhase.held) return;
+    if (id == AlarmStyleId.own &&
+        _ownPhase != OwnLookPhase.held &&
+        _ownPhase != OwnLookPhase.tried) {
+      return;
+    }
     unawaited(
       Navigator.of(context, rootNavigator: true).push(
-        RingingPreviewPage.route(style: lookStyleFor(id)),
+        RingingPreviewPage.route(style: lookStyleFor(id, tried: _hold.style)),
       ),
     );
   }
@@ -187,7 +234,12 @@ class _LookPageState extends State<_LookPage> {
   }
 
   void _openOwnSheet() => unawaited(
-    showOwnLookSheet(context, canEdit: _ownPhase == OwnLookPhase.held),
+    showOwnLookSheet(
+      context,
+      hold: _hold,
+      canEdit:
+          _ownPhase == OwnLookPhase.held || _ownPhase == OwnLookPhase.tried,
+    ),
   );
 
   @override
@@ -220,6 +272,7 @@ class _LookPageState extends State<_LookPage> {
           clock: widget.clock,
           inUse: live.lookStyle.id,
           own: own,
+          tried: _hold.style,
           height: height,
           onTapCentred: _tapCentred,
           onOwnCorner: _openOwnSheet,

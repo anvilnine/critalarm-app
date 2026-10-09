@@ -66,6 +66,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Wake-up challenges are a shelf of tiles you can try, and you pay only when you choose to keep one.
 - The Widgets page shows the three home screen widgets, and how to add one is open to everyone.
 - On Personalize, the Wake-up challenge card says default until you pick a challenge, then shows a small picture of it.
+- Add your photo on the Look page is now a try open to everyone: pick, crop and colour a photo to see it as your alarm. It stays in memory for that visit and nothing is saved until you press Use this look.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
