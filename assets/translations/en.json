@@ -87,6 +87,19 @@
     "feature_history": "Every alarm logged",
     "feature_search": "Search everything"
   },
+  "welcome_first_pages": {
+    "night_clock_day": "17:40",
+    "night_clock_evening": "22:05",
+    "night_clock_silent": "03:12 · silent",
+    "night_clock_ringing": "03:12 · ringing",
+    "silent_status": "3:12 · silent · do not disturb",
+    "silent_row_chat": "Chat",
+    "silent_row_mail": "Mail",
+    "silent_row_monitoring": "Monitoring email",
+    "stays_silent_label": "It is 3:12 at night and the phone is silent. Chat, mail and monitoring email stay muted, and one critical alarm rings.",
+    "dev_night_falls": "Welcome: night falls",
+    "dev_stays_silent": "Welcome: stays silent"
+  },
   "onboarding_connect": {
     "title": "Pick a server",
     "url_label": "SERVER URL",
