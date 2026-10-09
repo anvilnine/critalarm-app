@@ -20,6 +20,9 @@
 //            challenge while locked (Off), the longest challenge name, a long
 //            own-sound name, the stand-in for an own sound after a lapse, a
 //            sound with no peaks, the crowned icon
+//   challenge  the Wake-up challenge card with no challenge, locked, and each
+//            of the five kinds chosen, light and dark, at text scale 1.0
+//            and 2.0
 //   web      three passes, for a platform with no widgets and no icon change
 //   looks    the Look pass in each of the six looks, light and dark
 //   reduce   the resting frame under reduce motion
@@ -359,7 +362,17 @@ Future<void> _guarded(
 }
 
 Set<String> get _parts => _partsArg.isEmpty
-    ? {'plans', 'sizes', 'values', 'web', 'looks', 'reduce', 'motion', 'grow'}
+    ? {
+        'plans',
+        'sizes',
+        'values',
+        'challenge',
+        'web',
+        'looks',
+        'reduce',
+        'motion',
+        'grow',
+      }
     : _partsArg.split(',').toSet();
 
 /// Registers one capture of the root as it opens.
@@ -398,6 +411,14 @@ void _shot({
       await _save(tester, run, name, errors);
     });
   });
+}
+
+/// Scrolls the flat list of cards, at large text, until the Wake-up challenge
+/// card is whole on the screen.
+Future<void> _scrollToChallenge(WidgetTester tester, _Run run) async {
+  final card = find.byKey(const ValueKey('pass-challenge'));
+  await tester.ensureVisible(card);
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 /// Taps the card of [pass] on the band that shows.
@@ -548,6 +569,31 @@ void main() {
         mode: ThemeMode.light,
         scale: scale,
       );
+    }
+  }
+  // The Wake-up challenge card: none chosen, locked, and each kind.
+  final challengeStates = <String, _Setup>{
+    'challenge-none': const _Setup(plan: PassPlanState.pro),
+    'challenge-locked': const _Setup(challenge: ChallengeKind.shake),
+    for (final kind in ChallengeKind.values)
+      'challenge-${kind.name}': _Setup(
+        plan: PassPlanState.pro,
+        challenge: kind,
+      ),
+  };
+  for (final MapEntry(key: state, value: setup) in challengeStates.entries) {
+    for (final mode in passThemes) {
+      for (final scale in const [1.0, 2.0]) {
+        _shot(
+          part: 'challenge',
+          state: state,
+          setup: setup,
+          device: passPhone,
+          mode: mode,
+          scale: scale,
+          act: scale < 2 ? null : _scrollToChallenge,
+        );
+      }
     }
   }
   // Three passes: a platform with no widgets and no icon change.
