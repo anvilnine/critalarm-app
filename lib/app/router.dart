@@ -57,6 +57,7 @@ import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_sc
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/look/look_pass_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/passes/personalize_root_page.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/widgets/widgets_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
@@ -529,9 +530,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   path: 'personalize',
                   parentNavigatorKey: _rootKey,
                   name: AppRoute.personalize,
-                  pageBuilder: (context, state) => AmbientPage(
+                  pageBuilder: (context, state) => PersonalizeRootPage(
                     key: state.pageKey,
-                    opaque: true,
+                    name: state.name,
                     child: const PersonalizeScreen(),
                   ),
                   // The pass pages. The root pushes one with the tapped

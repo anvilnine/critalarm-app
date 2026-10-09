@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
@@ -100,7 +101,42 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
     }
   }
 
-  void _open(PassId pass, PassOrigin origin) {
+  /// [origin] as the page should grow from it. In the overlapped stack a card
+  /// is 260 points tall but shows a band, because the next card covers the
+  /// rest. The page grows from the band, so it never covers the next card
+  /// for the first frame and uncovers it with a jump on the last.
+  PassOrigin _fromBand(PassOrigin origin, int index, int count) {
+    // A flat card shows all of itself, and the last one bleeds off the edge.
+    if (origin.bottomRadius != 0 || index >= count - 1) return origin;
+    final step = PassStackLayout.of(
+      width: origin.display.size.width,
+      height: origin.display.size.height,
+      textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
+      count: count,
+      safeTop: origin.display.safeTop,
+      safeBottom: MediaQuery.paddingOf(context).bottom,
+    ).step;
+    final rect = origin.rect;
+    return PassOrigin(
+      pass: origin.pass,
+      rect: Rect.fromLTWH(
+        rect.left,
+        rect.top,
+        rect.width,
+        math.min(rect.height, step),
+      ),
+      tone: origin.tone,
+      label: origin.label,
+      value: origin.value,
+      display: origin.display,
+      thumbnail: origin.thumbnail,
+      bottomRadius: origin.bottomRadius,
+      reduceMotion: origin.reduceMotion,
+      handoff: origin.handoff,
+    );
+  }
+
+  void _open(PassId pass, PassOrigin origin, int index, int count) {
     final name = switch (pass) {
       PassId.look => AppRoute.personalizeLook,
       PassId.sound => AppRoute.soundPicker,
@@ -109,7 +145,9 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       PassId.appIcon => AppRoute.appIcon,
     };
     unawaited(
-      context.pushNamed<void>(name, extra: origin).then((_) => _reload()),
+      context
+          .pushNamed<void>(name, extra: _fromBand(origin, index, count))
+          .then((_) => _reload()),
     );
   }
 
@@ -178,8 +216,14 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
                       .tr(),
                   onBack: _close,
                   cards: [
-                    for (final item in live.summary.present)
-                      _card(live, item.pass, thumbOf(item.pass)),
+                    for (final (index, item) in live.summary.present.indexed)
+                      _card(
+                        live,
+                        item.pass,
+                        thumbOf(item.pass),
+                        index,
+                        live.summary.present.length,
+                      ),
                   ],
                 ),
               );
@@ -190,7 +234,13 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
     );
   }
 
-  AppPassCard _card(PassLive live, PassId pass, WidgetBuilder thumbnail) {
+  AppPassCard _card(
+    PassLive live,
+    PassId pass,
+    WidgetBuilder thumbnail,
+    int index,
+    int count,
+  ) {
     final label = live.labelOf(pass);
     final value = live.valueOf(pass);
     final tag = live.tagOf(pass);
@@ -213,7 +263,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       semanticHint: LocaleKeys.personalize_passes_root_pass_hint.tr(
         namedArgs: {'label': label},
       ),
-      onTap: (origin) => _open(pass, origin),
+      onTap: (origin) => _open(pass, origin, index, count),
     );
   }
 }
