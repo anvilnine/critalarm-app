@@ -27,6 +27,7 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/pulse_ring_widget.dart';
 import 'package:critalarm/design/gallery/glyphs_and_curves_section.dart';
+import 'package:critalarm/design/gallery/passes_section.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/design/gallery/topics_components_section.dart';
@@ -140,7 +141,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                             data: MediaQuery.of(
                               context,
                             ).copyWith(disableAnimations: _reduceMotion),
-                            child: const TopicsComponentsSection(),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TopicsComponentsSection(),
+                                SizedBox(height: 48),
+                                PassesSection(),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 48),
                           _buildControlsAndCardsSection(colors),

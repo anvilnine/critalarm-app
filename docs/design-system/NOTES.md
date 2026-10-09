@@ -151,6 +151,30 @@ All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce
   limit the bars go on top, spread across the width. A day the plan does not reach (`isHidden`)
   has a letter and no bar.
 
+## Personalize components
+
+All in `lib/design/components/`, each in the gallery at `/gallery` (section "Passes") and drawn by
+`tool/capture_passes.dart`. Colours come from `passToneFor` (`lib/design/tokens/pass_tones.dart`),
+durations from `AppDurations.pass` (520 ms) and `AppDurations.passPage` (600 ms), the curve from
+`AppCurves.passGrow`.
+
+- `AppPassCard`: one setting as a coloured card: a mono label, an optional tag, the value in large
+  type, a thumbnail slot. It is a button for a screen reader and gives `onTap` the `PassOrigin` of
+  the card. Use it for a setting that opens its own page. The look pass computes its own `PassTone`
+  from the look in use.
+- `AppPassStack` and `PassStackLayout`: the header row (ringed back button and title) and the cards,
+  overlapped under text scale 1.3 and a flat column from 1.3. Scrolls, and sits in a column up to 560
+  wide. It places the `PassOriginScope` its cards read.
+- `AppPassPage`: the page a card grows into. A ground in the pass colour, a pinned top row with the
+  back ring (and an optional trailing control), the header block (label, state word, tag, value,
+  foot), body slivers and an optional bottom bar. It sets an `AmbientOverride` of the same colour, so
+  the canvas under it matches. Build every pass page on it so the grow can hand off the header.
+- `PassPage`, `PassOrigin`, `PassFrame`, `passFrameAt`: the go_router page and the pure function that
+  places each part of the grow. A page with an origin grows out of the card and shrinks back into it.
+  A page without one (a deep link, a restored route) takes the shell's slide and fade. Under reduce
+  motion the finished page fades in over the root and nothing grows.
+- `AmbientAppProfiles.passGround(color)`: a one-colour ambient profile with the shapes cleared.
+
 ## Glyphs and motion curves
 
 Both are in the gallery at `/gallery`, under the scales.

@@ -307,6 +307,34 @@ abstract final class AmbientAppProfiles {
     );
   }
 
+  /// A canvas of one colour with its three shapes left clear.
+  ///
+  /// A Personalize pass page paints its own ground and sets this profile in
+  /// the same colour, so the canvas under the page grows from the canvas
+  /// colour to the pass colour with the page, and nothing shows through the
+  /// edges. The shapes keep the places of the standard ones, so the canvas
+  /// fades them out where they are instead of moving them.
+  static AmbientProfile passGround(Color ground) {
+    AmbientShape clear(Alignment anchor, double scale, double depth) =>
+        AmbientShape(
+          color: ground,
+          opacity: 0,
+          anchor: anchor,
+          scale: scale,
+          turns: 0,
+          depth: depth,
+        );
+    return AmbientProfile(
+      canvas: ground,
+      surfaceOpacity: 1,
+      shapes: List<AmbientShape>.unmodifiable([
+        clear(const Alignment(0, -0.65), 0.54, 0.25),
+        clear(const Alignment(-0.85, 0.35), 0.42, 0.55),
+        clear(const Alignment(0.85, 0.70), 0.34, 0.85),
+      ]),
+    );
+  }
+
   /// Topic detail screen profile.
   static AmbientProfile topicDetail(AppColors colors) {
     return _detailOf(topics(colors), canvas: colors.canvas);
