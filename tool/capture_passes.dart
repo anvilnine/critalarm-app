@@ -9,7 +9,8 @@
 //   stack     the header and the stack, as a phone shows it
 //   stackfull the same, as tall as its scroll content, where it scrolls
 //   page-*    the page scaffold: sound, challenge, widgets, appIcon, look,
-//             longValue
+//             longValue, and oneWord (a value of one long word, which steps
+//             its size down before it would break inside the word)
 //   frames-*  the grow at progress 0, 0.25, 0.5, 0.75 and 1, opening and
 //             closing, for the sound, widgets and challenge cards
 //   reduce-*  the resting frames under reduce motion, and the fade
@@ -104,6 +105,18 @@ void main() {
           );
         }
         if (parts.contains('page') && !isMediumOnly) {
+          registerPassShot(
+            name: name('page-oneWord'),
+            device: device,
+            mode: mode,
+            scale: scale,
+            build: (_) => _OneWordPage(
+              size: device.size,
+              safeTop: device.safeTop,
+              safeBottom: device.safeBottom,
+              textScale: scale,
+            ),
+          );
           for (final variant in PassPageVariant.values) {
             registerPassShot(
               name: name('page-${variant.name}'),
@@ -210,5 +223,41 @@ void main() {
         );
       }
     }
+  }
+}
+
+/// A pass page whose value is one word, "Minimal", on a display of [size].
+class _OneWordPage extends StatelessWidget {
+  const _OneWordPage({
+    required this.size,
+    required this.safeTop,
+    required this.safeBottom,
+    required this.textScale,
+  });
+
+  final Size size;
+  final double safeTop;
+  final double safeBottom;
+  final double textScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = EdgeInsets.only(top: safeTop, bottom: safeBottom);
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        size: size,
+        padding: padding,
+        viewPadding: padding,
+        textScaler: TextScaler.linear(textScale),
+      ),
+      child: SizedBox.fromSize(
+        size: size,
+        child: AppPassPage(
+          tone: passToneFor(PassId.look, context.appColors),
+          label: 'Look',
+          value: 'Minimal',
+        ),
+      ),
+    );
   }
 }
