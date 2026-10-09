@@ -72,6 +72,8 @@ List<TopicDetailMessageItem> topicMessageRows(
       body: m.message,
       source: m.tags.join(', '),
       isHigh: m.priority == 4,
+      messageId: m.id,
+      incidentId: m.incidentId,
     ),
 ];
 

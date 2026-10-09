@@ -235,44 +235,54 @@ class RangMatch {
 
 /// Which messages rang, found from the incidents the phone already holds.
 ///
-/// The page's rows do not carry an incident id, so a message is matched to
-/// the incident that holds the same message: the same second, title and body.
+/// A message is linked to its incident by id. The server files every message
+/// of an incident under that incident's id (api.md §1.6, `incident_id`), and
+/// the incident lists the same messages by their own ids (§3.2). Either id is
+/// enough: the incident id on the message is tried first, then the message id
+/// among the incident's messages.
+///
+/// There is no match on the words. A message with neither id, such as an
+/// example row that was never stored, shows no ring.
 class RangIndex {
-  RangIndex._(this._byKey);
+  RangIndex._(this._incidents, this._byMessageId, this._openingIds);
 
   /// Indexes the messages of [incidents]. Pass the incidents of one topic.
   factory RangIndex.of(Iterable<Incident> incidents) {
-    final byKey = <String, RangMatch>{};
+    final byIncident = <String, Incident>{};
+    final byMessage = <String, Incident>{};
+    final openingIds = <String, String>{};
     for (final incident in incidents) {
+      byIncident[incident.id] = incident;
       final messages = incident.messages;
       if (messages.isEmpty) continue;
       var opening = messages.first;
       for (final message in messages) {
         if (message.time < opening.time) opening = message;
       }
+      openingIds[incident.id] = opening.id;
       for (final message in messages) {
-        byKey.putIfAbsent(
-          _key(message.time, message.title ?? message.topic, message.message),
-          () => RangMatch(
-            incident: incident,
-            opensIncident: identical(message, opening),
-          ),
-        );
+        byMessage.putIfAbsent(message.id, () => incident);
       }
     }
-    return RangIndex._(byKey);
+    return RangIndex._(byIncident, byMessage, openingIds);
   }
 
-  final Map<String, RangMatch> _byKey;
+  final Map<String, Incident> _incidents;
+  final Map<String, Incident> _byMessageId;
 
-  /// The match for the message sent at [at] with [title] and [body], or null
-  /// when no incident holds it, so it did not ring.
-  RangMatch? find({
-    required DateTime at,
-    required String title,
-    required String body,
-  }) => _byKey[_key(at.millisecondsSinceEpoch ~/ 1000, title, body)];
+  /// The id of the message that opened each incident that lists messages.
+  final Map<String, String> _openingIds;
 
-  static String _key(int seconds, String title, String body) =>
-      '$seconds\u0000$title\u0000$body';
+  /// The match for the message [messageId], filed under [incidentId] when the
+  /// server said so, or null when no incident holds it, so it did not ring.
+  RangMatch? find({String? messageId, String? incidentId}) {
+    final incident =
+        (incidentId == null ? null : _incidents[incidentId]) ??
+        (messageId == null ? null : _byMessageId[messageId]);
+    if (incident == null) return null;
+    return RangMatch(
+      incident: incident,
+      opensIncident: messageId != null && _openingIds[incident.id] == messageId,
+    );
+  }
 }
