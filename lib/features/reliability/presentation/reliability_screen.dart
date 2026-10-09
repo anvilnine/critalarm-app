@@ -4,14 +4,20 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
+import 'package:critalarm/features/reliability/domain/attention_order.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
+import 'package:critalarm/features/reliability/domain/wake_answer.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_groups.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
+import 'package:critalarm/features/reliability/presentation/wake_header.dart';
+import 'package:critalarm/features/reliability/presentation/wake_path.dart';
+import 'package:critalarm/features/reliability/presentation/wake_problem_list.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -19,18 +25,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Settings, "Will it wake me?": one overall state with a face, then a row for
-/// each check, the ones that need attention first, then the test alarm, then
-/// the extra groups.
+/// Settings, "Will it wake me?": one word (Yes, Maybe or No) with a line and
+/// the face, the path an alarm takes with the stop that is not fine in red,
+/// then either one chip (every check passes) or a white list of what to fix
+/// with a folded row for the checks that pass. One button is pinned at the
+/// bottom.
 ///
-/// What to draw comes from `ReliabilityCubit`. Which rows, in what order, with
-/// which words, is decided by the pure functions in `reliability_rows.dart`.
+/// What to draw comes from `ReliabilityCubit`. The word, the path and the
+/// numbers they are drawn from are the pure functions in
+/// `domain/wake_answer.dart`. Which rows, in what order, with which words, is
+/// decided by the pure functions in `reliability_rows.dart`.
 ///
 /// To add a row for a new check: add the id to `ReliabilityCheckIds`, add its
 /// source to the list in `di.dart`, then give it a title and its reason lines
 /// in `reliability_rows.dart` and the strings. Until the words exist, the row
-/// still draws, with the id as its title. Nothing here knows the list of
-/// checks: the order, the face and the one primary button all come from each
+/// still draws, with the id as its title. Give it a stop on the path in
+/// `wakeStopOf`, or it sits on This phone. Nothing here knows the list of
+/// checks: the order, the word and the pinned button all come from each
 /// check's state, reason and fix, so a check from a new source sorts and
 /// draws like the rest.
 ///
@@ -77,10 +88,15 @@ class _ReliabilityViewState extends State<_ReliabilityView>
 
   final Map<int, GlobalKey> _groupKeys = {};
 
+  /// When the newest test alarm rang on this phone, for the line under
+  /// Yes. Null when none ever did.
+  DateTime? _lastTestAt;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _readLastTest();
     unawaited(_refresh());
   }
 
@@ -98,7 +114,21 @@ class _ReliabilityViewState extends State<_ReliabilityView>
 
   Future<void> _refresh() async {
     if (!mounted) return;
+    _readLastTest();
     await context.read<ReliabilityCubit>().refresh();
+  }
+
+  void _readLastTest() {
+    try {
+      final at = newestTestAt(
+        getIt<LocalReminderStore>().readLastTestAt().values,
+      );
+      if (at != _lastTestAt) {
+        if (mounted) setState(() => _lastTestAt = at);
+      }
+    } on Object {
+      // The line then nudges to ring a test, which is true enough.
+    }
   }
 
   Future<void> _runFix(ReliabilityCheck check) async {
@@ -169,9 +199,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
   Widget build(BuildContext context) {
     return BlocBuilder<ReliabilityCubit, ReliabilitySnapshot>(
       builder: (context, snapshot) {
-        final headline = reliabilityHeadline(snapshot);
-        final view = reliabilityHeadlineView(headline);
-        final isLoading = headline == ReliabilityHeadline.loading;
+        final isLoading = !snapshot.loaded;
         final ordered = orderReliabilityChecks(snapshot.checks);
         // A check a group draws gets no plain row, and its group moves up
         // to the check's place while it needs attention.
@@ -180,20 +208,21 @@ class _ReliabilityViewState extends State<_ReliabilityView>
         ]);
         final now = DateTime.now();
         final split = splitReliabilityRows(layout.rows);
-        final plain = <Widget>[
-          if (!isLoading)
-            for (final row in split.calm) _row(context, snapshot, row, now),
-          ReliabilityTestRow(onTap: () => unawaited(_openTest())),
-          if (!isLoading)
-            for (final below in layout.below)
-              _group(context, snapshot, below.group, null),
-        ];
+        final answer = wakeAnswerForSnapshot(
+          snapshot.checks,
+          incomplete: snapshot.incomplete,
+        );
+        final line = wakeLineFor(
+          snapshot.checks,
+          incomplete: snapshot.incomplete,
+          now: now,
+          lastTestAt: _lastTestAt,
+        );
+        final stops = wakePathFor(snapshot.checks);
+        final passCount = split.calm.length;
 
         return AppScreenScaffold(
           hasTabBar: false,
-          // The bar's own backing, so a row scrolled under it never shows
-          // through the title.
-          barBacking: _barBacking(context),
           onRefresh: _refresh,
           // The bar has one fixed height, so its text stops growing at the
           // chrome limit instead of being cut off by it.
@@ -218,6 +247,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
               ),
             ),
           ),
+          bottomBar: _bottomBar(context, ordered),
           slivers: [
             SliverToBoxAdapter(
               child: isLoading
@@ -227,55 +257,175 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                         message: LocaleKeys.reliability_loading.tr(),
                       ),
                     )
-                  : AppStage(
-                      faceState: view.face,
-                      faceSize: _headerFaceSize(context),
-                      wordFontSize: _headerWordSize(context),
-                      word: view.wordKey.tr(),
-                      sub: view.lineKey.tr(),
+                  : WakeClock(
+                      builder: (context, clock, {required isStill}) => Stack(
+                        // The disc runs up behind the top bar and off the
+                        // right edge. It is first, so it is behind the rest.
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned(
+                            right: -150,
+                            top: -40,
+                            child: IgnorePointer(
+                              child: WakeDisc(
+                                answer: answer,
+                                clock: clock,
+                                isStill: isStill,
+                              ),
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: Spacing.s2),
+                              WakeHeader(
+                                answer: answer,
+                                line: wakeLineText(line),
+                                clock: clock,
+                                isStill: isStill,
+                              ),
+                              const SizedBox(height: Spacing.s5),
+                              WakePath(
+                                stops: stops,
+                                clock: clock,
+                                isStill: isStill,
+                              ),
+                              const SizedBox(height: Spacing.s4),
+                              if (split.attention.isEmpty)
+                                if (passCount > 0)
+                                  WakeAllPassChip(count: passCount)
+                                else
+                                  const SizedBox.shrink()
+                              else
+                                WakeProblemList(
+                                  problems: [
+                                    for (final row in split.attention)
+                                      _problem(context, snapshot, row, now),
+                                  ],
+                                  passing: [
+                                    for (final row in split.calm)
+                                      _row(context, snapshot, row, now),
+                                  ],
+                                  passCount: passCount,
+                                  tails: [
+                                    for (final row in split.attention)
+                                      if (row.group case final group?)
+                                        if (widget.extraGroups[group].plainTail
+                                            case final tail?)
+                                          tail(context),
+                                  ],
+                                ),
+                              // The proof card goes here, under the list or
+                              // the chip. It is a later task's, so nothing is
+                              // drawn.
+                              const SizedBox.shrink(),
+                              // The groups that need no attention.
+                              ..._belowTheList(context, snapshot, layout.below),
+                              const SizedBox(height: Spacing.s4),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 16),
-                child: AppSheet(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Every row that needs action shares one card.
-                      if (!isLoading && split.attention.isNotEmpty) ...[
-                        ReliabilityAttentionCard(
-                          children: [
-                            for (final row in split.attention)
-                              _row(context, snapshot, row, now),
-                          ],
-                        ),
-                        const SizedBox(height: Spacing.s3),
-                      ],
-                      // The rest are plain rows on the sheet with a rule
-                      // between them. The free test comes before anything
-                      // that costs money.
-                      for (var i = 0; i < plain.length; i++) ...[
-                        if (i > 0) const ReliabilityRowDivider(),
-                        plain[i],
-                      ],
-                      // What a group in the card above leaves plain, such
-                      // as the way to the weekly check's past rounds.
-                      if (!isLoading)
-                        for (final row in split.attention)
-                          if (row.group case final group?)
-                            if (widget.extraGroups[group].plainTail
-                                case final tail?)
-                              tail(context),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// The groups that sit under the list because they need no attention.
+  List<Widget> _belowTheList(
+    BuildContext context,
+    ReliabilitySnapshot snapshot,
+    List<ReliabilityGroupBelow> below,
+  ) {
+    if (below.isEmpty) return const [];
+    return [
+      const SizedBox(height: Spacing.s3),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: AppSheet(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < below.length; i++) ...[
+                if (i > 0) const ReliabilityRowDivider(),
+                _group(context, snapshot, below[i].group, null),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// The one button pinned at the bottom.
+  ///
+  /// - Nothing to fix: ring a test.
+  /// - One thing with a fix: that fix, in its own words.
+  /// - Several: "Fix N things", which runs the first fix in attention
+  ///   order. The screen refreshes when it ends, and the next tap takes the
+  ///   next one.
+  Widget _bottomBar(BuildContext context, List<ReliabilityCheck> ordered) {
+    final fixable = [
+      for (final check in ordered)
+        if (needsAttention(check.state) && check.fix != null) check,
+    ];
+    final String label;
+    final VoidCallback onPressed;
+    var isBusy = false;
+    if (fixable.isEmpty) {
+      label = LocaleKeys.reliability_ring_test_title.tr();
+      onPressed = () => unawaited(_openTest());
+    } else if (fixable.length == 1) {
+      final only = fixable.first;
+      label = _actionLabel(only) ?? LocaleKeys.reliability_ring_test_title.tr();
+      isBusy = _busy.contains(only.id);
+      onPressed = () => unawaited(_runFix(only));
+    } else {
+      final first = fixable.first;
+      label = LocaleKeys.wake_fix_many.tr(
+        namedArgs: {'count': '${fixable.length}'},
+      );
+      isBusy = _busy.contains(first.id);
+      onPressed = () => unawaited(_runFix(first));
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: AppButton(
+        label: label,
+        size: AppButtonSize.lg,
+        isFullWidth: true,
+        isLoading: isBusy,
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  /// One problem in the white list, or the group that draws its check.
+  Widget _problem(
+    BuildContext context,
+    ReliabilitySnapshot snapshot,
+    ReliabilityListRow row,
+    DateTime now,
+  ) {
+    if (row.group case final group?) {
+      return _group(context, snapshot, group, row);
+    }
+    final check = row.check;
+    return WakeProblemRow(
+      check: check,
+      now: now,
+      actionLabel: _actionLabel(check),
+      isBusy: _busy.contains(check.id),
+      onAction: () => unawaited(_runFix(check)),
+      clearLabel: reliabilityClearLabelKey(check.fix)?.tr(),
+      isClearing: _clearing.contains(check.id),
+      onClear: () => unawaited(_clear(check)),
+      onTap: _onRowTap(check),
     );
   }
 
@@ -293,11 +443,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       check: row.check,
       now: now,
       actionLabel: _actionLabel(row.check),
-      // One primary button on the screen: the first row with something to
-      // do.
-      actionVariant: row.isPrimary
-          ? AppButtonVariant.primary
-          : AppButtonVariant.ghost,
+      actionVariant: AppButtonVariant.ghost,
       isBusy: _busy.contains(row.check.id),
       onAction: () => unawaited(_runFix(row.check)),
       clearLabel: reliabilityClearLabelKey(row.check.fix)?.tr(),
@@ -324,27 +470,6 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       isPrimary: row?.isPrimary ?? false,
     ),
   );
-
-  /// At large text the header would take more than half the screen and push
-  /// the first thing to fix out of view. Past [_largeText] the face shrinks,
-  /// and the headline stops growing at the size it has at [_largeText].
-  /// Below it nothing changes.
-  static const double _largeText = 1.3;
-
-  static double _textScale(BuildContext context) =>
-      MediaQuery.textScalerOf(context).scale(1);
-
-  static double _headerFaceSize(BuildContext context) =>
-      _textScale(context) > _largeText ? 64 : 104;
-
-  static double _headerWordSize(BuildContext context) {
-    final scale = _textScale(context);
-    return scale > _largeText ? 34 * _largeText / scale : 34;
-  }
-
-  /// The colour the bar is backed with: the canvas the screen sits on.
-  Color _barBacking(BuildContext context) =>
-      AppBarBackingScope.maybeOf(context)?.color ?? context.appColors.canvas;
 
   String? _actionLabel(ReliabilityCheck check) {
     final fix = check.fix;
