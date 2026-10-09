@@ -722,6 +722,9 @@
     "revoke_dialog_content": "Anything still sending with this token stops working right away. The topic keeps its other tokens.",
     "revoke_dialog_confirm": "Revoke"
   },
+  "topic_tokens_page": {
+    "back_aria": "Back to {topic}"
+  },
   "new_token": {
     "title": "New token",
     "name_line": "Name it after the tool that will send.",
