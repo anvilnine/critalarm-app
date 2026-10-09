@@ -74,6 +74,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -101,6 +102,7 @@ abstract final class AppRoute {
   static const history = 'history';
   static const topicDetail = 'topicDetail';
   static const topicMessages = 'topicMessages';
+  static const topicTokens = 'topicTokens';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
@@ -362,6 +364,24 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         );
                       },
                     ),
+                    // The topic's tokens. `?curl=1` is the silent topic
+                    // reminder's "Get curl line": the New token sheet opens
+                    // as the page does, with the name filled in.
+                    GoRoute(
+                      path: 'tokens',
+                      name: AppRoute.topicTokens,
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
+                        );
+                      },
+                    ),
                     GoRoute(
                       path: 'sounds',
                       name: 'homeTopicSounds',
@@ -408,6 +428,21 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         return AmbientPage(
                           key: state.pageKey,
                           child: TopicMessagesScreen(topicName: name),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: 'tokens',
+                      name: 'historyTopicTokens',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
                         );
                       },
                     ),
