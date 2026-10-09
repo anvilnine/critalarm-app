@@ -12,13 +12,13 @@ Widget _welcomeStoryHero(
   WelcomePage page, {
   required bool ringsOnSilent,
   required VoidCallback onDone,
+  _HeroDrawn? wordHeroDrawn,
 }) {
   final isAndroid = defaultTargetPlatform == TargetPlatform.android;
   return switch (page) {
-    WelcomePage.rings => _RingStoryHero(
-      isAndroid: isAndroid,
-      isOnSilent: ringsOnSilent,
-      onDone: onDone,
+    WelcomePage.rings => _SpokenPicture(
+      label: LocaleKeys.onboarding_welcome_title.tr(),
+      child: _WordStoryHero(onDone: onDone, drawn: wordHeroDrawn),
     ),
     WelcomePage.priorities => _SpokenPicture(
       label: LocaleKeys.onboarding_welcome_story_priorities_label.tr(),
