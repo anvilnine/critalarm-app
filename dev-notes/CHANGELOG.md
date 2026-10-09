@@ -92,6 +92,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - One rule decides what a tap on a locked option does, the lock draws its badge only once the plan is read, option sheets can carry a badge, and the Plans and features lab has a Plan still being read preset
 - Widgets page of Personalize: `HomeScreenWidgets` draws the Open incidents, Topic and Topics widgets upright, `widgetsRingAngle` is the one ring of the Open incidents face, `widgetsPageButtonsFor` and `widgetsSheetPlanFor` pick the buttons and the steps sheet's plan, and `tool/capture_pass_widgets.dart` captures it.
 - AppPassBands, a compact pass stack with no header or scroll, built from AppPassCard, plus a Tokens pass tone (PassId.tokens)
+- Proof log: a small local record of the weeks a test alarm or a weekly check got through (prefs key proof\_log, newest 12 weeks, cleared with the account's local data)
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
