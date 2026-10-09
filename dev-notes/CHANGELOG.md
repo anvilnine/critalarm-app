@@ -174,6 +174,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Pass pages use the standard bar blur and fade, their header collapses into the bar as you scroll, and closing a page no longer leaves a slab under the card
 - The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
 - Every setup step has its own ambient canvas step and arrangement (the offer and the legacy test no longer share one), and the canvas takes a live profile so a pager can drag the shapes. The bundled flows no longer list how\_it\_rings or widgets, since the welcome shows both.
+- The Pick a server step is one layout for Crit Alarm Cloud and your own server: the routes picture, titles, card and pinned bar follow one clock (ConnectMorphLayout), so switching grows and fades the parts that differ and keeps the dot travelling. AppButton gains animatesLabel.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
