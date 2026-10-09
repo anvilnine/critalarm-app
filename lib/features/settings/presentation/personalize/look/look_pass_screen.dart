@@ -195,13 +195,11 @@ class _LookPageState extends State<_LookPage> {
     final live = widget.live;
     final fade = _fadeFor(context);
     final media = MediaQuery.of(context);
-    // The action is pinned under the page. On a short display, and at large
-    // text on a small one, it would take most of the room, so it goes at the
-    // end of the page and scrolls with it.
-    final pinsBar =
-        media.size.height >= AppSize.shortMaxHeight &&
-        (media.textScaler.scale(1) <= kChromeMaxTextScale ||
-            media.size.height >= _tallEnough);
+    // On a short display the deck and the action sit side by side under the
+    // header, so the action is in view without a bar taking the height. On
+    // any other display the action is pinned under the page, at every text
+    // size, so a person can always reach it.
+    final isShort = media.size.height < AppSize.shortMaxHeight;
     final own = _ownPhase;
 
     final deck = SliverLayoutBuilder(
@@ -209,55 +207,41 @@ class _LookPageState extends State<_LookPage> {
         // The deck takes what the header leaves, and no less than it needs:
         // a short display or large text scrolls the page.
         final room = constraints.remainingPaintExtent - 24;
-        final height = math.max(_minDeckHeight, room);
+        final height = math.max(
+          isShort ? _minShortDeckHeight : _minDeckHeight,
+          room,
+        );
+        final lookDeck = LookDeck(
+          deck: _deck,
+          fade: fade,
+          page: _page,
+          settled: _settled,
+          centred: _centred,
+          clock: widget.clock,
+          inUse: live.lookStyle.id,
+          own: own,
+          height: height,
+          onTapCentred: _tapCentred,
+          onOwnCorner: _openOwnSheet,
+        );
         return SliverToBoxAdapter(
           child: SizedBox(
             height: height,
-            child: LookDeck(
-              deck: _deck,
-              fade: fade,
-              page: _page,
-              settled: _settled,
-              centred: _centred,
-              clock: widget.clock,
-              inUse: live.lookStyle.id,
-              own: own,
-              height: height,
-              onTapCentred: _tapCentred,
-              onOwnCorner: _openOwnSheet,
-            ),
+            child: isShort
+                ? Row(
+                    children: [
+                      SizedBox(
+                        width: _sideWidth,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SingleChildScrollView(child: _bar(fade)),
+                        ),
+                      ),
+                      Expanded(child: lookDeck),
+                    ],
+                  )
+                : lookDeck,
           ),
-        );
-      },
-    );
-
-    final bar = ValueListenableBuilder<int>(
-      valueListenable: _centred,
-      builder: (context, centred, _) {
-        final decision = _decision;
-        final action = _actionFor(centred);
-        final hint = lookHintFor(
-          action: action,
-          decision: decision,
-          isPlanRead: _access.isPlanRead,
-          deck: _deck,
-        );
-        return LookActionBar(
-          action: action,
-          hint: hint.lockedCount == null
-              ? hint.key.tr()
-              : hint.key.tr(
-                  namedArgs: {
-                    'count': '${hint.lockedCount}',
-                    'plan': planWordFor(
-                      decision is FeatureLocked ? decision.offer : Holding.pro,
-                    ),
-                  },
-                ),
-          confirming: decision is FeatureConfirming ? decision.holding : null,
-          fade: fade,
-          page: _page,
-          onKeep: () => unawaited(_keep()),
         );
       },
     );
@@ -289,11 +273,8 @@ class _LookPageState extends State<_LookPage> {
                 value: lookNameOf(_deck[centred]),
                 tag: live.tagOf(PassId.look),
                 trailing: _PlayPill(tone: tone),
-                slivers: [
-                  deck,
-                  if (!pinsBar) SliverToBoxAdapter(child: bar),
-                ],
-                bottomBar: pinsBar ? bar : null,
+                slivers: [deck],
+                bottomBar: isShort ? null : _bar(fade),
               );
             },
           ),
@@ -301,6 +282,37 @@ class _LookPageState extends State<_LookPage> {
       ),
     );
   }
+
+  Widget _bar(LookFade fade) => ValueListenableBuilder<int>(
+    valueListenable: _centred,
+    builder: (context, centred, _) {
+      final decision = _decision;
+      final action = _actionFor(centred);
+      final hint = lookHintFor(
+        action: action,
+        decision: decision,
+        isPlanRead: _access.isPlanRead,
+        deck: _deck,
+      );
+      return LookActionBar(
+        action: action,
+        hint: hint.lockedCount == null
+            ? hint.key.tr()
+            : hint.key.tr(
+                namedArgs: {
+                  'count': '${hint.lockedCount}',
+                  'plan': planWordFor(
+                    decision is FeatureLocked ? decision.offer : Holding.pro,
+                  ),
+                },
+              ),
+        confirming: decision is FeatureConfirming ? decision.holding : null,
+        fade: fade,
+        page: _page,
+        onKeep: () => unawaited(_keep()),
+      );
+    },
+  );
 
   AmbientProfile _profileFor(Color ground) {
     if (_profile == null || _profileGround != ground) {
@@ -310,11 +322,14 @@ class _LookPageState extends State<_LookPage> {
     return _profile!;
   }
 
-  /// The height from which a pinned action still leaves room at large text.
-  static const double _tallEnough = 700;
-
   /// The least room the deck is given before the page scrolls instead.
   static const double _minDeckHeight = 330;
+
+  /// The same on a short display, where the page scrolls by little.
+  static const double _minShortDeckHeight = 200;
+
+  /// The width of the column that holds the action on a short display.
+  static const double _sideWidth = 232;
 }
 
 /// Play, at the right of the pinned top row: it plays the ring sound and stops
