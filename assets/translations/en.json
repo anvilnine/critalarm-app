@@ -2120,7 +2120,6 @@
     "look": {
       "use": "Use this look",
       "in_use": "In use",
-      "trying": "Trying it. Not saved.",
       "hint_swipe": "Swipe for more looks",
       "hint_swipe_locked": "Swipe. {count} more with {plan}",
       "dot_label": "Look {index} of {count}, {name}",
