@@ -2147,15 +2147,16 @@
     },
 
     "challenge": {
-      "tile_type_topic": "Type the topic name",
-      "tile_type_title": "Type the first words of the title",
-      "tile_math": "One question about numbers",
-      "tile_scratch": "Scratch, then type the code",
+      "tile_type_topic": "Letter by letter",
+      "tile_type_title": "Its first words",
+      "tile_math": "One small question",
+      "tile_scratch": "Then type the code",
       "tile_shake": "30 shakes or taps",
-      "tile_off": "No challenge",
+      "tile_off_name": "No challenge",
+      "tile_off": "At my desk closes at once",
       "pick_label": "Use {name} for new topics",
-      "pick_label_locked": "{name}, needs {plan}",
-      "scope_note": "Applies to topics made from now on. Existing topics keep their own.",
+      "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
+      "scope_note": "Applies to topics made from now on.",
       "see_plan": "Try any. Keep one with {plan}"
     },
 
