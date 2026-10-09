@@ -1,3 +1,5 @@
+import 'package:critalarm/features/topics/domain/new_token_rules.dart' as rules;
+
 /// The one-line publish command for a topic (api.md 1.1 and 1.2), ready to
 /// paste into a script.
 abstract final class CurlLine {
@@ -40,6 +42,23 @@ abstract final class CurlLine {
     final base = baseUrl(serverUrl);
     return 'curl $base/$topic \\\n'
         '  -H "Authorization: Bearer $maskedToken" \\\n'
+        '  -H "Priority: $urgent" \\\n'
+        '  -d ${shellQuote(message)}';
+  }
+
+  /// The same picture as [forTerminal], with the header holding [token] with
+  /// its middle hidden (`tk_da39...a1c9`), for the sheet that shows a token
+  /// once. The full value never appears in it, and it is for looking at.
+  /// Copying uses [build].
+  static String forTerminalShowing({
+    required String serverUrl,
+    required String topic,
+    required String token,
+    required String message,
+  }) {
+    final base = baseUrl(serverUrl);
+    return 'curl $base/$topic \\\n'
+        '  -H "Authorization: Bearer ${rules.maskedToken(token)}" \\\n'
         '  -H "Priority: $urgent" \\\n'
         '  -d ${shellQuote(message)}';
   }
