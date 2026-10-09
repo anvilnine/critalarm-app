@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -18,10 +19,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// The four home screen icons as a showcase. With the icons unlocked a
-/// person picks any of them. Everyone else sees the three paid icons at
-/// full colour with the plan badge under the name, and the one button
-/// under them opens the paywall.
+/// The four home screen icons as a showcase, on the App icon pass: the white
+/// ground, the shared Personalize header (the label, the plan word while the
+/// icons are locked, the icon in use) and the ringed back.
+///
+/// With the icons unlocked a person picks any of them. Everyone else sees
+/// the three paid icons at full colour with the plan badge under the name.
+/// The page opens for everyone. The button under the icons is the one thing
+/// that opens a paywall: Unlock, or Use on an icon that turns out locked.
+/// What it does goes through `keepOrOpenPaywall`, which asks `lockTapFor`.
 ///
 /// Only reachable where the platform can change its icon: Appearance hides the
 /// row that leads here, and the route sends anything else back.
@@ -62,9 +68,27 @@ class _AppIconViewState extends State<_AppIconView>
   final _confetti = ConfettiController(duration: const Duration(seconds: 1));
   final _pages = PageController(viewportFraction: 0.6);
 
+  late final FeatureAccess _access = getIt<FeatureAccess>();
+  StreamSubscription<AppFeature>? _accessChanges;
+
   int _index = 0;
   bool _placed = false;
   bool _headline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // The plan word in the header follows the plan: it shows only while the
+    // icons are locked and the plan has been read.
+    _accessChanges = _access.changes.listen((feature) {
+      if (feature == AppFeature.appIcons && mounted) setState(() {});
+    });
+    _access.planRead.addListener(_planWasRead);
+  }
+
+  void _planWasRead() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didChangeDependencies() {
@@ -79,6 +103,8 @@ class _AppIconViewState extends State<_AppIconView>
 
   @override
   void dispose() {
+    _access.planRead.removeListener(_planWasRead);
+    unawaited(_accessChanges?.cancel());
     _clock.dispose();
     _pop.dispose();
     _welcome.dispose();
@@ -95,19 +121,18 @@ class _AppIconViewState extends State<_AppIconView>
     }
   }
 
-  // Opens on the icon in use, once the platform has said which that is.
+  // Opens on the icon in use, once the platform has said which that is. The
+  // jump waits for the end of the frame: it can run while the carousel is
+  // already on screen, and moving a page view while a build is running
+  // calls setState in the middle of it.
   void _place(AppIconState state) {
     if (_placed || state.status != AppIconStatus.ready) return;
     _placed = true;
     final at = AppIcon.values.indexOf(state.current);
     _index = at;
-    if (_pages.hasClients) {
-      _pages.jumpToPage(at);
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _pages.hasClients) _pages.jumpToPage(at);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pages.hasClients) _pages.jumpToPage(at);
+    });
   }
 
   void _playWelcome() {
@@ -142,7 +167,7 @@ class _AppIconViewState extends State<_AppIconView>
         return;
       case IconAction.unlock:
         AppHaptics.selection();
-        unawaited(_openPaywall());
+        unawaited(_keep());
       case IconAction.use:
         final pick = await cubit.pick(icon);
         if (!mounted) return;
@@ -153,13 +178,16 @@ class _AppIconViewState extends State<_AppIconView>
             _confetti.play();
           }
         } else if (pick == AppIconPick.locked) {
-          unawaited(_openPaywall());
+          unawaited(_keep());
         }
     }
   }
 
-  Future<void> _openPaywall() =>
-      openPaywallForFeature(context, AppFeature.appIcons, LockSource.appIcon);
+  /// Using or unlocking a locked icon is the act of keeping it, so the rule
+  /// decides: it waits for the plan to be read, then opens the Hosted
+  /// paywall only if the icons are locked.
+  Future<void> _keep() =>
+      keepOrOpenPaywall(context, AppFeature.appIcons, LockSource.appIcon);
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +196,6 @@ class _AppIconViewState extends State<_AppIconView>
       listener: (context, state) => _playWelcome(),
       builder: (context, state) {
         _place(state);
-        final colors = context.appColors;
         final icon = AppIcon.values[_index];
         final action = iconAction(
           icon,
@@ -176,49 +203,27 @@ class _AppIconViewState extends State<_AppIconView>
           current: state.current,
         );
         final locked = state.isLocked(icon);
-        return AppScreenScaffold(
-          // Full screen, on the root navigator: no tab bar to leave room for.
-          hasTabBar: false,
-          topBar: AppTopBar(
-            title: LocaleKeys.settings_app_icon_title.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: _leave,
-            ),
-          ),
-          // The action sits pinned above the tab bar, so the icons get the
-          // rest of the screen and stay its centre.
-          bottomBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (state.failed) ...[
-                AppNote(text: LocaleKeys.settings_app_icon_failed.tr()),
-                const SizedBox(height: Spacing.s3),
-              ],
-              // The icon in use is a status, not a disabled button, which read
-              // as a dead primary. Same height as the button, so the slot
-              // never shifts as the carousel moves.
-              if (action == IconAction.inUse)
-                _InUseStatus(
-                  label: LocaleKeys.settings_app_icon_action_in_use.tr(),
-                )
-              else
-                AppButton(
-                  label: switch (action) {
-                    IconAction.use =>
-                      LocaleKeys.settings_app_icon_action_use.tr(),
-                    // Names no plan: the badge under the icon's name
-                    // does, and the paywall shows what unlocks it.
-                    IconAction.unlock =>
-                      LocaleKeys.settings_app_icon_action_unlock.tr(),
-                    IconAction.inUse => '',
-                  },
-                  isFullWidth: true,
-                  isLoading: state.saving != null,
-                  onPressed: () => unawaited(_onAction(state)),
-                ),
-            ],
+        // Until the platform has said which icon shows, the header keeps the
+        // value the card it grew from had.
+        final cardValue = PassFrameScope.maybeOf(context)?.origin?.value;
+        final tone = passToneFor(PassId.appIcon, context.appColors);
+        return AppPassPage(
+          tone: tone,
+          label: LocaleKeys.personalize_app_icon_row.tr(),
+          value: state.status == AppIconStatus.ready
+              ? appIconName(state.current)
+              : cardValue ?? appIconName(state.current),
+          tag: lockedPlanWord(AppFeature.appIcons),
+          isOn: state.current != AppIcon.standard,
+          onBack: _leave,
+          // The action sits pinned under the icons, so they get the rest
+          // of the screen and stay its centre.
+          bottomBar: _ActionBar(
+            state: state,
+            action: action,
+            onTap: () {
+              unawaited(_onAction(state));
+            },
           ),
           slivers: [
             SliverFillRemaining(
@@ -228,14 +233,16 @@ class _AppIconViewState extends State<_AppIconView>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _Headline(visible: _headline, colors: colors),
-                    // Screen width, not a LayoutBuilder: the fill-remaining
-                    // sliver measures its child's intrinsic height first.
+                    _Headline(visible: _headline, color: tone.onGround),
+                    // Screen width, not a LayoutBuilder: the
+                    // fill-remaining sliver measures its child's
+                    // intrinsic height first.
                     _carousel(state, MediaQuery.sizeOf(context).width),
                     const SizedBox(height: Spacing.s3),
                     _Dots(
                       count: AppIcon.values.length,
                       index: _index,
+                      color: tone.onGround,
                       onTap: _goTo,
                     ),
                     const SizedBox(height: Spacing.s4),
@@ -247,15 +254,16 @@ class _AppIconViewState extends State<_AppIconView>
                         children: [
                           Text(
                             appIconName(icon),
+                            textAlign: TextAlign.center,
                             style: AppTypography.title(
-                              colors.onCanvas,
+                              tone.onGround,
                               fontSize: 24,
                             ),
                           ),
                           const SizedBox(height: Spacing.s2),
-                          // The button already says In use, so only a locked
-                          // icon gets a mark here: the plan badge, with its
-                          // lock.
+                          // The button already says In use, so only a
+                          // locked icon gets a mark here: the plan badge,
+                          // with its lock.
                           if (locked)
                             const AccessLock.inline(
                               feature: AppFeature.appIcons,
@@ -378,10 +386,10 @@ class _AppIconViewState extends State<_AppIconView>
 
 /// "Your extra icons", fading in above the carousel on the first visit.
 class _Headline extends StatelessWidget {
-  const _Headline({required this.visible, required this.colors});
+  const _Headline({required this.visible, required this.color});
 
   final bool visible;
-  final AppColors colors;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +398,8 @@ class _Headline extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: Spacing.s3),
             child: Text(
               LocaleKeys.settings_app_icon_welcome.tr(),
-              style: AppTypography.headline(colors.onCanvas, fontSize: 26),
+              textAlign: TextAlign.center,
+              style: AppTypography.headline(color, fontSize: 26),
             ),
           )
         : const SizedBox.shrink();
@@ -405,6 +414,62 @@ class _Headline extends StatelessWidget {
         opacity: visible ? 1 : 0,
         duration: AppDurations.slow,
         child: line,
+      ),
+    );
+  }
+}
+
+/// The pinned action: Use this icon, the status for the icon in use, or
+/// Unlock, with the failure note above it when the platform refused.
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.state,
+    required this.action,
+    required this.onTap,
+  });
+
+  final AppIconState state;
+  final IconAction action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        kPassSidePadding,
+        Spacing.s2,
+        kPassSidePadding,
+        Spacing.s3,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state.failed) ...[
+            AppNote(text: LocaleKeys.settings_app_icon_failed.tr()),
+            const SizedBox(height: Spacing.s3),
+          ],
+          // The icon in use is a status, not a disabled button, which read
+          // as a dead primary. Same height as the button, so the slot never
+          // shifts as the carousel moves.
+          if (action == IconAction.inUse)
+            _InUseStatus(
+              label: LocaleKeys.settings_app_icon_action_in_use.tr(),
+            )
+          else
+            AppButton(
+              label: switch (action) {
+                IconAction.use => LocaleKeys.settings_app_icon_action_use.tr(),
+                // Names no plan: the badge under the icon's name does, and
+                // the paywall shows what unlocks it.
+                IconAction.unlock =>
+                  LocaleKeys.settings_app_icon_action_unlock.tr(),
+                IconAction.inUse => '',
+              },
+              isFullWidth: true,
+              isLoading: state.saving != null,
+              onPressed: onTap,
+            ),
+        ],
       ),
     );
   }
@@ -477,6 +542,7 @@ class _InUseStatus extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         borderRadius: Radii.fullAll,
@@ -501,16 +567,20 @@ class _InUseStatus extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppTypography.fontDisplay,
-              fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              letterSpacing: -0.16,
-              color: colors.ink,
-              height: 1,
+          // Wraps at a large text size and never overflows.
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTypography.fontDisplay,
+                fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                letterSpacing: -0.16,
+                color: colors.ink,
+                height: 1.1,
+              ),
             ),
           ),
         ],
@@ -522,15 +592,20 @@ class _InUseStatus extends StatelessWidget {
 /// Page dots. Each one is a button, and the row answers increase and
 /// decrease so a screen reader can step through the icons.
 class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index, required this.onTap});
+  const _Dots({
+    required this.count,
+    required this.index,
+    required this.color,
+    required this.onTap,
+  });
 
   final int count;
   final int index;
+  final Color color;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     return Semantics(
       container: true,
       label: LocaleKeys.settings_app_icon_page_position.tr(
@@ -553,9 +628,7 @@ class _Dots extends StatelessWidget {
                     width: i == index ? 20 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: i == index
-                          ? colors.onCanvas
-                          : colors.onCanvasMuted.withValues(alpha: 0.4),
+                      color: i == index ? color : color.withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(Radii.full),
                     ),
                   ),
