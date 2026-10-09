@@ -132,11 +132,12 @@ Future<void> _weeklyTapButton(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 2));
 }
 
-/// A tap on the line under the title, which is the body of the row. The
-/// row has no switch and the body takes no tap, so nothing opens.
+/// A tap on the line under the title, which is the body of the row in the
+/// proof card. The row has no switch and the body takes no tap, so nothing
+/// opens.
 Future<void> _weeklyTapRow(WidgetTester tester) async {
   await _weekly(tester);
-  await tester.tap(find.text(LocaleKeys.weekly_check_locked_description.tr()));
+  await tester.tap(find.text(LocaleKeys.proof_card_locked_line.tr()));
   await tester.pump();
   await _real(tester, 600);
   await tester.pump(const Duration(seconds: 2));

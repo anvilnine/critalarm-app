@@ -178,6 +178,7 @@ class _ProofCardState extends State<ProofCard>
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = widget.now();
     final view = proofCardViewFor(widget.log.weeks(now), now);
     final value = LocaleKeys.proof_card_value.tr(
@@ -235,6 +236,9 @@ class _ProofCardState extends State<ProofCard>
         decoration: BoxDecoration(
           color: colors.panel,
           borderRadius: Radii.xlAll,
+          // The dark panel is nearly the dark canvas, so on the dark theme a
+          // hairline sets it apart, as on the other dark panels.
+          border: isDark ? Border.all(color: colors.panelLine) : null,
           boxShadow: [
             BoxShadow(
               color: colors.panel.withValues(alpha: 0.28),

@@ -52,15 +52,11 @@ class _MiniPhone extends StatelessWidget {
   const _MiniPhone({
     required this.screen,
     this.isAndroid = false,
-    this.isSilent = false,
     this.island = 0,
   });
 
   final Widget screen;
   final bool isAndroid;
-
-  /// Draws the silent mark beside the clock in the status bar.
-  final bool isSilent;
 
   /// 0 is the resting Dynamic Island, 1 is stretched to hold a face and a
   /// bell, which is what a ringing Crit Alarm does to it.
@@ -102,25 +98,13 @@ class _MiniPhone extends StatelessWidget {
                   Positioned(
                     top: 18,
                     left: isAndroid ? 30 : 46,
-                    child: Row(
-                      children: [
-                        const Text(
-                          '3:12',
-                          style: TextStyle(
-                            color: _white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (isSilent) ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.notifications_off,
-                            color: _white,
-                            size: 17,
-                          ),
-                        ],
-                      ],
+                    child: const Text(
+                      '3:12',
+                      style: TextStyle(
+                        color: _white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   Positioned(
