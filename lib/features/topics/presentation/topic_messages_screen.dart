@@ -125,7 +125,10 @@ class _TopicMessagesViewState extends State<_TopicMessagesView> {
           return _Entry(
             item: item,
             at: at,
-            match: rang.find(at: at, title: item.title, body: item.body),
+            match: rang.find(
+              messageId: item.messageId,
+              incidentId: item.incidentId,
+            ),
           );
         }(),
     ];

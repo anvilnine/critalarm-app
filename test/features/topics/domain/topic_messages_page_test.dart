@@ -296,6 +296,7 @@ void main() {
       required int time,
       String? title,
       String body = 'triggered',
+      String? incidentId = 'inc_1',
     }) => Message(
       id: id,
       topic: 'prod',
@@ -303,7 +304,7 @@ void main() {
       title: title,
       message: body,
       priority: 5,
-      incidentId: 'inc_1',
+      incidentId: incidentId,
     );
 
     final first = message('m1', time: 1000, title: 'Down', body: 'api down');
@@ -318,28 +319,24 @@ void main() {
       messages: [repeat, first],
     );
 
-    RangMatch? find(
-      RangIndex index,
-      int seconds,
-      String title,
-      String body,
-    ) => index.find(
-      at: DateTime.fromMillisecondsSinceEpoch(seconds * 1000),
-      title: title,
-      body: body,
-    );
-
-    test('finds the incident that holds a message', () {
+    test('finds the incident by the incident id on the message', () {
       final index = RangIndex.of([incident]);
-      final match = find(index, 1000, 'Down', 'api down');
+      final match = index.find(messageId: 'm2', incidentId: 'inc_1');
+      expect(match, isNotNull);
+      expect(match!.incident.id, 'inc_1');
+    });
+
+    test('finds the incident by the message id when no incident id is set', () {
+      final index = RangIndex.of([incident]);
+      final match = index.find(messageId: 'm1');
       expect(match, isNotNull);
       expect(match!.incident.id, 'inc_1');
     });
 
     test('only the message that opened the incident carries the line', () {
       final index = RangIndex.of([incident]);
-      final opening = find(index, 1000, 'Down', 'api down')!;
-      final later = find(index, 1060, 'Down', 'api down')!;
+      final opening = index.find(messageId: 'm1', incidentId: 'inc_1')!;
+      final later = index.find(messageId: 'm2', incidentId: 'inc_1')!;
       expect(opening.opensIncident, isTrue);
       expect(
         opening.line,
@@ -349,28 +346,92 @@ void main() {
       expect(later.line, isNull);
     });
 
+    test('two messages with the same words match their own incidents', () {
+      // Same second, same title, same body: only the ids tell them apart.
+      final a = message(
+        'm_a',
+        time: 500,
+        title: 'Down',
+        body: 'api down',
+        incidentId: 'inc_a',
+      );
+      final b = message(
+        'm_b',
+        time: 500,
+        title: 'Down',
+        body: 'api down',
+        incidentId: 'inc_b',
+      );
+      final index = RangIndex.of([
+        Incident(
+          id: 'inc_a',
+          topic: 'prod',
+          state: 'acked',
+          openedAt: DateTime.fromMillisecondsSinceEpoch(
+            500 * 1000,
+            isUtc: true,
+          ),
+          ackedAt: DateTime.fromMillisecondsSinceEpoch(
+            505 * 1000,
+            isUtc: true,
+          ),
+          messages: [a],
+        ),
+        Incident(
+          id: 'inc_b',
+          topic: 'prod',
+          state: 'expired',
+          openedAt: DateTime.fromMillisecondsSinceEpoch(
+            500 * 1000,
+            isUtc: true,
+          ),
+          closedAt: DateTime.fromMillisecondsSinceEpoch(
+            560 * 1000,
+            isUtc: true,
+          ),
+          messages: [b],
+        ),
+      ]);
+
+      final forA = index.find(messageId: 'm_a', incidentId: 'inc_a')!;
+      final forB = index.find(messageId: 'm_b', incidentId: 'inc_b')!;
+      expect(forA.incident.id, 'inc_a');
+      expect(forA.line!.end, RangEnd.answered);
+      expect(forB.incident.id, 'inc_b');
+      expect(forB.line!.end, RangEnd.expired);
+
+      // The message id alone gives the same answer.
+      expect(index.find(messageId: 'm_a')!.incident.id, 'inc_a');
+      expect(index.find(messageId: 'm_b')!.incident.id, 'inc_b');
+    });
+
     test('a message no incident holds did not ring', () {
       final index = RangIndex.of([incident]);
-      expect(find(index, 2000, 'Down', 'api down'), isNull);
-      expect(find(index, 1000, 'Up', 'api down'), isNull);
-      expect(find(index, 1000, 'Down', 'other'), isNull);
+      expect(index.find(messageId: 'm9'), isNull);
+      expect(index.find(messageId: 'm9', incidentId: 'inc_9'), isNull);
     });
 
-    test('a message with no title is matched under its topic name', () {
-      final bare = Incident(
-        id: 'inc_3',
-        topic: 'prod',
-        messages: [message('m9', time: 500)],
-      );
-      final index = RangIndex.of([bare]);
-      expect(find(index, 500, 'prod', 'triggered'), isNotNull);
+    test('a row with no id shows no ring, whatever its words say', () {
+      final index = RangIndex.of([incident]);
+      expect(index.find(), isNull);
     });
 
-    test('an incident with no messages adds nothing', () {
+    test('a known incident id without the message in its list is a repeat', () {
+      final index = RangIndex.of([incident]);
+      final match = index.find(messageId: 'm_late', incidentId: 'inc_1')!;
+      expect(match.incident.id, 'inc_1');
+      expect(match.opensIncident, isFalse);
+      expect(match.line, isNull);
+    });
+
+    test('an incident with no messages is found by its id only', () {
       final index = RangIndex.of([
         const Incident(id: 'inc_4', topic: 'prod'),
       ]);
-      expect(find(index, 1000, 'Down', 'api down'), isNull);
+      expect(index.find(messageId: 'm1'), isNull);
+      final match = index.find(messageId: 'm1', incidentId: 'inc_4');
+      expect(match, isNotNull);
+      expect(match!.opensIncident, isFalse);
     });
   });
 }

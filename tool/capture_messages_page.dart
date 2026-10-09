@@ -329,6 +329,8 @@ final _scenes = <_Scene>[
         body: m.body,
         source: m.tags.join(', '),
         isHigh: m.isHigh,
+        messageId: 'm_$i',
+        incidentId: m.ring == null ? null : (m.incident ?? 'inc_$i'),
       ),
     );
     times.add(at);
