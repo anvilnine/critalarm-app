@@ -830,7 +830,66 @@ void main() {
           ),
           errors,
         );
+
+        // The way back into the card, a quarter, half and three quarters of
+        // the way, from the page at rest and then from the page collapsed.
+        for (final scrolled in const [false, true]) {
+          if (scrolled) {
+            _position(tester).jumpTo(
+              math.min(600, _position(tester).maxScrollExtent),
+            );
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          run.router.pop();
+          await tester.pump();
+          await tester.pump();
+          var back = 0;
+          for (final fraction in const [0.25, 0.5, 0.75]) {
+            final target = (520 * fraction).round();
+            await tester.pump(Duration(milliseconds: target - back));
+            back = target;
+            final percent = (fraction * 100).round().toString().padLeft(3, '0');
+            await _save(
+              tester,
+              run,
+              passFileName(
+                page: 'grow',
+                device: passPhone,
+                mode: mode,
+                scale: 1,
+                frame: '${scrolled ? 'back-scrolled' : 'back'}-t$percent',
+                state: 'free',
+              ),
+              errors,
+            );
+          }
+          await tester.pump(const Duration(seconds: 1));
+          if (!scrolled) {
+            // Open it again for the second round.
+            await _tapCard(tester, PassId.sound);
+            await tester.pump();
+            await tester.pump(const Duration(seconds: 1));
+            await _real(tester);
+            await tester.pump(const Duration(seconds: 1));
+          }
+        }
       });
     });
   }
+
+  // Scroll: the header at rest, half way through its collapse and collapsed,
+  // on both phones and both text scales.
+  forEachPassScroll((device, mode, scale, at) {
+    _shot(
+      part: 'scroll',
+      state: 'free',
+      setup: const _Setup(pack: 'not_downloaded'),
+      device: device,
+      mode: mode,
+      scale: scale,
+      frame: at.frame,
+      act: (tester, run) =>
+          scrollPassPage(tester, at, device: device, scale: scale),
+    );
+  });
 }
