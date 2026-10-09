@@ -167,6 +167,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Look page is a deck of phones with its own look\_deck\_rules, a LookFade between two looks, a try bar that hands its button to the page, and no picture slot on RingingPreviewFrame.
 - The Wake-up challenge page is a shelf of tiles. challenge\_shelf\_rules.dart holds the tile list, the column count, the pick control state and the answer to each tap through lockTapFor. ChallengePicture, challenge\_chip\_picture.dart and the strip states of tool/capture\_challenge.dart are gone. tool/capture\_pass\_challenge.dart captures the page and checks every tap.
 - The App icon page has the shared Personalize header and the pass colour.
+- The Look deck lays phones out for an upright screen through RingingPreview.screenSize, centres on wide displays, keeps inactive dots at 3 to 1, and draws an empty Yours cream with a dashed outline.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

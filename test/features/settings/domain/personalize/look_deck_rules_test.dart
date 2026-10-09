@@ -315,10 +315,10 @@ void main() {
       );
     }
 
-    test('says it is a try, not saved, while a locked look is shown', () {
+    test('says only swipe while a locked look is tried, the bar says it', () {
       expect(
         hint(),
-        const LookHint(LocaleKeys.personalize_passes_look_trying),
+        const LookHint(LocaleKeys.personalize_passes_look_hint_swipe),
       );
     });
 
@@ -639,6 +639,57 @@ void main() {
         final step = lookPhoneStep(width);
         final gap = step - width / 2 - width * neighbourScale / 2;
         expect(gap, closeTo(24, 1e-9));
+      }
+    });
+  });
+
+  group('lookScreenSize', () {
+    test('a phone held upright keeps its size', () {
+      expect(lookScreenSize(const Size(390, 844)), const Size(390, 844));
+    });
+
+    test('a phone on its side is laid out upright', () {
+      expect(lookScreenSize(const Size(844, 390)), const Size(390, 844));
+    });
+
+    test('a short and wide display is laid out upright', () {
+      expect(lookScreenSize(const Size(640, 320)), const Size(320, 640));
+    });
+
+    test('a tablet gets a phone shape, in either direction', () {
+      expect(lookScreenSize(const Size(1024, 768)), const Size(390, 844));
+      expect(lookScreenSize(const Size(768, 1024)), const Size(390, 844));
+    });
+  });
+
+  group('lookDotColor', () {
+    test('the dot in the middle is the text colour', () {
+      for (final brightness in Brightness.values) {
+        final fade = _fadeIn(brightness);
+        for (var i = 0; i < fade.count; i++) {
+          expect(
+            lookDotColor(text: fade.texts[i], ground: fade.grounds[i], near: 1),
+            fade.texts[i],
+          );
+        }
+      }
+    });
+
+    test('the others keep 3 to 1 with the ground of every look', () {
+      for (final brightness in Brightness.values) {
+        final fade = _fadeIn(brightness);
+        for (var i = 0; i < fade.count; i++) {
+          final dot = lookDotColor(
+            text: fade.texts[i],
+            ground: fade.grounds[i],
+            near: 0,
+          );
+          expect(
+            ColorContrast.contrastRatio(dot, fade.grounds[i]),
+            greaterThanOrEqualTo(lookDotMinContrast),
+            reason: 'look $i, $brightness',
+          );
+        }
       }
     });
   });
