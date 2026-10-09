@@ -1288,6 +1288,18 @@
     "result_open_due": "Due by {time}",
     "result_closed": "Closed"
   },
+  "proof_card": {
+    "label": "Proof",
+    "range": "last 8 weeks",
+    "value": "{n} of 8 weeks",
+    "locked_line": "Fills every week for you.",
+    "next_round": "next {when}",
+    "dot_rang": "Week of {date}, a test rang",
+    "dot_none": "Week of {date}, no test",
+    "dot_failed": "Week of {date}, a test failed",
+    "dot_this_week": "{label}, this week",
+    "card_aria_label": "Proof: {value}, {range}"
+  },
   "paywall": {
     "welcome": {
       "title": "You're on Hosted",
