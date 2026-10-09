@@ -30,7 +30,8 @@ abstract final class CurlLine {
   static const maskedToken = 'tk_\u2026';
 
   /// The publish command as a terminal would show it, one flag to a line,
-  /// for a picture of the command and never for pasting.
+  /// for a picture of the command and never for pasting. The address has no
+  /// `https://` (see [shownBase]).
   ///
   /// It takes no token and holds none: the header shows [maskedToken]. It
   /// always carries the priority that rings a critical topic.
@@ -39,7 +40,7 @@ abstract final class CurlLine {
     required String topic,
     required String message,
   }) {
-    final base = baseUrl(serverUrl);
+    final base = shownBase(serverUrl);
     return 'curl $base/$topic \\\n'
         '  -H "Authorization: Bearer $maskedToken" \\\n'
         '  -H "Priority: $urgent" \\\n'
@@ -56,7 +57,7 @@ abstract final class CurlLine {
     required String token,
     required String message,
   }) {
-    final base = baseUrl(serverUrl);
+    final base = shownBase(serverUrl);
     return 'curl $base/$topic \\\n'
         '  -H "Authorization: Bearer ${rules.maskedToken(token)}" \\\n'
         '  -H "Priority: $urgent" \\\n'
@@ -70,6 +71,14 @@ abstract final class CurlLine {
     const escapedQuote = r"'\''";
     return '$quote${text.replaceAll(quote, escapedQuote)}$quote';
   }
+
+  /// [baseUrl] without a leading `https://`, for a line that is only shown.
+  /// A terminal picture reads shorter and fits a phone without the scheme,
+  /// and curl takes an address without one. A plain `http://` stays, because
+  /// leaving it out would show a safer line than the one that is copied.
+  static String shownBase(String serverUrl) => baseUrl(
+    serverUrl,
+  ).replaceFirst(RegExp('^https://', caseSensitive: false), '');
 
   /// [serverUrl] with no space around it and no slash at the end.
   static String baseUrl(String serverUrl) =>

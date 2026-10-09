@@ -781,9 +781,14 @@ class _Terminal extends StatelessWidget {
       colors.onPanel,
       fontSize: 12,
     ).copyWith(height: 1.6, letterSpacing: 0);
-    final at = command.indexOf(highlight);
-    final before = at < 0 ? command : command.substring(0, at);
-    final after = at < 0 ? '' : command.substring(at + highlight.length);
+    // The line-ending backslash is glued to the word before it with a no-break
+    // space, so a narrow screen wraps the word and the backslash together and
+    // never leaves the backslash alone on a line. The text a screen reader
+    // gets and the text that is copied keep their plain spaces.
+    final shown = command.replaceAll(' \\\n', '\u00A0\\\n');
+    final at = shown.indexOf(highlight);
+    final before = at < 0 ? shown : shown.substring(0, at);
+    final after = at < 0 ? '' : shown.substring(at + highlight.length);
 
     return Semantics(
       label: LocaleKeys.new_token_curl_label.tr(),

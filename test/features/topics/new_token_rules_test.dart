@@ -98,7 +98,7 @@ void main() {
       );
       expect(
         view,
-        'curl https://api.critalarm.app/uptime-kuma \\\n'
+        'curl api.critalarm.app/uptime-kuma \\\n'
         '  -H "Authorization: Bearer tk_da39...a1c9" \\\n'
         '  -H "Priority: urgent" \\\n'
         "  -d 'disk full'",
