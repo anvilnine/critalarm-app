@@ -225,12 +225,45 @@ void main() {
         expect(a.showsTryBar, isFalse);
       });
 
-      test('with no photo, locked, has the badge and no try bar', () {
+      test('with no photo, locked, has the badge and the tap is a try', () {
         final a = action(centred: AlarmStyleId.own);
         expect(a.control, LookControl.addPhoto);
         expect(a.badge, Holding.pro);
-        expect(a.keep, const OpenPaywall(Holding.pro));
+        // Adding a photo sells nothing: the pick, the crop and the colour are
+        // the try, and the paywall waits for "Use this look".
+        expect(a.keep, const TryIt());
         expect(a.showsTryBar, isFalse);
+      });
+
+      test('a photo tried and not saved is a locked look with the try bar', () {
+        final a = action(centred: AlarmStyleId.own, own: OwnLookPhase.tried);
+        expect(a.control, LookControl.use);
+        expect(a.showsTryBar, isTrue);
+        expect(a.badge, Holding.pro);
+        expect(a.keep, const OpenPaywall(Holding.pro));
+      });
+
+      test('a photo tried while the plan is open is kept with no paywall', () {
+        final a = action(
+          centred: AlarmStyleId.own,
+          decision: _open,
+          own: OwnLookPhase.tried,
+        );
+        expect(a.control, LookControl.use);
+        expect(a.showsTryBar, isFalse);
+        expect(a.keep, const DoIt());
+      });
+
+      test('a photo tried before the plan is read waits, with no badge', () {
+        final a = action(
+          centred: AlarmStyleId.own,
+          own: OwnLookPhase.tried,
+          isPlanRead: false,
+        );
+        expect(a.control, LookControl.use);
+        expect(a.badge, isNull);
+        expect(a.showsTryBar, isFalse);
+        expect(a.keep, const WaitForPlan());
       });
 
       test('with no photo and the plan not read has no badge and waits', () {

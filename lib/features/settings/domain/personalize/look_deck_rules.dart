@@ -50,6 +50,11 @@ enum OwnLookPhase {
 
   /// The look is decoded and held, so it can be drawn.
   held,
+
+  /// A photo the person framed is held in memory for this visit and saved
+  /// nowhere. It is drawn like a held look, with a pencil, and the button
+  /// that keeps it is the act that asks for the plan.
+  tried,
 }
 
 /// The control at the bottom of the page.
@@ -123,7 +128,8 @@ class LookAction {
 /// The tap that keeps or uses the look asks `lockTapFor` and nothing here
 /// decides on its own. A locked look with the plan read shows the try bar and
 /// the badge. With the plan not read there is no badge and no try bar, and
-/// the tap waits.
+/// the tap waits. A photo tried on Yours is a look like the others: locked,
+/// it shows the try bar, and keeping it reaches the paywall.
 LookAction lookActionFor({
   required AlarmStyleId centred,
   required AlarmStyleId inUse,
@@ -152,7 +158,17 @@ LookAction lookActionFor({
       (own == OwnLookPhase.none || (own == OwnLookPhase.saved && !isLocked));
   return LookAction(
     control: asksForPhoto ? LookControl.addPhoto : LookControl.use,
-    keep: keep,
+    // Adding a photo is a try, open to everyone: the pick, the crop and the
+    // colour show the photo as the alarm, and nothing is saved until the
+    // look is kept. Keeping it is the tap that can reach the paywall.
+    keep: asksForPhoto
+        ? lockTapFor(
+            decision: effective,
+            isPlanRead: isPlanRead,
+            hasTry: true,
+            tap: LockTapKind.tryIt,
+          )
+        : keep,
     badge: badge,
     showsTryBar: badge != null && !asksForPhoto,
     showsConfirming: effective is FeatureConfirming && !asksForPhoto,
