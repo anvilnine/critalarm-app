@@ -1,8 +1,8 @@
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_scrim.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_style.dart';
-import 'package:critalarm/features/incidents/domain/alarm_style/own_look_scrim.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/look_pass_tone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,7 +38,7 @@ void main() {
     }
   }
 
-  test('the ground is the look\'s own ringing canvas', () {
+  test("the ground is the look's own ringing canvas", () {
     for (final style in looks) {
       for (final MapEntry(key: brightness, value: base) in _themes.entries) {
         final colors = style.colorsFor(
