@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 /// remote flow, so a shipped id never changes its spelling.
 abstract final class OnboardingStepId {
   static const welcome = 'welcome';
+
+  /// The curl on its own screen. The welcome shows it as its second page, so
+  /// the bundled flows leave this step out.
   static const howItRings = 'how_it_rings';
   static const connect = 'connect';
   static const permissions = 'permissions';
@@ -16,6 +19,9 @@ abstract final class OnboardingStepId {
   /// so (`OnboardingOfferConfig`), and skips itself otherwise.
   static const offer = 'offer';
   static const hookUp = 'hook_up';
+
+  /// The home screen widgets on their own screen. The welcome shows them as
+  /// its last page, so the bundled flows leave this step out.
   static const widgets = 'widgets';
 
   /// The local test alarm, the last step of the order the app first shipped
@@ -98,11 +104,13 @@ abstract final class BundledOnboardingFlows {
 
   /// The default before `2026-10-b`. A phone that pinned it keeps running
   /// it, and it stays here so the two can be compared.
+  ///
+  /// The curl page lives in the welcome now, so this flow no longer lists
+  /// `how_it_rings`.
   static const october2026A = OnboardingFlow(
     id: '2026-10-a',
     steps: [
       OnboardingStepId.welcome,
-      OnboardingStepId.howItRings,
       OnboardingStepId.connect,
       OnboardingStepId.permissions,
       OnboardingStepId.firstTopic,
@@ -112,13 +120,13 @@ abstract final class BundledOnboardingFlows {
   );
 
   /// The order the app first shipped with, kept so the two can be compared.
+  /// The curl and the widgets are pages of the welcome now, so it no longer
+  /// lists `how_it_rings` or `widgets`.
   static const legacy = OnboardingFlow(
     id: 'legacy-1',
     steps: [
       OnboardingStepId.welcome,
-      OnboardingStepId.howItRings,
       OnboardingStepId.permissions,
-      OnboardingStepId.widgets,
       OnboardingStepId.connect,
       OnboardingStepId.legacyTest,
     ],
