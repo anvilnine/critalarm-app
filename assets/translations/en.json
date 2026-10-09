@@ -722,6 +722,17 @@
     "revoke_dialog_content": "Anything still sending with this token stops working right away. The topic keeps its other tokens.",
     "revoke_dialog_confirm": "Revoke"
   },
+  "new_token": {
+    "title": "New token",
+    "name_line": "Name it after the tool that will send.",
+    "make_button": "Make token",
+    "make_failed": "Could not make the token. Try again.",
+    "shown_once": "Shown once. Copy it now.",
+    "copied": "Copied",
+    "copy_curl": "Copy curl",
+    "curl_label": "Curl command with the token partly hidden",
+    "saved_button": "I saved it"
+  },
   "topic_messages": {
     "empty_title": "No messages yet",
     "empty_body": "Anything sent to this topic shows up here.",
