@@ -34,11 +34,20 @@ enum AccessPreset {
     Holding.hosted: HoldingState.unknown,
     Holding.pro: HoldingState.unknown,
   }),
+  planReading('Plan still being read', {
+    Holding.hosted: HoldingState.notHeld,
+    Holding.pro: HoldingState.notHeld,
+  }, holdsPlanRead: true),
   real('Real', {});
 
-  const AccessPreset(this.label, this.holdings);
+  const AccessPreset(this.label, this.holdings, {this.holdsPlanRead = false});
 
   final String label;
+
+  /// Whether the plan read is held open, so `FeatureAccess.ready` never
+  /// completes. The holdings are what a phone that holds nothing says, and
+  /// `decide` answers from them as it always does.
+  final bool holdsPlanRead;
 
   /// The state each holding is forced to. A holding left out follows its
   /// source.
@@ -61,9 +70,12 @@ class DevAccessSwitches extends ChangeNotifier implements AccessSwitches {
       if (state != null) _forced[holding] = state;
     }
     _serverMode = _readServerMode();
+    _holdsPlanRead = _prefs.getBool(holdsPlanReadKey) ?? false;
   }
 
   static const serverModeKey = 'dev.access.server';
+
+  static const holdsPlanReadKey = 'dev.access.hold_plan_read';
 
   static String holdingKey(Holding holding) => 'dev.access.${holding.name}';
 
@@ -79,6 +91,7 @@ class DevAccessSwitches extends ChangeNotifier implements AccessSwitches {
   final _forced = <Holding, HoldingState>{};
   final _heldViews = <Holding, ValueListenable<bool>>{};
   late ServerModeChoice _serverMode;
+  bool _holdsPlanRead = false;
 
   HoldingState? _readState(Holding holding) {
     final stored = _prefs.getString(holdingKey(holding));
@@ -107,16 +120,24 @@ class DevAccessSwitches extends ChangeNotifier implements AccessSwitches {
   @override
   ServerModeChoice get serverMode => _serverMode;
 
+  /// True while the plan read is held open. It is remembered, so the next
+  /// launch starts with the plan unread. [AccessPreset.real] releases it.
+  @override
+  bool get holdsPlanRead => _holdsPlanRead;
+
   /// Whether anything is forced, so what the app shows is not what the
   /// real sources say.
   bool get isAnyOn =>
-      _forced.isNotEmpty || _serverMode != ServerModeChoice.real;
+      _forced.isNotEmpty ||
+      _serverMode != ServerModeChoice.real ||
+      _holdsPlanRead;
 
   /// The preset whose holdings are exactly what is forced now, or null.
   /// [AccessPreset.real] also needs the server mode released.
   AccessPreset? get preset {
     for (final preset in AccessPreset.values) {
       if (!mapEquals(preset.holdings, _forced)) continue;
+      if (preset.holdsPlanRead != _holdsPlanRead) continue;
       if (preset == AccessPreset.real && isAnyOn) continue;
       return preset;
     }
@@ -148,11 +169,13 @@ class DevAccessSwitches extends ChangeNotifier implements AccessSwitches {
       _set(holding, preset.holdings[holding]);
     }
     if (preset == AccessPreset.real) _serverMode = ServerModeChoice.real;
+    _holdsPlanRead = preset.holdsPlanRead;
     notifyListeners();
     for (final holding in Holding.values) {
       await _save(holding);
     }
     await _saveServerMode();
+    await _saveHoldsPlanRead();
   }
 
   /// Hands everything back to the real sources.
@@ -173,6 +196,14 @@ class DevAccessSwitches extends ChangeNotifier implements AccessSwitches {
       await _prefs.remove(holdingKey(holding));
     } else {
       await _prefs.setString(holdingKey(holding), state.name);
+    }
+  }
+
+  Future<void> _saveHoldsPlanRead() async {
+    if (_holdsPlanRead) {
+      await _prefs.setBool(holdsPlanReadKey, true);
+    } else {
+      await _prefs.remove(holdsPlanReadKey);
     }
   }
 

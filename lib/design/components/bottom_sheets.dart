@@ -1,8 +1,11 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// A top-rounded surface card pinned to the bottom, with a drag handle.
@@ -111,6 +114,7 @@ class AppSheetOption<T> {
     this.value,
     this.meta,
     this.glyph,
+    this.badge,
     this.isSelected = false,
     this.isDestructive = false,
   });
@@ -119,6 +123,11 @@ class AppSheetOption<T> {
   final T? value;
   final String? meta;
   final GlyphType? glyph;
+
+  /// A short word that sits at the row's end, such as the plan that unlocks
+  /// the option. The row stays at full colour and a tap still picks it. A
+  /// screen reader hears the label and then this word.
+  final String? badge;
   final bool isSelected;
   final bool isDestructive;
 }
@@ -142,8 +151,17 @@ class AppSheetOptionRow<T> extends StatelessWidget {
         ? Border.all(color: colors.cobalt, width: 1.5)
         : Border.all(color: colors.hairline, width: 1.5);
 
+    final badge = option.badge;
     return Semantics(
       selected: option.isSelected,
+      button: badge == null ? null : true,
+      label: badge == null
+          ? null
+          : LocaleKeys.feature_lock_sheet_option.tr(
+              namedArgs: {'name': option.label, 'plan': badge},
+            ),
+      onTap: badge == null ? null : onTap,
+      excludeSemantics: badge != null,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -198,6 +216,10 @@ class AppSheetOptionRow<T> extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (badge != null) ...[
+                  const SizedBox(width: 8),
+                  ProBadge(label: badge, isLocked: true),
+                ],
               ],
             ),
           ),

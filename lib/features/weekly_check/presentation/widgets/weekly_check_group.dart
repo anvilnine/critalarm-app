@@ -205,12 +205,14 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
 }
 
 /// The weekly check row while Hosted is not held, on Crit Alarm Cloud: the
-/// title with the locked Hosted badge, and nothing under it. The title
-/// already says what the check does. A plain row with no face.
+/// real switch row. The title with the locked Hosted badge, the one line
+/// the open row has under it, and the switch drawn off.
 ///
-/// The row is a button. The badge and the way to the paywall both come
-/// from the one lock, [AccessLock], which picks the product from the
-/// feature table. Nothing here names a plan.
+/// Looking is free. A tap on the row or on the switch is the person turning
+/// the check on, so it opens the Hosted paywall; nothing opens before that.
+/// The badge and the way to the paywall both come from the one lock,
+/// [AccessLock], which picks the product from the feature table and waits
+/// for the plan to be read. Nothing here names a plan.
 class WeeklyCheckLockedRow extends StatelessWidget {
   const WeeklyCheckLockedRow({super.key});
 
@@ -233,22 +235,24 @@ class WeeklyCheckLockedRow extends StatelessWidget {
         builder: (context) {
           final scope = FeatureLockScope.maybeOf(context);
           final title = LocaleKeys.weekly_check_title.tr();
+          final line = LocaleKeys.weekly_check_locked_description.tr();
           final unlock = scope?.unlock;
+          final plan = scope?.planWord;
           return ReliabilityPlainRow(
             title: title,
             badge: const FeatureLockBadge(staysWhenOpen: true),
-            label: [title, ?scope?.planWord].join(', '),
-            hint: unlock == null
+            lines: [line],
+            label: [title, line, ?plan].join(', '),
+            hint: unlock == null || plan == null
                 ? null
-                : LocaleKeys.weekly_check_locked_hint.tr(),
-            onTap: unlock,
-            trailing: unlock == null
-                ? null
-                : AppGlyph(
-                    GlyphType.arrow,
-                    color: context.appColors.ink3,
-                    size: 16,
+                : LocaleKeys.weekly_check_locked_switch_label.tr(
+                    namedArgs: {'plan': plan},
                   ),
+            onTap: unlock,
+            trailing: AppSwitch(
+              value: false,
+              onChanged: unlock == null ? null : (_) => unlock(),
+            ),
           );
         },
       ),

@@ -144,8 +144,10 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
           holding: switches.forcedState(holding),
       },
       serverMode: switches.serverMode,
+      holdsPlanRead: switches.holdsPlanRead,
     );
     final preset = switches.preset;
+    final presetNote = accessLabPresetNote(preset);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -156,7 +158,7 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
         DeveloperOptionsGroup(
           title: 'Presets',
           rows: [
-            // Two to a line, so the seven fit above the fold.
+            // Two to a line, so they fit above the fold.
             for (var i = 0; i < AccessPreset.values.length; i += 2)
               Row(
                 children: [
@@ -176,6 +178,7 @@ class _AccessLabScreenState extends State<AccessLabScreen> {
                     ),
                 ],
               ),
+            if (presetNote != null) AppNote(text: presetNote),
           ],
         ),
         DeveloperOptionsGroup(

@@ -59,6 +59,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
 - Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
 - On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
+- Locked options on a topic's page and the weekly check show what they are first, and the plan page opens only when you try to use one
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
