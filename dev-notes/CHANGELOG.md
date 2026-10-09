@@ -180,6 +180,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
 - Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
 - Phone defects: the Topics card foot reads the newest alarm held (HomeFacts drops the setup incident ids), Settings row values show in full, the Topic screen sorts messages with newestFirst, and AppStatusCard.strip stacks its numeral under a title that does not fit.
+- Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

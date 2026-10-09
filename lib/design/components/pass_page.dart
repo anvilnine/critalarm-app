@@ -198,12 +198,32 @@ class _AppPassPageState extends State<AppPassPage> {
     widget.tone.ground,
   );
 
+  bool _isClosing = false;
+
   @override
   void didUpdateWidget(covariant AppPassPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tone.ground != widget.tone.ground) {
       _profile = AmbientAppProfiles.passGround(widget.tone.ground);
     }
+  }
+
+  /// While the page closes it lets go of the canvas, so the canvas turns back
+  /// to the root's colour with the cards and not after them. If a drag is let
+  /// go and the page stays, it takes the canvas again.
+  void _followClosing(bool closing) {
+    if (closing == _isClosing) return;
+    _isClosing = closing;
+    final controller = AmbientScope.controllerOf(context);
+    if (controller == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isClosing != closing) return;
+      if (closing) {
+        controller.clearOverride();
+      } else {
+        controller.setOverride(profile: _profile);
+      }
+    });
   }
 
   @override
@@ -219,6 +239,7 @@ class _AppPassPageState extends State<AppPassPage> {
         );
     final tone = widget.tone;
     final safeTop = padding.top;
+    _followClosing(frame.isClosing);
     final backLabel =
         widget.backLabel ??
         (scope?.origin != null
@@ -381,6 +402,37 @@ class _HeaderBlock extends StatelessWidget {
   final String? foot;
   final bool isOn;
 
+  /// [valueSize], or less when the value's longest word would not fit the
+  /// line, so a one word value never breaks inside the word.
+  double _fittedSize(BuildContext context, double available) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final words = value.split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+    double longestWord(double size) {
+      var widest = 0.0;
+      for (final word in words) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: word,
+            style: passValueStyle(tone.onGround, size),
+          ),
+          textDirection: direction,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        widest = math.max(widest, painter.width);
+        painter.dispose();
+      }
+      return widest;
+    }
+
+    return passFitValueSize(
+      size: valueSize,
+      available: available - 1,
+      longestWord: longestWord,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final line = PassLabelLine(
@@ -408,12 +460,12 @@ class _HeaderBlock extends StatelessWidget {
                 const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
-                  child: Text(
-                    value,
-                    style: passValueStyle(
-                      tone.valueFor(isOn: isOn),
-                      valueSize,
-                    ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final color = tone.valueFor(isOn: isOn);
+                      final size = _fittedSize(context, constraints.maxWidth);
+                      return Text(value, style: passValueStyle(color, size));
+                    },
                   ),
                 ),
               ],
