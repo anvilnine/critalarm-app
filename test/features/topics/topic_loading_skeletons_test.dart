@@ -12,6 +12,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/messages_page_row.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -254,7 +255,7 @@ void main() {
   });
 
   group('TopicMessagesScreen loading skeleton', () {
-    testWidgets('shows 3 AppMessageCardSkeleton cards while loading', (
+    testWidgets('shows four skeleton rows while loading', (
       tester,
     ) async {
       final cubit = makeDetailCubit()
@@ -276,7 +277,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(AppMessageCardSkeleton), findsNWidgets(3));
+      expect(find.byType(MessagesPageRowSkeleton), findsNWidgets(4));
       await cubit.close();
     });
   });

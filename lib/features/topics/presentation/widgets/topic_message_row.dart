@@ -116,7 +116,7 @@ class TopicMessageRow extends StatelessWidget {
               Positioned(
                 top: -10,
                 right: -14,
-                child: _ShareGlyph(label: shareLabel, onShare: onShare),
+                child: MessageShareGlyph(label: shareLabel, onShare: onShare),
               ),
             ],
           ),
@@ -126,8 +126,14 @@ class TopicMessageRow extends StatelessWidget {
   }
 }
 
-class _ShareGlyph extends StatelessWidget {
-  const _ShareGlyph({required this.label, required this.onShare});
+/// The share glyph on a message row: small, with a thumb-sized target around
+/// it. Called with where it sits on screen, for the iPad popover.
+class MessageShareGlyph extends StatelessWidget {
+  const MessageShareGlyph({
+    required this.label,
+    required this.onShare,
+    super.key,
+  });
 
   final String label;
   final ValueChanged<Rect> onShare;
