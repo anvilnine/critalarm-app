@@ -733,7 +733,18 @@
   "topic_messages": {
     "empty_title": "No messages yet",
     "empty_body": "Anything sent to this topic shows up here.",
-    "share_label": "Share"
+    "share_label": "Share",
+    "back_aria": "Back to {topic}",
+    "window": "last 7 days",
+    "bars_aria": "Messages per day, last 7 days",
+    "day_today": "Today",
+    "rang_line": "{rang} · {end}",
+    "rang_for": "rang {duration}",
+    "end_answered": "answered",
+    "end_resolved": "resolved",
+    "end_expired": "expired",
+    "end_ringing": "ringing now",
+    "load_failed": "Could not read this topic's messages."
   },
   "create_topic": {
     "title": "New topic",

@@ -235,7 +235,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
               ).clamp(maxScaleFactor: kChromeMaxTextScale),
             ),
             child: AppTopBar(
-              titleWidget: _BarTitle(
+              titleWidget: AppScrollBarTitle(
                 controller: _scroll,
                 title: LocaleKeys.reliability_title.tr(),
               ),
@@ -414,50 +414,5 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     final fix = check.fix;
     if (fix == null) return null;
     return reliabilityFixLabelKey(fix, testRouteName: AppRoute.testRing).tr();
-  }
-}
-
-/// The bar's title. It is clear while the header sits under the bar with its
-/// own label, and comes in once the header has scrolled up under the bar. It
-/// follows the scroll position, so reduced motion has nothing to turn off.
-class _BarTitle extends StatelessWidget {
-  const _BarTitle({required this.controller, required this.title});
-
-  final ScrollController controller;
-  final String title;
-
-  /// The scroll distance over which the title comes in. The header label
-  /// is under the bar a little after the first.
-  static const double _from = 12;
-  static const double _span = 24;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final offset = controller.hasClients ? controller.offset : 0.0;
-        final shown = ((offset - _from) / _span).clamp(0.0, 1.0);
-        return ExcludeSemantics(
-          excluding: shown < 1,
-          child: Semantics(
-            header: true,
-            child: Opacity(
-              opacity: shown,
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.headline(
-                  colors.onCanvas,
-                  fontSize: 18,
-                ).copyWith(letterSpacing: -0.02 * 18),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 }
