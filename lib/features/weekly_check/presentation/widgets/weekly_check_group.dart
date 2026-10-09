@@ -6,6 +6,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/lock_tap_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
@@ -31,8 +32,8 @@ import 'package:go_router/go_router.dart';
 /// three rows, by what `FeatureAccess` answers for the feature:
 ///
 /// - Hosted held: the switch and what the relay last said.
-/// - Hosted not held: a locked row that opens the Hosted paywall through
-///   the one lock.
+/// - Hosted not held: a locked row with a "See Hosted" button that opens the
+///   Hosted paywall through the one lock.
 /// - On a server of the user's own: one line saying the check is not
 ///   available there. No badge, no button and no paywall.
 ///
@@ -205,12 +206,19 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
 }
 
 /// The weekly check row while Hosted is not held, on Crit Alarm Cloud: the
-/// title with the locked Hosted badge, and nothing under it. The title
-/// already says what the check does. A plain row with no face.
+/// title with the locked Hosted badge, the one line the open row has under
+/// it, and one button that says "See Hosted".
 ///
-/// The row is a button. The badge and the way to the paywall both come
-/// from the one lock, [AccessLock], which picks the product from the
-/// feature table. Nothing here names a plan.
+/// There is no switch, since a switch that sells is not what it looks
+/// like. The button is the only thing in the row that opens the paywall.
+/// A tap on the rest of the row does nothing, and the row is not read as a
+/// switch or a button: a screen reader hears the title, the line and the
+/// plan word, then the button.
+///
+/// The badge and the button both come from the one lock, [AccessLock],
+/// which picks the plan from the feature table and waits for the plan to
+/// be read. Nothing here names a plan. Until the plan has been read the
+/// row has neither.
 class WeeklyCheckLockedRow extends StatelessWidget {
   const WeeklyCheckLockedRow({super.key});
 
@@ -219,6 +227,7 @@ class WeeklyCheckLockedRow extends StatelessWidget {
     return AccessLock.inline(
       feature: AppFeature.weeklyCheck,
       source: LockSource.reliability,
+      unlockTap: LockTapKind.seePlan,
       // The row is locked while a Hosted purchase is still being
       // confirmed, because the relay refuses the check until then. So the
       // lock drawn is the one for holding nothing. A plan that could not
@@ -233,24 +242,123 @@ class WeeklyCheckLockedRow extends StatelessWidget {
         builder: (context) {
           final scope = FeatureLockScope.maybeOf(context);
           final title = LocaleKeys.weekly_check_title.tr();
+          final line = LocaleKeys.weekly_check_locked_description.tr();
           final unlock = scope?.unlock;
-          return ReliabilityPlainRow(
+          final plan = scope?.planWord;
+          return _WeeklyCheckSeePlanRow(
             title: title,
-            badge: const FeatureLockBadge(staysWhenOpen: true),
-            label: [title, ?scope?.planWord].join(', '),
-            hint: unlock == null
-                ? null
-                : LocaleKeys.weekly_check_locked_hint.tr(),
-            onTap: unlock,
-            trailing: unlock == null
-                ? null
-                : AppGlyph(
-                    GlyphType.arrow,
-                    color: context.appColors.ink3,
-                    size: 16,
-                  ),
+            line: line,
+            planWord: plan,
+            onSeePlan: unlock,
           );
         },
+      ),
+    );
+  }
+}
+
+/// The locked row's layout. The button sits at the end of the row; it
+/// drops under the line when the text is large or the screen is narrow,
+/// where it would squeeze the words.
+class _WeeklyCheckSeePlanRow extends StatelessWidget {
+  const _WeeklyCheckSeePlanRow({
+    required this.title,
+    required this.line,
+    required this.planWord,
+    required this.onSeePlan,
+  });
+
+  final String title;
+  final String line;
+
+  /// The plan word for the badge and the button, or null while the plan is
+  /// not read: then the row has no badge and no button.
+  final String? planWord;
+  final VoidCallback? onSeePlan;
+
+  /// The text scale and the width below which the button drops under the
+  /// line.
+  static const double _stackFromScale = 1.25;
+  static const double _stackBelowWidth = 300;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final plan = planWord;
+    final onSeePlan = this.onSeePlan;
+    final hasButton = plan != null && onSeePlan != null;
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: Spacing.s2,
+          runSpacing: Spacing.s1,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              title,
+              style: AppTypography.body(
+                colors.ink,
+                fontSize: 15,
+              ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
+            ),
+            if (plan != null) ProBadge(label: plan, isLocked: true),
+          ],
+        ),
+        Text(line, style: AppTypography.small(colors.ink3, fontSize: 13)),
+      ],
+    );
+    // One spoken piece for the words, with no tap and no role.
+    final spoken = Semantics(
+      container: true,
+      label: [title, line, ?plan].join(', '),
+      excludeSemantics: true,
+      child: words,
+    );
+    final button = hasButton
+        ? ReliabilityFixButton(
+            label: LocaleKeys.personalize_passes_widgets_see_plan.tr(
+              namedArgs: {'plan': plan},
+            ),
+            checkTitle: title,
+            variant: AppButtonVariant.ghost,
+            isBusy: false,
+            onPressed: onSeePlan,
+          )
+        : null;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(1);
+            final stacks =
+                scale >= _stackFromScale ||
+                constraints.maxWidth < _stackBelowWidth;
+            if (button == null) return spoken;
+            if (stacks) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  spoken,
+                  const SizedBox(height: Spacing.s2),
+                  button,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: spoken),
+                const SizedBox(width: Spacing.s2),
+                button,
+              ],
+            );
+          },
+        ),
       ),
     );
   }

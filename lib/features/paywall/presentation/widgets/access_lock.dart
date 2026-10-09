@@ -5,6 +5,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/lock_tap_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
@@ -12,14 +13,22 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// What a tap on a locked option does.
+/// What a tap on a locked option is for. `lockTapFor` turns it into what
+/// happens.
 enum LockTap {
   /// Calls back, so the page can show the option working without saving
-  /// it.
+  /// it. With no [AccessLock.onTry], the tap is the person reaching for the
+  /// option and the paywall opens.
   tryIt,
 
-  /// Opens the paywall for the plan that unlocks it.
+  /// The person acts to keep or use the option, so the paywall opens for
+  /// the plan that unlocks it. The rule calls this `keep`.
   sell,
+
+  /// The option leads to a page or a sheet of its own. The badge is drawn
+  /// and the child keeps the tap and its own semantics. Nothing here opens
+  /// a paywall: the page does, at the moment of use.
+  open,
 }
 
 /// The word on the badge for [holding]: "Hosted" or "Pro".
@@ -48,6 +57,51 @@ Future<void> openPaywallForFeature(
   await openPaywallFor(context, access.decide(feature), source);
 }
 
+/// The plan word to put on an option that [feature] locks, or null when it
+/// is not locked or the plan has not been read yet. For a sheet that lists
+/// every option and badges the locked ones, so nothing is badged on a
+/// guess.
+String? lockedPlanWord(AppFeature feature) {
+  final access = getIt<FeatureAccess>();
+  if (!access.isPlanRead) return null;
+  final decision = access.decide(feature);
+  return decision is FeatureLocked ? planWordFor(decision.offer) : null;
+}
+
+/// What happens when the person picks an option that needs [feature] to
+/// keep it: sheet rows, "set as default". Returns true when nothing is
+/// locked and the caller goes ahead and saves it. When it is locked, opens
+/// the paywall from [source] and returns false.
+///
+/// It waits for the plan to be read first, so a pick right after a cold
+/// start never sells to someone who already pays and never saves for
+/// someone who does not. What a pick does comes from `lockTapFor`.
+Future<bool> keepOrOpenPaywall(
+  BuildContext context,
+  AppFeature feature,
+  LockSource source,
+) async {
+  final access = getIt<FeatureAccess>();
+  await access.ready;
+  if (!context.mounted) return false;
+  final decision = access.decide(feature);
+  final answer = lockTapFor(
+    decision: decision,
+    isPlanRead: access.isPlanRead,
+    hasTry: false,
+    tap: LockTapKind.keep,
+  );
+  switch (answer) {
+    case DoIt():
+      return true;
+    case OpenPaywall(:final offer):
+      await openPaywallFor(context, FeatureDecision.locked(offer), source);
+      return false;
+    case OpenPage() || TryIt() || WaitForPlan() || Nothing():
+      return false;
+  }
+}
+
 /// The location [openPaywallForFeature] would open, or null when [feature]
 /// is not locked. For a caller that closes itself first and is left with
 /// a router and no context, such as a sheet. It waits for the plan to be
@@ -65,8 +119,12 @@ Future<String?> paywallLocationForFeature(
 ///
 /// It reads the decision, redraws when `FeatureAccess.changes` names the
 /// feature, picks the plan word, and opens the paywall through the one
-/// door with [source]. A screen wraps an option in this and decides
-/// nothing about plans itself.
+/// door with [source]. What a tap does comes from `lockTapFor`. A screen
+/// wraps an option in this and decides nothing about plans itself.
+///
+/// The badge is drawn only once the plan has been read
+/// (`FeatureAccess.isPlanRead`), so a phone that holds the plan never
+/// flashes it.
 ///
 /// [AccessLock.inline] is for a surface with a place of its own for the
 /// badge and a button of its own for the paywall: it draws nothing over
@@ -87,13 +145,15 @@ class AccessLock extends StatefulWidget {
     this.drawsBadge = true,
     this.decide,
     super.key,
-  }) : _isInline = false;
+  }) : unlockTap = LockTapKind.keep,
+       _isInline = false;
 
   const AccessLock.inline({
     required this.feature,
     required this.source,
     required this.child,
     this.decide,
+    this.unlockTap = LockTapKind.keep,
     super.key,
   }) : name = null,
        tap = LockTap.sell,
@@ -142,6 +202,12 @@ class AccessLock extends StatefulWidget {
   /// `FeatureAccess.decide(feature)`.
   final FeatureDecision Function(FeatureAccess access)? decide;
 
+  /// What the child's unlock button is for, when it is an inline lock:
+  /// [LockTapKind.keep] for the act that keeps or uses the option,
+  /// [LockTapKind.seePlan] for a button that says "See Hosted" or "See
+  /// Pro".
+  final LockTapKind unlockTap;
+
   final bool _isInline;
 
   @override
@@ -159,39 +225,54 @@ class _AccessLockState extends State<AccessLock> {
     _changes = _access.changes.listen((feature) {
       if (feature == widget.feature && mounted) setState(() {});
     });
+    _access.planRead.addListener(_planWasRead);
   }
 
   @override
   void dispose() {
+    _access.planRead.removeListener(_planWasRead);
     unawaited(_changes?.cancel());
     super.dispose();
+  }
+
+  void _planWasRead() {
+    if (mounted) setState(() {});
   }
 
   FeatureDecision _decide() =>
       widget.decide?.call(_access) ?? _access.decide(widget.feature);
 
-  /// The decision once the plan has been read. What is drawn can be from
-  /// before that, when a held plan still reads as not held. Anything a
-  /// tap on a lock does waits for this, so a paywall or a try is never
-  /// shown to someone who already pays.
-  Future<FeatureDecision?> _sureDecision() async {
-    await _access.ready;
-    if (!mounted) return null;
-    final decision = _decide();
-    // The lock on screen was early: draw what is true.
-    if (decision is! FeatureLocked) setState(() {});
-    return decision;
-  }
+  LockTapAnswer _ask(LockTapKind kind) => lockTapFor(
+    decision: _decide(),
+    isPlanRead: _access.isPlanRead,
+    hasTry: widget.onTry != null,
+    tap: kind,
+  );
 
-  Future<void> _unlock() async {
-    final decision = await _sureDecision();
-    if (decision == null || !mounted) return;
-    await openPaywallFor(context, decision, widget.source);
-  }
-
-  Future<void> _try() async {
-    final decision = await _sureDecision();
-    if (decision is FeatureLocked) widget.onTry?.call();
+  /// Does what the rule says a tap of [kind] does. Anything that could
+  /// sell, try or save waits for the plan to be read first, so a paywall or
+  /// a try is never shown to someone who already pays.
+  Future<void> _act(LockTapKind kind) async {
+    var answer = _ask(kind);
+    if (answer is WaitForPlan) {
+      await _access.ready;
+      if (!mounted) return;
+      // The lock on screen was early: draw what is true.
+      setState(() {});
+      answer = _ask(kind);
+    }
+    switch (answer) {
+      case OpenPaywall(:final offer):
+        await openPaywallFor(
+          context,
+          FeatureDecision.locked(offer),
+          widget.source,
+        );
+      case TryIt():
+        widget.onTry?.call();
+      case OpenPage() || DoIt() || WaitForPlan() || Nothing():
+        break;
+    }
   }
 
   @override
@@ -206,8 +287,13 @@ class _AccessLockState extends State<AccessLock> {
       FeatureLocked(:final offer) => offer,
       _ => nothing is FeatureLocked ? nothing.offer : null,
     };
-    final planWord = holding == null ? null : planWordFor(holding);
-    void unlock() => unawaited(_unlock());
+    // Nothing is badged before the plan is read: what is drawn then can
+    // be from before a held plan was known.
+    final isPlanRead = _access.isPlanRead;
+    final planWord = holding == null || !isPlanRead
+        ? null
+        : planWordFor(holding);
+    void unlock() => unawaited(_act(widget.unlockTap));
 
     if (widget._isInline) {
       return FeatureLock.scope(
@@ -217,24 +303,30 @@ class _AccessLockState extends State<AccessLock> {
         child: widget.child,
       );
     }
+    final isOpen = widget.tap == LockTap.open;
     final tries = widget.tap == LockTap.tryIt;
     return FeatureLock(
       decision: decision,
       planWord: planWord,
       lockedWord: LocaleKeys.feature_lock_locked.tr(),
-      name: widget.name,
-      hint: tries
+      // The child of an option that opens a page keeps its own words.
+      name: isOpen ? null : widget.name,
+      hint: isOpen
+          ? null
+          : tries
           ? LocaleKeys.feature_lock_try_hint.tr()
-          : LocaleKeys.feature_lock_sell_hint.tr(
-              namedArgs: {'plan': planWord ?? ''},
-            ),
-      onLockedTap:
-          widget.onLockedTap ?? (tries ? () => unawaited(_try()) : unlock),
+          : planWord == null
+          ? null
+          : LocaleKeys.feature_lock_sell_hint.tr(namedArgs: {'plan': planWord}),
+      onLockedTap: isOpen
+          ? widget.onLockedTap
+          : widget.onLockedTap ??
+                (tries ? () => unawaited(_act(LockTapKind.tryIt)) : unlock),
       onUnlock: unlock,
       badgeAlignment: widget.badgeAlignment,
       badgeOverhang: widget.badgeOverhang,
       badgeSeat: widget.badgeSeat,
-      drawsBadge: widget.drawsBadge,
+      drawsBadge: widget.drawsBadge && isPlanRead,
       child: widget.child,
     );
   }

@@ -13,4 +13,9 @@ abstract final class AppCurves {
   /// that lands past its size and settles. It overshoots by about a tenth,
   /// so it is for a scale or a short hop, never for a fade or a colour.
   static const Curve easeBack = Cubic(0.34, 1.56, 0.64, 1);
+
+  /// pass-grow: cubic-bezier(.2,.9,.2,1) for a card growing into its page.
+  /// It never passes its end, so a rect that follows it never overshoots
+  /// the display.
+  static const Curve passGrow = Cubic(0.2, 0.9, 0.2, 1);
 }

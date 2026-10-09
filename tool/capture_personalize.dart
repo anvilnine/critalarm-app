@@ -1,59 +1,26 @@
-// Captures the Personalize page and the three older locked surfaces, off
-// the device, with the mock API and the developer plan switches.
+// Captures the surfaces that moved onto the one lock and are not part of the
+// Personalize passes: the App icon screen, the Reliability screen with the
+// weekly check row, the sound picker, and the plan badge as each surface asks
+// for it. Off the device, with the mock API and the developer plan switches.
 //
 //   fvm flutter test tool/capture_personalize.dart \
 //     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true
 //
-// For 390 by 844 and 375 by 667, light and dark, at the default text size
-// and 1.3, with motion still, it writes one PNG per state:
-//   free      nothing held
-//   pro       the Pro pack held
-//   hosted    Hosted held
-//   both      both held
-//   lapsed    free, with an own sound saved as the default from when Pro
-//             was held: the tick is on the sound that really rings
-//   trying    the same phone, after a tap on the locked "Yours" chip: the
-//             bar shows
-//   full      free, after a tap on the preview: the full-screen preview
-// and, at 1024 by 768, the wide layout for `free` and `trying`.
+// At 390 by 844, light and dark, free and with both plans held, it writes
+// one PNG per surface:
+//   lock_app_icon_<plan>_...      the App icon screen on the first paid icon
+//   lock_weekly_check_<plan>_...  the Reliability screen at the weekly check
+//   lock_sounds_<plan>_...        the sound picker with one own sound saved,
+//                                 scrolled so the own sound and both ways to
+//                                 add one (Pick a file, Record) are in it
+//   lock_badges_<plan>_...        the badge as each surface asks for it
 //
-// The Look strip has its own shots, `look_<state>_...`, scrolled to the
-// strip:
-//   locked    nothing held: Standard ticked, Minimal with the lock
-//   trying    the same phone, after a tap on the locked Minimal: the
-//             preview draws it and the bar shows
-//   open      Pro held and Minimal saved as the phone's look
-// and the topic page's Alarm look row, `topic_look_locked_...` and
-// `topic_look_open_...` (Pro held, Minimal picked for the topic).
+// The Personalize root and its pages have their own tools
+// (`capture_pass_root.dart` and one per page).
 //
-// The person's own look has its own shots too, with photos the tool draws
-// itself (`own_look_photos.dart`):
-//   look6_locked   nothing held, no photo: the sixth tile with its lock
-//   look6_empty    Pro held, no photo: the sixth tile offers the picker
-//   look6_open     Pro held, a photo saved and picked: the tile with its
-//                  edit button, and the preview drawing the look
-//   look6_lapsed   nothing held, the photo still on the phone: locked,
-//                  Standard is what rings, the look is not in memory, the
-//                  tile shows a small copy of the photo, and the cross on
-//                  its corner removes it
-//   own_remove     the sheet behind that cross: Remove photo and nothing
-//                  else
-//   own_crop       the crop step on a busy photo
-//   own_accent     the sheet behind the edit button, on a dark photo
-//   topic_sheet_own   the topic page's sheet with a photo saved: it lists
-//                     Yours
-//   topic_sheet_none  the same sheet with no photo: it does not
-//
-// It also writes the surfaces that moved onto the one lock, free and with
-// both held: the App icon screen on a paid icon, the Reliability screen
-// with the weekly check row, the sound picker with one own sound saved,
-// and the Home widgets card's badge.
-//
-// The sound picker shot is of a phone that can bring in a sound, scrolled
-// so the own sound and both ways to add one (Pick a file, Record) are in
-// it. With nothing held it waits for the plan badge on the own sound and
-// fails without it: a picker that draws that sound as open is a bug, and
-// was one.
+// The sound picker shot is of a phone that can bring in a sound. With nothing
+// held it waits for the plan badge on the own sound and fails without it: a
+// picker that draws that sound as open is a bug, and was one.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default
@@ -76,7 +43,6 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
@@ -84,20 +50,11 @@ import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
-import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
-import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
-import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
-import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
-import 'package:critalarm/features/settings/presentation/personalize/own_look_flow.dart';
-import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
-import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
-import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -108,7 +65,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
-import 'own_look_photos.dart';
 
 const _out = String.fromEnvironment(
   'OUT',
@@ -118,32 +74,7 @@ const _only = String.fromEnvironment('ONLY');
 
 const _phones = <(String, Size, double, double)>[
   ('390x844', Size(390, 844), 47, 34),
-  ('375x667', Size(375, 667), 20, 0),
 ];
-const _tablet = ('1024x768', Size(1024, 768), 24.0, 20.0);
-
-/// What is held, and what is done once the page is up.
-enum _Shot {
-  free(isPro: false, isHosted: false),
-  pro(isPro: true, isHosted: false),
-  hosted(isPro: false, isHosted: true),
-  both(isPro: true, isHosted: true),
-  lapsed(isPro: false, isHosted: false, hasOwnSound: true),
-  trying(isPro: false, isHosted: false, hasOwnSound: true),
-  full(isPro: false, isHosted: false);
-
-  const _Shot({
-    required this.isPro,
-    required this.isHosted,
-    this.hasOwnSound = false,
-  });
-
-  final bool isPro;
-  final bool isHosted;
-
-  /// The phone holds one own sound, saved as the default.
-  final bool hasOwnSound;
-}
 
 Future<void> _loadFonts() async {
   Future<void> family(String name, List<String> files) async {
@@ -199,9 +130,6 @@ Future<void> _ownSoundSaved({required bool isSaved}) async {
     await sounds.setDefaultSoundId(BundledSounds.fallbackId);
   }
 }
-
-/// A topic of the mock server's calm fixture.
-const _topic = 'prod-db';
 
 bool _wanted(String name) =>
     _only.isEmpty || _only.split(',').any(name.contains);
@@ -292,7 +220,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await loadTestTranslations();
     await configureDependencies();
-    await useCaptureOwnLookStore();
     await _loadFonts();
     // The phone can change its icon and shows the standard one.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -302,8 +229,6 @@ void main() {
               call.method == 'current' ? AppIcon.standard.platformName : true,
         );
   });
-
-  tearDownAll(dropCaptureOwnLookStore);
 
   void capture(
     String name,
@@ -324,425 +249,8 @@ void main() {
         FlutterError.onError = oldHandler;
         await _hold(isPro: false, isHosted: false);
         await _ownSoundSaved(isSaved: false);
-        await getIt<AlarmStyleChoices>().setDefault(null);
-        await getIt<AlarmStyleChoices>().setTopicStyle(_topic, null);
       }
     });
-  }
-
-  // The trying shots come first, so the very first capture taps the real
-  // lock while the access layer is still ready in this harness.
-  final screens = [
-    for (final phone in [..._phones, _tablet]) (phone, _Shot.trying),
-    for (final phone in _phones)
-      for (final shot in _Shot.values)
-        if (shot != _Shot.trying) (phone, shot),
-    (_tablet, _Shot.free),
-  ];
-
-  for (final ((sizeName, size, top, bottom), shot) in screens) {
-    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final scale in [1.0, 1.3]) {
-        final name =
-            'personalize_${shot.name}_${sizeName}_${mode.name}_${scale}x';
-        capture(name, (tester, errors) async {
-          await _hold(isPro: shot.isPro, isHosted: shot.isHosted);
-          await _ownSoundSaved(isSaved: shot.hasOwnSound);
-          final key = await _open(
-            tester,
-            location: '/settings/personalize',
-            size: size,
-            topInset: top,
-            bottomInset: bottom,
-            mode: mode,
-            scale: scale,
-          );
-          if (shot == _Shot.trying) {
-            final yours = find.byKey(const ValueKey('sound-yours'));
-            await tester.tap(yours, warnIfMissed: false);
-            // The lock asks the access layer once it is ready, then tries.
-            final bar = find.descendant(
-              of: find.byType(PersonalizeTryBar),
-              matching: find.byType(ProBadge),
-            );
-            for (var i = 0; i < 6 && bar.evaluate().isEmpty; i++) {
-              await tester.runAsync(
-                () => Future<void>.delayed(const Duration(milliseconds: 100)),
-              );
-              await tester.pump(const Duration(milliseconds: 200));
-            }
-            if (bar.evaluate().isEmpty) {
-              // In this harness the access layer is ready for the first
-              // capture only: a plan read left half done by an earlier
-              // capture never finishes, because its timers belong to that
-              // capture's test clock. So the tap is stood in for by what
-              // it would have called.
-              print('     try driven through the cubit, not the tap');
-              final cubit = BlocProvider.of<PersonalizeCubit>(
-                tester.element(find.byType(PersonalizeTryBar)),
-              );
-              await tester.runAsync(() => cubit.trySound(_ownSound));
-              await tester.pump();
-            }
-            expect(bar, findsOneWidget, reason: 'The try bar did not show.');
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 300));
-          }
-          if (shot == _Shot.full) {
-            // The big one. The Look strip draws small ones after it.
-            await tester.tap(find.byType(RingingPreview).first);
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 400));
-            expect(find.byType(RingingPreviewPage), findsOneWidget);
-          }
-          await _save(tester, key, name, isGood: errors.isEmpty);
-        });
-      }
-    }
-  }
-
-  // The Look strip, and the topic page's row.
-  for (final (sizeName, size, top, bottom) in _phones) {
-    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final scale in [1.0, 1.3]) {
-        final tail = '${sizeName}_${mode.name}_${scale}x';
-        for (final state in ['locked', 'trying', 'open']) {
-          capture('look_${state}_$tail', (tester, errors) async {
-            final isPro = state == 'open';
-            await _hold(isPro: isPro, isHosted: false);
-            if (isPro) await getIt<AlarmStyleChoices>().setDefault('minimal');
-            final key = await _open(
-              tester,
-              location: '/settings/personalize',
-              size: size,
-              topInset: top,
-              bottomInset: bottom,
-              mode: mode,
-              scale: scale,
-            );
-            if (state == 'trying') {
-              await tester.tap(
-                find.byKey(const ValueKey('look-minimal')),
-                warnIfMissed: false,
-              );
-              final bar = find.descendant(
-                of: find.byType(PersonalizeTryBar),
-                matching: find.byType(ProBadge),
-              );
-              for (var i = 0; i < 6 && bar.evaluate().isEmpty; i++) {
-                await tester.runAsync(
-                  () => Future<void>.delayed(const Duration(milliseconds: 100)),
-                );
-                await tester.pump(const Duration(milliseconds: 200));
-              }
-              if (bar.evaluate().isEmpty) {
-                // See the sound try above: the tap is stood in for by
-                // what it would have called.
-                print('     try driven through the cubit, not the tap');
-                BlocProvider.of<PersonalizeCubit>(
-                  tester.element(find.byType(PersonalizeTryBar)),
-                ).tryOption(
-                  const PersonalizeTry(
-                    AppFeature.alarmScreenStyles,
-                    optionId: 'minimal',
-                  ),
-                );
-                await tester.pump();
-              }
-              expect(bar, findsOneWidget, reason: 'The try bar did not show.');
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 300));
-            }
-            // A try is shown with the preview and its bar in view. The
-            // other two are scrolled to the strip where the phone is too
-            // short to show it under the preview.
-            if (state != 'trying' && size.height < 800) {
-              await tester.ensureVisible(
-                find.byKey(const ValueKey('look-minimal')),
-              );
-              await tester.pump(const Duration(milliseconds: 300));
-            }
-            await _save(
-              tester,
-              key,
-              'look_${state}_$tail',
-              isGood: errors.isEmpty,
-            );
-          });
-        }
-        for (final isPro in [false, true]) {
-          final state = isPro ? 'open' : 'locked';
-          capture('topic_look_${state}_$tail', (tester, errors) async {
-            getIt<MockServer>().loadFixture(FaceState.calm);
-            await _hold(isPro: isPro, isHosted: false);
-            if (isPro) {
-              await getIt<AlarmStyleChoices>().setTopicStyle(_topic, 'minimal');
-            }
-            final key = await _open(
-              tester,
-              location: '/topics/$_topic',
-              size: size,
-              topInset: top,
-              bottomInset: bottom,
-              mode: mode,
-              scale: scale,
-              // The topic page sizes a block with a zero-length animation
-              // under reduce motion, which lays out twice in this harness.
-              isStill: false,
-            );
-            await tester.ensureVisible(find.byType(TopicAlarmStyleRow));
-            await tester.pump(const Duration(milliseconds: 300));
-            await _save(
-              tester,
-              key,
-              'topic_look_${state}_$tail',
-              isGood: errors.isEmpty,
-            );
-          });
-        }
-      }
-    }
-  }
-
-  // The own look: the sixth tile, the crop step, the accent sheet and the
-  // topic page's sheet.
-  for (final (sizeName, size, top, bottom) in _phones) {
-    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final scale in [1.0, 1.3]) {
-        final tail = '${sizeName}_${mode.name}_${scale}x';
-
-        /// Puts [photo] on the phone as the own look, or takes the photo
-        /// off when it is null.
-        Future<void> ownLook(
-          WidgetTester tester,
-          CapturePhoto? photo, {
-          String accent = 'yellow',
-          bool isDefault = false,
-          bool isHeld = true,
-        }) => tester.runAsync(() async {
-          if (photo == null) {
-            await getIt<OwnAlarmLookKeeper>().removePhoto();
-            return;
-          }
-          await importCaptureOwnLook(
-            photo,
-            screen: size * 2,
-            accent: accent,
-            isHeld: isHeld,
-          );
-          if (isDefault) await getIt<AlarmStyleChoices>().setDefault('own');
-        });
-
-        for (final state in ['locked', 'empty', 'open', 'lapsed']) {
-          capture('look6_${state}_$tail', (tester, errors) async {
-            final hasPhoto = state == 'open' || state == 'lapsed';
-            await _hold(
-              isPro: state == 'empty' || state == 'open',
-              isHosted: false,
-            );
-            await ownLook(
-              tester,
-              hasPhoto ? CapturePhoto.bright : null,
-              isDefault: hasPhoto,
-              isHeld: state == 'open',
-            );
-            try {
-              final key = await _open(
-                tester,
-                location: '/settings/personalize',
-                size: size,
-                topInset: top,
-                bottomInset: bottom,
-                mode: mode,
-                scale: scale,
-              );
-              // Lapsed, the look is not in memory, so the tile is the
-              // add tile with a small copy of the photo in it.
-              final tile = find.byKey(
-                ValueKey(state == 'open' ? 'look-own' : 'look-own-add'),
-              );
-              expect(tile, findsOneWidget, reason: 'No sixth tile.');
-              // Along the strip to its last tile, and down to the strip
-              // where the phone is too short to show it.
-              await tester.ensureVisible(tile);
-              await tester.pump(const Duration(milliseconds: 300));
-              expect(
-                find.byKey(const ValueKey('look-own-edit')),
-                state == 'open' ? findsOneWidget : findsNothing,
-              );
-              // A saved photo can be removed whatever the plan.
-              expect(
-                find.byKey(const ValueKey('look-own-remove')),
-                state == 'lapsed' ? findsOneWidget : findsNothing,
-              );
-              expect(
-                getIt<OwnAlarmLookKeeper>().isReady,
-                state == 'open',
-                reason: 'what is held in memory',
-              );
-              await _save(
-                tester,
-                key,
-                'look6_${state}_$tail',
-                isGood: errors.isEmpty,
-              );
-            } finally {
-              await ownLook(tester, null);
-            }
-          });
-        }
-
-        capture('own_remove_$tail', (tester, errors) async {
-          await _hold(isPro: false, isHosted: false);
-          await ownLook(
-            tester,
-            CapturePhoto.bright,
-            isDefault: true,
-            isHeld: false,
-          );
-          try {
-            final key = await _open(
-              tester,
-              location: '/settings/personalize',
-              size: size,
-              topInset: top,
-              bottomInset: bottom,
-              mode: mode,
-              scale: scale,
-            );
-            final remove = find.byKey(const ValueKey('look-own-remove'));
-            await tester.ensureVisible(remove);
-            await tester.pump(const Duration(milliseconds: 300));
-            await tester.tap(remove, warnIfMissed: false);
-            for (var i = 0; i < 4; i++) {
-              await tester.pump(const Duration(milliseconds: 200));
-            }
-            expect(find.byType(OwnLookSheetContent), findsOneWidget);
-            // Nothing to buy and nothing to edit in it: one button.
-            expect(
-              find.descendant(
-                of: find.byType(OwnLookSheetContent),
-                matching: find.byType(AppButton),
-              ),
-              findsOneWidget,
-            );
-            await _save(
-              tester,
-              key,
-              'own_remove_$tail',
-              isGood: errors.isEmpty,
-            );
-          } finally {
-            await ownLook(tester, null);
-          }
-        });
-
-        capture('own_crop_$tail', (tester, errors) async {
-          final picture = (await tester.runAsync(
-            () => capturePhotoImage(CapturePhoto.busy),
-          ))!;
-          addTearDown(picture.dispose);
-          final key = await _open(
-            tester,
-            location: '/',
-            size: size,
-            topInset: top,
-            bottomInset: bottom,
-            mode: mode,
-            scale: scale,
-            home: OwnPhotoCropScreen(
-              picture: picture,
-              onUse: (crop) async => null,
-            ),
-          );
-          expect(find.byType(InteractiveViewer), findsOneWidget);
-          await _save(tester, key, 'own_crop_$tail', isGood: errors.isEmpty);
-        });
-
-        capture('own_accent_$tail', (tester, errors) async {
-          await _hold(isPro: true, isHosted: false);
-          await ownLook(
-            tester,
-            CapturePhoto.dark,
-            accent: 'mint',
-            isDefault: true,
-          );
-          try {
-            final key = await _open(
-              tester,
-              location: '/settings/personalize',
-              size: size,
-              topInset: top,
-              bottomInset: bottom,
-              mode: mode,
-              scale: scale,
-            );
-            final edit = find.byKey(const ValueKey('look-own-edit'));
-            await tester.ensureVisible(edit);
-            await tester.pump(const Duration(milliseconds: 300));
-            await tester.tap(edit, warnIfMissed: false);
-            for (var i = 0; i < 4; i++) {
-              await tester.pump(const Duration(milliseconds: 200));
-            }
-            expect(find.byType(OwnLookSheetContent), findsOneWidget);
-            await _save(
-              tester,
-              key,
-              'own_accent_$tail',
-              isGood: errors.isEmpty,
-            );
-          } finally {
-            await ownLook(tester, null);
-          }
-        });
-
-        for (final hasPhoto in [true, false]) {
-          final state = hasPhoto ? 'own' : 'none';
-          capture('topic_sheet_${state}_$tail', (tester, errors) async {
-            getIt<MockServer>().loadFixture(FaceState.calm);
-            await _hold(isPro: true, isHosted: false);
-            await ownLook(tester, hasPhoto ? CapturePhoto.bright : null);
-            if (hasPhoto) {
-              await getIt<AlarmStyleChoices>().setTopicStyle(_topic, 'own');
-            }
-            try {
-              final key = await _open(
-                tester,
-                location: '/topics/$_topic',
-                size: size,
-                topInset: top,
-                bottomInset: bottom,
-                mode: mode,
-                scale: scale,
-                // See the topic row above.
-                isStill: false,
-              );
-              await tester.ensureVisible(find.byType(TopicAlarmStyleRow));
-              await tester.pump(const Duration(milliseconds: 300));
-              await tester.tap(
-                find.byType(TopicAlarmStyleRow),
-                warnIfMissed: false,
-              );
-              for (var i = 0; i < 4; i++) {
-                await tester.pump(const Duration(milliseconds: 200));
-              }
-              expect(
-                find.byType(AppSheetOptionRow<int>),
-                findsNWidgets(hasPhoto ? 7 : 6),
-              );
-              await _save(
-                tester,
-                key,
-                'topic_sheet_${state}_$tail',
-                isGood: errors.isEmpty,
-              );
-            } finally {
-              await ownLook(tester, null);
-            }
-          });
-        }
-      }
-    }
   }
 
   // The surfaces that moved onto the one lock.
