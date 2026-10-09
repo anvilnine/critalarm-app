@@ -88,6 +88,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
 - tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
 - MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
+- One rule decides what a tap on a locked option does, the lock draws its badge only once the plan is read, option sheets can carry a badge, and the Plans and features lab has a Plan still being read preset
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
