@@ -20,9 +20,11 @@ import 'package:flutter/material.dart';
 ///
 /// A topic follows the phone's look until its owner picks one for it. The
 /// choice is kept on this phone and the server never hears of it. Locked,
-/// the row says Standard, because that is what draws without the plan,
-/// and a tap opens the paywall through [AccessLock]. The saved choice is
-/// kept for when the plan is back.
+/// the row says Standard, because that is what draws without the plan, and
+/// carries the plan badge. A tap opens the same picker sheet as when it is
+/// open, with a plan word on each look the plan unlocks. Picking one is the
+/// use, and only then does the paywall open. The saved choice is kept for
+/// when the plan is back.
 class TopicAlarmStyleRow extends StatefulWidget {
   const TopicAlarmStyleRow({required this.topicName, super.key});
 
@@ -45,6 +47,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
     _accessChanges = _access.changes
         .where((feature) => feature == AppFeature.alarmScreenStyles)
         .listen((_) => _redraw());
+    _access.planRead.addListener(_redraw);
     _choiceChanges = _choices.changes.listen((_) => _redraw());
     // The own look comes and goes with its photo.
     _ownLookChanges = getIt<OwnAlarmLookKeeper>().changes.listen(
@@ -58,6 +61,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
 
   @override
   void dispose() {
+    _access.planRead.removeListener(_redraw);
     unawaited(_accessChanges?.cancel());
     unawaited(_choiceChanges?.cancel());
     unawaited(_ownLookChanges?.cancel());
@@ -79,6 +83,8 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
     // Read once, so the index that comes back names the look that was
     // listed.
     final styles = pickableAlarmStyles;
+    // Null until the plan is read, and when it is held.
+    final plan = lockedPlanWord(AppFeature.alarmScreenStyles);
     // The index comes back, so the phone's look is told apart from a sheet
     // swiped away.
     final picked = await showAppSheet<int>(
@@ -95,6 +101,7 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
           AppSheetOption<int>(
             label: style.nameKey.tr(),
             value: index + 1,
+            badge: style.id.isFree ? null : plan,
             isSelected: own == style.id,
           ),
       ],
@@ -106,48 +113,62 @@ class _TopicAlarmStyleRowState extends State<TopicAlarmStyleRow> {
       await _choices.setTopicStyle(widget.topicName, style?.id.id);
       return;
     }
-    // Asked once the plan is read: right after a cold start the row can
-    // be drawn open for someone who holds nothing, or locked for someone
-    // who does.
-    await _access.ready;
-    if (_access.decide(AppFeature.alarmScreenStyles) is FeatureLocked) {
-      if (!mounted) return;
-      await openPaywallForFeature(
-        context,
-        AppFeature.alarmScreenStyles,
-        LockSource.topicLook,
-      );
-      return;
-    }
+    // Choosing it is the use. Asked once the plan is read: right after a
+    // cold start the row can be drawn open for someone who holds nothing,
+    // or locked for someone who does.
+    if (!mounted) return;
+    final isGoAhead = await keepOrOpenPaywall(
+      context,
+      AppFeature.alarmScreenStyles,
+      LockSource.topicLook,
+    );
+    if (!isGoAhead) return;
     await _choices.setTopicStyle(widget.topicName, style.id.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    // Drawn open until the plan is read, so a held plan never flashes a lock.
     final isLocked =
+        _access.isPlanRead &&
         _access.decide(AppFeature.alarmScreenStyles) is FeatureLocked;
     final own = _own;
     final title = LocaleKeys.alarm_styles_row_title.tr();
+    final meta = isLocked
+        ? alarmStyleOf(AlarmStyleId.standard).nameKey.tr()
+        : own == null
+        ? LocaleKeys.alarm_styles_row_default.tr()
+        : alarmStyleOf(own).nameKey.tr();
+    final plan = lockedPlanWord(AppFeature.alarmScreenStyles);
+    final row = AppListRow(
+      name: title,
+      meta: meta,
+      trailing: isLocked
+          ? null
+          : AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+      onTap: () => unawaited(_pick()),
+    );
+    // The row leads to the sheet, so the tap stays with the row. The badge
+    // is the lock's, and the plan is spoken with the row.
     return AccessLock(
       feature: AppFeature.alarmScreenStyles,
       source: LockSource.topicLook,
-      name: title,
+      tap: LockTap.open,
       badgeAlignment: AlignmentDirectional.centerEnd,
       // Set in from the row's edge, where the arrow sits when it is open.
       badgeOverhang: -14,
-      child: AppListRow(
-        name: title,
-        meta: isLocked
-            ? alarmStyleOf(AlarmStyleId.standard).nameKey.tr()
-            : own == null
-            ? LocaleKeys.alarm_styles_row_default.tr()
-            : alarmStyleOf(own).nameKey.tr(),
-        trailing: isLocked
-            ? null
-            : AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
-        onTap: () => unawaited(_pick()),
-      ),
+      child: plan == null
+          ? row
+          : Semantics(
+              button: true,
+              label: LocaleKeys.feature_lock_sheet_option.tr(
+                namedArgs: {'name': '$title, $meta', 'plan': plan},
+              ),
+              onTap: () => unawaited(_pick()),
+              excludeSemantics: true,
+              child: row,
+            ),
     );
   }
 }
