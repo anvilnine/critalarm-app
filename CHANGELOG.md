@@ -76,6 +76,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The first welcome page is a big Welcome to Crit Alarm that shakes its last word and shouts.
 - Will it wake me answers Yes, Maybe or No, shows where an alarm would stop, and lists what to fix.
 - A topic's look, sound, wake-up challenge and tokens are four colour cards that open their own pages.
+- A topic's messages page shows how many messages there are with the last seven days as bars, and lists them by day. A message that rang has a red mark and says how long it rang and how it ended.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
