@@ -63,10 +63,6 @@ const EdgeInsets _kSheetPadding = EdgeInsets.fromLTRB(6, 10, 6, 10);
 /// The section label's padding: the row's own 14 points at each side.
 const EdgeInsets _kLabelPadding = EdgeInsets.fromLTRB(14, 10, 14, 6);
 
-/// How much of the zone behind the title holds full strength once a row has
-/// scrolled under it.
-const double _kTitleBackingPlateau = 0.6;
-
 class _SettingsScreenContent extends StatelessWidget {
   const _SettingsScreenContent();
 
@@ -206,7 +202,6 @@ class _SettingsScreenContent extends StatelessWidget {
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
           // The sheet is text on white and scrolls under the title, so the
           // backing holds full strength behind the whole title row.
-          topBackingPlateau: _kTitleBackingPlateau,
           slivers: [
             // The dark card. It reads the same checks as the Topics card and
             // opens the screen that lists them.

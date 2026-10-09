@@ -24,10 +24,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// How much of the zone behind the title holds full strength once a row has
-/// scrolled under it.
-const double _kTitleBackingPlateau = 0.6;
-
 /// Past alarms grouped by day. Root of the History tab.
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
@@ -100,7 +96,6 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
             child: AppScreenScaffold(
               // The list is text on white and scrolls under the title, so the
               // backing holds full strength behind the whole title row.
-              topBackingPlateau: _kTitleBackingPlateau,
               onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
               topBar: AppTopBar(
                 title: LocaleKeys.history_title.tr(),

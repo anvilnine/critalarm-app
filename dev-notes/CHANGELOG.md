@@ -188,6 +188,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
 - Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
+- AppScreenScaffold.topBackingPlateau. Settings and History use the default bar backing like every other screen.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
