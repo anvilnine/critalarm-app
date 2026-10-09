@@ -10,6 +10,13 @@ abstract interface class AlarmSoundRepository {
   /// The default sound plus every per-topic override.
   Future<AppResult<SoundAssignments>> getAssignments();
 
+  /// [getAssignments] without waiting, for a screen that draws the sound on
+  /// its first frame. The choices are already in memory on the device.
+  SoundAssignments assignmentsNow();
+
+  /// [getUserSounds] without waiting, for the same reason.
+  List<AlarmSound> userSoundsNow();
+
   Future<AppResult<Unit>> setDefaultSoundId(String soundId);
 
   /// Passing null for [soundId] puts the topic back on the default.

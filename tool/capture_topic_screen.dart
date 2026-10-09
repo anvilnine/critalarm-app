@@ -25,6 +25,11 @@
 //            motion, the whole screen at full height, and the grow into the
 //            Look, Sound and Wake-up challenge pages at 0, 0.5 and 1.
 //
+//   firstframe  the first frame of the screen opened from the Topics list,
+//            against the frame once its reads have finished. Not in the
+//            default parts. Needs PARTS=firstframe. See
+//            _registerFirstFrameCaptures.
+//
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
 //   --dart-define=STATES=a,b     only these states
@@ -64,6 +69,7 @@ import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart'
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -874,6 +880,257 @@ void _registerStackCaptures() {
   }
 }
 
+/// Starts a snapshot of [key]'s boundary at two pixels per point. The scene is
+/// taken when this is called, so a frame can be held while real time passes
+/// before it is read with [_pixels].
+Future<ui.Image> _shoot(GlobalKey key) {
+  final boundary =
+      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  return boundary.toImage(pixelRatio: 2);
+}
+
+/// Reads a snapshot from [_shoot], writes it as `<name>.png` and returns its
+/// pixels.
+Future<({int width, Uint8List rgba})> _pixels(
+  WidgetTester tester,
+  Future<ui.Image> shot,
+  String name,
+) async {
+  final read = await tester.runAsync(() async {
+    final image = await shot;
+    final raw = await image.toByteData();
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    final file = File('$_out/$name.png');
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(png!.buffer.asUint8List());
+    print('FIT  ${file.path}');
+    final width = image.width;
+    image.dispose();
+    return (width: width, rgba: raw!.buffer.asUint8List());
+  });
+  return read!;
+}
+
+/// How many pixels of [area] differ between [a] and [b] by more than a few
+/// steps in any channel, and how many pixels [area] has.
+(int, int) _differing(
+  ({int width, Uint8List rgba}) a,
+  ({int width, Uint8List rgba}) b,
+  Rect area,
+) {
+  var count = 0;
+  var total = 0;
+  for (var y = (area.top * 2).floor(); y < (area.bottom * 2).ceil(); y++) {
+    for (var x = (area.left * 2).floor(); x < (area.right * 2).ceil(); x++) {
+      total++;
+      final at = (y * a.width + x) * 4;
+      for (var c = 0; c < 4; c++) {
+        if ((a.rgba[at + c] - b.rgba[at + c]).abs() > 6) {
+          count++;
+          break;
+        }
+      }
+    }
+  }
+  return (count, total);
+}
+
+/// The first frame of the Topic screen when it is opened from the Topics
+/// list, against the same screen once every read has finished.
+///
+/// Home is built first, so the app-level lists, the glances and the sound
+/// bars are filled the way they are when a topic is tapped. Then the app's own
+/// ambient shell is built over a stand-in for the list, and the tap is done
+/// the way the list does it: [primeTopicCanvas], then the screen replaces the
+/// stand-in in the same frame. Three frames are taken:
+///
+///   first    the frame built by the tap, before anything has run
+///   early    600 ms later with no read finished
+///   settled  after the mock server has answered and the screen has redrawn
+///
+/// With reduce motion the frames are the resting ones, so first must equal
+/// settled everywhere the data is known. With motion on, the canvas glides
+/// from Home's arrangement and the face and disc play their entrance, so the
+/// first frame differs there by design. The `cold` scene has no lists loaded
+/// (a link into a topic with nothing in memory): the card shows its dots until
+/// the read ends.
+///
+/// Prints the number of differing pixels over the card, over everything above
+/// the sheet (the canvas, the header, the face), over the Messages sheet, over
+/// the Sound card and over the canvas below the sheet.
+void _registerFirstFrameCaptures() {
+  if (!_parts.contains('firstframe')) return;
+  const phone = Size(390, 1500);
+
+  void shot({
+    required String topic,
+    required String label,
+    required ThemeMode mode,
+    required bool isWarm,
+    required bool isStill,
+    _Scene scene = const _Scene('firstframe', 'prod-db'),
+  }) {
+    final base =
+        'firstframe_${label}_${mode.name}${isWarm ? '' : '_cold'}'
+        '${isStill ? '' : '_motion'}';
+    if (_only.isNotEmpty && !_only.split(',').any(base.contains)) return;
+    testWidgets('capture $base', (tester) async {
+      await _guarded(base, isRest: isStill, (errors) async {
+        _mockSoundHost();
+        await tester.runAsync(() => _boot(scene));
+        tester.view.physicalSize = phone * 2;
+        tester.view.devicePixelRatio = 2;
+        addTearDown(tester.view.reset);
+
+        final router = buildRouter();
+        if (isWarm) {
+          // Home first, so the lists and the glances are filled.
+          final home = GlobalKey();
+          await tester.pumpWidget(_app(mode, 1, true, home, router: router));
+          router.go('/');
+          await _settle(tester);
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+
+        final key = GlobalKey();
+        late BuildContext listContext;
+        Widget app(Widget home) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildLightTheme(),
+          darkTheme: buildDarkTheme(),
+          themeMode: mode,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: isStill),
+            child: RepaintBoundary(
+              key: key,
+              child: AppAmbientShell(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          home: BlocProvider<ThemeCubit>.value(
+            value: getIt<ThemeCubit>(),
+            child: home,
+          ),
+        );
+
+        // The list, standing still under Home's canvas.
+        await tester.pumpWidget(
+          app(
+            Builder(
+              builder: (context) {
+                listContext = context;
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        );
+        await tester.pump(const Duration(seconds: 2));
+
+        // The tap: hand the canvas over, then open the screen.
+        // ignore: use_build_context_synchronously
+        primeTopicCanvas(listContext, topic);
+        await tester.pumpWidget(app(TopicDetailScreen(topicName: topic)));
+
+        // Every snapshot is started on its frame and read afterwards, because
+        // reading lets real time pass and the mock server answer.
+        final firstShot = _shoot(key);
+        final firstCard = tester.getRect(find.byType(TopicCriticalCard));
+        final firstSheet = tester.getRect(find.byType(AppInboxSheet));
+        final firstTokens = tester.getSize(
+          find.byKey(const ValueKey('topic-pass-tokens')),
+        );
+
+        await tester.pump(const Duration(milliseconds: 600));
+        await _frames(tester);
+        final earlyShot = _shoot(key);
+
+        final first = await _pixels(tester, firstShot, '${base}_1_first');
+        final early = await _pixels(tester, earlyShot, '${base}_2_early');
+
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 900)),
+        );
+        await tester.pump(const Duration(milliseconds: 600));
+        await _frames(tester);
+        // Motion on: let the entrance and the glide finish.
+        if (!isStill) await tester.pump(const Duration(seconds: 3));
+        final card = tester.getRect(find.byType(TopicCriticalCard));
+        final sheet = tester.getRect(find.byType(AppInboxSheet));
+        final sound = tester.getRect(
+          find.byKey(const ValueKey('topic-pass-sound')),
+        );
+        final tokens = tester.getSize(
+          find.byKey(const ValueKey('topic-pass-tokens')),
+        );
+        final settled = await _pixels(
+          tester,
+          _shoot(key),
+          '${base}_3_settled',
+        );
+
+        final above = Rect.fromLTRB(0, 0, phone.width, card.bottom);
+        final below = Rect.fromLTRB(0, sheet.bottom + 8, phone.width, 1500);
+        for (final (name, frame) in [('first', first), ('early', early)]) {
+          String px(String what, Rect area) {
+            final (n, total) = _differing(frame, settled, area);
+            return '$what $n/$total';
+          }
+
+          print(
+            'DIFF $base $name vs settled: ${px('card', card)}, '
+            '${px('above sheet', above)}, ${px('messages sheet', sheet)}, '
+            '${px('sound card', sound)}, ${px('canvas below', below)}',
+          );
+        }
+        print(
+          'RECT $base card ${firstCard == card}, sheet first '
+          '${firstSheet.size} settled ${sheet.size}, tokens first '
+          '$firstTokens settled $tokens',
+        );
+      });
+    });
+  }
+
+  for (final isStill in [true, false]) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      shot(
+        topic: 'prod-db',
+        label: 'on',
+        mode: mode,
+        isWarm: true,
+        isStill: isStill,
+      );
+      shot(
+        topic: 'nas-backup',
+        label: 'off',
+        mode: mode,
+        isWarm: true,
+        isStill: isStill,
+      );
+    }
+  }
+  shot(
+    topic: 'prod-db',
+    label: 'on',
+    mode: ThemeMode.light,
+    isWarm: false,
+    isStill: true,
+  );
+  // A warning that only a message carries.
+  for (final isStill in [true, false]) {
+    shot(
+      topic: 'nas-backup',
+      label: 'warn',
+      mode: ThemeMode.light,
+      isWarm: true,
+      isStill: isStill,
+      scene: const _Scene('firstframe', 'nas-backup', seed: _worried),
+    );
+  }
+}
+
 void main() {
   final wanted = _statesArg.split(',').where((s) => s.isNotEmpty).toSet();
   final onlyParts = _only.split(',').where((p) => p.isNotEmpty).toList();
@@ -885,6 +1142,7 @@ void main() {
   });
 
   _registerStackCaptures();
+  _registerFirstFrameCaptures();
 
   // Every state with motion on, after three seconds, so each fade and each
   // size change has finished. The disc, the dots and the face are wherever

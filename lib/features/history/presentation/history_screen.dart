@@ -18,6 +18,7 @@ import 'package:critalarm/features/history/presentation/widgets/history_hero.dar
 import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -222,6 +223,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                                   AppHaptics.selection();
                                   setState(() => _selected = entry);
                                 } else {
+                                  primeTopicCanvas(context, entry.topic);
                                   unawaited(
                                     context.push(
                                       '/history/topics/${entry.topic}',

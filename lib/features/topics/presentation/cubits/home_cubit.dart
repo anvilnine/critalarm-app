@@ -14,6 +14,8 @@ import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/topic_inbox.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for HomeScreen.
@@ -31,6 +33,8 @@ class HomeCubit extends Cubit<HomeState> {
     DateTime Function()? clock,
     this.tick = const Duration(seconds: 5),
     this._listPrefs,
+    this._glances,
+    this._window,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -54,6 +58,15 @@ class HomeCubit extends Cubit<HomeState> {
   /// Pin, mute and read marks, kept on this phone. Null in tests that do not
   /// care, which leaves every row unpinned, unmuted and read.
   final TopicListPrefsRepository? _listPrefs;
+
+  /// Where each topic's messages are noted as the list reads them, so the
+  /// Topic screen opens already knowing its summary line and warning. Null in
+  /// tests that do not care.
+  final TopicGlances? _glances;
+
+  /// The same cut of history the Topic screen applies, so what is noted for a
+  /// topic matches what the screen builds. Null shows everything held.
+  final TopicMessageWindow? _window;
 
   /// How often the state is worked out again from the lists already held, so
   /// an acknowledged alarm's countdown or a close that only lasts a while
@@ -339,6 +352,7 @@ class HomeCubit extends Cubit<HomeState> {
         .map((i) => i.id)
         .toSet();
 
+    final bound = await _window?.lowerBound();
     final warningTopics = <String>{};
     final messageTimes = <String, List<int>>{};
     final previews = <String, String>{};
@@ -357,6 +371,7 @@ class HomeCubit extends Cubit<HomeState> {
           ? null
           : msgs.reduce((a, b) => a.time > b.time ? a : b);
       messageTimes[t.name] = [for (final m in msgs) m.time];
+      _glances?.remember(t.name, topicGlanceOf(t, msgs, bound, now: now));
       if (latest != null) previews[t.name] = topicPreview(latest);
       if (msgs.any((m) {
         final isP4OrWarning =

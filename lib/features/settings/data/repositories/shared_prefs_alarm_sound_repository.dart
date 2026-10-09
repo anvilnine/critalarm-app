@@ -23,6 +23,12 @@ class SharedPrefsAlarmSoundRepository implements AlarmSoundRepository {
       _readAssignments().toSuccess();
 
   @override
+  SoundAssignments assignmentsNow() => _readAssignments();
+
+  @override
+  List<AlarmSound> userSoundsNow() => _readUserSounds();
+
+  @override
   Future<AppResult<Unit>> setDefaultSoundId(String soundId) =>
       _write(_readAssignments().withDefault(soundId));
 
