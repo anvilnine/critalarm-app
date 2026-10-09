@@ -61,6 +61,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
 - Locked options on a topic's page and the weekly check show what they are first, and the plan page opens only when you try to use one
 - Personalize is a stack of colour cards, and Look, Sound, Wake-up challenge, Widgets and App icon each open into their own page.
+- Wake-up challenges are a shelf of tiles you can try, and you pay only when you choose to keep one.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
