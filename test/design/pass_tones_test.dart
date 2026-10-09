@@ -81,7 +81,7 @@ void main() {
       });
     }
 
-    test('widgets and app icon match the contrast the spec computed', () {
+    test('widgets and app icon keep their measured contrast', () {
       expect(
         ColorContrast.contrastRatio(
           AppColors.light.ink,
