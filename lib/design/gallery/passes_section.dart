@@ -813,6 +813,7 @@ class _PassFramePreviewState extends State<PassFramePreview> {
       value: demo.value,
       display: display,
       thumbnail: passDemoThumbnail(widget.pass),
+      visibleHeight: index == kPassDemos.length - 1 ? null : layout.step,
       reduceMotion: widget.reduceMotion,
     );
     final frame = passFrameAt(widget.progress, origin, reverse: widget.reverse);

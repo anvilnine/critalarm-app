@@ -131,6 +131,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       display: origin.display,
       thumbnail: origin.thumbnail,
       bottomRadius: origin.bottomRadius,
+      visibleHeight: origin.visibleHeight,
       reduceMotion: origin.reduceMotion,
       handoff: origin.handoff,
     );
