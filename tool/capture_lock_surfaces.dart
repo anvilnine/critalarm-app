@@ -19,14 +19,16 @@
 //   look_free_row          topic page, Alarm look row, locked (Free)
 //   look_free_sheet        the picker sheet with a plan word on each paid look
 //   look_pro_sheet         the same sheet with Pro held
-//   weekly_free            Reliability, weekly check row locked: title, line,
-//                          switch off, badge (Free)
+//   weekly_free            Reliability, weekly check row locked: title, badge,
+//                          line and a "See Hosted" button, no switch (Free)
 //   weekly_hosted          the open row (Hosted held)
 //   weekly_own             one line saying it is not available (own server)
 //   weekly_reading         the plan is still being read: the row is drawn with
-//                          no badge (the "Plan still being read" preset)
-//   weekly_tap             the switch on the locked row tapped: the Hosted
-//                          paywall opens (Free)
+//                          no badge and no button (the "Plan still being
+//                          read" preset)
+//   weekly_tap_button      "See Hosted" tapped: the Hosted paywall opens (Free)
+//   weekly_tap_row         the body of the locked row tapped: nothing opens and
+//                          the screen is as before (Free)
 //
 // At 390 by 844 it writes light and dark at text scale 1.0 and light at 1.3
 // and 2.0. At 320 by 640 it writes light and dark at 1.0.
@@ -171,12 +173,31 @@ Future<void> _weekly(WidgetTester tester) async {
   await _show(tester, find.text(LocaleKeys.weekly_check_title.tr()));
 }
 
-Future<void> _weeklyTap(WidgetTester tester) async {
+Future<void> _weeklyTapButton(WidgetTester tester) async {
   await _weekly(tester);
-  await tester.tap(find.byType(AppSwitch).first);
+  await tester.tap(
+    find.widgetWithText(
+      AppButton,
+      LocaleKeys.personalize_passes_widgets_see_plan.tr(
+        namedArgs: {'plan': LocaleKeys.paywall_pro_badge.tr()},
+      ),
+    ),
+  );
   await tester.pump();
   await _real(tester, 600);
   await tester.pump(const Duration(seconds: 2));
+}
+
+/// A tap on the line under the title, which is the body of the row. The
+/// row has no switch and the body takes no tap, so nothing opens.
+Future<void> _weeklyTapRow(WidgetTester tester) async {
+  await _weekly(tester);
+  await tester.tap(find.text(LocaleKeys.weekly_check_locked_description.tr()));
+  await tester.pump();
+  await _real(tester, 600);
+  await tester.pump(const Duration(seconds: 2));
+  // Nothing opened: the Reliability screen is still the page.
+  expect(find.text(LocaleKeys.weekly_check_title.tr()), findsWidgets);
 }
 
 const _scenes = <_Scene>[
@@ -192,7 +213,13 @@ const _scenes = <_Scene>[
   _Scene('weekly_hosted', _Plan.hosted, _Screen.reliability, _weekly),
   _Scene('weekly_own', _Plan.own, _Screen.reliability, _weekly),
   _Scene('weekly_reading', _Plan.reading, _Screen.reliability, _weekly),
-  _Scene('weekly_tap', _Plan.free, _Screen.reliability, _weeklyTap),
+  _Scene(
+    'weekly_tap_button',
+    _Plan.free,
+    _Screen.reliability,
+    _weeklyTapButton,
+  ),
+  _Scene('weekly_tap_row', _Plan.free, _Screen.reliability, _weeklyTapRow),
 ];
 
 const _variants = <(String, Size, ThemeMode, double)>[
