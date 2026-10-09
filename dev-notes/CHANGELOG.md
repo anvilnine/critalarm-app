@@ -93,6 +93,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Widgets page of Personalize: `HomeScreenWidgets` draws the Open incidents, Topic and Topics widgets upright, `widgetsRingAngle` is the one ring of the Open incidents face, `widgetsPageButtonsFor` and `widgetsSheetPlanFor` pick the buttons and the steps sheet's plan, and `tool/capture_pass_widgets.dart` captures it.
 - AppPassBands, a compact pass stack with no header or scroll, built from AppPassCard, plus a Tokens pass tone (PassId.tokens)
 - Proof log: a small local record of the weeks a test alarm or a weekly check got through (prefs key proof\_log, newest 12 weeks, cleared with the account's local data)
+- tool/capture\_screen\_nav.dart captures a Topic and Settings sub screens at 0, 25, 50, 75 and 100 percent of the page change
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -188,6 +189,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
 - Bottom sheets from showAppSheet and showExpandingSheet open with no slide under reduce motion, the proof card has a hairline on the dark theme, the path stop names never break inside a word, the pass page fades its label while it grows out of a card
 - A one word value on a pass card steps its size down before it breaks inside the word
+- The label on the Look page button sits in the middle of the button in every state (it sat near the top)
+- Settings screens open and close with the same slide and fade as a Topic: the tab shell now fades and drifts out under them (TabShellPage, AmbientPage.leavesTabBehind)
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
