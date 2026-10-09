@@ -88,6 +88,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
 - tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
 - MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
+- Pass card, pass stack, pass page and the grow route in the design system, with gallery entries and a capture tool.
+- One rule decides what a tap on a locked option does, the lock draws its badge only once the plan is read, option sheets can carry a badge, and the Plans and features lab has a Plan still being read preset
+- Widgets page of Personalize: `HomeScreenWidgets` draws the Open incidents, Topic and Topics widgets upright, `widgetsRingAngle` is the one ring of the Open incidents face, `widgetsPageButtonsFor` and `widgetsSheetPlanFor` pick the buttons and the steps sheet's plan, and `tool/capture_pass_widgets.dart` captures it.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -160,6 +163,13 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
 - Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
 - FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
+- Personalize root rebuilt on the pass stack: a summary rule for each card, a look tone read from the look registry, thumbnails for the five passes with the Look and Sound ones on one clock, routes and stub pages for Look, Wake-up challenge and Widgets, and the old strips, rows and chips removed.
+- The Look page is a deck of phones with its own look\_deck\_rules, a LookFade between two looks, a try bar that hands its button to the page, and no picture slot on RingingPreviewFrame.
+- The Wake-up challenge page is a shelf of tiles. challenge\_shelf\_rules.dart holds the tile list, the column count, the pick control state and the answer to each tap through lockTapFor. ChallengePicture, challenge\_chip\_picture.dart and the strip states of tool/capture\_challenge.dart are gone. tool/capture\_pass\_challenge.dart captures the page and checks every tap.
+- The App icon page has the shared Personalize header and the pass colour.
+- The Look deck lays phones out for an upright screen through RingingPreview.screenSize, centres on wide displays, keeps inactive dots at 3 to 1, and draws an empty Yours cream with a dashed outline.
+- Pass pages use the standard bar blur and fade, their header collapses into the bar as you scroll, and closing a page no longer leaves a slab under the card
+- The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -173,6 +183,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
 - Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
 - Phone defects: the Topics card foot reads the newest alarm held (HomeFacts drops the setup incident ids), Settings row values show in full, the Topic screen sorts messages with newestFirst, and AppStatusCard.strip stacks its numeral under a title that does not fit.
+- Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
@@ -181,6 +192,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
 - Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
+- AppScreenScaffold.topBackingPlateau. Settings and History use the default bar backing like every other screen.
+- Unused strings personalize.challenge\_chips.\*, personalize.sound\_yours, personalize.sound\_more, settings.app\_icon\_title, settings.app\_icon\_header and settings.app\_icon\_in\_use\_tag. App icon body sizing lives in app\_icon\_fit.dart.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

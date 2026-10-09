@@ -8,8 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../core/access/access_fakes.dart';
 
 void main() {
-  testWidgets('the locked weekly check row is its title and the badge, with '
-      'no second line', (tester) async {
+  testWidgets('the locked weekly check row has the badge and a See Hosted '
+      'button, and no switch', (tester) async {
     final access = TestAccess();
     addTearDown(access.dispose);
     await getIt.reset();
@@ -23,16 +23,23 @@ void main() {
       ),
     );
 
+    await tester.pump();
+
     expect(find.text('Weekly delivery check'), findsOneWidget);
     expect(find.byType(ProBadge), findsOneWidget);
-    // The title already says it.
+    // The line the open row has under its title.
     expect(
       find.text('Checks each week whether a push reaches this phone.'),
-      findsNothing,
+      findsOneWidget,
     );
-    // A screen reader hears the title and the plan, once each.
+    expect(find.byType(AppSwitch), findsNothing);
+    expect(find.widgetWithText(AppButton, 'See Hosted'), findsOneWidget);
+    // A screen reader hears the title, the line and the plan, once each.
     expect(
-      find.bySemanticsLabel(RegExp(r'^Weekly delivery check, Hosted$')),
+      find.bySemanticsLabel(
+        'Weekly delivery check, Checks each week whether a push reaches '
+        'this phone., Hosted',
+      ),
       findsOneWidget,
     );
   });

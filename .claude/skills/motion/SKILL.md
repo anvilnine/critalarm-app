@@ -66,6 +66,14 @@ Ask of every motion: what does it show that a still picture could not? If nothin
    (`lib/design_system/motion.dart`).
 7. **Small things do not move.** At thumbnail size (about 56 points and under) draw one mark on
    one shared tile shape. Motion starts at about 120 points.
+   **Exception: Personalize pass thumbnails.** On the Personalize root the Look and Sound passes
+   may animate their thumbnail (the mini phone, the bars) although both are about 62 points. Z
+   approved this on 2026-10-09 because each thumbnail shows the live state of the thing the pass
+   opens. Limits: only those two thumbnails move, the other three stay still; the motion is a
+   pure function of one clock (`passThumbRock`, `passBarScale`) with a resting frame; the clock
+   stops while the route is covered or the app is not resumed; reduce motion shows the resting
+   frame; no sound. The Look thumbnail swings 4 degrees either side of upright, so the card never
+   rests at an angle.
 8. **Fixed sizes.** A preview has size classes and never stretches to fill leftover height.
    Leftover height goes to the hero or to air, on purpose.
 9. **The accent stays scarce.** Cobalt is the primary action, and a switch that is on. Motion

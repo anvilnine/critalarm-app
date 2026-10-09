@@ -52,10 +52,16 @@ class RingingPreview extends StatefulWidget {
     this.fit = BoxFit.contain,
     this.style,
     this.isStill = false,
+    this.screenSize,
     super.key,
   });
 
   final BoxFit fit;
+
+  /// The screen to lay the picture out for, when it is not this display's.
+  /// A phone drawn upright on a display that is wider than tall asks for a
+  /// portrait one. Null lays it out for this display.
+  final Size? screenSize;
 
   /// The look to draw. Null draws the standard one.
   final AlarmStyle? style;
@@ -70,9 +76,21 @@ class RingingPreview extends StatefulWidget {
 
   /// The screen the preview is laid out for: this display, with the text
   /// size and motion setting of [context].
-  static MediaQueryData screenOf(BuildContext context) {
+  ///
+  /// With [size] the screen is that size instead, upright, with the insets
+  /// of a phone held that way.
+  static MediaQueryData screenOf(BuildContext context, {Size? size}) {
     final here = MediaQuery.of(context);
-    return MediaQueryData.fromView(View.of(context)).copyWith(
+    final view = MediaQueryData.fromView(View.of(context));
+    final base = size == null
+        ? view
+        : view.copyWith(
+            size: size,
+            padding: const EdgeInsets.only(top: _uprightTop, bottom: 16),
+            viewPadding: const EdgeInsets.only(top: _uprightTop, bottom: 16),
+            viewInsets: EdgeInsets.zero,
+          );
+    return base.copyWith(
       textScaler: here.textScaler,
       disableAnimations: here.disableAnimations,
       boldText: here.boldText,
@@ -80,6 +98,10 @@ class RingingPreview extends StatefulWidget {
       platformBrightness: here.platformBrightness,
     );
   }
+
+  /// The top inset of an upright phone, for a picture laid out upright on a
+  /// display that is not.
+  static const double _uprightTop = 28;
 
   @override
   State<RingingPreview> createState() => _RingingPreviewState();
@@ -94,7 +116,7 @@ class _RingingPreviewState extends State<RingingPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final here = RingingPreview.screenOf(context);
+    final here = RingingPreview.screenOf(context, size: widget.screenSize);
     final screen = widget.isStill
         ? here.copyWith(disableAnimations: true)
         : here;
@@ -281,29 +303,11 @@ class RingingPreviewFrame extends StatelessWidget {
     required this.maxHeight,
     this.playBelow = false,
     this.style,
-    this.picture,
-    this.pictureLabel,
-    this.pictureHint,
-    this.onOpenPicture,
     super.key,
   });
 
   /// The look the ringing alarm is drawn in. Null draws the standard one.
   final AlarmStyle? style;
-
-  /// Drawn in the frame in place of the ringing alarm: an option being
-  /// shown that is not a look of the ringing screen, such as a wake-up
-  /// challenge. It is handed the screen it is laid out for. Null draws the
-  /// ringing alarm.
-  final Widget Function(MediaQueryData screen)? picture;
-
-  /// What a screen reader calls the frame while [picture] is in it, and
-  /// what a double tap does.
-  final String? pictureLabel;
-  final String? pictureHint;
-
-  /// A tap on the frame while [picture] is in it.
-  final VoidCallback? onOpenPicture;
 
   /// The edge of the square that takes a tap on the play button.
   static const double playTarget = 44;
@@ -319,10 +323,6 @@ class RingingPreviewFrame extends StatelessWidget {
   final VoidCallback onPlay;
 
   void _open(BuildContext context) {
-    if (picture != null) {
-      onOpenPicture?.call();
-      return;
-    }
     unawaited(
       Navigator.of(
         context,
@@ -334,18 +334,12 @@ class RingingPreviewFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final screenData = RingingPreview.screenOf(context);
-    final screen = screenData.size;
-    final picture = this.picture;
+    final screen = RingingPreview.screenOf(context).size;
     final frame = Semantics(
       button: true,
       image: true,
-      label: picture == null
-          ? LocaleKeys.personalize_preview_label.tr()
-          : pictureLabel,
-      hint: picture == null
-          ? LocaleKeys.personalize_preview_hint.tr()
-          : pictureHint,
+      label: LocaleKeys.personalize_preview_label.tr(),
+      hint: LocaleKeys.personalize_preview_hint.tr(),
       onTap: () => _open(context),
       child: GestureDetector(
         onTap: () => _open(context),
@@ -363,11 +357,7 @@ class RingingPreviewFrame extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: radius,
-                  child: RepaintBoundary(
-                    child: picture == null
-                        ? RingingPreview(style: style)
-                        : picture(screenData),
-                  ),
+                  child: RepaintBoundary(child: RingingPreview(style: style)),
                 ),
               );
             },

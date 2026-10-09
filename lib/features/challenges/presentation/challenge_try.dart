@@ -67,61 +67,6 @@ class _AckedCanvas extends StatelessWidget {
   }
 }
 
-/// A challenge as a still picture for the Personalize preview frame: the
-/// real step, laid out for [screen] and scaled to the room it is given.
-///
-/// It is inert. It takes no touch, no focus and no screen reader stop, and
-/// it opens no keyboard. The frame around it opens the try.
-class ChallengePicture extends StatelessWidget {
-  const ChallengePicture({
-    required this.challenge,
-    required this.screen,
-    super.key,
-  });
-
-  final Challenge challenge;
-
-  /// The screen the picture is laid out for.
-  final MediaQueryData screen;
-
-  static void _nothing() {}
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: IgnorePointer(
-        child: ExcludeFocus(
-          child: FittedBox(
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox.fromSize(
-              size: screen.size,
-              child: MediaQuery(
-                data: screen,
-                child: HeroMode(
-                  enabled: false,
-                  child: AmbientScope(
-                    child: _AckedCanvas(
-                      child: ChallengeStep(
-                        challenge: challenge,
-                        incident: sampleChallengeIncident(),
-                        wayOut: ChallengeWayOut.hold,
-                        isPicture: true,
-                        onPassed: _nothing,
-                        onSkip: _nothing,
-                        onLeave: _nothing,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// A challenge run once as a try, on the whole screen, for a sample topic.
 ///
 /// It is the real step with the real way out. It knows no incident and no

@@ -14,6 +14,7 @@ import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
+import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
@@ -54,7 +55,11 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_pass_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/look/look_pass_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/passes/personalize_root_page.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/widgets/widgets_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
@@ -68,6 +73,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -112,6 +118,9 @@ abstract final class AppRoute {
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
   static const personalize = 'personalize';
+  static const personalizeLook = 'personalizeLook';
+  static const personalizeChallenge = 'personalizeChallenge';
+  static const personalizeWidgets = 'personalizeWidgets';
   static const appIcon = 'appIcon';
   static const localReminderSettings = 'localReminderSettings';
   static const about = 'about';
@@ -135,6 +144,14 @@ abstract final class AppRoute {
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
+
+/// The card a Personalize pass page grows from: the `PassOrigin` the root
+/// passed as `extra`, or null when the page was opened another way (a deep
+/// link, a restored route, a topic's own sound).
+PassOrigin? _passOriginOf(GoRouterState state) {
+  final extra = state.extra;
+  return extra is PassOrigin ? extra : null;
+}
 
 /// Whether a developer can reach this build's paywall layouts: a debug
 /// build, or one with Developer options. Both dart-defines are compile-time
@@ -180,10 +197,15 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       path: '/sounds',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundPicker,
+      // The Sound pass grows into it from its card when the root pushes it
+      // with the card's `PassOrigin` as `extra`. Any other way in (a deep
+      // link, a topic's own sound) carries none and takes the shell's slide.
       pageBuilder: (context, state) {
         final topic = state.uri.queryParameters['topic'];
-        return AmbientPage(
+        return PassPage(
           key: state.pageKey,
+          name: state.name,
+          origin: _passOriginOf(state),
           child: SoundPickerScreen(
             topicName: topic != null && topic.isNotEmpty ? topic : null,
           ),
@@ -250,11 +272,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           await getIt<AppIconHost>().canChangeAppIcon()
           ? null
           : '/settings/appearance',
-      pageBuilder: (context, state) => AmbientPage(
+      // The App icon pass grows into it from its card, as /sounds does.
+      pageBuilder: (context, state) => PassPage(
         key: state.pageKey,
-        // Over the shell, like /topics/new: opaque, or the Settings tab
-        // shows through the transparent scaffold.
-        opaque: true,
+        name: state.name,
+        origin: _passOriginOf(state),
         child: const AppIconScreen(),
       ),
     ),
@@ -508,11 +530,60 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   path: 'personalize',
                   parentNavigatorKey: _rootKey,
                   name: AppRoute.personalize,
-                  pageBuilder: (context, state) => AmbientPage(
+                  pageBuilder: (context, state) => PersonalizeRootPage(
                     key: state.pageKey,
-                    opaque: true,
+                    name: state.name,
                     child: const PersonalizeScreen(),
                   ),
+                  // The pass pages. The root pushes one with the tapped
+                  // card's `PassOrigin` as `extra`, and the page grows out of
+                  // the card. Sound and App icon are `/sounds` and
+                  // `/app-icon`. A deep link has no origin and the page
+                  // takes the shell's slide. None of these redirects for a
+                  // plan: a tag never closes a door.
+                  routes: [
+                    GoRoute(
+                      path: 'look',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeLook,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const LookPassScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'challenge',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeChallenge,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const ChallengePassScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'widgets',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeWidgets,
+                      // Web and desktop have no home screen widgets.
+                      redirect: (context, state) =>
+                          homeWidgetsStepsFor(
+                                getIt<PlatformCapabilities>().platform,
+                              ) ==
+                              null
+                          ? '/settings/personalize'
+                          : null,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const WidgetsPassScreen(),
+                      ),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'appearance',

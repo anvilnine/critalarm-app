@@ -59,6 +59,16 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
 - Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
 - On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
+- Locked options on a topic's page and the weekly check show what they are first, and the plan page opens only when you try to use one
+- Personalize is a stack of colour cards, and Look, Sound, Wake-up challenge, Widgets and App icon each open into their own page.
+- The Look page shows your alarm looks as a deck of phones, you can swipe to try any, and you pay only when you choose to use one.
+- The sound picker has a new look with the wave of the sound that rings, and the sounds are listed on a white page.
+- Wake-up challenges are a shelf of tiles you can try, and you pay only when you choose to keep one.
+- The Widgets page shows the three home screen widgets, and how to add one is open to everyone.
+- On Personalize, the Wake-up challenge card says default until you pick a challenge, then shows a small picture of it.
+- The weekly delivery check row shows a See Hosted button in place of a switch when Hosted is not held. Only that button opens the paywall.
+- Add your photo on the Look page is now a try open to everyone: pick, crop and colour a photo to see it as your alarm. It stays in memory for that visit and nothing is saved until you press Use this look.
+- Personalize pages use fewer words: the Look, Wake-up challenge and Widgets pages lose lines the pictures already say, and a few labels are shorter.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -81,6 +91,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
 - The App icon screen no longer hits a layout error on the first visit with reduce motion on
 - An iPhone set up from a backup of another iPhone registers as a new device. It used to keep talking to the server as the old phone.
+- Personalize: a one word value no longer breaks in the middle at the largest text size, and the cards are no longer cut while a page opens or closes.
+- The Look page keeps its action in view at large text and on a phone on its side, where the phones now stay upright.
+- The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

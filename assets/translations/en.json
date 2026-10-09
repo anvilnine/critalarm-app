@@ -978,17 +978,14 @@
     "appearance_theme_header": "Theme",
     "appearance_motion_header": "Motion and touch",
     "app_icon_row_title": "App icon",
-    "app_icon_title": "App icon",
-    "app_icon_header": "Home screen icon",
     "app_icon_default": "Default",
     "app_icon_crowned": "Crowned",
     "app_icon_shades": "Shades",
     "app_icon_shades_crown": "Shades and crown",
     "app_icon_failed": "The icon did not change. Try again.",
     "app_icon_action_use": "Use this icon",
-    "app_icon_action_in_use": "This is your icon",
+    "app_icon_action_in_use": "In use",
     "app_icon_action_unlock": "Unlock",
-    "app_icon_in_use_tag": "In use",
     "app_icon_welcome": "Your extra icons",
     "app_icon_page_in_use": "{name}, in use",
     "app_icon_page_locked": "{name}, locked. Needs Hosted or Pro.",
@@ -1217,7 +1214,7 @@
   "weekly_check": {
     "title": "Weekly delivery check",
     "what_line": "Checks each week whether a push reaches this phone.",
-    "locked_hint": "Double tap to see Hosted",
+    "locked_description": "Checks each week whether a push reaches this phone.",
     "own_server_line": "Not available with your own server.",
     "line_waiting": "Waiting for the first check.",
     "line_received": "Last check received {when}.",
@@ -2075,7 +2072,8 @@
   "feature_lock": {
     "locked": "locked",
     "try_hint": "Double tap to try this option",
-    "sell_hint": "Double tap to see {plan}"
+    "sell_hint": "Double tap to see {plan}",
+    "sheet_option": "{name}, needs {plan}"
   },
   "settings_card": {
     "numeral_label": "{fine} of {total} checks fine",
@@ -2093,21 +2091,82 @@
     "sample_body": "The nightly backup did not finish.",
     "sample_tag": "backup",
     "sound_title": "Sound",
-    "sound_yours": "Yours",
-    "sound_more": "All sounds",
     "widgets_row": "Widgets",
     "app_icon_row": "App icon",
     "try_not_saved": "Not saved",
-    "try_button": "Unlock",
-    "try_confirming": "Confirming your purchase",
-    "challenge_chips": {
-      "topic": "Topic",
-      "title": "Title",
-      "math": "Math",
-      "scratch": "Scratch",
-      "shake": "Shake"
+    "try_button": "Use this look",
+    "try_confirming": "Confirming your purchase"
+  },
+  "personalize_passes": {
+    "root": {
+      "back_label": "Back to Settings",
+      "stack_label": "Look, sound, wake-up challenge, widgets and app icon",
+      "pass_label": "{label}, {value}",
+      "pass_label_locked": "{label}, {value}, {plan}",
+      "pass_hint": "Opens the {label} page",
+      "widgets_value": "Home screen",
+      "sound_unknown": "Default sound",
+      "thumb_default": "default"
+    },
+
+    "page": {
+      "back_label": "Back to Personalize",
+      "back_generic": "Back"
+    },
+
+    "look": {
+      "use": "Use this look",
+      "in_use": "In use",
+      "hint_swipe_locked": "{count} more with {plan}",
+      "dot_label": "Look {index} of {count}, {name}",
+      "card_label": "{name}",
+      "card_label_in_use": "{name}, in use",
+      "card_label_locked": "{name}, {plan}",
+      "card_hint_move": "Double tap to show this look",
+      "play": "Play",
+      "stop": "Stop"
+    },
+
+    "sound": {
+      "playing": "playing",
+      "stop": "Stop the sound",
+      "play": "Play the sound",
+      "topic_label": "Sound for {topic}"
+    },
+
+    "challenge": {
+      "tile_type_topic": "Letter by letter",
+      "tile_type_title": "Its first words",
+      "tile_math": "One small question",
+      "tile_scratch": "Then type the code",
+      "tile_shake": "30 shakes or taps",
+      "tile_off_name": "No challenge",
+      "tile_off": "At my desk closes at once",
+      "pick_label": "Use {name} for new topics",
+      "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
+      "page_note": "At my desk needs a challenge. I'm up always stops the alarm.",
+      "scope_note": "Existing topics won't change."
+    },
+
+    "widgets": {
+      "name_open_count": "Open incidents",
+      "name_topic": "Topic",
+      "name_topics": "Topics",
+      "see_plan": "See {plan}",
+      "how_to": "How to add one",
+      "open_label": "open",
+      "open_header": "{count} open",
+      "sample_topic_2": "web-app",
+      "sample_title_2": "Checkout is slow",
+      "sample_topic_3": "queue",
+      "sample_title_3": "Job queue backed up"
+    },
+
+    "app_icon": {
+      "state_in_use": "in use"
     }
   },
+
   "challenges": {
     "off": "Off",
     "row_title": "Wake-up challenge",

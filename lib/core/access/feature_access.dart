@@ -6,6 +6,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:flutter/foundation.dart';
 
 /// The one place that turns holdings into a yes or no for a feature.
 ///
@@ -30,6 +31,9 @@ final class FeatureAccess {
   late Map<AppFeature, FeatureDecision> _last;
   ServerMode? _serverMode;
   final Future<void>? _serverModeRead;
+  final _planRead = ValueNotifier<bool>(false);
+  bool _isDisposed = false;
+  bool _isReadStarted = false;
 
   /// Done once the holdings are current and the saved server mode has been
   /// read. Never fails.
@@ -47,6 +51,28 @@ final class FeatureAccess {
     } on Object catch (_) {
       // A mode that could not be read stays unknown.
     }
+    if (!_isDisposed) _planRead.value = true;
+  }
+
+  /// Whether the plan has been read: true once [ready] has completed, and
+  /// it stays true.
+  ///
+  /// Until then [decide] can say "locked" for a plan that is held. A
+  /// surface that draws a lock draws it only once this is true, so a phone
+  /// that holds the plan never flashes a badge. It changes nothing about a
+  /// tap: every tap that could sell waits for [ready] first.
+  bool get isPlanRead => planRead.value;
+
+  /// [isPlanRead] as something to listen to. It notifies once, when the
+  /// read is done.
+  ValueListenable<bool> get planRead {
+    // Started on first use, not when this is built, so a caller that never
+    // asks never starts a read it does not need.
+    if (!_isReadStarted) {
+      _isReadStarted = true;
+      unawaited(ready);
+    }
+    return _planRead;
   }
 
   /// [decide], asked once [ready] is done. For a caller that decides once
@@ -192,6 +218,7 @@ final class FeatureAccess {
   }
 
   Future<void> dispose() async {
+    _isDisposed = true;
     await _subscription.cancel();
     await _changes.close();
   }

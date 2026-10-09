@@ -114,6 +114,90 @@ void main() {
     });
   });
 
+  group('isPlanRead', () {
+    test('is false until ready completes, then true', () async {
+      final read = Completer<void>();
+      final hosted = FakeHoldingSource(Holding.hosted)..ready = read.future;
+      final holdings = Holdings([hosted]);
+      final access = FeatureAccess(holdings: holdings);
+      addTearDown(access.dispose);
+      addTearDown(holdings.dispose);
+
+      // The first ask starts the read.
+      expect(access.isPlanRead, isFalse);
+      await settle();
+      expect(access.isPlanRead, isFalse);
+      expect(access.planRead.value, isFalse);
+
+      read.complete();
+      await settle();
+      expect(access.isPlanRead, isTrue);
+      expect(access.planRead.value, isTrue);
+    });
+
+    test('also waits for the saved server mode', () async {
+      final holder = TestAccess();
+      addTearDown(holder.dispose);
+      final modeRead = Completer<void>();
+      final access = FeatureAccess(
+        holdings: holder.holdings,
+        serverModeRead: modeRead.future,
+      );
+      addTearDown(access.dispose);
+
+      expect(access.isPlanRead, isFalse);
+      await settle();
+      expect(access.isPlanRead, isFalse);
+      modeRead.complete();
+      await settle();
+      expect(access.isPlanRead, isTrue);
+    });
+
+    test('is true once a caller has awaited ready', () async {
+      final read = Completer<void>();
+      final hosted = FakeHoldingSource(Holding.hosted)..ready = read.future;
+      final holdings = Holdings([hosted]);
+      final access = FeatureAccess(holdings: holdings);
+      addTearDown(access.dispose);
+      addTearDown(holdings.dispose);
+
+      final waiting = access.ready;
+      read.complete();
+      await waiting;
+      expect(access.isPlanRead, isTrue);
+    });
+
+    test('planRead notifies once, and not again for a later ready', () async {
+      final read = Completer<void>();
+      final hosted = FakeHoldingSource(Holding.hosted)..ready = read.future;
+      final holdings = Holdings([hosted]);
+      final access = FeatureAccess(holdings: holdings);
+      addTearDown(access.dispose);
+      addTearDown(holdings.dispose);
+      final seen = <bool>[];
+      access.planRead.addListener(() => seen.add(access.planRead.value));
+
+      read.complete();
+      await settle();
+      await access.ready;
+      await access.ready;
+      expect(seen, [true]);
+    });
+
+    test('a server mode that could not be read still reads the plan', () async {
+      final holder = TestAccess();
+      addTearDown(holder.dispose);
+      final access = FeatureAccess(
+        holdings: holder.holdings,
+        serverModeRead: Future<void>.error(StateError('prefs')),
+      );
+      addTearDown(access.dispose);
+      expect(access.isPlanRead, isFalse);
+      await settle();
+      expect(access.isPlanRead, isTrue);
+    });
+  });
+
   group('isOwnServer', () {
     test('is false on Crit Alarm Cloud, on the relay itself and while the '
         'mode is unknown', () {
