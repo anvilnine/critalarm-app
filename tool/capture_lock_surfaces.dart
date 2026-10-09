@@ -9,16 +9,6 @@
 // <scene>_<phone>_<theme>_<scale>x.png. The path of every file is printed.
 //
 // Scenes (the plan in brackets):
-//   challenge_free_row     topic page, Wake-up challenge row, locked (Free)
-//   challenge_free_sheet   the tap on that row: the picker sheet with a plan
-//                          word on each challenge (Free)
-//   challenge_pro_sheet    the same sheet with Pro held: no plan words
-//   challenge_pick         a locked challenge picked in the sheet: the
-//                          paywall opens (Free)
-//   look_pick              a locked look picked in the sheet: the paywall opens
-//   look_free_row          topic page, Alarm look row, locked (Free)
-//   look_free_sheet        the picker sheet with a plan word on each paid look
-//   look_pro_sheet         the same sheet with Pro held
 //   weekly_free            Reliability, weekly check row locked: title, badge,
 //                          line and a "See Hosted" button, no switch (Free)
 //   weekly_hosted          the open row (Hosted held)
@@ -57,8 +47,6 @@ import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/challenges/presentation/topic_challenge_row.dart';
-import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -81,7 +69,6 @@ const _only = String.fromEnvironment('ONLY');
 /// The plan a scene starts in, as the developer switches save it.
 enum _Plan {
   free({'dev.access.hosted': 'notHeld', 'dev.access.pro': 'notHeld'}),
-  pro({'dev.access.hosted': 'notHeld', 'dev.access.pro': 'held'}),
   hosted({'dev.access.hosted': 'held', 'dev.access.pro': 'notHeld'}),
   own({
     'dev.access.hosted': 'held',
@@ -126,49 +113,6 @@ Future<void> _show(WidgetTester tester, Finder finder) async {
 Future<void> _real(WidgetTester tester, [int ms = 300]) =>
     tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
 
-Future<void> _challengeRow(WidgetTester tester) async {
-  await _show(tester, find.byType(TopicChallengeRow));
-}
-
-Future<void> _challengeSheet(WidgetTester tester) async {
-  await _challengeRow(tester);
-  await tester.tap(find.byType(TopicChallengeRow));
-  await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
-}
-
-Future<void> _challengePick(WidgetTester tester) async {
-  await _challengeSheet(tester);
-  await tester.tap(find.text(LocaleKeys.challenges_ops_math_name.tr()));
-  await _afterPick(tester);
-}
-
-/// Lets the sheet close, the plan be awaited and the paywall open.
-Future<void> _afterPick(WidgetTester tester) async {
-  for (var i = 0; i < 4; i++) {
-    await tester.pump(const Duration(milliseconds: 500));
-    await _real(tester, 400);
-  }
-  await tester.pump(const Duration(seconds: 2));
-}
-
-Future<void> _lookRow(WidgetTester tester) async {
-  await _show(tester, find.byType(TopicAlarmStyleRow));
-}
-
-Future<void> _lookSheet(WidgetTester tester) async {
-  await _lookRow(tester);
-  await tester.tap(find.byType(TopicAlarmStyleRow));
-  await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
-}
-
-Future<void> _lookPick(WidgetTester tester) async {
-  await _lookSheet(tester);
-  await tester.tap(find.text(LocaleKeys.alarm_styles_terminal.tr()));
-  await _afterPick(tester);
-}
-
 Future<void> _weekly(WidgetTester tester) async {
   await _show(tester, find.text(LocaleKeys.weekly_check_title.tr()));
 }
@@ -201,14 +145,6 @@ Future<void> _weeklyTapRow(WidgetTester tester) async {
 }
 
 const _scenes = <_Scene>[
-  _Scene('challenge_free_row', _Plan.free, _Screen.topic, _challengeRow),
-  _Scene('challenge_free_sheet', _Plan.free, _Screen.topic, _challengeSheet),
-  _Scene('challenge_pro_sheet', _Plan.pro, _Screen.topic, _challengeSheet),
-  _Scene('challenge_pick', _Plan.free, _Screen.topic, _challengePick),
-  _Scene('look_pick', _Plan.free, _Screen.topic, _lookPick),
-  _Scene('look_free_row', _Plan.free, _Screen.topic, _lookRow),
-  _Scene('look_free_sheet', _Plan.free, _Screen.topic, _lookSheet),
-  _Scene('look_pro_sheet', _Plan.pro, _Screen.topic, _lookSheet),
   _Scene('weekly_free', _Plan.free, _Screen.reliability, _weekly),
   _Scene('weekly_hosted', _Plan.hosted, _Screen.reliability, _weekly),
   _Scene('weekly_own', _Plan.own, _Screen.reliability, _weekly),
