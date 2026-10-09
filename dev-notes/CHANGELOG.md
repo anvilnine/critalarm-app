@@ -169,6 +169,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The App icon page has the shared Personalize header and the pass colour.
 - The Look deck lays phones out for an upright screen through RingingPreview.screenSize, centres on wide displays, keeps inactive dots at 3 to 1, and draws an empty Yours cream with a dashed outline.
 - Pass pages use the standard bar blur and fade, their header collapses into the bar as you scroll, and closing a page no longer leaves a slab under the card
+- The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

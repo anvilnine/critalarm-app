@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/components/pass_route.dart';
+import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -9,10 +10,58 @@ import 'package:critalarm/design/tokens/pass_tones.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
-export 'package:critalarm/design/tokens/pass_tones.dart' show PassId;
+export 'package:critalarm/design/tokens/pass_tones.dart'
+    show PassBadgeColors, PassId, passBadgeColorsFor;
 
 /// How far the value stops short of the thumbnail on a card.
 const double _kThumbGap = 12;
+
+/// The gap between the label and its plan badge.
+const double _kTagGap = 10;
+
+/// The plan badge on a label line: a compact pill with a lock and the plan
+/// word.
+///
+/// It is as tall as the label's line, so it adds nothing to the line's
+/// height and the header's geometry holds. The pill is a little taller than
+/// that and is centred on it. It is not a button: it takes no tap and the
+/// screen reader reads the plan from the card's own label.
+class _PassTagBadge extends StatelessWidget {
+  const _PassTagBadge({
+    required this.word,
+    required this.colors,
+    required this.labelHeight,
+  });
+
+  final String word;
+  final PassBadgeColors? colors;
+  final double labelHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final colors = this.colors;
+    return ExcludeSemantics(
+      child: IntrinsicWidth(
+        child: SizedBox(
+          height: labelHeight * scale,
+          child: OverflowBox(
+            minHeight: 0,
+            maxHeight: double.infinity,
+            child: ProBadge(
+              label: word,
+              isLocked: true,
+              isCompact: true,
+              fill: colors?.fill,
+              ink: colors?.ink,
+              border: colors?.border,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A pass card's label line: the mono label, an optional state word after a
 /// dot, and an optional tag.
@@ -27,6 +76,7 @@ class PassLabelLine extends StatelessWidget {
     required this.color,
     this.state,
     this.tag,
+    this.badge,
     this.isSingleLine = false,
     super.key,
   });
@@ -44,6 +94,9 @@ class PassLabelLine extends StatelessWidget {
   /// The plan word, drawn only while the feature is locked and the plan is
   /// read. The caller passes it from `planWordFor`.
   final String? tag;
+
+  /// The colours of the tag's pill. Null draws the app's yellow pill.
+  final PassBadgeColors? badge;
 
   /// Full text colour. Opacity would take the label under 4.5 to 1 on the
   /// standard look.
@@ -73,26 +126,14 @@ class PassLabelLine extends StatelessWidget {
     );
     final tagText = tag == null
         ? null
-        : Text(
-            tag!.toUpperCase(),
-            maxLines: isSingleLine ? 1 : null,
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 10.5,
-              height: 1.2,
-              letterSpacing: 0.08 * 10.5,
-              color: color,
-            ),
-          );
+        : _PassTagBadge(word: tag!, colors: badge, labelHeight: 11 * 1.2);
     if (isSingleLine) {
       return MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: capped),
         child: Row(
           children: [
             Flexible(child: labelText),
-            if (tagText != null) ...[const SizedBox(width: 8), tagText],
+            if (tagText != null) ...[const SizedBox(width: _kTagGap), tagText],
           ],
         ),
       );
@@ -101,13 +142,17 @@ class PassLabelLine extends StatelessWidget {
       data: MediaQuery.of(context).copyWith(textScaler: capped),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 8,
+        spacing: _kTagGap,
         runSpacing: 2,
         children: [labelText, ?tagText],
       ),
     );
   }
 }
+
+/// The pill colours a pass of [tone] gets in the theme [colors] belong to.
+PassBadgeColors _badgeColors(AppColors colors, PassTone tone) =>
+    passBadgeColorsFor(tone, yellow: colors.yellow, inkFixed: colors.inkFixed);
 
 /// The value's text style on a card and a page: Bricolage 800, tracked tight.
 TextStyle passValueStyle(Color color, double size) => TextStyle(
@@ -357,7 +402,12 @@ class _AppPassCardState extends State<AppPassCard> {
     final label = PassLabelLine(
       label: widget.label,
       tag: widget.tag,
+      badge: widget.tag == null ? null : _badgeColors(colors, tone),
       color: tone.onGround,
+      // In the overlapped stack the band is short and the thumbnail takes
+      // the right side, so a long label is cut with an ellipsis and the
+      // badge keeps its place after it. The flat stack has the room to wrap.
+      isSingleLine: !isFlat,
     );
     final value = Text(
       widget.value,
