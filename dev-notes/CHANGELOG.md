@@ -172,6 +172,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Look deck lays phones out for an upright screen through RingingPreview.screenSize, centres on wide displays, keeps inactive dots at 3 to 1, and draws an empty Yours cream with a dashed outline.
 - Pass pages use the standard bar blur and fade, their header collapses into the bar as you scroll, and closing a page no longer leaves a slab under the card
 - The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
+- Every setup step has its own ambient canvas step and arrangement (the offer and the legacy test no longer share one), and the canvas takes a live profile so a pager can drag the shapes. The bundled flows no longer list how\_it\_rings or widgets, since the welcome shows both.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -188,6 +189,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
 - Bottom sheets from showAppSheet and showExpandingSheet open with no slide under reduce motion, the proof card has a hairline on the dark theme, the path stop names never break inside a word, the pass page fades its label while it grows out of a card
 - A one word value on a pass card steps its size down before it breaks inside the word
+- The first welcome page no longer shows its face or title cut by the page edge during a swipe: they fade and travel clear of it, driven by the pager's page value.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
