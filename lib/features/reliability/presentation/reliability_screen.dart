@@ -4,21 +4,24 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/reliability/domain/attention_order.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/wake_answer.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
-import 'package:critalarm/features/reliability/presentation/reliability_groups.dart';
+import 'package:critalarm/features/reliability/presentation/proof_card.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
 import 'package:critalarm/features/reliability/presentation/wake_header.dart';
 import 'package:critalarm/features/reliability/presentation/wake_path.dart';
 import 'package:critalarm/features/reliability/presentation/wake_problem_list.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
+import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
+import 'package:critalarm/features/weekly_check/presentation/widgets/weekly_check_group.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -28,8 +31,12 @@ import 'package:go_router/go_router.dart';
 /// Settings, "Will it wake me?": one word (Yes, Maybe or No) with a line and
 /// the face, the path an alarm takes with the stop that is not fine in red,
 /// then either one chip (every check passes) or a white list of what to fix
-/// with a folded row for the checks that pass. One button is pinned at the
-/// bottom.
+/// with a folded row for the checks that pass, then the dark proof card with
+/// the last eight weeks and the weekly delivery check. One button is pinned
+/// at the bottom.
+///
+/// The bar's title shows only once the header has scrolled under the bar. At
+/// rest the header's own label says the same thing.
 ///
 /// What to draw comes from `ReliabilityCubit`. The word, the path and the
 /// numbers they are drawn from are the pure functions in
@@ -45,33 +52,23 @@ import 'package:go_router/go_router.dart';
 /// check's state, reason and fix, so a check from a new source sorts and
 /// draws like the rest.
 ///
-/// To add a group of rows: append one to `reliabilityExtraGroups`. A group
-/// that draws a check of its own names the check's id, and the screen then
-/// draws no plain row for it (`reliabilityScreenLayout`).
+/// The weekly delivery check is a check like the others when it needs a look:
+/// it has a row in the list with its fix. Its switch lives in the proof card.
 class ReliabilityScreen extends StatelessWidget {
-  const ReliabilityScreen({
-    this.extraGroups = reliabilityExtraGroups,
-    super.key,
-  });
-
-  final List<ReliabilityGroup> extraGroups;
+  const ReliabilityScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: getIt<ReliabilityCubit>(),
-      child: _ReliabilityView(
-        extraGroups: extraGroups,
-        runner: getIt<ReliabilityFixRunner>(),
-      ),
+      child: _ReliabilityView(runner: getIt<ReliabilityFixRunner>()),
     );
   }
 }
 
 class _ReliabilityView extends StatefulWidget {
-  const _ReliabilityView({required this.extraGroups, required this.runner});
+  const _ReliabilityView({required this.runner});
 
-  final List<ReliabilityGroup> extraGroups;
   final ReliabilityFixRunner runner;
 
   @override
@@ -86,23 +83,27 @@ class _ReliabilityViewState extends State<_ReliabilityView>
   /// Checks whose entry is being closed.
   final Set<ReliabilityCheckId> _clearing = {};
 
-  final Map<int, GlobalKey> _groupKeys = {};
+  final ScrollController _scroll = ScrollController();
 
-  /// When the newest test alarm rang on this phone, for the line under
-  /// Yes. Null when none ever did.
+  /// When the newest test alarm or weekly check rang on this phone, for the
+  /// line under Yes. Null when none ever did.
   DateTime? _lastTestAt;
+  StreamSubscription<void>? _proofChanges;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _readLastTest();
+    _proofChanges = getIt<ProofLog>().changes.listen((_) => _readLastTest());
     unawaited(_refresh());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_proofChanges?.cancel());
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -120,9 +121,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
 
   void _readLastTest() {
     try {
-      final at = newestTestAt(
-        getIt<LocalReminderStore>().readLastTestAt().values,
-      );
+      final at = getIt<ProofLog>().newestRangAt();
       if (at != _lastTestAt) {
         if (mounted) setState(() => _lastTestAt = at);
       }
@@ -154,6 +153,10 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       await widget.runner.run(fix);
     } finally {
       if (mounted) setState(() => _busy.remove(check.id));
+    }
+    // The weekly check's row in the card reads the relay's answer again.
+    if (check.id == WeeklyCheckSource.id) {
+      await getIt<WeeklyCheckCubit>().load(force: true);
     }
     await _refresh();
   }
@@ -201,11 +204,9 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       builder: (context, snapshot) {
         final isLoading = !snapshot.loaded;
         final ordered = orderReliabilityChecks(snapshot.checks);
-        // A check a group draws gets no plain row, and its group moves up
-        // to the check's place while it needs attention.
-        final layout = reliabilityScreenLayout(ordered, [
-          for (final group in widget.extraGroups) group.checkId,
-        ]);
+        // Every check has its own row. The weekly delivery check's switch is
+        // in the proof card, so no group draws it here.
+        final layout = reliabilityScreenLayout(ordered, const []);
         final now = DateTime.now();
         final split = splitReliabilityRows(layout.rows);
         final answer = wakeAnswerForSnapshot(
@@ -226,6 +227,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
           onRefresh: _refresh,
           // The bar has one fixed height, so its text stops growing at the
           // chrome limit instead of being cut off by it.
+          scrollController: _scroll,
           topBar: MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaler: MediaQuery.textScalerOf(
@@ -233,7 +235,10 @@ class _ReliabilityViewState extends State<_ReliabilityView>
               ).clamp(maxScaleFactor: kChromeMaxTextScale),
             ),
             child: AppTopBar(
-              title: LocaleKeys.reliability_title.tr(),
+              titleWidget: _BarTitle(
+                controller: _scroll,
+                title: LocaleKeys.reliability_title.tr(),
+              ),
               leading: AppIconButton(
                 glyph: GlyphType.back,
                 ariaLabel: LocaleKeys.reliability_back_aria_label.tr(),
@@ -301,27 +306,22 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                                 WakeProblemList(
                                   problems: [
                                     for (final row in split.attention)
-                                      _problem(context, snapshot, row, now),
+                                      _problem(context, row, now),
                                   ],
                                   passing: [
                                     for (final row in split.calm)
-                                      _row(context, snapshot, row, now),
+                                      _row(context, row, now),
                                   ],
                                   passCount: passCount,
-                                  tails: [
-                                    for (final row in split.attention)
-                                      if (row.group case final group?)
-                                        if (widget.extraGroups[group].plainTail
-                                            case final tail?)
-                                          tail(context),
-                                  ],
                                 ),
-                              // The proof card goes here, under the list or
-                              // the chip. It is a later task's, so nothing is
-                              // drawn.
-                              const SizedBox.shrink(),
-                              // The groups that need no attention.
-                              ..._belowTheList(context, snapshot, layout.below),
+                              const SizedBox(height: Spacing.s3),
+                              ProofCard(
+                                log: getIt<ProofLog>(),
+                                weeklyCheck: const WeeklyCheckCardRow(),
+                              ),
+                              // The way to the weekly check's past rounds,
+                              // once the relay has sent this phone a check.
+                              const WeeklyCheckRoundsLink(),
                               const SizedBox(height: Spacing.s4),
                             ],
                           ),
@@ -333,33 +333,6 @@ class _ReliabilityViewState extends State<_ReliabilityView>
         );
       },
     );
-  }
-
-  /// The groups that sit under the list because they need no attention.
-  List<Widget> _belowTheList(
-    BuildContext context,
-    ReliabilitySnapshot snapshot,
-    List<ReliabilityGroupBelow> below,
-  ) {
-    if (below.isEmpty) return const [];
-    return [
-      const SizedBox(height: Spacing.s3),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: AppSheet(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < below.length; i++) ...[
-                if (i > 0) const ReliabilityRowDivider(),
-                _group(context, snapshot, below[i].group, null),
-              ],
-            ],
-          ),
-        ),
-      ),
-    ];
   }
 
   /// The one button pinned at the bottom.
@@ -405,16 +378,8 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     );
   }
 
-  /// One problem in the white list, or the group that draws its check.
-  Widget _problem(
-    BuildContext context,
-    ReliabilitySnapshot snapshot,
-    ReliabilityListRow row,
-    DateTime now,
-  ) {
-    if (row.group case final group?) {
-      return _group(context, snapshot, group, row);
-    }
+  /// One problem in the white list.
+  Widget _problem(BuildContext context, ReliabilityListRow row, DateTime now) {
     final check = row.check;
     return WakeProblemRow(
       check: check,
@@ -429,16 +394,8 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     );
   }
 
-  /// One row that needs action, or the group that draws its check.
-  Widget _row(
-    BuildContext context,
-    ReliabilitySnapshot snapshot,
-    ReliabilityListRow row,
-    DateTime now,
-  ) {
-    if (row.group case final group?) {
-      return _group(context, snapshot, group, row);
-    }
+  /// One row of a check that passes.
+  Widget _row(BuildContext context, ReliabilityListRow row, DateTime now) {
     return ReliabilityRow(
       check: row.check,
       now: now,
@@ -453,27 +410,54 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     );
   }
 
-  /// One group, keyed by its position so it keeps its state when it moves
-  /// between the card of rows that need action and its place under the test
-  /// row. Those are two parents, so the key is a global one.
-  Widget _group(
-    BuildContext context,
-    ReliabilitySnapshot snapshot,
-    int index,
-    ReliabilityListRow? row,
-  ) => KeyedSubtree(
-    key: _groupKeys.putIfAbsent(index, GlobalKey.new),
-    child: widget.extraGroups[index].builder(
-      context,
-      snapshot,
-      check: row?.check,
-      isPrimary: row?.isPrimary ?? false,
-    ),
-  );
-
   String? _actionLabel(ReliabilityCheck check) {
     final fix = check.fix;
     if (fix == null) return null;
     return reliabilityFixLabelKey(fix, testRouteName: AppRoute.testRing).tr();
+  }
+}
+
+/// The bar's title. It is clear while the header sits under the bar with its
+/// own label, and comes in once the header has scrolled up under the bar. It
+/// follows the scroll position, so reduced motion has nothing to turn off.
+class _BarTitle extends StatelessWidget {
+  const _BarTitle({required this.controller, required this.title});
+
+  final ScrollController controller;
+  final String title;
+
+  /// The scroll distance over which the title comes in. The header label
+  /// is under the bar a little after the first.
+  static const double _from = 12;
+  static const double _span = 24;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final offset = controller.hasClients ? controller.offset : 0.0;
+        final shown = ((offset - _from) / _span).clamp(0.0, 1.0);
+        return ExcludeSemantics(
+          excluding: shown < 1,
+          child: Semantics(
+            header: true,
+            child: Opacity(
+              opacity: shown,
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.headline(
+                  colors.onCanvas,
+                  fontSize: 18,
+                ).copyWith(letterSpacing: -0.02 * 18),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

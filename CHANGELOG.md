@@ -29,6 +29,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup now shows your first topic landing on the Topics screen, then points at it once when setup ends.
 - A new token is named in a sheet first, and its value and curl line are shown once when it is made.
 - A topic's tokens have their own page with a New token button.
+- Will it wake me shows the last eight weeks of tests and weekly checks as dots.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
