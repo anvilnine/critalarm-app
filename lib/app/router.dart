@@ -44,6 +44,7 @@ import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dar
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
@@ -119,6 +120,8 @@ abstract final class AppRoute {
   static const appearanceSettings = 'appearanceSettings';
   static const personalize = 'personalize';
   static const personalizeLook = 'personalizeLook';
+  static const topicLook = 'topicLook';
+  static const topicChallenge = 'topicChallenge';
   static const personalizeChallenge = 'personalizeChallenge';
   static const personalizeWidgets = 'personalizeWidgets';
   static const appIcon = 'appIcon';
@@ -257,6 +260,37 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         key: state.pageKey,
         opaque: true,
         child: const SoundRecorderScreen(),
+      ),
+    ),
+    // The Look and Wake-up challenge pages for one topic: the Personalize
+    // pages with the scope of `?topic=<name>`. Without a topic they are the
+    // pages Personalize opens, for the whole phone. A topic is reached from
+    // two tabs, so these sit on the root navigator like `/sounds`, and the
+    // page grows out of the card that pushes it with a `PassOrigin`.
+    GoRoute(
+      path: '/look',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicLook,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: LookPassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/challenge',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicChallenge,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: ChallengePassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
       ),
     ),
     // The icon picker covers the display like creating a topic, so the tab
