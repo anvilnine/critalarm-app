@@ -269,6 +269,10 @@ class _Pill extends StatelessWidget {
             horizontal: Spacing.s5,
             vertical: Spacing.s2,
           ),
+          // Centres the label in the pill. With no alignment the Container
+          // gives the Wrap the pill's minimum height, and the Wrap puts its
+          // one run at the top of it.
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isFilled ? text : null,
             borderRadius: BorderRadius.circular(LookActionBar.pillHeight / 2),
@@ -287,6 +291,9 @@ class _Pill extends StatelessWidget {
                 style: AppTypography.body(ink).copyWith(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
+                  // Tight, so a badge that wraps under the label at large text
+                  // does not leave the label with empty leading above it.
+                  height: 1.2,
                 ),
               ),
               if (badge != null)

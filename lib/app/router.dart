@@ -320,8 +320,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // bar stays on screen and each tab keeps its own back stack. Anything that
     // must cover the whole display is routed outside it.
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          AppShell(navigationShell: navigationShell),
+      // The shell fades and drifts out under a Settings screen the way the
+      // Topics list does under a Topic. See `TabShellPage`.
+      pageBuilder: (context, state, navigationShell) => TabShellPage(
+        key: state.pageKey,
+        child: AppShell(navigationShell: navigationShell),
+      ),
       branches: [
         StatefulShellBranch(
           routes: [
@@ -479,7 +483,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               // Every sub-page sits on the root navigator, above the floating
               // tab bar, so its + and search buttons are gone. Opaque, for the
               // reason given on `/app-icon`. Create-topic and search do not
-              // belong on a page like Delete account.
+              // belong on a page like Delete account. Each one sets
+              // `leavesTabBehind`, so the shell under it fades and drifts out
+              // as a Topic does over the Topics list. Without it the shell
+              // stood fully drawn until the page was opaque.
               routes: [
                 GoRoute(
                   path: 'disconnected',
@@ -498,6 +505,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DevicePermissionsScreen(),
                   ),
                 ),
@@ -508,6 +516,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ReliabilityScreen(),
                   ),
                   routes: [
@@ -540,6 +549,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AlarmSettingsScreen(),
                   ),
                 ),
@@ -556,6 +566,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrioritiesScreen(),
                   ),
                 ),
@@ -566,6 +577,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ServerSettingsScreen(),
                   ),
                 ),
@@ -578,6 +590,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AccountScreen(),
                   ),
                   routes: [
@@ -661,6 +674,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AppearanceSettingsScreen(),
                   ),
                 ),
@@ -671,6 +685,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrivacySettingsScreen(),
                   ),
                 ),
@@ -681,6 +696,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const LocalReminderSettingsScreen(),
                   ),
                 ),
@@ -691,6 +707,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AboutScreen(),
                   ),
                 ),
@@ -704,6 +721,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DeveloperSettingsScreen(),
                   ),
                   routes: [

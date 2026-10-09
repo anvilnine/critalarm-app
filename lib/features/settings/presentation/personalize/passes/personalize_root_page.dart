@@ -22,12 +22,18 @@ class PersonalizeRootPage extends Page<void> {
 }
 
 class _PersonalizeRootRoute extends PageRoute<void>
-    with AmbientRoutePopGestureMixin<void> {
+    with AmbientRoutePopGestureMixin<void>
+    implements AmbientTabCover {
   _PersonalizeRootRoute({required PersonalizeRootPage page})
     : _page = page,
       super(settings: page);
 
   final PersonalizeRootPage _page;
+
+  // The tab under Personalize leaves the way it does under every Settings
+  // screen.
+  @override
+  bool get leavesTabBehind => true;
 
   // Reads MediaQuery without depending on it, since a route's durations are
   // read outside build. Under reduce motion the route does not run.
