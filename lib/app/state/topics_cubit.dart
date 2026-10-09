@@ -94,6 +94,7 @@ class TopicsCubit extends Cubit<TopicsState> {
     this._getTopics, {
     this._deleteTopic,
     this._incidents,
+    this._onDeleted,
     DateTime Function()? now,
     AccountIdentityChanges? identityChanges,
   }) : _now = now ?? DateTime.now,
@@ -107,6 +108,11 @@ class TopicsCubit extends Cubit<TopicsState> {
   /// Optional so a test that never deletes can build the cubit without a
   /// repository behind it.
   final DeleteTopicUsecase? _deleteTopic;
+
+  /// Called with the name once the server has deleted a topic, so what
+  /// this phone keeps for that topic alone can go with it (its wake-up
+  /// challenge). A failure in it never turns a delete into an error.
+  final Future<void> Function(String name)? _onDeleted;
 
   /// Deleting a topic on the server takes its incidents with it, so the shared
   /// incident list drops them here too rather than waiting for a fetch to
@@ -182,6 +188,14 @@ class TopicsCubit extends Cubit<TopicsState> {
 
     final removed = _removeNow(name);
     final result = await usecase(name);
+    if (result.isSuccess()) {
+      try {
+        await _onDeleted?.call(name);
+      } on Object catch (_) {
+        // The topic is gone on the server. What is left on the phone for
+        // it asks for nothing without a topic to ring.
+      }
+    }
     if (isClosed) return null;
 
     return result.fold(

@@ -122,6 +122,25 @@ abstract final class SettingsSearchIndex {
       devOnly: true,
     ),
 
+    const SettingsDestination(
+      id: 'personalize',
+      routePath: '/settings/personalize',
+      titleKey: LocaleKeys.personalize_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'personalize',
+        'personalise',
+        'customize',
+        'customise',
+        'preview',
+        'alarm screen',
+        'sound',
+        'widgets',
+        'app icon',
+        'look',
+      ],
+    ),
+
     // Rows that live inside one of those screens.
     const SettingsDestination(
       id: 'alarm_sound',

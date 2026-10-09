@@ -24,7 +24,7 @@ void main() {
         LocalReminderInputs(
           now: now,
           proLaterAt: DateTime(2026, 9),
-          isPaid: true,
+          holdsHosted: true,
         ),
       ),
       isNull,

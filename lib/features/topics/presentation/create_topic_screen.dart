@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -20,7 +20,8 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -43,7 +44,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
-  const CreateTopicScreen({this.onDone, this.isReplay = false, super.key});
+  const CreateTopicScreen({
+    this.onDone,
+    this.isReplay = false,
+    this.initialTool,
+    super.key,
+  });
+
+  /// The tool chip that starts picked, from `?tool=<id>` on the route. Null
+  /// when none is asked for or the id is not one this build knows.
+  final ToolTemplate? initialTool;
 
   /// Called in place of every exit, whether the topic was created or the
   /// screen was closed. Setup passes it to move on to its next step. Null
@@ -64,6 +74,8 @@ class CreateTopicScreen extends StatelessWidget {
           // Setup asks for the topic and nothing else: no token-name step.
           ..isOneStep = onDone != null;
         unawaited(cubit.loadConnection());
+        final tool = initialTool;
+        if (tool != null) cubit.toolTemplateTapped(tool);
         // The shared topic list is already in memory, so a name that is taken
         // can be caught on step 1 instead of by the server after step 2. The
         // first-topic card waits on the list being ready.
@@ -628,7 +640,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       onPressed: () {
         AppHaptics.capture();
         unawaited(
-          context.push(hostedPaywallLocation(PaywallSource.createTopicCard)),
+          openPaywallForFeature(
+            context,
+            AppFeature.unlimitedCriticalTopics,
+            LockSource.createTopicCard,
+          ),
         );
       },
     );
@@ -787,7 +803,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         if (state.capReached?.name == 'critical_topics') {
           // Just bought Pro and the server has not heard yet. Asking them to
           // buy it again would be wrong, so say it is on its way.
-          if (state.isProPending) {
+          if (state.isPlanConfirming) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
           } else if (!_isSetup) {
             unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));

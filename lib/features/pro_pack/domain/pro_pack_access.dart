@@ -43,11 +43,12 @@ final class ProPackAccess {
   }) : _override = override ?? appProPackOverride,
        _now = now ?? DateTime.now {
     _last = isHeld;
+    _lastWaiting = isStoreAcceptedAwaitingRelay;
     _override.listenable?.addListener(_announce);
     for (final changes in _identityChanges) {
       changes.addListener(_identityChanged);
     }
-    ready = _syncScope();
+    ready = _startSync();
   }
 
   /// api.md §4.2: the relay takes this many refresh calls per account in
@@ -74,10 +75,36 @@ final class ProPackAccess {
   final DateTime Function() _now;
 
   final _changes = StreamController<bool>.broadcast();
+  final _anyChange = _Bell();
 
   /// Done once the kept list has been checked against this phone's account.
   /// Until then nothing is held from the relay.
   late final Future<void> ready;
+
+  late Future<void> _latestSync;
+  int _syncsOut = 0;
+  bool _accountUnread = false;
+
+  /// Done once the account has been read for the last thing that may have
+  /// moved it: the first read, and every sign-in, sign-out or plan change
+  /// since. [ready] is only the first of those.
+  ///
+  /// When the last read of the account failed and nothing is trying again,
+  /// asking this reads again.
+  Future<void> get synced async {
+    if (_accountUnread && _syncsOut == 0) unawaited(_startSync());
+    Future<void> waitedFor;
+    do {
+      waitedFor = _latestSync;
+      await waitedFor;
+    } while (!identical(waitedFor, _latestSync));
+  }
+
+  /// Whether the account this phone is on could not be read, so nobody
+  /// knows whose packs to answer for. False once any answer names it.
+  bool get couldNotReadAccount => _accountUnread && _scope == null;
+
+  Future<void> _startSync() => _latestSync = _syncScope();
 
   /// This phone's account, or null while it is not known.
   ProPackScope? _scope;
@@ -104,18 +131,47 @@ final class ProPackAccess {
 
   ProPackOtherSources _other = const ProPackOtherSources();
   late bool _last;
+  late bool _lastWaiting;
 
   DateTime? _lastRead;
   Future<void>? _reading;
   final List<DateTime> _refreshCalls = [];
 
   /// Whether this install holds the Pro pack, right now.
-  bool get isHeld =>
-      _relayHolds() || _override.isForcing || _otherGrant(_other);
+  bool get isHeld => isHeldWithoutSwitch || _override.isForcing;
+
+  /// [isHeld] with the developer switch left out: what the relay and the
+  /// other-grant function say on their own.
+  bool get isHeldWithoutSwitch => _relayHolds() || _otherGrant(_other);
 
   /// Every change of [isHeld], and only changes. Read [isHeld] for the
   /// value to start from.
   Stream<bool> get stream => _changes.stream;
+
+  /// Whether the store finished a purchase on this account that the relay
+  /// has not answered for yet.
+  ///
+  /// Read only. True for the record [purchaseAccepted] marked, while it is
+  /// for this account and younger than [pendingConfirmGivesUpAfter]. A
+  /// purchase that was only started, was cancelled, failed, or is held by
+  /// the store for an approval or a payment never makes it true. Neither
+  /// does a restore.
+  bool get isStoreAcceptedAwaitingRelay {
+    final scope = _scope;
+    if (scope == null) return false;
+    try {
+      final pending = _store.readPending();
+      if (pending == null || pending.scope != scope) return false;
+      if (!pending.storeAccepted) return false;
+      final age = _now().difference(pending.since);
+      return !age.isNegative && age < pendingConfirmGivesUpAfter;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
+  /// Fires when [isHeld] or [isStoreAcceptedAwaitingRelay] changed.
+  Listenable get changes => _anyChange;
 
   /// The address of a relay as the scope keeps it.
   static String relayText(Uri relay) {
@@ -268,7 +324,14 @@ final class ProPackAccess {
         scope: scope,
         request: ++_requests,
       );
-      return applied ? outcome : ProPackRefreshOutcome.unknown;
+      if (!applied) return ProPackRefreshOutcome.unknown;
+      // The relay read the store and found no pack, so the purchase no
+      // longer counts as accepted. The record stays, and launch and resume
+      // keep asking as before.
+      if (outcome == ProPackRefreshOutcome.notHeld) {
+        await _markPending(scope, isAccepted: false);
+      }
+      return outcome;
     } on Object catch (error) {
       debugPrint('pro_pack_refresh_failed error=${error.runtimeType}');
       return ProPackRefreshOutcome.unknown;
@@ -286,15 +349,55 @@ final class ProPackAccess {
       await _store.writePending(
         PendingProPackConfirm(scope: scope, since: _now()),
       );
+      _announce();
     } on Object catch (error) {
       debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
     }
+  }
+
+  /// The store finished the purchase. Marks the record [purchaseStarted]
+  /// wrote, so [isStoreAcceptedAwaitingRelay] is true until the relay
+  /// answers. Only a purchase calls it, never a restore.
+  Future<void> purchaseAccepted() async {
+    try {
+      await _syncScope();
+      final scope = _scope;
+      if (scope == null) return;
+      await _markPending(scope, isAccepted: true);
+    } on Object catch (error) {
+      debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
+    }
+  }
+
+  /// Sets or drops the accepted mark on the pending record for [scope],
+  /// keeping the time it was started. Dropping it from a record that does
+  /// not have it, or that is not there, writes nothing.
+  Future<void> _markPending(
+    ProPackScope scope, {
+    required bool isAccepted,
+  }) async {
+    try {
+      final pending = _store.readPending();
+      final mine = pending != null && pending.scope == scope ? pending : null;
+      if ((mine?.storeAccepted ?? false) == isAccepted) return;
+      await _store.writePending(
+        PendingProPackConfirm(
+          scope: scope,
+          since: mine?.since ?? _now(),
+          storeAccepted: isAccepted,
+        ),
+      );
+    } on Object catch (error) {
+      debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
+    }
+    _announce();
   }
 
   /// The person backed out of the store, so there is nothing to confirm.
   Future<void> purchaseAbandoned() async {
     try {
       await _store.clearPending();
+      _announce();
     } on Object catch (error) {
       debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
     }
@@ -335,7 +438,7 @@ final class ProPackAccess {
     return run;
   }
 
-  void _identityChanged() => unawaited(_syncScope());
+  void _identityChanged() => unawaited(_startSync());
 
   Future<String?> _sessionRelay() async {
     try {
@@ -350,6 +453,8 @@ final class ProPackAccess {
   Future<void> _syncScope() async {
     final epoch = _scopeEpoch;
     ProPackScope? scope;
+    var didFail = false;
+    _syncsOut++;
     try {
       final accountId = await _readAccountId();
       final sessionRelay = await _sessionRelay();
@@ -370,9 +475,13 @@ final class ProPackAccess {
       }
     } on Object catch (_) {
       scope = null;
+      didFail = true;
+    } finally {
+      _syncsOut--;
     }
     // A registration named the account while this was reading.
     if (epoch != _scopeEpoch) return;
+    _accountUnread = didFail;
     await _useScope(scope);
   }
 
@@ -434,10 +543,15 @@ final class ProPackAccess {
   }
 
   void _announce() {
+    if (_changes.isClosed) return;
     final held = isHeld;
-    if (held == _last || _changes.isClosed) return;
+    final waiting = isStoreAcceptedAwaitingRelay;
+    final heldChanged = held != _last;
+    if (!heldChanged && waiting == _lastWaiting) return;
     _last = held;
-    _changes.add(held);
+    _lastWaiting = waiting;
+    if (heldChanged) _changes.add(held);
+    _anyChange.ring();
   }
 
   Future<void> dispose() async {
@@ -446,5 +560,11 @@ final class ProPackAccess {
       changes.removeListener(_identityChanged);
     }
     await _changes.close();
+    _anyChange.dispose();
   }
+}
+
+/// Tells its listeners something changed and carries no value.
+final class _Bell extends ChangeNotifier {
+  void ring() => notifyListeners();
 }

@@ -22,7 +22,7 @@ Future<void> showLocalRemindersSheet({
   required BuildContext context,
   required LocalReminderStore store,
   required bool isSelfHosted,
-  bool isPaid = false,
+  bool holdsHosted = false,
   Future<void> Function()? onAnswered,
 }) {
   final analytics = getIt.isRegistered<LocalReminderAnalytics>()
@@ -33,7 +33,7 @@ Future<void> showLocalRemindersSheet({
     context: context,
     content: (sheetContext) => LocalRemindersSheet(
       isSelfHosted: isSelfHosted,
-      isPaid: isPaid,
+      holdsHosted: holdsHosted,
       onTurnOn: ({required offers}) {
         Navigator.of(sheetContext).pop();
         unawaited(analytics?.sheetAnswered(answer: 'on', offers: offers));
@@ -43,7 +43,7 @@ Future<void> showLocalRemindersSheet({
                 LocalRemindersSheetChoice.turnOn(
                   offersTicked: offers,
                   isSelfHosted: isSelfHosted,
-                  isPaid: isPaid,
+                  holdsHosted: holdsHosted,
                 ),
               )
               .then((_) => onAnswered?.call()),
@@ -66,7 +66,7 @@ Future<void> showLocalRemindersSheet({
 class LocalRemindersSheet extends StatefulWidget {
   const LocalRemindersSheet({
     required this.isSelfHosted,
-    this.isPaid = false,
+    this.holdsHosted = false,
     this.onTurnOn,
     this.onNoThanks,
     super.key,
@@ -76,7 +76,7 @@ class LocalRemindersSheet extends StatefulWidget {
   final bool isSelfHosted;
 
   /// Hides the Offers box: Pro offers mean nothing to someone who has Pro.
-  final bool isPaid;
+  final bool holdsHosted;
   final void Function({required bool offers})? onTurnOn;
   final VoidCallback? onNoThanks;
 
@@ -91,7 +91,7 @@ class _LocalRemindersSheetState extends State<LocalRemindersSheet> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final showsOffers =
-        !widget.isPaid &&
+        !widget.holdsHosted &&
         (!widget.isSelfHosted || SelfHostedMatrix.showsOffers);
     final onTurnOn = widget.onTurnOn;
 

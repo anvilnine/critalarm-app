@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
@@ -66,6 +67,7 @@ void main() {
   late WidgetHost host;
   late bool connected;
   late bool locked;
+  late bool lockUnreadable;
   var clock = DateTime.utc(2026, 9, 25);
 
   Map<String, dynamic> written(int index) =>
@@ -83,6 +85,7 @@ void main() {
     });
     connected = true;
     locked = false;
+    lockUnreadable = false;
     clock = DateTime.utc(2026, 9, 25);
     topicRepo = _Topics()..topics = const [Topic(name: 'prod')];
     incidentRepo = _Incidents()
@@ -104,7 +107,10 @@ void main() {
       incidents: incidents,
       host: host,
       isConnected: () async => connected,
-      isLocked: () async => locked,
+      isLocked: () async {
+        if (lockUnreadable) throw const HoldingUnreadable(Holding.hosted);
+        return locked;
+      },
       now: () => clock,
       debounce: Duration.zero,
     )..start();
@@ -227,5 +233,60 @@ void main() {
     await settle();
     expect(calls.length, before + 1);
     expect(written(calls.length - 1)['locked'], isTrue);
+  });
+
+  test('remembers the lock value it last handed to the platform', () async {
+    expect(sync.lastWrittenLocked, isNull);
+    expect(sync.lastWrittenAt, isNull);
+
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+    expect(sync.lastWrittenLocked, isFalse);
+    expect(sync.lastWrittenAt, isNotNull);
+
+    locked = true;
+    sync.rewrite();
+    await settle();
+    expect(sync.lastWrittenLocked, isTrue);
+  });
+
+  group('a plan that could not be read', () {
+    test(
+      'writes nothing, so the widgets keep the snapshot they have',
+      () async {
+        lockUnreadable = true;
+        await topics.refresh();
+        await incidents.refresh();
+        await settle();
+        expect(calls, isEmpty);
+      },
+    );
+
+    test('is written once the plan can be read again', () async {
+      lockUnreadable = true;
+      await topics.refresh();
+      await incidents.refresh();
+      await settle();
+      expect(calls, isEmpty);
+
+      lockUnreadable = false;
+      sync.rewrite();
+      await settle();
+      expect(calls, hasLength(1));
+      expect(written(0)['locked'], isNot(true));
+    });
+
+    test('does not replace a snapshot that was written before', () async {
+      await topics.refresh();
+      await incidents.refresh();
+      await settle();
+      expect(calls, hasLength(1));
+
+      lockUnreadable = true;
+      sync.rewrite();
+      await settle();
+      expect(calls, hasLength(1));
+    });
   });
 }

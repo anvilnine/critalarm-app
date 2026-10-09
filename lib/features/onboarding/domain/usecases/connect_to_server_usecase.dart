@@ -138,7 +138,9 @@ class ConnectToServerUsecase {
     );
     if (refused != null) return refused;
     final mode = ServerMode.fromWireValue(info.mode);
-    if (mode == ServerMode.selfhosted && token.isEmpty) {
+    // How to connect, not a plan: a self-hosted server wants its token.
+    final needsToken = mode == ServerMode.selfhosted; // access-ok: connect
+    if (needsToken && token.isEmpty) {
       return AdminTokenMissing(info);
     }
     try {

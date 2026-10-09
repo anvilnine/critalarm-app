@@ -47,7 +47,7 @@ class AccountCubit extends Cubit<AccountState> {
   Future<void> load() async {
     final mode = await account.readServerMode();
     final identity = await identities.readIdentity();
-    final isPaid = await account.readIsPaid();
+    final holdsHosted = await account.readHoldsHosted();
     if (isClosed) return;
     emit(
       state.copyWith(
@@ -56,7 +56,7 @@ class AccountCubit extends Cubit<AccountState> {
             : AccountStatus.signedIn,
         mode: mode,
         identity: identity,
-        isPaid: isPaid,
+        holdsHosted: holdsHosted,
         clearIdentity: identity == null,
       ),
     );

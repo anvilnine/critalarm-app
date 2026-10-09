@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
-import 'package:critalarm/core/account/plan_changes.dart';
-import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
-import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -45,14 +44,14 @@ class SearchCubit extends Cubit<SearchState> {
     required this._addRecentSearch,
     required this._clearRecentSearches,
     required this._includeDevOnlySettings,
-    this.identityStore,
+    this.featureAccess,
     this.sessionStore,
-    PlanChanges? planChanges,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       _planChanges = planChanges ?? appPlanChanges,
        super(const SearchState()) {
-    _planChanges.addListener(_onPlanChanged);
+    _accessSub = featureAccess?.changes
+        .where((feature) => feature == AppFeature.storageRules)
+        .listen((_) => _onPlanChanged());
   }
 
   final TopicsCubit _topics;
@@ -64,15 +63,14 @@ class SearchCubit extends Cubit<SearchState> {
   final bool _includeDevOnlySettings;
   final DateTime Function() _now;
 
-  /// Read to decide whether the Storage rows exist in Settings. Null in
-  /// tests, and then only the store or the developer switch can say paid.
-  final DeviceIdentityStore? identityStore;
+  /// Says whether the Storage rows exist in Settings, and when that
+  /// changes, so Storage becomes searchable the moment a purchase lands.
+  /// Null in tests that do not care, and then the rows are left out.
+  final FeatureAccess? featureAccess;
+  StreamSubscription<AppFeature>? _accessSub;
 
-  /// Says whether the server is self-hosted, which also shows Storage.
+  /// Says whether the server is self-hosted, which has no plan row to find.
   final ApiSessionStore? sessionStore;
-
-  /// Moves when a purchase lands, so Storage becomes searchable right away.
-  final PlanChanges _planChanges;
 
   /// Whether Settings draws its Storage section. Same rule as
   /// `SettingsState.hasStorageSection`.
@@ -82,14 +80,12 @@ class SearchCubit extends Cubit<SearchState> {
   bool _isSelfHosted = false;
 
   Future<({bool showsStorage, bool selfHosted})> _readPlanFlags() async {
-    final identity = await identityStore?.readOrCreate();
     final session = await sessionStore?.read();
-    final selfHosted = session?.mode == ServerMode.selfhosted;
     return (
       showsStorage:
-          AccountAccess(identity, planChanges: _planChanges).isPaid ||
-          selfHosted,
-      selfHosted: selfHosted,
+          await featureAccess?.usableOnceReady(AppFeature.storageRules) ??
+          false,
+      selfHosted: isOwnServerMode(session?.mode),
     );
   }
 
@@ -206,7 +202,7 @@ class SearchCubit extends Cubit<SearchState> {
 
   @override
   Future<void> close() async {
-    _planChanges.removeListener(_onPlanChanged);
+    await _accessSub?.cancel();
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();

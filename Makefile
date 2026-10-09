@@ -1,4 +1,4 @@
-.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -72,8 +72,8 @@ analyze:
 format:
 	fvm dart format .
 
-# Format + analyze in one go. Run before every commit.
-quality: format analyze
+# Format, analyze and the access check in one go. Run before every commit.
+quality: format analyze check-access
 
 # Enforce clean-architecture dependency direction.
 check-layers:
@@ -83,6 +83,12 @@ check-layers:
 # AppButton label. Mark text that must stay with `// l10n-ok: <reason>`.
 check-l10n:
 	sh tool/check_l10n.sh
+
+# Fail on plan access decided anywhere but lib/core/access/: a raw read of
+# the tier, the store, the packs or a developer switch outside the allow
+# list at the top of the script.
+check-access:
+	sh tool/check_access.sh
 
 # Install the repo git hooks (pre-commit: format + analyze).
 hooks:
@@ -98,6 +104,7 @@ doctor:
 	fvm flutter analyze
 	sh tool/check_layers.sh
 	sh tool/check_l10n.sh
+	sh tool/check_access.sh
 
 # Release build for UI work on a device. Skips RevenueCat, so the test API key
 # cannot pop the "Wrong API Key" dialog that closes the app.

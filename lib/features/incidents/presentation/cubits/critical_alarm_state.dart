@@ -40,6 +40,8 @@ class CriticalAlarmState {
     this.setupFlowHasRealRing = false,
     this.firstToolIncidentId,
     this.isPreview = false,
+    this.doneIncidentId,
+    this.isDoneHandedOff = false,
   });
 
   final CriticalAlarmStatus status;
@@ -92,6 +94,19 @@ class CriticalAlarmState {
   /// A developer's look at a screen: nothing on it reaches the server.
   final bool isPreview;
 
+  /// Set only on a failed load, and only when both are true: the screen
+  /// was opened by a native Done button, and the server gave no answer.
+  /// It is the incident that Done was for, and the failed screen then
+  /// offers "At my desk", which hands the close back to native.
+  ///
+  /// Null in every other state, and cleared the moment an incident is
+  /// applied.
+  final String? doneIncidentId;
+
+  /// That close was handed to native. Nothing else is known: native sends
+  /// it, or keeps it until the server can be reached.
+  final bool isDoneHandedOff;
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
@@ -138,6 +153,7 @@ class CriticalAlarmState {
     bool? setupFlowHasRealRing,
     String? firstToolIncidentId,
     bool? isPreview,
+    bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
     bool clearFeedback = false,
@@ -170,6 +186,8 @@ class CriticalAlarmState {
           ? null
           : (firstToolIncidentId ?? this.firstToolIncidentId),
       isPreview: isPreview ?? this.isPreview,
+      doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
+      isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
     );
   }
 
@@ -200,7 +218,9 @@ class CriticalAlarmState {
           setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
           setupFlowHasRealRing == other.setupFlowHasRealRing &&
           firstToolIncidentId == other.firstToolIncidentId &&
-          isPreview == other.isPreview;
+          isPreview == other.isPreview &&
+          doneIncidentId == other.doneIncidentId &&
+          isDoneHandedOff == other.isDoneHandedOff;
 
   @override
   int get hashCode => Object.hash(
@@ -228,6 +248,8 @@ class CriticalAlarmState {
       firstToolIncidentId,
       isPreview,
       ringTimeSpoken,
+      doneIncidentId,
+      isDoneHandedOff,
     ),
   );
 }

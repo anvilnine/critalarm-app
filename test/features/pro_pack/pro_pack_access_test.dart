@@ -255,6 +255,36 @@ void main() {
       expect(second.isHeld, isTrue);
     });
 
+    test('the accepted mark is kept, and a record without it reads as only '
+        'started', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final kept = SharedPrefsProPackStore(prefs);
+      const scope = ProPackScope(accountId: 'acc_1', relay: '');
+
+      await kept.writePending(PendingProPackConfirm(scope: scope, since: now));
+      expect(kept.readPending()?.storeAccepted, isFalse);
+      expect(
+        prefs.getString(SharedPrefsProPackStore.pendingKey),
+        isNot(contains('store_accepted')),
+      );
+
+      await kept.writePending(
+        PendingProPackConfirm(scope: scope, since: now, storeAccepted: true),
+      );
+      final read = kept.readPending();
+      expect(read?.storeAccepted, isTrue);
+      expect(read?.scope, scope);
+      expect(read?.since.isAtSameMomentAs(now), isTrue);
+
+      // Only a written true counts.
+      await prefs.setString(
+        SharedPrefsProPackStore.pendingKey,
+        '{"account_id":"acc_1","relay":"","since":1,"store_accepted":"yes"}',
+      );
+      expect(kept.readPending()?.storeAccepted, isFalse);
+    });
+
     test('a kept value that does not read back counts as none', () async {
       SharedPreferences.setMockInitialValues({
         SharedPrefsProPackStore.key: 'not json',

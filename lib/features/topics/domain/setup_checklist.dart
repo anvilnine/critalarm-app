@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:flutter/foundation.dart';
 
@@ -16,19 +17,8 @@ enum SetupChecklistRow {
   firstMessage,
 }
 
-/// Whether the setup checklist may take the spot above the tab bar.
-///
-/// That spot holds one floating card. A pinned In-App Notice (the sign-up
-/// reminder, battery, the plan ending) wins it, and the checklist waits
-/// until the notice is gone, so two cards never stack. A running Feature
-/// Guide has the screen to itself. The guide offer is a sheet, not a guide
-/// yet, so the checklist stays put under it.
-bool setupPillHasTheSpot({
-  required bool hasPinnedNotice,
-  required bool isGuideRunning,
-}) => !hasPinnedNotice && !isGuideRunning;
-
-/// The setup checklist Home floats above its tab bar.
+/// The setup checklist the status card on Home counts and names the next row
+/// of.
 ///
 /// Home content: it is not an In-App Notice and not an ask, and it never
 /// opens anything on its own.
@@ -327,14 +317,26 @@ bool homeScreenWidgetsExist({
 
 /// How this user gets home screen widgets.
 enum HomeWidgetsPlan {
-  /// On Crit Alarm Cloud with Hosted: widgets work.
-  hosted,
+  /// On Crit Alarm Cloud with Pro: widgets work.
+  pro,
 
-  /// On Crit Alarm Cloud without Hosted: widgets show locked.
-  needsHosted,
+  /// Without Pro, on Crit Alarm Cloud or on a server of the user's own:
+  /// widgets show locked.
+  needsPro,
 
-  /// On the user's own server, which has no plans: widgets work.
+  /// On the user's own server with Pro: widgets work.
   selfHosted,
+}
+
+/// The plan the Home widgets card words itself for, from the widgets
+/// decision. [isOwnServer] only picks the words for an open card: whether
+/// the card is locked is [decision]'s answer alone.
+HomeWidgetsPlan homeWidgetsPlanFor(
+  FeatureDecision decision, {
+  required bool isOwnServer,
+}) {
+  if (!decision.isUsable) return HomeWidgetsPlan.needsPro;
+  return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.pro;
 }
 
 /// Whether Home draws the widgets card.

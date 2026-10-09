@@ -66,7 +66,7 @@ void main() {
         isSetupDone: true,
       );
       bool proAt(DateTime now) => ProAskRules.decide(
-        isPaid: false,
+        holdsHosted: false,
         isSelfHosted: false,
         dismissCount: 0,
         lastAskedAt: null,

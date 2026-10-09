@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
@@ -17,6 +18,7 @@ void main() {
   late Object? importAnswer;
   late MemoryAlarmSoundRepository repository;
   late ImportSoundUsecase usecase;
+  late Future<bool> Function() isLocked;
 
   const file = PickedSoundFile(
     path: '/tmp/Mr Brightside.mp3',
@@ -40,7 +42,12 @@ void main() {
       };
     });
     repository = MemoryAlarmSoundRepository();
-    usecase = ImportSoundUsecase(repository, SoundHost());
+    isLocked = () async => false;
+    usecase = ImportSoundUsecase(
+      repository,
+      SoundHost(),
+      isLocked: () => isLocked(),
+    );
   });
 
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
@@ -105,5 +112,35 @@ void main() {
     expect(repository.sounds, isEmpty);
     final delete = calls.singleWhere((c) => c.method == 'deleteSound');
     expect(delete.arguments, {'path': '/s/new.caf'});
+  });
+
+  group('own sounds locked', () {
+    test('nothing is cut and nothing is saved', () async {
+      isLocked = () async => true;
+      final result = await usecase(
+        file: file,
+        name: 'Chorus',
+        start: Duration.zero,
+        end: const Duration(seconds: 5),
+      );
+      expect(
+        result.exceptionOrNull()!.message,
+        ImportSoundUsecase.lockedCode,
+      );
+      expect(repository.sounds, isEmpty);
+      expect(calls.where((c) => c.method == 'importSound'), isEmpty);
+    });
+
+    test('a plan that could not be read saves as usual', () async {
+      isLocked = () async => throw const HoldingUnreadable(Holding.pro);
+      final result = await usecase(
+        file: file,
+        name: 'Chorus',
+        start: Duration.zero,
+        end: const Duration(seconds: 5),
+      );
+      expect(result.isSuccess(), isTrue);
+      expect(repository.sounds, hasLength(1));
+    });
   });
 }

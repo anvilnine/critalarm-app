@@ -9,9 +9,6 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/result/result.dart';
-import 'package:critalarm/design/components/chips.dart';
-import 'package:critalarm/design/faces/face_state.dart';
-import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
@@ -20,11 +17,12 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A topic list that never loads.
@@ -152,18 +150,15 @@ void main() {
       expect(await cubit.refresh(), isFalse);
     });
 
-    test('initial state has calm face and no stage word yet', () {
+    test('initial state holds no facts and no ring', () {
       final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
       expect(cubit.state.status, HomeStatus.initial);
-      expect(cubit.state.faceState, FaceState.calm);
-      // The stage word is written by load(), so it is blank until then.
-      expect(cubit.state.word, '');
-      expect(cubit.state.severity, SeverityMode.none);
+      expect(cubit.state.facts, HomeFacts.none);
+      expect(cubit.state.ringingIncidentId, isNull);
     });
 
     blocTest<HomeCubit, HomeState>(
-      'a calm topic reports how it is set up, not the priority of the last '
-      'page it took',
+      'a calm topic reports how it is set up, not the last page it took',
       setUp: () => server.seedCalm(),
       build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -174,8 +169,9 @@ void main() {
             // acknowledged, so the row must not show it. Nothing is open and
             // nothing is warning, so every topic is at rest.
             .having(
-              (s) => s.topicItems.every((t) => !t.isLive),
-              'no topic is live',
+              (s) =>
+                  s.topicItems.every((t) => t.rowKind == InboxRowKind.normal),
+              'every row is at rest',
               isTrue,
             )
             .having(
@@ -192,16 +188,15 @@ void main() {
     );
 
     blocTest<HomeCubit, HomeState>(
-      'a topic with an open incident is live, so the row shows the priority '
-      'that came in',
+      'a topic with an open incident rings, so its row says so',
       setUp: () => server.seedAlarmed(),
       build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       skip: 1,
       expect: () => [
         isA<HomeState>().having(
-          (s) => s.topicItems.any((t) => t.isLive),
-          'at least one topic is live',
+          (s) => s.topicItems.any((t) => t.rowKind == InboxRowKind.ringing),
+          'at least one row rings',
           isTrue,
         ),
       ],
@@ -216,9 +211,8 @@ void main() {
         const HomeState(status: HomeStatus.loading),
         isA<HomeState>()
             .having((s) => s.status, 'status', HomeStatus.success)
-            .having((s) => s.faceState, 'faceState', FaceState.calm)
-            .having((s) => s.word, 'word', 'All clear')
-            .having((s) => s.severity, 'severity', SeverityMode.none)
+            .having((s) => s.facts.ringing, 'ringing', isNull)
+            .having((s) => s.facts.warningCount, 'warnings', 0)
             .having((s) => s.topicItems.length, 'topics length', 4)
             .having(
               (s) => s.topicItems[0].name,
@@ -226,19 +220,9 @@ void main() {
               'prod-db',
             )
             .having(
-              (s) => s.topicItems[0].priority,
-              'prod-db priority',
-              PriorityLevel.critical,
-            )
-            .having(
               (s) => s.topicItems[1].name,
               'second topic',
               'nas-backup',
-            )
-            .having(
-              (s) => s.topicItems[1].priority,
-              'nas-backup priority',
-              PriorityLevel.defaultPriority,
             )
             .having(
               (s) => s.topicItems[2].name,
@@ -246,25 +230,15 @@ void main() {
               'uptime-kuma',
             )
             .having(
-              (s) => s.topicItems[2].priority,
-              'uptime-kuma priority',
-              PriorityLevel.defaultPriority,
-            )
-            .having(
               (s) => s.topicItems[3].name,
               'fourth topic',
               'home-ha',
-            )
-            .having(
-              (s) => s.topicItems[3].priority,
-              'home-ha priority',
-              PriorityLevel.defaultPriority,
             ),
       ],
     );
 
     blocTest<HomeCubit, HomeState>(
-      'worried fixture: emits worried face, 1 warning, severity high',
+      'worried fixture: counts 1 warning and nothing ringing',
       setUp: () => server.seedWorried(),
       build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -272,14 +246,13 @@ void main() {
         const HomeState(status: HomeStatus.loading),
         isA<HomeState>()
             .having((s) => s.status, 'status', HomeStatus.success)
-            .having((s) => s.faceState, 'faceState', FaceState.worried)
-            .having((s) => s.word, 'word', '1 warning')
-            .having((s) => s.severity, 'severity', SeverityMode.high),
+            .having((s) => s.facts.warningCount, 'warnings', 1)
+            .having((s) => s.facts.ringing, 'ringing', isNull),
       ],
     );
 
     blocTest<HomeCubit, HomeState>(
-      'alarmed fixture: emits alarmed face, CRITICAL, severity crit',
+      'alarmed fixture: names the ringing incident and marks its row',
       setUp: () => server.seedAlarmed(),
       build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -287,19 +260,19 @@ void main() {
         const HomeState(status: HomeStatus.loading),
         isA<HomeState>()
             .having((s) => s.status, 'status', HomeStatus.success)
-            .having((s) => s.faceState, 'faceState', FaceState.alarmed)
-            .having((s) => s.word, 'word', 'CRITICAL')
-            .having((s) => s.severity, 'severity', SeverityMode.crit)
+            .having((s) => s.facts.ringing, 'ringing', isNotNull)
+            .having((s) => s.ringingIncidentId, 'ring id', isNotNull)
             .having(
-              (s) => s.topicItems.firstWhere((t) => t.name == 'prod-db').isCrit,
-              'prod-db isCrit',
-              isTrue,
+              (s) =>
+                  s.topicItems.firstWhere((t) => t.name == 'prod-db').rowKind,
+              'prod-db row',
+              InboxRowKind.ringing,
             ),
       ],
     );
 
     blocTest<HomeCubit, HomeState>(
-      'empty/watching fixture: emits watching face, No topics yet',
+      'empty/watching fixture: no topics',
       setUp: () => server.seedWatching(),
       build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -307,9 +280,8 @@ void main() {
         const HomeState(status: HomeStatus.loading),
         isA<HomeState>()
             .having((s) => s.status, 'status', HomeStatus.success)
-            .having((s) => s.faceState, 'faceState', FaceState.watching)
-            .having((s) => s.word, 'word', 'No topics yet')
-            .having((s) => s.topicItems.isEmpty, 'topics empty', isTrue),
+            .having((s) => s.topicItems.isEmpty, 'topics empty', isTrue)
+            .having((s) => s.isEmpty, 'is empty', isTrue),
       ],
     );
   });
@@ -343,7 +315,7 @@ void main() {
       await _settle();
       expect(cubit.state.status, HomeStatus.success);
       expect(cubit.state.topicItems, isNotEmpty);
-      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.facts.ringing, isNull);
       expect(cubit.state.isStale, isFalse);
       final seenAt = cubit.state.lastKnownGoodAt;
       expect(seenAt, isNotNull);
@@ -351,7 +323,7 @@ void main() {
     }
 
     test(
-      'no server saved: the old list goes and the face stops smiling',
+      'no server saved: the old list goes and the live facts with it',
       () async {
         await loadOnce();
 
@@ -364,13 +336,8 @@ void main() {
 
         expect(cubit.state.status, HomeStatus.failure);
         expect(cubit.state.topicItems, isEmpty);
-        expect(cubit.state.faceState, FaceState.watching);
-        expect(cubit.state.word, 'Nothing can reach you');
-        expect(
-          cubit.state.subText,
-          'Connect a server and your topics load from it.',
-        );
-        expect(cubit.state.severity, SeverityMode.none);
+        expect(cubit.state.facts, HomeFacts.none);
+        expect(cubit.state.ringingIncidentId, isNull);
         expect(cubit.state.isStale, isFalse);
         expect(cubit.state.lastKnownGoodAt, isNull);
       },
@@ -387,14 +354,7 @@ void main() {
       expect(cubit.state.status, HomeStatus.failure);
       expect(cubit.state.topicItems, items);
       expect(cubit.state.isStale, isTrue);
-      expect(cubit.state.faceState, FaceState.watching);
-      expect(cubit.state.word, 'Out of touch');
       expect(cubit.state.lastKnownGoodAt, seenAt);
-      expect(
-        cubit.state.subText,
-        'This is what it looked like at '
-        '${DateFormat.Hm().format(seenAt.toLocal())}.',
-      );
     });
 
     test('a good load drops the old mark and moves the time on', () async {
@@ -411,7 +371,6 @@ void main() {
 
       expect(cubit.state.status, HomeStatus.success);
       expect(cubit.state.isStale, isFalse);
-      expect(cubit.state.faceState, FaceState.calm);
       expect(cubit.state.topicItems, isNotEmpty);
       final freshAt = cubit.state.lastKnownGoodAt;
       expect(freshAt, isNotNull);
@@ -468,8 +427,6 @@ void main() {
 
       expect(cubit.state.status, HomeStatus.failure);
       expect(cubit.state.isStale, isTrue);
-      expect(cubit.state.faceState, FaceState.watching);
-      expect(cubit.state.word, 'Out of touch');
     });
   });
 
@@ -528,10 +485,10 @@ void main() {
       addTearDown(cubit.close);
       await cubit.load();
       await _settle();
-      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.facts.warningCount, 0);
     });
 
-    test('P4 inside an acked incident does not keep face worried', () async {
+    test('P4 inside an acked incident does not count as a warning', () async {
       final now = DateTime.now().toUtc();
       final prodDb = Topic(
         name: 'prod-db',
@@ -565,8 +522,10 @@ void main() {
       addTearDown(cubit.close);
       await cubit.load();
       await _settle();
-      // The acked incident should show ACKNOWLEDGED, not worried.
-      expect(cubit.state.faceState, FaceState.acked);
+      // The acked incident shows as acknowledged, not as a warning.
+      expect(cubit.state.facts.warningCount, 0);
+      expect(cubit.state.facts.acknowledged?.incidentId, 'inc_acked');
+      expect(cubit.state.topicItems.single.rowKind, InboxRowKind.acknowledged);
     });
 
     test('timer rebuilds acked countdown and cancels when done', () async {
@@ -603,8 +562,11 @@ void main() {
       addTearDown(cubit.close);
       await cubit.load();
       await _settle();
-      expect(cubit.state.faceState, FaceState.acked);
-      expect(cubit.state.subText, contains('8 min'));
+      expect(cubit.state.facts.acknowledged?.incidentId, 'inc_acked');
+      expect(
+        cubit.state.facts.acknowledged!.deadline.difference(now).inSeconds,
+        inInclusiveRange(470, 480),
+      );
 
       // Advance past the desk deadline, then trigger a rebuild via a fresh
       // incident list so the periodic timer also sees the change.
@@ -617,11 +579,11 @@ void main() {
       // With clock past deadline and no closed incident, the face is calm.
       // The timer should have been cancelled (no acked row).
       // We verify by checking the next periodic tick does not re-emit acked.
-      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.facts.acknowledged, isNull);
     });
   });
 
-  group('HomeCubit face after an acknowledge', () {
+  group('HomeCubit facts after an acknowledge', () {
     final start = DateTime.now().toUtc();
     final prodDb = Topic(
       name: 'prod-db',
@@ -640,7 +602,7 @@ void main() {
     Future<void> someTicks() =>
         Future<void>.delayed(const Duration(milliseconds: 60));
 
-    test('a slow build for an older list cannot bring the acknowledged face '
+    test('a slow build for an older list cannot bring the acknowledged alarm '
         'back', () async {
       final now = start;
       server.seedState(topics: [prodDb], incidents: [acked]);
@@ -657,7 +619,7 @@ void main() {
       addTearDown(cubit.close);
       await cubit.load();
       await _settle();
-      expect(cubit.state.severity, SeverityMode.ack);
+      expect(cubit.state.facts.acknowledged, isNotNull);
 
       // The server's answer to the acknowledge lands, and the build for it is
       // slow.
@@ -671,19 +633,19 @@ void main() {
         acked.copyWith(state: IncidentStates.closed, closedAt: start),
       );
       await someTicks();
-      expect(cubit.state.word, 'HANDLED');
-      expect(cubit.state.severity, SeverityMode.none);
+      expect(cubit.state.facts.handled, isNotNull);
+      expect(cubit.state.facts.acknowledged, isNull);
 
       // The older build finishes late. It must not hand its list to the
       // timer, or the next tick paints the screen blue again.
       gate.complete();
       await someTicks();
-      expect(cubit.state.severity, SeverityMode.none);
-      expect(cubit.state.word, 'HANDLED');
+      expect(cubit.state.facts.acknowledged, isNull);
+      expect(cubit.state.facts.handled, isNotNull);
     });
 
     test(
-      'the handled face goes back to calm on its own after 30 seconds',
+      'the handled moment ends on its own after 30 seconds',
       () async {
         var now = start;
         server.seedState(
@@ -707,14 +669,12 @@ void main() {
         addTearDown(cubit.close);
         await cubit.load();
         await _settle();
-        expect(cubit.state.faceState, FaceState.success);
-        expect(cubit.state.word, 'HANDLED');
+        expect(cubit.state.facts.handled, isNotNull);
 
         // Nothing reloads. Only the clock moves.
         now = start.add(const Duration(seconds: 26));
         await someTicks();
-        expect(cubit.state.faceState, FaceState.calm);
-        expect(cubit.state.word, 'All clear');
+        expect(cubit.state.facts.handled, isNull);
       },
     );
   });

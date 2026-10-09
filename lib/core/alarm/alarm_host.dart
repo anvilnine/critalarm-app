@@ -179,6 +179,34 @@ final class AlarmHost {
       }) ??
       false;
 
+  /// Runs what the Done button on an acknowledged card runs, for
+  /// [incidentId]: the native close, which sends it, queues it when there
+  /// is no signal, and takes the card down when the server says the
+  /// incident is over.
+  ///
+  /// For the one case where a Done button opened the app instead of
+  /// closing (its topic owes a wake-up challenge) and the app then could
+  /// not load the incident. Nothing in Dart decides anything here: native
+  /// drew that Done, so native already holds the incident as acknowledged.
+  ///
+  /// The link that set this off can be forged, so native checks its own
+  /// record first: the incident has to be acknowledged on this phone and
+  /// quiet. If it is not, native touches nothing and answers
+  /// [notAcknowledgedCode].
+  ///
+  /// Throws when native refused, when the platform has no such call, or
+  /// when it failed, so the caller never tells the user a close was handed
+  /// over when it was not.
+  Future<void> closeFromDone(String incidentId) =>
+      _channel.invokeMethod<void>('closeFromDone', {
+        'incident_id': incidentId,
+      });
+
+  /// The error code native answers when the incident is not acknowledged
+  /// on this phone. `AlarmChannel.NOT_ACKNOWLEDGED` on Android and the
+  /// same word in `AppDelegate` hold it too.
+  static const notAcknowledgedCode = 'not_acknowledged';
+
   /// Stop whatever is ringing on this device, whichever incident it belongs to.
   ///
   /// [cancelAlarm] needs an id, and an id can be wrong: the server can ring an

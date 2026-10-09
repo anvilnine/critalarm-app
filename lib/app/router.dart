@@ -2,6 +2,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
@@ -43,6 +45,7 @@ import 'package:critalarm/features/reliability/presentation/maker/maker_guide_sc
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
+import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
@@ -51,6 +54,7 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
@@ -59,6 +63,7 @@ import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_recorder_screen.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -106,6 +111,7 @@ abstract final class AppRoute {
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const personalize = 'personalize';
   static const appIcon = 'appIcon';
   static const localReminderSettings = 'localReminderSettings';
   static const about = 'about';
@@ -115,6 +121,7 @@ abstract final class AppRoute {
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
+  static const accessLab = 'accessLab';
   static const paywall = 'paywall';
   static const paywallLayout = 'paywallLayout';
   static const paywallLayoutsDev = 'paywallLayoutsDev';
@@ -158,7 +165,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         // stayed on screen behind the form. The ambient backdrop sits outside
         // the navigator, so it still shows.
         opaque: true,
-        child: const CreateTopicScreen(),
+        child: CreateTopicScreen(
+          initialTool: ToolTemplate.fromId(state.uri.queryParameters['tool']),
+        ),
       ),
     ),
     // One screen, two jobs. No `topic` sets the default sound;
@@ -184,11 +193,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // The cropper for a file the user just picked. The file travels as
     // `extra`, so a refresh on the web or a stray link arrives with none,
     // and the screen goes straight back. It also leaves when the platform
-    // cannot import sounds.
+    // cannot import sounds. While own sounds are locked it never opens: the
+    // sound list does, where every way in opens the paywall.
     GoRoute(
       path: '/sounds/crop',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundCrop,
+      redirect: (context, state) => ownSoundsRouteRedirect(
+        getIt<FeatureAccess>(),
+        soundList: '/sounds',
+      ),
       pageBuilder: (context, state) {
         final file = state.extra;
         return AmbientPage(
@@ -204,14 +218,18 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
     // The recorder. Once a clip is recorded the same route shows the
     // cropper for it, so back from the cropper lands on the sound list.
-    // Leaves at once where the platform cannot import sounds.
+    // Leaves at once where the platform cannot import sounds, and while
+    // own sounds are locked.
     GoRoute(
       path: '/sounds/record',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundRecord,
       redirect: (context, state) async =>
           (await getIt<SoundHost>().capabilities()).canImportSounds
-          ? null
+          ? ownSoundsRouteRedirect(
+              getIt<FeatureAccess>(),
+              soundList: '/sounds',
+            )
           : '/sounds',
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
@@ -487,6 +505,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ],
                 ),
                 GoRoute(
+                  path: 'personalize',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.personalize,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const PersonalizeScreen(),
+                  ),
+                ),
+                GoRoute(
                   path: 'appearance',
                   parentNavigatorKey: _rootKey,
                   name: AppRoute.appearanceSettings,
@@ -550,6 +578,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                           key: state.pageKey,
                           opaque: true,
                           child: const PaywallLayoutsDevScreen(),
+                        ),
+                      ),
+                    // The Plans and features lab. It writes the developer
+                    // plan switches, which only a build that skips the
+                    // store has, so a store build holds no such route.
+                    if (buildSkipsPaywall)
+                      GoRoute(
+                        path: 'access',
+                        parentNavigatorKey: _rootKey,
+                        name: AppRoute.accessLab,
+                        pageBuilder: (context, state) => AmbientPage(
+                          key: state.pageKey,
+                          opaque: true,
+                          child: const AccessLabScreen(),
                         ),
                       ),
                     GoRoute(
@@ -822,6 +864,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           opaque: true,
           child: CriticalAlarmScreen(
             incidentId: id,
+            // A native Done button opened it. See `PushDeepLink.fromDone`.
+            cameFromDone: PushDeepLink.cameFromDone(state.uri),
             // A developer build can look at one screen with made-up values.
             previewsFirstToolAcked:
                 buildHasOnboardingDeveloperTools &&

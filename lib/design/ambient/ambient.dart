@@ -5,3 +5,6 @@ export 'ambient_profile.dart';
 export 'ambient_scope.dart';
 export 'ambient_shape.dart';
 export 'ambient_transition.dart';
+export 'hero_disc.dart';
+export 'hero_timeline.dart';
+export 'hero_tone.dart';

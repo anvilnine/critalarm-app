@@ -1,6 +1,5 @@
-import 'package:critalarm/design/components/chips.dart';
-import 'package:critalarm/design/faces/face_state.dart';
-import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:flutter/foundation.dart';
 
 enum HomeStatus { initial, loading, success, failure }
@@ -10,31 +9,16 @@ enum HomeStatus { initial, loading, success, failure }
 class HomeTopicItem {
   const HomeTopicItem({
     required this.name,
-    required this.meta,
-    required this.priority,
-    this.faceState = FaceState.calm,
-    this.isCrit = false,
-    this.isQuiet = false,
-    this.isLive = false,
     this.ringsThroughSilent = false,
     this.preview,
     this.unreadCount = 0,
     this.isPinned = false,
     this.isMuted = false,
+    this.lastMessageAt,
+    this.rowKind = InboxRowKind.normal,
   });
 
   final String name;
-  final String meta;
-  final PriorityLevel priority;
-  final FaceState faceState;
-  final bool isCrit;
-  final bool isQuiet;
-
-  /// True while this topic has something the user still has to deal with: an
-  /// open incident or a live warning. The row shows the priority that came in
-  /// only while this holds. Once it clears, the row goes back to saying how
-  /// the topic is set up, so a red chip never outlives the alarm.
-  final bool isLive;
 
   /// True when critical delivery is on for this topic, so a page rings
   /// through the silent switch.
@@ -53,38 +37,38 @@ class HomeTopicItem {
   /// Muted on this phone. Greyed out and moved below the rest.
   final bool isMuted;
 
+  /// When the newest message held for this topic came in. Null when the
+  /// topic has none.
+  final DateTime? lastMessageAt;
+
+  /// What state the row is in: a sounding alarm, a warning, an acknowledged
+  /// alarm, a missed one, a handled one, or none of them.
+  final InboxRowKind rowKind;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is HomeTopicItem &&
           runtimeType == other.runtimeType &&
           name == other.name &&
-          meta == other.meta &&
-          priority == other.priority &&
-          faceState == other.faceState &&
-          isCrit == other.isCrit &&
-          isQuiet == other.isQuiet &&
-          isLive == other.isLive &&
           ringsThroughSilent == other.ringsThroughSilent &&
           preview == other.preview &&
           unreadCount == other.unreadCount &&
           isPinned == other.isPinned &&
-          isMuted == other.isMuted;
+          isMuted == other.isMuted &&
+          lastMessageAt == other.lastMessageAt &&
+          rowKind == other.rowKind;
 
   @override
   int get hashCode => Object.hash(
     name,
-    meta,
-    priority,
-    faceState,
-    isCrit,
-    isQuiet,
-    isLive,
     ringsThroughSilent,
     preview,
     unreadCount,
     isPinned,
     isMuted,
+    lastMessageAt,
+    rowKind,
   );
 }
 
@@ -94,23 +78,16 @@ class HomeState {
   const HomeState({
     this.status = HomeStatus.initial,
     this.topicItems = const [],
-    this.faceState = FaceState.calm,
-    this.word = '',
-    this.subText = '',
-    this.severity = SeverityMode.none,
     this.ringingIncidentId,
     this.errorMessage,
     this.isStale = false,
     this.lastKnownGoodAt,
     this.hasServer = true,
+    this.facts = HomeFacts.none,
   });
 
   final HomeStatus status;
   final List<HomeTopicItem> topicItems;
-  final FaceState faceState;
-  final String word;
-  final String subText;
-  final SeverityMode severity;
 
   /// The open incident that is ringing right now, if there is one. The app is
   /// the alarm while this is set: the list hands the user to the takeover
@@ -133,15 +110,14 @@ class HomeState {
   /// True by default, because every other state has a server to talk about.
   final bool hasServer;
 
+  /// What Home knows about alarms and messages, for the card.
+  final HomeFacts facts;
+
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
 
   HomeState copyWith({
     HomeStatus? status,
     List<HomeTopicItem>? topicItems,
-    FaceState? faceState,
-    String? word,
-    String? subText,
-    SeverityMode? severity,
     String? ringingIncidentId,
     bool clearRinging = false,
     String? errorMessage,
@@ -150,14 +126,11 @@ class HomeState {
     DateTime? lastKnownGoodAt,
     bool clearLastKnownGood = false,
     bool? hasServer,
+    HomeFacts? facts,
   }) {
     return HomeState(
       status: status ?? this.status,
       topicItems: topicItems ?? this.topicItems,
-      faceState: faceState ?? this.faceState,
-      word: word ?? this.word,
-      subText: subText ?? this.subText,
-      severity: severity ?? this.severity,
       ringingIncidentId: clearRinging
           ? null
           : (ringingIncidentId ?? this.ringingIncidentId),
@@ -167,6 +140,7 @@ class HomeState {
           ? null
           : (lastKnownGoodAt ?? this.lastKnownGoodAt),
       hasServer: hasServer ?? this.hasServer,
+      facts: facts ?? this.facts,
     );
   }
 
@@ -177,28 +151,22 @@ class HomeState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           listEquals(topicItems, other.topicItems) &&
-          faceState == other.faceState &&
-          word == other.word &&
-          subText == other.subText &&
-          severity == other.severity &&
           ringingIncidentId == other.ringingIncidentId &&
           errorMessage == other.errorMessage &&
           isStale == other.isStale &&
           lastKnownGoodAt == other.lastKnownGoodAt &&
-          hasServer == other.hasServer;
+          hasServer == other.hasServer &&
+          facts == other.facts;
 
   @override
   int get hashCode => Object.hash(
     status,
     Object.hashAll(topicItems),
-    faceState,
-    word,
-    subText,
-    severity,
     ringingIncidentId,
     errorMessage,
     isStale,
     lastKnownGoodAt,
     hasServer,
+    facts,
   );
 }

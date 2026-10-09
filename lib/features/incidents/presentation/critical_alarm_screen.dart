@@ -11,18 +11,26 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
-import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
+import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
+import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
+import 'package:critalarm/features/challenges/presentation/challenge.dart';
+import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
-import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
-import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
+import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
 import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
@@ -46,10 +54,15 @@ class CriticalAlarmScreen extends StatelessWidget {
   const CriticalAlarmScreen({
     this.incidentId,
     this.previewsFirstToolAcked = false,
+    this.cameFromDone = false,
     super.key,
   });
 
   final String? incidentId;
+
+  /// A native Done button opened this screen: the link carried
+  /// `PushDeepLink.fromDone`. See `CriticalAlarmCubit.load`.
+  final bool cameFromDone;
 
   /// Opens on the acknowledged screen of a made-up first tool alarm. Only
   /// the router of a developer build sets it. Nothing is loaded or sent.
@@ -71,7 +84,9 @@ class CriticalAlarmScreen extends StatelessWidget {
         if (previewsFirstToolAcked) {
           cubit.previewFirstToolAlarm();
         } else {
-          unawaited(cubit.load(incidentId: incidentId));
+          unawaited(
+            cubit.load(incidentId: incidentId, cameFromDone: cameFromDone),
+          );
         }
         return cubit;
       },
@@ -97,6 +112,101 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// when the ringing layout comes back after an acknowledge the server
   /// refused.
   bool _didAnnounceRinging = false;
+
+  /// The challenge on screen, and the incident it belongs to. It shows
+  /// only while that incident is the acknowledged one on screen, so
+  /// another alarm taking the screen over leaves it.
+  ChallengeOwed? _challenge;
+  String? _challengeIncidentId;
+
+  /// Incidents whose challenge was passed or left on this screen since
+  /// they were last acknowledged. If the close that followed failed, the
+  /// next "At my desk" closes with no second challenge. An incident that
+  /// rings again is taken out, so its next acknowledge owes one again.
+  final Set<String> _clearedIncidentIds = <String>{};
+
+  /// "At my desk" on the acknowledged screen. With no challenge owed it
+  /// closes the incident, as it always has. With one owed it opens the
+  /// challenge, and passing or leaving that makes the same close.
+  ///
+  /// Nothing here runs before "I'm up": the ring is already stopped.
+  void _atMyDesk(CriticalAlarmState state) {
+    final cubit = context.read<CriticalAlarmCubit>();
+    final incident = state.incident;
+    ChallengeDue due = const ChallengeNotOwed(NoChallengeReason.cannotRun);
+    if (incident != null && !state.isPreview) {
+      try {
+        due = getIt<ChallengeGate>().dueFor(
+          incident: _challengeIncident(state),
+          isScreenReaderOn: MediaQuery.accessibleNavigationOf(context),
+          isCleared: _clearedIncidentIds.contains(incident.id),
+        );
+      } on Object catch (_) {
+        // A challenge that cannot be worked out is no challenge.
+      }
+    }
+    final owed = due;
+    if (owed is ChallengeOwed &&
+        incident != null &&
+        challengeOf(owed.kind) != null) {
+      setState(() {
+        _challenge = owed;
+        _challengeIncidentId = incident.id;
+      });
+      return;
+    }
+    unawaited(cubit.closeIncident());
+  }
+
+  /// The words the acknowledged screen shows, which is all a challenge may
+  /// compare against.
+  ///
+  /// When the first message has no title (a topic whose content mode hides
+  /// it), the cubit puts a fallback line in `state.title`. That line is not
+  /// a title, so no alert title is passed. The test is the message's own
+  /// `title` being null or empty, never the text of the line.
+  ChallengeIncident _challengeIncident(CriticalAlarmState state) {
+    final sent = state.incident?.messages.firstOrNull?.title;
+    final hasRealTitle = sent != null && sent.isNotEmpty;
+    return ChallengeIncident(
+      topic: state.topic,
+      alertTitle: hasRealTitle && state.title.isNotEmpty ? state.title : null,
+    );
+  }
+
+  /// The challenge to draw for [state], or null. Only for the incident it
+  /// was opened for, and only while that one waits for "At my desk".
+  ChallengeOwed? _challengeFor(CriticalAlarmState state) {
+    final challenge = _challenge;
+    if (challenge == null) return null;
+    if (state.incident?.id != _challengeIncidentId) return null;
+    if (state.status != CriticalAlarmStatus.acknowledged) return null;
+    if (state.ackedExits != AckedExits.incident) return null;
+    return challenge;
+  }
+
+  void _leaveChallenge() {
+    if (_challenge == null) return;
+    setState(() {
+      _challenge = null;
+      _challengeIncidentId = null;
+    });
+  }
+
+  /// The challenge was passed, or the way out was used. Either way the
+  /// incident is closed through the call "At my desk" always made.
+  void _finishChallenge() {
+    final id = _challengeIncidentId;
+    final cubit = context.read<CriticalAlarmCubit>();
+    if (id != null) _clearedIncidentIds.add(id);
+    _leaveChallenge();
+    // Only the incident the challenge was for. If another took the screen
+    // in the same moment, that one is left alone.
+    if (id != null && cubit.state.incident?.id == id) {
+      AppHaptics.capture();
+      unawaited(cubit.closeIncident());
+    }
+  }
 
   /// The alarm just stopped, which is the moment the app proved it works.
   /// Waits for the acknowledged screen to settle, then lets
@@ -155,8 +265,65 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Keeps the look of the incident on screen still while it is on screen.
+  final AlarmStyleLatch _lookLatch = AlarmStyleLatch();
+
+  /// The look this alarm is drawn in: the topic's own, or the phone's.
+  ///
+  /// Only an alarm that is ringing or acknowledged has one. The loading
+  /// and failed screens, a setup test and the first tool alarm keep the
+  /// standard look, and so does anything that goes wrong here: the alarm
+  /// screen always draws.
+  ///
+  /// It is decided once per incident and held ([AlarmStyleLatch]): a plan
+  /// read that lands while the phone rings does not recolour "I'm up" or
+  /// resize the face under a reaching thumb.
+  AlarmStyle _styleFor(CriticalAlarmState state) {
+    if (!state.isLive && !state.isAcknowledged) {
+      _lookLatch.release();
+      return alarmStyleOf(null);
+    }
+    // Asked on every build and never held: which exits an alarm ends on
+    // can be learned after its first frame, and a setup screen is never
+    // drawn in another look.
+    if (state.isPreview || state.ackedExits != AckedExits.incident) {
+      return alarmStyleOf(null);
+    }
+    try {
+      return alarmStyleOf(
+        _lookLatch.styleFor(
+          state.incident?.id,
+          decide: () => getIt<AlarmStyleGate>().styleFor(
+            state.topic.isEmpty ? null : state.topic,
+          ),
+        ),
+      );
+    } on Object catch (_) {
+      return alarmStyleOf(null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Another incident is on screen now, or this one rang again, so a
+    // challenge opened before is left. It is not carried over, and nothing
+    // is owed until "At my desk" is tapped again.
+    return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
+      listenWhen: (previous, current) =>
+          previous.incident?.id != current.incident?.id ||
+          (previous.isAcknowledged && !current.isAcknowledged),
+      listener: (context, state) {
+        // Ringing again: what was cleared for it is owed again.
+        if (!state.isAcknowledged) {
+          _clearedIncidentIds.remove(state.incident?.id);
+        }
+        _leaveChallenge();
+      },
+      child: _buildAlarm(context),
+    );
+  }
+
+  Widget _buildAlarm(BuildContext context) {
     return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
       listenWhen: (previous, current) =>
           !previous.isAcknowledged && current.isAcknowledged,
@@ -185,14 +352,29 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       },
       builder: (context, state) {
         final colors = context.appColors;
-        final profile = state.isAcknowledged
-            ? AmbientAppProfiles.criticalAlarmAcknowledged(colors)
-            : AmbientAppProfiles.criticalAlarmRinging(colors);
+        final brightness = Theme.of(context).brightness;
+        // A look that cannot be drawn is the standard one for this build,
+        // canvas and screen alike.
+        final style = drawableAlarmStyle(
+          _styleFor(state),
+          base: colors,
+          severity: state.severityMode,
+          brightness: brightness,
+        );
+        final stage = state.isAcknowledged
+            ? AlarmStage.acknowledged
+            : AlarmStage.ringing;
+        final profile = style.lookOf(stage).ambient(colors, brightness);
 
         Widget content;
         if (!state.isLive && !state.isAcknowledged) {
           final isLoading = state.status == CriticalAlarmStatus.loading;
-          final didFail = !isLoading && state.errorMessage != null;
+          // Set only when a native Done opened the screen and the server
+          // gave no answer. Without it this screen is what it always was.
+          final doneId = isLoading ? null : state.doneIncidentId;
+          final isHandedOff = !isLoading && state.isDoneHandedOff;
+          final didFail =
+              !isLoading && (state.errorMessage != null || doneId != null);
 
           content = AppScreenScaffold(
             hasTabBar: false,
@@ -206,15 +388,76 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             ),
             // The load failing does not stop the phone ringing, so this screen
             // keeps a way out even when it has no incident to acknowledge.
-            bottomBar: didFail
+            bottomBar: isHandedOff
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AppButton(
+                        label: LocaleKeys.critical_alarm_back_to_topics_button
+                            .tr(),
+                        isFullWidth: true,
+                        onPressed: () {
+                          AppHaptics.capture();
+                          context.go('/');
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // The phone may still be making sound, and this
+                      // screen has no incident to acknowledge either.
+                      AppButton(
+                        label: LocaleKeys.critical_alarm_silence_button.tr(),
+                        variant: AppButtonVariant.ghost,
+                        isFullWidth: true,
+                        onPressed: () {
+                          AppHaptics.capture();
+                          unawaited(
+                            context
+                                .read<CriticalAlarmCubit>()
+                                .silenceThisPhone(),
+                          );
+                        },
+                      ),
+                    ],
+                  )
+                : didFail
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Done on the card would have closed this with no
+                      // signal. It opened the app instead, so the close is
+                      // still one tap away, handed back to the same native
+                      // code.
+                      if (doneId != null) ...[
+                        AppButton(
+                          label: LocaleKeys.critical_alarm_at_my_desk_button
+                              .tr(),
+                          variant: AppButtonVariant.ghost,
+                          isFullWidth: true,
+                          onPressed: () {
+                            AppHaptics.capture();
+                            unawaited(
+                              context
+                                  .read<CriticalAlarmCubit>()
+                                  .handCloseToNative(),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      AppButton(
                         label: LocaleKeys.critical_alarm_retry_button.tr(),
                         isFullWidth: true,
+                        // A try again from the screen a Done button opened
+                        // asks for the same incident, so one more failure
+                        // does not take "At my desk" away. Any other try
+                        // again is what it always was.
                         onPressed: () => unawaited(
-                          context.read<CriticalAlarmCubit>().load(),
+                          doneId == null
+                              ? context.read<CriticalAlarmCubit>().load()
+                              : context.read<CriticalAlarmCubit>().load(
+                                  incidentId: doneId,
+                                  cameFromDone: true,
+                                ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -241,10 +484,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                   child: AppEmptyState(
                     title: isLoading
                         ? LocaleKeys.critical_alarm_loading_title.tr()
+                        : isHandedOff
+                        ? LocaleKeys.critical_alarm_close_queued_title.tr()
                         : didFail
                         ? LocaleKeys.critical_alarm_load_failed_title.tr()
                         : LocaleKeys.critical_alarm_no_alarm_title.tr(),
-                    description: didFail
+                    description: isHandedOff
+                        ? LocaleKeys.critical_alarm_close_queued_body.tr()
+                        : didFail
                         ? LocaleKeys.critical_alarm_load_failed_body.tr()
                         : isLoading
                         ? ''
@@ -257,16 +504,36 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             ],
           );
         } else {
-          content = SeverityScope(
-            // The acknowledged screen stays on the acknowledged canvas after
-            // At my desk closes the incident, so its text keeps the colours
-            // that read on it.
-            mode: state.isAcknowledged ? SeverityMode.ack : state.severityMode,
+          // The one place the look is applied, for both stages. The
+          // acknowledged screen stays on the acknowledged colours after At
+          // my desk closes the incident, so its text keeps the colours
+          // that read on it.
+          content = AlarmStyleStage(
+            style: style,
+            stage: stage,
+            severity: state.severityMode,
             child: Builder(
               builder: (context) {
                 final colors = context.appColors;
                 if (state.isAcknowledged) {
-                  return AcknowledgedScreen(state: state, colors: colors);
+                  final owed = _challengeFor(state);
+                  final challenge = challengeOf(owed?.kind);
+                  if (owed != null && challenge != null) {
+                    return ChallengeStep(
+                      key: ValueKey('challenge-${state.incident?.id}'),
+                      challenge: challenge,
+                      incident: _challengeIncident(state),
+                      wayOut: owed.wayOut,
+                      onPassed: _finishChallenge,
+                      onSkip: _finishChallenge,
+                      onLeave: _leaveChallenge,
+                    );
+                  }
+                  return AcknowledgedScreen(
+                    state: state,
+                    colors: colors,
+                    onAtMyDesk: () => _atMyDesk(state),
+                  );
                 }
                 // Back is not an acknowledge. It silences the phone and sets
                 // the next ring for the same incident, the same as Stop on the
@@ -286,10 +553,34 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                     ackButtonKey: _ackButtonKey,
                     announces: !_didAnnounceRinging,
                     onAnnounced: () => _didAnnounceRinging = true,
-                    child: _RingingScreen(
+                    child: RingingScreen(
                       state: state,
                       colors: colors,
                       ackButtonKey: _ackButtonKey,
+                      onAcknowledge: () {
+                        unawaited(
+                          context.read<CriticalAlarmCubit>().acknowledge(),
+                        );
+                      },
+                      onSilence: () {
+                        AppHaptics.selection();
+                        unawaited(context.read<CriticalAlarmCubit>().silence());
+                      },
+                      // Reading is not acknowledging, so this leaves the
+                      // alarm ringing and takes the user to the messages
+                      // on the topic.
+                      onReadMessage: state.incident == null
+                          ? null
+                          : () {
+                              AppHaptics.selection();
+                              unawaited(
+                                context.push(
+                                  '/topics/${state.incident!.topic}',
+                                ),
+                              );
+                            },
+                      onSelectAlarm: (id) =>
+                          context.read<CriticalAlarmCubit>().select(id),
                     ),
                   ),
                 );
@@ -304,530 +595,6 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           child: content,
         );
       },
-    );
-  }
-}
-
-/// The ringing takeover: pulse rings, face, incident detail, and the two
-/// pinned actions (acknowledge and snooze).
-class _RingingScreen extends StatelessWidget {
-  const _RingingScreen({
-    required this.state,
-    required this.colors,
-    required this.ackButtonKey,
-  });
-
-  final CriticalAlarmState state;
-  final AppColors colors;
-  final GlobalKey ackButtonKey;
-
-  // The order a screen reader walks the ringing screen in. "I'm up" is in
-  // the pinned bar at the bottom and still comes first, because stopping the
-  // alarm must not take a hunt. Then what is ringing, then the two quiet
-  // buttons. Nothing moves on screen.
-  static const _orderAcknowledge = OrdinalSortKey(0);
-  static const _orderError = OrdinalSortKey(0.5);
-  static const _orderContent = OrdinalSortKey(1);
-  static const _orderSilence = OrdinalSortKey(2);
-  static const _orderReadMessage = OrdinalSortKey(3);
-
-  // Inside the content: the topic, how long it has rung, the pill when more
-  // than one alarm is open, then the message.
-  static const _orderTopic = OrdinalSortKey(0);
-  static const _orderRingTime = OrdinalSortKey(1);
-  static const _orderAlarmCount = OrdinalSortKey(2);
-  static const _orderMessage = OrdinalSortKey(3);
-
-  @override
-  Widget build(BuildContext context) {
-    final size = AppSize.of(context);
-    final isWide = size.isExpanded || size.isShort;
-
-    final bottomBar = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (state.errorMessage != null) ...[
-          Semantics(
-            sortKey: _orderError,
-            child: AppToast(
-              faceState: FaceState.worried,
-              message: state.errorMessage,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        Semantics(
-          key: ackButtonKey,
-          sortKey: _orderAcknowledge,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
-            isFullWidth: true,
-            isLoading: state.isAcknowledging,
-            onPressed: () {
-              unawaited(context.read<CriticalAlarmCubit>().acknowledge());
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Silence is not an acknowledge. The noise stops, the incident stays
-        // open, and the phone sets its own next ring for the same id.
-        // No stroke: I'm up is the answer and this is the quiet one. It is
-        // still a full-size pill, in a tint of the canvas.
-        Semantics(
-          sortKey: _orderSilence,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-            variant: AppButtonVariant.tinted,
-            isFullWidth: true,
-            onPressed: () {
-              AppHaptics.selection();
-              unawaited(context.read<CriticalAlarmCubit>().silence());
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Hidden for a setup test, which is known by its incident id and never
-        // by a topic name. The phone-only test's topic is on no server, and
-        // the server-sent test rings halfway through setup, where a topic
-        // screen would be a detour out of it.
-        // The same quiet pill as Silence. With a stroke it would outrank
-        // it, and the order of weight is I'm up, Silence, then this.
-        if (!state.ackedExits.isSetupTest)
-          Semantics(
-            sortKey: _orderReadMessage,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_read_message_button.tr(),
-              variant: AppButtonVariant.tinted,
-              isFullWidth: true,
-              // Reading is not acknowledging, so this leaves the alarm
-              // ringing and takes the user to the messages on the topic.
-              onPressed: state.incident == null
-                  ? null
-                  : () {
-                      AppHaptics.selection();
-                      unawaited(
-                        context.push('/topics/${state.incident!.topic}'),
-                      );
-                    },
-            ),
-          ),
-      ],
-    );
-
-    // The message scrolls under the pinned buttons when it is longer than
-    // the screen. While it does, the buttons get a backing in the canvas
-    // colour, so no line of it shows through a tinted button.
-    return AppBarBackingScope(
-      color: colors.canvas,
-      child: isWide ? _wide(context, bottomBar) : _tall(bottomBar),
-    );
-  }
-
-  /// A tablet or a phone on its side: the face beside the words.
-  Widget _wide(BuildContext context, Widget bottomBar) {
-    return AppScreenScaffold(
-      hasTabBar: false,
-      contentSortKey: _orderContent,
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Row(
-            children: [
-              _face(300),
-              const SizedBox(width: 40),
-              Expanded(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _word(TextAlign.left),
-                      const SizedBox(height: Spacing.s2),
-                      _topic(TextAlign.left),
-                      _alarmCountPill(context),
-                      const SizedBox(height: Spacing.s2),
-                      _subtext(TextAlign.left),
-                      const SizedBox(height: Spacing.s4),
-                      _detailSheet(),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      bottomBar: bottomBar,
-    );
-  }
-
-  /// The upright phone: everything in one column over the pinned buttons.
-  ///
-  /// The message wins the room. The face takes what is left once the whole
-  /// card sits above the buttons, and goes away when that is too little. If
-  /// the title still ends under the buttons, the lines above the card drop
-  /// to a smaller text size. The rules are in `ringing_layout_rules.dart`.
-  Widget _tall(Widget bottomBar) {
-    return AppScreenScaffold(
-      hasTabBar: false,
-      contentSortKey: _orderContent,
-      slivers: [
-        SliverToBoxAdapter(
-          // Built inside the page, where the width of the card and the text
-          // style its lines inherit are known.
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final layout = _tallLayout(context, box.maxWidth);
-              final header = Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _word(TextAlign.center),
-                  const SizedBox(height: Spacing.s2),
-                  _topic(TextAlign.center),
-                  _alarmCountPill(context),
-                  const SizedBox(height: Spacing.s2),
-                  _subtext(TextAlign.center),
-                ],
-              );
-              return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  _cardInset,
-                  layout.isCompact ? ringingCompactTopGap : ringingTopGap,
-                  _cardInset,
-                  0,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (layout.faceSize > 0) ...[
-                      _face(layout.faceSize),
-                      const SizedBox(height: ringingFaceGap),
-                    ],
-                    if (layout.isCompact)
-                      MediaQuery(
-                        data: MediaQuery.of(context).copyWith(
-                          textScaler: MediaQuery.textScalerOf(context).clamp(
-                            maxScaleFactor: ringingCompactTextScale,
-                          ),
-                        ),
-                        child: header,
-                      )
-                    else
-                      header,
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _cardInset,
-              Spacing.s4,
-              _cardInset,
-              0,
-            ),
-            child: _detailSheet(),
-          ),
-        ),
-      ],
-      bottomBar: bottomBar,
-    );
-  }
-
-  /// The room on each side of the card, and the padding inside it, which
-  /// is the sheet's own.
-  static const double _cardInset = 16;
-  static const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 18, 16, 16);
-
-  /// The size of the face and whether the header is compact, for a page
-  /// [width] wide. The card is measured with the message it holds, because
-  /// the length of the message is what decides the room.
-  ({double faceSize, bool isCompact}) _tallLayout(
-    BuildContext context,
-    double width,
-  ) {
-    final media = MediaQuery.of(context);
-    final textScale = media.textScaler.scale(16) / 16;
-    final textWidth = width - 2 * _cardInset - _cardPadding.horizontal;
-    double lines(String text, TextStyle style) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: DefaultTextStyle.of(context).style.merge(style),
-        ),
-        textDirection: Directionality.of(context),
-        textScaler: media.textScaler,
-        locale: Localizations.maybeLocaleOf(context),
-      )..layout(maxWidth: math.max(0, textWidth));
-      final height = painter.height;
-      painter.dispose();
-      return height;
-    }
-
-    final titleBottom = _cardPadding.top + lines(state.title, _titleStyle);
-    final cardHeight =
-        titleBottom +
-        _titleGap +
-        lines(state.body, _bodyStyle) +
-        _bodyGap +
-        lines(state.meta, _metaStyle) +
-        _cardPadding.bottom;
-    final viewportHeight = media.size.height - media.padding.vertical;
-    // A setup test has no Read the full message button.
-    final pinnedButtons = state.ackedExits.isSetupTest ? 2 : 3;
-    final openAlarms = state.openIncidents.length;
-    return (
-      faceSize: ringingFaceSizeFor(
-        viewportHeight: viewportHeight,
-        textScale: textScale,
-        openAlarms: openAlarms,
-        cardHeight: cardHeight,
-        pinnedButtons: pinnedButtons,
-      ),
-      isCompact: ringingHeaderIsCompact(
-        viewportHeight: viewportHeight,
-        textScale: textScale,
-        openAlarms: openAlarms,
-        titleBottom: titleBottom,
-        pinnedButtons: pinnedButtons,
-      ),
-    );
-  }
-
-  /// How much wider the ringing face's stage is than its head.
-  static const double _ringingStageScale = RingingFacePainter.stageUnits / 200;
-
-  Widget _face(double faceSize) {
-    // A setup test takes the face over from the setup screen it came from.
-    final isDemo = state.ackedExits.isSetupTest;
-    // The face and its pulse ring are a picture of the state. The words say
-    // the same thing, so a screen reader passes over both.
-    return ExcludeSemantics(
-      child: _faceStage(faceSize, isDemo: isDemo),
-    );
-  }
-
-  Widget _faceStage(double faceSize, {required bool isDemo}) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: SizedBox(
-        width: faceSize,
-        height: faceSize,
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            PulseRingWidget(size: faceSize),
-            Hero(
-              tag: isDemo
-                  ? 'onboarding-face'
-                  : 'alarm-face-${state.incident?.id}',
-              flightShuttleBuilder: faceFlightShuttleBuilder,
-              // The ringing face's stage is wider than its head, to leave
-              // room for sweat, stars and steam. This keeps the head the
-              // size the old face was and lets the extras spill out.
-              child: SizedBox.square(
-                dimension: faceSize,
-                child: OverflowBox(
-                  maxWidth: faceSize * _ringingStageScale,
-                  maxHeight: faceSize * _ringingStageScale,
-                  child: ShufflingRingingFace(
-                    size: faceSize * _ringingStageScale,
-                    isLive: state.isLive,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _word(TextAlign align) {
-    // Read together with the topic name, which comes first there.
-    return ExcludeSemantics(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          state.word,
-          textAlign: align,
-          style: AppTypography.display(colors.onCanvas),
-        ),
-      ),
-    );
-  }
-
-  Widget _topic(TextAlign align) {
-    return Semantics(
-      sortKey: _orderTopic,
-      label: spokenTopic(topic: state.topic, word: state.word),
-      excludeSemantics: true,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          state.topic,
-          textAlign: align,
-          style: TextStyle(
-            fontFamily: AppTypography.fontMono,
-            fontFamilyFallback: AppTypography.fontMonoFallbacks,
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            color: colors.onCanvas,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// How long the alarm has been ringing. The line counts seconds for the
-  /// eye. A screen reader gets whole minutes, so what it holds changes once a
-  /// minute, and it is not a live region: nothing is read out on its own.
-  Widget _subtext(TextAlign align) {
-    return Semantics(
-      sortKey: _orderRingTime,
-      label: state.ringTimeSpoken.isEmpty
-          ? state.subtext
-          : state.ringTimeSpoken,
-      excludeSemantics: true,
-      child: Text(
-        state.subtext,
-        textAlign: align,
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontWeight: FontWeight.w600,
-          fontSize: 15,
-          color: colors.onCanvas,
-        ),
-      ),
-    );
-  }
-
-  /// The "2 alarms" pill under the topic name. Hidden until a second incident
-  /// is open; tapping it opens the sheet that lists the others.
-  Widget _alarmCountPill(BuildContext context) {
-    final count = state.openIncidents.length;
-    if (count <= 1) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: Spacing.s2),
-      child: Semantics(
-        button: true,
-        sortKey: _orderAlarmCount,
-        child: GestureDetector(
-          onTap: () => unawaited(_showOtherAlarms(context)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colors.hairline.withValues(alpha: 0.5)),
-            ),
-            child: Text(
-              LocaleKeys.critical_alarm_alarm_count_pill.plural(count),
-              style: TextStyle(
-                fontFamily: AppTypography.fontMono,
-                fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: colors.ink2,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Lists every open incident that is not the one on screen. Tapping a row
-  /// swaps it to the top and answers nothing; the person still has to tap
-  /// "I'm up" for the one they picked.
-  Future<void> _showOtherAlarms(BuildContext context) async {
-    final cubit = context.read<CriticalAlarmCubit>();
-    final shownId = state.incident?.id;
-    final others = state.openIncidents
-        .where((i) => i.id != shownId)
-        .toList(growable: false);
-    await showAppSheet<void>(
-      context: context,
-      title: LocaleKeys.critical_alarm_alarm_others_sheet_title.tr(),
-      content: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final incident in others)
-            _OtherAlarmRow(
-              incident: incident,
-              onTap: () {
-                cubit.select(incident.id);
-                Navigator.of(sheetContext).pop();
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _detailSheet() {
-    // One stop for the whole message, so it is one swipe to hear it and one
-    // more to reach Silence.
-    return Semantics(
-      container: true,
-      sortKey: _orderMessage,
-      label: spokenMessage(
-        title: state.title,
-        body: state.body,
-        meta: state.meta,
-      ),
-      excludeSemantics: true,
-      child: _detailCard(),
-    );
-  }
-
-  // The card's three lines. The layout measures the same styles, so the
-  // face is sized for the card that is drawn.
-  TextStyle get _titleStyle => TextStyle(
-    fontFamily: AppTypography.fontDisplay,
-    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-    fontWeight: FontWeight.w700,
-    fontSize: 22,
-    color: colors.ink,
-    height: 1.2,
-  );
-
-  TextStyle get _bodyStyle => TextStyle(
-    fontFamily: AppTypography.fontBody,
-    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-    fontSize: 14,
-    color: colors.ink2,
-    height: 1.4,
-  );
-
-  TextStyle get _metaStyle => TextStyle(
-    fontFamily: AppTypography.fontMono,
-    fontFamilyFallback: AppTypography.fontMonoFallbacks,
-    fontSize: 12,
-    color: colors.ink3,
-  );
-
-  static const double _titleGap = 6;
-  static const double _bodyGap = 8;
-
-  Widget _detailCard() {
-    return AppSheet(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(state.title, style: _titleStyle),
-          const SizedBox(height: _titleGap),
-          Text(state.body, style: _bodyStyle),
-          const SizedBox(height: _bodyGap),
-          Text(state.meta, style: _metaStyle),
-        ],
-      ),
     );
   }
 }
@@ -974,11 +741,16 @@ class AcknowledgedScreen extends StatelessWidget {
   const AcknowledgedScreen({
     required this.state,
     required this.colors,
+    this.onAtMyDesk,
     super.key,
   });
 
   final CriticalAlarmState state;
   final AppColors colors;
+
+  /// Takes over the tap on "At my desk", for an owner that may ask for a
+  /// wake-up challenge first. Left out, the button closes the incident.
+  final VoidCallback? onAtMyDesk;
 
   @override
   Widget build(BuildContext context) {
@@ -1006,11 +778,11 @@ class AcknowledgedScreen extends StatelessWidget {
     // The demo welcomes: a ripple of happy faces, the title and one line,
     // with confetti on top.
     final faceState = state.faceState;
+    final style = AlarmStyleScope.of(context);
+    final look = style.acknowledged;
     // The face keeps the outline and features it has everywhere else. The
     // acknowledged palette turns both white for the text around it.
-    final facePalette = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.dark
-        : AppColors.light;
+    final facePalette = style.facePaletteFor(Theme.of(context).brightness);
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -1121,7 +893,7 @@ class AcknowledgedScreen extends StatelessWidget {
               // the pill under the title, in both states and only there.
               if (!isClosed) ...[
                 if (pinsHint) ...[
-                  _sub(TextAlign.center, _deskTimerHint(context)),
+                  _sub(look, TextAlign.center, _deskTimerHint(context)),
                   const SizedBox(height: Spacing.s3),
                 ],
                 AppButton(
@@ -1130,6 +902,11 @@ class AcknowledgedScreen extends StatelessWidget {
                   isFullWidth: true,
                   onPressed: () {
                     AppHaptics.capture();
+                    final onAtMyDesk = this.onAtMyDesk;
+                    if (onAtMyDesk != null) {
+                      onAtMyDesk();
+                      return;
+                    }
                     unawaited(
                       context.read<CriticalAlarmCubit>().closeIncident(),
                     );
@@ -1200,7 +977,7 @@ class AcknowledgedScreen extends StatelessWidget {
                   flightShuttleBuilder: faceFlightShuttleBuilder,
                   child: FaceWidget(
                     state: faceState,
-                    size: 260,
+                    size: math.min(260, look.maxFace),
                     overrideStrokeColor: facePalette.faceStroke,
                     overrideInkColor: facePalette.faceInk,
                   ),
@@ -1213,16 +990,16 @@ class AcknowledgedScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _title(TextAlign.left),
+                        _title(look, TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _topic(context),
                         const SizedBox(height: Spacing.s2),
-                        _sub(TextAlign.left, ackedSub),
+                        _sub(look, TextAlign.left, ackedSub),
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
                         if (hintInList) ...[
                           const SizedBox(height: Spacing.s4),
-                          _sub(TextAlign.left, _deskTimerHint(context)),
+                          _sub(look, TextAlign.left, _deskTimerHint(context)),
                         ],
                       ],
                     ),
@@ -1245,11 +1022,14 @@ class AcknowledgedScreen extends StatelessWidget {
     // text size the list scrolls, and the room the scaffold leaves under
     // it is the height of the backing, so the card always scrolls clear.
     final media = MediaQuery.of(context);
-    final faceSize = (media.size.height - media.padding.vertical - _restHeight)
-        .clamp(
-          _minFace,
-          224.0,
-        );
+    // The room decides the face. A look may only cap it.
+    final faceSize = math.min(
+      (media.size.height - media.padding.vertical - _restHeight).clamp(
+        _minFace,
+        224.0,
+      ),
+      look.maxFace,
+    );
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -1275,11 +1055,11 @@ class AcknowledgedScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: Spacing.s4),
-                _title(TextAlign.center),
+                _title(look, TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _topic(context),
                 const SizedBox(height: Spacing.s2),
-                _sub(TextAlign.center, ackedSub),
+                _sub(look, TextAlign.center, ackedSub),
               ],
             ),
           ),
@@ -1294,7 +1074,7 @@ class AcknowledgedScreen extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
-              child: _sub(TextAlign.center, _deskTimerHint(context)),
+              child: _sub(look, TextAlign.center, _deskTimerHint(context)),
             ),
           ),
       ],
@@ -1449,11 +1229,11 @@ class AcknowledgedScreen extends StatelessWidget {
 
   /// One line on any phone at the default text size: the type scales down
   /// until the word fits, and it never breaks inside a word.
-  Widget _title(TextAlign align) {
+  Widget _title(AlarmAcknowledgedLook look, TextAlign align) {
     return AppFittedTitle(
       LocaleKeys.critical_alarm_acked_title.tr(),
       textAlign: align,
-      style: AppTypography.display(colors.onCanvas),
+      style: look.type.title.copyWith(color: colors.onCanvas),
     );
   }
 
@@ -1516,17 +1296,11 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  Widget _sub(TextAlign align, String text) {
+  Widget _sub(AlarmAcknowledgedLook look, TextAlign align, String text) {
     return Text(
       text,
       textAlign: align,
-      style: TextStyle(
-        fontFamily: AppTypography.fontBody,
-        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-        color: colors.onCanvas,
-      ),
+      style: look.type.line.copyWith(color: colors.onCanvas),
     );
   }
 
@@ -1685,80 +1459,6 @@ String _formatRingDuration(Duration duration) {
   final minutes = duration.inMinutes;
   final seconds = duration.inSeconds % 60;
   return '$minutes min $seconds s';
-}
-
-/// One row in the "other alarms" sheet: the topic, the page title and how long
-/// the incident has been open.
-class _OtherAlarmRow extends StatelessWidget {
-  const _OtherAlarmRow({required this.incident, required this.onTap});
-
-  final Incident incident;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final title = incident.messages.firstOrNull?.title ?? incident.topic;
-    final openedAt = incident.openedAt;
-    final age = openedAt == null
-        ? ''
-        : formatRingDuration(DateTime.now().difference(openedAt));
-
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.mdAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      incident.topic,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontMono,
-                        fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: colors.ink3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: colors.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                age,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontMono,
-                  fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                  fontSize: 12,
-                  color: colors.ink3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Two confetti bursts that fire once when the demo's acknowledged screen

@@ -33,7 +33,7 @@ class CreateTopicState {
     this.criticalLimit = 2,
     this.criticalUsed = 0,
     this.existingNames = const <String>{},
-    this.isProPending = false,
+    this.isPlanConfirming = false,
     this.isListReady = false,
     this.toolPick = const ToolTemplatePick(),
   });
@@ -77,7 +77,7 @@ class CreateTopicState {
 
   /// True when the last create was refused while the store already said Pro
   /// and the server had not caught up yet.
-  final bool isProPending;
+  final bool isPlanConfirming;
 
   /// The shared topic list has loaded, so [existingNames] is the real answer
   /// and not just the empty list before the first fetch.
@@ -128,7 +128,7 @@ class CreateTopicState {
     int? criticalLimit,
     int? criticalUsed,
     Set<String>? existingNames,
-    bool? isProPending,
+    bool? isPlanConfirming,
     bool? isListReady,
     ToolTemplatePick? toolPick,
     bool clearError = false,
@@ -149,7 +149,7 @@ class CreateTopicState {
       criticalLimit: criticalLimit ?? this.criticalLimit,
       criticalUsed: criticalUsed ?? this.criticalUsed,
       existingNames: existingNames ?? this.existingNames,
-      isProPending: isProPending ?? this.isProPending,
+      isPlanConfirming: isPlanConfirming ?? this.isPlanConfirming,
       isListReady: isListReady ?? this.isListReady,
       toolPick: toolPick ?? this.toolPick,
     );
@@ -175,7 +175,7 @@ class CreateTopicState {
           criticalLimit == other.criticalLimit &&
           criticalUsed == other.criticalUsed &&
           setEquals(existingNames, other.existingNames) &&
-          isProPending == other.isProPending &&
+          isPlanConfirming == other.isPlanConfirming &&
           isListReady == other.isListReady &&
           toolPick == other.toolPick;
 
@@ -196,7 +196,7 @@ class CreateTopicState {
     criticalLimit,
     criticalUsed,
     Object.hashAllUnordered(existingNames),
-    isProPending,
+    isPlanConfirming,
     isListReady,
     toolPick,
   );

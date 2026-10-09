@@ -42,11 +42,11 @@ abstract final class LocalReminderTapRoute {
   /// Home, for a Pro tap from someone who already pays.
   static const String homePath = '/';
 
-  /// [isPaid] sends a Pro nudge home instead of to the paywall: a reminder
+  /// [holdsHosted] sends a Pro nudge home instead of to the paywall: a reminder
   /// planned before the purchase can still land after it.
   static LocalReminderTapAction? resolve(
     LocalReminderTap tap, {
-    bool isPaid = false,
+    bool holdsHosted = false,
   }) => switch (tap.kind) {
     LocalReminderKind.fireDrill => const OpenRouteAction(ringPath),
     LocalReminderKind.silentTopic => _topic(
@@ -55,13 +55,13 @@ abstract final class LocalReminderTapRoute {
     LocalReminderKind.backup => const OpenRouteAction(signInPath),
     LocalReminderKind.planHeadsUp => _url(tap.payload[LocalReminderArgs.url]),
     LocalReminderKind.morningAfter =>
-      isPaid
+      holdsHosted
           ? const OpenRouteAction(homePath)
           : OpenRouteAction(
               paywallLocation(PaywallSource.reminderMorningAfter),
             ),
     LocalReminderKind.proLater =>
-      isPaid
+      holdsHosted
           ? const OpenRouteAction(homePath)
           : OpenRouteAction(paywallLocation(PaywallSource.reminderProLater)),
     LocalReminderKind.reviewAsk => const OpenStoreReviewAction(),

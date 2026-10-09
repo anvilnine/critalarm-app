@@ -1,3 +1,5 @@
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -31,9 +33,13 @@ class PaywallBenefit {
     required this.lineKey,
     required this.previewId,
     required this.inThisBuild,
+    this.feature,
   });
 
   final PaywallBenefitId id;
+
+  /// The feature this benefit stands for, where it has one in the table.
+  final AppFeature? feature;
   final PaywallProduct product;
   final String titleKey;
 
@@ -55,8 +61,8 @@ class PaywallBenefit {
 
 /// The Hosted line and preview for each benefit a layout lists under
 /// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
-/// listed: home screen widgets are sold with Pro on these layouts. A
-/// benefit taken out of `HostedBenefit.all` drops off every layout too.
+/// listed. A benefit taken out of `HostedBenefit.all` drops off every
+/// layout too.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -81,13 +87,18 @@ const _hostedParts =
       ),
     };
 
-/// What Pro gives, in display order. [PaywallBenefit.inThisBuild] is true
-/// only for what the app has today: the widgets and the weekly delivery
-/// check. The other three are written and drawn, and a layout picks each
-/// one up the day its switch is turned on.
-const _proBenefits = <PaywallBenefit>[
+/// Every benefit Pro has a title, a line and a preview for, in display
+/// order. The table picks from it and never reorders it: a benefit is
+/// listed under Pro while Pro unlocks its feature.
+///
+/// [PaywallBenefit.inThisBuild] is true only for what the app has today:
+/// the widgets, the weekly delivery check and the alarm screen looks (four
+/// fixed ones and the person's own photo). The other two are written and
+/// drawn, and a layout picks each one up the day its switch is turned on.
+const _proDisplayOrder = <PaywallBenefit>[
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
+    feature: AppFeature.wakeUpChallenges,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_title,
     lineKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_line,
@@ -96,6 +107,7 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.widgets,
+    feature: AppFeature.widgets,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_widgets_title,
     lineKey: LocaleKeys.paywall_kit_benefits_widgets_line,
@@ -104,6 +116,7 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.reliabilityChecks,
+    feature: AppFeature.weeklyCheck,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_reliability_checks_title,
     lineKey: LocaleKeys.paywall_kit_benefits_reliability_checks_line,
@@ -112,6 +125,7 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customSounds,
+    feature: AppFeature.ownSounds,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_custom_sounds_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_sounds_line,
@@ -120,30 +134,43 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customAlarmScreens,
+    feature: AppFeature.alarmScreenStyles,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_line,
     previewId: PaywallPreviewId.customAlarmScreens,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
 ];
 
-/// Every benefit of both products, Hosted first, each in display order.
-/// Includes the ones this build does not have yet. Only the tests and the
-/// developer pages read this: a layout reads [paywallBenefitsFor].
-List<PaywallBenefit> get allPaywallBenefits => [
-  for (final hosted in HostedBenefit.all)
+/// Every benefit of both products under [table], Hosted first, each in
+/// display order. Includes the ones this build does not have yet.
+///
+/// Hosted lists each benefit of [hostedBenefitsIn] that has a line and a
+/// preview here. Pro lists each of its benefits whose feature Pro unlocks
+/// in [table].
+List<PaywallBenefit> allPaywallBenefitsIn(
+  Map<AppFeature, FeatureRule> table,
+) => [
+  for (final hosted in hostedBenefitsIn(table))
     if (_hostedParts[hosted.id] case (final id, final lineKey, final preview))
       PaywallBenefit(
         id: id,
+        feature: hosted.feature,
         product: PaywallProduct.hosted,
         titleKey: hosted.compareLabelKey,
         lineKey: lineKey,
         previewId: preview,
         inThisBuild: true,
       ),
-  ..._proBenefits,
+  for (final pro in _proDisplayOrder)
+    if (table[pro.feature]?.unlockedBy.contains(Holding.pro) ?? false) pro,
 ];
+
+/// [allPaywallBenefitsIn] for the app's own table. Only the tests and the
+/// developer pages read this: a layout reads [paywallBenefitsFor].
+List<PaywallBenefit> get allPaywallBenefits =>
+    allPaywallBenefitsIn(featureTable);
 
 /// What a layout lists for [product]: the benefits this build really has,
 /// in display order.

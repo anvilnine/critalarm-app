@@ -70,22 +70,33 @@ class AppPushBindings {
       return;
     }
     final incidentId = _incidentIdFrom(location);
-    if (incidentId != null && _onAlarm()) {
+    final isMarked = switch (Uri.tryParse(location)) {
+      final Uri uri => PushDeepLink.cameFromDone(uri),
+      null => false,
+    };
+    // While an alarm is under way the marker counts for nothing, and the
+    // tap is handled as it always was: a ringing alarm screen is never
+    // replaced, so "I'm up" stays where it is.
+    final cameFromDone = isMarked && !_focus.on;
+    final target = isMarked && !cameFromDone && incidentId != null
+        ? PushDeepLink.incidentLocation(incidentId)
+        : location;
+    // With no alarm under way, a native Done opens its own screen: the
+    // marker is read by the route, and a swap on the screen already up
+    // would lose it.
+    if (incidentId != null && _onAlarm() && !cameFromDone) {
       _selectIncident(incidentId);
       return;
     }
-    _navigate(PushDeepLink.tagged(location));
+    _navigate(PushDeepLink.tagged(target));
   }
 
   bool _isAlarmRoute(String location) =>
       location == '/alarm' || location.startsWith('/incidents/');
 
   /// The incident id a tap route points at, or null when it points elsewhere.
-  String? _incidentIdFrom(String location) {
-    const prefix = '/incidents/';
-    if (!location.startsWith(prefix)) return null;
-    return Uri.decodeComponent(location.substring(prefix.length));
-  }
+  String? _incidentIdFrom(String location) =>
+      PushDeepLink.incidentIdIn(location);
 
   /// True when the alarm screen is what the user is looking at.
   bool _onAlarm() {

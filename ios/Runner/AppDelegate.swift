@@ -483,6 +483,51 @@ import AlarmKit
         delaySeconds: args["delay_seconds"] as? Int
       ) { ok in result(ok) }
 
+    case "closeFromDone":
+      // "At my desk" on the screen a Done button opened and could not load.
+      // This is that Done button, pressed late: the same intent, which
+      // queues the close, sends it, and updates the card and the widgets
+      // when the server says the incident is over. Nothing else happens
+      // here. The answer goes back once it is handed over: the intent
+      // writes the queue first and may then wait on the network.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      guard #available(iOS 16.2, *) else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      // The link that brought the app here can be forged, so it is not
+      // what decides. This phone's own record is: only an incident
+      // acknowledged here and quiet has a Done to press. Anything else is
+      // refused before a single thing is touched.
+      var alarmUnderWay = false
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+        // Alarms that cannot be read count as one under way.
+        alarmUnderWay = (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+      }
+      #endif
+      let mayClose = DoneHandOffRule.mayClose(
+        acked: AckedIncidentStore.contains(incidentId: incidentId),
+        alarmUnderWay: alarmUnderWay,
+        cardState: IncidentActivityCoordinator.shared.cardState(incidentId: incidentId),
+        widgetState: DoneHandOffRule.widgetState(
+          incidentId: incidentId, in: WidgetSnapshotStore.read()
+        )
+      )
+      guard mayClose else {
+        NSLog("CritAlarmAlarm: close_from_done_refused incident_id=%@", incidentId)
+        result(FlutterError(
+          code: "not_acknowledged", message: "not acknowledged on this phone", details: nil
+        ))
+        return
+      }
+      Task { _ = try? await CloseIncidentIntent(incidentId: incidentId).perform() }
+      result(nil)
+
     case "cancelAlarm":
       guard let incidentId = args["incident_id"] as? String else {
         result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
@@ -1188,20 +1233,61 @@ enum SoundLibrary {
     return published
   }
 
+  /// Whether [defaults] holds anything Dart wrote. `shared_preferences`
+  /// writes every key with the `flutter.` prefix, and the app has written
+  /// some by the end of its first launch. None at all means the store
+  /// could not be read (the phone has not been unlocked since it started)
+  /// or nothing was ever written, and then there is nothing to publish
+  /// either way.
+  static func defaultsWereRead(_ defaults: UserDefaults) -> Bool {
+    defaults.dictionaryRepresentation().keys.contains { $0.hasPrefix("flutter.") }
+  }
+
   /// Writes the ringable file names into the group for the extension.
-  private static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
-    let defaultFile = defaults.string(forKey: "flutter.alarm_sound_default")
-      .flatMap(ringableFileName(forSoundId:))
-    var perTopic: [String: String] = [:]
+  ///
+  /// The lock flag Dart wrote goes with them. While it is set no own sound
+  /// is published (`SharedSounds.choicesToPublish`), and the saved choices
+  /// stay as they are, so they ring again once the flag clears.
+  ///
+  /// Not private, so the unit tests can hand it two defaults of their own.
+  @discardableResult
+  static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
+    // A launch before the phone's first unlock reads the app's defaults as
+    // empty. Publishing that would wipe the own sound lock and every
+    // challenge flag in the group until the next publish. What could not
+    // be read never replaces what is written: the group stays as it is,
+    // and the caller is told nothing was published so it tries again.
+    guard defaultsWereRead(defaults) else {
+      NSLog("CritAlarmSound: assignments_not_published reason=defaults_unread")
+      return false
+    }
+    var perTopicIds: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),
        let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
-      for (topic, id) in map {
-        if let name = ringableFileName(forSoundId: id) { perTopic[topic] = name }
-      }
+      perTopicIds = map
     }
-    SharedSounds.publish(defaultFile: defaultFile, perTopicFiles: perTopic, to: shared)
-    NSLog("CritAlarmSound: assignments_published topics=%d", perTopic.count)
+    // False when Dart has not written it yet, or it is not a boolean.
+    let ownLocked = defaults.bool(forKey: OwnSoundLock.appKey)
+    let choices = SharedSounds.choicesToPublish(
+      defaultId: defaults.string(forKey: "flutter.alarm_sound_default"),
+      perTopicIds: perTopicIds,
+      ownLocked: ownLocked,
+      ringableFileName: ringableFileName(forSoundId:)
+    )
+    SharedSounds.publish(
+      defaultFile: choices.defaultFile,
+      perTopicFiles: choices.perTopicFiles,
+      ownLocked: ownLocked,
+      to: shared
+    )
+    // The topics that owe a wake-up challenge go the same way, for the
+    // Done button on the Live Activity.
+    ChallengeFlag.publish(from: defaults, to: shared)
+    NSLog(
+      "CritAlarmSound: assignments_published topics=%d own_locked=%@",
+      choices.perTopicFiles.count, ownLocked ? "yes" : "no"
+    )
     return true
   }
 }

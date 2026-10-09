@@ -721,3 +721,12 @@ abstract final class ColorContrast {
     return 'fail';
   }
 }
+
+/// Derived colours that no theme stores.
+extension AppColorsDerived on AppColors {
+  /// The critical red as text on a light fill: a step toward ink, so it
+  /// reads at 7 to 1 on white where the plain red reads at 3.6 to 1. On the
+  /// dark theme the same step moves toward cream and reads lighter than the
+  /// plain red.
+  Color get critText => Color.lerp(crit, ink, 0.4)!;
+}

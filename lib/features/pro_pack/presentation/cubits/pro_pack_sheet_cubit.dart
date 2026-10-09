@@ -104,6 +104,12 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
     if (result == ProPackStoreResult.cancelled) {
       await _access.purchaseAbandoned();
     }
+    // Only a purchase the store finished counts as accepted. A problem,
+    // which is also what a payment the store is holding comes back as,
+    // leaves the record as one that was only started.
+    if (result == ProPackStoreResult.done) {
+      await _access.purchaseAccepted();
+    }
     await _afterStore(result, afterPurchase: true);
   }
 

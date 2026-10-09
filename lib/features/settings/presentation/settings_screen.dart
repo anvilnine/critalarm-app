@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -14,9 +14,13 @@ import 'package:critalarm/features/feature_guides/presentation/widgets/feature_g
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
-import 'package:critalarm/features/settings/presentation/settings_reliability_row.dart';
+import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/settings/presentation/settings_plan_card.dart';
+import 'package:critalarm/features/settings/presentation/settings_readiness_card.dart';
+import 'package:critalarm/features/settings/presentation/settings_row_values.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -24,11 +28,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// SettingsScreen matching docs/design-system/index.html mobile mockup.
+/// The Settings tab: a dark card on top that answers "will it wake me?", then
+/// a white sheet of rows.
 ///
 /// Everything with more than one control behind it lives on its own screen
-/// under /settings. What stays here is the health summary, the rows that lead
-/// to those screens, and the one single control (plan).
+/// under /settings. What stays here is the readiness card, the rows that lead
+/// to those screens, and the plan. There is no face scene: a list gets none.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
@@ -50,27 +55,69 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
+/// The sheet's inner padding. A row keeps 14 points inside its own box, so
+/// the row text, the plan card text and the section labels all start 20 points
+/// in from the sheet's edge, as the text on the Topics and Topic sheets does.
+const EdgeInsets _kSheetPadding = EdgeInsets.fromLTRB(6, 10, 6, 10);
+
+/// The section label's padding: the row's own 14 points at each side.
+const EdgeInsets _kLabelPadding = EdgeInsets.fromLTRB(14, 10, 14, 6);
+
+/// How much of the zone behind the title holds full strength once a row has
+/// scrolled under it.
+const double _kTitleBackingPlateau = 0.6;
+
 class _SettingsScreenContent extends StatelessWidget {
   const _SettingsScreenContent();
 
-  /// One row that leads to a screen under /settings.
+  /// One row that leads to a screen under /settings. [value] is what the row
+  /// is set to, when that is already known, and sits before the arrow.
   Widget _buildNavRow(
     BuildContext context, {
     required String title,
     required String subtitle,
     required String path,
+    String? value,
   }) {
+    final colors = context.appColors;
+    final valueStyle = AppTypography.small(colors.ink3, fontSize: 13);
+    // At larger text the value moves under the title, where the whole row
+    // width is free for it. Before that it sits at the end of the row and
+    // takes the room it needs, ahead of the description.
+    final valueUnderTitle =
+        MediaQuery.textScalerOf(context).scale(1) > kSettingsValueMaxTextScale;
     return AppListRow(
       name: title,
+      preview: valueUnderTitle ? value : null,
       meta: subtitle,
       // No face. A face reports how something is doing, and these rows only
-      // open another screen. The Health row above keeps one because it does
-      // report something.
+      // open another screen. The readiness card above keeps one because it
+      // does report something.
       faceState: null,
-      trailing: AppGlyph(
-        GlyphType.arrow,
-        color: context.appColors.ink3,
-        size: 16,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (value != null && !valueUnderTitle) ...[
+            // The value is chrome: it stops growing with the text size so it
+            // never squeezes the row's title out.
+            MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: MediaQuery.textScalerOf(
+                  context,
+                ).clamp(maxScaleFactor: kChromeMaxTextScale),
+              ),
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: valueStyle,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+        ],
       ),
       onTap: () => context.push(path),
     );
@@ -81,43 +128,12 @@ class _SettingsScreenContent extends StatelessWidget {
   Widget _buildSelfHostedPlanRow(BuildContext context) {
     final colors = context.appColors;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Prose, so the title is set in the body face and wraps. AppListRow
-        // sets every name in mono, which is for topic names and the like.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: Radii.mdAll,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                LocaleKeys.settings_plan_selfhosted_title.tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: colors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                  fontSize: 12,
-                  color: colors.ink3,
-                ),
-              ),
-            ],
-          ),
+        SettingsPlanCard(
+          title: LocaleKeys.settings_plan_selfhosted_title.tr(),
+          usage: LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
@@ -131,90 +147,52 @@ class _SettingsScreenContent extends StatelessWidget {
   }
 
   Widget _buildPlanRow(BuildContext context, SettingsState state) {
-    if (state.serverMode == ServerMode.selfhosted) {
+    if (isOwnServerMode(state.serverMode)) {
       return _buildSelfHostedPlanRow(context);
     }
-    final colors = context.appColors;
-    final isPro = state.access.isPaid;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.cream,
-        borderRadius: Radii.mdAll,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        // A purchase the store confirmed counts as Pro before
-                        // the server has registered it.
-                        isPro
-                            ? LocaleKeys.settings_plan_pro.tr()
-                            : !state.access.isKnown
-                            ? LocaleKeys.account_plan_unavailable.tr()
-                            : LocaleKeys.settings_plan_free.tr(),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colors.ink,
-                        ),
-                      ),
-                    ),
-                  ],
+    // A purchase the store confirmed counts as Hosted before the server has
+    // registered it.
+    final isHosted = state.holdsHosted;
+    final access = state.access;
+    final limit = access.caps?.criticalTopics;
+    return SettingsPlanCard(
+      title: isHosted
+          ? LocaleKeys.settings_plan_pro.tr()
+          : !access.isKnown
+          ? LocaleKeys.account_plan_unavailable.tr()
+          : LocaleKeys.settings_plan_free.tr(),
+      usage: state.criticalUsage,
+      // The bar is the free allowance. Hosted, a purchase still being
+      // confirmed (held already) and an unknown plan have none to show.
+      fraction: isHosted || !access.isKnown
+          ? null
+          : planUsageFraction(
+              used: access.criticalCount(state.topics),
+              limit: limit,
+            ),
+      actionLabel: !isHosted
+          ? LocaleKeys.settings_card_plan_upgrade.tr()
+          : !buildSkipsPaywall
+          // The store's own subscription page, through the RevenueCat
+          // customer centre. A build that skips the paywall never
+          // configures RevenueCat, and has no subscription to manage.
+          ? LocaleKeys.settings_plan_manage_button.tr()
+          : null,
+      onAction: !isHosted
+          ? () {
+              AppHaptics.capture();
+              unawaited(
+                context.push(
+                  hostedPaywallLocation(PaywallSource.settingsPlan),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  state.criticalUsage,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 12,
-                    color: colors.ink3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isPro) ...[
-            const SizedBox(width: 8),
-            AppButton(
-              label: LocaleKeys.settings_upgrade_button.tr(),
-              size: AppButtonSize.sm,
-              onPressed: () {
-                AppHaptics.capture();
-                unawaited(
-                  context.push(
-                    hostedPaywallLocation(PaywallSource.settingsPlan),
-                  ),
-                );
-              },
-            ),
-          ] else if (!buildSkipsPaywall) ...[
-            // The store's own subscription page, through the RevenueCat
-            // customer centre. A build that skips the paywall never
-            // configures RevenueCat, and has no subscription to manage.
-            const SizedBox(width: 8),
-            AppButton(
-              label: LocaleKeys.settings_plan_manage_button.tr(),
-              size: AppButtonSize.sm,
-              variant: AppButtonVariant.paper,
-              onPressed: () {
-                AppHaptics.capture();
-                unawaited(getIt<PaywallCubit>().presentCustomerCenter());
-              },
-            ),
-          ],
-        ],
-      ),
+              );
+            }
+          : !buildSkipsPaywall
+          ? () {
+              AppHaptics.capture();
+              unawaited(getIt<PaywallCubit>().presentCustomerCenter());
+            }
+          : null,
     );
   }
 
@@ -226,40 +204,30 @@ class _SettingsScreenContent extends StatelessWidget {
 
         return AppScreenScaffold(
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          // The sheet is text on white and scrolls under the title, so the
+          // backing holds full strength behind the whole title row.
+          topBackingPlateau: _kTitleBackingPlateau,
           slivers: [
-            /*
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  const SizedBox(height: Spacing.s2),
-                  AppStage.horizontal(
-                    faceState: FaceState.acked,
-                    // Quiet hours is off by default and its rows are off the
-                    // alarm screen, so the line only shows when it is on.
-                    sub: state.quietHoursEnabled
-                        ? LocaleKeys.settings_stage_sub.tr()
-                        : null,
-                  ),
-                  const SizedBox(height: Spacing.s3),
-                ],
+            // The dark card. It reads the same checks as the Topics card and
+            // opens the screen that lists them.
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: FeatureGuideAnchor(
+                  id: FeatureGuideAnchorId.settingsHealth,
+                  child: SettingsReadinessCard(),
+                ),
               ),
             ),
-            */
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                 child: AppSheet(
+                  padding: _kSheetPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // The first row. It reads the reliability checks and
-                      // opens the screen that lists them.
-                      const FeatureGuideAnchor(
-                        id: FeatureGuideAnchorId.settingsHealth,
-                        child: SettingsReliabilityEntry(),
-                      ),
-                      const SizedBox(height: 8),
                       _buildNavRow(
                         context,
                         title: LocaleKeys.settings_alarm_sound_row_title.tr(),
@@ -289,6 +257,9 @@ class _SettingsScreenContent extends StatelessWidget {
                           subtitle: LocaleKeys.settings_storage_row_subtitle
                               .tr(),
                           path: '/settings/alarms',
+                          value: settingsStorageValueKey(
+                            state.storage.retention,
+                          ).tr(),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -297,6 +268,11 @@ class _SettingsScreenContent extends StatelessWidget {
                         title: LocaleKeys.settings_server_row_title.tr(),
                         subtitle: LocaleKeys.settings_server_row_subtitle.tr(),
                         path: '/settings/server',
+                        value: settingsServerValueKey(
+                          status: state.status,
+                          isConnected: state.isConnected,
+                          mode: state.serverMode,
+                        )?.tr(),
                       ),
                       if (state.hasAccounts) ...[
                         const SizedBox(height: 8),
@@ -310,13 +286,25 @@ class _SettingsScreenContent extends StatelessWidget {
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_app_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       _buildNavRow(
                         context,
-                        title: LocaleKeys.settings_appearance_row_title.tr(),
-                        subtitle: LocaleKeys.settings_appearance_row_subtitle
-                            .tr(),
-                        path: '/settings/appearance',
+                        title: LocaleKeys.personalize_title.tr(),
+                        subtitle: LocaleKeys.personalize_row_subtitle.tr(),
+                        path: '/settings/personalize',
+                      ),
+                      const SizedBox(height: 8),
+                      BlocBuilder<ThemeCubit, AppThemeMode>(
+                        bloc: getIt<ThemeCubit>(),
+                        builder: (context, mode) => _buildNavRow(
+                          context,
+                          title: LocaleKeys.settings_appearance_row_title.tr(),
+                          subtitle: LocaleKeys.settings_appearance_row_subtitle
+                              .tr(),
+                          path: '/settings/appearance',
+                          value: settingsThemeValueKey(mode).tr(),
+                        ),
                       ),
                       // Web has no local notifications, so no reminders.
                       if (getIt<PlatformCapabilities>()
@@ -335,11 +323,13 @@ class _SettingsScreenContent extends StatelessWidget {
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       _buildPlanRow(context, state),
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),
+                        padding: _kLabelPadding,
                       ),
                       FeatureGuideAnchor(
                         id: FeatureGuideAnchorId.settingsFeatureGuides,
@@ -395,7 +385,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      const HelpSection(),
+                      const HelpSection(headerPadding: _kLabelPadding),
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,

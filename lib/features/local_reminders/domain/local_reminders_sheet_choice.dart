@@ -9,12 +9,12 @@ abstract final class LocalRemindersSheetChoice {
   static LocalReminderSwitches turnOn({
     required bool offersTicked,
     required bool isSelfHosted,
-    bool isPaid = false,
+    bool holdsHosted = false,
   }) => LocalReminderSwitches(
     reminders: true,
     offers:
         offersTicked &&
-        !isPaid &&
+        !holdsHosted &&
         (!isSelfHosted || SelfHostedMatrix.showsOffers),
   );
 

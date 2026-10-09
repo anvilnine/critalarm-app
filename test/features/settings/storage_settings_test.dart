@@ -1,16 +1,22 @@
+import 'dart:async';
+
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
+import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../core/access/access_fakes.dart';
 
 final _now = DateTime.utc(2026, 9, 22, 12);
 
@@ -36,40 +42,85 @@ Incident _incident(String id, {required int daysAgo, int priority = 4}) {
   );
 }
 
+/// An identity that never comes back, the way a slow first read looks to
+/// Settings. Everything after it in the load waits.
+class _HangingIdentityStore extends DeviceIdentityStore {
+  _HangingIdentityStore(super.prefs);
+
+  @override
+  Future<DeviceIdentity> readOrCreate() => Completer<DeviceIdentity>().future;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
   group('the Storage section is drawn for', () {
-    const paid = DeviceIdentity(
-      deviceId: 'dev_1',
-      accountId: 'acc_1',
-      tier: 'hosted',
-    );
-    const free = DeviceIdentity(deviceId: 'dev_1', accountId: 'acc_1');
-
-    test('nobody on a free relay account', () {
-      const state = SettingsState(
-        access: AccountAccess(free),
-        serverMode: ServerMode.hosted,
+    // The rule is the storageRules row of the feature table. Settings asks
+    // feature access and keeps no rule of its own.
+    Future<bool> drawnFor(TestAccess access) async {
+      addTearDown(access.dispose);
+      final cubit = SettingsCubit(
+        holdings: access.holdings,
+        featureAccess: access.features,
       );
-      expect(state.hasStorageSection, isFalse);
+      addTearDown(cubit.close);
+      await cubit.load();
+      return cubit.state.hasStorageSection;
+    }
+
+    test('nobody on a free relay account', () async {
+      expect(await drawnFor(TestAccess()), isFalse);
     });
 
-    test('a paid account', () {
-      const state = SettingsState(
-        access: AccountAccess(paid),
-        serverMode: ServerMode.hosted,
-      );
-      expect(state.hasStorageSection, isTrue);
+    test('a paid account', () async {
+      expect(await drawnFor(TestAccess(held: {Holding.hosted})), isTrue);
     });
 
-    test('a self-hosted server, which has no tier', () {
-      const state = SettingsState(
-        access: AccountAccess(free),
-        serverMode: ServerMode.selfhosted,
+    test('a self-hosted server, which has no tier', () async {
+      expect(
+        await drawnFor(TestAccess(serverMode: ServerMode.selfhosted)),
+        isTrue,
       );
-      expect(state.hasStorageSection, isTrue);
+    });
+
+    test('at once, before the identity and the topics have answered', () async {
+      final access = TestAccess(held: {Holding.hosted});
+      addTearDown(access.dispose);
+      final cubit = SettingsCubit(
+        identityStore: _HangingIdentityStore(
+          await SharedPreferences.getInstance(),
+        ),
+        holdings: access.holdings,
+        featureAccess: access.features,
+      );
+      addTearDown(cubit.close);
+      // The rest of the load never finishes: no network, no topics.
+      unawaited(cubit.load());
+      await pumpEventQueue();
+
+      expect(cubit.state.status, SettingsStatus.loading);
+      expect(cubit.state.hasStorageSection, isTrue);
+      expect(cubit.state.holdsHosted, isTrue);
+    });
+
+    test('a purchase that lands while Settings is open', () async {
+      final access = TestAccess();
+      addTearDown(access.dispose);
+      final cubit = SettingsCubit(
+        holdings: access.holdings,
+        featureAccess: access.features,
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+      expect(cubit.state.hasStorageSection, isFalse);
+      expect(cubit.state.holdsHosted, isFalse);
+
+      access.hosted.set(HoldingState.pending);
+      await pumpEventQueue();
+
+      expect(cubit.state.hasStorageSection, isTrue);
+      expect(cubit.state.holdsHosted, isTrue);
     });
   });
 

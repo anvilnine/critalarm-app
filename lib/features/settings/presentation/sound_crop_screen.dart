@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/crop_window.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
@@ -97,6 +100,18 @@ class _SoundCropView extends StatelessWidget {
               leave(context);
             case SoundCropStatus.unavailable:
               leave(context);
+            case SoundCropStatus.ready
+                when state.errorCode == ImportSoundUsecase.lockedCode:
+              // Own sounds were locked by the time Save was tapped. The
+              // clip stays open, so a purchase can be followed by Save.
+              context.read<SoundCropCubit>().clearError();
+              unawaited(
+                openPaywallForFeature(
+                  context,
+                  AppFeature.ownSounds,
+                  LockSource.sounds,
+                ),
+              );
             case SoundCropStatus.ready when state.errorCode != null:
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()

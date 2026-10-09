@@ -2,12 +2,17 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design_system/widgets/section_card.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -65,6 +70,8 @@ class _SoundPickerView extends StatelessWidget {
   static Future<void> _pickAndCrop(BuildContext context) async {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
+    if (!context.mounted) return;
+    if (await _openedPaywall(context)) return;
     final file = await cubit.pickFile();
     if (file == null || !context.mounted) return;
     final result = await context.pushNamed<Object?>(
@@ -81,13 +88,39 @@ class _SoundPickerView extends StatelessWidget {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
     if (!context.mounted) return;
+    if (await _openedPaywall(context)) return;
+    if (!context.mounted) return;
     final result = await context.pushNamed<Object?>(AppRoute.soundRecord);
     if (result is Future<void>) await cubit.reloadAfterCrop(result);
   }
 
-  static AlarmSound? selectedSound(SoundPickerState state) {
+  /// The gate in front of every way to add or pick an own sound. With own
+  /// sounds locked it opens the paywall and answers true, and the caller
+  /// does nothing else.
+  ///
+  /// It waits for the plan to be read first, so a tap right after a cold
+  /// start never shows a paywall to someone who holds Pro.
+  static Future<bool> _openedPaywall(BuildContext context) async {
+    final decision = await context
+        .read<SoundPickerCubit>()
+        .ownSoundsOnceReady();
+    if (!ownSoundsLockedBy(decision)) return false;
+    if (!context.mounted) return true;
+    // The plan has been read by now, so the helper sees the same answer.
+    await openPaywallForFeature(
+      context,
+      AppFeature.ownSounds,
+      LockSource.sounds,
+    );
+    return true;
+  }
+
+  /// The sound that really rings for this screen's choice: the saved one,
+  /// or what stands in for a locked own sound.
+  static AlarmSound? ringingSound(SoundPickerState state) {
+    final id = state.ringingSoundId;
     for (final sound in state.allSounds) {
-      if (sound.id == state.selectedSoundId) return sound;
+      if (sound.id == id) return sound;
     }
     return null;
   }
@@ -107,7 +140,7 @@ class _SoundPickerView extends StatelessWidget {
       builder: (context, state) {
         final colors = context.appColors;
         final cubit = context.read<SoundPickerCubit>();
-        final selectedName = selectedSound(state)?.name ?? '';
+        final selectedName = ringingSound(state)?.name ?? '';
         final content = AppScreenScaffold(
           topBar: AppTopBar(
             leading: AppIconButton(
@@ -233,42 +266,32 @@ class _SoundPickerView extends StatelessWidget {
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: AppButton(
+                                          child: _OwnSoundWayIn(
                                             label: LocaleKeys
                                                 .sound_picker_pick_file
                                                 .tr(),
-                                            variant: AppButtonVariant.ghost,
-                                            isFullWidth: true,
                                             icon: AppGlyph(
                                               GlyphType.plus,
                                               size: 16,
                                               color: colors.onCanvas,
                                             ),
-                                            onPressed: () {
-                                              AppHaptics.capture();
-                                              unawaited(_pickAndCrop(context));
-                                            },
+                                            onPressed: () =>
+                                                _pickAndCrop(context),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: AppButton(
+                                          child: _OwnSoundWayIn(
                                             label: LocaleKeys
                                                 .sound_picker_record
                                                 .tr(),
-                                            variant: AppButtonVariant.ghost,
-                                            isFullWidth: true,
                                             icon: AppGlyph(
                                               GlyphType.record,
                                               size: 16,
                                               color: colors.crit,
                                             ),
-                                            onPressed: () {
-                                              AppHaptics.capture();
-                                              unawaited(
+                                            onPressed: () =>
                                                 _recordAndCrop(context),
-                                              );
-                                            },
                                           ),
                                         ),
                                       ],
@@ -370,47 +393,118 @@ class _SoundRowState extends State<_SoundRow>
         SoundImportLimits.tooLongToRing(state.platform, sound.duration);
     final notificationsOnly =
         isLocalFile && !state.capabilities.userSoundsRingAlarm;
+    // Listed at full colour, and not selectable. The one lock draws the
+    // plan badge on it, and a tap opens the paywall.
+    final isLocked = state.isLocked(sound);
+    final ringingName = _SoundPickerView.ringingSound(state)?.name ?? '';
+    // With no name to give, the row says it is locked and no more.
+    final isLockedChoice =
+        isLocked && state.selectedSoundId == sound.id && ringingName.isNotEmpty;
 
     return AnimatedBuilder(
       animation: _progress,
       builder: (context, _) {
         final progress = isPreviewing ? _progress.value : null;
-        return AppRadioRow(
-          title: sound.name,
-          meta: _SoundPickerView.formatLength(sound.duration),
-          note: tooLong
-              ? LocaleKeys.sound_picker_row_too_long_ios.tr()
-              : notificationsOnly
-              ? LocaleKeys.sound_picker_row_notifications_only.tr()
-              : null,
-          selected: state.selectedSoundId == sound.id,
-          leading: AppPreviewButton(
-            isPlaying: isPreviewing,
-            progress: progress,
-            progressLabel: progress == null
+        return AccessLock.inline(
+          feature: AppFeature.ownSounds,
+          source: LockSource.sounds,
+          // Only an own sound is locked by this. Every other row is open.
+          decide: (_) =>
+              isLocked ? state.ownSounds : const FeatureDecision.open(),
+          child: AppRadioRow(
+            title: sound.name,
+            meta: _SoundPickerView.formatLength(sound.duration),
+            note: isLockedChoice
+                ? LocaleKeys.sound_picker_row_locked_chosen.tr(
+                    namedArgs: {'name': ringingName},
+                  )
+                : tooLong
+                ? LocaleKeys.sound_picker_row_too_long_ios.tr()
+                : notificationsOnly
+                ? LocaleKeys.sound_picker_row_notifications_only.tr()
+                : null,
+            // The mark sits on the sound that rings, so a locked own choice
+            // shows it on the sound standing in for it.
+            selected: state.ringingSoundId == sound.id,
+            badge: isLocked ? const FeatureLockBadge() : null,
+            leading: AppPreviewButton(
+              isPlaying: isPreviewing,
+              progress: progress,
+              progressLabel: progress == null
+                  ? null
+                  : LocaleKeys.sound_picker_preview_progress.tr(
+                      namedArgs: {'percent': '${(progress * 100).round()}'},
+                    ),
+              playLabel: LocaleKeys.sound_picker_play_aria_label.tr(),
+              stopLabel: LocaleKeys.sound_picker_stop_aria_label.tr(),
+              onPressed: () {
+                AppHaptics.selection();
+                unawaited(cubit.togglePreview(sound));
+              },
+            ),
+            // Only a waveform read from the sound itself. While it loads, or
+            // when it cannot be read, the row shows the length and nothing
+            // that looks like a waveform but is not one.
+            waveform: sound.peaks == null || sound.peaks!.isEmpty
                 ? null
-                : LocaleKeys.sound_picker_preview_progress.tr(
-                    namedArgs: {'percent': '${(progress * 100).round()}'},
-                  ),
-            playLabel: LocaleKeys.sound_picker_play_aria_label.tr(),
-            stopLabel: LocaleKeys.sound_picker_stop_aria_label.tr(),
-            onPressed: () {
+                : WaveformBars(peaks: sound.peaks!, progress: progress),
+            onTap: () {
               AppHaptics.selection();
-              unawaited(cubit.togglePreview(sound));
+              if (isUserSound) {
+                // Asked again here, not read off the row: the row may have
+                // been drawn before the plan was read.
+                unawaited(() async {
+                  if (await _SoundPickerView._openedPaywall(context)) return;
+                  await cubit.select(sound.id);
+                }());
+                return;
+              }
+              unawaited(cubit.select(sound.id));
             },
           ),
-          // Only a waveform read from the sound itself. While it loads, or
-          // when it cannot be read, the row shows the length and nothing
-          // that looks like a waveform but is not one.
-          waveform: sound.peaks == null || sound.peaks!.isEmpty
-              ? null
-              : WaveformBars(peaks: sound.peaks!, progress: progress),
-          onTap: () {
-            AppHaptics.selection();
-            unawaited(cubit.select(sound.id));
-          },
         );
       },
+    );
+  }
+}
+
+/// "Pick a file" or "Record": a way to bring in an own sound. While own
+/// sounds are locked the one lock puts the plan badge on its corner, and
+/// a tap goes through the picker's gate, which opens the paywall.
+class _OwnSoundWayIn extends StatelessWidget {
+  const _OwnSoundWayIn({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Widget icon;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return AccessLock(
+      feature: AppFeature.ownSounds,
+      source: LockSource.sounds,
+      name: label,
+      // Drawn locked or not, a tap runs the same way in, which asks the
+      // picker's own gate once the plan is read. So a badge drawn before
+      // the first read never leads a Pro holder to a paywall.
+      onLockedTap: () {
+        AppHaptics.capture();
+        unawaited(onPressed());
+      },
+      child: AppButton(
+        label: label,
+        variant: AppButtonVariant.ghost,
+        isFullWidth: true,
+        icon: icon,
+        onPressed: () {
+          AppHaptics.capture();
+          unawaited(onPressed());
+        },
+      ),
     );
   }
 }

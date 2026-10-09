@@ -9,9 +9,13 @@ import android.view.View
 import android.widget.RemoteViews
 import app.critalarm.MainActivity
 import app.critalarm.R
+import app.critalarm.TapRoute
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.CritAlarmFace
 import app.critalarm.notifications.FaceBitmap
+import app.critalarm.storage.ChallengeFlagStore
+import app.critalarm.storage.DoneButton
+import app.critalarm.storage.DoneButtonRule
 import app.critalarm.storage.NativeConnectionStore
 
 /**
@@ -116,7 +120,7 @@ object WidgetViews {
         } else {
             views.setViewVisibility(R.id.topic_button, View.VISIBLE)
             views.setTextViewText(R.id.topic_button, button)
-            views.setOnClickPendingIntent(R.id.topic_button, actionIntent(context, incident, appWidgetId))
+            views.setOnClickPendingIntent(R.id.topic_button, actionIntent(context, topic.name, incident, appWidgetId))
         }
         return views
     }
@@ -237,8 +241,27 @@ object WidgetViews {
      * "I'm up" is the notification's Stop, "Done" its acknowledge (which the
      * receiver maps to close). The data URI keeps each widget's button apart.
      */
-    private fun actionIntent(context: Context, incident: WidgetIncident, appWidgetId: Int): PendingIntent {
+    private fun actionIntent(
+        context: Context,
+        topic: String,
+        incident: WidgetIncident,
+        appWidgetId: Int,
+    ): PendingIntent {
         val ack = incident.state == WidgetSnapshot.OPEN
+        // "Done" asks the one rule the acked card asks: a topic that owes a
+        // wake-up challenge gets a Done that opens the app on the incident
+        // and closes nothing here. "I'm up" never asks anything.
+        if (!ack && DoneButtonRule.forTopic(topic, ChallengeFlagStore(context)) == DoneButton.OPENS_APP) {
+            val open = Intent(context, MainActivity::class.java).apply {
+                // Marked as coming from Done, so the app can still hand the
+                // close back to the receiver when it cannot reach the server.
+                data = Uri.parse(TapRoute.doneLink(Uri.encode(incident.id)))
+                putExtra(MainActivity.EXTRA_INCIDENT_ID, incident.id)
+                putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            return PendingIntent.getActivity(context, requestCode("challenge:$appWidgetId"), open, FLAGS)
+        }
         val intent = Intent(context, IncidentActionReceiver::class.java).apply {
             action = if (ack) IncidentActionReceiver.ACTION_STOP else IncidentActionReceiver.ACTION_ACKNOWLEDGE
             data = Uri.parse("critalarm://widgets/$appWidgetId/${Uri.encode(incident.id)}")

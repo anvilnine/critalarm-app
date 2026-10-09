@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/components/buttons.dart';
-import 'package:critalarm/design/components/pro_badge.dart';
+import 'package:critalarm/design/components/feature_lock.dart';
 import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -11,7 +11,8 @@ import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -163,11 +164,18 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
       _set(_draft.withWindow(isDefault ? HistoryWindows.full : window));
       return;
     }
-    // A longer window than the plan keeps. Close the sheet and offer Pro.
+    // A longer window than the plan keeps. Close the sheet and open the
+    // paywall for whatever unlocks long history.
     AppHaptics.selection();
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    unawaited(router.push(hostedPaywallLocation(PaywallSource.history)));
+    unawaited(() async {
+      final paywall = await paywallLocationForFeature(
+        AppFeature.longHistory,
+        LockSource.history,
+      );
+      if (paywall != null) await router.push(paywall);
+    }());
   }
 
   void _set(HistoryFilter next) {
@@ -256,7 +264,12 @@ class _FilterChip extends StatelessWidget {
               ),
               if (isLocked) ...<Widget>[
                 const SizedBox(width: Spacing.s2),
-                ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+                // The plan badge with its lock, from the one lock.
+                const AccessLock.inline(
+                  feature: AppFeature.longHistory,
+                  source: LockSource.history,
+                  child: FeatureLockBadge(),
+                ),
               ],
             ],
           ),
