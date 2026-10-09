@@ -1192,6 +1192,34 @@
     "fix_got_it": "Got it",
     "ring_test_title": "Ring a test now"
   },
+  "wake": {
+    "label": "Will it wake me",
+    "yes": "Yes",
+    "maybe": "Maybe",
+    "no": "No",
+    "line_test_rang": "a test rang here {when} ago",
+    "line_no_test": "ring a test to be sure",
+    "line_several": "{count} things stop it",
+    "chip_pass": {
+      "one": "{} phone check passes",
+      "other": "{} phone checks pass"
+    },
+    "passing_row": {
+      "one": "{} check passes",
+      "other": "{} checks pass"
+    },
+    "fix_many": "Fix {count} things",
+    "stop_tool": "Your tool",
+    "stop_server": "Server",
+    "stop_push": "Push",
+    "stop_phone": "This phone",
+    "stop_ok_aria_label": "{stop}, working",
+    "stop_problems_aria_label": {
+      "one": "{stop}, 1 problem",
+      "other": "{stop}, {} problems"
+    },
+    "answer_aria_label": "Will it wake me? {answer}. {line}"
+  },
   "pro_pack": {
     "badge": "Pro",
     "sheet_title": "Pro",
