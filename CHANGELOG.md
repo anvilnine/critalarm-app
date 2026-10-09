@@ -87,6 +87,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
 - The App icon screen no longer hits a layout error on the first visit with reduce motion on
 - An iPhone set up from a backup of another iPhone registers as a new device. It used to keep talking to the server as the old phone.
+- The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
