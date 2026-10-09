@@ -17,6 +17,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/alarm/fake_alarm_host.dart';
@@ -169,11 +170,13 @@ void main() {
     test('shows a warning that only a message carries', () async {
       seedTopics();
       await loadLists();
-      glances.rememberFromList(
+      glances.remember(
         'warned',
-        createdAt: _created,
-        messageTimes: [_now.subtract(const Duration(minutes: 20))],
-        hasHighMessage: true,
+        TopicGlance(
+          topicCreatedAt: _created,
+          messageTimes: [_now.subtract(const Duration(minutes: 20))],
+          hasHighMessage: true,
+        ),
       );
       final seed = build(memory: glances).seedFor('warned')!;
       expect(seed.severity, SeverityMode.high);
@@ -185,11 +188,13 @@ void main() {
     test('ignores a glance taken from an earlier topic of that name', () async {
       seedTopics();
       await loadLists();
-      glances.rememberFromList(
+      glances.remember(
         'warned',
-        createdAt: DateTime.utc(2025, 6),
-        messageTimes: const [],
-        hasHighMessage: true,
+        TopicGlance(
+          topicCreatedAt: DateTime.utc(2025, 6),
+          messageTimes: const [],
+          hasHighMessage: true,
+        ),
       );
       final seed = build(memory: glances).seedFor('warned')!;
       expect(seed.severity, SeverityMode.none);
@@ -288,6 +293,7 @@ void main() {
         const Duration(seconds: 5),
         null,
         glances,
+        const TopicMessageWindow(),
       );
       addTearDown(home.close);
       await home.load();
@@ -358,56 +364,11 @@ void main() {
       expect(glances.of('a', createdAt: DateTime.utc(2026, 2)), isNull);
       expect(glances.of('b', createdAt: _created), isNull);
     });
-
-    test('a list read of the same messages keeps the remembered rows', () {
-      final times = [_now];
-      glances
-        ..remember(
-          'a',
-          TopicGlance(
-            topicCreatedAt: _created,
-            messageTimes: times,
-            hasHighMessage: false,
-            messages: const [
-              TopicDetailMessageItem(
-                title: 't',
-                timestamp: '02:41',
-                body: 'b',
-                source: '',
-              ),
-            ],
-          ),
-        )
-        ..rememberFromList(
-          'a',
-          createdAt: _created,
-          messageTimes: [_now],
-          hasHighMessage: false,
-        );
-      expect(glances.of('a', createdAt: _created)!.messages, hasLength(1));
-
-      glances.rememberFromList(
-        'a',
-        createdAt: _created,
-        messageTimes: [_now, _now.subtract(const Duration(minutes: 1))],
-        hasHighMessage: false,
-      );
-      expect(glances.of('a', createdAt: _created)!.messages, isNull);
-    });
   });
 
   group('Home fills the glances', () {
-    test('with the last 7 days of each topic', () async {
-      server.seedState(
-        topics: [
-          Topic(name: 'fresh', createdAt: _created),
-          Topic(name: 'stale', createdAt: _created),
-        ],
-        messages: [
-          _message('fresh', const Duration(minutes: 5), priority: 4),
-          _message('stale', const Duration(days: 9), priority: 4),
-        ],
-      );
+    test('with the rows, the times and the warning of each topic', () async {
+      seedTopics();
       await loadLists();
       final home = HomeCubit(
         incidents,
@@ -419,17 +380,69 @@ void main() {
         const Duration(seconds: 5),
         null,
         glances,
+        const TopicMessageWindow(),
       );
       addTearDown(home.close);
       await home.load();
 
-      final fresh = glances.of('fresh', createdAt: _created)!;
-      expect(fresh.hasHighMessage, isTrue);
-      expect(fresh.messageTimes, hasLength(1));
-      // A message past what the free plan shows is not a warning to draw.
-      final stale = glances.of('stale', createdAt: _created)!;
-      expect(stale.hasHighMessage, isFalse);
-      expect(stale.messageTimes, isEmpty);
+      final warned = glances.of('warned', createdAt: _created)!;
+      expect(warned.hasHighMessage, isTrue);
+      expect(warned.messageTimes, hasLength(1));
+      expect(warned.messages, hasLength(1));
+      expect(warned.messages!.single.isHigh, isTrue);
+      final calm = glances.of('calm', createdAt: _created)!;
+      expect(calm.hasHighMessage, isFalse);
+    });
+
+    test('and the Topic screen opens on the same rows it ends with', () async {
+      seedTopics();
+      await loadLists();
+      final home = HomeCubit(
+        incidents,
+        topics,
+        incidentRepo,
+        null,
+        null,
+        () => _now,
+        const Duration(seconds: 5),
+        null,
+        glances,
+        const TopicMessageWindow(),
+      );
+      addTearDown(home.close);
+      await home.load();
+
+      for (final name in ['calm', 'ringing', 'warned']) {
+        final cubit = build(memory: glances);
+        final seen = <TopicDetailState>[];
+        cubit.stream.listen(seen.add);
+        final loading = cubit.load(name);
+        final opened = cubit.state;
+        await loading;
+        expect(opened.isMessagesLoading, isFalse, reason: name);
+        expect(opened.showMessagesSkeleton, isFalse, reason: name);
+        expect(opened.messages, isNotEmpty, reason: name);
+        // Frame one is the whole loaded state, so the read adds nothing.
+        expect(seen, [opened], reason: name);
+        expect(cubit.state, opened, reason: name);
+      }
+    });
+
+    test('a message past the window is left out of the warning', () async {
+      server.seedState(
+        topics: [Topic(name: 'stale', createdAt: _created)],
+        messages: [_message('stale', const Duration(days: 9), priority: 4)],
+      );
+      await loadLists();
+      final glance = topicGlanceOf(
+        topics.state.named('stale')!,
+        [_message('stale', const Duration(days: 9), priority: 4)],
+        _now.subtract(const Duration(days: 7)),
+        now: _now,
+      );
+      expect(glance.hasHighMessage, isFalse);
+      expect(glance.messageTimes, isEmpty);
+      expect(glance.messages, isEmpty);
     });
   });
 }

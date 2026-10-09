@@ -24,17 +24,17 @@ class TopicGlance {
   /// when no open incident says so.
   final bool hasHighMessage;
 
-  /// The rows the Topic screen showed last. Null when only the list has seen
-  /// the topic, which leaves the rows to load.
+  /// The rows the Topic screen draws. Null leaves them to load.
   final List<TopicDetailMessageItem>? messages;
 }
 
 /// The glances taken so far, one per topic, in memory only.
 ///
-/// Home fills it as it reads every topic's messages for its list, and the
-/// Topic screen fills it when it loads one. The Topic screen reads it before
-/// its own read finishes, so the summary under the name, the warning colour
-/// of the canvas and the message rows are right when the screen opens.
+/// Home fills it as it reads every topic's messages for its list, cut to the
+/// same window the Topic screen uses, and the Topic screen fills it when it
+/// loads one. The Topic screen reads it before its own read finishes, so the
+/// summary under the name, the warning colour of the canvas and the message
+/// rows are right when the screen opens.
 class TopicGlances {
   final Map<String, TopicGlance> _byTopic = {};
 
@@ -48,25 +48,4 @@ class TopicGlances {
 
   /// Keeps [glance] for [name], whole.
   void remember(String name, TopicGlance glance) => _byTopic[name] = glance;
-
-  /// Keeps what the list read for [name]. The rows a Topic screen remembered
-  /// stay when the list saw the same messages, because they are still right.
-  void rememberFromList(
-    String name, {
-    required DateTime? createdAt,
-    required List<DateTime> messageTimes,
-    required bool hasHighMessage,
-  }) {
-    final held = of(name, createdAt: createdAt);
-    if (held != null &&
-        held.hasHighMessage == hasHighMessage &&
-        listEquals(held.messageTimes, messageTimes)) {
-      return;
-    }
-    _byTopic[name] = TopicGlance(
-      topicCreatedAt: createdAt,
-      messageTimes: messageTimes,
-      hasHighMessage: hasHighMessage,
-    );
-  }
 }

@@ -31,6 +31,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+/// Reads the waveform of every bundled sound a topic may ring, so the Sound
+/// card draws its real bars on its first frame instead of a flat set that
+/// then changes. The Topics list calls it when it opens. A read is made once
+/// per launch, and a sound whose bars are known is skipped.
+Future<void> warmTopicSoundPeaks() async {
+  if (!getIt.isRegistered<AlarmSoundRepository>() ||
+      !getIt.isRegistered<SoundPeaksCache>()) {
+    return;
+  }
+  final assignments = getIt<AlarmSoundRepository>().assignmentsNow();
+  final wanted = {assignments.defaultSoundId, ...assignments.perTopic.values};
+  final cache = getIt<SoundPeaksCache>();
+  final sounds = BundledSounds.catalogue(
+    platform: defaultTargetPlatform,
+    nameOf: (id) => id,
+  );
+  for (final sound in sounds) {
+    if (!wanted.contains(sound.id) || cache.cached(sound.id) != null) continue;
+    try {
+      await cache.load(sound);
+    } on Object catch (_) {
+      // The card draws without bars until a later read works.
+    }
+  }
+}
+
 /// The bottom half of the Topic screen: four coloured cards, Look, Sound,
 /// Wake-up challenge and Tokens, from the same kit as Personalize.
 ///

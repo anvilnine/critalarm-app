@@ -344,6 +344,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
@@ -2108,6 +2109,10 @@ Future<void> configureDependencies({
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
         getIt<TopicGlances>(),
+        TopicMessageWindow(
+          identityStore: getIt<DeviceIdentityStore>(),
+          featureAccess: getIt<FeatureAccess>(),
+        ),
       ),
     )
     // The dark card on Home. It follows the screen's own HomeCubit and

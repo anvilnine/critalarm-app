@@ -6,7 +6,6 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
-import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
@@ -16,6 +15,7 @@ import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_r
 import 'package:critalarm/features/topics/domain/topic_inbox.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for HomeScreen.
@@ -34,6 +34,7 @@ class HomeCubit extends Cubit<HomeState> {
     this.tick = const Duration(seconds: 5),
     this._listPrefs,
     this._glances,
+    this._window,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -62,6 +63,10 @@ class HomeCubit extends Cubit<HomeState> {
   /// Topic screen opens already knowing its summary line and warning. Null in
   /// tests that do not care.
   final TopicGlances? _glances;
+
+  /// The same cut of history the Topic screen applies, so what is noted for a
+  /// topic matches what the screen builds. Null shows everything held.
+  final TopicMessageWindow? _window;
 
   /// How often the state is worked out again from the lists already held, so
   /// an acknowledged alarm's countdown or a close that only lasts a while
@@ -347,6 +352,7 @@ class HomeCubit extends Cubit<HomeState> {
         .map((i) => i.id)
         .toSet();
 
+    final bound = await _window?.lowerBound();
     final warningTopics = <String>{};
     final messageTimes = <String, List<int>>{};
     final previews = <String, String>{};
@@ -365,7 +371,7 @@ class HomeCubit extends Cubit<HomeState> {
           ? null
           : msgs.reduce((a, b) => a.time > b.time ? a : b);
       messageTimes[t.name] = [for (final m in msgs) m.time];
-      _noteGlance(t, msgs, now);
+      _glances?.remember(t.name, topicGlanceOf(t, msgs, bound, now: now));
       if (latest != null) previews[t.name] = topicPreview(latest);
       if (msgs.any((m) {
         final isP4OrWarning =
@@ -435,35 +441,6 @@ class HomeCubit extends Cubit<HomeState> {
       facts: facts,
     );
   }
-
-  /// Notes what the Topic screen draws from [msgs]. It shows the last
-  /// [_glanceDays] days at least, so older messages are left out here: a
-  /// guess that included them would show a warning the screen then drops.
-  void _noteGlance(Topic topic, List<Message> msgs, DateTime now) {
-    final glances = _glances;
-    if (glances == null) return;
-    final since =
-        now
-            .subtract(const Duration(days: _glanceDays))
-            .millisecondsSinceEpoch ~/
-        1000;
-    final recent = [
-      for (final m in msgs)
-        if (m.time >= since) m,
-    ];
-    glances.rememberFromList(
-      topic.name,
-      createdAt: topic.createdAt,
-      messageTimes: [
-        for (final m in recent)
-          DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-      ],
-      hasHighMessage: recent.any((m) => m.priority == 4),
-    );
-  }
-
-  /// The history the free plan shows, in days.
-  static const int _glanceDays = 7;
 
   List<HomeTopicItem> _buildTopicItems(
     List<Topic> topics,
