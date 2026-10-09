@@ -11,7 +11,6 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
 import 'package:critalarm/features/settings/presentation/personalize/own_look_thumbnail.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// The look a position of the deck draws, for the ground and the text it
@@ -132,7 +131,6 @@ class LookPhoneFace extends StatelessWidget {
     required this.isLive,
     required this.height,
     required this.fade,
-    required this.page,
     super.key,
   });
 
@@ -141,10 +139,8 @@ class LookPhoneFace extends StatelessWidget {
   final bool isLive;
   final double height;
 
-  /// The colours of the page, and where the deck is: the dashed outline of an
-  /// empty Yours takes the text colour of the page as it fades.
+  /// The colours of the page.
   final LookFade fade;
-  final ValueListenable<double> page;
 
   @override
   Widget build(BuildContext context) {
@@ -158,13 +154,29 @@ class LookPhoneFace extends StatelessWidget {
   }
 
   Widget _face(BuildContext context) {
+    // The phone is upright on any display, laid out for an upright screen.
+    final screen = lookScreenSize(MediaQuery.sizeOf(context));
+    // The face shuffles between expressions. Under reduce motion the resting
+    // frame is the one that reads as ringing, the same on every visit.
+    Widget still(Widget picture) => context.reduceMotion
+        ? RingingFacePin(style: RingingStyle.classic, child: picture)
+        : picture;
     if (id != AlarmStyleId.own) {
-      return RingingPreview(style: alarmStyleOf(id), isStill: !isLive);
+      return still(
+        RingingPreview(
+          style: alarmStyleOf(id),
+          isStill: !isLive,
+          screenSize: screen,
+        ),
+      );
     }
     return switch (own) {
-      OwnLookPhase.held => RingingPreview(
-        style: heldOwnAlarmStyle,
-        isStill: !isLive,
+      OwnLookPhase.held => still(
+        RingingPreview(
+          style: heldOwnAlarmStyle,
+          isStill: !isLive,
+          screenSize: screen,
+        ),
       ),
       OwnLookPhase.saved => OwnLookThumbnail(
         key: const ValueKey('look-own-thumbnail'),
@@ -172,33 +184,31 @@ class LookPhoneFace extends StatelessWidget {
         height: height,
         fallback: ColoredBox(color: fade.grounds.last),
       ),
-      OwnLookPhase.none => _EmptyOwnFace(fade: fade, page: page),
+      OwnLookPhase.none => _EmptyOwnFace(fade: fade),
     };
   }
 }
 
-/// Yours with no photo: an empty slot the shape of a phone, drawn as a dashed
-/// outline in the page's text colour with a plus in it.
+/// Yours with no photo: an empty slot the shape of a phone, cream with a
+/// dashed outline and a plus in ink.
 class _EmptyOwnFace extends StatelessWidget {
-  const _EmptyOwnFace({required this.fade, required this.page});
+  const _EmptyOwnFace({required this.fade});
 
   final LookFade fade;
-  final ValueListenable<double> page;
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<double>(
-    valueListenable: page,
-    builder: (context, page, _) {
-      final text = fade.textAt(page);
-      return CustomPaint(
-        foregroundPainter: _DashedEdgePainter(color: text),
+  Widget build(BuildContext context) =>
+      // Cream with an ink outline and one plus, whatever ground the page
+      // has, so the empty slot reads as a card to fill on every look.
+      CustomPaint(
+        foregroundPainter: _DashedEdgePainter(color: fade.ink),
         child: ColoredBox(
-          color: fade.groundAt(page),
-          child: Center(child: AppGlyph(GlyphType.plus, size: 44, color: text)),
+          color: fade.cream,
+          child: Center(
+            child: AppGlyph(GlyphType.plus, size: 44, color: fade.ink),
+          ),
         ),
       );
-    },
-  );
 }
 
 class _DashedEdgePainter extends CustomPainter {

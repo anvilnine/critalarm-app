@@ -183,8 +183,8 @@ class LookHint {
 
 /// The hint line for the centred look.
 ///
-/// - While a locked look is shown and nothing is saved: "Trying it. Not
-///   saved."
+/// - While a locked look is shown and nothing is saved: "Swipe for more
+///   looks". The try bar under it already says "Not saved".
 /// - While looks are locked and the plan is read: "Swipe. 5 more with Pro",
 ///   counting the positions that need the plan.
 /// - Otherwise: "Swipe for more looks". A plan not read yet sells nothing.
@@ -195,7 +195,7 @@ LookHint lookHintFor({
   required List<AlarmStyleId> deck,
 }) {
   if (action.showsTryBar) {
-    return const LookHint(LocaleKeys.personalize_passes_look_trying);
+    return const LookHint(LocaleKeys.personalize_passes_look_hint_swipe);
   }
   if (isPlanRead && decision is FeatureLocked) {
     return LookHint(
@@ -366,6 +366,46 @@ const double _minPhoneHeight = 120;
 
 /// The room between two phones at rest, in points.
 const double _phoneGap = 24;
+
+/// The shortest display side from which a phone in the deck is drawn at a
+/// phone's own shape and not at the display's.
+const double _tabletShortestSide = 600;
+
+/// The screen a phone of the deck is laid out for.
+///
+/// A phone in the deck is always upright. On a display wider than tall (a
+/// phone on its side, a tablet) it is laid out for the same screen turned
+/// upright. A display too big to be a phone gets a phone's shape of 390 by
+/// 844, so the sample text stays readable at the size the deck draws it.
+Size lookScreenSize(Size display) {
+  final shortest = math.min(display.width, display.height);
+  final longest = math.max(display.width, display.height);
+  if (shortest >= _tabletShortestSide) return const Size(390, 844);
+  return Size(shortest, longest);
+}
+
+/// The least contrast an inactive dot of the deck keeps with the page.
+const double lookDotMinContrast = 3;
+
+/// The colour of the dot of a look that is [near] the middle (1 is the middle,
+/// 0 is a page or more away). The middle one is [text]. The others are [text]
+/// faded toward [ground] as far as the page keeps [lookDotMinContrast] with
+/// them, so they stay seen on any look's ground.
+Color lookDotColor({
+  required Color text,
+  required Color ground,
+  required double near,
+}) {
+  var faded = text;
+  for (var alpha = 0.35; alpha <= 1.0; alpha += 0.05) {
+    final candidate = Color.alphaBlend(text.withValues(alpha: alpha), ground);
+    if (ColorContrast.contrastRatio(candidate, ground) >= lookDotMinContrast) {
+      faded = candidate;
+      break;
+    }
+  }
+  return Color.lerp(faded, text, near.clamp(0.0, 1.0))!;
+}
 
 /// The size of the centred phone.
 ///
