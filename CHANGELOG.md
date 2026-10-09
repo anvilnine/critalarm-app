@@ -72,6 +72,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Personalize pages use fewer words: the Look, Wake-up challenge and Widgets pages lose lines the pictures already say, and a few labels are shorter.
 - A topic's look and wake-up challenge can be changed on the same pages Personalize uses.
 - The first welcome page is a big Welcome to Crit Alarm that shakes its last word and shouts.
+- Will it wake me answers Yes, Maybe or No, shows where an alarm would stop, and lists what to fix.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
