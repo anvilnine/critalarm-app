@@ -31,8 +31,9 @@ class LookActionBar extends StatelessWidget {
 
   final LookAction action;
 
-  /// The hint line, already translated.
-  final String hint;
+  /// The hint line, already translated, or null when there is none. With no
+  /// line the controls close up under the deck.
+  final String? hint;
 
   /// The holding being confirmed, or null.
   final Holding? confirming;
@@ -58,8 +59,10 @@ class LookActionBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Hint(text: hint, fade: fade, page: page),
-        const SizedBox(height: Spacing.s2),
+        if (hint != null) ...[
+          _Hint(text: hint!, fade: fade, page: page),
+          const SizedBox(height: Spacing.s2),
+        ],
         if (confirming != null && action.control != LookControl.inUse) ...[
           PersonalizeTryBar(bar: TryBarConfirming(confirming!), onKeep: onKeep),
           const SizedBox(height: Spacing.s2),

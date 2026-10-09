@@ -349,16 +349,14 @@ class _LookPageState extends State<_LookPage> {
       );
       return LookActionBar(
         action: action,
-        hint: hint.lockedCount == null
-            ? hint.key.tr()
-            : hint.key.tr(
-                namedArgs: {
-                  'count': '${hint.lockedCount}',
-                  'plan': planWordFor(
-                    decision is FeatureLocked ? decision.offer : Holding.pro,
-                  ),
-                },
-              ),
+        hint: hint?.key.tr(
+          namedArgs: {
+            'count': '${hint.lockedCount}',
+            'plan': planWordFor(
+              decision is FeatureLocked ? decision.offer : Holding.pro,
+            ),
+          },
+        ),
         confirming: decision is FeatureConfirming ? decision.holding : null,
         fade: fade,
         page: _page,

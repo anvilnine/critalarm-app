@@ -327,7 +327,7 @@ void main() {
   });
 
   group('lookHintFor', () {
-    LookHint hint({
+    LookHint? hint({
       FeatureDecision decision = _locked,
       bool isPlanRead = true,
       AlarmStyleId centred = AlarmStyleId.minimal,
@@ -348,11 +348,8 @@ void main() {
       );
     }
 
-    test('says only swipe while a locked look is tried, the bar says it', () {
-      expect(
-        hint(),
-        const LookHint(LocaleKeys.personalize_passes_look_hint_swipe),
-      );
+    test('says nothing while a locked look is tried, the bar says it', () {
+      expect(hint(), isNull);
     });
 
     test('counts the locked positions on the look in use', () {
@@ -367,29 +364,23 @@ void main() {
 
     test('on Yours with no photo, locked, it is not a try', () {
       expect(
-        hint(centred: AlarmStyleId.own).key,
+        hint(centred: AlarmStyleId.own)?.key,
         LocaleKeys.personalize_passes_look_hint_swipe_locked,
       );
     });
 
-    test('with nothing to buy it is just swipe', () {
-      expect(
-        hint(decision: _open),
-        const LookHint(LocaleKeys.personalize_passes_look_hint_swipe),
-      );
+    test('with nothing to buy it says nothing', () {
+      expect(hint(decision: _open), isNull);
     });
 
     test('a plan not read sells nothing and tries nothing', () {
-      expect(
-        hint(isPlanRead: false),
-        const LookHint(LocaleKeys.personalize_passes_look_hint_swipe),
-      );
+      expect(hint(isPlanRead: false), isNull);
     });
 
-    test('a purchase being confirmed is just swipe', () {
+    test('a purchase being confirmed says nothing', () {
       expect(
-        hint(decision: const FeatureDecision.confirming(Holding.pro)).key,
-        LocaleKeys.personalize_passes_look_hint_swipe,
+        hint(decision: const FeatureDecision.confirming(Holding.pro)),
+        isNull,
       );
     });
   });

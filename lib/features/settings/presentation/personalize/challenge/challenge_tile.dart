@@ -26,7 +26,6 @@ class ChallengeTile extends StatefulWidget {
     required this.tile,
     required this.pick,
     required this.name,
-    required this.descriptor,
     required this.tileLabel,
     required this.tileHint,
     required this.pickLabel,
@@ -38,9 +37,8 @@ class ChallengeTile extends StatefulWidget {
   final ShelfTile tile;
   final ShelfPick pick;
 
-  /// What the tile is called, and the one short line under it.
+  /// What the tile is called.
   final String name;
-  final String descriptor;
 
   /// What a screen reader says for the tile and for its control. The hint
   /// says what the tile does when it is tapped.
@@ -98,14 +96,6 @@ class _ChallengeTileState extends State<ChallengeTile> {
                                 fontWeight: FontWeight.w700,
                                 height: 1.2,
                               ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          widget.descriptor,
-                          style: AppTypography.mono(
-                            colors.onPanelMuted,
-                            fontSize: 11,
-                          ).copyWith(height: 1.3),
                         ),
                       ],
                     ),
