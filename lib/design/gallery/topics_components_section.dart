@@ -114,7 +114,7 @@ const _idle = _Kind(
   name: 'idle',
   gaze: AppHeroGaze.card,
   card: AppStatusCard(
-    label: 'WILL IT WAKE ME',
+    label: 'PHONE CHECKS',
     numeral: '7/7',
     pips: [
       AppPipTone.fine,
@@ -150,7 +150,7 @@ const _issueLook = _Kind(
   face: FaceState.skeptical,
   tone: AppHeroTone.look,
   card: AppStatusCard(
-    label: 'WILL IT WAKE ME',
+    label: 'PHONE CHECKS',
     numeral: '6/7',
     numeralTone: AppStatusTone.orange,
     pips: [
@@ -173,7 +173,7 @@ const _kinds = <_Kind>[
   _Kind(
     name: 'loading',
     card: AppStatusCard(
-      label: 'WILL IT WAKE ME',
+      label: 'PHONE CHECKS',
       numeral: '···',
       numeralTone: AppStatusTone.muted,
       foot: 'asking the server',
@@ -268,7 +268,7 @@ const _kinds = <_Kind>[
     face: FaceState.sad,
     tone: AppHeroTone.look,
     card: AppStatusCard(
-      label: 'WILL IT WAKE ME',
+      label: 'PHONE CHECKS',
       numeral: '6/7',
       numeralTone: AppStatusTone.red,
       pips: [
@@ -531,7 +531,7 @@ class _StripDemo extends StatelessWidget {
       severity: SeverityMode.none,
       child: AppStatusCard.strip(
         face: face,
-        label: 'WILL IT WAKE ME',
+        label: 'PHONE CHECKS',
         title: title,
         foot: foot,
         numeral: numeral,
