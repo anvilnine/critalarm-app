@@ -377,7 +377,11 @@ class _TopicDetailScreenContent extends StatelessWidget {
                     const SizedBox(height: Spacing.s3),
                     TopicHeader(
                       name: state.topicName,
-                      summary: topicSummaryText(summary),
+                      // Blank until the messages have been read, so the line
+                      // does not say "nothing yet" and then change.
+                      summary: state.areMessageTimesKnown
+                          ? topicSummaryText(summary)
+                          : '',
                     ),
                     const SizedBox(height: Spacing.s3),
                     AppHeroScene(

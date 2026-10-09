@@ -79,7 +79,37 @@ class _TopicPassStackState extends State<TopicPassStack> {
       _tokens = getIt<TopicTokensCubit>();
       unawaited(_tokens!.load(widget.topicName));
     }
+    _readSoundsNow();
     unawaited(_loadSounds());
+  }
+
+  /// The sound choices are on the device already, so the first frame draws
+  /// the sound's name and not an empty value that fills in a moment later.
+  /// Only a sound that comes from a downloaded pack is not in these lists, and
+  /// it still waits for [_loadSounds].
+  void _readSoundsNow() {
+    final repository = getIt<AlarmSoundRepository>();
+    _assignments = repository.assignmentsNow();
+    _userSounds = repository.userSoundsNow();
+    _builtIn = BundledSounds.catalogue(
+      platform: defaultTargetPlatform,
+      nameOf: _nameOfSound,
+    );
+    _areSoundsLoaded = _holdsRingingSound();
+  }
+
+  String _nameOfSound(String id) => 'sound_library.names.$id'.tr();
+
+  /// The sound that rings for the topic, and the default, are both in the
+  /// lists read so far.
+  bool _holdsRingingSound() {
+    final known = {
+      for (final sound in [..._builtIn, ..._userSounds]) sound.id,
+    };
+    return known.containsAll({
+      _assignments.soundIdFor(widget.topicName),
+      _assignments.defaultSoundId,
+    });
   }
 
   @override
@@ -106,35 +136,35 @@ class _TopicPassStackState extends State<TopicPassStack> {
     final userSounds = (await repository.getUserSounds()).getOrDefault(
       const [],
     );
-    String nameOf(String id) => 'sound_library.names.$id'.tr();
     final builtIn = BundledSounds.catalogue(
       platform: defaultTargetPlatform,
-      nameOf: nameOf,
+      nameOf: _nameOfSound,
     );
     if (!mounted) return;
     final saved =
         assignments ??
         const SoundAssignments(defaultSoundId: BundledSounds.fallbackId);
     setState(() {
-      _areSoundsLoaded = true;
       _assignments = saved;
       _userSounds = userSounds;
       _builtIn = builtIn;
+      _areSoundsLoaded = _areSoundsLoaded || _holdsRingingSound();
     });
     // Pack sounds are asked of the store's host, which can be slow. They are
     // needed only when the sound that rings is one of them.
-    final known = {
-      for (final sound in [...builtIn, ...userSounds]) sound.id,
-    };
-    final wanted = {saved.soundIdFor(widget.topicName), saved.defaultSoundId};
-    if (known.containsAll(wanted)) {
+    if (_holdsRingingSound()) {
       if (_otherSounds.isNotEmpty) setState(() => _otherSounds = const []);
       return;
     }
     final others = await getIt<SoundPackRepository>().installedSounds(
-      nameOf: nameOf,
+      nameOf: _nameOfSound,
     );
-    if (mounted) setState(() => _otherSounds = others);
+    if (mounted) {
+      setState(() {
+        _otherSounds = others;
+        _areSoundsLoaded = true;
+      });
+    }
   }
 
   /// The loudness of [sound] if it is known. Asks for it once if it is not,
