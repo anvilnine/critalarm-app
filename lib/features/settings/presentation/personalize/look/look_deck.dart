@@ -5,6 +5,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
@@ -41,6 +42,7 @@ class LookDeck extends StatefulWidget {
     required this.height,
     required this.onTapCentred,
     required this.onOwnCorner,
+    this.tried,
     super.key,
   });
 
@@ -69,6 +71,10 @@ class LookDeck extends StatefulWidget {
 
   final OwnLookPhase own;
 
+  /// The photo the page holds in memory and has not saved, for Yours when
+  /// [own] is [OwnLookPhase.tried].
+  final AlarmStyle? tried;
+
   /// The room the deck has, the dots included.
   final double height;
 
@@ -77,6 +83,9 @@ class LookDeck extends StatefulWidget {
 
   /// A tap on the pencil or the cross on Yours.
   final VoidCallback onOwnCorner;
+
+  /// Whether Yours is drawn as a look, from a saved photo or a tried one.
+  bool get drawsOwn => own == OwnLookPhase.held || own == OwnLookPhase.tried;
 
   /// The room the dots take.
   static const double dotsHeight = 44;
@@ -258,6 +267,7 @@ class _LookPhone extends StatelessWidget {
             LookPhoneFace(
               id: id,
               own: deck.own,
+              tried: deck.tried,
               isLive: isCentred,
               height: size.height,
               fade: deck.fade,
@@ -270,14 +280,10 @@ class _LookPhone extends StatelessWidget {
                 end: 6,
                 child: LookOwnCorner(
                   key: ValueKey(
-                    deck.own == OwnLookPhase.held
-                        ? 'look-own-edit'
-                        : 'look-own-remove',
+                    deck.drawsOwn ? 'look-own-edit' : 'look-own-remove',
                   ),
-                  glyph: deck.own == OwnLookPhase.held
-                      ? GlyphType.pencil
-                      : GlyphType.close,
-                  label: deck.own == OwnLookPhase.held
+                  glyph: deck.drawsOwn ? GlyphType.pencil : GlyphType.close,
+                  label: deck.drawsOwn
                       ? LocaleKeys.alarm_styles_own_edit_label.tr()
                       : LocaleKeys.alarm_styles_own_remove_photo.tr(),
                   onTap: deck.onOwnCorner,

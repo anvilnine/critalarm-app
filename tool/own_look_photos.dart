@@ -164,10 +164,59 @@ Future<void> useCaptureOwnLookStore() async {
   );
 }
 
-/// Deletes the run's folder.
+/// Deletes the run's folders.
 Future<void> dropCaptureOwnLookStore() async {
-  final root = _root;
-  if (root != null && root.existsSync()) await root.delete(recursive: true);
+  for (final dir in [_root, _pickRoot]) {
+    if (dir != null && dir.existsSync()) await dir.delete(recursive: true);
+  }
+}
+
+Directory? _pickRoot;
+
+/// Every file under the capture's own look folder, and every preference key
+/// of the own look. Both are empty on a phone that kept nothing.
+List<String> captureOwnLookTraces() => [
+  if (_root != null && _root!.existsSync())
+    for (final entry in _root!.listSync(recursive: true)) entry.path,
+  for (final key in getIt<SharedPreferences>().getKeys())
+    if (key.startsWith('alarm_style_own')) key,
+];
+
+/// Stands in for the system's file picker: it hands back [photo] as a file
+/// in a folder of its own, outside the own look's, and deletes it when the
+/// import is over, as the platform picker's cache copy is. Call it after
+/// [useCaptureOwnLookStore].
+Future<void> useCaptureOwnLookPicker(CapturePhoto photo) async {
+  final dir = _pickRoot ??= await Directory.systemTemp.createTemp(
+    'own_look_pick_',
+  );
+  final bytes = await capturePhotoPng(photo);
+  await getIt.unregister<OwnPhotoPicker>();
+  getIt.registerSingleton<OwnPhotoPicker>(_CapturePicker(dir, bytes));
+}
+
+class _CapturePicker implements OwnPhotoPicker {
+  _CapturePicker(this._dir, this._bytes);
+
+  final Directory _dir;
+  final Uint8List _bytes;
+
+  @override
+  Future<PickedOwnPhoto?> pickOne() async {
+    final file = File('${_dir.path}/IMG_0001.png');
+    if (!file.existsSync()) file.writeAsBytesSync(_bytes);
+    return PickedOwnPhoto(
+      path: file.path,
+      name: 'IMG_0001.png',
+      sizeBytes: _bytes.length,
+    );
+  }
+
+  @override
+  Future<void> discard(String path) async {
+    final file = File(path);
+    if (file.existsSync()) file.deleteSync();
+  }
 }
 
 /// [photo] decoded, for a capture of the crop step.

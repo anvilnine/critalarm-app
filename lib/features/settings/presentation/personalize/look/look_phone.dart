@@ -16,11 +16,15 @@ import 'package:flutter/material.dart';
 /// The look a position of the deck draws, for the ground and the text it
 /// gives the page.
 ///
-/// Yours is the person's photo while it is held. With none held it is the
-/// own look built with nothing in it, which has the same canvas and the same
-/// words, so the page keeps one colour for Yours whatever the phone holds.
-AlarmStyle lookStyleFor(AlarmStyleId id) {
-  if (id == AlarmStyleId.own) return heldOwnAlarmStyle ?? _emptyOwnStyle;
+/// Yours is the person's photo while it is held. [tried] is a photo held in
+/// memory by the page and not saved, and it comes first. With none held it
+/// is the own look built with nothing in it, which has the same canvas and
+/// the same words, so the page keeps one colour for Yours whatever the phone
+/// holds.
+AlarmStyle lookStyleFor(AlarmStyleId id, {AlarmStyle? tried}) {
+  if (id == AlarmStyleId.own) {
+    return tried ?? heldOwnAlarmStyle ?? _emptyOwnStyle;
+  }
   return alarmStyleOf(id);
 }
 
@@ -131,11 +135,16 @@ class LookPhoneFace extends StatelessWidget {
     required this.isLive,
     required this.height,
     required this.fade,
+    this.tried,
     super.key,
   });
 
   final AlarmStyleId id;
   final OwnLookPhase own;
+
+  /// The photo the page holds in memory and has not saved, drawn when [own]
+  /// is [OwnLookPhase.tried].
+  final AlarmStyle? tried;
   final bool isLive;
   final double height;
 
@@ -171,9 +180,9 @@ class LookPhoneFace extends StatelessWidget {
       );
     }
     return switch (own) {
-      OwnLookPhase.held => still(
+      OwnLookPhase.held || OwnLookPhase.tried => still(
         RingingPreview(
-          style: heldOwnAlarmStyle,
+          style: own == OwnLookPhase.tried ? tried : heldOwnAlarmStyle,
           isStill: !isLive,
           screenSize: screen,
         ),
