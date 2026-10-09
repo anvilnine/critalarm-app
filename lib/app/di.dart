@@ -8,6 +8,7 @@ import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
@@ -18,7 +19,6 @@ import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_access.dart';
-import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
@@ -42,6 +42,7 @@ import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
@@ -51,6 +52,7 @@ import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
@@ -341,6 +343,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.d
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
@@ -566,6 +569,10 @@ Future<void> configureDependencies({
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
+    // The accelerometer, for the shake challenge. On the web and in a test
+    // the channel has no native side, the stream says so, and the
+    // challenge offers taps.
+    ..registerLazySingleton<MotionSensor>(MotionSensorHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     // The same store as before, wrapped so feature access hears the server
     // mode of every session that is read or written.
@@ -579,6 +586,13 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => identityStore,
+    )
+    // What the phone's backups do with this app. Only an iPhone restores
+    // anything, so only an iPhone has something to ask.
+    ..registerLazySingleton<BackupHost>(
+      () => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+          ? const ChannelBackupHost()
+          : const NoBackupHost(),
     )
     // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
     // raw APNs token. Android registers the FCM one (§5.2).
@@ -623,22 +637,25 @@ Future<void> configureDependencies({
         store: getIt<WeeklyCheckStore>(),
         readDeviceId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
-        onPackRefused: (packId) => getIt<ProPackAccess>().relayRefused(packId),
+        readAccess: _weeklyCheckAccess,
+        // The relay says the account is not on Hosted. A registration
+        // brings the tier the relay holds now, and the Hosted source reads
+        // it from the saved identity.
+        onTierRefused: () async {
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
       );
-      // Gaining or losing the pack changes what the relay answers for the
-      // weekly check, so it is read again at once.
-      _proPackHeldChanges().listen(
-        (_) => unawaited(monitor.refresh(force: true)),
-      );
+      // Hosted bought, lapsed or back, or another kind of server: each
+      // changes what the relay sends this phone, so the check is read
+      // again at once. On a server of the user's own this is also what
+      // tells the relay to stop. Nothing waits on it.
+      getIt<FeatureAccess>().changes
+          .where((feature) => feature == AppFeature.weeklyCheck)
+          .listen((_) => unawaited(monitor.accessChanged()));
       return monitor;
     })
     ..registerLazySingleton<WeeklyCheckCubit>(
-      () => WeeklyCheckCubit(
-        monitor: getIt<WeeklyCheckMonitor>(),
-        // Words the row for a phone on its own server: the check covers
-        // the push relay and not that server.
-        readIsSelfHosted: () => getIt<FeatureAccess>().isOwnServerOnceReady(),
-      ),
+      () => WeeklyCheckCubit(monitor: getIt<WeeklyCheckMonitor>()),
     )
     ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
     // The pack routes live on the same client. A client swapped in by a test
@@ -1600,6 +1617,31 @@ Future<void> configureDependencies({
         },
       ),
     )
+    // An install restored onto another phone starts as a phone the relay
+    // has never seen. Run once at launch, before anything reads the
+    // identity. It drops account data through the list above and nothing
+    // else, then the identity, then connects again as a new device.
+    ..registerLazySingleton(
+      () => MovedPhoneReset(
+        host: getIt<BackupHost>(),
+        forgetAccountData: () => getIt<AccountData>().forget(),
+        sessions: getIt<ApiSessionStore>(),
+        connections: getIt<ConnectionRepository>(),
+        devices: getIt<DeviceIdentityStore>(),
+        forgetSentPushToken: () async {
+          final prefs = getIt<SharedPreferences>();
+          await prefs.remove(DeviceTokenRegistry.lastTokenKey);
+          await prefs.remove(DeviceTokenRegistry.lastVersionKey);
+          await prefs.remove(DeviceTokenRegistry.lastKindKey);
+          // The old phone's Live Activity tokens: the ones the relay took,
+          // and any the old phone had not sent yet. iOS keeps the second
+          // list itself (`IncidentActivityCoordinator.pendingTokensKey`).
+          await prefs.remove(LiveActivityTokenRegistry.acceptedKey);
+          await prefs.remove('pending_activity_tokens');
+        },
+        reconnect: (serverUrl) => getIt<BackgroundConnect>().start(serverUrl),
+      ),
+    )
     // The one flag native code reads to know own sounds are locked. It
     // follows the own sounds decision: a purchase, a pack that ended, a
     // server that became known. It is written only on a sure answer, so
@@ -1672,11 +1714,13 @@ Future<void> configureDependencies({
     // The person's own alarm look: one photo in the app's own storage,
     // its record and its accent in the preferences. The keeper decodes
     // the photo at launch and holds it, so an alarm that rings loads
-    // nothing. The photo never leaves the phone.
+    // nothing. The photo is sent nowhere and is in no backup: the store
+    // keeps its folder out on an iPhone, and Android backs up nothing.
     ..registerLazySingleton<OwnLookStore>(
       () => FileOwnLookStore(
         getIt<SharedPreferences>(),
         getApplicationSupportDirectory,
+        excludeFromBackup: getIt<BackupHost>().excludeFromBackup,
       ),
     )
     ..registerLazySingleton(
@@ -2110,7 +2154,6 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SearchCubit(
-        featureAccess: getIt<FeatureAccess>(),
         sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
@@ -2330,9 +2373,7 @@ Future<void> configureDependencies({
         // calls the relay: the row's own cubit does that.
         WeeklyCheckSource(
           readCheck: () => getIt<WeeklyCheckMonitor>().check,
-          isPackHeld: () =>
-              getIt<FeatureAccess>().decide(AppFeature.weeklyCheck)
-                  is FeatureOpen,
+          readAccess: _weeklyCheckAccess,
           readMissedByClock: () =>
               getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
           testRouteName: AppRoute.testRing,
@@ -2412,7 +2453,6 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => SettingsCubit(
         holdings: getIt<Holdings>(),
-        featureAccess: getIt<FeatureAccess>(),
         identityStore: getIt<DeviceIdentityStore>(),
         apiSessions: getIt<ApiSessionStore>(),
         getServerInfo: getIt<GetServerInfoUsecase>(),
@@ -2730,6 +2770,17 @@ Future<void> configureDependencies({
 
     devSwitch.addListener(applyToMock);
     applyToMock();
+
+    // The same for Hosted: the mock relay goes by the fixture account's
+    // tier for the weekly check, so the switch sets it.
+    final hostedSwitch = getIt<DevProSwitch>();
+    void applyTierToMock() {
+      getIt<MockServer>().accountTier = hostedSwitch.value ? 'hosted' : 'free';
+      unawaited(getIt<WeeklyCheckMonitor>().refresh(force: true));
+    }
+
+    hostedSwitch.addListener(applyTierToMock);
+    applyTierToMock();
   }
 }
 
@@ -2823,8 +2874,8 @@ Future<bool> _hostedByServer() {
   return hosted.readHeldByServer(); // access-ok: the named read, passed on
 }
 
-/// Every change of whether the Pro pack is held, for the weekly check
-/// monitor. Not a gate: nothing is decided on it, the relay is asked again.
-Stream<bool> _proPackHeldChanges() {
-  return getIt<ProPackAccess>().stream; // access-ok: re-asks the relay
-}
+/// What the access layer says for the weekly check, in the words the
+/// weekly check acts on.
+WeeklyCheckAccess _weeklyCheckAccess() => weeklyCheckAccessFor(
+  getIt<FeatureAccess>().decide(AppFeature.weeklyCheck),
+);

@@ -36,6 +36,7 @@ void main() {
       HostedBenefitId.pushes,
       HostedBenefitId.history,
       HostedBenefitId.appIcons,
+      HostedBenefitId.weeklyCheck,
     ]);
   });
 

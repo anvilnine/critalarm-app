@@ -61,7 +61,12 @@ class RingingPreview extends StatefulWidget {
   final AlarmStyle? style;
 
   /// Holds one still frame whatever the motion setting, for a thumbnail.
+  /// The face in it is always [thumbnailFace], so a row of thumbnails
+  /// differs by look and never by mood.
   final bool isStill;
+
+  /// The one expression every thumbnail wears.
+  static const RingingStyle thumbnailFace = RingingStyle.classic;
 
   /// The screen the preview is laid out for: this display, with the text
   /// size and motion setting of [context].
@@ -139,6 +144,9 @@ class _RingingPreviewState extends State<RingingPreview> {
                               // route hands them over.
                               final colors = context.appColors;
                               return _YellowFace(
+                                pin: widget.isStill
+                                    ? RingingPreview.thumbnailFace
+                                    : null,
                                 child: RingingScreen(
                                   state: sampleRingingState(isLive: !reduce),
                                   colors: colors,
@@ -169,12 +177,17 @@ class _RingingPreviewState extends State<RingingPreview> {
 ///
 /// The ringing face takes its fill and its ink from the theme, and the
 /// dark theme's are dark. Here the two are the light theme's whatever the
-/// theme, and nothing else in the palette changes. The alarm route is not
-/// under this, so the real alarm screen draws as it always has.
+/// theme, and nothing else in the palette changes. The head also keeps
+/// its fill through every expression, so a style that flushes it never
+/// turns it orange here. The alarm route is not under this, so the real
+/// alarm screen draws as it always has.
+///
+/// With [pin] the face holds that one expression.
 class _YellowFace extends StatelessWidget {
-  const _YellowFace({required this.child});
+  const _YellowFace({required this.child, this.pin});
 
   final Widget child;
+  final RingingStyle? pin;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +203,10 @@ class _YellowFace extends StatelessWidget {
           colors,
         ],
       ),
-      child: child,
+      child: RingingFaceFill(
+        keepsFill: true,
+        child: pin == null ? child : RingingFacePin(style: pin!, child: child),
+      ),
     );
   }
 }

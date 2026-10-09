@@ -37,6 +37,27 @@ class RingingFaceFill extends InheritedWidget {
       oldWidget.keepsFill != keepsFill;
 }
 
+/// Holds every shuffling face under it on one [style], with no shuffle.
+///
+/// For a row of small pictures of the alarm screen: with one expression
+/// in all of them, what differs from picture to picture is the look and
+/// nothing else. With none above it a face shuffles as it always has.
+class RingingFacePin extends InheritedWidget {
+  const RingingFacePin({
+    required this.style,
+    required super.child,
+    super.key,
+  });
+
+  final RingingStyle style;
+
+  static RingingStyle? styleOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RingingFacePin>()?.style;
+
+  @override
+  bool updateShouldNotify(RingingFacePin oldWidget) => oldWidget.style != style;
+}
+
 /// The name of the one [RingingStyle] a capture holds the shuffling face
 /// on, from `--dart-define=RINGING_FACE=rage`. Debug builds only: a
 /// release build always shuffles.
@@ -59,6 +80,8 @@ class ShufflingRingingFace extends StatefulWidget {
   const ShufflingRingingFace({
     this.size = 160,
     this.isLive = true,
+    this.strokeColor,
+    this.canvasInkColor,
     super.key,
   });
 
@@ -67,6 +90,13 @@ class ShufflingRingingFace extends StatefulWidget {
 
   /// False holds the face still.
   final bool isLive;
+
+  /// The head outline. Null takes the palette's `crit`.
+  final Color? strokeColor;
+
+  /// The sound waves beside the head. Null takes the features' ink. See
+  /// [RingingFacePainter.canvasInkColor].
+  final Color? canvasInkColor;
 
   @override
   State<ShufflingRingingFace> createState() => _ShufflingRingingFaceState();
@@ -91,12 +121,24 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
   Duration _now = Duration.zero;
   bool _reduceMotion = false;
 
+  /// The style a [RingingFacePin] above holds this face on, or null.
+  RingingStyle? _pin;
+
   bool get _animating => widget.isLive && !_reduceMotion;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final pin = RingingFacePin.styleOf(context);
+    if (pin != _pin) {
+      _pin = pin;
+      _next = null;
+      if (pin != null) {
+        _style = pin;
+        _styleStart = _now;
+      }
+    }
     _sync();
   }
 
@@ -121,6 +163,8 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
   void _onTick(Duration elapsed) {
     setState(() {
       _now = elapsed;
+      // A pinned face keeps its one style.
+      if (_pin != null) return;
       final next = _next;
       if (next == null) {
         if (_now - _styleStart >= _hold) {
@@ -173,9 +217,10 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
         painter: RingingFacePainter(
           frame: _frame,
           fillColor: colors.faceFill,
-          strokeColor: colors.crit,
+          strokeColor: widget.strokeColor ?? colors.crit,
           inkColor: colors.faceInk,
           accentColor: colors.crit,
+          canvasInkColor: widget.canvasInkColor,
           keepsFill: RingingFaceFill.keepsFillOf(context),
         ),
       ),

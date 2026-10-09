@@ -18,18 +18,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// never describes pixels it was not measured on. The file saved before
 /// is deleted only once the new record is in.
 ///
+/// The photo is in no backup. The app support directory is one a phone
+/// backup copies, so the folder is kept out of it on each platform:
+///
+/// - iPhone: the folder carries `isExcludedFromBackup`, set through
+///   [_excludeFromBackup] when the folder is made and again by [sweep] at
+///   every launch, for a folder made before the flag existed.
+/// - Android: the app is in no backup and no phone to phone transfer at
+///   all (`android:allowBackup="false"` and the two rules files in
+///   `android/app/src/main/res/xml/`), so there is nothing to flag.
+///
+/// The record is in the preferences, which an iPhone backup does copy. So
+/// after a restore the record can name a file that did not come along.
+/// That is the same as a file that went missing: nothing is drawn, and
+/// picking a photo again replaces the record.
+///
 /// A save that is cut short (the app is killed between the file and its
 /// record, or a delete fails) can leave a file no record names. [sweep]
 /// deletes those at launch.
 ///
 /// Nothing here logs: not a path, not a size, not a failure.
 class FileOwnLookStore implements OwnLookStore {
-  FileOwnLookStore(this._prefs, this._root);
+  FileOwnLookStore(this._prefs, this._root, {this._excludeFromBackup});
 
   final SharedPreferences _prefs;
 
   /// The directory the photo's folder is made in.
   final Future<Directory> Function() _root;
+
+  /// Keeps the folder at a path out of the phone's backups. Null where
+  /// the platform keeps the whole app out.
+  final Future<void> Function(String path)? _excludeFromBackup;
 
   final _changes = StreamController<void>.broadcast();
 
@@ -96,6 +115,8 @@ class FileOwnLookStore implements OwnLookStore {
     final stamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
     final dir = await _dir();
     await dir.create(recursive: true);
+    // Before the photo is written, so it is never in the folder unflagged.
+    await _keepOutOfBackup(dir);
     final file = await _fileFor(stamp);
     // Whole or not at all: written under another name, then moved.
     final part = File('${file.path}.part');
@@ -157,7 +178,24 @@ class FileOwnLookStore implements OwnLookStore {
     } on Object catch (_) {
       stamp = null;
     }
+    try {
+      // A folder made before the flag existed gets it now.
+      final dir = await _dir();
+      if (dir.existsSync()) await _keepOutOfBackup(dir);
+    } on Object catch (_) {
+      // The next launch tries again.
+    }
     await _deleteAllBut(stamp);
+  }
+
+  Future<void> _keepOutOfBackup(Directory dir) async {
+    final exclude = _excludeFromBackup;
+    if (exclude == null) return;
+    try {
+      await exclude(dir.path);
+    } on Object catch (_) {
+      // The save goes on. The next launch flags the folder again.
+    }
   }
 
   @override

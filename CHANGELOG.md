@@ -58,6 +58,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - History opens on a week at a glance: a small face over a card with your alarms per day and the longest one you answered, and each alarm shows a tick when answered or a red mark when nobody answered
 - Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
 - Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
+- On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -77,10 +78,16 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Android back button closes search instead of leaving the app.
 - The Topics card says when your last alarm rang instead of no alarm yet. Topic messages show newest first. Settings shows Crit Alarm Cloud in full.
 - A long topic name and message title now show in full, dates read the same on every screen, Settings rows line up and stay clear of the title when scrolled, faces keep their dark outline on orange and red, and Delete topic and the Critical delivery switch are easier to see.
+- The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
+- The App icon screen no longer hits a layout error on the first visit with reduce motion on
+- An iPhone set up from a backup of another iPhone registers as a new device. It used to keep talking to the server as the old phone.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
 - Setup no longer shows a Stop animation button on the welcome screen or a close button on the first topic step.
+
+### Security
+- Your own alarm photo and your own alarm sounds are kept out of iCloud and computer backups. After a restore, pick the photo and add the sounds again.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

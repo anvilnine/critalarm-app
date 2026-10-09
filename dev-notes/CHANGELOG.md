@@ -87,6 +87,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppSwitch takes a panel variant for the dark status card: 56 by 32, a panelLine outline and a 44 point touch target. It is in the status card gallery.
 - topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
 - tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
+- MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -150,6 +151,15 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Topic screen uses the Topics hero: the face looks at a dark Critical delivery card with the switch in it, and the messages sit on a white sheet under it. The disc behind the face is drawn by the ambient canvas through an AmbientOverride.
 - Review fixes on the redesigned screens: formatWhen (lib/core/format/when\_label.dart) is the one date rule, TopicHeader sets a long name on two lines and steps its type down (topicHeaderHeight takes the name and the width), AppScreenScaffold topBackingPlateau, FaceWidget draws the canvas face stroke in every state, AppColors.critText, and the panel switch off track is the muted panel colour at 0.55.
 - Topic message rows always show the time (Yesterday 00:45, 8 Oct 00:45), the token line reads Made yesterday, and History keeps its title clear of scrolled rows.
+- FeatureLock can seat its badge above the option's edge (FeatureLockSeat.above) or leave it to the child (drawsBadge: false). Personalize strips and rows use both, so a badge covers no label and no picture.
+- Personalize: challenge chips are a picture and one word, a tried option has a dashed outline, the picked look has a ring clear of its picture, look thumbnails hold one expression, a lapsed Yours tile shows the saved photo, Widgets shows the widget small, and the wide page uses more width (AppScreenScaffold.contentMaxWidth).
+- Locked app icons draw at full colour, and the locked App icon screen has one Unlock button
+- Wake-up challenges give one instruction each, and the line under a challenge field stays above the way out on a small phone at a large text size
+- A challenge try is drawn in the phone's saved alarm look
+- Plans and features lab shows each feature note whole and uses the app's names for Look and Wake-up challenge
+- Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
+- Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
+- FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

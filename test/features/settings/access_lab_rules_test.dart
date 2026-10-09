@@ -11,6 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/access/access_fakes.dart';
+
 /// Every path the router has, written out in full.
 Set<String> _paths(List<RouteBase> routes, [String parent = '']) {
   final found = <String>{};
@@ -53,7 +55,6 @@ void main() {
       expect(accessLabJumps.keys.toSet(), {
         AppFeature.unlimitedCriticalTopics,
         AppFeature.longHistory,
-        AppFeature.storageRules,
         AppFeature.appIcons,
         AppFeature.widgets,
         AppFeature.ownSounds,
@@ -125,6 +126,14 @@ void main() {
       expect(accessLabHoldingName(Holding.pro), 'Pro');
     });
 
+    test('a feature the app names on its own screens keeps that name', () {
+      expect(
+        accessLabFeatureName(AppFeature.wakeUpChallenges),
+        'Wake-up challenge',
+      );
+      expect(accessLabFeatureName(AppFeature.alarmScreenStyles), 'Look');
+    });
+
     test('a decision reads as open, locked, confirming or unread', () {
       expect(accessLabDecisionText(const FeatureDecision.open()), 'Open');
       expect(
@@ -139,6 +148,38 @@ void main() {
         accessLabDecisionText(const FeatureDecision.unread(Holding.pro)),
         'Open, Pro unread',
       );
+      expect(
+        accessLabDecisionText(const FeatureDecision.notOffered()),
+        'Not offered on this server, sells nothing',
+      );
+    });
+
+    test('the weekly check row follows the table: locked for Hosted on '
+        'Crit Alarm Cloud, not offered on a server of the user own', () {
+      final cloud = TestAccess(held: {Holding.pro});
+      final own = TestAccess(
+        held: {Holding.hosted, Holding.pro},
+        serverMode: ServerMode.selfhosted,
+      );
+      addTearDown(cloud.dispose);
+      addTearDown(own.dispose);
+      expect(
+        accessLabDecisionText(cloud.features.decide(AppFeature.weeklyCheck)),
+        'Locked, sells Hosted',
+      );
+      expect(
+        accessLabDecisionText(own.features.decide(AppFeature.weeklyCheck)),
+        'Not offered on this server, sells nothing',
+      );
+      expect(
+        accessLabRuleText(featureTable[AppFeature.weeklyCheck]),
+        'Needs Hosted, not offered on own server',
+      );
+      expect(
+        accessLabRuleText(featureTable[AppFeature.appIcons]),
+        'Needs Hosted or Pro, or own server, sells Hosted',
+      );
+      expect(accessLabJumpText(AppFeature.weeklyCheck), 'Goes to Reliability');
     });
 
     test('the rule line is read from the table row', () {
@@ -158,7 +199,7 @@ void main() {
             onOwnServer: OwnServerRule.sameAsCloud,
           ),
         ),
-        'Needs Pro or Hosted, own server too',
+        'Needs Pro or Hosted, own server too, sells Pro',
       );
       expect(accessLabRuleText(null), 'No row: open to all');
     });

@@ -11,16 +11,24 @@ import 'access_fakes.dart';
 const List<AppFeature> _hostedFeatures = [
   AppFeature.unlimitedCriticalTopics,
   AppFeature.longHistory,
-  AppFeature.storageRules,
   AppFeature.appIcons,
+  AppFeature.weeklyCheck,
 ];
 
+/// What Pro alone unlocks. The app icons are not here: Hosted unlocks them
+/// too, so they are in neither "only" list below where that matters.
 const List<AppFeature> _proFeatures = [
   AppFeature.widgets,
   AppFeature.ownSounds,
   AppFeature.alarmScreenStyles,
   AppFeature.wakeUpChallenges,
-  AppFeature.weeklyCheck,
+];
+
+/// What a server of the user's own opens by itself.
+const List<AppFeature> _openOnOwnServer = [
+  AppFeature.unlimitedCriticalTopics,
+  AppFeature.longHistory,
+  AppFeature.appIcons,
 ];
 
 void main() {
@@ -82,10 +90,7 @@ void main() {
       pro
         ..set(HoldingState.pending)
         ..set(HoldingState.held);
-      expect(
-        access.decide(AppFeature.weeklyCheck),
-        const FeatureDecision.open(),
-      );
+      expect(access.decide(AppFeature.widgets), const FeatureDecision.open());
     });
 
     test('is open, not confirming, where the server opens the feature', () {
@@ -99,10 +104,155 @@ void main() {
   });
 
   group('isUsable', () {
-    test('is true for open and confirming, false for locked', () {
+    test('is true for open, confirming and unread, false for locked and '
+        'not offered', () {
       expect(const FeatureDecision.open().isUsable, isTrue);
       expect(const FeatureDecision.confirming(Holding.pro).isUsable, isTrue);
+      expect(const FeatureDecision.unread(Holding.pro).isUsable, isTrue);
       expect(const FeatureDecision.locked(Holding.pro).isUsable, isFalse);
+      expect(const FeatureDecision.notOffered().isUsable, isFalse);
+    });
+  });
+
+  group("not offered on a server of the user's own", () {
+    const notOffered = FeatureDecision.notOffered();
+
+    test('is its own answer: not open, and not a lock with something to '
+        'sell', () {
+      expect(notOffered, isNot(const FeatureDecision.open()));
+      expect(notOffered, isNot(isA<FeatureLocked>()));
+      expect(notOffered, const FeatureDecision.notOffered());
+      expect(notOffered.toString(), 'FeatureDecision.notOffered');
+    });
+
+    test('the weekly check is not offered there whatever is held, pending '
+        'or unread', () {
+      final access = build(serverMode: ServerMode.selfhosted);
+      for (final hostedState in HoldingState.values) {
+        for (final proState in HoldingState.values) {
+          hosted.set(hostedState);
+          pro.set(proState);
+          expect(
+            access.decide(AppFeature.weeklyCheck),
+            notOffered,
+            reason: 'hosted ${hostedState.name}, pro ${proState.name}',
+          );
+          expect(access.can(AppFeature.weeklyCheck), isFalse);
+        }
+      }
+    });
+
+    test('holding nothing, it is still not offered: there is no lock to '
+        'draw and nothing to sell', () {
+      final access = build(serverMode: ServerMode.selfhosted);
+      expect(access.decideHoldingNothing(AppFeature.weeklyCheck), notOffered);
+      access.setServerMode(ServerMode.hosted);
+      expect(
+        access.decideHoldingNothing(AppFeature.weeklyCheck),
+        const FeatureDecision.locked(Holding.hosted),
+      );
+    });
+
+    test('asked once ready, it answers and does not throw, even with the '
+        'plan unread', () async {
+      final access = build(serverMode: ServerMode.selfhosted);
+      hosted.set(HoldingState.unknown);
+      expect(
+        await access.decideOnceReady(AppFeature.weeklyCheck),
+        notOffered,
+      );
+      expect(await access.canOnceReady(AppFeature.weeklyCheck), isFalse);
+      expect(await access.usableOnceReady(AppFeature.weeklyCheck), isFalse);
+    });
+
+    test('is never said while the server is not known, or for the relay: '
+        'both have plans', () {
+      for (final mode in [null, ServerMode.relay, ServerMode.hosted]) {
+        final access = build(serverMode: mode);
+        expect(
+          access.decide(AppFeature.weeklyCheck),
+          const FeatureDecision.locked(Holding.hosted),
+          reason: '$mode',
+        );
+      }
+    });
+
+    test('what such a server opens by itself stays open', () {
+      final access = build(serverMode: ServerMode.selfhosted);
+      for (final feature in _openOnOwnServer) {
+        expect(
+          access.decide(feature),
+          const FeatureDecision.open(),
+          reason: feature.name,
+        );
+      }
+    });
+  });
+
+  group('the weekly check on Crit Alarm Cloud', () {
+    test('Pro alone does not open it, and Hosted is what is offered', () {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      expect(
+        access.decide(AppFeature.weeklyCheck),
+        const FeatureDecision.locked(Holding.hosted),
+      );
+      expect(access.can(AppFeature.weeklyCheck), isFalse);
+    });
+
+    test('Hosted opens it, with or without Pro', () {
+      final access = build(serverMode: ServerMode.hosted);
+      hosted.set(HoldingState.held);
+      expect(access.can(AppFeature.weeklyCheck), isTrue);
+      pro.set(HoldingState.held);
+      expect(access.can(AppFeature.weeklyCheck), isTrue);
+    });
+
+    test('a lapse locks it again and a return opens it', () {
+      final access = build(serverMode: ServerMode.hosted);
+      hosted.set(HoldingState.held);
+      expect(access.can(AppFeature.weeklyCheck), isTrue);
+      hosted.set(HoldingState.notHeld);
+      expect(
+        access.decide(AppFeature.weeklyCheck),
+        const FeatureDecision.locked(Holding.hosted),
+      );
+      hosted.set(HoldingState.held);
+      expect(access.can(AppFeature.weeklyCheck), isTrue);
+    });
+  });
+
+  group('the app icons', () {
+    test('either holding opens them on Crit Alarm Cloud', () {
+      final access = build(serverMode: ServerMode.hosted);
+      expect(
+        access.decide(AppFeature.appIcons),
+        const FeatureDecision.locked(Holding.hosted),
+      );
+      pro.set(HoldingState.held);
+      expect(access.can(AppFeature.appIcons), isTrue);
+      pro.set(HoldingState.notHeld);
+      hosted.set(HoldingState.held);
+      expect(access.can(AppFeature.appIcons), isTrue);
+    });
+
+    test('a pending purchase of either one counts as confirming it', () {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.pending);
+      expect(
+        access.decide(AppFeature.appIcons),
+        const FeatureDecision.confirming(Holding.pro),
+      );
+    });
+
+    test('one holding unread and the other not held is unread, never a '
+        'lock', () {
+      final access = build(serverMode: ServerMode.hosted);
+      hosted.set(HoldingState.unknown);
+      expect(
+        access.decide(AppFeature.appIcons),
+        const FeatureDecision.unread(Holding.hosted),
+      );
     });
   });
 
@@ -126,7 +276,8 @@ void main() {
       expect(access.can(AppFeature.longHistory), isFalse);
       hosted.set(HoldingState.held);
       expect(access.can(AppFeature.longHistory), isTrue);
-      expect(access.can(AppFeature.weeklyCheck), isFalse);
+      expect(access.can(AppFeature.weeklyCheck), isTrue);
+      expect(access.can(AppFeature.widgets), isFalse);
     });
 
     test('a new mode changes the answers at once', () {
@@ -184,7 +335,8 @@ void main() {
     test('names the features a holding unlocked, and no others', () async {
       pro.set(HoldingState.held);
       await settle();
-      expect(heard, _proFeatures);
+      // The app icons too: either holding unlocks them.
+      expect(heard, [AppFeature.appIcons, ..._proFeatures]);
     });
 
     test('names a feature again when confirming becomes open', () async {
@@ -225,13 +377,14 @@ void main() {
       expect(heard, isEmpty);
     });
 
-    test('a mode change is quiet for a feature already held', () async {
+    test('a mode change is quiet for a feature already held, and names '
+        'the one that is not offered there', () async {
       hosted.set(HoldingState.held);
       await settle();
       heard.clear();
       access.setServerMode(ServerMode.selfhosted);
       await settle();
-      expect(heard, isEmpty);
+      expect(heard, [AppFeature.weeklyCheck]);
     });
   });
 }

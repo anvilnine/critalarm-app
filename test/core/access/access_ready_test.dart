@@ -162,16 +162,22 @@ void main() {
       final access = TestAccess(held: {Holding.hosted, Holding.pro});
       addTearDown(access.dispose);
       expect(
-        access.features.decideHoldingNothing(AppFeature.weeklyCheck),
+        access.features.decideHoldingNothing(AppFeature.widgets),
         const FeatureDecision.locked(Holding.pro),
       );
+      expect(
+        access.features.decideHoldingNothing(AppFeature.weeklyCheck),
+        const FeatureDecision.locked(Holding.hosted),
+      );
+      // Two holdings unlock the app icons. Hosted is the one named.
       expect(
         access.features.decideHoldingNothing(AppFeature.appIcons),
         const FeatureDecision.locked(Holding.hosted),
       );
     });
 
-    test('is open where the server opens the feature', () {
+    test('is open where the server opens the feature, and not offered '
+        'where the server has none', () {
       final access = TestAccess(serverMode: ServerMode.selfhosted);
       addTearDown(access.dispose);
       expect(
@@ -179,8 +185,12 @@ void main() {
         const FeatureDecision.open(),
       );
       expect(
-        access.features.decideHoldingNothing(AppFeature.weeklyCheck),
+        access.features.decideHoldingNothing(AppFeature.widgets),
         const FeatureDecision.locked(Holding.pro),
+      );
+      expect(
+        access.features.decideHoldingNothing(AppFeature.weeklyCheck),
+        const FeatureDecision.notOffered(),
       );
     });
 

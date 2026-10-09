@@ -2,6 +2,7 @@ import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/presentation/ops_math_challenge.dart';
 import 'package:critalarm/features/challenges/presentation/scratch_card_challenge.dart';
+import 'package:critalarm/features/challenges/presentation/shake_challenge.dart';
 import 'package:critalarm/features/challenges/presentation/type_alert_title_challenge.dart';
 import 'package:critalarm/features/challenges/presentation/type_topic_name_challenge.dart';
 import 'package:flutter/widgets.dart';
@@ -30,6 +31,20 @@ final class ChallengeRun {
   final bool isPicture;
 }
 
+/// The room a challenge keeps clear around its text field when the field
+/// is brought into view over the keyboard.
+///
+/// Above: the words to copy. Below: the one line under the field, then the
+/// way out pinned over the keyboard with the soft edge above it. At a
+/// large text size the way out and that line come to about 170 points, and
+/// less room than that left the line cut off on a small phone.
+const EdgeInsets challengeFieldScrollPadding = EdgeInsets.fromLTRB(
+  20,
+  120,
+  20,
+  200,
+);
+
 /// A wake-up challenge: a small task before "At my desk" closes an
 /// incident.
 ///
@@ -56,7 +71,8 @@ abstract interface class Challenge {
   String get nameKey;
 
   /// The `LocaleKeys` key of the one line over the task, which says what
-  /// to do. One line at the default text size on a 375 point screen.
+  /// to do. One line at the default text size on a 375 point screen. It is
+  /// the only instruction: the task under it does not say it again.
   String get promptKey;
 
   /// Whether it can run for this alarm. A challenge that needs an alert
@@ -78,6 +94,7 @@ const List<Challenge> challenges = [
   TypeAlertTitleChallenge(),
   OpsMathChallenge(),
   ScratchCardChallenge(),
+  ShakeChallenge(),
 ];
 
 /// The challenge of [kind], or null when this build has none for it.

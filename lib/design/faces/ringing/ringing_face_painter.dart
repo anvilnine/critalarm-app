@@ -44,6 +44,7 @@ class RingingFacePainter extends CustomPainter {
     required this.inkColor,
     required this.accentColor,
     this.keepsFill = false,
+    this.canvasInkColor,
   });
 
   /// What to draw.
@@ -64,6 +65,12 @@ class RingingFacePainter extends CustomPainter {
   /// Holds the head at [fillColor] through a flush and a flash. See
   /// [ringingFaceColors].
   final bool keepsFill;
+
+  /// The sound waves, which are lines drawn beside the head with nothing
+  /// of the face behind them. Null draws them in the features' ink, as
+  /// every other extra is. A screen whose ink cannot be seen on its
+  /// background hands in a colour that can.
+  final Color? canvasInkColor;
 
   /// How wide the stage is, in face units. The face takes the middle 200.
   static const double stageUnits = 280;
@@ -166,6 +173,8 @@ class RingingFacePainter extends CustomPainter {
     switch (fx.kind) {
       case RingFxKind.soundWaves:
         // Three arcs either side of the head, rippling outward.
+        final canvasInk = canvasInkColor;
+        final wave = canvasInk == null ? line : _a(canvasInk, alpha);
         for (final side in const [-1.0, 1.0]) {
           for (var i = 0; i < 3; i++) {
             final p = (fx.phase + i / 3) % 1;
@@ -175,7 +184,7 @@ class RingingFacePainter extends CustomPainter {
               side < 0 ? math.pi * 0.75 : -math.pi * 0.25,
               math.pi * 0.5,
               false,
-              _pen(_a(line, 1 - p), 6),
+              _pen(_a(wave, 1 - p), 6),
             );
           }
         }
@@ -427,5 +436,6 @@ class RingingFacePainter extends CustomPainter {
       oldDelegate.strokeColor != strokeColor ||
       oldDelegate.inkColor != inkColor ||
       oldDelegate.accentColor != accentColor ||
-      oldDelegate.keepsFill != keepsFill;
+      oldDelegate.keepsFill != keepsFill ||
+      oldDelegate.canvasInkColor != canvasInkColor;
 }

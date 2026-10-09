@@ -29,7 +29,6 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
-import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -191,7 +190,6 @@ class _PlanSettings extends SettingsCubit {
   _PlanSettings(this.plan)
     : super(
         holdings: getIt<Holdings>(),
-        featureAccess: getIt<FeatureAccess>(),
         identityStore: getIt(),
         apiSessions: getIt<ApiSessionStore>(),
         getTopics: getIt<GetTopicsUsecase>(),
@@ -231,7 +229,6 @@ class _PlanSettings extends SettingsCubit {
           state.copyWith(
             serverMode: ServerMode.selfhosted,
             isConnected: true,
-            hasStorageSection: true,
           ),
         );
       case _Plan.cloud:
@@ -240,7 +237,6 @@ class _PlanSettings extends SettingsCubit {
           state.copyWith(
             serverMode: ServerMode.hosted,
             isConnected: true,
-            hasStorageSection: true,
           ),
         );
       case _Plan.hosted:
@@ -259,7 +255,6 @@ class _PlanSettings extends SettingsCubit {
               Topic(name: 'nas-backup', critical: true),
               Topic(name: 'home-ha', critical: true),
             ],
-            hasStorageSection: true,
           ),
         );
     }

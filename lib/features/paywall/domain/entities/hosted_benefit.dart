@@ -43,7 +43,7 @@ enum HostedSurface {
       hasOwnServerLine ? LocaleKeys.paywall_self_hosted_note.tr() : null;
 }
 
-enum HostedBenefitId { topics, pushes, history, appIcons }
+enum HostedBenefitId { topics, pushes, history, appIcons, weeklyCheck }
 
 /// One thing Hosted gives, with the string keys each surface reads.
 ///
@@ -144,6 +144,17 @@ class HostedBenefit {
       compareHostedKey: LocaleKeys.hosted_benefits_app_icons_compare_hosted,
       loseKey: LocaleKeys.hosted_benefits_app_icons_lose,
       phraseKey: LocaleKeys.hosted_benefits_app_icons_phrase,
+    ),
+    // The relay runs it, so it is a Hosted benefit and no Pro one.
+    const HostedBenefit(
+      id: HostedBenefitId.weeklyCheck,
+      feature: AppFeature.weeklyCheck,
+      shortKey: LocaleKeys.hosted_benefits_weekly_check_short,
+      compareLabelKey: LocaleKeys.hosted_benefits_weekly_check_compare_label,
+      compareFreeKey: LocaleKeys.hosted_benefits_weekly_check_compare_free,
+      compareHostedKey: LocaleKeys.hosted_benefits_weekly_check_compare_hosted,
+      loseKey: LocaleKeys.hosted_benefits_weekly_check_lose,
+      phraseKey: LocaleKeys.hosted_benefits_weekly_check_phrase,
     ),
   ]);
 
