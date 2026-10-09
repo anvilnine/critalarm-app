@@ -75,6 +75,57 @@ class PassTone {
   );
 }
 
+/// The colours of the plan badge on a pass: the pill, the word and lock on
+/// it, and the pill's outline.
+@immutable
+class PassBadgeColors {
+  const PassBadgeColors({
+    required this.fill,
+    required this.ink,
+    required this.border,
+  });
+
+  final Color fill;
+  final Color ink;
+  final Color border;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PassBadgeColors &&
+      other.fill == fill &&
+      other.ink == ink &&
+      other.border == border;
+
+  @override
+  int get hashCode => Object.hash(fill, ink, border);
+}
+
+/// The least contrast a badge pill needs against the ground it sits on.
+const double kPassBadgeGroundContrast = 3;
+
+/// Which pill a pass of [tone] gets.
+///
+/// The app's yellow pill with the fixed ink on it, when the yellow is at
+/// least [kPassBadgeGroundContrast] to 1 against the ground. Where it is
+/// not (a red, cream or white ground), the tone's own ink is the pill and
+/// the ground colour is the word. The tone's text already holds 4.5 to 1 on
+/// its ground, so that pill passes both tests whatever the ground is.
+PassBadgeColors passBadgeColorsFor(
+  PassTone tone, {
+  required Color yellow,
+  required Color inkFixed,
+}) {
+  final yellowOnGround = ColorContrast.contrastRatio(yellow, tone.ground);
+  if (yellowOnGround >= kPassBadgeGroundContrast) {
+    return PassBadgeColors(fill: yellow, ink: inkFixed, border: inkFixed);
+  }
+  return PassBadgeColors(
+    fill: tone.onGround,
+    ink: tone.ground,
+    border: tone.onGround,
+  );
+}
+
 /// The tone of [pass] in the theme [colors] belong to.
 ///
 /// Sound, challenge, widgets and app icon have one colour each. The look
