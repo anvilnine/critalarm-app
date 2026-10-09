@@ -1,20 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
-import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
-import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/design_system/widgets/section_card.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/settings/domain/personalize/sound_hero_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_state.dart';
+import 'package:critalarm/features/settings/presentation/personalize/sound/sound_hero.dart';
+import 'package:critalarm/features/settings/presentation/personalize/sound/sound_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +26,10 @@ import 'package:go_router/go_router.dart';
 /// Opened twice: from settings with no topic, which sets the default, and
 /// from topic detail with a topic name, which sets that topic only. The
 /// choice never leaves the device.
+///
+/// It is the Sound pass of Personalize: the page's blue ground, the wave of
+/// the sound that rings, and the list on a white sheet. A choice is saved the
+/// moment it is made, so the back ring is the only way out.
 class SoundPickerScreen extends StatelessWidget {
   const SoundPickerScreen({super.key, this.topicName});
 
@@ -44,13 +48,8 @@ class SoundPickerScreen extends StatelessWidget {
   }
 }
 
-class _SoundPickerView extends StatelessWidget {
+class _SoundPickerView extends StatefulWidget {
   const _SoundPickerView();
-
-  static String formatLength(Duration d) {
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${d.inMinutes}:$seconds';
-  }
 
   static String errorMessage(String code) => switch (code) {
     'sourceTooLong' => LocaleKeys.sound_picker_error_source_too_long.tr(),
@@ -71,7 +70,7 @@ class _SoundPickerView extends StatelessWidget {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
     if (!context.mounted) return;
-    if (await _openedPaywall(context)) return;
+    if (await _heldBack(context)) return;
     final file = await cubit.pickFile();
     if (file == null || !context.mounted) return;
     final result = await context.pushNamed<Object?>(
@@ -88,31 +87,30 @@ class _SoundPickerView extends StatelessWidget {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
     if (!context.mounted) return;
-    if (await _openedPaywall(context)) return;
+    if (await _heldBack(context)) return;
     if (!context.mounted) return;
     final result = await context.pushNamed<Object?>(AppRoute.soundRecord);
     if (result is Future<void>) await cubit.reloadAfterCrop(result);
   }
 
-  /// The gate in front of every way to add or pick an own sound. With own
-  /// sounds locked it opens the paywall and answers true, and the caller
-  /// does nothing else.
+  /// The gate in front of every way to add or pick an own sound. These are
+  /// the acts that keep or use one, so the rule is `keep`: with own sounds
+  /// locked it opens the paywall and answers true, and the caller does
+  /// nothing else. Open, it answers false and the caller goes ahead.
   ///
   /// It waits for the plan to be read first, so a tap right after a cold
   /// start never shows a paywall to someone who holds Pro.
-  static Future<bool> _openedPaywall(BuildContext context) async {
-    final decision = await context
-        .read<SoundPickerCubit>()
-        .ownSoundsOnceReady();
-    if (!ownSoundsLockedBy(decision)) return false;
+  static Future<bool> _heldBack(BuildContext context) async {
+    // Brings the picker's own copy of the decision up to the read plan, so a
+    // row drawn before the read is drawn true.
+    await context.read<SoundPickerCubit>().ownSoundsOnceReady();
     if (!context.mounted) return true;
-    // The plan has been read by now, so the helper sees the same answer.
-    await openPaywallForFeature(
+    final isFree = await keepOrOpenPaywall(
       context,
       AppFeature.ownSounds,
       LockSource.sounds,
     );
-    return true;
+    return !isFree;
   }
 
   /// The sound that really rings for this screen's choice: the saved one,
@@ -126,341 +124,220 @@ class _SoundPickerView extends StatelessWidget {
   }
 
   @override
+  State<_SoundPickerView> createState() => _SoundPickerViewState();
+}
+
+class _SoundPickerViewState extends State<_SoundPickerView>
+    with SingleTickerProviderStateMixin {
+  /// Where the preview has got. The platform does not report where playback
+  /// is, so the playhead, the row's ring and its bars run off the sound's
+  /// length, and the cubit clears the preview when the platform says it ended.
+  late final AnimationController _progress = AnimationController(vsync: this);
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Starts the playhead for the sound now previewing, or rests it.
+  void _followPreview(SoundPickerState state) {
+    final id = state.previewingSoundId;
+    if (id == null) {
+      _progress.reset();
+      return;
+    }
+    final playing = state.allSounds.where((s) => s.id == id);
+    final length = playing.isEmpty ? Duration.zero : playing.first.duration;
+    _progress.duration = length > Duration.zero
+        ? length
+        : const Duration(seconds: 1);
+    unawaited(_progress.forward(from: 0));
+  }
+
+  void _leave(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
+  }
+
+  /// The wave and the play circle, over the sheet.
+  Widget _hero(
+    BuildContext context, {
+    required SoundPickerState state,
+    required PassTone tone,
+    required bool circleInHero,
+    required Widget circle,
+  }) {
+    final playing = state.previewingSoundId;
+    final shown = playing ?? state.ringingSoundId;
+    List<double>? peaks;
+    for (final sound in state.allSounds) {
+      if (sound.id == shown) peaks = sound.peaks;
+    }
+    final isShort = AppSize.of(context).isShort;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        kPassSidePadding,
+        20,
+        kPassSidePadding,
+        24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (circleInHero)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: circle,
+              ),
+            ),
+          SoundHero(
+            peaks: peaks,
+            isPlaying: playing != null,
+            progress: _progress,
+            tone: tone,
+            height: soundHeroHeightFor(isShort: isShort),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Whether the value's first line would run under the play circle that
+  /// sits beside the header. A long name does, and then the circle sits over
+  /// the wave instead.
+  bool _clashesWithCircle(
+    BuildContext context,
+    String value,
+    double columnWidth,
+    Color color,
+  ) {
+    if (value.isEmpty) return false;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: passValueStyle(color, kPassPageValueSize),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: math.max(0, columnWidth - 2 * kPassSidePadding));
+    final lines = painter.computeLineMetrics();
+    final firstLine = lines.isEmpty ? 0.0 : lines.first.width;
+    painter.dispose();
+    const room = SoundPlayCircle.size + 12;
+    return firstLine > columnWidth - 2 * kPassSidePadding - room;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocConsumer<SoundPickerCubit, SoundPickerState>(
-      listenWhen: (was, now) => now.errorCode != null && was.errorCode == null,
+      listenWhen: (was, now) =>
+          (now.errorCode != null && was.errorCode == null) ||
+          was.previewingSoundId != now.previewingSoundId,
       listener: (context, state) {
+        _followPreview(state);
+        if (state.errorCode == null) return;
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            SnackBar(content: Text(errorMessage(state.errorCode!))),
+            SnackBar(
+              content: Text(_SoundPickerView.errorMessage(state.errorCode!)),
+            ),
           );
         context.read<SoundPickerCubit>().clearError();
       },
       builder: (context, state) {
         final colors = context.appColors;
         final cubit = context.read<SoundPickerCubit>();
-        final selectedName = ringingSound(state)?.name ?? '';
-        final content = AppScreenScaffold(
-          topBar: AppTopBar(
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/');
-                }
-              },
-            ),
-            title: LocaleKeys.sound_picker_title_default.tr(),
-            trailing: state.isPerTopic
-                ? AppTopicChip(text: state.topicName!)
-                : null,
-          ),
+        final tone = passToneFor(PassId.sound, colors);
+        final scope = PassFrameScope.maybeOf(context);
+        final ringing = _SoundPickerView.ringingSound(state);
+        // Until the list is read, the header shows what the card it grew
+        // from said, so the name does not blink out and back.
+        final value = ringing?.name ?? scope?.origin?.value ?? '';
+        final isPlaying = state.previewingSoundId != null;
+        final stateKey = soundHeaderStateKey(isPlaying: isPlaying);
+        final label = state.isPerTopic
+            ? LocaleKeys.personalize_passes_sound_topic_label.tr(
+                namedArgs: {'topic': state.topicName!},
+              )
+            : LocaleKeys.personalize_sound_title.tr();
+
+        final media = MediaQuery.of(context);
+        final columnWidth = math.min(media.size.width, AppSize.contentMaxWidth);
+        final circleInHero = _clashesWithCircle(
+          context,
+          value,
+          columnWidth,
+          tone.onGround,
+        );
+
+        void togglePlay() {
+          if (isPlaying) {
+            unawaited(cubit.stopPreview());
+          } else if (ringing != null) {
+            unawaited(cubit.togglePreview(ringing));
+          }
+        }
+
+        final circle = SoundPlayCircle(
+          isPlaying: isPlaying,
+          playLabel: LocaleKeys.personalize_passes_sound_play.tr(),
+          stopLabel: LocaleKeys.personalize_passes_sound_stop.tr(),
+          onPressed: togglePlay,
+        );
+
+        final page = AppPassPage(
+          tone: tone,
+          label: label,
+          value: value,
+          state: stateKey?.tr(),
+          controller: _scroll,
+          onBack: () => _leave(context),
           slivers: [
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: state.isLoading
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: CircularProgressIndicator(
-                            semanticsLabel: LocaleKeys.common_loading.tr(),
-                          ),
-                        ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SectionCard(
-                            title: LocaleKeys.sound_picker_bundled_header.tr(),
-                            child: Column(
-                              children: [
-                                for (final sound in state.bundled)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: _SoundRow(
-                                      sound: sound,
-                                      state: state,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          if (state.packs.isNotEmpty) ...[
-                            const SizedBox(height: Spacing.s3),
-                            SectionCard(
-                              title: LocaleKeys.sound_picker_packs_header.tr(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final entry in state.packs) ...[
-                                    _PackRow(entry: entry),
-                                    // A pack lists its sounds once they
-                                    // are on the device.
-                                    if (entry.status.state ==
-                                        SoundPackState.downloaded)
-                                      for (final sound in state.packSounds)
-                                        if (entry.pack.contains(sound.id))
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 8,
-                                            ),
-                                            child: _SoundRow(
-                                              sound: sound,
-                                              state: state,
-                                            ),
-                                          ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (state.userSounds.isNotEmpty ||
-                              state.capabilities.canImportSounds) ...[
-                            const SizedBox(height: Spacing.s3),
-                            SectionCard(
-                              title: LocaleKeys.sound_picker_user_header.tr(),
-                              trailing: Text(
-                                LocaleKeys.sound_picker_user_local_only.tr(),
-                                style: TextStyle(
-                                  fontFamily: AppTypography.fontMono,
-                                  fontFamilyFallback:
-                                      AppTypography.fontMonoFallbacks,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.ink3,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final sound in state.userSounds)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 8,
-                                      ),
-                                      child: Dismissible(
-                                        key: ValueKey(sound.id),
-                                        direction: DismissDirection.endToStart,
-                                        background: _DeleteBackground(
-                                          color: colors.crit,
-                                        ),
-                                        onDismissed: (_) {
-                                          AppHaptics.destructive();
-                                          unawaited(
-                                            cubit.deleteUserSound(sound.id),
-                                          );
-                                        },
-                                        child: _SoundRow(
-                                          sound: sound,
-                                          state: state,
-                                        ),
-                                      ),
-                                    ),
-                                  if (state.capabilities.canImportSounds) ...[
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _OwnSoundWayIn(
-                                            label: LocaleKeys
-                                                .sound_picker_pick_file
-                                                .tr(),
-                                            icon: AppGlyph(
-                                              GlyphType.plus,
-                                              size: 16,
-                                              color: colors.onCanvas,
-                                            ),
-                                            onPressed: () =>
-                                                _pickAndCrop(context),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: _OwnSoundWayIn(
-                                            label: LocaleKeys
-                                                .sound_picker_record
-                                                .tr(),
-                                            icon: AppGlyph(
-                                              GlyphType.record,
-                                              size: 16,
-                                              color: colors.crit,
-                                            ),
-                                            onPressed: () =>
-                                                _recordAndCrop(context),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: Spacing.s3),
-                          AppButton(
-                            label: LocaleKeys.sound_picker_use_button.tr(
-                              namedArgs: {'name': selectedName},
-                            ),
-                            isFullWidth: true,
-                            onPressed: () {
-                              AppHaptics.success();
-                              if (context.canPop()) {
-                                context.pop();
-                              } else {
-                                context.go('/');
-                              }
-                            },
-                          ),
-                        ],
-                      ),
+              child: _hero(
+                context,
+                state: state,
+                tone: tone,
+                circleInHero: circleInHero,
+                circle: circle,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SoundSheet(
+                state: state,
+                progress: _progress,
+                heldBack: _SoundPickerView._heldBack,
+                onPickFile: _SoundPickerView._pickAndCrop,
+                onRecord: _SoundPickerView._recordAndCrop,
               ),
             ),
           ],
         );
 
-        return content;
-      },
-    );
-  }
-}
-
-class _SoundRow extends StatefulWidget {
-  const _SoundRow({required this.sound, required this.state});
-
-  final AlarmSound sound;
-  final SoundPickerState state;
-
-  @override
-  State<_SoundRow> createState() => _SoundRowState();
-}
-
-/// Owns the preview progress. The platform does not report where playback
-/// is, so the ring and the bars run off the sound's length, and the cubit
-/// clears the row when the platform says the preview ended.
-class _SoundRowState extends State<_SoundRow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _progress = AnimationController(
-    vsync: this,
-    duration: _length,
-  );
-
-  Duration get _length => widget.sound.duration > Duration.zero
-      ? widget.sound.duration
-      : const Duration(seconds: 1);
-
-  bool _previewing(_SoundRow row) =>
-      row.state.previewingSoundId == row.sound.id;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_previewing(widget)) unawaited(_progress.forward());
-  }
-
-  @override
-  void didUpdateWidget(_SoundRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _progress.duration = _length;
-    final was = _previewing(oldWidget);
-    final now = _previewing(widget);
-    if (now && !was) unawaited(_progress.forward(from: 0));
-    if (!now && was) _progress.reset();
-  }
-
-  @override
-  void dispose() {
-    _progress.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<SoundPickerCubit>();
-    final sound = widget.sound;
-    final state = widget.state;
-    final isPreviewing = _previewing(widget);
-    final isUserSound = sound.source == AlarmSoundSource.user;
-    // A pack sound is a file in the app's sound folder, as a user sound is,
-    // so it rings the same way.
-    final isLocalFile = isUserSound || sound.source == AlarmSoundSource.pack;
-    final tooLong =
-        isUserSound &&
-        SoundImportLimits.tooLongToRing(state.platform, sound.duration);
-    final notificationsOnly =
-        isLocalFile && !state.capabilities.userSoundsRingAlarm;
-    // Listed at full colour, and not selectable. The one lock draws the
-    // plan badge on it, and a tap opens the paywall.
-    final isLocked = state.isLocked(sound);
-    final ringingName = _SoundPickerView.ringingSound(state)?.name ?? '';
-    // With no name to give, the row says it is locked and no more.
-    final isLockedChoice =
-        isLocked && state.selectedSoundId == sound.id && ringingName.isNotEmpty;
-
-    return AnimatedBuilder(
-      animation: _progress,
-      builder: (context, _) {
-        final progress = isPreviewing ? _progress.value : null;
-        return AccessLock.inline(
-          feature: AppFeature.ownSounds,
-          source: LockSource.sounds,
-          // Only an own sound is locked by this. Every other row is open.
-          decide: (_) =>
-              isLocked ? state.ownSounds : const FeatureDecision.open(),
-          child: AppRadioRow(
-            title: sound.name,
-            meta: _SoundPickerView.formatLength(sound.duration),
-            note: isLockedChoice
-                ? LocaleKeys.sound_picker_row_locked_chosen.tr(
-                    namedArgs: {'name': ringingName},
-                  )
-                : tooLong
-                ? LocaleKeys.sound_picker_row_too_long_ios.tr()
-                : notificationsOnly
-                ? LocaleKeys.sound_picker_row_notifications_only.tr()
-                : null,
-            // The mark sits on the sound that rings, so a locked own choice
-            // shows it on the sound standing in for it.
-            selected: state.ringingSoundId == sound.id,
-            badge: isLocked ? const FeatureLockBadge() : null,
-            leading: AppPreviewButton(
-              isPlaying: isPreviewing,
-              progress: progress,
-              progressLabel: progress == null
-                  ? null
-                  : LocaleKeys.sound_picker_preview_progress.tr(
-                      namedArgs: {'percent': '${(progress * 100).round()}'},
-                    ),
-              playLabel: LocaleKeys.sound_picker_play_aria_label.tr(),
-              stopLabel: LocaleKeys.sound_picker_stop_aria_label.tr(),
-              onPressed: () {
-                AppHaptics.selection();
-                unawaited(cubit.togglePreview(sound));
-              },
-            ),
-            // Only a waveform read from the sound itself. While it loads, or
-            // when it cannot be read, the row shows the length and nothing
-            // that looks like a waveform but is not one.
-            waveform: sound.peaks == null || sound.peaks!.isEmpty
-                ? null
-                : WaveformBars(peaks: sound.peaks!, progress: progress),
-            onTap: () {
-              AppHaptics.selection();
-              if (isUserSound) {
-                // Asked again here, not read off the row: the row may have
-                // been drawn before the plan was read.
-                unawaited(() async {
-                  if (await _SoundPickerView._openedPaywall(context)) return;
-                  await cubit.select(sound.id);
-                }());
-                return;
-              }
-              unawaited(cubit.select(sound.id));
-            },
+        // A Scaffold gives the error snack bar somewhere to show. The page
+        // paints its own ground, so it shows nothing of its own.
+        return Scaffold(
+          backgroundColor: tone.ground,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              page,
+              if (!circleInHero)
+                _HeaderCircle(
+                  scroll: _scroll,
+                  columnWidth: columnWidth,
+                  circle: circle,
+                ),
+            ],
           ),
         );
       },
@@ -468,178 +345,54 @@ class _SoundRowState extends State<_SoundRow>
   }
 }
 
-/// "Pick a file" or "Record": a way to bring in an own sound. While own
-/// sounds are locked the one lock puts the plan badge on its corner, and
-/// a tap goes through the picker's gate, which opens the paywall.
-class _OwnSoundWayIn extends StatelessWidget {
-  const _OwnSoundWayIn({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
+/// Holds the play circle at the right of the header block, level with the
+/// label, and lets it scroll away with the header. It is not in the pinned
+/// row: it belongs to the page, not to the way out.
+class _HeaderCircle extends StatelessWidget {
+  const _HeaderCircle({
+    required this.scroll,
+    required this.columnWidth,
+    required this.circle,
   });
 
-  final String label;
-  final Widget icon;
-  final Future<void> Function() onPressed;
+  final ScrollController scroll;
+  final double columnWidth;
+  final Widget circle;
+
+  /// How far the page scrolls before the circle is gone, so it never shows
+  /// over the pinned strip.
+  static const double _fadeOver = 18;
+
+  /// The circle's top sits this far under the label's top.
+  static const double _belowLabel = 4;
 
   @override
   Widget build(BuildContext context) {
-    return AccessLock(
-      feature: AppFeature.ownSounds,
-      source: LockSource.sounds,
-      name: label,
-      // Drawn locked or not, a tap runs the same way in, which asks the
-      // picker's own gate once the plan is read. So a badge drawn before
-      // the first read never leads a Pro holder to a paywall.
-      onLockedTap: () {
-        AppHaptics.capture();
-        unawaited(onPressed());
-      },
-      child: AppButton(
-        label: label,
-        variant: AppButtonVariant.ghost,
-        isFullWidth: true,
-        icon: icon,
-        onPressed: () {
-          AppHaptics.capture();
-          unawaited(onPressed());
-        },
-      ),
-    );
-  }
-}
-
-/// One pack: its name, how many sounds it holds, where it is, and the
-/// download action while there is something to download.
-class _PackRow extends StatelessWidget {
-  const _PackRow({required this.entry});
-
-  final SoundPackEntry entry;
-
-  static String packName(SoundPack pack) => pack.id == SoundPacks.library.id
-      ? LocaleKeys.sound_picker_pack_names_sound_pack_library.tr()
-      : pack.englishName;
-
-  static String? statusLine(SoundPackStatus status) => switch (status.state) {
-    SoundPackState.downloading =>
-      status.progress == null
-          ? LocaleKeys.sound_picker_pack_downloading.tr()
-          : LocaleKeys.sound_picker_pack_downloading_percent.tr(
-              namedArgs: {'percent': '${(status.progress! * 100).round()}'},
-            ),
-    SoundPackState.waitingForWifi =>
-      LocaleKeys.sound_picker_pack_waiting_for_wifi.tr(),
-    SoundPackState.downloaded => LocaleKeys.sound_picker_pack_downloaded.tr(),
-    SoundPackState.failed => LocaleKeys.sound_picker_pack_failed.tr(),
-    SoundPackState.unavailable => LocaleKeys.sound_picker_pack_unavailable.tr(),
-    SoundPackState.needsNewerOs =>
-      LocaleKeys.sound_picker_pack_needs_newer_os.tr(),
-    SoundPackState.notDownloaded ||
-    SoundPackState.needsConfirmation ||
-    SoundPackState.unsupported => null,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final cubit = context.read<SoundPickerCubit>();
-    final status = entry.status;
-    final name = packName(entry.pack);
-    final line = statusLine(status);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: colors.ink,
-                  ),
-                ),
-                Text(
-                  LocaleKeys.sound_picker_pack_sound_count.tr(
-                    namedArgs: {'count': '${entry.pack.sounds.length}'},
-                  ),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontMono,
-                    fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: colors.ink3,
-                  ),
-                ),
-                if (line != null)
-                  Text(
-                    line,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 13,
-                      color: colors.ink2,
-                    ),
-                  ),
-              ],
-            ),
+    final media = MediaQuery.of(context);
+    final frame = PassFrameScope.maybeOf(context)?.frame;
+    final gutter = (media.size.width - columnWidth) / 2;
+    return AnimatedBuilder(
+      animation: scroll,
+      builder: (context, child) {
+        final offset = scroll.hasClients ? scroll.offset : 0.0;
+        final visible = (1 - offset / _fadeOver).clamp(0.0, 1.0);
+        final body = frame?.bodyOpacity ?? 1;
+        final shift = frame?.headerOffset ?? Offset.zero;
+        return Positioned(
+          top:
+              media.padding.top +
+              kPassHeaderTop +
+              _belowLabel -
+              offset +
+              shift.dy,
+          right: gutter + kPassSidePadding,
+          child: IgnorePointer(
+            ignoring: visible < 1 || body < 1,
+            child: Opacity(opacity: visible * body, child: child),
           ),
-          if (status.state.canDownload)
-            Semantics(
-              label: LocaleKeys.sound_picker_pack_download_aria_label.tr(
-                namedArgs: {'name': name},
-              ),
-              child: AppButton(
-                label: LocaleKeys.sound_picker_pack_download.tr(),
-                variant: AppButtonVariant.ghost,
-                size: AppButtonSize.sm,
-                onPressed: () {
-                  AppHaptics.selection();
-                  unawaited(cubit.downloadPack(entry.pack.id));
-                },
-              ),
-            )
-          else if (status.state.isBusy)
-            SizedBox.square(
-              dimension: 24,
-              child: CircularProgressIndicator(
-                value: status.progress,
-                strokeWidth: 3,
-                semanticsLabel: line,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeleteBackground extends StatelessWidget {
-  const _DeleteBackground({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(color: color, borderRadius: Radii.mdAll),
-      child: Text(
-        LocaleKeys.sound_picker_delete.tr(),
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: context.appColors.onPanel,
-        ),
-      ),
+        );
+      },
+      child: circle,
     );
   }
 }
