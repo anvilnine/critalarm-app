@@ -1215,7 +1215,6 @@
     "title": "Weekly delivery check",
     "what_line": "Checks each week whether a push reaches this phone.",
     "locked_description": "Checks each week whether a push reaches this phone.",
-    "locked_switch_label": "Turn on, needs {plan}",
     "own_server_line": "Not available with your own server.",
     "line_waiting": "Waiting for the first check.",
     "line_received": "Last check received {when}.",
