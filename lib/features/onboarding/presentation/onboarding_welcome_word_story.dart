@@ -48,13 +48,18 @@ const double _wordRestAt = 4.5;
 
 /// The first welcome page.
 class _WordStoryHero extends StatefulWidget {
-  const _WordStoryHero({required this.onDone, this.drawn});
+  const _WordStoryHero({required this.onDone, this.drawn, this.slide});
 
   /// Called once, when the first pass is over.
   final VoidCallback onDone;
 
   /// Told while this story is on screen.
   final _HeroDrawn? drawn;
+
+  /// How far this page has moved off the screen, from 0 to 1, while the
+  /// pager moves. The title, the face and the rings leave by it. Null for a
+  /// page that does not move.
+  final ValueListenable<double>? slide;
 
   @override
   State<_WordStoryHero> createState() => _WordStoryHeroState();
@@ -219,41 +224,66 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
           t,
         );
 
+        // A page moves by its own width. The parts below are shifted on top
+        // of that move, by the slide of the pager.
+        Widget parting({
+          required bool isFace,
+          required Widget child,
+        }) => _WordParting(
+          slide: widget.slide,
+          pageWidth: pageRight,
+          isFace: isFace,
+          child: child,
+        );
+
         return SizedBox(
           width: width,
           height: height,
-          child: ClipRect(
-            clipper: const _PageClip(_IntroLayout.sidePadding),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (final ring in frame.rings)
-                  if (ring.opacity > 0.002)
-                    Positioned(
-                      left: ringsCentre.dx - ringSize / 2,
-                      top: ringsCentre.dy - ringSize / 2,
-                      width: ringSize,
-                      height: ringSize,
-                      child: Opacity(
-                        opacity: ring.opacity.clamp(0.0, 1.0),
-                        child: Transform.scale(
-                          scale: ring.scale,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colors.onCanvas,
-                                width: math.max(2, 4 * faceUnit),
+          // Nothing here is clipped: at rest the screen's edge is the only
+          // edge, and while the pager moves the face, the rings and the title
+          // fade out and travel clear instead of being cut at the page.
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: parting(
+                  isFace: true,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      for (final ring in frame.rings)
+                        if (ring.opacity > 0.002)
+                          Positioned(
+                            left: ringsCentre.dx - ringSize / 2,
+                            top: ringsCentre.dy - ringSize / 2,
+                            width: ringSize,
+                            height: ringSize,
+                            child: Opacity(
+                              opacity: ring.opacity.clamp(0.0, 1.0),
+                              child: Transform.scale(
+                                scale: ring.scale,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colors.onCanvas,
+                                      width: math.max(2, 4 * faceUnit),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                Positioned(
-                  left: 0,
-                  top: titleTop,
-                  width: width,
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: titleTop,
+                width: width,
+                child: parting(
+                  isFace: false,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -277,18 +307,32 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
                     ],
                   ),
                 ),
-                Positioned(
-                  left: faceRight - faceSize,
-                  top: faceTop,
-                  width: faceSize,
-                  height: faceSize,
-                  child: Transform.rotate(
-                    angle: frame.face.turn,
-                    child: _face(faceShape, faceSize, fill: colors.yellow),
+              ),
+              Positioned.fill(
+                child: parting(
+                  isFace: true,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: faceRight - faceSize,
+                        top: faceTop,
+                        width: faceSize,
+                        height: faceSize,
+                        child: Transform.rotate(
+                          angle: frame.face.turn,
+                          child: _face(
+                            faceShape,
+                            faceSize,
+                            fill: colors.yellow,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -296,21 +340,42 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
   }
 }
 
-/// Clips sideways to the picture's box widened by the side padding, which is
-/// the page the picture sits on. The face leans in from the page's edge and
-/// the rings stop at it, instead of at the narrower box. Up and down nothing
-/// is cut: the rings pass behind the words around them.
-class _PageClip extends CustomClipper<Rect> {
-  const _PageClip(this.side);
+/// Fades a part of the first page and shifts it sideways by the slide of the
+/// pager, so the page never shows it cut by an edge. Draws the part as it is
+/// when the page has no slide.
+class _WordParting extends StatelessWidget {
+  const _WordParting({
+    required this.slide,
+    required this.pageWidth,
+    required this.isFace,
+    required this.child,
+  });
 
-  final double side;
-
-  static const double _far = 2000;
+  final ValueListenable<double>? slide;
+  final double pageWidth;
+  final bool isFace;
+  final Widget child;
 
   @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(-side, -_far, size.width + side, size.height + _far);
-
-  @override
-  bool shouldReclip(_PageClip oldClipper) => oldClipper.side != side;
+  Widget build(BuildContext context) {
+    final slide = this.slide;
+    if (slide == null) return child;
+    return ValueListenableBuilder<double>(
+      valueListenable: slide,
+      child: child,
+      builder: (context, value, child) {
+        final parting = welcomeWordPartingAt(value);
+        final opacity = isFace ? parting.faceOpacity : parting.titleOpacity;
+        final shift = isFace ? parting.faceShift : parting.titleShift;
+        if (opacity <= 0) return const SizedBox.shrink();
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(shift * pageWidth, 0),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 }

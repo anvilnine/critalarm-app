@@ -33,8 +33,9 @@ void main() {
       expect(backFrom('connect'), 'welcome');
     });
 
-    test('in 2026-10-a how it rings sits between the two', () {
-      final older = BundledOnboardingFlows.october2026A.steps;
+    test('a flow that lists how it rings puts it between the two', () {
+      // A pinned or remote flow may still list it.
+      const older = ['welcome', 'how_it_rings', 'connect', 'permissions'];
       expect(backFrom('how_it_rings', inFlow: older), 'welcome');
       expect(backFrom('connect', inFlow: older), 'how_it_rings');
     });
@@ -87,7 +88,14 @@ void main() {
     });
 
     test('a step outside the tracker is never landed on', () {
-      final legacy = BundledOnboardingFlows.legacy.steps;
+      const legacy = [
+        'welcome',
+        'how_it_rings',
+        'permissions',
+        'widgets',
+        'connect',
+        'legacy_test',
+      ];
       // widgets sits before connect there and is outside the tracker.
       expect(legacy.indexOf('widgets'), legacy.indexOf('connect') - 1);
       expect(backFrom('connect', inFlow: legacy), 'permissions');
@@ -95,7 +103,14 @@ void main() {
     });
 
     test('follows the order of the flow, not the order of seeing', () {
-      final legacy = BundledOnboardingFlows.legacy.steps;
+      const legacy = [
+        'welcome',
+        'how_it_rings',
+        'permissions',
+        'widgets',
+        'connect',
+        'legacy_test',
+      ];
       expect(backFrom('permissions', inFlow: legacy), 'how_it_rings');
       expect(
         backFrom(
@@ -224,10 +239,23 @@ void main() {
       expect(await h.engine.backStepFrom('first_topic'), 'permissions');
     });
 
-    test('a pinned 2026-10-a run goes back by the same rule', () async {
+    test('a pinned run that lists how it rings goes back by rule', () async {
+      // A flow pinned on a phone before the welcome held the curl.
+      const older = OnboardingFlow(
+        id: 'pinned-with-how-it-rings',
+        steps: [
+          'welcome',
+          'how_it_rings',
+          'connect',
+          'permissions',
+          'first_topic',
+          'real_ring',
+          'hook_up',
+        ],
+      );
       final h = EngineHarness(
         repository: FakeOnboardingFlowRepository(
-          pinned: BundledOnboardingFlows.october2026A,
+          pinned: older,
           completed: {'welcome'},
         ),
       );
@@ -238,7 +266,7 @@ void main() {
       // Back to how it rings, and forward opens connect again.
       expect((await h.engine.goBack('connect'))?.stepId, 'how_it_rings');
       expect((await h.engine.finishStep('how_it_rings')).stepId, 'connect');
-      expect(h.repository.pinned, BundledOnboardingFlows.october2026A);
+      expect(h.repository.pinned, older);
     });
 
     test('there is no Back once the first topic is owned', () async {

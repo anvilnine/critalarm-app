@@ -1371,15 +1371,12 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
 }
 
 // ---------------------------------------------------------------------------
-// 9. The priority ladder. The second welcome story: three alerts of rising
-// priority, and what the phone does with each one.
+// 9. The priority ladder: three alerts of rising priority, and what the phone
+// does with each one. Only the Developer options preview plays it now. It
+// starts over by itself.
 
 class _LadderHero extends StatefulWidget {
-  const _LadderHero({this.onDone});
-
-  /// Called once, when the story is over. With none the story starts over
-  /// by itself, which is how the Developer options preview plays it.
-  final VoidCallback? onDone;
+  const _LadderHero();
 
   @override
   State<_LadderHero> createState() => _LadderHeroState();
@@ -1390,25 +1387,15 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
   @override
   double get restAt => 4;
 
-  bool _hasSaidDone = false;
-
   @override
   List<TimedCue> buildCues() => ladderCues();
 
   @override
-  double? get loopTakes => widget.onDone == null ? ladderStoryTakes : null;
-
-  @override
-  void onClock(double seconds) {
-    if (_hasSaidDone || seconds < ladderStoryTakes) return;
-    _hasSaidDone = true;
-    widget.onDone?.call();
-  }
+  double? get loopTakes => ladderStoryTakes;
 
   @override
   Widget build(BuildContext context) {
-    final loops = widget.onDone == null;
-    final t = loops ? this.t % ladderStoryTakes : this.t;
+    final t = this.t % ladderStoryTakes;
     final colors = context.appColors;
     final acked = t > ladderRingEndsAt;
     final ringing = t > ladderRingStartsAt && !acked;
@@ -1548,7 +1535,7 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
     // it is once the system text is large.
     return LayoutBuilder(
       builder: (context, box) => Opacity(
-        opacity: loops ? 1 - _window(t, ladderStoryTakes - 0.5, 0.5) : 1,
+        opacity: 1 - _window(t, ladderStoryTakes - 0.5, 0.5),
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,

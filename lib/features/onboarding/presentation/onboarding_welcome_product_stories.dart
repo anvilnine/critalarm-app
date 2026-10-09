@@ -2,8 +2,8 @@ part of 'onboarding_welcome_screen.dart';
 
 // The pages of the welcome screen on first launch. Each one shows one thing
 // the app does, drawn with the same phone, cards and colours. The second one
-// is the priority ladder and the third is the curl that rings a phone, which
-// both live with the older stories in onboarding_welcome_stories.dart.
+// is the curl that rings a phone and the third is the home screen widgets,
+// which both live with the older stories in onboarding_welcome_stories.dart.
 
 /// The picture for [page], with one label for a screen reader. [onDone] is
 /// called once, when a story that ends is over. The curl plays round and
@@ -13,21 +13,24 @@ Widget _welcomeStoryHero(
   required bool ringsOnSilent,
   required VoidCallback onDone,
   _HeroDrawn? wordHeroDrawn,
+  ValueListenable<double>? wordSlide,
 }) {
   final isAndroid = defaultTargetPlatform == TargetPlatform.android;
   return switch (page) {
     WelcomePage.rings => _SpokenPicture(
       label: LocaleKeys.onboarding_welcome_title.tr(),
-      child: _WordStoryHero(onDone: onDone, drawn: wordHeroDrawn),
-    ),
-    WelcomePage.priorities => _SpokenPicture(
-      label: LocaleKeys.onboarding_welcome_story_priorities_label.tr(),
-      child: _LadderHero(onDone: onDone),
+      child: _WordStoryHero(
+        onDone: onDone,
+        drawn: wordHeroDrawn,
+        slide: wordSlide,
+      ),
     ),
     WelcomePage.curl => _SpokenPicture(
       label: LocaleKeys.onboarding_welcome_story_curl_label.tr(),
       child: isAndroid ? const _AndroidCurlHero() : const _CurlHero(),
     ),
+    // A mock-up: the title and the line under it say what it shows.
+    WelcomePage.widgets => const ExcludeSemantics(child: _WidgetsHero()),
   };
 }
 
@@ -65,9 +68,9 @@ class _StoryCaption extends StatelessWidget {
           ringsOnSilent
               ? LocaleKeys.onboarding_welcome_caption_rings_silent.tr()
               : LocaleKeys.onboarding_welcome_caption_rings.tr(),
-        WelcomePage.priorities =>
-          LocaleKeys.onboarding_welcome_caption_priorities.tr(),
         WelcomePage.curl => LocaleKeys.onboarding_welcome_caption_curl.tr(),
+        WelcomePage.widgets =>
+          LocaleKeys.onboarding_welcome_widgets_subtitle.tr(),
       };
 
   @override

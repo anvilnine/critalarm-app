@@ -48,6 +48,13 @@ enum OnboardingAmbientStep {
 
   /// The last step: the curl line and the wait for the first message.
   hookUp,
+
+  /// The offer, a frame around one paywall layout. It covers the screen, so
+  /// the canvas is only seen as it glides in and out.
+  offer,
+
+  /// The local test alarm of the first order the app shipped with.
+  legacyTest,
 }
 
 /// Which step the canvas shows for the onboarding route at [path].
@@ -76,20 +83,7 @@ abstract final class OnboardingAmbientProfiles {
     AppColors colors,
   ) {
     return Map<OnboardingAmbientStep, AmbientProfile>.unmodifiable({
-      OnboardingAmbientStep.welcome: _profile(
-        canvas: colors.canvas,
-        surfaceOpacity: 0.86,
-        colors: [colors.high, colors.cobalt, colors.crit],
-        opacities: const [0.22, 0.20, 0.12],
-        anchors: const [
-          Alignment(0.70, -0.72),
-          Alignment(-0.78, 0.55),
-          Alignment(-0.20, -0.85),
-        ],
-        scales: const [0.46, 0.38, 0.26],
-        turns: const [0.04, -0.06, 0.12],
-        depths: const [0.35, 0.65, 0.85],
-      ),
+      OnboardingAmbientStep.welcome: welcomePages(colors).first,
       OnboardingAmbientStep.howItRings: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.84,
@@ -246,8 +240,91 @@ abstract final class OnboardingAmbientProfiles {
         turns: const [0.18, -0.10, 0.30],
         depths: const [0.35, 0.65, 0.85],
       ),
+      OnboardingAmbientStep.offer: _profile(
+        canvas: colors.canvasAlt,
+        surfaceOpacity: 0.80,
+        colors: [colors.high, colors.cobalt, colors.crit],
+        opacities: const [0.26, 0.22, 0.14],
+        anchors: const [
+          Alignment(0.78, 0.40),
+          Alignment(-0.74, 0.80),
+          Alignment(-0.30, -0.80),
+        ],
+        scales: const [0.44, 0.36, 0.28],
+        turns: const [0.10, -0.08, 0.20],
+        depths: const [0.35, 0.65, 0.85],
+      ),
+      OnboardingAmbientStep.legacyTest: _profile(
+        canvas: colors.canvasAlt,
+        surfaceOpacity: 0.78,
+        colors: [colors.cobalt, colors.high, colors.crit],
+        opacities: const [0.26, 0.22, 0.18],
+        anchors: const [
+          Alignment(0.62, -0.62),
+          Alignment(-0.66, 0.30),
+          Alignment(0.24, 0.80),
+        ],
+        scales: const [0.46, 0.38, 0.34],
+        turns: const [0.16, -0.02, 0.24],
+        depths: const [0.35, 0.65, 0.85],
+      ),
     });
   }
+
+  /// The three arrangements behind the welcome pages, one per page, in page
+  /// order. The canvas shows the first one at rest on the first page, and
+  /// glides between them as the pager moves (see `welcomeAmbientAt`). The
+  /// canvas colour is the same on all three, so only the shapes travel.
+  static List<AmbientProfile> welcomePages(AppColors colors) =>
+      List<AmbientProfile>.unmodifiable([
+        // The word: the shapes sit in the corners the face and the big
+        // title leave free.
+        _profile(
+          canvas: colors.canvas,
+          surfaceOpacity: 0.86,
+          colors: [colors.high, colors.cobalt, colors.crit],
+          opacities: const [0.22, 0.20, 0.12],
+          anchors: const [
+            Alignment(0.70, -0.72),
+            Alignment(-0.78, 0.55),
+            Alignment(-0.20, -0.85),
+          ],
+          scales: const [0.46, 0.38, 0.26],
+          turns: const [0.04, -0.06, 0.12],
+          depths: const [0.35, 0.65, 0.85],
+        ),
+        // The curl: the big shape crosses to the left and the small one drops
+        // to the bottom, away from the terminal and the phone.
+        _profile(
+          canvas: colors.canvas,
+          surfaceOpacity: 0.86,
+          colors: [colors.high, colors.cobalt, colors.crit],
+          opacities: const [0.24, 0.22, 0.16],
+          anchors: const [
+            Alignment(-0.80, -0.38),
+            Alignment(0.82, 0.30),
+            Alignment(0.22, 0.90),
+          ],
+          scales: const [0.40, 0.44, 0.32],
+          turns: const [0.14, 0.04, 0.26],
+          depths: const [0.35, 0.65, 0.85],
+        ),
+        // The widgets: the shapes pull to the opposite corners again.
+        _profile(
+          canvas: colors.canvas,
+          surfaceOpacity: 0.86,
+          colors: [colors.high, colors.cobalt, colors.crit],
+          opacities: const [0.20, 0.24, 0.14],
+          anchors: const [
+            Alignment(0.74, 0.62),
+            Alignment(-0.70, -0.66),
+            Alignment(0.86, -0.34),
+          ],
+          scales: const [0.36, 0.42, 0.28],
+          turns: const [-0.06, -0.12, 0.08],
+          depths: const [0.35, 0.65, 0.85],
+        ),
+      ]);
 
   static AmbientProfile _profile({
     required Color canvas,
