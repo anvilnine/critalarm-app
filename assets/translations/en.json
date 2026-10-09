@@ -25,6 +25,9 @@
   },
   "onboarding_welcome": {
     "title": "Welcome to Crit Alarm",
+    "title_line_1": "Welcome",
+    "title_line_2": "to Crit",
+    "title_word": "Alarm",
     "subtitle": "When something breaks, your phone rings until you answer.",
     "button": "Get started",
     "next": "Next",
