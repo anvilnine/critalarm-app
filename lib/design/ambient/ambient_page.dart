@@ -33,12 +33,6 @@ Widget buildAmbientTransitions({
   final primaryFadeCurve = isPopGestureInProgress
       ? Curves.linear
       : Curves.easeOut;
-  final secondaryCurve = isPopGestureInProgress
-      ? Curves.linear
-      : AppCurves.easeOut;
-  final secondaryFadeCurve = isPopGestureInProgress
-      ? Curves.linear
-      : Curves.easeOut;
 
   final primarySlide = animation.drive(
     Tween<Offset>(
@@ -54,6 +48,44 @@ Widget buildAmbientTransitions({
       end: 1,
     ).chain(CurveTween(curve: primaryFadeCurve)),
   );
+
+  return buildAmbientCoveredTransition(
+    context: context,
+    secondaryAnimation: secondaryAnimation,
+    isPopGestureInProgress: isPopGestureInProgress,
+    child: SlideTransition(
+      position: primarySlide,
+      child: FadeTransition(
+        opacity: primaryFade,
+        child: child,
+      ),
+    ),
+  );
+}
+
+/// The half of the ambient transition a page plays while another ambient page
+/// covers it: it drifts left a little and fades out as [secondaryAnimation]
+/// runs.
+///
+/// A page built with [buildAmbientTransitions] already does this. A route that
+/// is not an ambient page, such as the tab shell under a Settings screen, calls
+/// it to leave the way a Topics list leaves under a Topic.
+Widget buildAmbientCoveredTransition({
+  required BuildContext context,
+  required Animation<double> secondaryAnimation,
+  required Widget child,
+  bool isPopGestureInProgress = false,
+}) {
+  if (context.reduceMotion) {
+    return child;
+  }
+
+  final secondaryCurve = isPopGestureInProgress
+      ? Curves.linear
+      : AppCurves.easeOut;
+  final secondaryFadeCurve = isPopGestureInProgress
+      ? Curves.linear
+      : Curves.easeOut;
 
   final secondarySlide = secondaryAnimation.drive(
     Tween<Offset>(
@@ -74,15 +106,17 @@ Widget buildAmbientTransitions({
     position: secondarySlide,
     child: FadeTransition(
       opacity: secondaryFade,
-      child: SlideTransition(
-        position: primarySlide,
-        child: FadeTransition(
-          opacity: primaryFade,
-          child: child,
-        ),
-      ),
+      child: child,
     ),
   );
+}
+
+/// A route that covers a tab of the shell and wants the tab to leave the way
+/// a page leaves under the next one, instead of staying put until the cover is
+/// opaque. See `TabShellPage`.
+abstract interface class AmbientTabCover {
+  /// Whether the shell under this route fades and drifts out as it opens.
+  bool get leavesTabBehind;
 }
 
 /// A mixin on [PageRoute] providing iOS-style interactive edge-swipe pop
@@ -152,6 +186,7 @@ class AmbientPage<T> extends CustomTransitionPage<T> {
     super.opaque = false,
     super.transitionDuration = AppDurations.slow,
     super.reverseTransitionDuration = AppDurations.slow,
+    this.leavesTabBehind = false,
   }) : super(
          transitionsBuilder: (context, animation, secondaryAnimation, child) {
            return buildAmbientTransitions(
@@ -163,16 +198,25 @@ class AmbientPage<T> extends CustomTransitionPage<T> {
          },
        );
 
+  /// Whether the tab shell under this page fades and drifts out as the page
+  /// opens, like the Topics list does under a Topic. For a page on the root
+  /// navigator that a tab opens: Settings sub screens.
+  final bool leavesTabBehind;
+
   @override
   Route<T> createRoute(BuildContext context) =>
       _AmbientPageRoute<T>(page: this);
 }
 
 class _AmbientPageRoute<T> extends PageRoute<T>
-    with AmbientRoutePopGestureMixin<T> {
+    with AmbientRoutePopGestureMixin<T>
+    implements AmbientTabCover {
   _AmbientPageRoute({required this.page}) : super(settings: page);
 
   final AmbientPage<T> page;
+
+  @override
+  bool get leavesTabBehind => page.leavesTabBehind;
 
   @override
   Duration get transitionDuration =>
