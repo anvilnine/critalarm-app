@@ -2164,7 +2164,14 @@
       "name_topic": "Topic",
       "name_topics": "Topics",
       "line": "See what is ringing and answer it from your home screen.",
-      "see_plan": "See {plan}"
+      "see_plan": "See {plan}",
+      "how_to": "How to add one",
+      "open_label": "open",
+      "open_header": "{count} open",
+      "sample_topic_2": "web-app",
+      "sample_title_2": "Checkout is slow",
+      "sample_topic_3": "queue",
+      "sample_title_3": "Job queue backed up"
     },
 
     "app_icon": {
