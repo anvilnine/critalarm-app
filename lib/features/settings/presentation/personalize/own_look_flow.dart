@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
-import 'package:critalarm/core/access/feature_access.dart';
-import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
@@ -53,17 +51,14 @@ void _say(BuildContext context, String message) {
 /// failed. If the app is killed in between, the next launch and the
 /// account wipe both find the note and delete the copy.
 Future<bool> addOwnPhoto(BuildContext context, {bool select = true}) async {
-  final access = getIt<FeatureAccess>();
-  await access.ready;
-  if (!context.mounted) return false;
-  if (access.decide(AppFeature.alarmScreenStyles) is FeatureLocked) {
-    await openPaywallForFeature(
-      context,
-      AppFeature.alarmScreenStyles,
-      LockSource.personalizeLook,
-    );
-    return false;
-  }
+  // The tap is the use. The lock rule waits for the plan to be read, opens
+  // the paywall for a locked look and says no, or says go.
+  final canGo = await keepOrOpenPaywall(
+    context,
+    AppFeature.alarmScreenStyles,
+    LockSource.personalizeLook,
+  );
+  if (!canGo || !context.mounted) return false;
   final picker = getIt<OwnPhotoPicker>();
   final store = getIt<OwnLookStore>();
   final usecase = getIt<ImportOwnPhotoUsecase>();

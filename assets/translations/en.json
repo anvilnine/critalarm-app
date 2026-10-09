@@ -2100,7 +2100,7 @@
     "widgets_row": "Widgets",
     "app_icon_row": "App icon",
     "try_not_saved": "Not saved",
-    "try_button": "Unlock",
+    "try_button": "Use this look",
     "try_confirming": "Confirming your purchase",
     "challenge_chips": {
       "topic": "Topic",
@@ -2136,7 +2136,12 @@
       "hint_swipe": "Swipe for more looks",
       "hint_swipe_locked": "Swipe. {count} more with {plan}",
       "dot_label": "Look {index} of {count}, {name}",
-      "card_label": "{name}"
+      "card_label": "{name}",
+      "card_label_in_use": "{name}, in use",
+      "card_label_locked": "{name}, {plan}",
+      "card_hint_move": "Double tap to show this look",
+      "play": "Play",
+      "stop": "Stop"
     },
 
     "sound": {
