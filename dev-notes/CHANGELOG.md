@@ -94,6 +94,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppPassBands, a compact pass stack with no header or scroll, built from AppPassCard, plus a Tokens pass tone (PassId.tokens)
 - Proof log: a small local record of the weeks a test alarm or a weekly check got through (prefs key proof\_log, newest 12 weeks, cleared with the account's local data)
 - tool/capture\_screen\_nav.dart captures a Topic and Settings sub screens at 0, 25, 50, 75 and 100 percent of the page change
+- Two other first welcome pages (night falls, stays silent), built behind welcomeFirstPage (default word) and opened from Developer options, Setup flow, Open a step as a replay with first=night or first=silent. tool/capture\_welcome\_first\_pages.dart captures them.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

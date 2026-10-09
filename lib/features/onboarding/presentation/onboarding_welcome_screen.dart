@@ -9,7 +9,9 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_night_falls_timeline.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_pages.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_stays_silent_timeline.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_word_timeline.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
@@ -28,7 +30,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
 part 'onboarding_intro_steps.dart';
+part 'onboarding_welcome_night_falls_story.dart';
 part 'onboarding_welcome_product_stories.dart';
+part 'onboarding_welcome_stays_silent_story.dart';
 part 'onboarding_welcome_stories.dart';
 part 'onboarding_welcome_variants.dart';
 part 'onboarding_welcome_word_story.dart';
@@ -96,13 +100,18 @@ enum WelcomeVariant {
 /// swipes between them or taps Next, and the button on the last page starts
 /// setup. Until the user moves by hand, each story hands on to the next page
 /// when it ends. It always starts on the first one. Developer options opens
-/// it with a [variant] and [isPreview] to try each of the older animations.
+/// it with a [variant] and [isPreview] to try each of the older animations,
+/// and with a [firstPage] to try another picture on the first page.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
     this.variant,
     this.isPreview = false,
+    this.firstPage = welcomeFirstPage,
     super.key,
   });
+
+  /// The picture on the first page. First launch uses [welcomeFirstPage].
+  final WelcomeFirstPage firstPage;
 
   final WelcomeVariant? variant;
 
@@ -435,6 +444,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
                       child: _welcomeStoryHero(
                         page,
                         ringsOnSilent: ringsOnSilent,
+                        firstPage: widget.firstPage,
                         onDone: () => _onStoryDone(page),
                         wordHeroDrawn: _wordHeroDrawn,
                         wordSlide: _wordSlide,
