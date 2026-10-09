@@ -27,6 +27,13 @@
 //            the pick control saves, No challenge saves null, a tile opens
 //            the try. It prints one `FLOW` line for each and fails when the
 //            outcome is not the one the rule gives
+//   topic    the page opened for one topic (`/challenge?topic=<name>`): no
+//            challenge, one chosen (while the phone's default is another),
+//            a kind saved before a lapse, locked, plan not read, a server of
+//            the user's own, a long name, the sizes and text scales, reduce
+//            motion, the grow from a card (the tool gives the route a
+//            `PassOrigin`) and the taps, which must write only that topic
+//            (they print a FLOW line and fail on a wrong write)
 //   grow     the page reached from the root: the card grows into the page,
 //            at progress 0, 0.25, 0.5, 0.75 and 1, open and back, light and
 //            dark; a page opened with no card (a deep link); the reduce
@@ -57,6 +64,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_try.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_tile.dart';
 import 'package:flutter/material.dart';
@@ -96,12 +104,23 @@ const _ownServerPro = PassPlanState(
 
 /// What a shot starts with, besides the plan.
 class _Setup {
-  const _Setup({this.plan = PassPlanState.free, this.saved});
+  const _Setup({
+    this.plan = PassPlanState.free,
+    this.saved,
+    this.topic,
+    this.topicChoice,
+  });
 
   final PassPlanState plan;
 
   /// The challenge saved for new topics, or null for none.
   final ChallengeKind? saved;
+
+  /// The topic the page is opened for, or null for the whole phone.
+  final String? topic;
+
+  /// The challenge saved for [topic], or null for none.
+  final ChallengeKind? topicChoice;
 }
 
 /// The preferences that hold [plan], as the developer switches save them.
@@ -139,6 +158,11 @@ Future<void> _boot(WidgetTester tester, _Setup setup) async {
   if (saved != null) {
     await getIt<ChallengeChoices>().setDefaultForNewTopics(saved);
   }
+  final topic = setup.topic;
+  final topicChoice = setup.topicChoice;
+  if (topic != null && topicChoice != null) {
+    await getIt<ChallengeChoices>().setChoice(topic, topicChoice);
+  }
 }
 
 Future<void> _settle(WidgetTester tester) async {
@@ -168,7 +192,9 @@ Future<_Run> _open(
   required ThemeMode mode,
   required double scale,
   bool reduceMotion = false,
-  String location = _pagePath,
+  String? location,
+  bool push = true,
+  Object? extra,
 }) async {
   await tester.runAsync(() => _boot(tester, setup));
   const dpr = 2.0;
@@ -210,8 +236,19 @@ Future<_Run> _open(
   );
   router.go('/');
   await _settle(tester);
-  unawaited(router.push(location));
-  await _settle(tester);
+  if (push) {
+    final topic = setup.topic;
+    unawaited(
+      router.push(
+        location ??
+            (topic == null
+                ? _pagePath
+                : passLocationFor('/challenge', TopicScope(topic))),
+        extra: extra,
+      ),
+    );
+    await _settle(tester);
+  }
   await tester.pump(const Duration(seconds: 1));
   return _Run(key, router);
 }
@@ -265,7 +302,7 @@ Future<void> _guarded(
 }
 
 Set<String> get _parts => _partsArg.isEmpty
-    ? {'plans', 'chosen', 'sizes', 'reduce', 'taps', 'grow'}
+    ? {'plans', 'chosen', 'sizes', 'reduce', 'taps', 'topic', 'grow'}
     : _partsArg.split(',').toSet();
 
 /// Registers one capture of the page as it opens.
@@ -278,6 +315,7 @@ void _shot({
   double scale = 1,
   String frame = 'rest',
   bool reduceMotion = false,
+  String? location,
   Future<void> Function(WidgetTester tester, _Run run)? act,
 }) {
   if (!_parts.contains(part)) return;
@@ -299,6 +337,7 @@ void _shot({
         mode: mode,
         scale: scale,
         reduceMotion: reduceMotion,
+        location: location,
       );
       if (act != null) await act(tester, run);
       await _save(tester, run, name, errors);
@@ -390,8 +429,9 @@ void _flow(
   )
   body, {
   ThemeMode mode = ThemeMode.light,
+  String part = 'taps',
 }) {
-  if (!_parts.contains('taps')) return;
+  if (!_parts.contains(part)) return;
   if (!passWanted('${_page}_flow-$name')) return;
   testWidgets('flow $name', (tester) async {
     await _guarded('flow-$name', (errors) async {
@@ -411,7 +451,9 @@ void _flow(
           mode: mode,
           scale: 1,
           frame: frame,
-          state: setup.plan.name,
+          state: setup.topic == null
+              ? setup.plan.name
+              : 'topic-${setup.plan.name}',
         ),
         errors,
       );
@@ -703,6 +745,250 @@ void main() {
     await shot('tap-tile-try');
     print('FLOW Pro held: the tile opened the try and saved nothing');
   });
+
+  // The page opened for one topic.
+  const topic = 'Uptime Kuma';
+  const longTopic =
+      'Production database nightly backup verification and restore drill';
+  const topicPath = '/challenge';
+  const topicNone = _Setup(plan: PassPlanState.pro, topic: topic);
+  const topicChosen = _Setup(
+    plan: PassPlanState.pro,
+    // The phone's default is another kind: the page shows the topic's own.
+    saved: ChallengeKind.opsMath,
+    topic: topic,
+    topicChoice: ChallengeKind.shake,
+  );
+  const topicLapsed = _Setup(
+    topic: topic,
+    topicChoice: ChallengeKind.shake,
+  );
+  const topicFree = _Setup(topic: topic);
+  const topicStates = <String, _Setup>{
+    'none': topicNone,
+    'chosen': topicChosen,
+    'lapsed': topicLapsed,
+    'free': topicFree,
+    'longname': _Setup(
+      plan: PassPlanState.pro,
+      topic: longTopic,
+      topicChoice: ChallengeKind.typeAlertTitle,
+    ),
+  };
+  for (final MapEntry(key: state, value: setup) in topicStates.entries) {
+    for (final mode in passThemes) {
+      _shot(
+        part: 'topic',
+        state: 'topic-$state',
+        setup: setup,
+        device: passPhone,
+        mode: mode,
+      );
+    }
+  }
+  _shot(
+    part: 'topic',
+    state: 'topic-notread',
+    setup: const _Setup(plan: PassPlanState.notRead, topic: topic),
+    device: passPhone,
+    mode: ThemeMode.light,
+  );
+  _shot(
+    part: 'topic',
+    state: 'topic-ownserver',
+    setup: const _Setup(plan: _ownServer, topic: topic),
+    device: passPhone,
+    mode: ThemeMode.light,
+  );
+  // The sizes and text scales.
+  for (final device in [passPhone, passNarrowPhone]) {
+    for (final scale in const [1.0, 1.3, 2.0]) {
+      for (final mode in passThemes) {
+        if (device == passPhone && scale == 1) continue;
+        _shot(
+          part: 'topic',
+          state: 'topic-chosen',
+          setup: topicChosen,
+          device: device,
+          mode: mode,
+          scale: scale,
+        );
+      }
+    }
+  }
+  for (final (device, scale) in [(passNarrowPhone, 1.0), (passPhone, 2.0)]) {
+    _shot(
+      part: 'topic',
+      state: 'topic-longname',
+      setup: topicStates['longname']!,
+      device: device,
+      mode: ThemeMode.light,
+      scale: scale,
+    );
+  }
+  _shot(
+    part: 'topic',
+    state: 'topic-free',
+    setup: topicFree,
+    device: passPhone,
+    mode: ThemeMode.light,
+    scale: 2,
+    frame: 'end',
+    act: (tester, run) => _scrollToEnd(tester),
+  );
+  for (final mode in passThemes) {
+    _shot(
+      part: 'topic',
+      state: 'topic-chosen',
+      setup: topicChosen,
+      device: passPhone,
+      mode: mode,
+      frame: 'reduce',
+      reduceMotion: true,
+    );
+  }
+  // The taps: each writes the topic and nothing else.
+  _flow('topic-pick', topicNone, (tester, run, shot) async {
+    await tester.tap(_pick(ChallengeKind.opsMath));
+    await tester.pump(const Duration(milliseconds: 500));
+    final choices = getIt<ChallengeChoices>();
+    expect(choices.choiceFor(topic), ChallengeKind.opsMath);
+    expect(choices.defaultForNewTopics, isNull, reason: 'the default moved');
+    expect(_locationOf(run), topicPath);
+    await shot('topic-tap-pick-saved');
+    print('FLOW topic, Pro held: the pick control saved only the topic');
+  }, part: 'topic');
+  _flow('topic-off', topicChosen, (tester, run, shot) async {
+    await tester.tap(_pick(null));
+    await tester.pump(const Duration(milliseconds: 500));
+    final choices = getIt<ChallengeChoices>();
+    expect(choices.choiceFor(topic), isNull);
+    expect(
+      choices.defaultForNewTopics,
+      ChallengeKind.opsMath,
+      reason: 'No challenge for a topic changed the default',
+    );
+    await shot('topic-tap-off-saved');
+    print('FLOW topic: No challenge saved null for the topic only');
+  }, part: 'topic');
+  _flow('topic-locked-off', topicLapsed, (tester, run, shot) async {
+    // No challenge needs no plan, and sells nothing.
+    await tester.tap(_pick(null));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(getIt<ChallengeChoices>().choiceFor(topic), isNull);
+    expect(_locationOf(run), topicPath);
+    print('FLOW topic, locked: No challenge saved null with no plan');
+  }, part: 'topic');
+  _flow('topic-locked-pick', topicFree, (tester, run, shot) async {
+    await tester.tap(_pick(ChallengeKind.opsMath));
+    await tester.pump();
+    await _real(tester);
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(_locationOf(run), isNot(topicPath));
+    expect(getIt<ChallengeChoices>().choiceFor(topic), isNull);
+    expect(getIt<ChallengeChoices>().defaultForNewTopics, isNull);
+    await shot('topic-tap-pick-paywall');
+    print(
+      'FLOW topic, locked: the pick control opened the paywall, nothing saved',
+    );
+  }, part: 'topic');
+  _flow('topic-locked-tile', topicFree, (tester, run, shot) async {
+    await tester.tap(_tile(ChallengeKind.opsMath));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(ChallengeTryPage), findsOneWidget);
+    expect(getIt<ChallengeChoices>().choiceFor(topic), isNull);
+    await shot('topic-tap-tile-try');
+    print('FLOW topic, locked: the tile opened the try page, nothing saved');
+  }, part: 'topic');
+  // The grow from a card: the route is given a `PassOrigin`, as the card of
+  // the Wake-up challenge pass on the topic page will give it.
+  for (final mode in passThemes) {
+    final base = passFileName(
+      page: 'grow-challenge',
+      device: passPhone,
+      mode: mode,
+      scale: 1,
+      frame: 'x',
+      state: 'topic',
+    );
+    if (!_parts.contains('topic') || !passWanted(base)) continue;
+    testWidgets('capture grow topic ${mode.name}', (tester) async {
+      await _guarded(base, (errors) async {
+        final run = await _open(
+          tester,
+          setup: topicChosen,
+          device: passPhone,
+          mode: mode,
+          scale: 1,
+          push: false,
+        );
+        final colors = mode == ThemeMode.dark
+            ? AppColors.dark
+            : AppColors.light;
+        final origin = PassOrigin(
+          pass: PassId.challenge,
+          rect: const Rect.fromLTWH(12, 330, 366, 190),
+          tone: passToneFor(PassId.challenge, colors),
+          label: 'Wake-up challenge',
+          value: 'Shake',
+          display: PassDisplay(passPhone.size, safeTop: passPhone.safeTop),
+        );
+        const fractions = [0.0, 0.25, 0.5, 0.75, 1.0];
+        Future<void> frames(String way, int ms) async {
+          var elapsed = 0;
+          for (final fraction in fractions) {
+            final target = (ms * fraction).round();
+            if (target > elapsed) {
+              await tester.pump(Duration(milliseconds: target - elapsed));
+              elapsed = target;
+            }
+            final percent = (fraction * 100).round().toString().padLeft(3, '0');
+            await _save(
+              tester,
+              run,
+              passFileName(
+                page: 'grow-challenge',
+                device: passPhone,
+                mode: mode,
+                scale: 1,
+                frame: '$way-t$percent',
+                state: 'topic',
+              ),
+              errors,
+            );
+          }
+        }
+
+        unawaited(
+          run.router.push(
+            passLocationFor(topicPath, const TopicScope(topic)),
+            extra: origin,
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await frames('open', 600);
+        if (mode == ThemeMode.light) {
+          await tester.pump(const Duration(seconds: 1));
+          run.router.pop();
+          await tester.pump();
+          await tester.pump();
+          await frames('back', 520);
+        }
+      });
+    });
+  }
+  // The route with no topic is the page Personalize opens.
+  _shot(
+    part: 'topic',
+    state: 'phone',
+    setup: const _Setup(plan: PassPlanState.pro, saved: ChallengeKind.opsMath),
+    device: passPhone,
+    mode: ThemeMode.light,
+    frame: 'no-topic-query',
+    location: topicPath,
+  );
 
   // The page reached from the root: the grow, open and back.
   for (final mode in passThemes) {

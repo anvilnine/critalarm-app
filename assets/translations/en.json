@@ -2124,7 +2124,9 @@
       "card_label_locked": "{name}, {plan}",
       "card_hint_move": "Double tap to show this look",
       "play": "Play",
-      "stop": "Stop"
+      "stop": "Stop",
+      "topic_label": "Look for {topic}",
+      "same_as_phone": "Same as phone"
     },
 
     "sound": {
@@ -2145,7 +2147,11 @@
       "pick_label": "Use {name} for new topics",
       "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
       "page_note": "At my desk needs a challenge. I'm up always stops the alarm.",
-      "scope_note": "Existing topics won't change."
+      "scope_note": "Existing topics won't change.",
+      "topic_label": "Wake-up challenge for {topic}",
+      "topic_scope_note": "Only {topic} changes.",
+      "pick_label_topic": "Use {name} for this topic",
+      "pick_label_topic_locked": "Use {name} for this topic. Needs {plan}."
     },
 
     "widgets": {
