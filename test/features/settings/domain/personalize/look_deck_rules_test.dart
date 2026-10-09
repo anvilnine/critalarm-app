@@ -187,7 +187,7 @@ void main() {
       });
 
       test(
-        'on a server of the user\'s own is a locked look like any other',
+        "on a server of the user's own is a locked look like any other",
         () {
           // The access layer answers locked for looks there, so the rule sees
           // the same input as on the free plan.
@@ -269,7 +269,7 @@ void main() {
       });
     });
 
-    test('the keep answer is the lock rule\'s own', () {
+    test("the keep answer is the lock rule's own", () {
       for (final decision in [
         _locked,
         _open,
@@ -365,7 +365,7 @@ void main() {
     for (final MapEntry(key: brightness) in _themes.entries) {
       final fade = _fadeIn(brightness);
 
-      test('${brightness.name}: the ground at a whole page is the look\'s', () {
+      test("${brightness.name}: the ground at a whole page is the look's", () {
         for (var i = 0; i < fade.count; i++) {
           expect(fade.groundAt(i.toDouble()), fade.grounds[i]);
           expect(fade.textAt(i.toDouble()), fade.texts[i]);
