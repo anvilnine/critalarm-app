@@ -101,15 +101,11 @@ void main() {
     });
   });
 
-  test('widgets say how many kinds there are, with a word, as 3', () {
+  test('widgets say Home screen, with no count', () {
     final widgets = _summary().of(PassId.widgets);
-    expect(personalizeWidgetKinds, 3);
     expect(
       widgets.value,
-      const PassValueKey(
-        LocaleKeys.personalize_passes_root_widgets_value,
-        count: 3,
-      ),
+      const PassValueKey(LocaleKeys.personalize_passes_root_widgets_value),
     );
   });
 

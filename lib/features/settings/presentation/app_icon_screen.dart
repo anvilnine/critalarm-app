@@ -691,7 +691,7 @@ class _IconPage extends StatelessWidget {
   }
 }
 
-/// "This is your icon": an ink-outlined pill with a filled check. Not
+/// "In use": an ink-outlined pill with a filled check. Not
 /// tappable, and the height of a medium [AppButton] (48).
 class _InUseStatus extends StatelessWidget {
   const _InUseStatus({required this.label});
