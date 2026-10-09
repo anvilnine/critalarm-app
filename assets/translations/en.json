@@ -2109,7 +2109,8 @@
         "one": "{} kind",
         "other": "{} kinds"
       },
-      "sound_unknown": "Default sound"
+      "sound_unknown": "Default sound",
+      "thumb_default": "default"
     },
 
     "page": {
