@@ -2108,6 +2108,13 @@
       "shake": "Shake"
     }
   },
+  "personalize_passes": {
+    "page": {
+      "back_label": "Back to Personalize",
+      "back_generic": "Back"
+    }
+  },
+
   "challenges": {
     "off": "Off",
     "row_title": "Wake-up challenge",
