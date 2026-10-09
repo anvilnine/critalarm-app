@@ -187,6 +187,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Phone defects: the Topics card foot reads the newest alarm held (HomeFacts drops the setup incident ids), Settings row values show in full, the Topic screen sorts messages with newestFirst, and AppStatusCard.strip stacks its numeral under a title that does not fit.
 - Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
 - Bottom sheets from showAppSheet and showExpandingSheet open with no slide under reduce motion, the proof card has a hairline on the dark theme, the path stop names never break inside a word, the pass page fades its label while it grows out of a card
+- A one word value on a pass card steps its size down before it breaks inside the word
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

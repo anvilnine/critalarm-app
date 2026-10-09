@@ -372,6 +372,42 @@ class _AppPassCardState extends State<AppPassCard> {
         '${widget.label}$value${tag == null ? '' : ', $tag'}';
   }
 
+  /// The value's size on the card: [kPassCardValueSize], or less when the
+  /// longest word would not fit [available].
+  double _fittedValueSize(
+    double available,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
+    final words = widget.value
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty);
+    double longestWord(double fontSize) {
+      var widest = 0.0;
+      for (final word in words) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: word,
+            style: passValueStyle(widget.tone.onGround, fontSize),
+          ),
+          textDirection: direction,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        widest = math.max(widest, painter.width);
+        painter.dispose();
+      }
+      return widest;
+    }
+
+    return passFitValueSize(
+      size: kPassCardValueSize,
+      available: available - 1,
+      longestWord: longestWord,
+      minSize: 18,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final handoff = PassOriginScope.maybeOf(context);
@@ -443,19 +479,28 @@ class _AppPassCardState extends State<AppPassCard> {
     // card is as tall as a card with a value.
     final value = widget.value.isEmpty
         ? SizedBox(height: scaler.scale(kPassCardValueSize) * 1.05)
-        : Text(
-            widget.value,
-            maxLines: isFlat
-                ? null
-                : passValueLinesFor(
-                    band: PassCardBand.maybeOf(context),
-                    textScaler: scaler,
-                  ),
-            overflow: isFlat ? TextOverflow.clip : TextOverflow.ellipsis,
-            style: passValueStyle(
-              tone.valueFor(isOn: widget.isOn),
-              kPassCardValueSize,
-            ),
+        : LayoutBuilder(
+            builder: (context, box) {
+              // A one word value steps down before it breaks inside the
+              // word, as the page header does. Large text and a narrow
+              // phone reach it.
+              final size = _fittedValueSize(
+                box.maxWidth,
+                scaler,
+                Directionality.of(context),
+              );
+              return Text(
+                widget.value,
+                maxLines: isFlat
+                    ? null
+                    : passValueLinesFor(
+                        band: PassCardBand.maybeOf(context),
+                        textScaler: scaler,
+                      ),
+                overflow: isFlat ? TextOverflow.clip : TextOverflow.ellipsis,
+                style: passValueStyle(tone.valueFor(isOn: widget.isOn), size),
+              );
+            },
           );
     final thumb = hasThumb
         // A thumbnail is a picture: it keeps its size at any text scale.
