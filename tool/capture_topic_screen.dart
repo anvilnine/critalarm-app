@@ -938,40 +938,44 @@ Future<({int width, Uint8List rgba})> _pixels(
 /// The first frame of the Topic screen when it is opened from the Topics
 /// list, against the same screen once every read has finished.
 ///
-/// Home is built first, so the app-level lists and the glances are filled the
-/// way they are when a topic is tapped. Then the screen is built alone under
-/// the app's own ambient shell, with reduce motion on so the frames are the
-/// resting ones, and three frames are taken:
+/// Home is built first, so the app-level lists, the glances and the sound
+/// bars are filled the way they are when a topic is tapped. Then the app's own
+/// ambient shell is built over a stand-in for the list, and the tap is done
+/// the way the list does it: [primeTopicCanvas], then the screen replaces the
+/// stand-in in the same frame. Three frames are taken:
 ///
-///   first    the frame `pumpWidget` builds, before anything has run
-///   early    600 ms later with no read finished (the route has settled, the
-///            canvas has taken the topic's profile)
+///   first    the frame built by the tap, before anything has run
+///   early    600 ms later with no read finished
 ///   settled  after the mock server has answered and the screen has redrawn
 ///
-/// The Critical delivery card and the canvas behind the hero must match
-/// between early and settled. The first frame still has the canvas of Home,
-/// because the screen hands its profile to the shell after its first frame
-/// (the push moves it across with the route). The `cold` scene has no lists
-/// loaded, which is a link into a topic with nothing in memory: the card
-/// shows its dots until the read ends.
+/// With reduce motion the frames are the resting ones, so first must equal
+/// settled everywhere the data is known. With motion on, the canvas glides
+/// from Home's arrangement and the face and disc play their entrance, so the
+/// first frame differs there by design. The `cold` scene has no lists loaded
+/// (a link into a topic with nothing in memory): the card shows its dots until
+/// the read ends.
 ///
-/// Prints the number of differing pixels over the card and over everything
-/// above the sheet, and the height of the Tokens pass card in each frame.
+/// Prints the number of differing pixels over the card, over everything above
+/// the sheet (the canvas, the header, the face), over the Messages sheet, over
+/// the Sound card and over the canvas below the sheet.
 void _registerFirstFrameCaptures() {
   if (!_parts.contains('firstframe')) return;
   const phone = Size(390, 1500);
-  const scene = _Scene('firstframe', 'prod-db');
 
   void shot({
     required String topic,
     required String label,
     required ThemeMode mode,
     required bool isWarm,
+    required bool isStill,
+    _Scene scene = const _Scene('firstframe', 'prod-db'),
   }) {
-    final base = 'firstframe_${label}_${mode.name}${isWarm ? '' : '_cold'}';
+    final base =
+        'firstframe_${label}_${mode.name}${isWarm ? '' : '_cold'}'
+        '${isStill ? '' : '_motion'}';
     if (_only.isNotEmpty && !_only.split(',').any(base.contains)) return;
     testWidgets('capture $base', (tester) async {
-      await _guarded(base, isRest: true, (errors) async {
+      await _guarded(base, isRest: isStill, (errors) async {
         _mockSoundHost();
         await tester.runAsync(() => _boot(scene));
         tester.view.physicalSize = phone * 2;
@@ -989,32 +993,51 @@ void _registerFirstFrameCaptures() {
         }
 
         final key = GlobalKey();
-        await tester.pumpWidget(
-          MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: buildLightTheme(),
-            darkTheme: buildDarkTheme(),
-            themeMode: mode,
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: RepaintBoundary(
-                key: key,
-                child: AppAmbientShell(
-                  router: router,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+        late BuildContext listContext;
+        Widget app(Widget home) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildLightTheme(),
+          darkTheme: buildDarkTheme(),
+          themeMode: mode,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: isStill),
+            child: RepaintBoundary(
+              key: key,
+              child: AppAmbientShell(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
               ),
             ),
-            home: BlocProvider<ThemeCubit>.value(
-              value: getIt<ThemeCubit>(),
-              child: TopicDetailScreen(topicName: topic),
+          ),
+          home: BlocProvider<ThemeCubit>.value(
+            value: getIt<ThemeCubit>(),
+            child: home,
+          ),
+        );
+
+        // The list, standing still under Home's canvas.
+        await tester.pumpWidget(
+          app(
+            Builder(
+              builder: (context) {
+                listContext = context;
+                return const SizedBox.expand();
+              },
             ),
           ),
         );
+        await tester.pump(const Duration(seconds: 2));
+
+        // The tap: hand the canvas over, then open the screen.
+        // ignore: use_build_context_synchronously
+        primeTopicCanvas(listContext, topic);
+        await tester.pumpWidget(app(TopicDetailScreen(topicName: topic)));
+
         // Every snapshot is started on its frame and read afterwards, because
         // reading lets real time pass and the mock server answer.
         final firstShot = _shoot(key);
         final firstCard = tester.getRect(find.byType(TopicCriticalCard));
+        final firstSheet = tester.getRect(find.byType(AppInboxSheet));
         final firstTokens = tester.getSize(
           find.byKey(const ValueKey('topic-pass-tokens')),
         );
@@ -1031,7 +1054,13 @@ void _registerFirstFrameCaptures() {
         );
         await tester.pump(const Duration(milliseconds: 600));
         await _frames(tester);
+        // Motion on: let the entrance and the glide finish.
+        if (!isStill) await tester.pump(const Duration(seconds: 3));
         final card = tester.getRect(find.byType(TopicCriticalCard));
+        final sheet = tester.getRect(find.byType(AppInboxSheet));
+        final sound = tester.getRect(
+          find.byKey(const ValueKey('topic-pass-sound')),
+        );
         final tokens = tester.getSize(
           find.byKey(const ValueKey('topic-pass-tokens')),
         );
@@ -1042,27 +1071,64 @@ void _registerFirstFrameCaptures() {
         );
 
         final above = Rect.fromLTRB(0, 0, phone.width, card.bottom);
+        final below = Rect.fromLTRB(0, sheet.bottom + 8, phone.width, 1500);
         for (final (name, frame) in [('first', first), ('early', early)]) {
-          final (cardPx, cardTotal) = _differing(frame, settled, card);
-          final (abovePx, aboveTotal) = _differing(frame, settled, above);
+          String px(String what, Rect area) {
+            final (n, total) = _differing(frame, settled, area);
+            return '$what $n/$total';
+          }
+
           print(
-            'DIFF $base $name vs settled: card $cardPx of $cardTotal px, '
-            'everything above the sheet $abovePx of $aboveTotal px',
+            'DIFF $base $name vs settled: ${px('card', card)}, '
+            '${px('above sheet', above)}, ${px('messages sheet', sheet)}, '
+            '${px('sound card', sound)}, ${px('canvas below', below)}',
           );
         }
         print(
-          'RECT $base card first $firstCard settled $card; '
-          'tokens card first $firstTokens settled $tokens',
+          'RECT $base card ${firstCard == card}, sheet first '
+          '${firstSheet.size} settled ${sheet.size}, tokens first '
+          '$firstTokens settled $tokens',
         );
       });
     });
   }
 
-  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-    shot(topic: 'prod-db', label: 'on', mode: mode, isWarm: true);
-    shot(topic: 'nas-backup', label: 'off', mode: mode, isWarm: true);
+  for (final isStill in [true, false]) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      shot(
+        topic: 'prod-db',
+        label: 'on',
+        mode: mode,
+        isWarm: true,
+        isStill: isStill,
+      );
+      shot(
+        topic: 'nas-backup',
+        label: 'off',
+        mode: mode,
+        isWarm: true,
+        isStill: isStill,
+      );
+    }
   }
-  shot(topic: 'prod-db', label: 'on', mode: ThemeMode.light, isWarm: false);
+  shot(
+    topic: 'prod-db',
+    label: 'on',
+    mode: ThemeMode.light,
+    isWarm: false,
+    isStill: true,
+  );
+  // A warning that only a message carries.
+  for (final isStill in [true, false]) {
+    shot(
+      topic: 'nas-backup',
+      label: 'warn',
+      mode: ThemeMode.light,
+      isWarm: true,
+      isStill: isStill,
+      scene: const _Scene('firstframe', 'nas-backup', seed: _worried),
+    );
+  }
 }
 
 void main() {

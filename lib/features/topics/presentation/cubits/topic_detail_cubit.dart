@@ -8,11 +8,9 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
-import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
-import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -21,6 +19,7 @@ import 'package:critalarm/features/topics/domain/topic_message_order.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -80,26 +79,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   int _buildId = 0;
 
-  /// The oldest message this tier may show, or null for everything held.
-  /// Same rule as History (api.md §4.2), read from one place.
-  Future<DateTime?> _lowerBound() async {
-    final identity = await identityStore?.readOrCreate();
-    if (identity == null) return null;
-    return HistoryWindow.lowerBound(
-      hasLongHistory: await _can(AppFeature.longHistory),
-      historyDays: identity.caps.historyDays ?? 7,
-      now: _now(),
-    );
-  }
-
-  static List<Message> _insideWindow(List<Message> messages, DateTime? bound) {
-    if (bound == null) return messages;
-    final seconds = bound.toUtc().millisecondsSinceEpoch ~/ 1000;
-    return [
-      for (final message in messages)
-        if (message.time >= seconds) message,
-    ];
-  }
+  late final TopicMessageWindow _window = TopicMessageWindow(
+    identityStore: identityStore,
+    featureAccess: featureAccess,
+    now: _now,
+  );
 
   /// An acknowledge is still on the wire. Separate from
   /// [TopicDetailState.isMarkingAsRead], which is only the spinner on the
@@ -284,7 +268,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       );
     }
     final polled = newestFirst(
-      _insideWindow(pollResult.getOrNull() ?? <Message>[], await _lowerBound()),
+      TopicMessageWindow.inside(
+        pollResult.getOrNull() ?? <Message>[],
+        await _window.lowerBound(),
+      ),
     );
 
     final openIncidents = _incidents.state
@@ -297,22 +284,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       openIncidents: openIncidents,
       hasHighMessage: polled.any((m) => m.priority == 4),
     );
-    final messages = polled
-        .map(
-          (m) => TopicDetailMessageItem(
-            title: m.title ?? m.topic,
-            timestamp: formatWhenWithTime(
-              at: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-              now: DateTime.now(),
-              yesterday: LocaleKeys.home_card_row_yesterday.tr(),
-            ),
-            sentAt: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
-            body: m.message,
-            source: m.tags.join(', '),
-            isHigh: m.priority == 4,
-          ),
-        )
-        .toList();
+    final messages = topicMessageRows(polled, now: DateTime.now());
     final messageTimes = [
       for (final m in polled)
         DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
