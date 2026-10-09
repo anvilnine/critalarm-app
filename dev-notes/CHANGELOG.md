@@ -162,6 +162,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
 - Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
 - FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
+- Personalize root rebuilt on the pass stack: a summary rule for each card, a look tone read from the look registry, thumbnails for the five passes with the Look and Sound ones on one clock, routes and stub pages for Look, Wake-up challenge and Widgets, and the old strips, rows and chips removed.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

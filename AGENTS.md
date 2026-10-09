@@ -1045,7 +1045,9 @@ hero when that hero is the face. A tab opened many times a day has no entrance: 
 is the finished picture. When a screen feels busy, remove the boxes around
 small things and keep the character. When it feels flat, add one hero, never several
 decorations. Nothing rests at an angle, the way out is on screen from the first frame, and
-reduce motion shows a complete resting frame. No Lottie, no Rive, no video. The full rules, the
+reduce motion shows a complete resting frame. The one standing exception to "small things do not
+move" is the Look and Sound thumbnails on the Personalize root (see the `motion` skill, rule 7).
+No Lottie, no Rive, no video. The full rules, the
 clock helpers and how to prove motion with captured frames are in the `motion` skill:
 `.claude/skills/motion/SKILL.md`. Read it before adding or changing an animation.
 
