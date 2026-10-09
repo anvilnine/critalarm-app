@@ -2161,7 +2161,7 @@
       "tile_off": "At my desk closes at once",
       "pick_label": "Use {name} for new topics",
       "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
-      "scope_note": "Applies to topics made from now on.",
+      "scope_note": "Applies to new topics.",
       "see_plan": "Try any. Keep one with {plan}"
     },
 
@@ -2169,7 +2169,7 @@
       "name_open_count": "Open incidents",
       "name_topic": "Topic",
       "name_topics": "Topics",
-      "line": "See what is ringing and answer it from your home screen.",
+      "line": "See what is ringing. Answer from your home screen.",
       "see_plan": "See {plan}",
       "how_to": "How to add one",
       "open_label": "open",
