@@ -9,9 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 // The top of a topic's messages page: a small label, how many messages there
-// are as the big value, one mono line, and the last seven days as bars. A
-// soft disc breathes behind it. The bars grow once when the numbers arrive,
-// and the disc is the only thing that keeps moving.
+// are as the big value, and the last seven days as bars with their own
+// caption. The count is every message the plan keeps, so no period is written
+// under it. A soft disc breathes behind it. The bars grow once when the
+// numbers arrive, and the disc is the only thing that keeps moving.
 
 /// The bars' width and the room round them.
 const double _kBarWidth = 12;
@@ -34,7 +35,7 @@ double messageBarHeight(MessageDayBar bar) => bar.count == 0
     ? _kQuietBar
     : _kShortestBar + (_kBarsHeight - _kShortestBar) * bar.fraction;
 
-/// The label, the count, the line and the bars, with [below] under them.
+/// The label, the count and the captioned bars, with [below] under them.
 ///
 /// The disc behind the header runs on behind [below] as well, so [below]
 /// belongs in this widget and not in a sliver of its own: a later sliver
@@ -160,19 +161,6 @@ class _Words extends StatelessWidget {
             ),
     );
 
-    // With no count to describe, the line stays for the height and is not
-    // drawn.
-    final line = Opacity(
-      opacity: isLoading || value != null ? 1 : 0,
-      child: Text(
-        LocaleKeys.topic_messages_window.tr(),
-        style: AppTypography.mono(
-          colors.onCanvasMuted,
-          fontSize: 12,
-        ).copyWith(height: 1.4, letterSpacing: 0),
-      ),
-    );
-
     final words = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -180,9 +168,29 @@ class _Words extends StatelessWidget {
         label,
         const SizedBox(height: 2),
         numeral,
-        const SizedBox(height: 6),
-        line,
       ],
+    );
+
+    // The caption says what the bars cover, not what the count covers. With
+    // no count there are no bars to describe, so it keeps its height and is
+    // not drawn. The bars' own spoken label already names the period.
+    final caption = ExcludeSemantics(
+      child: Opacity(
+        opacity: isLoading || value != null ? 1 : 0,
+        child: Text(
+          LocaleKeys.topic_messages_window.tr(),
+          textAlign: TextAlign.right,
+          // Stops growing at the chrome limit so it never outruns the bars it
+          // sits over.
+          textScaler: MediaQuery.textScalerOf(
+            context,
+          ).clamp(maxScaleFactor: kChromeMaxTextScale),
+          style: AppTypography.mono(
+            colors.onCanvasMuted,
+            fontSize: 12,
+          ).copyWith(height: 1.4, letterSpacing: 0),
+        ),
+      ),
     );
 
     final barsView = Semantics(
@@ -190,6 +198,17 @@ class _Words extends StatelessWidget {
       label: LocaleKeys.topic_messages_bars_aria.tr(),
       excludeSemantics: true,
       child: _Bars(bars: bars, clock: clock),
+    );
+
+    // The caption sits over the bars, right aligned with them.
+    final captioned = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        caption,
+        const SizedBox(height: 6),
+        barsView,
+      ],
     );
 
     // Large text stacks the bars under the words so neither is squeezed.
@@ -203,7 +222,7 @@ class _Words extends StatelessWidget {
                 children: [
                   words,
                   const SizedBox(height: Spacing.s3),
-                  barsView,
+                  captioned,
                 ],
               )
             : Row(
@@ -211,7 +230,7 @@ class _Words extends StatelessWidget {
                 children: [
                   Expanded(child: words),
                   const SizedBox(width: 12),
-                  barsView,
+                  captioned,
                 ],
               ),
       ),
