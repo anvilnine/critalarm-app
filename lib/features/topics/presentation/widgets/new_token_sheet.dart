@@ -463,10 +463,11 @@ class _NameStep extends StatelessWidget {
             style: AppTypography.small(colors.ink3, fontSize: 12),
           ),
         ],
-        const SizedBox(height: 12),
+        // The chips are 44 high in a 48 tap box: 2 less above and below each.
+        const SizedBox(height: 12 - 2),
         Wrap(
           spacing: 8,
-          runSpacing: 8,
+          runSpacing: 8 - 4,
           children: [
             for (final name in kNewTokenQuickNames)
               _QuickName(
@@ -478,7 +479,7 @@ class _NameStep extends StatelessWidget {
           ],
         ),
         if (refusedLine != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 12 - 2),
           Semantics(
             liveRegion: true,
             child: Text(
@@ -490,7 +491,7 @@ class _NameStep extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 18),
+        SizedBox(height: refusedLine != null ? 18 : 18 - 2),
         AppButton(
           label: LocaleKeys.new_token_make_button.tr(),
           isFullWidth: true,
@@ -531,20 +532,23 @@ class _QuickName extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          decoration: BoxDecoration(
-            color: isSelected ? colors.ink : colors.cream,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Center(
-            widthFactor: 1,
-            child: Text(
-              label,
-              style: AppTypography.small(
-                isSelected ? colors.cream : colors.ink,
-              ).copyWith(fontWeight: FontWeight.w600),
+        // The chip is 44 high, drawn. Its tap area is a 48 box around it.
+        child: AppTapTarget(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.ink : colors.cream,
+              borderRadius: Radii.fullAll,
+            ),
+            child: Center(
+              widthFactor: 1,
+              child: Text(
+                label,
+                style: AppTypography.small(
+                  isSelected ? colors.cream : colors.ink,
+                ).copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ),
@@ -590,8 +594,13 @@ class _ShownStep extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: AppTypography.monoBold(colors.ink),
     );
+    // The pills are 30 high. Beside the value they sit in a 48 tap box, with
+    // the box's 9 above and below taken out of the 10 the panel had. Under
+    // the value they have 8 above (the gap) and 10 below (the panel), so the
+    // box stops at 46.
     final actions = TokenActions(
       value: value,
+      tapRoom: isStacked ? 8 : 9,
       onCopied: (_) => onValueCopied(),
     );
 
@@ -638,7 +647,12 @@ class _ShownStep extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            isStacked ? 10 : 1,
+            10,
+            isStacked ? 2 : 1,
+          ),
           decoration: BoxDecoration(
             color: colors.cream,
             borderRadius: Radii.mdAll,
@@ -648,7 +662,7 @@ class _ShownStep extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     valueText,
-                    const SizedBox(height: 8),
+                    // The 8 between them are the box's.
                     actions,
                   ],
                 )
@@ -690,7 +704,8 @@ class _ShownStep extends StatelessWidget {
             ),
             highlight: maskedToken(value),
           ),
-          const SizedBox(height: 10),
+          // The copy button is 44 high in a 48 tap box: 2 less around it.
+          const SizedBox(height: 10 - 2),
           Align(
             alignment: Alignment.centerLeft,
             child: _PillButton(
@@ -702,7 +717,7 @@ class _ShownStep extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 18),
+        SizedBox(height: url != null ? 18 - 2 : 18),
         AppButton(
           label: LocaleKeys.new_token_saved_button.tr(),
           isFullWidth: true,
@@ -737,25 +752,28 @@ class _PillButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: isFilled ? colors.ink : Colors.transparent,
-            borderRadius: Radii.fullAll,
-            border: Border.all(
-              color: colors.ink,
-              width: 2,
+        // The button is 44 high, drawn. Its tap area is a 48 box around it.
+        child: AppTapTarget(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: isFilled ? colors.ink : Colors.transparent,
+              borderRadius: Radii.fullAll,
+              border: Border.all(
+                color: colors.ink,
+                width: 2,
+              ),
             ),
-          ),
-          child: Center(
-            widthFactor: 1,
-            child: Text(
-              label,
-              style: AppTypography.small(
-                isFilled ? colors.cream : colors.ink,
-                fontSize: 13.5,
-              ).copyWith(fontWeight: FontWeight.w700),
+            child: Center(
+              widthFactor: 1,
+              child: Text(
+                label,
+                style: AppTypography.small(
+                  isFilled ? colors.cream : colors.ink,
+                  fontSize: 13.5,
+                ).copyWith(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ),

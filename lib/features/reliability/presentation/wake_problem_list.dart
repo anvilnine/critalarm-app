@@ -309,6 +309,10 @@ class WakeProblemRow extends StatelessWidget {
       decoration: BoxDecoration(color: colors.crit, shape: BoxShape.circle),
     );
 
+    // The fix buttons are 44 high in a 48 tap box, 2 above and below. The row
+    // spends 2 less of its own padding above and below, and the words take
+    // them back, so the words, the dot and the button stay where they were.
+    final room = action != null || clear != null ? 2.0 : 0.0;
     final Widget row = isLarge
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,10 +326,10 @@ class WakeProblemRow extends StatelessWidget {
                 ],
               ),
               if (action != null || clear != null) ...[
-                const SizedBox(height: Spacing.s2),
+                SizedBox(height: Spacing.s2 - room),
                 Wrap(
                   spacing: Spacing.s2,
-                  runSpacing: Spacing.s2,
+                  runSpacing: Spacing.s2 - 2 * room,
                   children: [?action, ?clear],
                 ),
               ],
@@ -335,7 +339,12 @@ class WakeProblemRow extends StatelessWidget {
             children: [
               dot,
               const SizedBox(width: Spacing.s3),
-              Expanded(child: text),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: room),
+                  child: text,
+                ),
+              ),
               if (action != null || clear != null) ...[
                 const SizedBox(width: Spacing.s3),
                 ?action,
@@ -349,7 +358,10 @@ class WakeProblemRow extends StatelessWidget {
     final padded = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 66),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: EdgeInsets.only(
+          top: isLarge ? 10 : 10 - room,
+          bottom: 10 - room,
+        ),
         child: row,
       ),
     );
@@ -363,7 +375,8 @@ class WakeProblemRow extends StatelessWidget {
 }
 
 /// A 44 point outlined button that says which check it acts on to a screen
-/// reader, "Open settings, Notifications".
+/// reader, "Open settings, Notifications". Its tap area is a 48 box around
+/// the same pill.
 class _FixButton extends StatelessWidget {
   const _FixButton({
     required this.label,
@@ -404,25 +417,29 @@ class _FixButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: isEnabled ? onPressed : null,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              borderRadius: Radii.fullAll,
-              border: isQuiet ? null : Border.all(color: colors.ink, width: 2),
+        child: AppTapTarget(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: Radii.fullAll,
+                border: isQuiet
+                    ? null
+                    : Border.all(color: colors.ink, width: 2),
+              ),
+              child: isBusy
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.ink),
+                      ),
+                    )
+                  : text,
             ),
-            child: isBusy
-                ? SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(colors.ink),
-                    ),
-                  )
-                : text,
           ),
         ),
       ),

@@ -93,6 +93,12 @@ class AppButton extends StatefulWidget {
   final bool animatesLabel;
   final VoidCallback? onPressed;
 
+  /// The room above and below a small button's pill that its tap box adds.
+  /// The same at every text size, so a parent gives up the same 6 above and
+  /// below whatever the pill's height: at the default size the pill is 36 and
+  /// the box is 48, and at a larger one the box is the pill and 12.
+  static const double smallTapRoom = 6;
+
   /// Whether a small button sits in a transparent 48 tap box. False for a
   /// caller that gives the pill its own room, such as `SetupTapRoom`, or that
   /// cannot spare the room without moving what is around it. The pill is the
@@ -405,7 +411,16 @@ class _AppButtonState extends State<AppButton> {
             if (_isEnabled) setState(() => _isActive = false);
           },
           onTap: _isEnabled ? widget.onPressed : null,
-          child: isSmall ? AppTapTarget(child: sized) : sized,
+          child: isSmall
+              ? AppTapTarget(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppButton.smallTapRoom,
+                    ),
+                    child: sized,
+                  ),
+                )
+              : sized,
         ),
       ),
     );

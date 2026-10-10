@@ -755,6 +755,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           headerTrailing: AppButton(
             label: LocaleKeys.onboarding_connect_paste_button.tr(),
             size: AppButtonSize.sm,
+            // A box 48 high would make the label row 12 taller and move the
+            // field.
+            hasTapBox: false,
             variant: AppButtonVariant.ghost,
             icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
             onPressed: _handlePaste,
@@ -914,6 +917,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     OnboardingConnectCubit cubit,
   ) {
     final colors = context.appColors;
+    // 36 high, with 4 above it. A 48 tap area is 12 taller and the gap has
+    // only 4 to give, so the pill above would move up 8: it stays 36.
     return TextButton(
       onPressed: () => unawaited(
         cubit.navigateToHome(isReplay: widget.isReplay),
@@ -995,6 +1000,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   : LocaleKeys.onboarding_connect_self_host_toggle.tr(),
               variant: AppButtonVariant.ghost,
               size: AppButtonSize.sm,
+              // SetupTapRoom gives the pill its room.
+              hasTapBox: false,
               isFullWidth: true,
               animatesLabel: true,
               onPressed: _toggleServer,
@@ -1162,7 +1169,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           isLoading: state.isCountingDown,
           onPressed: cubit.startLocalTestAlarm,
         ),
-        const SizedBox(height: Spacing.s3),
+        // The small button is a 36 pill in a 48 tap box: 6 less above and
+        // below it.
+        const SizedBox(height: Spacing.s3 - 6),
         AppButton(
           label: LocaleKeys.onboarding_connect_dashboard_button.tr(),
           variant: AppButtonVariant.ghost,
@@ -1173,7 +1182,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           ),
         ),
         // 12px from the scaffold makes 24 above the home indicator.
-        const SizedBox(height: 12),
+        const SizedBox(height: 12 - 6),
       ],
     );
   }
