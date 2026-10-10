@@ -4,7 +4,6 @@
   },
   "nav": {
     "topics": "Topics",
-    "incidents": "Incidents",
     "settings": "Settings",
     "history": "History",
     "new_topic": "New topic"
@@ -21,7 +20,8 @@
     "copied": "Copied",
     "pinned": "Pinned",
     "muted": "Muted",
-    "needs_attention": "Needs attention"
+    "needs_attention": "Needs attention",
+    "priority_high": "High priority"
   },
   "onboarding_welcome": {
     "title": "Welcome to Crit Alarm",
@@ -309,7 +309,6 @@
     "denied_title": "Crit Alarm can't reach you yet",
     "denied_description": "Turn these on in Settings, or carry on and fix it later under Will it wake me?",
     "denied_open_settings": "Open Settings",
-    "denied_recheck": "Check again",
     "denied_skip": "Continue without this",
     "not_now": "Not now",
     "checking": "Checking this phone",
@@ -487,22 +486,15 @@
     }
   },
   "home": {
-    "title": "Crit Alarm",
-    "settings_aria_label": "Settings",
-    "new_topic_button": "New topic",
     "stage_word_no_topics": "No topics yet",
     "stage_word_clear": "All clear",
     "meta_quiet": "Quiet",
     "delivery_rings": "rings",
-    "loading_title": "Loading your topics",
-    "retry_button": "Try again",
     "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
     "detail_empty_body": "Pick a topic to see its details.",
     "empty_body": "Create one, point a script at it, and this face will tell you when something breaks.",
     "empty_button": "Create a topic",
-    "unreachable_strip": "Cannot reach the server. Last seen {time}.",
-    "stale_list_label": "Last seen {time}",
     "swipe_pin": "Pin",
     "swipe_unpin": "Unpin",
     "swipe_mute": "Mute",
@@ -547,17 +539,7 @@
     "pro_later": "Remind me later"
   },
   "topics_list": {
-    "back_aria_label": "Back",
-    "title": "Topics",
-    "new_topic_aria_label": "New topic",
-    "meta_quiet_6h": "Quiet for 6 h",
-    "meta_finished_warnings": "Finished 02:04, 2 warnings",
-    "meta_finished_size": "Finished 02:00, 412 GB",
-    "meta_today": "3 today",
-    "meta_yesterday": "Yesterday 18:40",
-    "meta_ringing": "Ringing",
-    "meta_warning": "1 warning",
-    "meta_quiet": "Quiet"
+    "title": "Topics"
   },
   "history": {
     "refresh_checking": "Checking for new alarms…",
@@ -569,10 +551,6 @@
     "retry_button": "Try again",
     "filter_aria_label": "Filter history",
     "filter_active_aria_label": "Filter history. A filter is on.",
-    "summary": {
-      "one": "1 alarm in {days} days. Longest ring {longest}.",
-      "other": "{} alarms in {days} days. Longest ring {longest}."
-    },
     "empty_title": "Nothing has rung yet",
     "empty_body": "Past alarms show up here with how long they rang.",
     "empty_body_free": "Past alarms show up here with how long they rang. Free keeps {days} days.",
@@ -585,7 +563,6 @@
     "detail_empty_body": "Pick an incident to see its details.",
     "detail_started_label": "Started",
     "detail_ring_label": "Rang for",
-    "search_aria_label": "Search",
     "filter_title": "Filter history",
     "filter_state_header": "State",
     "filter_state_all": "All",
@@ -600,10 +577,6 @@
     "filter_window_locked_aria_label": "{window}, needs Hosted",
     "filter_reset": "Reset",
     "filter_apply": "Apply",
-    "filter_badge": {
-      "one": "1 filter on",
-      "other": "{} filters on"
-    },
     "empty_filtered_title": "Nothing matches those filters",
     "empty_filtered_body": "Loosen the state, or widen the window.",
     "filter_window_24h": "24 hours",
@@ -645,7 +618,6 @@
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
     "critical_toggle_subtitle_time_sensitive": "Time-Sensitive notification with sound, repeated until you acknowledge it. Ringing through silent mode needs iOS 26.",
     "critical_info_title": "Critical delivery",
-    "critical_info_aria": "About critical delivery",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
@@ -657,15 +629,10 @@
     "sound_row_title": "Alarm sound",
     "sound_row_default": "Using the default",
     "messages_header": "Messages",
-    "settings_header": "Topic settings",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
     "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again.",
     "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority.",
-    "view_all_messages": {
-      "one": "View 1 older message",
-      "other": "View {} older messages"
-    },
     "delete_button": "Delete topic",
     "delete_dialog_title": "Delete {topic}?",
     "delete_dialog_content": "This removes the topic, its tokens and every alarm it has ever raised. Anything still sending to it stops working.",
@@ -700,7 +667,6 @@
   },
   "topic_tokens": {
     "header": "Tokens",
-    "loading": "Reading this topic's tokens...",
     "load_failed": "Could not read this topic's tokens.",
     "made_on": "Made {date}",
     "made_just_now": "Made just now",
@@ -775,7 +741,6 @@
     "demo_body": "This is a test alarm to verify your device rings through silent mode.",
     "demo_body_time_sensitive": "This is a test alarm to verify your device plays a sound. On this iPhone, silent mode mutes it.",
     "back_aria_label": "Back",
-    "dismiss_button": "Dismiss",
     "acknowledge_button": "I'm up",
     "silence_ringing_button": "Silence",
     "silenced_message": "Stopped. Rings again in {seconds} s. Tap I'm up to end it.",
@@ -799,7 +764,6 @@
     "acknowledged_message": "Acknowledged at {time}",
     "fallback_title": "Page from {topic}",
     "fallback_body": "This page arrived with no message.",
-    "snooze_button": "Snooze 10 min",
     "acked_title": "Acknowledged",
     "acked_sub": "Rang for {duration}.",
     "started_label": "Started",
@@ -827,13 +791,10 @@
     "open_button": "Open Crit Alarm",
     "incident_title": "Incident {id}",
     "ringing_pill": "Ringing through silent mode. Tap to acknowledge.",
-    "ringing_pill_time_sensitive": "Ringing until acknowledged. Tap to acknowledge.",
-    "time_now": "now"
+    "ringing_pill_time_sensitive": "Ringing until acknowledged. Tap to acknowledge."
   },
   "settings": {
     "title": "Settings",
-    "back_aria_label": "Back",
-    "stage_sub": "Quiet hours on. Critical still rings.",
     "disconnect_dialog_title": "Disconnect server?",
     "disconnect_dialog_content": "You will stop receiving pages until you connect again.",
     "disconnect_dialog_confirm": "Disconnect",
@@ -853,15 +814,6 @@
     "server_stage_disconnected": "No server, so no pages reach this phone.",
     "server_disconnected_description": "Connect a server to start receiving pages.",
     "server_connect_button": "Connect server",
-    "quiet_hours_label": "Quiet hours",
-    "quiet_hours_schedule": "{start} to {end}",
-    "quiet_hours_subtitle": "Alarms stay quiet from {start} to {end}.",
-    "quiet_hours_window_row_title": "Start and end",
-    "quiet_hours_start_picker_help": "When quiet hours start",
-    "quiet_hours_end_picker_help": "When quiet hours end",
-    "critical_rings_title": "Critical rings through quiet hours",
-    "critical_rings_subtitle": "and repeats until you acknowledge",
-    "escalation_header": "Escalation",
     "server_connection_header": "Server connection",
     "feature_guides_row_title": "Feature Guides",
     "feature_guides_row_subtitle": "Pick a guide or play them all",
@@ -885,38 +837,27 @@
     "about_issues_label": "Issue Tracker",
     "about_privacy_label": "Privacy",
     "about_terms_label": "Terms",
-    "upgrade_to_pro_button": "Upgrade to Hosted",
     "copied_toast": "Copied {url}",
-    "alarm_sound_header": "Alarm sound",
     "alarm_sound_row_title": "Default sound",
     "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own",
     "priorities_row_title": "Priorities",
     "priorities_row_subtitle": "What each priority does on this phone",
-    "health_badge_issues": {
-      "one": "1 to fix",
-      "other": "{} to fix"
-    },
     "app_header": "App",
     "storage_header": "Storage",
     "storage_delete_after_title": "Delete alarms after",
-    "storage_delete_after_subtitle": "Your phone keeps every alarm until you say otherwise.",
     "storage_delete_never": "Never",
     "storage_delete_1m": "1 month",
     "storage_delete_3m": "3 months",
     "storage_delete_1y": "1 year",
     "storage_keep_critical_title": "Keep critical alarms forever",
     "storage_keep_critical_subtitle": "Priority 5 alarms skip auto-delete.",
-    "server_header": "Server",
     "plan_header": "Plan",
     "plan_free": "Free",
     "plan_pro": "Hosted",
-    "plan_topics_used": "{used} of {limit} topics used",
-    "upgrade_button": "Upgrade",
     "plan_manage_button": "Manage",
     "plan_selfhosted_title": "This phone uses your own server",
     "plan_selfhosted_subtitle": "No limits, no charge.",
     "plan_selfhosted_cloud_note": "Crit Alarm Cloud is the server we run, if you would rather not run one.",
-    "stage_sub_connected": "Connected to {host} since {date}.",
     "developer_header": "Developer options",
     "developer_pro_title": "Hosted plan",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
@@ -1049,10 +990,8 @@
   "device_permissions": {
     "title": "Permissions",
     "back_aria_label": "Back",
-    "refresh_aria_label": "Refresh",
     "stage_sub_all_granted": "All set. Ready to wake you at 3am.",
     "stage_sub_required": "Some pages will not reach you until these are on.",
-    "capabilities_header": "What Crit Alarm needs",
     "item_notifications_title": "Notifications",
     "item_notifications_description": "Off means no page reaches you.",
     "item_full_screen_intent_title": "Full screen alarms",
@@ -1067,26 +1006,13 @@
     "item_time_sensitive_description": "Off means iOS holds a page for your next summary instead of showing it now.",
     "item_alarms_title": "Alarms and timers",
     "item_alarms_description": "Off means a page cannot ring through silent mode or Do Not Disturb.",
-    "note": "",
-    "fix_button": "Fix in Settings",
-    "status_granted": "Permission granted",
-    "badge_granted": "Granted",
-    "badge_denied": "Denied",
-    "badge_restricted": "Restricted",
-    "badge_not_set": "Not set",
     "permissions_header": "Device permissions",
     "stage_sub_full_screen_off": "Full screen alarms are disabled. Alarms will vibrate only.",
     "badge_allowed": "allowed",
     "badge_unrestricted": "unrestricted",
-    "badge_reachable": "reachable",
-    "badge_unreachable": "unreachable",
-    "item_full_screen_intent_off_since": "Off since {date}",
     "turn_on_button": "Turn on",
     "allow_button": "Allow",
     "state_off": "Off",
-    "server_header": "Server connection",
-    "checked_label": "Checked",
-    "last_delivery_label": "Last delivery",
     "test_alarm_button": "Send a test alarm"
   },
   "maker_guide": {
@@ -1223,7 +1149,6 @@
     "line_missed_repeatedly": "Two or more checks missed in a row.",
     "line_token_refused": "The push relay refused this phone.",
     "line_no_token": "Not registered with the push relay yet.",
-    "next_due": "Next check due {when}.",
     "switch_failed": "Could not reach the push relay. Try again.",
     "switch_needs_hosted": "The weekly check needs Hosted.",
     "switch_refused": "The push relay did not accept that.",
@@ -1267,8 +1192,6 @@
     "duration_yearly": "12 months, renews yearly",
     "duration_monthly": "1 month, renews monthly",
     "badge_save": "Save {percent}%",
-    "price_yearly": "{price}",
-    "price_monthly": "{price}",
     "price_per_month": "{price} / month",
     "upgrade_button": "Get Hosted",
     "restore_purchases_button": "Restore purchases",
@@ -1489,8 +1412,6 @@
     "critical_topic_line": "Priority 5 rings only on a topic with Critical delivery on. Set it on the topic."
   },
   "sound_picker": {
-    "title_default": "Alarm sound",
-    "title_topic": "Sound for {topic}",
     "bundled_header": "Built in",
     "user_header": "Your sounds",
     "user_local_only": "This phone only",
@@ -1508,7 +1429,6 @@
     "error_unreadable": "That file could not be read.",
     "error_copy_failed": "The sound could not be saved.",
     "error_source_too_long": "That file is longer than 20 minutes.",
-    "use_button": "Use {name}",
     "packs_header": "Sound packs",
     "pack_names": {
       "sound_pack_library": "Library sounds"
@@ -1554,10 +1474,7 @@
     "error_unreadable": "The shared file could not be opened."
   },
   "search": {
-    "title": "Search",
     "open_aria_label": "Search",
-    "clear_aria_label": "Clear search",
-    "close_aria_label": "Close search",
     "placeholder_default": "Search everything",
     "placeholder_topics": "Search topics, alarms, docs",
     "placeholder_history": "Search past alarms, or type a date",
@@ -1570,8 +1487,6 @@
     "section_docs": "Documentation",
     "subtitle_topic": "Topic",
     "subtitle_topic_critical": "Topic, critical delivery on",
-    "hint_title": "Search Crit Alarm",
-    "hint_body": "Topics, past alarms, settings, and the documentation. Type a date like Sep 14 to find that day's alarms.",
     "no_matches_title": "Nothing matched “{query}”",
     "no_matches_body": "Try a topic name, a date like Sep 14, or one of these.",
     "example_one": "prod",
@@ -2108,12 +2023,10 @@
       "sound_unknown": "Default sound",
       "thumb_default": "default"
     },
-
     "page": {
       "back_label": "Back to Personalize",
       "back_generic": "Back"
     },
-
     "look": {
       "use": "Use this look",
       "in_use": "In use",
@@ -2126,14 +2039,12 @@
       "play": "Play",
       "stop": "Stop"
     },
-
     "sound": {
       "playing": "playing",
       "stop": "Stop the sound",
       "play": "Play the sound",
       "topic_label": "Sound for {topic}"
     },
-
     "challenge": {
       "tile_type_topic": "Letter by letter",
       "tile_type_title": "Its first words",
@@ -2147,7 +2058,6 @@
       "page_note": "At my desk needs a challenge. I'm up always stops the alarm.",
       "scope_note": "Existing topics won't change."
     },
-
     "widgets": {
       "name_open_count": "Open incidents",
       "name_topic": "Topic",
@@ -2160,13 +2070,8 @@
       "sample_title_2": "Checkout is slow",
       "sample_topic_3": "queue",
       "sample_title_3": "Job queue backed up"
-    },
-
-    "app_icon": {
-      "state_in_use": "in use"
     }
   },
-
   "challenges": {
     "off": "Off",
     "row_title": "Wake-up challenge",
@@ -2332,7 +2237,6 @@
     "row_yesterday": "Yesterday",
     "row_no_message": "No messages yet",
     "stale_caption": "Topics as of {time}",
-    "close": "Close",
     "close_this": "Close this",
     "one_topic_title": "One topic so far",
     "one_topic_button": "New topic",

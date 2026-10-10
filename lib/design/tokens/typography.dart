@@ -4,23 +4,20 @@ import 'package:flutter/material.dart';
 const double kChromeMaxTextScale = 1.3;
 
 /// Typography tokens for Crit Alarm Design System.
-/// Display: Bricolage Grotesque 800 (fallback Anton / Archivo).
-/// Body: Instrument Sans 400-600 (fallback Archivo).
-/// Mono: JetBrains Mono 500/700 (fallback IBMPlexMono).
+/// Display: Bricolage Grotesque 800 (fallback Anton).
+/// Body: Instrument Sans 400-700 (fallback the system sans).
+/// Mono: JetBrains Mono 500-700 (fallback the system monospace).
 abstract final class AppTypography {
   // Primary font families
   static const String fontDisplay = 'Bricolage Grotesque';
   static const String fontBody = 'Instrument Sans';
   static const String fontMono = 'JetBrains Mono';
 
-  // Bundled fallback families
-  static const List<String> fontDisplayFallbacks = [
-    'Anton',
-    'Archivo',
-    'sans-serif',
-  ];
-  static const List<String> fontBodyFallbacks = ['Archivo', 'sans-serif'];
-  static const List<String> fontMonoFallbacks = ['IBMPlexMono', 'monospace'];
+  // Fallback families. Archivo is bundled at weight 800 only (the eyebrow
+  // style), so it is not a fallback: a missing glyph would come out extra bold.
+  static const List<String> fontDisplayFallbacks = ['Anton', 'sans-serif'];
+  static const List<String> fontBodyFallbacks = ['sans-serif'];
+  static const List<String> fontMonoFallbacks = ['monospace'];
 
   // Legacy family names for backward compatibility
   static const String _anton = 'Anton';
