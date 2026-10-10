@@ -1,5 +1,3 @@
-// Developer tool helper for loading fonts and capturing screenshots.
-// ignore_for_file: cascade_invocations
 // Developer tool testing mock setup.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // Formatting tolerance in developer tool script.
@@ -17,51 +15,17 @@ import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<void> _loadFonts() async {
-  Future<ByteData> loadFile(String path) async {
-    final bytes = await File(path).readAsBytes();
-    return ByteData.view(bytes.buffer);
-  }
-
-  final anton = FontLoader('Anton');
-  anton.addFont(loadFile('assets/fonts/Anton-Regular.ttf'));
-  await anton.load();
-
-  final archivo = FontLoader('Archivo');
-  archivo.addFont(loadFile('assets/fonts/Archivo-Regular.ttf'));
-  archivo.addFont(loadFile('assets/fonts/Archivo-Medium.ttf'));
-  archivo.addFont(loadFile('assets/fonts/Archivo-SemiBold.ttf'));
-  archivo.addFont(loadFile('assets/fonts/Archivo-Bold.ttf'));
-  archivo.addFont(loadFile('assets/fonts/Archivo-ExtraBold.ttf'));
-  await archivo.load();
-
-  final mono = FontLoader('IBMPlexMono');
-  mono.addFont(loadFile('assets/fonts/IBMPlexMono-Medium.ttf'));
-  await mono.load();
-
-  final bricolage = FontLoader('Bricolage Grotesque');
-  bricolage.addFont(loadFile('assets/fonts/Archivo-ExtraBold.ttf'));
-  await bricolage.load();
-
-  final instrument = FontLoader('Instrument Sans');
-  instrument.addFont(loadFile('assets/fonts/Archivo-Regular.ttf'));
-  await instrument.load();
-
-  final jetbrains = FontLoader('JetBrains Mono');
-  jetbrains.addFont(loadFile('assets/fonts/IBMPlexMono-Medium.ttf'));
-  await jetbrains.load();
-}
+import 'capture_fonts.dart';
 
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await configureDependencies();
-    await _loadFonts();
+    await loadAppFonts();
   });
 
   final screens = [
