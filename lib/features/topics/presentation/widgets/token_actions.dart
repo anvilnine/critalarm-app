@@ -8,11 +8,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+/// How tall the tap box of each pill is: the 30 pill and 8 above and below.
+const double tokenActionsRowHeight = 46;
+
 /// Copy and Share, side by side.
 ///
 /// The card tells the user this token is shown once and to save it now, and
 /// the value is truncated to fit the row, so Copy is the only way to actually
 /// obey that instruction. Share stays for sending it somewhere else.
+///
+/// Each pill is 30 high and sits in a tap box as tall as the key-value row it
+/// goes in (46: the pill and the row's 8 above and below). The row is told
+/// with `trailingFillsRow` so it spends none of its own padding there.
 class TokenActions extends StatelessWidget {
   const TokenActions({
     required this.value,
@@ -50,29 +57,34 @@ class _CopyButton extends StatelessWidget {
     return Semantics(
       button: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () async {
           AppHaptics.selection();
           await Clipboard.setData(ClipboardData(text: value));
           if (!context.mounted) return;
           onCopied(LocaleKeys.create_topic_copied_toast.tr());
         },
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 30),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: Radii.fullAll,
-            border: Border.all(color: colors.hairline, width: 1.5),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            LocaleKeys.create_topic_copy_button.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colors.ink,
+        child: AppTapTarget(
+          minWidth: 0,
+          minHeight: tokenActionsRowHeight,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 30),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: Radii.fullAll,
+              border: Border.all(color: colors.hairline, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              LocaleKeys.create_topic_copy_button.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.ink,
+              ),
             ),
           ),
         ),
@@ -95,27 +107,32 @@ class _ShareButton extends StatelessWidget {
     return Semantics(
       button: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           AppHaptics.selection();
           unawaited(SharePlus.instance.share(ShareParams(text: value)));
         },
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 30),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: Radii.fullAll,
-            border: Border.all(color: colors.hairline, width: 1.5),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            LocaleKeys.create_topic_share_button.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colors.ink,
+        child: AppTapTarget(
+          minWidth: 0,
+          minHeight: tokenActionsRowHeight,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 30),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: Radii.fullAll,
+              border: Border.all(color: colors.hairline, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              LocaleKeys.create_topic_share_button.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.ink,
+              ),
             ),
           ),
         ),

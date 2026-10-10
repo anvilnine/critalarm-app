@@ -122,4 +122,54 @@ void main() {
 
     expect(partialOpacities(find.byType(AppIconButton)), isEmpty);
   });
+
+  testWidgets(
+    'a small button and an icon button are 48 to tap, drawn smaller',
+    (
+      tester,
+    ) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        wrap(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppButton(
+                label: 'Next',
+                size: AppButtonSize.sm,
+                onPressed: () => taps++,
+              ),
+              AppIconButton(
+                glyph: GlyphType.close,
+                ariaLabel: 'Close',
+                onPressed: () => taps++,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final small = find.byType(AppButton);
+      final icon = find.byType(AppIconButton);
+      expect(tester.getSize(small).height, 48);
+      expect(tester.getSize(icon), const Size(48, 48));
+      // What is drawn is as it was.
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: small,
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .height,
+        36,
+      );
+      // A tap in the room above the pill lands.
+      await tester.tapAt(tester.getTopLeft(small) + const Offset(20, 2));
+      await tester.tapAt(tester.getTopLeft(icon) + const Offset(24, 2));
+      expect(taps, 2);
+    },
+  );
 }

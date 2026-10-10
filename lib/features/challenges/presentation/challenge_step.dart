@@ -67,12 +67,15 @@ class ChallengeStep extends StatelessWidget {
         contentSortKey: const OrdinalSortKey(0),
         topBar: AppTopBar(
           title: '',
+          // The cross is a 48 tap box around its 44, which reaches 2 past it.
+          trailingTapRoom: 2,
           trailing: Semantics(
             sortKey: const OrdinalSortKey(4),
             child: AppDismissCross(
               onPressed: onLeave,
               label: LocaleKeys.challenges_leave.tr(),
               color: colors.onCanvas,
+              tapSize: kMinTapTarget,
             ),
           ),
         ),

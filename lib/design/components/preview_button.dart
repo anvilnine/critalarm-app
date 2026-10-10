@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +22,11 @@ class AppPreviewButton extends StatelessWidget {
     super.key,
   });
 
+  /// The drawn size. The tap area is a 48 box around it, so the button takes
+  /// 48 in a row: [tapRoom] on each side is for the row to take out of its
+  /// own padding.
   static const size = 40.0;
+  static const double tapRoom = (kMinTapTarget - size) / 2;
 
   final bool isPlaying;
   final VoidCallback onPressed;
@@ -43,39 +48,43 @@ class AppPreviewButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: isPlaying ? 32 : size,
-                height: isPlaying ? 32 : size,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isPlaying ? colors.highlight : colors.surface,
-                  border: isPlaying ? null : Border.all(color: colors.hairline),
-                ),
-                alignment: Alignment.center,
-                child: AppGlyph(
-                  isPlaying ? GlyphType.stop : GlyphType.play,
-                  size: 24,
-                  strokeWidth: 2,
-                  color: isPlaying ? colors.onHighlight : colors.ink,
-                ),
-              ),
-              if (isPlaying)
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _RingPainter(
-                      progress: (progress ?? 0).clamp(0, 1),
-                      track: colors.hairline,
-                      fill: colors.highlight,
-                    ),
+        child: AppTapTarget(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: isPlaying ? 32 : size,
+                  height: isPlaying ? 32 : size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isPlaying ? colors.highlight : colors.surface,
+                    border: isPlaying
+                        ? null
+                        : Border.all(color: colors.hairline),
+                  ),
+                  alignment: Alignment.center,
+                  child: AppGlyph(
+                    isPlaying ? GlyphType.stop : GlyphType.play,
+                    size: 24,
+                    strokeWidth: 2,
+                    color: isPlaying ? colors.onHighlight : colors.ink,
                   ),
                 ),
-            ],
+                if (isPlaying)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _RingPainter(
+                        progress: (progress ?? 0).clamp(0, 1),
+                        track: colors.hairline,
+                        fill: colors.highlight,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

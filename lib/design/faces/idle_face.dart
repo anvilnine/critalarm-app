@@ -141,14 +141,19 @@ class _IdleFaceState extends State<IdleFace>
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    // Tapping a sleeping face wakes it. Tapping it any other time does
-    // nothing, so this never eats a tap meant for something else.
-    onTap: _controller.isDozing ? () => unawaited(_controller.wake()) : null,
-    child: AnimatedBuilder(
-      animation: _morph,
-      builder: (context, _) => _face(),
+  Widget build(BuildContext context) => ExcludeSemantics(
+    // A decorative face, like every other face in a list or an empty state:
+    // a spoken "wake the face" button would be noise. The tap is a touch
+    // nicety and the screen reader has no use for it.
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Tapping a sleeping face wakes it. Tapping it any other time does
+      // nothing, so this never eats a tap meant for something else.
+      onTap: _controller.isDozing ? () => unawaited(_controller.wake()) : null,
+      child: AnimatedBuilder(
+        animation: _morph,
+        builder: (context, _) => _face(),
+      ),
     ),
   );
 }

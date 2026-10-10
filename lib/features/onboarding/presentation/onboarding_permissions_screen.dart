@@ -371,14 +371,22 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
               ),
               sliver: SliverToBoxAdapter(
                 child: state.isDenied
-                    ? AppEmptyState(
-                        // Softer than an error: nothing broke.
-                        faceState: FaceState.concerned,
-                        title: LocaleKeys.onboarding_permissions_denied_title
-                            .tr(),
-                        description: LocaleKeys
-                            .onboarding_permissions_denied_description
-                            .tr(),
+                    // Replaces the step the user just answered, so it is said
+                    // as it lands.
+                    ? Semantics(
+                        liveRegion: true,
+                        child: MergeSemantics(
+                          child: AppEmptyState(
+                            // Softer than an error: nothing broke.
+                            faceState: FaceState.concerned,
+                            title: LocaleKeys
+                                .onboarding_permissions_denied_title
+                                .tr(),
+                            description: LocaleKeys
+                                .onboarding_permissions_denied_description
+                                .tr(),
+                          ),
+                        ),
                       )
                     : view == null
                     // The statuses are still being read. The face sits

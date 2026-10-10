@@ -37,9 +37,13 @@ class PersonalizeTryBar extends StatelessWidget {
     final bar = this.bar;
     final content = switch (bar) {
       TryBarHidden() => const SizedBox(width: double.infinity),
+      // The button is a 36 pill in a 48 tap box. The shell gives up 6 above
+      // and below (it keeps 2), and each layout adds back what it needs, so
+      // nothing the bar draws moves.
       TryBarSell() => _shell(
         colors,
-        LayoutBuilder(
+        verticalPadding: 2,
+        child: LayoutBuilder(
           builder: (context, box) {
             final badge = ProBadge(
               label: planWordFor(bar.offer),
@@ -58,29 +62,37 @@ class PersonalizeTryBar extends StatelessWidget {
             if (isLarge || box.maxWidth < _rowMinWidth) {
               // No room for the words and the button side by side: the
               // badge and the words on one line, the button under them.
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: Spacing.s2,
-                    runSpacing: Spacing.s1,
-                    children: [badge, words],
-                  ),
-                  const SizedBox(height: Spacing.s2),
-                  button,
-                ],
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: Spacing.s2,
+                      runSpacing: Spacing.s1,
+                      children: [badge, words],
+                    ),
+                    // The button's box reaches 6 above it: 6 of the 8 gap.
+                    const SizedBox(height: Spacing.s2 - 6),
+                    button,
+                  ],
+                ),
               );
             }
+            Widget tall(Widget child) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: child,
+            );
             return Row(
               children: [
-                badge,
+                tall(badge),
                 const SizedBox(width: Spacing.s2),
                 Expanded(
                   child: box.maxWidth < _wordsMinWidth
                       ? const SizedBox.shrink()
-                      : words,
+                      : tall(words),
                 ),
                 const SizedBox(width: Spacing.s2),
                 button,
@@ -91,7 +103,7 @@ class PersonalizeTryBar extends StatelessWidget {
       ),
       TryBarConfirming() => _shell(
         colors,
-        Text(
+        child: Text(
           LocaleKeys.personalize_try_confirming.tr(),
           style: AppTypography.small(colors.ink2, fontSize: 13),
         ),
@@ -114,10 +126,14 @@ class PersonalizeTryBar extends StatelessWidget {
     );
   }
 
-  Widget _shell(AppColors colors, Widget child) => Container(
+  Widget _shell(
+    AppColors colors, {
+    required Widget child,
+    double verticalPadding = 8,
+  }) => Container(
     width: double.infinity,
     constraints: const BoxConstraints(minHeight: 52),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    padding: EdgeInsets.symmetric(horizontal: 14, vertical: verticalPadding),
     alignment: AlignmentDirectional.centerStart,
     decoration: BoxDecoration(
       color: colors.surface,

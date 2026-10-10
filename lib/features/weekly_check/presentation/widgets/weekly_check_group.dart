@@ -331,7 +331,13 @@ class _WeeklyCheckSeePlanRow extends StatelessWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        // The button is a 36 pill in a 48 tap box. The row gives up 6 of its
+        // 10 above and below, and each layout adds back what it needs, so
+        // nothing moves.
+        padding: EdgeInsets.symmetric(
+          horizontal: 4,
+          vertical: hasButton ? 4 : 10,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final scale = MediaQuery.textScalerOf(context).scale(1);
@@ -340,19 +346,28 @@ class _WeeklyCheckSeePlanRow extends StatelessWidget {
                 constraints.maxWidth < _stackBelowWidth;
             if (button == null) return spoken;
             if (stacks) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  spoken,
-                  const SizedBox(height: Spacing.s2),
-                  button,
-                ],
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    spoken,
+                    // The button's box reaches 6 above it.
+                    const SizedBox(height: Spacing.s2 - 6),
+                    button,
+                  ],
+                ),
               );
             }
             return Row(
               children: [
-                Expanded(child: spoken),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: spoken,
+                  ),
+                ),
                 const SizedBox(width: Spacing.s2),
                 button,
               ],
@@ -494,7 +509,9 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
             style: AppTypography.small(onSurface, fontSize: 13),
           ),
         if (label != null) ...[
-          const SizedBox(height: Spacing.s2),
+          // The button is a 36 pill in a 48 tap box: 6 less above it, and 6
+          // less of the padding below it.
+          const SizedBox(height: Spacing.s2 - 6),
           ReliabilityFixButton(
             label: label,
             checkTitle: title,
@@ -509,7 +526,7 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.only(top: 12, bottom: label != null ? 6 : 12),
       child: words,
     );
   }

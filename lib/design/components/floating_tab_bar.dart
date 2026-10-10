@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -111,8 +112,11 @@ class AppFloatingTabBar extends StatelessWidget {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Each slot is a 48 box around a 44 pill, so the bar gives up 2 of its
+    // padding on the sides the boxes reach, and 2 above and below. The
+    // pills, and the bar, stay where they were.
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.fromLTRB(6, 4, 4, 4),
       decoration: BoxDecoration(
         color: colors.tabBar,
         borderRadius: Radii.fullAll,
@@ -153,14 +157,14 @@ class AppFloatingTabBar extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 2),
                   if (onSearch != null) ...[
                     _wrap(
                       wrapButton,
                       AppNavButton.search,
                       _SearchSlot(label: searchLabel, onTap: onSearch!),
                     ),
-                    const SizedBox(width: 4),
+                    // The 48 boxes of the two buttons touch.
                   ],
                   _wrap(
                     wrapButton,
@@ -242,7 +246,7 @@ class _SearchRow extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 2),
         _CloseSlot(onTap: onClose),
       ],
     );
@@ -263,20 +267,26 @@ class _CloseSlot extends StatelessWidget {
       button: true,
       label: LocaleKeys.common_close.tr(),
       excludeSemantics: true,
-      child: InkWell(
+      child: AppTapTarget(
         onTap: () {
           AppHaptics.selection();
           onTap?.call();
         },
-        borderRadius: Radii.fullAll,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: AppGlyph(
-              GlyphType.close,
-              size: 18,
-              color: colors.onPanelMuted,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.selection();
+            onTap?.call();
+          },
+          borderRadius: Radii.fullAll,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: AppGlyph(
+                GlyphType.close,
+                size: 18,
+                color: colors.onPanelMuted,
+              ),
             ),
           ),
         ),
@@ -310,63 +320,67 @@ class _TabSlot extends StatelessWidget {
       // The flag dot is colour only, so say it out loud.
       value: item.showFlag ? LocaleKeys.common_needs_attention.tr() : null,
       excludeSemantics: true,
-      child: InkWell(
+      child: AppTapTarget(
         onTap: onTap,
-        borderRadius: Radii.fullAll,
-        child: AnimatedContainer(
-          duration: context.motion(AppDurations.quick),
-          curve: AppCurves.easeSpring,
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),
-          decoration: BoxDecoration(
-            color: isCurrent ? colors.yellow : Colors.transparent,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: iconsOnly
-                    ? SizedBox(
-                        width: 44,
-                        child: Center(
-                          child: AppGlyph(item.glyph, size: 20, color: fg),
+        minWidth: 0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: Radii.fullAll,
+          child: AnimatedContainer(
+            duration: context.motion(AppDurations.quick),
+            curve: AppCurves.easeSpring,
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),
+            decoration: BoxDecoration(
+              color: isCurrent ? colors.yellow : Colors.transparent,
+              borderRadius: Radii.fullAll,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Center(
+                  child: iconsOnly
+                      ? SizedBox(
+                          width: 44,
+                          child: Center(
+                            child: AppGlyph(item.glyph, size: 20, color: fg),
+                          ),
+                        )
+                      : Text(
+                          item.label.toUpperCase(),
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontDisplay,
+                            fontFamilyFallback:
+                                AppTypography.fontDisplayFallbacks,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            letterSpacing: 0.6,
+                            height: 1.1,
+                            color: fg,
+                          ),
                         ),
-                      )
-                    : Text(
-                        item.label.toUpperCase(),
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontDisplay,
-                          fontFamilyFallback:
-                              AppTypography.fontDisplayFallbacks,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          letterSpacing: 0.6,
-                          height: 1.1,
-                          color: fg,
+                ),
+                if (item.showFlag)
+                  Positioned(
+                    top: 4,
+                    right: iconsOnly ? 2 : -6,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: colors.high,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isCurrent ? colors.yellow : colors.panel,
+                          width: 2,
                         ),
-                      ),
-              ),
-              if (item.showFlag)
-                Positioned(
-                  top: 4,
-                  right: iconsOnly ? 2 : -6,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: colors.high,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isCurrent ? colors.yellow : colors.panel,
-                        width: 2,
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -386,27 +400,32 @@ class _SearchSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
+    void tap() {
+      AppHaptics.selection();
+      onTap();
+    }
+
     return Semantics(
       button: true,
       label: label,
-      child: InkWell(
-        onTap: () {
-          AppHaptics.selection();
-          onTap();
-        },
-        borderRadius: Radii.fullAll,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            borderRadius: Radii.fullAll,
-            border: Border.all(color: colors.panelLine, width: 1.5),
-          ),
-          child: Center(
-            child: AppGlyph(
-              GlyphType.search,
-              size: 20,
-              color: colors.onPanelMuted,
+      child: AppTapTarget(
+        onTap: tap,
+        child: InkWell(
+          onTap: tap,
+          borderRadius: Radii.fullAll,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: Radii.fullAll,
+              border: Border.all(color: colors.panelLine, width: 1.5),
+            ),
+            child: Center(
+              child: AppGlyph(
+                GlyphType.search,
+                size: 20,
+                color: colors.onPanelMuted,
+              ),
             ),
           ),
         ),
@@ -425,27 +444,32 @@ class _ComposeSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
+    void tap() {
+      AppHaptics.capture();
+      onTap();
+    }
+
     return Semantics(
       button: true,
       label: label,
-      child: InkWell(
-        onTap: () {
-          AppHaptics.capture();
-          onTap();
-        },
-        borderRadius: Radii.fullAll,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: colors.highlight,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Center(
-            child: AppGlyph(
-              GlyphType.plus,
-              size: 20,
-              color: colors.onHighlight,
+      child: AppTapTarget(
+        onTap: tap,
+        child: InkWell(
+          onTap: tap,
+          borderRadius: Radii.fullAll,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: colors.highlight,
+              borderRadius: Radii.fullAll,
+            ),
+            child: Center(
+              child: AppGlyph(
+                GlyphType.plus,
+                size: 20,
+                color: colors.onHighlight,
+              ),
             ),
           ),
         ),
