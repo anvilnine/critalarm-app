@@ -214,18 +214,16 @@ void main() {
       );
       final seen = <String>[(await h.engine.resume()).route!];
 
-      for (final step in ['welcome', 'how_it_rings', 'permissions']) {
+      for (final step in ['welcome', 'permissions']) {
         seen.add((await h.engine.finishStep(step)).route!);
       }
-      seen
-        ..add((await h.engine.finishStep('widgets')).route!)
-        ..add((await h.engine.finishStep('connect')).route!);
+      seen.add((await h.engine.finishStep('connect')).route!);
 
+      // The curl and the widgets are pages of the welcome, so this order
+      // goes from the welcome straight to the permissions.
       expect(seen, [
         '/onboarding/welcome',
-        '/onboarding/how-it-rings',
         '/onboarding',
-        '/onboarding/widgets',
         '/onboarding/connect',
         '/onboarding/test',
       ]);

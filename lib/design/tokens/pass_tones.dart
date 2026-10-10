@@ -2,9 +2,10 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
-/// The five passes of the Personalize stack.
+/// The passes of the Personalize stack, and the cards that borrow its look.
 ///
-/// The order is the order of the stack on screen, top to bottom.
+/// The order is the order of the stack on screen, top to bottom. [tokens] is
+/// not on the Personalize root: it is the last card of a topic's band stack.
 enum PassId {
   /// The alarm look. Its colour is the look in use, so a screen computes its
   /// [PassTone] and hands it to the card.
@@ -21,6 +22,10 @@ enum PassId {
 
   /// The app icon.
   appIcon,
+
+  /// A topic's access tokens. The last card of a band stack, never listed on
+  /// the Personalize root.
+  tokens,
 }
 
 /// The colours of one pass: the ground of its card and page, the text on it,
@@ -128,8 +133,8 @@ PassBadgeColors passBadgeColorsFor(
 
 /// The tone of [pass] in the theme [colors] belong to.
 ///
-/// Sound, challenge, widgets and app icon have one colour each. The look
-/// pass has the colour of the look in use, which lives in feature code, so
+/// Sound, challenge, widgets, app icon and tokens have one colour each. The
+/// look pass has the colour of the look in use, which lives in feature code, so
 /// for [PassId.look] this returns the standard look's tone (its ringing
 /// canvas and ink). A screen that knows the look builds its own [PassTone].
 PassTone passToneFor(PassId pass, AppColors colors) => switch (pass) {
@@ -146,4 +151,5 @@ PassTone passToneFor(PassId pass, AppColors colors) => switch (pass) {
   ),
   PassId.widgets => PassTone(ground: colors.cream, onGround: colors.ink),
   PassId.appIcon => PassTone(ground: colors.surface, onGround: colors.ink),
+  PassId.tokens => PassTone(ground: colors.cream, onGround: colors.ink),
 };

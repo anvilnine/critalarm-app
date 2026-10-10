@@ -8,3 +8,4 @@ export 'ambient_transition.dart';
 export 'hero_disc.dart';
 export 'hero_timeline.dart';
 export 'hero_tone.dart';
+export 'tab_shell_page.dart';

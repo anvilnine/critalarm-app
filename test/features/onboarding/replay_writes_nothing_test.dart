@@ -127,13 +127,7 @@ void main() {
       );
     }
 
-    expect(walked, [
-      'how_it_rings',
-      'permissions',
-      'widgets',
-      'connect',
-      'legacy_test',
-    ]);
+    expect(walked, ['permissions', 'connect', 'legacy_test']);
     expect(destination.isHome, isTrue);
     expect(dump(), before);
     // The dump is the before and after record for a review.
