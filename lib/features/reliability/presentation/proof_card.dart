@@ -248,7 +248,10 @@ class _ProofCardState extends State<ProofCard>
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+          // 6 less below than the 18 it was: the weekly check row adds it
+          // back (`weeklyCheckCardGive`), so a button in it has room for a
+          // 48 tap box.
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -268,7 +271,7 @@ class _ProofCardState extends State<ProofCard>
                   border: Border(top: BorderSide(color: colors.panelLine)),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.only(top: 8),
                   child: widget.weeklyCheck,
                 ),
               ),

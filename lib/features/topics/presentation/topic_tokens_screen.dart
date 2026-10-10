@@ -315,12 +315,15 @@ class _LoadFailed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(14),
+      // 6 less below than the 14: the retry button is a 36 pill in a 48 tap
+      // box.
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Semantics(liveRegion: true, child: TokenNote(message)),
-          const SizedBox(height: 10),
+          // 6 less than the 10, for the same box.
+          const SizedBox(height: 4),
           AppButton(
             label: LocaleKeys.topic_detail_retry_button.tr(),
             variant: AppButtonVariant.ghost,

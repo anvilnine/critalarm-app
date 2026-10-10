@@ -101,10 +101,18 @@ String inboxUnreadText(int count) => count > 99 ? '99+' : '$count';
 /// The white sheet the inbox rows sit on: a 28 point radius, rows divided by a
 /// hairline, no card per row.
 class AppInboxSheet extends StatelessWidget {
-  const AppInboxSheet({required this.children, super.key});
+  const AppInboxSheet({
+    required this.children,
+    this.padding = const EdgeInsets.all(6),
+    super.key,
+  });
 
   /// Normally [AppInboxRow]s.
   final List<Widget> children;
+
+  /// The room between the sheet's edge and its rows. A last row that is
+  /// a tap box may take the room under it.
+  final EdgeInsets padding;
 
   /// The sheet's corner radius.
   static const double radius = 28;
@@ -120,7 +128,7 @@ class AppInboxSheet extends StatelessWidget {
         boxShadow: isDark ? const [] : AppShadows.lightMd,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: padding,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

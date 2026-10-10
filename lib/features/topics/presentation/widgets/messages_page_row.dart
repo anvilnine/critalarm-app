@@ -170,9 +170,12 @@ class MessagesPageRow extends StatelessWidget {
                         ),
                     ],
                   ),
+                  // The glyph's box is 48 and its centre is where it was in
+                  // the 44 box. The 14 it hangs past the right edge are not
+                  // heard, as before: the page, not this row, owns that room.
                   Positioned(
-                    top: -10,
-                    right: -14,
+                    top: -12,
+                    right: -16,
                     child: MessageShareGlyph(
                       label: shareLabel,
                       onShare: onShare,

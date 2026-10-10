@@ -29,6 +29,7 @@ class TopicMessageRow extends StatelessWidget {
     required this.shareLabel,
     required this.onShare,
     this.isHigh = false,
+    this.bottomPadding = 12,
     super.key,
   });
 
@@ -37,6 +38,10 @@ class TopicMessageRow extends StatelessWidget {
   final String body;
   final String source;
   final bool isHigh;
+
+  /// The room under the row. 12 unless a control follows that is taller than
+  /// it was and takes the rest.
+  final double bottomPadding;
 
   /// What a screen reader says for the share glyph.
   final String shareLabel;
@@ -47,8 +52,8 @@ class TopicMessageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    final row = Padding(
+      padding: EdgeInsets.fromLTRB(14, 12, 14, bottomPadding),
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: isHigh
@@ -125,15 +130,27 @@ class TopicMessageRow extends StatelessWidget {
                     ),
                 ],
               ),
-              Positioned(
-                top: -10,
-                right: -14,
-                child: MessageShareGlyph(label: shareLabel, onShare: onShare),
-              ),
             ],
           ),
         ),
       ),
+    );
+    // The glyph is a 48 box around the same 16 glyph, 24 in from the right
+    // edge and 24 down from the top. It is placed on the whole row and not on
+    // the text column, because a tap outside the box that holds it is never
+    // heard: the column's box stops 14 short of the right edge and 12 below
+    // the top, and the glyph's old 44 box heard only the 30 by 34 inside it.
+    // The box reaches 2 past the right edge, which stays unheard.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        row,
+        Positioned(
+          top: 0,
+          right: -2,
+          child: MessageShareGlyph(label: shareLabel, onShare: onShare),
+        ),
+      ],
     );
   }
 }
@@ -150,13 +167,17 @@ class MessageShareGlyph extends StatelessWidget {
   final String label;
   final ValueChanged<Rect> onShare;
 
+  /// The tap box: the glyph is 16 in the middle of it. A row places it so the
+  /// glyph stays where it was when the box was 44, which is 2 up and 2 out.
+  static const double size = 48;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
       label: label,
       child: InkResponse(
-        radius: 22,
+        radius: MessageShareGlyph.size / 2,
         onTap: () {
           final box = context.findRenderObject() as RenderBox?;
           final origin = box == null || !box.hasSize
@@ -165,8 +186,8 @@ class MessageShareGlyph extends StatelessWidget {
           onShare(origin);
         },
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: MessageShareGlyph.size,
+          height: MessageShareGlyph.size,
           child: Center(
             child: AppGlyph(
               GlyphType.share,

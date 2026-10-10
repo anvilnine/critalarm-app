@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// How tall the tap box of each pill is: the 30 pill and 8 above and below.
-const double tokenActionsRowHeight = 46;
+/// The room a pill's tap box adds above and below it: the 30 pill and 8 above
+/// and below is 46. The same at every text size, so a row that gives up 8
+/// above and below keeps every pixel where it was.
+const double tokenActionsTapRoom = 8;
 
 /// Copy and Share, side by side.
 ///
@@ -24,20 +26,26 @@ class TokenActions extends StatelessWidget {
   const TokenActions({
     required this.value,
     required this.onCopied,
+    this.tapRoom = tokenActionsTapRoom,
     super.key,
   });
 
   final String value;
   final void Function(String message) onCopied;
 
+  /// The room each pill's tap box adds above and below it. The caller spends
+  /// that much of its own room there, so a caller with 9 above and below the
+  /// pill asks for 9, which makes the box 48.
+  final double tapRoom;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _CopyButton(value: value, onCopied: onCopied),
+        _CopyButton(value: value, onCopied: onCopied, tapRoom: tapRoom),
         const SizedBox(width: 6),
-        _ShareButton(value: value),
+        _ShareButton(value: value, tapRoom: tapRoom),
       ],
     );
   }
@@ -45,10 +53,15 @@ class TokenActions extends StatelessWidget {
 
 /// Puts the whole token on the clipboard, not the truncated form on screen.
 class _CopyButton extends StatelessWidget {
-  const _CopyButton({required this.value, required this.onCopied});
+  const _CopyButton({
+    required this.value,
+    required this.onCopied,
+    required this.tapRoom,
+  });
 
   final String value;
   final void Function(String message) onCopied;
+  final double tapRoom;
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +77,8 @@ class _CopyButton extends StatelessWidget {
           if (!context.mounted) return;
           onCopied(LocaleKeys.create_topic_copied_toast.tr());
         },
-        child: AppTapTarget(
-          minWidth: 0,
-          minHeight: tokenActionsRowHeight,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: tapRoom),
           child: Container(
             constraints: const BoxConstraints(minHeight: 30),
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -96,9 +108,10 @@ class _CopyButton extends StatelessWidget {
 /// Small pill button that opens the system share sheet with an endpoint or
 /// token value, matching index.html .kv .copy.
 class _ShareButton extends StatelessWidget {
-  const _ShareButton({required this.value});
+  const _ShareButton({required this.value, required this.tapRoom});
 
   final String value;
+  final double tapRoom;
 
   @override
   Widget build(BuildContext context) {
@@ -112,9 +125,8 @@ class _ShareButton extends StatelessWidget {
           AppHaptics.selection();
           unawaited(SharePlus.instance.share(ShareParams(text: value)));
         },
-        child: AppTapTarget(
-          minWidth: 0,
-          minHeight: tokenActionsRowHeight,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: tapRoom),
           child: Container(
             constraints: const BoxConstraints(minHeight: 30),
             padding: const EdgeInsets.symmetric(horizontal: 10),
