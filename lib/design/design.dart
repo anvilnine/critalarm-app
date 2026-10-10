@@ -3,6 +3,7 @@ library;
 
 export 'ambient/ambient.dart';
 export 'components/components.dart';
+export 'components/pass_bands.dart';
 export 'components/pass_card.dart';
 export 'components/pass_page.dart';
 export 'components/pass_route.dart';

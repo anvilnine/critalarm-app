@@ -35,6 +35,7 @@ export 'radios.dart';
 export 'readiness_pips.dart';
 export 'screen_scaffold.dart';
 export 'scrim.dart';
+export 'scroll_bar_title.dart';
 export 'scroll_fade.dart';
 export 'segmented_control.dart';
 export 'sheets.dart';

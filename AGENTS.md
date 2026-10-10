@@ -209,6 +209,9 @@ To add a step:
    - `requires`: step ids that must come earlier in any flow that lists it.
    - `ambientStep`: the `OnboardingAmbientStep` the canvas shows on that
      route. `onboardingStepForPath` reads it from the entry.
+     Each step has its own, with its own arrangement in
+     `OnboardingAmbientProfiles`, so the shapes glide whenever the flow moves
+     from one step to another. A test fails when two steps share one.
 3. When the user is done with the screen, call
    `finishOnboardingStep(context, OnboardingStepId.yourStep)`. A screen never
    names the step after it.
@@ -228,19 +231,42 @@ its own state for it: `real_ring` and `hook_up` today.
 `hook_up` is the last step of the default flow. It exists on iOS and
 Android, and counts as already done once a first message was received.
 
-`widgets` is an optional step. The default flow leaves it out and `legacy-1`
-lists it. It works at any position, the last one included, and it exists on
-iOS and Android only.
+`widgets` is an optional step. No bundled flow lists it, because the welcome
+shows the widgets as its last page. A flow that lists it shows it at any
+position, the last one included, and it exists on iOS and Android only.
 
 `welcome` is one step with three pages (`WelcomePage` in
-`domain/welcome_pages.dart`): the ring story, the priority ladder and the
-curl that rings a phone. The user swipes between them or taps Next, and Get
-started on the last page finishes the step. Until the first swipe or Next
-tap, a story that ends opens the next page. The rules for the button, for
-where a finished story hands on and for which page may play haptics are in
-that file. `how_it_rings` shows the same curl as a step of its own.
-`2026-10-b` leaves it out because the welcome already has it, and
-`2026-10-a` and `legacy-1` still list it.
+`domain/welcome_pages.dart`): the word page ("Welcome to Crit Alarm" with the
+face), the curl that rings a phone and the home screen widgets. The user
+swipes between them or taps Next, and Get started on the last page finishes
+the step. Until the first swipe or Next tap, the first story ends by opening
+the next page. The rules for the button, for where a finished story hands on
+and for which page may play haptics are in that file.
+
+- While the pager moves, the first page's big title, face and rings fade and
+  travel clear of the page edge instead of being cut by it
+  (`welcomeWordPartingAt`, driven by the `PageController` page value).
+- The picture on page 1 is one choice, `welcomeFirstPage` in
+  `domain/welcome_pages.dart` (`WelcomeFirstPage`: `word`, the default,
+  `nightFalls` and `staysSilent`). The other two are built and do not ship.
+  Settings > Developer options > Setup flow > Open a step lists "Welcome: night
+  falls" and "Welcome: stays silent", which open the real three pages as a
+  replay (`?demo=true&first=night`, `?demo=true&first=silent`). Showing one on
+  first launch is a change of that constant. Each has a timeline in
+  `domain/welcome_night_falls_timeline.dart` or
+  `domain/welcome_stays_silent_timeline.dart` and a part file that paints a
+  frame. Both fade and travel clear of the page edge with the pager like the
+  word page does. `nightFalls` draws its own title and hides the small one,
+  `staysSilent` keeps the small one under the picture.
+- The shapes behind the welcome follow the page value: each page has its own
+  arrangement (`OnboardingAmbientProfiles.welcomePages`), and the shell
+  paints the blend of two neighbours (`welcomeAmbientAt`) while a swipe moves
+  the pager. The welcome reports the page value through
+  `OnboardingAmbientScope.pagePosition`. Under reduced motion the pager
+  jumps, so the shapes jump too.
+- `how_it_rings` and `widgets` are still steps with their own routes, and a
+  flow that lists them shows them. No bundled flow does, because the welcome
+  already shows the curl and the widgets.
 
 `offer` is a frame around one paywall layout (`offer_step_screen.dart`). It
 holds no words, prices or benefit lists: it builds the layout an id names
@@ -932,7 +958,7 @@ server of the user's own. The Pro pack does not unlock it. The code is in
   and not a lock. A screen says in plain words that the feature is not
   available and opens no paywall. `weeklyCheckAccessFor` turns the decision
   into the four words this feature acts on (`WeeklyCheckAccess`).
-- The Reliability row (`WeeklyCheckGroup`) is one of three: the switch
+- The weekly row inside the proof card on Will it wake me (`WeeklyCheckCardRow`) is one of three: the switch
   with Hosted held, a locked row that opens the Hosted paywall through
   `AccessLock`, or one line saying it is not available on a server of your
   own.

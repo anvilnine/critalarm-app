@@ -27,6 +27,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
 - Setup shows where you are with three bars, and Back takes you one step back until your first topic is made
 - Setup now shows your first topic landing on the Topics screen, then points at it once when setup ends.
+- A new token is named in a sheet first, and its value and curl line are shown once when it is made.
+- A topic's tokens have their own page with a New token button.
+- Will it wake me shows the last eight weeks of tests and weekly checks as dots.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -69,6 +72,12 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The weekly delivery check row shows a See Hosted button in place of a switch when Hosted is not held. Only that button opens the paywall.
 - Add your photo on the Look page is now a try open to everyone: pick, crop and colour a photo to see it as your alarm. It stays in memory for that visit and nothing is saved until you press Use this look.
 - Personalize pages use fewer words: the Look, Wake-up challenge and Widgets pages lose lines the pictures already say, and a few labels are shorter.
+- A topic's look and wake-up challenge can be changed on the same pages Personalize uses.
+- The first welcome page is a big Welcome to Crit Alarm that shakes its last word and shouts.
+- Will it wake me answers Yes, Maybe or No, shows where an alarm would stop, and lists what to fix.
+- A topic's look, sound, wake-up challenge and tokens are four colour cards that open their own pages.
+- The welcome now has three pages: the word page, the curl that rings your phone, and the home screen widgets. The background shapes move with your swipe.
+- A topic's messages page shows how many messages there are with the last seven days as bars, and lists them by day. A message that rang has a red mark and says how long it rang and how it ended.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

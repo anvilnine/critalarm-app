@@ -54,6 +54,7 @@ import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart'
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_confetti.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_pass_stack.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -203,6 +204,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // Taken once: only the Home that setup hands over to finds a topic here.
     _glowTopic = setupFinishSignal.take();
     WidgetsBinding.instance.addObserver(this);
+    // So a topic's Sound card has its bars when the topic opens.
+    unawaited(warmTopicSoundPeaks());
     final prefs = getIt<SharedPreferences>();
     _isOneTopicClosed = prefs.getBool(oneTopicCardClosedKey) ?? false;
     unawaited(_readRingClaim());
@@ -904,6 +907,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           AppHaptics.selection();
           setState(() => _selectedTopic = topic.name);
         } else if (!isExample) {
+          primeTopicCanvas(context, topic.name);
           unawaited(context.push('/topics/${topic.name}'));
         }
       },

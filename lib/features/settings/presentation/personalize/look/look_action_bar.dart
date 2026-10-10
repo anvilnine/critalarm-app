@@ -17,6 +17,9 @@ import 'package:flutter/material.dart';
 /// photo" on an empty Yours. The tap on the button and on the try bar is the
 /// person's act of using the look, and [onKeep] decides what that does.
 ///
+/// On a page for one topic that has a look of its own, a text control under
+/// the button puts the topic back on the phone's look ([onSamePhone]).
+///
 /// The colours follow [page] through [fade], so the bar fades with the ground.
 class LookActionBar extends StatelessWidget {
   const LookActionBar({
@@ -26,6 +29,7 @@ class LookActionBar extends StatelessWidget {
     required this.fade,
     required this.page,
     required this.onKeep,
+    this.onSamePhone,
     super.key,
   });
 
@@ -43,6 +47,10 @@ class LookActionBar extends StatelessWidget {
 
   /// The tap that uses or keeps the centred look.
   final VoidCallback onKeep;
+
+  /// The tap on "Same as phone", or null when there is no such control: the
+  /// page is for the whole phone, or the topic already follows the phone.
+  final VoidCallback? onSamePhone;
 
   /// The height of the pill.
   static const double pillHeight = 58;
@@ -68,6 +76,8 @@ class LookActionBar extends StatelessWidget {
           const SizedBox(height: Spacing.s2),
         ],
         _held(_control()),
+        if (onSamePhone != null)
+          _SamePhone(onTap: onSamePhone!, fade: fade, page: page),
       ],
     ),
   );
@@ -131,6 +141,62 @@ class LookActionBar extends StatelessWidget {
         onTap: onKeep,
       ),
     };
+  }
+}
+
+/// "Same as phone": plain text in the page's text colour, underlined so it
+/// reads as a control, with a full-size target under it.
+class _SamePhone extends StatelessWidget {
+  const _SamePhone({
+    required this.onTap,
+    required this.fade,
+    required this.page,
+  });
+
+  final VoidCallback onTap;
+  final LookFade fade;
+  final ValueListenable<double> page;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = LocaleKeys.personalize_passes_look_same_as_phone.tr();
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        key: const ValueKey('look-same-as-phone'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Center(
+            child: ValueListenableBuilder<double>(
+              valueListenable: page,
+              builder: (context, page, _) {
+                final text = fade.textAt(page);
+                return Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  // A control under the button, so it stops growing at the
+                  // chrome's text size like the hint above it.
+                  textScaler: MediaQuery.textScalerOf(
+                    context,
+                  ).clamp(maxScaleFactor: kChromeMaxTextScale),
+                  style: AppTypography.body(text).copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    decoration: TextDecoration.underline,
+                    decorationColor: text,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -203,6 +269,10 @@ class _Pill extends StatelessWidget {
             horizontal: Spacing.s5,
             vertical: Spacing.s2,
           ),
+          // Centres the label in the pill. With no alignment the Container
+          // gives the Wrap the pill's minimum height, and the Wrap puts its
+          // one run at the top of it.
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isFilled ? text : null,
             borderRadius: BorderRadius.circular(LookActionBar.pillHeight / 2),
@@ -221,6 +291,9 @@ class _Pill extends StatelessWidget {
                 style: AppTypography.body(ink).copyWith(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
+                  // Tight, so a badge that wraps under the label at large text
+                  // does not leave the label with empty leading above it.
+                  height: 1.2,
                 ),
               ),
               if (badge != null)

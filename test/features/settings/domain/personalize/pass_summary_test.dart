@@ -26,7 +26,10 @@ PersonalizeSummary _summary({
 
 void main() {
   test('the passes come in the order of the stack', () {
-    expect(_summary().present.map((p) => p.pass), PassId.values);
+    expect(
+      _summary().present.map((p) => p.pass),
+      PassId.values.where((p) => p != PassId.tokens),
+    );
   });
 
   group('look', () {

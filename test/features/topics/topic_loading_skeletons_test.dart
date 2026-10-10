@@ -10,12 +10,10 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
-import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
-import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/messages_page_row.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
-import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,96 +36,6 @@ void main() {
       getIt<IncidentRepository>(),
     );
   }
-
-  group('TopicTokensSection loading state', () {
-    testWidgets(
-      'shows AppTokensSectionSkeleton when loading and tokens are empty',
-      (
-        tester,
-      ) async {
-        final cubit = getIt<TopicTokensCubit>()
-          ..emit(const TopicTokensState(status: TopicTokensStatus.loading));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: buildLightTheme(),
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: TopicTokensSection(
-                  topicName: 'prod-db',
-                  cubit: cubit,
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(AppTokensSectionSkeleton), findsOneWidget);
-        expect(find.byType(AppTokenRowSkeleton), findsNWidgets(2));
-        expect(find.byType(AppButtonSkeleton), findsOneWidget);
-      },
-    );
-
-    testWidgets('swaps skeleton for token rows once tokens load', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: buildLightTheme(),
-          home: const Scaffold(
-            body: SingleChildScrollView(
-              child: TopicTokensSection(topicName: 'prod-db'),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-
-      expect(find.byType(AppTokensSectionSkeleton), findsNothing);
-      expect(find.text('Token 1'), findsOneWidget);
-    });
-
-    testWidgets('animates new token banner on creation and dismissal', (
-      tester,
-    ) async {
-      final cubit = getIt<TopicTokensCubit>()
-        ..emit(
-          const TopicTokensState(
-            status: TopicTokensStatus.ready,
-            newToken: 'secret-token-xyz',
-            newTokenName: 'api-key',
-          ),
-        );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: buildLightTheme(),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: TopicTokensSection(
-                topicName: 'prod-db',
-                cubit: cubit,
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.text('secret-token-xyz'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('new_token_secret-token-xyz')),
-        findsOneWidget,
-      );
-
-      cubit.dismissNewToken();
-      await tester.pumpAndSettle();
-
-      expect(find.text('secret-token-xyz'), findsNothing);
-    });
-  });
 
   group('TopicDetailScreen messages loading skeleton', () {
     testWidgets('shows AppMessageCardSkeleton under MESSAGES when loading', (
@@ -347,7 +255,7 @@ void main() {
   });
 
   group('TopicMessagesScreen loading skeleton', () {
-    testWidgets('shows 3 AppMessageCardSkeleton cards while loading', (
+    testWidgets('shows four skeleton rows while loading', (
       tester,
     ) async {
       final cubit = makeDetailCubit()
@@ -369,7 +277,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(AppMessageCardSkeleton), findsNWidgets(3));
+      expect(find.byType(MessagesPageRowSkeleton), findsNWidgets(4));
       await cubit.close();
     });
   });

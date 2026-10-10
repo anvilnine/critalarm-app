@@ -13,6 +13,7 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_photo_hold.dart';
 import 'package:critalarm/features/settings/domain/personalize/own_photo_try_rules.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -51,6 +52,9 @@ void _say(BuildContext context, String message) {
 ///   written anywhere. The person sees it as their alarm, and
 ///   [keepHeldOwnPhoto] is what keeps it later.
 ///
+/// [scope] says where [select] writes the own look: the phone's, or one
+/// topic's. The photo is the one app-wide photo either way.
+///
 /// The picked file is decoded once. The crop step shows that picture and
 /// the kept or held photo is cut from it.
 ///
@@ -63,6 +67,7 @@ Future<bool> addOwnPhoto(
   BuildContext context, {
   required OwnPhotoHold hold,
   bool select = true,
+  PassScope scope = const EverywhereScope(),
 }) async {
   final picker = getIt<OwnPhotoPicker>();
   final store = getIt<OwnLookStore>();
@@ -165,7 +170,7 @@ Future<bool> addOwnPhoto(
     // A photo that was held is older than the one just saved.
     hold.drop();
     if (select) {
-      await getIt<AlarmStyleChoices>().setDefault(AlarmStyleId.own.id);
+      await saveLook(scope, getIt<AlarmStyleChoices>(), AlarmStyleId.own.id);
     }
     return true;
   } finally {
@@ -176,8 +181,9 @@ Future<bool> addOwnPhoto(
 }
 
 /// Keeps the photo [hold] holds in memory: writes it as the one photo with
-/// the colour picked for it, and makes the own look the phone's when
-/// [select] is true. True when it was saved. The held photo is let go once
+/// the colour picked for it, and makes the own look the one for [scope]
+/// (the phone's, or one topic's) when [select] is true. True when it was
+/// saved. The held photo is let go once
 /// the saved one is ready to draw.
 ///
 /// The caller has already asked the lock rule (`keepOrOpenPaywall`) and got
@@ -187,6 +193,7 @@ Future<bool> keepHeldOwnPhoto(
   BuildContext context,
   OwnPhotoHold hold, {
   bool select = true,
+  PassScope scope = const EverywhereScope(),
 }) async {
   final usecase = getIt<ImportOwnPhotoUsecase>();
   final keeper = getIt<OwnAlarmLookKeeper>();
@@ -221,7 +228,7 @@ Future<bool> keepHeldOwnPhoto(
   }
   hold.drop();
   if (select) {
-    await getIt<AlarmStyleChoices>().setDefault(AlarmStyleId.own.id);
+    await saveLook(scope, getIt<AlarmStyleChoices>(), AlarmStyleId.own.id);
   }
   return true;
 }

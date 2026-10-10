@@ -1,5 +1,6 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/pass_bands.dart';
 import 'package:critalarm/design/components/pass_card.dart';
 import 'package:critalarm/design/components/pass_page.dart';
 import 'package:critalarm/design/components/pass_route.dart';
@@ -18,7 +19,7 @@ import 'package:flutter/material.dart';
 // the capture tool can draw one at a time. The words are made up for the
 // gallery.
 
-/// The four sections, one after another.
+/// The five sections, one after another.
 class PassesSection extends StatelessWidget {
   const PassesSection({super.key});
 
@@ -30,6 +31,8 @@ class PassesSection extends StatelessWidget {
       PassCardsGallery(),
       SizedBox(height: 48),
       PassStackGallery(),
+      SizedBox(height: 48),
+      PassBandsGallery(),
       SizedBox(height: 48),
       PassPageGallery(),
       SizedBox(height: 48),
@@ -245,6 +248,7 @@ WidgetBuilder passDemoThumbnail(PassId pass) => switch (pass) {
       ),
     );
   },
+  PassId.tokens => (context) => const SizedBox.shrink(),
 };
 
 List<AppPassCard> _cards(BuildContext context, List<PassDemo> demos) {
@@ -463,6 +467,164 @@ class PassStackGallery extends StatelessWidget {
                         textScale: scale,
                       ),
                     ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The band stack.
+// ---------------------------------------------------------------------------
+
+/// The four cards of a topic: Look, Sound, Wake-up challenge and Tokens.
+/// [tokens] is the Tokens card's value, empty for none.
+List<AppPassCard> passBandDemoCards(
+  BuildContext context, {
+  String tokens = '2',
+  String look = 'Standard',
+  String sound = 'Piano',
+  bool hasTag = false,
+}) {
+  final colors = context.appColors;
+  return [
+    AppPassCard(
+      pass: PassId.look,
+      tone: passToneFor(PassId.look, colors),
+      label: 'Look',
+      value: look,
+      thumbnail: passDemoThumbnail(PassId.look),
+      onTap: (_) {},
+    ),
+    AppPassCard(
+      pass: PassId.sound,
+      tone: passToneFor(PassId.sound, colors),
+      label: 'Sound',
+      value: sound,
+      thumbnail: passDemoThumbnail(PassId.sound),
+      onTap: (_) {},
+    ),
+    AppPassCard(
+      pass: PassId.challenge,
+      tone: passToneFor(PassId.challenge, colors),
+      label: 'Wake-up challenge',
+      value: 'Off',
+      tag: hasTag ? 'Pro' : null,
+      isOn: false,
+      thumbnail: passDemoThumbnail(PassId.challenge),
+      onTap: (_) {},
+    ),
+    AppPassCard(
+      pass: PassId.tokens,
+      tone: passToneFor(PassId.tokens, colors),
+      label: 'Tokens',
+      value: tokens,
+      onTap: (_) {},
+    ),
+  ];
+}
+
+/// The band stack in a column [width] wide at text [textScale], on the sheet
+/// colour a topic page has, with a margin of 16.
+class PassBandsDemo extends StatelessWidget {
+  const PassBandsDemo({
+    required this.width,
+    this.textScale = 1,
+    this.tokens = '2',
+    this.look = 'Standard',
+    this.sound = 'Piano',
+    this.hasTag = false,
+    super.key,
+  });
+
+  final double width;
+  final double textScale;
+  final String tokens;
+  final String look;
+  final String sound;
+  final bool hasTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(textScale),
+      ),
+      child: SizedBox(
+        width: width,
+        child: ColoredBox(
+          color: colors.canvas,
+          child: Padding(
+            padding: const EdgeInsets.all(Spacing.s4),
+            child: AppPassBands(
+              groupLabel: 'Topic settings',
+              cards: passBandDemoCards(
+                context,
+                tokens: tokens,
+                look: look,
+                sound: sound,
+                hasTag: hasTag,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The band stack at 390 and 320 wide, with a short and a long value, a tag,
+/// an empty value, and flat at text scale 1.3 and 2.0.
+class PassBandsGallery extends StatelessWidget {
+  const PassBandsGallery({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const shots = <(String, PassBandsDemo)>[
+      ('390 wide', PassBandsDemo(width: 390 + 32)),
+      ('320 wide', PassBandsDemo(width: 320 + 32)),
+      (
+        'a long value, a tag, an empty count',
+        PassBandsDemo(
+          width: 390 + 32,
+          look: 'Ringing red with a very long name',
+          sound: 'My recording of the kitchen timer',
+          hasTag: true,
+          tokens: '',
+        ),
+      ),
+      ('text 1.3: flat', PassBandsDemo(width: 390 + 32, textScale: 1.3)),
+      ('text 2.0: flat', PassBandsDemo(width: 390 + 32, textScale: 2)),
+    ];
+    return Column(
+      key: const ValueKey('gallery-pass-bands'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _Heading(
+          'Pass bands',
+          'The compact stack, for a page that has its own header and scroll. '
+              'No header, no back ring, no scroll: it takes the width it is '
+              'given. Cards are 190 tall with a 104 step and the last is 124 '
+              'with four round corners. From text scale 1.3 they stand in a '
+              'column. A card with an empty value keeps its height and a card '
+              'with no thumbnail uses the whole width.',
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (name, demo) in shots)
+                Padding(
+                  padding: const EdgeInsets.only(right: Spacing.s4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_Caption(name), demo],
                   ),
                 ),
             ],
@@ -797,6 +959,7 @@ class _PassFramePreviewState extends State<PassFramePreview> {
     PassId.challenge => PassPageVariant.challenge,
     PassId.widgets => PassPageVariant.widgets,
     PassId.appIcon => PassPageVariant.appIcon,
+    PassId.tokens => throw UnsupportedError('Tokens has no page variant'),
   };
 
   @override

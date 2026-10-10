@@ -14,6 +14,7 @@ import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/personalize/challenge_shelf_rules.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_tile.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_live.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -36,8 +37,14 @@ import 'package:flutter/material.dart';
 ///
 /// The choice here is for topics made from now on. A topic that exists keeps
 /// what its own page says.
+///
+/// [scope] is the whole phone, or one topic. For a topic the saved choice is
+/// that topic's own, the pick control saves it for that topic and nothing
+/// else, and the line under the shelf says so. The rules are the same.
 class ChallengePassScreen extends StatefulWidget {
-  const ChallengePassScreen({super.key});
+  const ChallengePassScreen({this.scope = const EverywhereScope(), super.key});
+
+  final PassScope scope;
 
   @override
   State<ChallengePassScreen> createState() => _ChallengePassScreenState();
@@ -75,18 +82,19 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
     unawaited(Navigator.of(context).push(ChallengeTryPage.route(challenge)));
   }
 
-  /// The pick control: keep [tile] for new topics, or sell.
+  /// The pick control: keep [tile] for [PassScope] (new topics, or one
+  /// topic), or sell.
   Future<void> _pick(ShelfTile tile) async {
     final kind = tile.kind;
     if (kind == null) {
       // Taking a challenge away needs no plan.
       assert(shelfOffTapAnswer() is DoIt, 'turning challenges off is free');
-      await _choices.setDefaultForNewTopics(null);
+      await saveChallenge(widget.scope, _choices, null);
       return;
     }
     switch (await _answer(ShelfTap.pick)) {
       case DoIt():
-        await _choices.setDefaultForNewTopics(kind);
+        await saveChallenge(widget.scope, _choices, kind);
       case OpenPaywall(:final offer):
         if (!mounted) return;
         await openPaywallFor(
@@ -112,13 +120,14 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
 
   @override
   Widget build(BuildContext context) => PassLiveBuilder(
+    scope: widget.scope,
     builder: (context, live) {
       final colors = context.appColors;
       final tone = live.toneOf(PassId.challenge);
       final decision = _decision;
       final isPlanRead = _access.isPlanRead;
       final chosen = shelfChosenFor(
-        saved: _choices.defaultForNewTopics,
+        saved: challengeSavedFor(widget.scope, _choices),
         decision: decision,
       );
       final footer = shelfFooterFor(decision: decision, isPlanRead: isPlanRead);
@@ -150,6 +159,7 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
                 isPlanRead: isPlanRead,
                 onOpen: _open,
                 onPick: (tile) => unawaited(_pick(tile)),
+                isForTopic: widget.scope.isTopic,
               ),
             ),
           ),
@@ -163,7 +173,10 @@ class _ChallengePassScreenState extends State<ChallengePassScreen> {
             ),
             sliver: SliverToBoxAdapter(
               child: Text(
-                LocaleKeys.personalize_passes_challenge_scope_note.tr(),
+                widget.scope is TopicScope
+                    ? LocaleKeys.personalize_passes_challenge_topic_scope_note
+                          .tr(namedArgs: {'topic': widget.scope.topic!})
+                    : LocaleKeys.personalize_passes_challenge_scope_note.tr(),
                 style: AppTypography.mono(tone.valueMuted, fontSize: 12),
               ),
             ),
@@ -226,6 +239,7 @@ class _Shelf extends StatelessWidget {
     required this.isPlanRead,
     required this.onOpen,
     required this.onPick,
+    required this.isForTopic,
   });
 
   final List<ShelfTile> tiles;
@@ -234,6 +248,9 @@ class _Shelf extends StatelessWidget {
   final bool isPlanRead;
   final void Function(Challenge challenge) onOpen;
   final void Function(ShelfTile tile) onPick;
+
+  /// Whether the pick control saves for one topic, which its spoken label says.
+  final bool isForTopic;
 
   /// What the tile asks, for a screen reader only. It is not drawn, so the
   /// tiles stay apart by ear.
@@ -267,12 +284,15 @@ class _Shelf extends StatelessWidget {
         ? planWordFor((decision as FeatureLocked).offer)
         : null;
     final pickLabel = pick == ShelfPick.locked && plan != null
-        ? LocaleKeys.personalize_passes_challenge_pick_label_locked.tr(
-            namedArgs: {'name': name, 'plan': plan},
-          )
-        : LocaleKeys.personalize_passes_challenge_pick_label.tr(
-            namedArgs: {'name': name},
-          );
+        ? (isForTopic
+                  ? LocaleKeys
+                        .personalize_passes_challenge_pick_label_topic_locked
+                  : LocaleKeys.personalize_passes_challenge_pick_label_locked)
+              .tr(namedArgs: {'name': name, 'plan': plan})
+        : (isForTopic
+                  ? LocaleKeys.personalize_passes_challenge_pick_label_topic
+                  : LocaleKeys.personalize_passes_challenge_pick_label)
+              .tr(namedArgs: {'name': name});
     return ChallengeTile(
       key: ValueKey('challenge-tile-${tile.kind?.id ?? 'off'}'),
       tile: tile,

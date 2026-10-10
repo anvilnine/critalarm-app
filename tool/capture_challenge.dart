@@ -88,7 +88,6 @@ import 'package:critalarm/features/challenges/presentation/challenge.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_try.dart';
 import 'package:critalarm/features/challenges/presentation/hold_to_skip_button.dart';
-import 'package:critalarm/features/challenges/presentation/topic_challenge_row.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
@@ -798,7 +797,7 @@ void main() {
               // under reduce motion, which lays out twice in this harness.
               isStill: false,
             );
-            final row = find.byType(TopicChallengeRow);
+            final row = find.byKey(const ValueKey('topic-pass-challenge'));
             await tester.ensureVisible(row);
             await tester.pump(const Duration(milliseconds: 300));
             await _save(

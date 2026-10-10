@@ -15,10 +15,10 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/personalize/pass_summary.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/look_pass_tone.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -33,11 +33,16 @@ class PassLive {
     required this.isPlanRead,
     required this.decisions,
     required this.challengeKind,
+    required this.scope,
   });
 
   final PersonalizeSummary summary;
 
-  /// The look that rings now: `AlarmStyleGate.styleFor(null)`.
+  /// What the page is for: the whole phone or one topic.
+  final PassScope scope;
+
+  /// The look that rings now: `AlarmStyleGate.styleFor(topic)`, which is the
+  /// phone's own look for the whole phone.
   final AlarmStyle lookStyle;
 
   final AppColors colors;
@@ -45,18 +50,16 @@ class PassLive {
   final bool isPlanRead;
   final Map<PassId, FeatureDecision> decisions;
 
-  /// The challenge the card shows: the saved default for new topics, or null
-  /// when none is saved or challenges are locked (the card says Off).
+  /// The challenge the card shows: the saved default for new topics, or the
+  /// topic's own in topic scope. Null when none is saved or challenges are
+  /// locked (the card says Off).
   final ChallengeKind? challengeKind;
 
   /// The pass's label, in normal case. The card upper-cases it.
-  String labelOf(PassId pass) => switch (pass) {
-    PassId.look => LocaleKeys.alarm_styles_strip_title.tr(),
-    PassId.sound => LocaleKeys.personalize_sound_title.tr(),
-    PassId.challenge => LocaleKeys.challenges_strip_title.tr(),
-    PassId.widgets => LocaleKeys.personalize_widgets_row.tr(),
-    PassId.appIcon => LocaleKeys.personalize_app_icon_row.tr(),
-  };
+  String labelOf(PassId pass) {
+    final label = passLabelFor(pass, scope);
+    return label.key.tr(namedArgs: label.namedArgs);
+  }
 
   /// The pass's value, translated.
   String valueOf(PassId pass) => switch (summary.of(pass).value) {
@@ -91,15 +94,22 @@ class PassLive {
 /// The root hands it the sound's name and the icon showing now, which it
 /// reads from its own state. The pass pages leave them out, because they read
 /// only the passes they draw.
+///
+/// [scope] is the whole phone, or one topic. In topic scope the look is the
+/// one that rings for that topic and the challenge is the topic's own.
 class PassLiveBuilder extends StatefulWidget {
   const PassLiveBuilder({
     required this.builder,
     this.soundName,
     this.appIcon,
+    this.scope = const EverywhereScope(),
     super.key,
   });
 
   final Widget Function(BuildContext context, PassLive live) builder;
+
+  /// The whole phone, or one topic.
+  final PassScope scope;
   final String? soundName;
   final AppIcon? appIcon;
 
@@ -139,10 +149,11 @@ class _PassLiveBuilderState extends State<PassLiveBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final style = alarmStyleOf(getIt<AlarmStyleGate>().styleFor(null));
+    final scope = widget.scope;
+    final style = alarmStyleOf(getIt<AlarmStyleGate>().styleFor(scope.topic));
     final challengesLocked =
         _access.decide(AppFeature.wakeUpChallenges) is FeatureLocked;
-    final savedChallenge = getIt<ChallengeChoices>().defaultForNewTopics;
+    final savedChallenge = challengeSavedFor(scope, getIt<ChallengeChoices>());
     final summary = personalizeSummaryFor(
       lookNameKey: style.nameKey,
       lookIsStandard: style.id.isFree,
@@ -164,6 +175,7 @@ class _PassLiveBuilderState extends State<PassLiveBuilder> {
           item.pass: _access.decide(item.feature),
       },
       challengeKind: challengesLocked ? null : savedChallenge,
+      scope: scope,
     );
     return widget.builder(context, live);
   }

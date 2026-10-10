@@ -41,8 +41,8 @@ void main() {
       expect(fill.position, 0);
     });
 
-    test('the first bar is half full on how it rings in 2026-10-a', () {
-      final steps = BundledOnboardingFlows.october2026A.steps;
+    test('the first bar is half full on how it rings, if a flow lists it', () {
+      const steps = ['welcome', 'how_it_rings', 'connect', 'permissions'];
       expect(fillAt('welcome', steps).bars, [0, 0, 0]);
       expect(fillAt('how_it_rings', steps).bars, [0.5, 0, 0]);
     });
@@ -135,8 +135,15 @@ void main() {
     });
 
     test('in the middle it shows what the next counted step shows', () {
-      // The first shipped order has widgets between two Set up steps.
-      final steps = BundledOnboardingFlows.legacy.steps;
+      // A flow with widgets between two Set up steps.
+      const steps = [
+        'welcome',
+        'how_it_rings',
+        'permissions',
+        'widgets',
+        'connect',
+        'legacy_test',
+      ];
       expect(fillAt('widgets', steps), fillAt('connect', steps));
       expect(fillAt('widgets', steps).bars, [1, 0.5, 0]);
     });

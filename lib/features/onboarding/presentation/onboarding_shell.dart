@@ -15,11 +15,13 @@ import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dar
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/model/welcome_ambient.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
@@ -40,6 +42,53 @@ OnboardingFlowEngine? _appFlowEngine() =>
     ? getIt<OnboardingFlowEngine>()
     : null;
 
+/// Where a pager on the step on screen is, as a page value, for the canvas
+/// to follow. Null while no pager reports. The welcome step reports its
+/// pages, so the shapes behind it glide with a swipe.
+class AmbientPagePosition extends ChangeNotifier
+    implements ValueListenable<double?> {
+  double? _value;
+  bool _followsPager = true;
+  bool _isDisposed = false;
+
+  @override
+  double? get value => _value;
+
+  /// True when the canvas paints [value] as it comes, frame by frame, because
+  /// a pager is moving the page value itself. False when the page changed
+  /// without a pager to move it, and the canvas glides there on its own.
+  bool get followsPager => _followsPager;
+
+  /// Reports the pager's page value. Called while a frame is being drawn,
+  /// the listeners hear of it after that frame.
+  void report(double page, {bool followsPager = true}) {
+    if (_value == page && _followsPager == followsPager) return;
+    _value = page;
+    _followsPager = followsPager;
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      scheduler.addPostFrameCallback((_) {
+        if (!_isDisposed) notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// Forgets the position without telling anyone. The shell calls it as a
+  /// step changes, where it is about to rebuild by itself.
+  void clear() {
+    _value = null;
+    _followsPager = true;
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+}
+
 /// Controller coordinating ambient canvas step changes and direction within
 /// the onboarding flow. It also carries what the step on screen asks of the
 /// shell's top bar: the mood of the small face and whether Back is held.
@@ -53,6 +102,10 @@ class OnboardingAmbientController extends ChangeNotifier {
   AmbientMotionVariant _variant = AmbientMotionVariant.drift;
   TravellingFaceMood? _faceMood;
   bool _isBackHeld = false;
+
+  /// The page value of a pager on the step on screen, for the canvas to
+  /// follow. See [AmbientPagePosition].
+  final AmbientPagePosition pagePosition = AmbientPagePosition();
 
   OnboardingAmbientStep get step => _step;
   AmbientDirection get direction => _direction;
@@ -109,6 +162,13 @@ class OnboardingAmbientController extends ChangeNotifier {
   void resetForStep() {
     _faceMood = null;
     _isBackHeld = false;
+    pagePosition.clear();
+  }
+
+  @override
+  void dispose() {
+    pagePosition.dispose();
+    super.dispose();
   }
 }
 
@@ -557,12 +617,33 @@ class _OnboardingShellState extends State<OnboardingShell>
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: AmbientCanvas(
-              key: const ValueKey('onboarding-ambient-canvas'),
-              profile: currentProfile,
-              variant: _controller.variant,
-              direction: _controller.direction,
-              reduceMotion: context.reduceMotion,
+            // The welcome step reports where its pager is, and the shapes
+            // follow it. Any other step, or the welcome before its pager
+            // has moved, uses the step's own profile.
+            child: ValueListenableBuilder<double?>(
+              valueListenable: _controller.pagePosition,
+              builder: (context, position, _) {
+                final isOnWelcome =
+                    position != null &&
+                    _controller.step == OnboardingAmbientStep.welcome;
+                final isLive =
+                    isOnWelcome && _controller.pagePosition.followsPager;
+                return AmbientCanvas(
+                  key: const ValueKey('onboarding-ambient-canvas'),
+                  profile: isOnWelcome
+                      ? welcomeAmbientAt(
+                          OnboardingAmbientProfiles.welcomePages(
+                            context.appColors,
+                          ),
+                          position,
+                        )
+                      : currentProfile,
+                  variant: _controller.variant,
+                  direction: _controller.direction,
+                  reduceMotion: context.reduceMotion,
+                  isLive: isLive,
+                );
+              },
             ),
           ),
         ),

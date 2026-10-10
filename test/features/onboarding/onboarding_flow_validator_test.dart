@@ -85,7 +85,6 @@ void main() {
       expect(BundledOnboardingFlows.october2026A.id, '2026-10-a');
       expect(BundledOnboardingFlows.october2026A.steps, [
         'welcome',
-        'how_it_rings',
         'connect',
         'permissions',
         'first_topic',
@@ -95,9 +94,7 @@ void main() {
       expect(BundledOnboardingFlows.legacy.id, 'legacy-1');
       expect(BundledOnboardingFlows.legacy.steps, [
         'welcome',
-        'how_it_rings',
         'permissions',
-        'widgets',
         'connect',
         'legacy_test',
       ]);

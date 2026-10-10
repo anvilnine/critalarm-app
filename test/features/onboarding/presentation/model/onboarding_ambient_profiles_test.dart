@@ -91,7 +91,7 @@ void main() {
       );
       expect(
         onboardingStepForPath('/onboarding/test'),
-        OnboardingAmbientStep.connected,
+        OnboardingAmbientStep.legacyTest,
       );
     });
 

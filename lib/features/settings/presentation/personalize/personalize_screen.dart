@@ -144,6 +144,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       PassId.challenge => AppRoute.personalizeChallenge,
       PassId.widgets => AppRoute.personalizeWidgets,
       PassId.appIcon => AppRoute.appIcon,
+      PassId.tokens => throw UnsupportedError('The root has no Tokens card'),
     };
     unawaited(
       context
@@ -205,6 +206,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
                   PassId.appIcon => PassThumbs.appIcon(
                     _icon ?? AppIcon.standard,
                   ),
+                  PassId.tokens => (_) => const SizedBox.shrink(),
                 };
               }
 

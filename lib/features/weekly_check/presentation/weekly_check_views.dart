@@ -137,6 +137,75 @@ WeeklyCheckBodyView weeklyCheckBodyView({
   );
 }
 
+/// Which row the weekly check draws inside the proof card.
+///
+/// It follows [WeeklyCheckStanding], which comes from `FeatureAccess`, so the
+/// card decides nothing about plans. Only [held] has a switch: a row that is
+/// locked or not offered never shows one.
+enum WeeklyCheckCardKind {
+  /// Hosted is held. The title, a line and the real switch.
+  held,
+
+  /// Hosted is not held on Crit Alarm Cloud. The title, a line and, once the
+  /// plan is read, a "See Hosted" button. No switch.
+  locked,
+
+  /// A server of the user's own, where the check does not exist. One line
+  /// and nothing to press.
+  notOffered;
+
+  bool get hasSwitch => this == held;
+}
+
+/// The row for [standing].
+WeeklyCheckCardKind weeklyCheckCardKindFor(WeeklyCheckStanding standing) =>
+    switch (standing) {
+      WeeklyCheckStanding.notOffered => WeeklyCheckCardKind.notOffered,
+      WeeklyCheckStanding.locked => WeeklyCheckCardKind.locked,
+      WeeklyCheckStanding.neverOn ||
+      WeeklyCheckStanding.off ||
+      WeeklyCheckStanding.waiting ||
+      WeeklyCheckStanding.received ||
+      WeeklyCheckStanding.missedOnce ||
+      WeeklyCheckStanding.missedRepeatedly ||
+      WeeklyCheckStanding.tokenRefused ||
+      WeeklyCheckStanding.noToken ||
+      WeeklyCheckStanding.on => WeeklyCheckCardKind.held,
+    };
+
+/// Whether the locked row shows its button: the plan has been read, so there
+/// is a plan word, and the lock has a way to open it. Until then the row has
+/// no badge and no button, as nothing is sold on a guess.
+bool weeklyCheckCardShowsSeePlan({
+  required String? planWord,
+  required bool canUnlock,
+}) => planWord != null && canUnlock;
+
+/// The next round as `Monday 09:00`, in the phone's own time.
+String weeklyCheckNextRound(int seconds) =>
+    DateFormat('EEEE HH:mm').format(_at(seconds).toLocal());
+
+/// The line under the title in the proof card, in the mono type.
+///
+/// While the check is on and the relay named the next round it is that
+/// round. Otherwise it is the line the unlocked row has, so an off check
+/// still says what it does.
+WeeklyCheckBodyView weeklyCheckCardView({
+  required WeeklyCheckStanding standing,
+  required WeeklyCheck? check,
+  required DateTime now,
+}) {
+  final next = check?.nextDueAt;
+  if (standing.isOn && next != null) {
+    return WeeklyCheckBodyView(
+      lineKey: LocaleKeys.proof_card_next_round,
+      lineWhen: weeklyCheckNextRound(next),
+      isOn: true,
+    );
+  }
+  return weeklyCheckBodyView(standing: standing, check: check, now: now);
+}
+
 /// One round in the list: what marks it, its result in a few words, and its
 /// time.
 ///

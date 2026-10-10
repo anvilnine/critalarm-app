@@ -32,6 +32,13 @@
 //              the try bar, the tap on "Use this look" (the paywall) and the
 //              page after leaving and coming back; with Pro the saved flow.
 //              Each shot also checks that nothing was written without Pro.
+//   topic      the page opened for one topic (`/look?topic=<name>`): the
+//              topic following the phone, with its own look, with a lapsed
+//              paid look, a locked look being tried, the plan not read, a
+//              server of the user's own, a long name, the sizes and text
+//              scales, reduce motion, the grow from a card (the tool gives
+//              the route a `PassOrigin`) and the taps that must write only
+//              that topic (they print a FLOW line and fail on a wrong write)
 //   reduce     the resting frame under reduce motion
 //   rock       the centred phone at the top of its rock
 //   grow       the page reached from the root, at progress 0, 0.25, 0.5, 0.75
@@ -65,6 +72,7 @@ import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumbs.dart';
@@ -123,6 +131,8 @@ class _Setup {
     this.plan = PassPlanState.free,
     this.look,
     this.photo = _Photo.none,
+    this.topic,
+    this.topicLook,
   });
 
   final PassPlanState plan;
@@ -130,6 +140,12 @@ class _Setup {
   /// The saved look id, or null for the standard one.
   final String? look;
   final _Photo photo;
+
+  /// The topic the page is opened for, or null for the whole phone.
+  final String? topic;
+
+  /// The look saved for [topic], or null when it follows the phone.
+  final String? topicLook;
 }
 
 Map<String, Object> _planPrefs(PassPlanState plan) {
@@ -172,6 +188,11 @@ Future<void> _boot(WidgetTester tester, _Setup setup, Size phone) async {
   }
   final look = setup.look;
   if (look != null) await getIt<AlarmStyleChoices>().setDefault(look);
+  final topic = setup.topic;
+  final topicLook = setup.topicLook;
+  if (topic != null && topicLook != null) {
+    await getIt<AlarmStyleChoices>().setTopicStyle(topic, topicLook);
+  }
 }
 
 /// Lets the phone ask the app icon and the sound host what they would.
@@ -233,7 +254,9 @@ Future<_Run> _open(
   required double scale,
   bool reduceMotion = false,
   bool holdClock = true,
-  String location = '/settings/personalize/look',
+  String? location,
+  bool push = true,
+  Object? extra,
 }) async {
   _mockChannels();
   await tester.runAsync(() => _boot(tester, setup, device.size));
@@ -281,8 +304,19 @@ Future<_Run> _open(
   );
   router.go('/');
   await _settle(tester);
-  unawaited(router.push(location));
-  await _settle(tester);
+  if (push) {
+    final topic = setup.topic;
+    unawaited(
+      router.push(
+        location ??
+            (topic == null
+                ? '/settings/personalize/look'
+                : passLocationFor('/look', TopicScope(topic))),
+        extra: extra,
+      ),
+    );
+    await _settle(tester);
+  }
   await tester.pump(const Duration(seconds: 1));
   // The saved photo's small copy is decoded by the engine, off the test clock.
   await _real(tester);
@@ -350,6 +384,7 @@ Set<String> get _parts => _partsArg.isEmpty
         'sheets',
         'crop',
         'try',
+        'topic',
         'reduce',
         'rock',
         'grow',
@@ -370,6 +405,7 @@ void _shot({
   String frame = 'rest',
   bool reduceMotion = false,
   double? at,
+  String? location,
   Future<void> Function(WidgetTester tester, _Run run)? act,
 }) {
   if (!_parts.contains(part)) return;
@@ -391,6 +427,7 @@ void _shot({
         mode: mode,
         scale: scale,
         reduceMotion: reduceMotion,
+        location: location,
       );
       if (at != null) await _moveTo(tester, at);
       if (act != null) await act(tester, run);
@@ -873,11 +910,16 @@ void main() {
     device: passPhone,
     mode: ThemeMode.light,
     at: 5,
-    frame: 'tap-add-photo-paywall',
+    frame: 'tap-add-photo-try',
     act: (tester, run) async {
+      // Adding a photo is a try, open to everyone. The tap opens no paywall
+      // and saves nothing: the paywall comes only from "Use this look" once
+      // the photo is framed (the `try` part draws that).
       await tester.tap(find.byKey(const ValueKey('look-add-photo')));
       await _settle(tester);
-      expect(run.path, isNot('/settings/personalize/look'));
+      expect(run.path, '/settings/personalize/look');
+      expect(getIt<OwnLookStore>().photo, isNull);
+      expect(getIt<AlarmStyleChoices>().assignments.defaultStyleId, isNull);
     },
   );
   _shot(
@@ -1083,6 +1125,284 @@ void main() {
       }
     }
   }
+
+  // The page opened for one topic.
+  const topic = 'Uptime Kuma';
+  const longTopic =
+      'Production database nightly backup verification and restore drill';
+  const topicFollow = _Setup(
+    plan: PassPlanState.pro,
+    look: 'terminal',
+    topic: topic,
+  );
+  const topicOwn = _Setup(
+    plan: PassPlanState.pro,
+    look: 'terminal',
+    topic: topic,
+    topicLook: 'red_alert',
+  );
+  const topicLapsed = _Setup(topic: topic, topicLook: 'terminal');
+  const topicFree = _Setup(topic: topic);
+  const topicStates = <String, _Setup>{
+    // The topic follows the phone's Terminal look: no "Same as phone".
+    'follow': topicFollow,
+    // The topic has Red alert of its own: "Same as phone" is there.
+    'own': topicOwn,
+    // A paid look saved, the plan lapsed: the stand-in is in use.
+    'lapsed': topicLapsed,
+    // A long name in the header.
+    'longname': _Setup(
+      plan: PassPlanState.pro,
+      topic: longTopic,
+      topicLook: 'crit_panic',
+    ),
+  };
+  for (final MapEntry(key: state, value: setup) in topicStates.entries) {
+    for (final mode in passThemes) {
+      _shot(
+        part: 'topic',
+        state: 'topic-$state',
+        setup: setup,
+        device: passPhone,
+        mode: mode,
+      );
+    }
+  }
+  // A locked look being tried: the try bar, nothing saved. Also with the plan
+  // still being read, and on a server of the user's own.
+  for (final (state, setup) in [
+    ('locked', topicFree),
+    ('notread', const _Setup(plan: PassPlanState.notRead, topic: topic)),
+    ('ownserver', const _Setup(plan: _ownServer, topic: topic)),
+  ]) {
+    for (final mode in state == 'locked' ? passThemes : [ThemeMode.light]) {
+      _shot(
+        part: 'topic',
+        state: 'topic-$state',
+        setup: setup,
+        device: passPhone,
+        mode: mode,
+        at: minimal,
+        frame: 'minimal',
+      );
+    }
+  }
+  // Yours for a topic, with a photo held.
+  _shot(
+    part: 'topic',
+    state: 'topic-yours',
+    setup: const _Setup(
+      plan: PassPlanState.pro,
+      photo: _Photo.held,
+      topic: topic,
+      topicLook: 'own',
+    ),
+    device: passPhone,
+    mode: ThemeMode.light,
+  );
+  // The sizes and text scales, with "Same as phone" in the bar.
+  for (final device in [passPhone, passNarrowPhone]) {
+    for (final scale in const [1.0, 1.3, 2.0]) {
+      for (final mode in passThemes) {
+        if (device == passPhone && scale == 1) continue;
+        _shot(
+          part: 'topic',
+          state: 'topic-own',
+          setup: topicOwn,
+          device: device,
+          mode: mode,
+          scale: scale,
+        );
+      }
+    }
+  }
+  // The long name at the sizes that stress the header.
+  for (final (device, scale) in [(passNarrowPhone, 1.0), (passPhone, 2.0)]) {
+    _shot(
+      part: 'topic',
+      state: 'topic-longname',
+      setup: topicStates['longname']!,
+      device: device,
+      mode: ThemeMode.light,
+      scale: scale,
+    );
+  }
+  // Reduce motion: the resting frame.
+  for (final mode in passThemes) {
+    _shot(
+      part: 'topic',
+      state: 'topic-own',
+      setup: topicOwn,
+      device: passPhone,
+      mode: mode,
+      frame: 'reduce',
+      reduceMotion: true,
+    );
+  }
+  // The taps. Each writes only the topic, and the outcome is checked.
+  _shot(
+    part: 'topic',
+    state: 'topic-follow',
+    setup: topicFollow,
+    device: passPhone,
+    mode: ThemeMode.light,
+    at: minimal,
+    frame: 'flow-use-open-look',
+    act: (tester, run) async {
+      // The topic follows Terminal. Swipe to Minimal and use it: a paid look
+      // with Pro held, so the lock rule says go and only the topic is saved.
+      await tester.tap(find.byKey(const ValueKey('look-use')));
+      await tester.pump();
+      await _real(tester);
+      await tester.pump(const Duration(milliseconds: 800));
+      final saved = getIt<AlarmStyleChoices>().assignments;
+      print(
+        'FLOW use: default=${saved.defaultStyleId} topics=${saved.perTopic}',
+      );
+      expect(saved.perTopic, {topic: 'minimal'});
+      expect(saved.defaultStyleId, 'terminal');
+      expect(run.path, '/look');
+      expect(find.byKey(const ValueKey('look-in-use')), findsOneWidget);
+    },
+  );
+  _shot(
+    part: 'topic',
+    state: 'topic-own',
+    setup: topicOwn,
+    device: passPhone,
+    mode: ThemeMode.light,
+    frame: 'flow-same-as-phone',
+    act: (tester, run) async {
+      expect(find.byKey(const ValueKey('look-same-as-phone')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('look-same-as-phone')));
+      await tester.pump();
+      await _real(tester);
+      await tester.pump(const Duration(milliseconds: 800));
+      final saved = getIt<AlarmStyleChoices>().assignments;
+      print(
+        'FLOW same-as-phone: default=${saved.defaultStyleId} '
+        'topics=${saved.perTopic}',
+      );
+      expect(saved.perTopic, isEmpty);
+      expect(saved.defaultStyleId, 'terminal');
+      // The control is gone: the topic follows the phone again.
+      expect(find.byKey(const ValueKey('look-same-as-phone')), findsNothing);
+    },
+  );
+  _shot(
+    part: 'topic',
+    state: 'topic-locked',
+    setup: topicFree,
+    device: passPhone,
+    mode: ThemeMode.light,
+    at: minimal,
+    frame: 'flow-keep-locked',
+    act: (tester, run) async {
+      final keep = find.descendant(
+        of: find.byType(PersonalizeTryBar),
+        matching: find.byType(AppButton),
+      );
+      await tester.tap(keep.last);
+      await _settle(tester);
+      final saved = getIt<AlarmStyleChoices>().assignments;
+      print(
+        'FLOW keep-locked: path=${run.path} default=${saved.defaultStyleId} '
+        'topics=${saved.perTopic}',
+      );
+      // The act of using it reached the paywall, and nothing was saved.
+      expect(run.path, isNot('/look'));
+      expect(saved.perTopic, isEmpty);
+      expect(saved.defaultStyleId, isNull);
+    },
+  );
+  // The grow from a card: the route is given a `PassOrigin`, as the card of
+  // the Look pass on the topic page will give it. Open, and back.
+  for (final mode in passThemes) {
+    final base = passFileName(
+      page: 'grow-look',
+      device: passPhone,
+      mode: mode,
+      scale: 1,
+      frame: 'x',
+      state: 'topic',
+    );
+    if (!_parts.contains('topic') || !passWanted(base)) continue;
+    testWidgets('capture grow topic ${mode.name}', (tester) async {
+      await _guarded(base, (errors) async {
+        final run = await _open(
+          tester,
+          setup: topicOwn,
+          device: passPhone,
+          mode: mode,
+          scale: 1,
+          push: false,
+        );
+        final colors = mode == ThemeMode.dark
+            ? AppColors.dark
+            : AppColors.light;
+        final origin = PassOrigin(
+          pass: PassId.look,
+          rect: const Rect.fromLTWH(12, 330, 366, 190),
+          tone: passToneFor(PassId.look, colors),
+          label: 'Look',
+          value: 'Red alert',
+          display: PassDisplay(passPhone.size, safeTop: passPhone.safeTop),
+        );
+        const fractions = [0.0, 0.25, 0.5, 0.75, 1.0];
+        Future<void> frames(String way, int ms) async {
+          var elapsed = 0;
+          for (final fraction in fractions) {
+            final target = (ms * fraction).round();
+            if (target > elapsed) {
+              await tester.pump(Duration(milliseconds: target - elapsed));
+              elapsed = target;
+            }
+            final percent = (fraction * 100).round().toString().padLeft(3, '0');
+            await _save(
+              tester,
+              run,
+              passFileName(
+                page: 'grow-look',
+                device: passPhone,
+                mode: mode,
+                scale: 1,
+                frame: '$way-t$percent',
+                state: 'topic',
+              ),
+              errors,
+            );
+          }
+        }
+
+        unawaited(
+          run.router.push(
+            passLocationFor('/look', const TopicScope(topic)),
+            extra: origin,
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await frames('open', 600);
+        if (mode == ThemeMode.light) {
+          await tester.pump(const Duration(seconds: 1));
+          run.router.pop();
+          await tester.pump();
+          await tester.pump();
+          await frames('back', 520);
+        }
+      });
+    });
+  }
+  // The route with no topic is the page Personalize opens.
+  _shot(
+    part: 'topic',
+    state: 'phone',
+    setup: const _Setup(plan: PassPlanState.pro, look: 'terminal'),
+    device: passPhone,
+    mode: ThemeMode.light,
+    frame: 'no-topic-query',
+    location: '/look',
+  );
 
   // Reduce motion: the resting frame.
   for (final mode in passThemes) {

@@ -6,6 +6,8 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_dates.d
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/domain/ring_failure.dart';
 import 'package:critalarm/features/local_reminders/presentation/cubits/confirm_ring_state.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// The screen both "Ring me now" paths land on (idea 1's button and the
@@ -26,6 +28,7 @@ class ConfirmRingCubit extends Cubit<ConfirmRingState> {
     required bool canTestNormalTopics,
     DateTime Function()? now,
     LocalReminderAnalytics? analytics,
+    this._proofLog,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -60,6 +63,9 @@ class ConfirmRingCubit extends Cubit<ConfirmRingState> {
   final bool _canTestNormalTopics;
   final DateTime Function() _now;
   final LocalReminderAnalytics? _analytics;
+
+  /// Where a failed test is written down for the proof card.
+  final ProofLog? _proofLog;
 
   Future<void> load() async {
     final allTopics = await _readTopics();
@@ -144,7 +150,10 @@ class ConfirmRingCubit extends Cubit<ConfirmRingState> {
       return;
     }
     final kind = RingFailures.classify(failure);
-    if (kind.countsAsFailedTest) await _store.markTestFailed(_now());
+    if (kind.countsAsFailedTest) {
+      await _store.markTestFailed(_now());
+      await _noteFailedForProof();
+    }
     await _analytics?.testRingSent(
       result: switch (kind) {
         RingFailure.notCritical => 'not_critical',
@@ -155,5 +164,13 @@ class ConfirmRingCubit extends Cubit<ConfirmRingState> {
     );
     if (isClosed) return;
     emit(state.copyWith(status: ConfirmRingStatus.ready, failure: kind));
+  }
+
+  Future<void> _noteFailedForProof() async {
+    try {
+      await _proofLog?.markFailed(_now());
+    } on Object catch (error) {
+      debugPrint('proof_log_failed error=${error.runtimeType}');
+    }
   }
 }

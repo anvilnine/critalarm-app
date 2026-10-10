@@ -16,6 +16,8 @@ class TopicDetailMessageItem {
     required this.source,
     this.isHigh = false,
     this.sentAt,
+    this.messageId,
+    this.incidentId,
   });
 
   final String title;
@@ -29,6 +31,14 @@ class TopicDetailMessageItem {
   final String source;
   final bool isHigh;
 
+  /// The server's id for the message. Null for a row that does not come from
+  /// a stored message (the guide's example rows).
+  final String? messageId;
+
+  /// The incident the server filed the message under, when it opened or
+  /// joined one. Null when the message rang nothing.
+  final String? incidentId;
+
   TopicDetailMessageItem copyWith({
     String? title,
     String? timestamp,
@@ -36,6 +46,8 @@ class TopicDetailMessageItem {
     String? source,
     bool? isHigh,
     DateTime? sentAt,
+    String? messageId,
+    String? incidentId,
   }) {
     return TopicDetailMessageItem(
       title: title ?? this.title,
@@ -44,6 +56,8 @@ class TopicDetailMessageItem {
       source: source ?? this.source,
       isHigh: isHigh ?? this.isHigh,
       sentAt: sentAt ?? this.sentAt,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
     );
   }
 
@@ -57,7 +71,9 @@ class TopicDetailMessageItem {
           body == other.body &&
           source == other.source &&
           isHigh == other.isHigh &&
-          sentAt == other.sentAt;
+          sentAt == other.sentAt &&
+          messageId == other.messageId &&
+          incidentId == other.incidentId;
 
   @override
   int get hashCode => Object.hash(
@@ -67,6 +83,8 @@ class TopicDetailMessageItem {
     source,
     isHigh,
     sentAt,
+    messageId,
+    incidentId,
   );
 }
 
@@ -91,6 +109,7 @@ class TopicDetailState {
     this.openIncidentIds = const [],
     this.isMessagesLoading = false,
     this.messageTimes = const [],
+    this.areMessageTimesKnown = true,
     this.lastAlarmAt,
   });
 
@@ -126,6 +145,11 @@ class TopicDetailState {
   /// from the items because they hold the time as text for the card.
   final List<DateTime> messageTimes;
 
+  /// False while [messageTimes] is empty only because nothing has read the
+  /// messages yet. The line under the name stays blank until it is true,
+  /// instead of saying "nothing yet" and then changing.
+  final bool areMessageTimesKnown;
+
   /// When this topic last raised an alarm, or null if it never has.
   final DateTime? lastAlarmAt;
 
@@ -158,6 +182,7 @@ class TopicDetailState {
     List<String>? openIncidentIds,
     bool? isMessagesLoading,
     List<DateTime>? messageTimes,
+    bool? areMessageTimesKnown,
     DateTime? lastAlarmAt,
     bool clearError = false,
   }) {
@@ -178,6 +203,7 @@ class TopicDetailState {
       openIncidentIds: openIncidentIds ?? this.openIncidentIds,
       isMessagesLoading: isMessagesLoading ?? this.isMessagesLoading,
       messageTimes: messageTimes ?? this.messageTimes,
+      areMessageTimesKnown: areMessageTimesKnown ?? this.areMessageTimesKnown,
       lastAlarmAt: lastAlarmAt ?? this.lastAlarmAt,
     );
   }
@@ -203,6 +229,7 @@ class TopicDetailState {
           listEquals(openIncidentIds, other.openIncidentIds) &&
           isMessagesLoading == other.isMessagesLoading &&
           listEquals(messageTimes, other.messageTimes) &&
+          areMessageTimesKnown == other.areMessageTimesKnown &&
           lastAlarmAt == other.lastAlarmAt;
 
   @override
@@ -223,6 +250,7 @@ class TopicDetailState {
     Object.hashAll(openIncidentIds),
     isMessagesLoading,
     Object.hashAll(messageTimes),
+    areMessageTimesKnown,
     lastAlarmAt,
   );
 }

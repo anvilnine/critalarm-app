@@ -21,8 +21,11 @@ import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_sources.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing CriticalAlarmScreen state.
@@ -42,6 +45,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._setupFlowHasRealRing,
     this._endSetupTest,
     this._setupRing,
+    this._proofLog,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -94,6 +98,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Where the phone keeps the alarm the user's first hook-up message set
   /// off, while its own acknowledged screen is owed. Absent reads as none.
   final SetupTestRing? _setupRing;
+
+  /// Where a test alarm the server sent is written down for the proof card.
+  /// It only observes. Absent in tests that do not look at it.
+  final ProofLog? _proofLog;
 
   final DateTime Function() _now;
 
@@ -282,10 +290,13 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     if (incidentId != null && incidentId.isNotEmpty) {
       final result = await _getIncident(incidentId);
       result.fold(
-        (incident) => _applyIncident(
-          incident,
-          openIncidents: incident.isOpen ? [incident] : const <Incident>[],
-        ),
+        (incident) {
+          _applyIncident(
+            incident,
+            openIncidents: incident.isOpen ? [incident] : const <Incident>[],
+          );
+          _noteTestForProof(incident);
+        },
         (failure) => _showFailure(
           failure,
           doneIncidentId: cameFromDone && serverGaveNoAnswer(failure)
@@ -302,8 +313,26 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         emit(const CriticalAlarmState());
       } else {
         _applyIncident(open.first, openIncidents: open);
+        _noteTestForProof(open.first);
       }
     }, _showFailure);
+  }
+
+  /// A test alarm the server sent reached this phone: write the week down.
+  /// An incident that is already closed is not ringing, so opening it again
+  /// from a list proves nothing about this week. A log that fails changes
+  /// nothing about the alarm.
+  void _noteTestForProof(Incident incident) {
+    final log = _proofLog;
+    if (log == null || !proofIsServerTest(incident)) return;
+    if (incident.isClosed || incident.isExpired) return;
+    unawaited(() async {
+      try {
+        await log.markRang(_now());
+      } on Object catch (error) {
+        debugPrint('proof_log_failed error=${error.runtimeType}');
+      }
+    }());
   }
 
   void _showFailure(Failure failure, {String? doneIncidentId}) {

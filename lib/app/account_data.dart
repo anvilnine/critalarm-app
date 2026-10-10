@@ -4,6 +4,7 @@ import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 
 /// What belongs to one account on this phone. This is the one list.
@@ -22,7 +23,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// 5. Alarm looks: the phone's look, every topic's look, and the note
 ///    `alarm_style_open_when_last_sure`.
 /// 6. The own sounds lock flag `alarm_sound_own_locked` with its tag.
-/// 7. The own alarm look: the photo file, the record of how bright it is
+/// 7. The proof log: the weeks an alarm or a check got through.
+/// 8. The own alarm look: the photo file, the record of how bright it is
 ///    (`alarm_style_own_photo`), the accent (`alarm_style_own_accent`)
 ///    and any copy of a picked photo a pick left in the cache
 ///    (`alarm_style_own_pending`). Listed last and dropped first.
@@ -49,6 +51,7 @@ class AccountData {
     required this._alarmStyles,
     required this._soundLock,
     required this._ownLook,
+    this._proofLog,
     this._afterForget,
   });
 
@@ -59,6 +62,7 @@ class AccountData {
   final AlarmStyleChoices _alarmStyles;
   final OwnSoundLockFlag _soundLock;
   final OwnLookStore _ownLook;
+  final ProofLog? _proofLog;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -94,6 +98,8 @@ class AccountData {
     await _quietly(_challenges.forgetAll);
     await _quietly(_alarmStyles.forgetAll);
     await _quietly(_soundLock.clear);
+    final proofLog = _proofLog;
+    if (proofLog != null) await _quietly(proofLog.clear);
     final after = _afterForget;
     if (after != null) await _quietly(after);
     final failed = failure;
