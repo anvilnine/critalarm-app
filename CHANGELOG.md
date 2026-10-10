@@ -1,7 +1,7 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
-## Unreleased
+## 1.0.0+13 - 2026-10-10
 ### Added
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
 - The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
