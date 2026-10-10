@@ -25,6 +25,9 @@
   },
   "onboarding_welcome": {
     "title": "Welcome to Crit Alarm",
+    "title_line_1": "Welcome",
+    "title_line_2": "to Crit",
+    "title_word": "Alarm",
     "subtitle": "When something breaks, your phone rings until you answer.",
     "button": "Get started",
     "next": "Next",
@@ -40,15 +43,8 @@
     "hero_wake_hint": "Double tap to wake it",
     "caption_rings": "Your phone rings until you answer.",
     "caption_rings_silent": "Your phone rings until you answer, even on silent.",
-    "caption_priorities": "Small things stay quiet. Big things ring.",
     "caption_curl": "Anything that can send a web request can wake you.",
-    "story_rings_label": "A phone at night. An alert lands and the alarm rings until I'm up is tapped.",
-    "story_rings_label_silent": "A phone on silent at night. An alert lands and the alarm rings until I'm up is tapped.",
-    "story_rings_label_stopped": "The alarm in the picture is acknowledged and the phone is quiet.",
-    "story_rings_stop": "I'm up. Stops the alarm in the picture.",
-    "story_priorities_label": "Three alerts. A finished backup stays quiet, a disk warning notifies, and a database that is down rings until it is answered.",
     "story_curl_label": "A command typed in a terminal makes a phone ring until I'm up is tapped.",
-    "story_silent": "Silent",
     "story_critical": "CRITICAL",
     "story_alarm_title": "Primary database down",
     "story_alarm_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
@@ -90,6 +86,19 @@
     "feature_sounds": "Your own alarm sounds",
     "feature_history": "Every alarm logged",
     "feature_search": "Search everything"
+  },
+  "welcome_first_pages": {
+    "night_clock_day": "17:40",
+    "night_clock_evening": "22:05",
+    "night_clock_silent": "03:12 · silent",
+    "night_clock_ringing": "03:12 · ringing",
+    "silent_status": "3:12 · silent · do not disturb",
+    "silent_row_chat": "Chat",
+    "silent_row_mail": "Mail",
+    "silent_row_monitoring": "Monitoring email",
+    "stays_silent_label": "It is 3:12 at night and the phone is silent. Chat, mail and monitoring email stay muted, and one critical alarm rings.",
+    "dev_night_falls": "Welcome: night falls",
+    "dev_stays_silent": "Welcome: stays silent"
   },
   "onboarding_connect": {
     "title": "Pick a server",
@@ -654,8 +663,6 @@
       "other": "{count} messages. Rings at {priority} priority."
     },
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it an alarm arrives as a quiet notification.",
-    "sound_row_title": "Alarm sound",
-    "sound_row_default": "Using the default",
     "messages_header": "Messages",
     "settings_header": "Topic settings",
     "stop_alarm_button": "Stop the alarm",
@@ -675,6 +682,10 @@
     "critical_off_one_way_title": "Turn off critical delivery?",
     "critical_off_one_way_body": "On the free plan you can't turn this back on.",
     "critical_off_one_way_confirm": "Turn off"
+  },
+  "topic_passes": {
+    "group_label": "Look, sound, wake-up challenge and tokens",
+    "group_label_example": "Look, sound and wake-up challenge"
   },
   "topic_hero": {
     "card_label": "Critical delivery",
@@ -707,7 +718,6 @@
     "yesterday": "yesterday",
     "name_taken_warning": "This topic already has a token called {name}.",
     "new_button": "New token",
-    "new_label": "YOUR NEW TOKEN",
     "saved_button": "I have saved it",
     "edit_aria": "Edit this token",
     "edit_title": "Token",
@@ -719,10 +729,35 @@
     "revoke_dialog_content": "Anything still sending with this token stops working right away. The topic keeps its other tokens.",
     "revoke_dialog_confirm": "Revoke"
   },
+  "topic_tokens_page": {
+    "back_aria": "Back to {topic}"
+  },
+  "new_token": {
+    "title": "New token",
+    "name_line": "Name it after the tool that will send.",
+    "make_button": "Make token",
+    "make_failed": "Could not make the token. Try again.",
+    "shown_once": "Shown once. Copy it now.",
+    "copied": "Copied",
+    "copy_curl": "Copy curl",
+    "curl_label": "Curl command with the token partly hidden",
+    "saved_button": "I saved it"
+  },
   "topic_messages": {
     "empty_title": "No messages yet",
     "empty_body": "Anything sent to this topic shows up here.",
-    "share_label": "Share"
+    "share_label": "Share",
+    "back_aria": "Back to {topic}",
+    "window": "last 7 days",
+    "bars_aria": "Messages per day, last 7 days",
+    "day_today": "Today",
+    "rang_line": "{rang} · {end}",
+    "rang_for": "rang {duration}",
+    "end_answered": "answered",
+    "end_resolved": "resolved",
+    "end_expired": "expired",
+    "end_ringing": "ringing now",
+    "load_failed": "Could not read this topic's messages."
   },
   "create_topic": {
     "title": "New topic",
@@ -1192,6 +1227,34 @@
     "fix_got_it": "Got it",
     "ring_test_title": "Ring a test now"
   },
+  "wake": {
+    "label": "Will it wake me",
+    "yes": "Yes",
+    "maybe": "Maybe",
+    "no": "No",
+    "line_test_rang": "a test rang here {when} ago",
+    "line_no_test": "ring a test to be sure",
+    "line_several": "{count} things stop it",
+    "chip_pass": {
+      "one": "{} phone check passes",
+      "other": "{} phone checks pass"
+    },
+    "passing_row": {
+      "one": "{} check passes",
+      "other": "{} checks pass"
+    },
+    "fix_many": "Fix {count} things",
+    "stop_tool": "Your tool",
+    "stop_server": "Server",
+    "stop_push": "Push",
+    "stop_phone": "This phone",
+    "stop_ok_aria_label": "{stop}, working",
+    "stop_problems_aria_label": {
+      "one": "{stop}, 1 problem",
+      "other": "{stop}, {} problems"
+    },
+    "answer_aria_label": "Will it wake me? {answer}. {line}"
+  },
   "pro_pack": {
     "badge": "Pro",
     "sheet_title": "Pro",
@@ -1214,7 +1277,6 @@
   "weekly_check": {
     "title": "Weekly delivery check",
     "what_line": "Checks each week whether a push reaches this phone.",
-    "locked_description": "Checks each week whether a push reaches this phone.",
     "own_server_line": "Not available with your own server.",
     "line_waiting": "Waiting for the first check.",
     "line_received": "Last check received {when}.",
@@ -1242,6 +1304,18 @@
     "result_open": "Waiting",
     "result_open_due": "Due by {time}",
     "result_closed": "Closed"
+  },
+  "proof_card": {
+    "label": "Proof",
+    "range": "last 8 weeks",
+    "value": "{n} of 8 weeks",
+    "locked_line": "Fills every week for you.",
+    "next_round": "next {when}",
+    "dot_rang": "Week of {date}, a test rang",
+    "dot_none": "Week of {date}, no test",
+    "dot_failed": "Week of {date}, a test failed",
+    "dot_this_week": "{label}, this week",
+    "card_aria_label": "Proof: {value}, {range}"
   },
   "paywall": {
     "welcome": {
@@ -2124,7 +2198,9 @@
       "card_label_locked": "{name}, {plan}",
       "card_hint_move": "Double tap to show this look",
       "play": "Play",
-      "stop": "Stop"
+      "stop": "Stop",
+      "topic_label": "Look for {topic}",
+      "same_as_phone": "Same as phone"
     },
 
     "sound": {
@@ -2145,7 +2221,11 @@
       "pick_label": "Use {name} for new topics",
       "pick_label_locked": "Use {name} for new topics. Needs {plan}.",
       "page_note": "At my desk needs a challenge. I'm up always stops the alarm.",
-      "scope_note": "Existing topics won't change."
+      "scope_note": "Existing topics won't change.",
+      "topic_label": "Wake-up challenge for {topic}",
+      "topic_scope_note": "Only {topic} changes.",
+      "pick_label_topic": "Use {name} for this topic",
+      "pick_label_topic_locked": "Use {name} for this topic. Needs {plan}."
     },
 
     "widgets": {
@@ -2169,7 +2249,6 @@
 
   "challenges": {
     "off": "Off",
-    "row_title": "Wake-up challenge",
     "sheet_note": "At my desk asks a challenge. I'm up stops the alarm with one tap.",
     "strip_title": "Wake-up challenge",
     "skip_hold": "Hold {seconds} s to skip",
@@ -2227,8 +2306,6 @@
     "red_alert": "Red alert",
     "crit_panic": "Crit panic",
     "strip_title": "Look",
-    "row_title": "Alarm look",
-    "row_default": "Phone default",
     "sheet_note": "Changes only how the alarm looks.",
     "own": "Yours",
     "own_add_label": "Add your photo",

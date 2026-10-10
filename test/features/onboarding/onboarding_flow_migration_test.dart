@@ -92,7 +92,9 @@ void main() {
     expect(h.repository.pinned, BundledOnboardingFlows.legacy);
     expect(h.repository.completed, {'welcome'});
     expect(h.repository.legacyStep, isNull);
-    expect(next.route, '/onboarding/how-it-rings');
+    // The curl is a page of the welcome now, so legacy-1 goes on to the
+    // permissions.
+    expect(next.route, '/onboarding');
   });
 
   test('no old key means no migration', () async {

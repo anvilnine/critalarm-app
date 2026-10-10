@@ -44,6 +44,7 @@ import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dar
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
@@ -73,6 +74,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -100,6 +102,7 @@ abstract final class AppRoute {
   static const history = 'history';
   static const topicDetail = 'topicDetail';
   static const topicMessages = 'topicMessages';
+  static const topicTokens = 'topicTokens';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
@@ -119,6 +122,8 @@ abstract final class AppRoute {
   static const appearanceSettings = 'appearanceSettings';
   static const personalize = 'personalize';
   static const personalizeLook = 'personalizeLook';
+  static const topicLook = 'topicLook';
+  static const topicChallenge = 'topicChallenge';
   static const personalizeChallenge = 'personalizeChallenge';
   static const personalizeWidgets = 'personalizeWidgets';
   static const appIcon = 'appIcon';
@@ -259,6 +264,37 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         child: const SoundRecorderScreen(),
       ),
     ),
+    // The Look and Wake-up challenge pages for one topic: the Personalize
+    // pages with the scope of `?topic=<name>`. Without a topic they are the
+    // pages Personalize opens, for the whole phone. A topic is reached from
+    // two tabs, so these sit on the root navigator like `/sounds`, and the
+    // page grows out of the card that pushes it with a `PassOrigin`.
+    GoRoute(
+      path: '/look',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicLook,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: LookPassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/challenge',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicChallenge,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: ChallengePassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
+      ),
+    ),
     // The icon picker covers the display like creating a topic, so the tab
     // bar goes away. It sits on the root navigator at the top level, not under
     // `/settings/appearance`, for the reason given above `/sounds`. Only where
@@ -284,8 +320,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // bar stays on screen and each tab keeps its own back stack. Anything that
     // must cover the whole display is routed outside it.
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          AppShell(navigationShell: navigationShell),
+      // The shell fades and drifts out under a Settings screen the way the
+      // Topics list does under a Topic. See `TabShellPage`.
+      pageBuilder: (context, state, navigationShell) => TabShellPage(
+        key: state.pageKey,
+        child: AppShell(navigationShell: navigationShell),
+      ),
       branches: [
         StatefulShellBranch(
           routes: [
@@ -325,6 +365,24 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         return AmbientPage(
                           key: state.pageKey,
                           child: TopicMessagesScreen(topicName: name),
+                        );
+                      },
+                    ),
+                    // The topic's tokens. `?curl=1` is the silent topic
+                    // reminder's "Get curl line": the New token sheet opens
+                    // as the page does, with the name filled in.
+                    GoRoute(
+                      path: 'tokens',
+                      name: AppRoute.topicTokens,
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
                         );
                       },
                     ),
@@ -378,6 +436,21 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       },
                     ),
                     GoRoute(
+                      path: 'tokens',
+                      name: 'historyTopicTokens',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
                       path: 'sounds',
                       name: 'historyTopicSounds',
                       pageBuilder: (context, state) {
@@ -410,7 +483,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               // Every sub-page sits on the root navigator, above the floating
               // tab bar, so its + and search buttons are gone. Opaque, for the
               // reason given on `/app-icon`. Create-topic and search do not
-              // belong on a page like Delete account.
+              // belong on a page like Delete account. Each one sets
+              // `leavesTabBehind`, so the shell under it fades and drifts out
+              // as a Topic does over the Topics list. Without it the shell
+              // stood fully drawn until the page was opaque.
               routes: [
                 GoRoute(
                   path: 'disconnected',
@@ -429,6 +505,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DevicePermissionsScreen(),
                   ),
                 ),
@@ -439,6 +516,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ReliabilityScreen(),
                   ),
                   routes: [
@@ -471,6 +549,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AlarmSettingsScreen(),
                   ),
                 ),
@@ -487,6 +566,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrioritiesScreen(),
                   ),
                 ),
@@ -497,6 +577,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ServerSettingsScreen(),
                   ),
                 ),
@@ -509,6 +590,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AccountScreen(),
                   ),
                   routes: [
@@ -592,6 +674,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AppearanceSettingsScreen(),
                   ),
                 ),
@@ -602,6 +685,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrivacySettingsScreen(),
                   ),
                 ),
@@ -612,6 +696,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const LocalReminderSettingsScreen(),
                   ),
                 ),
@@ -622,6 +707,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AboutScreen(),
                   ),
                 ),
@@ -635,6 +721,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DeveloperSettingsScreen(),
                   ),
                   routes: [

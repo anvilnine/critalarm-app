@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_sources.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_notice_rule.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
@@ -55,6 +57,7 @@ final class WeeklyCheckMonitor {
     required this._readDeviceId,
     required this._readAccess,
     required this._onTierRefused,
+    this._proofLog,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -74,6 +77,10 @@ final class WeeklyCheckMonitor {
   /// again. The row locks when that read says Hosted is gone. Nothing is
   /// taken away here.
   final Future<void> Function() _onTierRefused;
+
+  /// Where a received or missed round is written down for the proof card.
+  /// It only observes: a log that fails changes nothing here.
+  final ProofLog? _proofLog;
   final DateTime Function() _now;
 
   final _changes = StreamController<void>.broadcast();
@@ -314,7 +321,20 @@ final class WeeklyCheckMonitor {
     } on Object catch (error) {
       debugPrint('weekly_check_store_failed error=${error.runtimeType}');
     }
+    await _noteProof(check);
     _announce();
+  }
+
+  Future<void> _noteProof(WeeklyCheck check) async {
+    final log = _proofLog;
+    if (log == null) return;
+    try {
+      for (final entry in proofEntriesFromWeeklyCheck(check)) {
+        await log.add(entry);
+      }
+    } on Object catch (error) {
+      debugPrint('proof_log_failed error=${error.runtimeType}');
+    }
   }
 
   void _announce() {

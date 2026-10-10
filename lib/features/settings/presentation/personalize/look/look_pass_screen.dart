@@ -20,6 +20,7 @@ import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/personalize/look_deck_rules.dart';
 import 'package:critalarm/features/settings/domain/personalize/own_photo_try_rules.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/look/look_action_bar.dart';
@@ -48,8 +49,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// A tag never opens a paywall here. A locked look is drawn as the real thing.
 /// The paywall opens only from the act that uses a locked look, and the lock
 /// rule (`lockTapFor`, through `keepOrOpenPaywall`) says so.
+///
+/// [scope] is the whole phone, or one topic. For a topic the page opens on that
+/// topic's look, "in use" means that look, and using a look saves it for that
+/// topic and nothing else. A topic with a look of its own also gets "Same as
+/// phone".
 class LookPassScreen extends StatelessWidget {
-  const LookPassScreen({super.key});
+  const LookPassScreen({this.scope = const EverywhereScope(), super.key});
+
+  final PassScope scope;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
@@ -62,17 +70,24 @@ class LookPassScreen extends StatelessWidget {
     // route is covered and holds still under reduce motion.
     child: PassThumbClock(
       builder: (context, clock) => PassLiveBuilder(
-        builder: (context, live) => _LookPage(live: live, clock: clock),
+        scope: scope,
+        builder: (context, live) =>
+            _LookPage(live: live, clock: clock, scope: scope),
       ),
     ),
   );
 }
 
 class _LookPage extends StatefulWidget {
-  const _LookPage({required this.live, required this.clock});
+  const _LookPage({
+    required this.live,
+    required this.clock,
+    required this.scope,
+  });
 
   final PassLive live;
   final ValueListenable<double> clock;
+  final PassScope scope;
 
   @override
   State<_LookPage> createState() => _LookPageState();
@@ -173,20 +188,34 @@ class _LookPageState extends State<_LookPage> {
         // Adding a photo is a try, open to everyone: nothing is asked of the
         // plan until the photo is framed, and a locked one is held here.
         if (action.keep is Nothing) return;
-        await addOwnPhoto(context, hold: _hold);
+        await addOwnPhoto(context, hold: _hold, scope: widget.scope);
       case LookControl.use:
         final isTried = id == AlarmStyleId.own && _hold.hasPhoto;
-        final go =
-            id.isFree || (isTried ? await _mayKeepTried() : await _mayKeep());
-        if (!go || !mounted) return;
-        AppHaptics.selection();
-        if (isTried) {
+        await useLook(
+          scope: widget.scope,
+          choices: getIt<AlarmStyleChoices>(),
+          id: id,
+          mayKeep: isTried ? _mayKeepTried : _mayKeep,
+          afterGo: () {
+            if (!mounted) return false;
+            AppHaptics.selection();
+            return true;
+          },
           // From the photo in memory: there is no second pick.
-          await keepHeldOwnPhoto(context, _hold);
-          return;
-        }
-        await getIt<AlarmStyleChoices>().setDefault(id.id);
+          write: isTried
+              ? () async {
+                  if (!mounted) return;
+                  await keepHeldOwnPhoto(context, _hold, scope: widget.scope);
+                }
+              : null,
+        );
     }
+  }
+
+  /// "Same as phone": the topic goes back to the phone's look.
+  Future<void> _followPhone() async {
+    AppHaptics.selection();
+    await followPhoneLook(widget.scope, getIt<AlarmStyleChoices>());
   }
 
   Future<bool> _mayKeep() => keepOrOpenPaywall(
@@ -361,6 +390,13 @@ class _LookPageState extends State<_LookPage> {
         fade: fade,
         page: _page,
         onKeep: () => unawaited(_keep()),
+        onSamePhone:
+            topicHasOwnLook(
+              widget.scope,
+              getIt<AlarmStyleChoices>().assignments,
+            )
+            ? () => unawaited(_followPhone())
+            : null,
       );
     },
   );

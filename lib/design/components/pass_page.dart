@@ -410,6 +410,7 @@ class _AppPassPageState extends State<AppPassPage> {
     final header = _Header(
       tone: tone,
       label: widget.label,
+      fromLabel: scope?.origin?.label,
       state: widget.state,
       tag: widget.tag,
       value: widget.value,
@@ -509,6 +510,7 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.tone,
     required this.label,
+    required this.fromLabel,
     required this.state,
     required this.tag,
     required this.value,
@@ -527,6 +529,12 @@ class _Header extends StatelessWidget {
 
   final PassTone tone;
   final String label;
+
+  /// The label the card the page grows from shows, or null when the page did
+  /// not grow from a card. While the page grows the header fades from this
+  /// to [label], so a card that says "Look" does not flip to "Look for a
+  /// topic" on the first frame.
+  final String? fromLabel;
   final String? state;
   final String? tag;
   final String value;
@@ -569,6 +577,15 @@ class _Header extends StatelessWidget {
       isSingleLine: true,
     );
     final spoken = '${line.text}, $value${tag == null ? '' : ', $tag'}';
+    final from = fromLabel;
+    // The cross-fade runs over the middle of the grow. A settled page
+    // (grow 1) and a page with no card behind it draw its own label only.
+    final labelMix = from == null || from == label
+        ? 1.0
+        : Curves.easeInOut.transform(((grow - 0.2) / 0.5).clamp(0.0, 1.0));
+    final fromLine = labelMix >= 1
+        ? null
+        : PassLabelLine(label: from!, color: tone.onGround, isSingleLine: true);
     return Positioned.fill(
       child: IgnorePointer(
         child: AnimatedBuilder(
@@ -606,7 +623,15 @@ class _Header extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          line,
+                          if (fromLine == null)
+                            line
+                          else
+                            Stack(
+                              children: [
+                                Opacity(opacity: 1 - labelMix, child: fromLine),
+                                Opacity(opacity: labelMix, child: line),
+                              ],
+                            ),
                           SizedBox(height: gap),
                           Text(
                             value,

@@ -25,6 +25,8 @@ import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_proof_log_store.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,6 +116,13 @@ final class _List {
     ownLook: ownLook,
     afterForget: () async => order.add('after'),
   );
+}
+
+class _UnclearableProofStore extends SharedPrefsProofLogStore {
+  _UnclearableProofStore() : super(_MockPrefs());
+
+  @override
+  Future<void> clear() async => throw StateError('stuck');
 }
 
 class _MockEstablish extends Mock implements EstablishApiSessionUsecase {}
@@ -452,6 +461,45 @@ void main() {
         await list.data.forget();
         expect(list.order, [...everything]..remove(failing), reason: failing);
       }
+    });
+
+    test('the proof log goes with the rest, and a drop that fails stops '
+        'nothing', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final proof = ProofLog(SharedPrefsProofLogStore(prefs));
+      await proof.markRang(DateTime(2026, 10, 7, 9));
+      expect(prefs.containsKey('proof_log'), isTrue);
+
+      final list = _List();
+      final data = AccountData(
+        acks: list.acks,
+        messageCursors: list.cursors,
+        recentSearches: list.searches,
+        challenges: list.challenges,
+        alarmStyles: list.looks,
+        soundLock: list.soundLock,
+        ownLook: list.ownLook,
+        proofLog: proof,
+      );
+      await data.forget();
+      expect(prefs.containsKey('proof_log'), isFalse);
+      expect(proof.newestRangAt(), isNull);
+
+      // A log that cannot be cleared does not stop the caller.
+      final stuck = _List();
+      final blocked = AccountData(
+        acks: stuck.acks,
+        messageCursors: stuck.cursors,
+        recentSearches: stuck.searches,
+        challenges: stuck.challenges,
+        alarmStyles: stuck.looks,
+        soundLock: stuck.soundLock,
+        ownLook: stuck.ownLook,
+        proofLog: ProofLog(_UnclearableProofStore()),
+      );
+      await blocked.forget();
+      expect(stuck.order, contains('sound lock'));
     });
 
     test('with the real photo store: a sign-out whose ack queue fails '

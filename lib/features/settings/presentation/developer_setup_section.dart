@@ -259,20 +259,33 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
     );
   }
 
-  /// Every registered step, opened as a replay. A step that is not on this
-  /// phone, or has no screen yet, is listed with the reason and opens
-  /// nothing.
+  /// Every registered step, opened as a replay, and the welcome with each of
+  /// the other first pages. A step that is not on this phone, or has no
+  /// screen yet, is listed with the reason and opens nothing.
   Widget _jumpRow(BuildContext context) {
     bool isOpen(OnboardingStepEntry entry) =>
         _catalog.isAvailable(entry.id) && entry.route != null;
-    return AppPickerRow<OnboardingStepEntry>(
+    // The welcome as it would ship with another first page: the three real
+    // pages, in a replay, so nothing is saved.
+    String? firstPageLocation(String query) {
+      final route = OnboardingStepRegistry.entryFor(
+        OnboardingStepId.welcome,
+      )?.route;
+      return route == null ? null : '$route?demo=true&$query';
+    }
+
+    final welcomeOptions = {
+      LocaleKeys.welcome_first_pages_dev_night_falls.tr(): 'first=night',
+      LocaleKeys.welcome_first_pages_dev_stays_silent.tr(): 'first=silent',
+    };
+    return AppPickerRow<String?>(
       title: LocaleKeys.developer_setup_jump_title.tr(),
       sheetNote: LocaleKeys.developer_setup_jump_subtitle.tr(),
       hasSelection: false,
       options: [
-        for (final entry in OnboardingStepRegistry.entries)
-          AppPickerOption(
-            value: entry,
+        for (final entry in OnboardingStepRegistry.entries) ...[
+          AppPickerOption<String?>(
+            value: isOpen(entry) ? '${entry.route}?demo=true' : null,
             label: entry.id,
             meta: isOpen(entry)
                 ? entry.route
@@ -280,10 +293,18 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 ? LocaleKeys.developer_setup_jump_no_screen.tr()
                 : LocaleKeys.developer_setup_jump_not_on_phone.tr(),
           ),
+          if (entry.id == OnboardingStepId.welcome && isOpen(entry))
+            for (final choice in welcomeOptions.entries)
+              AppPickerOption<String?>(
+                value: firstPageLocation(choice.value),
+                label: choice.key,
+                meta: firstPageLocation(choice.value),
+              ),
+        ],
       ],
-      onPick: (entry) {
-        if (!isOpen(entry)) return;
-        unawaited(context.push('${entry.route}?demo=true'));
+      onPick: (location) {
+        if (location == null) return;
+        unawaited(context.push(location));
       },
     );
   }
