@@ -536,6 +536,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 : AppButton(
                     label: LocaleKeys.create_topic_paste_button.tr(),
                     size: AppButtonSize.sm,
+                    // A box 48 high would make the label row 12 taller and
+                    // move the field.
+                    hasTapBox: false,
                     variant: AppButtonVariant.paper,
                     icon: AppGlyph(
                       GlyphType.copy,
@@ -650,7 +653,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     );
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      // The button is a 36 pill in a 48 tap box. The card gives up 6 of its 12
+      // above and below, and each layout adds back what it needs, so nothing
+      // moves.
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -659,18 +665,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       child: LayoutBuilder(
         builder: (context, box) =>
             countCardStacks(innerWidth: box.maxWidth, textScale: textScale)
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  text,
-                  const SizedBox(height: 10),
-                  Align(alignment: Alignment.centerLeft, child: button),
-                ],
+            ? Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    text,
+                    // The button's box reaches 6 above it: 6 of the 10 gap.
+                    const SizedBox(height: 4),
+                    Align(alignment: Alignment.centerLeft, child: button),
+                  ],
+                ),
               )
             : Row(
                 children: [
-                  Expanded(child: text),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: text,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   button,
                 ],
@@ -1183,6 +1198,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                             if (state.serverUrl.isNotEmpty) ...[
                               AppKeyValueRow(
                                 value: '${state.serverUrl}/${state.name}',
+                                trailingFillsRow: true,
                                 trailing: TokenActions(
                                   value: '${state.serverUrl}/${state.name}',
                                   onCopied: _showToast,
@@ -1208,6 +1224,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                             ],
                             AppKeyValueRow(
                               value: token,
+                              trailingFillsRow: true,
                               trailing: TokenActions(
                                 value: token,
                                 onCopied: _showToast,
@@ -1363,7 +1380,9 @@ class _ConfirmDialog extends StatelessWidget {
         child: Container(
           width: 320,
           margin: const EdgeInsets.symmetric(horizontal: 24),
-          padding: const EdgeInsets.all(20),
+          // The buttons at the bottom are 36 pills in 48 tap boxes: 6 less
+          // below them.
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
           decoration: BoxDecoration(
             color: colors.surface,
             borderRadius: Radii.xlAll,
@@ -1386,7 +1405,7 @@ class _ConfirmDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               content,
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

@@ -94,6 +94,15 @@ class _LockScreenView extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 AppTopBar(
+                                  // Not in the scaffold's 58, so 8 above the
+                                  // 48 box puts the circle where 12 above a
+                                  // 40 one did.
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    0,
+                                  ),
                                   leading: AppIconButton(
                                     glyph: GlyphType.back,
                                     ariaLabel: LocaleKeys
@@ -111,9 +120,11 @@ class _LockScreenView extends StatelessWidget {
 
                                 if (isWide)
                                   Padding(
+                                    // 4 less on top: the bar above is 4
+                                    // taller, for its back button's tap box.
                                     padding: const EdgeInsets.fromLTRB(
                                       16,
-                                      Spacing.s4,
+                                      Spacing.s4 - 4,
                                       16,
                                       0,
                                     ),
@@ -139,9 +150,13 @@ class _LockScreenView extends StatelessWidget {
                                 else ...[
                                   // Clock section
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: Spacing.s4,
-                                      horizontal: 16,
+                                    // 4 less on top: the bar above is 4
+                                    // taller, for its back button's tap box.
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      Spacing.s4 - 4,
+                                      16,
+                                      Spacing.s4,
                                     ),
                                     child: _clockBlock(
                                       state,

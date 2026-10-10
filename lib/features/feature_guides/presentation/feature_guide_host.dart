@@ -647,30 +647,44 @@ class _FeatureGuideCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                step.titleKey.tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontDisplay,
-                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onPanel,
-                ),
-              ),
-              const SizedBox(height: 6),
-              AppBulletedText(
-                step
-                    .bodyKeyFor(
-                      usingExamples: guide.usingExamples,
-                      ringClaim: ringClaim,
-                    )
-                    .tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                  fontSize: 14,
-                  height: 1.4,
-                  color: colors.onPanel,
+              // The words change with each step while the buttons stay put, so
+              // a screen reader that has just pressed Next would hear
+              // nothing. A live region says the new step as it lands.
+              Semantics(
+                liveRegion: true,
+                child: MergeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        step.titleKey.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontDisplay,
+                          fontFamilyFallback:
+                              AppTypography.fontDisplayFallbacks,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: colors.onPanel,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      AppBulletedText(
+                        step
+                            .bodyKeyFor(
+                              usingExamples: guide.usingExamples,
+                              ringClaim: ringClaim,
+                            )
+                            .tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colors.onPanel,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),

@@ -538,7 +538,11 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: gutter),
                   child: SizedBox(
-                    height: AppScreenScaffold.topBarHeight,
+                    // 2 taller than the bar's 56 so a 48 tap box can sit
+                    // centred on the line the bar's content is centred on (34
+                    // from the top). The bar is drawn over the screen, and
+                    // nothing measures this box.
+                    height: AppScreenScaffold.topBarHeight + 2,
                     // The bar has one fixed height, so past a point larger
                     // text is cut by it.
                     child: topBarMaxTextScale == null

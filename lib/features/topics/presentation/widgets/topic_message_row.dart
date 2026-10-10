@@ -1,6 +1,8 @@
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// How many lines a title takes before it ends in an ellipsis. A title wraps
@@ -67,16 +69,26 @@ class TopicMessageRow extends StatelessWidget {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Expanded(
-                        child: Text(
-                          title,
-                          maxLines: _kTitleMaxLines,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontBody,
-                            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: colors.ink,
+                        child: Semantics(
+                          // The bar is the only mark of a high message, so a
+                          // screen reader hears it in front of the title.
+                          label: isHigh
+                              ? '${LocaleKeys.common_priority_high.tr()}, '
+                                    '$title'
+                              : null,
+                          excludeSemantics: isHigh,
+                          child: Text(
+                            title,
+                            maxLines: _kTitleMaxLines,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTypography.fontBody,
+                              fontFamilyFallback:
+                                  AppTypography.fontBodyFallbacks,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: colors.ink,
+                            ),
                           ),
                         ),
                       ),

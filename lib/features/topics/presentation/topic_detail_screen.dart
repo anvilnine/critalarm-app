@@ -451,7 +451,17 @@ class _TopicSheet extends StatelessWidget {
       children: [
         _MessagesBlock(state: state),
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+          // 2 less below than the 8 it was: the Delete button is a 36 pill in
+          // a 48 tap box, so its padding is 4 less and the box takes 2 more
+          // from here.
+          padding: EdgeInsets.fromLTRB(
+            8,
+            // 4 less on top when the "All messages" link is above, which is
+            // 4 taller than it was.
+            state.messages.length > _kSheetMessages ? 0 : 4,
+            8,
+            6,
+          ),
           // The tokens and the settings sit on one cream panel, so they read
           // as tiles apart from the messages above.
           child: DecoratedBox(
@@ -506,7 +516,7 @@ class _TopicSheet extends StatelessWidget {
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.topicDelete,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: EdgeInsets.zero,
             child: AppButton(
               label: LocaleKeys.topic_detail_delete_button.tr(),
               variant: AppButtonVariant.dangerText,
@@ -582,7 +592,10 @@ class _MessagesBlock extends StatelessWidget {
               ? KeyedSubtree(
                   key: ValueKey('sheet_error_${state.errorMessage}'),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                    // No padding below: the retry button's tap box reaches 6
+                    // under the pill, and the header's top gives up the other
+                    // 2 of the 4 and 12 that were there.
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                     child: Column(
                       children: [
                         Center(
@@ -591,7 +604,9 @@ class _MessagesBlock extends StatelessWidget {
                             message: state.errorMessage,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        // The retry button is a 36 pill in a 48 tap box: 6
+                        // less above it.
+                        const SizedBox(height: 4),
                         AppButton(
                           label: LocaleKeys.topic_detail_retry_button.tr(),
                           variant: AppButtonVariant.ghost,
@@ -611,7 +626,14 @@ class _MessagesBlock extends StatelessWidget {
         ),
         AppSectionHeader(
           LocaleKeys.topic_detail_messages_header.tr(),
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+          // 2 less on top when the retry button is above: its tap box reaches
+          // 6 below the pill and the padding under it was 4.
+          padding: EdgeInsets.fromLTRB(
+            14,
+            state.capReached == null && state.errorMessage != null ? 10 : 12,
+            14,
+            0,
+          ),
         ),
         _swap(
           context,
@@ -711,11 +733,13 @@ class _AllMessagesLink extends StatelessWidget {
         onTap: onTap,
         borderRadius: Radii.mdAll,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
+          constraints: const BoxConstraints(minHeight: kMinTapTarget),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              // 4 more below than above, so the words sit where they did in
+              // the 44 high row. The panel under the link gives up the 4.
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
               child: Text(
                 LocaleKeys.topic_hero_all_messages.plural(count),
                 style: TextStyle(

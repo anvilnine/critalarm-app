@@ -132,7 +132,10 @@ class _AnswerRow extends StatelessWidget {
         ? LocaleKeys.onboarding_permissions_denied_open_settings.tr()
         : LocaleKeys.device_permissions_allow_button.tr();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      // The button is a 36 pill in a 48 tap box. The row gives up 6 of its 10
+      // above and below, and the words take them back as padding, so the row
+      // is as tall as it was whatever the words are.
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -140,35 +143,39 @@ class _AnswerRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Semantics(
-              label: LocaleKeys.onboarding_permissions_answer_not_allowed_aria
-                  .tr(namedArgs: {'name': name}),
-              child: ExcludeSemantics(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: colors.ink,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Semantics(
+                label: LocaleKeys.onboarding_permissions_answer_not_allowed_aria
+                    .tr(namedArgs: {'name': name}),
+                child: ExcludeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: colors.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      LocaleKeys.onboarding_permissions_answer_not_allowed.tr(),
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 12,
-                        color: colors.ink3,
+                      const SizedBox(height: 2),
+                      Text(
+                        LocaleKeys.onboarding_permissions_answer_not_allowed
+                            .tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          color: colors.ink3,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

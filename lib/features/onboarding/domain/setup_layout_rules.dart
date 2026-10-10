@@ -81,7 +81,7 @@ bool setupPinsFirstMessageRow(double textScale) => textScale <= 1.5;
 const double setupTopBarMaxTextScale = 1.3;
 
 /// The least height a control can be tapped on.
-const double setupMinTapHeight = 44;
+const double setupMinTapHeight = 48;
 
 /// The room a control [height] tall is short of a full tap area, or 0 once
 /// it is tall enough on its own.

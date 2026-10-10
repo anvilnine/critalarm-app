@@ -88,22 +88,35 @@ class _StoryCaption extends StatelessWidget {
           ExcludeSemantics(
             child: Opacity(opacity: 0, child: Text(line, style: style)),
           ),
+        // The story hands on to the next page by itself, so the new line is
+        // said when it arrives. The fading words below are drawn only: while
+        // they cross-fade both lines are in the tree, and a screen reader
+        // would read the old one with the new.
+        Positioned.fill(
+          child: Semantics(
+            liveRegion: true,
+            label: _lineFor(page, ringsOnSilent: ringsOnSilent),
+            child: const SizedBox.expand(),
+          ),
+        ),
         Positioned(
           left: 0,
           right: 0,
           top: 0,
-          child: AnimatedSwitcher(
-            duration: context.motion(const Duration(milliseconds: 450)),
-            layoutBuilder: (current, previous) => Stack(
-              alignment: Alignment.topLeft,
-              children: [...previous, ?current],
-            ),
-            child: Text(
-              _lineFor(page, ringsOnSilent: ringsOnSilent),
-              // Keyed by the page, so the words about silent mode arriving
-              // a moment after launch do not fade.
-              key: ValueKey(page),
-              style: style,
+          child: ExcludeSemantics(
+            child: AnimatedSwitcher(
+              duration: context.motion(const Duration(milliseconds: 450)),
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.topLeft,
+                children: [...previous, ?current],
+              ),
+              child: Text(
+                _lineFor(page, ringsOnSilent: ringsOnSilent),
+                // Keyed by the page, so the words about silent mode arriving
+                // a moment after launch do not fade.
+                key: ValueKey(page),
+                style: style,
+              ),
             ),
           ),
         ),
@@ -273,7 +286,7 @@ class _RingStoryHeroState extends _ClockState<_RingStoryHero> {
         final phoneW = fullW * scale;
         final phoneTop = (box.maxHeight - fullH * scale) / 2;
         final buttonY = phoneTop + (_MiniPhone._bezel + _appImUp.dy) * scale;
-        final tapHeight = math.max(setupMinTapHeight + 4, 64 * scale + 24);
+        final tapHeight = math.max(setupMinTapHeight, 64 * scale + 24);
 
         return Semantics(
           container: true,

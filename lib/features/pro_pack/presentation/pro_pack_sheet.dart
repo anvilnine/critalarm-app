@@ -70,6 +70,9 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
 
           return AppBottomSheet(
             scrollController: _scroll,
+            // Restore is a 36 pill in a 48 tap box, and the last thing in
+            // the sheet: the sheet gives up the 6 under the pill.
+            bottomRoom: ProPackSheetCubit.canRestore(state.stage) ? 6 : 0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -143,7 +146,13 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                       offer: offer,
                       onTap: () => unawaited(cubit.buy(offer)),
                     ),
-                    const SizedBox(height: Spacing.s2),
+                    // Restore follows the last one, and its box reaches 6
+                    // above the pill.
+                    SizedBox(
+                      height: offer == state.offers.last
+                          ? Spacing.s2 - 6
+                          : Spacing.s2,
+                    ),
                   ],
                 ],
                 if (state.stage == ProPackSheetStage.checkingPaused) ...[
@@ -158,7 +167,7 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                 // without anything on sale. A row hands its child no width,
                 // so the button stays as wide as its label.
                 if (ProPackSheetCubit.canRestore(state.stage)) ...[
-                  if (!showsOffers) const SizedBox(height: Spacing.s3),
+                  if (!showsOffers) const SizedBox(height: Spacing.s3 - 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

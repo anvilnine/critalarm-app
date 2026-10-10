@@ -200,6 +200,12 @@ class _TopicTokensSectionContentState
     await cubit.revoke(tokenId);
   }
 
+  /// True when the section shows its list, and not the skeleton or the
+  /// failure with its retry button.
+  static bool _showsList(TopicTokensState state) =>
+      !(state.status == TopicTokensStatus.loading && state.tokens.isEmpty) &&
+      !(state.status == TopicTokensStatus.failure && state.tokens.isEmpty);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -208,12 +214,26 @@ class _TopicTokensSectionContentState
       builder: (context, state) {
         final cubit = context.read<TopicTokensCubit>();
         final made = state.newToken;
+        // The New token button is a 36 pill in a 48 tap box, so the gap above
+        // it is 6 less, whatever sits above. The last thing above it keeps 2
+        // of its 8, or the header gives up 6 of its padding when nothing is.
+        final hasError = state.errorMessage != null;
+        final hasTokens = state.tokens.isNotEmpty;
+        final nothingAbove = !hasError && made == null && !hasTokens;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (widget.hasDivider) const AppSectionDivider(),
-            AppSectionHeader(LocaleKeys.topic_tokens_header.tr()),
+            AppSectionHeader(
+              LocaleKeys.topic_tokens_header.tr(),
+              padding: EdgeInsets.fromLTRB(
+                4,
+                10,
+                4,
+                nothingAbove && _showsList(state) ? 0 : 6,
+              ),
+            ),
             AnimatedSize(
               duration: context.motion(AppDurations.base),
               curve: AppCurves.easeOut,
@@ -251,7 +271,10 @@ class _TopicTokensSectionContentState
                               state.errorMessage ??
                                   LocaleKeys.topic_tokens_load_failed.tr(),
                             ),
-                            const SizedBox(height: 8),
+                            // The retry button is a 36 pill in a 48 tap box:
+                            // 6 less above it. The 6 under it only lengthen
+                            // the section in an error state.
+                            const SizedBox(height: 2),
                             AppButton(
                               label: LocaleKeys.topic_detail_retry_button.tr(),
                               variant: AppButtonVariant.ghost,
@@ -284,7 +307,14 @@ class _TopicTokensSectionContentState
                                         ),
                                       ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(
+                                height:
+                                    !hasError &&
+                                        made == null &&
+                                        token == state.tokens.last
+                                    ? 2
+                                    : 8,
+                              ),
                             ],
                             // The one moment the value exists on screen.
                             // Nothing can ask the server for it again.
@@ -351,6 +381,7 @@ class _TopicTokensSectionContentState
                                             const SizedBox(height: 8),
                                             AppKeyValueRow(
                                               value: made,
+                                              trailingFillsRow: true,
                                               trailing: TokenActions(
                                                 value: made,
                                                 onCopied: (_) =>
@@ -363,7 +394,9 @@ class _TopicTokensSectionContentState
                                                   .create_topic_token_warning
                                                   .tr(),
                                             ),
-                                            const SizedBox(height: 8),
+                                            // The button is a 36 pill in a
+                                            // 48 tap box: 6 less around it.
+                                            const SizedBox(height: 2),
                                             AppButton(
                                               label: LocaleKeys
                                                   .topic_tokens_saved_button
@@ -373,7 +406,7 @@ class _TopicTokensSectionContentState
                                               isFullWidth: true,
                                               onPressed: cubit.dismissNewToken,
                                             ),
-                                            const SizedBox(height: 8),
+                                            SizedBox(height: hasError ? 8 : 2),
                                           ],
                                         ),
                                       )
@@ -415,7 +448,7 @@ class _TopicTokensSectionContentState
                                         child: Column(
                                           children: [
                                             _Note(state.errorMessage!),
-                                            const SizedBox(height: 8),
+                                            const SizedBox(height: 2),
                                           ],
                                         ),
                                       )

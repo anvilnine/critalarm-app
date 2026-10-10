@@ -1,5 +1,6 @@
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/highlight_card.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -54,7 +55,8 @@ const _creamInk = Color(0xFF1A140F);
 
 /// Button sizes defined by the Crit Alarm Design System.
 enum AppButtonSize {
-  /// Compact 36px height, 14px text.
+  /// Compact 36px height, 14px text. The tap area is still 48 high: the
+  /// button sits in the middle of a transparent 48 box.
   sm,
 
   /// Standard 48px height, 16px text.
@@ -78,11 +80,18 @@ class AppButton extends StatefulWidget {
     this.isFocused = false,
     this.foregroundColor,
     this.onPressDown,
+    this.hasTapBox = true,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// Whether a small button sits in a transparent 48 tap box. False for a
+  /// caller that gives the pill its own room, such as `SetupTapRoom`, or that
+  /// cannot spare the room without moving what is around it. The pill is the
+  /// same either way.
+  final bool hasTapBox;
 
   /// Called as a finger goes down on an enabled button, before the tap is
   /// known to be one. For feedback on the press, such as a sound. It is
@@ -318,6 +327,11 @@ class _AppButtonState extends State<AppButton> {
       ),
     );
 
+    final isSmall = widget.size == AppButtonSize.sm && widget.hasTapBox;
+    final sized = widget.isFullWidth
+        ? SizedBox(width: double.infinity, child: buttonCore)
+        : buttonCore;
+
     // Without this a screen reader reads the label as plain text: it never
     // says "button", never says the button is off, and never mentions that
     // the button is busy.
@@ -338,6 +352,9 @@ class _AppButtonState extends State<AppButton> {
           if (_isEnabled) setState(() => _isHovered = false);
         },
         child: GestureDetector(
+          // The small size is 36 high, drawn. Its tap area is a 48 box around
+          // the same pill, so the empty room takes the tap too.
+          behavior: isSmall ? HitTestBehavior.opaque : null,
           onTapDown: (_) {
             if (!_isEnabled) return;
             widget.onPressDown?.call();
@@ -350,9 +367,7 @@ class _AppButtonState extends State<AppButton> {
             if (_isEnabled) setState(() => _isActive = false);
           },
           onTap: _isEnabled ? widget.onPressed : null,
-          child: widget.isFullWidth
-              ? SizedBox(width: double.infinity, child: buttonCore)
-              : buttonCore,
+          child: isSmall ? AppTapTarget(child: sized) : sized,
         ),
       ),
     );
@@ -360,6 +375,11 @@ class _AppButtonState extends State<AppButton> {
 }
 
 /// Circular icon button (40x40) matching index.html .phone .bar .ib.
+///
+/// The circle is [size] across, drawn. The tap area is a 48 square around it,
+/// so the button takes up 48 in a row. [tapRoom] is the part of that on each
+/// side of the circle: a bar that holds this button takes it out of its own
+/// padding, so the circle stays where it was.
 class AppIconButton extends StatefulWidget {
   const AppIconButton({
     required this.glyph,
@@ -377,6 +397,11 @@ class AppIconButton extends StatefulWidget {
   final double size;
   final double glyphSize;
   final Color? color;
+
+  /// The room the tap area adds on each side of a circle [size] across, or 0
+  /// when the circle is already 48.
+  static double tapRoom(double size) =>
+      size >= kMinTapTarget ? 0 : (kMinTapTarget - size) / 2;
 
   @override
   State<AppIconButton> createState() => _AppIconButtonState();
@@ -426,6 +451,8 @@ class _AppIconButtonState extends State<AppIconButton> {
       ),
     );
 
+    button = AppTapTarget(child: button);
+
     if (widget.ariaLabel != null) {
       button = Semantics(
         label: widget.ariaLabel,
@@ -444,6 +471,7 @@ class _AppIconButtonState extends State<AppIconButton> {
         if (_isEnabled) setState(() => _isHovered = false);
       },
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) {
           if (_isEnabled) setState(() => _isActive = true);
         },

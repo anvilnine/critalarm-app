@@ -83,7 +83,9 @@ class _RoundsView extends StatelessWidget {
             else if (rounds == null)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, Spacing.s6, 12, 16),
+                  // The retry button is a 36 pill in a 48 tap box: 6 less above
+                  // and below it.
+                  padding: const EdgeInsets.fromLTRB(12, Spacing.s6, 12, 10),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -96,7 +98,7 @@ class _RoundsView extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: AppTypography.body(colors.onCanvas),
                       ),
-                      const SizedBox(height: Spacing.s3),
+                      const SizedBox(height: Spacing.s3 - 6),
                       AppButton(
                         label: LocaleKeys.weekly_check_rounds_retry.tr(),
                         size: AppButtonSize.sm,

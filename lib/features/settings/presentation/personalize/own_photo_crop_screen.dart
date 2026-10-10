@@ -188,10 +188,15 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
       color: colors.canvas,
       child: SafeArea(
         child: Padding(
+          // The cross and the zoom buttons are 48 tap boxes now, not 44, and
+          // reach 2 past their circles. The screen gives up 2 of its top and
+          // right padding for them, the rows take the height back as padding
+          // on their words, and the rest of the screen takes the 2 on the
+          // right back, so nothing moves.
           padding: const EdgeInsets.fromLTRB(
             Spacing.s4,
-            Spacing.s1,
-            Spacing.s4,
+            Spacing.s1 - 2,
+            Spacing.s4 - 2,
             Spacing.s3,
           ),
           child: Column(
@@ -199,15 +204,18 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        LocaleKeys.alarm_styles_own_crop_title.tr(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.display(
-                          colors.onCanvas,
-                          fontSize: 24,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          LocaleKeys.alarm_styles_own_crop_title.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.display(
+                            colors.onCanvas,
+                            fontSize: 24,
+                          ),
                         ),
                       ),
                     ),
@@ -216,62 +224,70 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                     onPressed: () => Navigator.of(context).pop(false),
                     label: LocaleKeys.common_close.tr(),
                     color: colors.onCanvas,
+                    tapSize: kMinTapTarget,
                   ),
                 ],
               ),
               const SizedBox(height: Spacing.s3),
               Expanded(
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: screen.width / screen.height,
-                    child: LayoutBuilder(
-                      builder: (context, box) {
-                        final frame = box.biggest;
-                        final radius = BorderRadius.circular(
-                          frame.width * 0.14,
-                        );
-                        _centre(frame);
-                        return DecoratedBox(
-                          position: DecorationPosition.foreground,
-                          decoration: BoxDecoration(
-                            borderRadius: radius,
-                            border: Border.all(
-                              color: colors.inkFixed,
-                              width: 2,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 2),
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: screen.width / screen.height,
+                      child: LayoutBuilder(
+                        builder: (context, box) {
+                          final frame = box.biggest;
+                          final radius = BorderRadius.circular(
+                            frame.width * 0.14,
+                          );
+                          _centre(frame);
+                          return DecoratedBox(
+                            position: DecorationPosition.foreground,
+                            decoration: BoxDecoration(
+                              borderRadius: radius,
+                              border: Border.all(
+                                color: colors.inkFixed,
+                                width: 2,
+                              ),
                             ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: radius,
-                            child: ColoredBox(
-                              color: colors.inkFixed,
-                              child: _frame(picture, frame),
+                            child: ClipRRect(
+                              borderRadius: radius,
+                              child: ColoredBox(
+                                color: colors.inkFixed,
+                                child: _frame(picture, frame),
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: Spacing.s3),
+              const SizedBox(height: Spacing.s3 - 2),
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      error ?? LocaleKeys.alarm_styles_own_crop_hint.tr(),
-                      style: AppTypography.small(
-                        colors.onCanvas,
-                      ).copyWith(fontWeight: FontWeight.w600),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        error ?? LocaleKeys.alarm_styles_own_crop_hint.tr(),
+                        style: AppTypography.small(
+                          colors.onCanvas,
+                        ).copyWith(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: Spacing.s2),
+                  // Their boxes reach 2 past the circles, so 2 less each side.
+                  const SizedBox(width: Spacing.s2 - 2),
                   AppIconButton(
                     glyph: GlyphType.minus,
                     size: 44,
                     ariaLabel: LocaleKeys.alarm_styles_own_crop_zoom_out.tr(),
                     onPressed: () => _zoom(1 / 1.25),
                   ),
-                  const SizedBox(width: Spacing.s2),
+                  const SizedBox(width: Spacing.s2 - 4),
                   AppIconButton(
                     glyph: GlyphType.plus,
                     size: 44,
@@ -280,13 +296,16 @@ class _OwnPhotoCropScreenState extends State<OwnPhotoCropScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: Spacing.s3),
-              AppButton(
-                label: LocaleKeys.alarm_styles_own_crop_use.tr(),
-                variant: AppButtonVariant.ink,
-                isFullWidth: true,
-                isLoading: _isSaving,
-                onPressed: () => unawaited(_use()),
+              const SizedBox(height: Spacing.s3 - 2),
+              Padding(
+                padding: const EdgeInsets.only(right: 2),
+                child: AppButton(
+                  label: LocaleKeys.alarm_styles_own_crop_use.tr(),
+                  variant: AppButtonVariant.ink,
+                  isFullWidth: true,
+                  isLoading: _isSaving,
+                  onPressed: () => unawaited(_use()),
+                ),
               ),
             ],
           ),
