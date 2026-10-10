@@ -6,21 +6,20 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/challenges/presentation/topic_challenge_row.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
-import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/topics/domain/topic_hero_card.dart';
 import 'package:critalarm/features/topics/domain/topic_summary.dart';
+import 'package:critalarm/features/topics/domain/topic_tokens_page_rules.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
-import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_pass_stack.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +34,7 @@ class TopicDetailScreen extends StatelessWidget {
     this.isPane = false,
     this.startCurlFlow = false,
     this.cubit,
+    this.isExample = false,
     super.key,
   });
 
@@ -44,62 +44,103 @@ class TopicDetailScreen extends StatelessWidget {
   /// as its own page.
   final bool isPane;
 
-  /// Opens the "Get curl line" token sheet as soon as the tokens load.
+  /// Opens the Tokens page with its New token sheet already open, as soon as
+  /// this screen builds. The silent topic reminder's "Get curl line" arrives
+  /// here.
   final bool startCurlFlow;
 
   /// Optional cubit for testing.
   final TopicDetailCubit? cubit;
+
+  /// Whether a given [cubit] holds the guide's made-up topic. Without a cubit
+  /// the guide decides, so this is read only with one.
+  final bool isExample;
 
   @override
   Widget build(BuildContext context) {
     if (cubit != null) {
       return BlocProvider.value(
         value: cubit!,
-        child: _TopicDetailScreenContent(
-          isPane: isPane,
-          isExample: false,
-          startCurlFlow: startCurlFlow,
-        ),
+        child: _TopicDetailScreenContent(isPane: isPane, isExample: isExample),
       );
     }
     // The guide's made-up topic is not on the server, so it is drawn from the
     // example instead of being asked for.
-    final isExample = getIt<FeatureGuideCubit>().state.showsExampleTopic(
+    final isGuideExample = getIt<FeatureGuideCubit>().state.showsExampleTopic(
       topicName,
     );
-    return BlocProvider(
-      create: (_) {
-        final cubit = getIt<TopicDetailCubit>();
-        if (isExample) {
-          cubit.showExample(FeatureGuideExamples.topicDetail());
-        } else {
-          unawaited(cubit.load(topicName));
-        }
-        return cubit;
-      },
-      child: _TopicDetailScreenContent(
-        isPane: isPane,
-        isExample: isExample,
-        startCurlFlow: startCurlFlow,
+    return _CurlStarter(
+      isEnabled: startCurlFlow && !isGuideExample,
+      topicName: topicName,
+      child: BlocProvider(
+        create: (_) {
+          final cubit = getIt<TopicDetailCubit>();
+          if (isGuideExample) {
+            cubit.showExample(FeatureGuideExamples.topicDetail());
+          } else {
+            unawaited(cubit.load(topicName));
+          }
+          return cubit;
+        },
+        child: _TopicDetailScreenContent(
+          isPane: isPane,
+          isExample: isGuideExample,
+        ),
       ),
     );
   }
+}
+
+/// Pushes the Tokens page with `?curl=1` once, right after the screen first
+/// builds, so back from it lands on the topic.
+class _CurlStarter extends StatefulWidget {
+  const _CurlStarter({
+    required this.isEnabled,
+    required this.topicName,
+    required this.child,
+  });
+
+  final bool isEnabled;
+  final String topicName;
+  final Widget child;
+
+  @override
+  State<_CurlStarter> createState() => _CurlStarterState();
+}
+
+class _CurlStarterState extends State<_CurlStarter> {
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isEnabled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final path = GoRouterState.of(context).uri.path;
+      final base = path == '/history' || path.startsWith('/history/')
+          ? '/history'
+          : '/';
+      unawaited(
+        context.push<void>(
+          topicTokensPath(base, widget.topicName, startCurlFlow: true),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _TopicDetailScreenContent extends StatelessWidget {
   const _TopicDetailScreenContent({
     required this.isPane,
     required this.isExample,
-    required this.startCurlFlow,
   });
 
   final bool isPane;
 
   /// The guide's example topic. It has no tokens on the server to list.
   final bool isExample;
-
-  /// Opens the "Get curl line" token sheet as soon as the tokens load.
-  final bool startCurlFlow;
 
   /// Asks first, then deletes, then leaves.
   ///
@@ -249,13 +290,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
           now: DateTime.now(),
         );
 
-        // Where the hero's disc sits. The name and the summary stand between
-        // the top bar and the scene, so the canvas is told how tall they are.
-        final headerHeight = topicHeaderHeight(
-          context,
-          name: state.topicName,
-          width: MediaQuery.sizeOf(context).width,
-        );
         final tone = _heroTone(card, state.severity);
 
         final scaffold = SeverityScope(
@@ -336,7 +370,11 @@ class _TopicDetailScreenContent extends StatelessWidget {
                     const SizedBox(height: Spacing.s3),
                     TopicHeader(
                       name: state.topicName,
-                      summary: topicSummaryText(summary),
+                      // Blank until the messages have been read, so the line
+                      // does not say "nothing yet" and then change.
+                      summary: state.areMessageTimesKnown
+                          ? topicSummaryText(summary)
+                          : '',
                     ),
                     const SizedBox(height: Spacing.s3),
                     AppHeroScene(
@@ -363,7 +401,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
                       child: _TopicSheet(
                         state: state,
                         isExample: isExample,
-                        startCurlFlow: startCurlFlow,
                         onDelete: () => unawaited(
                           _confirmDelete(context, state.topicName),
                         ),
@@ -388,28 +425,72 @@ class _TopicDetailScreenContent extends StatelessWidget {
         if (isPane) return scaffold;
         return AmbientOverride(
           direction: AmbientDirection.push,
-          profile: AmbientAppProfiles.topicsHero(
-            context.appColors,
-            severity: state.severity,
-            tone: tone,
-            spot: heroDiscSpotOf(
-              context,
-              above: headerHeight + Spacing.s3,
-            ),
-          ),
+          profile: topicCanvasProfileFor(context, state),
           child: scaffold,
         );
       },
     );
   }
 
-  /// The disc tint: quiet while Critical delivery is off. Under a warning or
-  /// ringing canvas the disc is the canvas's own lighter step, so it stays
-  /// calm there.
   static AppHeroTone _heroTone(TopicHeroCard card, SeverityMode severity) =>
-      card.hasQuietDisc && severity == SeverityMode.none
-      ? AppHeroTone.quiet
-      : AppHeroTone.calm;
+      topicHeroToneFor(card, severity);
+}
+
+/// The disc tint: quiet while Critical delivery is off. Under a warning or
+/// ringing canvas the disc is the canvas's own lighter step, so it stays
+/// calm there.
+AppHeroTone topicHeroToneFor(TopicHeroCard card, SeverityMode severity) =>
+    card.hasQuietDisc && severity == SeverityMode.none
+    ? AppHeroTone.quiet
+    : AppHeroTone.calm;
+
+/// The canvas behind the Topic screen for [state]: the Topics hero profile
+/// with the disc under this screen's face.
+///
+/// Where the hero's disc sits depends on how tall the name and the summary
+/// are, which stand between the top bar and the scene. The tone depends on
+/// Critical delivery, so it is read from [TopicDetailState.critical] even
+/// while the card still shows its dots.
+AmbientProfile topicCanvasProfileFor(
+  BuildContext context,
+  TopicDetailState state,
+) {
+  final card = topicHeroCardFor(
+    critical: state.critical,
+    canEditCritical: state.canEditCritical,
+    claim: RingClaim.forPhone(state.alarm),
+  );
+  final headerHeight = topicHeaderHeight(
+    context,
+    name: state.topicName,
+    width: MediaQuery.sizeOf(context).width,
+  );
+  return AmbientAppProfiles.topicsHero(
+    context.appColors,
+    severity: state.severity,
+    tone: topicHeroToneFor(card, state.severity),
+    spot: heroDiscSpotOf(context, above: headerHeight + Spacing.s3),
+  );
+}
+
+/// Gives the canvas the Topic screen's arrangement before the screen is
+/// pushed, so it starts gliding to it with the route and the screen's first
+/// frame is already on it. The screen would hand it over after its first
+/// frame otherwise. Call it from the list, just before pushing the topic.
+/// Does nothing when the app holds nothing about the topic yet, and the
+/// screen then sets the canvas itself.
+void primeTopicCanvas(BuildContext context, String topicName) {
+  unawaited(warmTopicSoundPeaks());
+  final controller = AmbientScope.controllerOf(context);
+  if (controller == null || !getIt.isRegistered<TopicDetailCubit>()) return;
+  final cubit = getIt<TopicDetailCubit>();
+  final seed = cubit.seedFor(topicName);
+  unawaited(cubit.close());
+  if (seed == null) return;
+  controller.setOverride(
+    profile: topicCanvasProfileFor(context, seed),
+    direction: AmbientDirection.push,
+  );
 }
 
 /// Copy explaining critical delivery. Older iPhones cannot ring through silent
@@ -429,77 +510,32 @@ String _criticalInfoText(TopicDetailState state) {
 /// own screen.
 const int _kSheetMessages = 3;
 
-/// The white sheet under the hero: the messages to read, then the topic's
-/// tokens and settings, then Delete topic.
+/// The white sheet under the hero: the messages to read, then the pass stack
+/// for the topic's look, sound, challenge and tokens, then Delete topic.
 class _TopicSheet extends StatelessWidget {
   const _TopicSheet({
     required this.state,
     required this.isExample,
-    required this.startCurlFlow,
     required this.onDelete,
   });
 
   final TopicDetailState state;
   final bool isExample;
-  final bool startCurlFlow;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     return AppInboxSheet(
       children: [
         _MessagesBlock(state: state),
+        // The topic's look, sound, wake-up challenge and tokens. Each card
+        // opens the page that changes it. Kept on the device only, except the
+        // tokens.
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-          // The tokens and the settings sit on one cream panel, so they read
-          // as tiles apart from the messages above.
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.cream,
-              borderRadius: Radii.lgAll,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!isExample) ...[
-                    TopicTokensSection(
-                      topicName: state.topicName,
-                      startCurlFlow: startCurlFlow,
-                      hasDivider: false,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  // Per-topic sound. Stored on the device only, so it is not
-                  // part of the topic the server knows about.
-                  FeatureGuideAnchor(
-                    id: FeatureGuideAnchorId.topicSound,
-                    child: AppListRow(
-                      name: LocaleKeys.topic_detail_sound_row_title.tr(),
-                      meta: LocaleKeys.topic_detail_sound_row_default.tr(),
-                      trailing: AppGlyph(
-                        GlyphType.arrow,
-                        color: colors.ink3,
-                        size: 16,
-                      ),
-                      onTap: () => context.push(
-                        '${GoRouterState.of(context).uri.path}/sounds',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Per-topic wake-up challenge. Kept on the device only,
-                  // like the sound.
-                  TopicChallengeRow(topicName: state.topicName),
-                  const SizedBox(height: 8),
-                  // Per-topic look of the alarm screen. Kept on the device
-                  // only, like the sound.
-                  TopicAlarmStyleRow(topicName: state.topicName),
-                ],
-              ),
-            ),
+          padding: const EdgeInsets.fromLTRB(2, 10, 2, 10),
+          child: TopicPassStack(
+            topicName: state.topicName,
+            isExample: isExample,
           ),
         ),
         // Last on the sheet, so nothing is reached past to get to it.

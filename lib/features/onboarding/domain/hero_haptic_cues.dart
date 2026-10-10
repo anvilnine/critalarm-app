@@ -162,14 +162,6 @@ List<TimedCue> ringCues({
   ];
 }
 
-/// The ring story: the alert landing on the lock screen, then the first
-/// pulses of the alarm. The hero leaves out the pulses that fall after the
-/// user stopped the ring.
-List<TimedCue> ringStoryCues() => [
-  (at: ringStoryAlertLandsAt, cue: HeroCue.alertLands),
-  ...ringCues(from: ringStoryRingStartsAt, to: ringStoryAutoStopAt),
-];
-
 /// The priority ladder: each card landing, then the first pulses of the
 /// last card ringing.
 List<TimedCue> ladderCues() => [

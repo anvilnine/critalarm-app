@@ -197,6 +197,19 @@ double passFitValueSize({
   return fit;
 }
 
+/// How many lines of value a card in the overlapped stack draws.
+///
+/// Two, unless the [band] it shows (the distance to the next card's top) is
+/// too short for a second line to clear the next card. Then one. A card with
+/// no band, such as the last, draws two.
+int passValueLinesFor({required double? band, required TextScaler textScaler}) {
+  if (band == null) return 2;
+  final label = 11 * math.min(textScaler.scale(1), kChromeMaxTextScale) * 1.2;
+  final line = textScaler.scale(kPassCardValueSize) * 1.05;
+  final room = band - kPassCardTopPadding - label - 4;
+  return (room / line).floor().clamp(1, 2);
+}
+
 /// Tells the cards below whether the stack is laid out flat (text scale 1.3
 /// and above): full radius, no cap on the value's lines, the thumbnail under
 /// the value. `AppPassStack` places it.
@@ -235,6 +248,19 @@ class PassCardBand extends InheritedWidget {
 
   @override
   bool updateShouldNotify(PassCardBand oldWidget) => height != oldWidget.height;
+}
+
+/// Marks the last card of a band stack (`AppPassBands`): it draws all four
+/// corners round, because nothing is under it to cover them.
+class PassCardEnd extends InheritedWidget {
+  const PassCardEnd({required super.child, super.key});
+
+  /// Whether the nearest [PassCardEnd] above [context] exists.
+  static bool isEndOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<PassCardEnd>() != null;
+
+  @override
+  bool updateShouldNotify(PassCardEnd oldWidget) => false;
 }
 
 /// One card of the Personalize stack.
@@ -318,6 +344,7 @@ class _AppPassCardState extends State<AppPassCard> {
     AppHaptics.selection();
     final box = context.findRenderObject()! as RenderBox;
     final isFlat = PassCardLayout.isFlatOf(context);
+    final isRound = isFlat || PassCardEnd.isEndOf(context);
     onTap(
       PassOrigin(
         pass: widget.pass,
@@ -330,7 +357,7 @@ class _AppPassCardState extends State<AppPassCard> {
           safeTop: MediaQuery.paddingOf(context).top,
         ),
         thumbnail: widget.thumbnail,
-        bottomRadius: isFlat ? kPassCardRadius : 0,
+        bottomRadius: isRound ? kPassCardRadius : 0,
         visibleHeight: isFlat ? null : PassCardBand.maybeOf(context),
         reduceMotion: context.reduceMotion,
         handoff: PassOriginScope.maybeOf(context),
@@ -340,8 +367,45 @@ class _AppPassCardState extends State<AppPassCard> {
 
   String get _spokenLabel {
     final tag = widget.tag;
+    final value = widget.value.isEmpty ? '' : ', ${widget.value}';
     return widget.semanticLabel ??
-        '${widget.label}, ${widget.value}${tag == null ? '' : ', $tag'}';
+        '${widget.label}$value${tag == null ? '' : ', $tag'}';
+  }
+
+  /// The value's size on the card: [kPassCardValueSize], or less when the
+  /// longest word would not fit [available].
+  double _fittedValueSize(
+    double available,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
+    final words = widget.value
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty);
+    double longestWord(double fontSize) {
+      var widest = 0.0;
+      for (final word in words) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: word,
+            style: passValueStyle(widget.tone.onGround, fontSize),
+          ),
+          textDirection: direction,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        widest = math.max(widest, painter.width);
+        painter.dispose();
+      }
+      return widest;
+    }
+
+    return passFitValueSize(
+      size: kPassCardValueSize,
+      available: available - 1,
+      longestWord: longestWord,
+      minSize: 18,
+    );
   }
 
   @override
@@ -395,7 +459,8 @@ class _AppPassCardState extends State<AppPassCard> {
     final tone = widget.tone;
     final isFlat = PassCardLayout.isFlatOf(context);
     final hasThumb = widget.thumbnail != null;
-    final radius = isFlat
+    final isRound = isFlat || PassCardEnd.isEndOf(context);
+    final radius = isRound
         ? const BorderRadius.all(Radius.circular(kPassCardRadius))
         : const BorderRadius.vertical(top: Radius.circular(kPassCardRadius));
 
@@ -409,15 +474,34 @@ class _AppPassCardState extends State<AppPassCard> {
       // badge keeps its place after it. The flat stack has the room to wrap.
       isSingleLine: !isFlat,
     );
-    final value = Text(
-      widget.value,
-      maxLines: isFlat ? null : 2,
-      overflow: isFlat ? TextOverflow.clip : TextOverflow.ellipsis,
-      style: passValueStyle(
-        tone.valueFor(isOn: widget.isOn),
-        kPassCardValueSize,
-      ),
-    );
+    final scaler = MediaQuery.textScalerOf(context);
+    // An empty value draws nothing and keeps the height of one line, so the
+    // card is as tall as a card with a value.
+    final value = widget.value.isEmpty
+        ? SizedBox(height: scaler.scale(kPassCardValueSize) * 1.05)
+        : LayoutBuilder(
+            builder: (context, box) {
+              // A one word value steps down before it breaks inside the
+              // word, as the page header does. Large text and a narrow
+              // phone reach it.
+              final size = _fittedValueSize(
+                box.maxWidth,
+                scaler,
+                Directionality.of(context),
+              );
+              return Text(
+                widget.value,
+                maxLines: isFlat
+                    ? null
+                    : passValueLinesFor(
+                        band: PassCardBand.maybeOf(context),
+                        textScaler: scaler,
+                      ),
+                overflow: isFlat ? TextOverflow.clip : TextOverflow.ellipsis,
+                style: passValueStyle(tone.valueFor(isOn: widget.isOn), size),
+              );
+            },
+          );
     final thumb = hasThumb
         // A thumbnail is a picture: it keeps its size at any text scale.
         ? MediaQuery(

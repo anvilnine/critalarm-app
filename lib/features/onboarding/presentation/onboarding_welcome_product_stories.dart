@@ -2,8 +2,8 @@ part of 'onboarding_welcome_screen.dart';
 
 // The pages of the welcome screen on first launch. Each one shows one thing
 // the app does, drawn with the same phone, cards and colours. The second one
-// is the priority ladder and the third is the curl that rings a phone, which
-// both live with the older stories in onboarding_welcome_stories.dart.
+// is the curl that rings a phone and the third is the home screen widgets,
+// which both live with the older stories in onboarding_welcome_stories.dart.
 
 /// The picture for [page], with one label for a screen reader. [onDone] is
 /// called once, when a story that ends is over. The curl plays round and
@@ -12,23 +12,150 @@ Widget _welcomeStoryHero(
   WelcomePage page, {
   required bool ringsOnSilent,
   required VoidCallback onDone,
+  WelcomeFirstPage firstPage = welcomeFirstPage,
+  _HeroDrawn? wordHeroDrawn,
+  ValueListenable<double>? wordSlide,
 }) {
   final isAndroid = defaultTargetPlatform == TargetPlatform.android;
   return switch (page) {
-    WelcomePage.rings => _RingStoryHero(
-      isAndroid: isAndroid,
-      isOnSilent: ringsOnSilent,
-      onDone: onDone,
-    ),
-    WelcomePage.priorities => _SpokenPicture(
-      label: LocaleKeys.onboarding_welcome_story_priorities_label.tr(),
-      child: _LadderHero(onDone: onDone),
-    ),
+    WelcomePage.rings => switch (firstPage) {
+      WelcomeFirstPage.word => _SpokenPicture(
+        label: LocaleKeys.onboarding_welcome_title.tr(),
+        child: _WordStoryHero(
+          onDone: onDone,
+          drawn: wordHeroDrawn,
+          slide: wordSlide,
+        ),
+      ),
+      // Draws its own title, like the word page.
+      WelcomeFirstPage.nightFalls => _SpokenPicture(
+        label: LocaleKeys.onboarding_welcome_title.tr(),
+        child: _NightFallsHero(
+          onDone: onDone,
+          drawn: wordHeroDrawn,
+          slide: wordSlide,
+        ),
+      ),
+      // No title of its own: the shared title stays under the picture.
+      WelcomeFirstPage.staysSilent => _SpokenPicture(
+        label: LocaleKeys.welcome_first_pages_stays_silent_label.tr(),
+        child: _StaysSilentHero(onDone: onDone, slide: wordSlide),
+      ),
+    },
     WelcomePage.curl => _SpokenPicture(
       label: LocaleKeys.onboarding_welcome_story_curl_label.tr(),
       child: isAndroid ? const _AndroidCurlHero() : const _CurlHero(),
     ),
+    // A mock-up: the title and the line under it say what it shows.
+    WelcomePage.widgets => const ExcludeSemantics(child: _WidgetsHero()),
   };
+}
+
+/// Fades a part of a first page and shifts it sideways by the slide of the
+/// pager, so the page never shows it cut by an edge. [partingAt] says how
+/// much of it shows and how many page widths it shifts, for a slide from 0
+/// to 1. Draws the part as it is when the page has no slide.
+class _PartingLayer extends StatelessWidget {
+  const _PartingLayer({
+    required this.slide,
+    required this.pageWidth,
+    required this.partingAt,
+    required this.child,
+  });
+
+  final ValueListenable<double>? slide;
+  final double pageWidth;
+  final ({double opacity, double shift}) Function(double slide) partingAt;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final slide = this.slide;
+    if (slide == null) return child;
+    return ValueListenableBuilder<double>(
+      valueListenable: slide,
+      child: child,
+      builder: (context, value, child) {
+        final parting = partingAt(value);
+        if (parting.opacity <= 0) return const SizedBox.shrink();
+        return Opacity(
+          opacity: parting.opacity,
+          child: Transform.translate(
+            offset: Offset(parting.shift * pageWidth, 0),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The parting of a night sky or panel behind a first page.
+({double opacity, double shift}) _backdropParting(double slide) {
+  final parting = welcomeBackdropPartingAt(slide);
+  return (opacity: parting.opacity, shift: parting.shift);
+}
+
+/// The parting of the title of a first page that draws one.
+({double opacity, double shift}) _titleParting(double slide) {
+  final parting = welcomeWordPartingAt(slide);
+  return (opacity: parting.titleOpacity, shift: parting.titleShift);
+}
+
+/// The parting of the face of a first page.
+({double opacity, double shift}) _faceParting(double slide) {
+  final parting = welcomeWordPartingAt(slide);
+  return (opacity: parting.faceOpacity, shift: parting.faceShift);
+}
+
+/// The colours of a night scene on a first page, all from the panel tokens,
+/// so a night looks the same in the light and the dark theme.
+class _NightColors {
+  factory _NightColors(AppColors colors) {
+    final sky = Color.lerp(colors.panel, colors.cobaltOnDark, 0.10)!;
+    Color toward(Color color, double amount) => Color.lerp(sky, color, amount)!;
+    return _NightColors._(
+      sky: sky,
+      text: colors.onPanel,
+      star: Color.lerp(colors.onPanel, colors.cobaltOnDark, 0.25)!,
+      dimInk: toward(
+        Color.lerp(colors.onPanelMuted, colors.cobaltOnDark, 0.5)!,
+        0.8,
+      ),
+      dimFill: toward(colors.cobaltOnDark, 0.20),
+      rowFill: toward(colors.cobaltOnDark, 0.12),
+      rowBar: toward(colors.cobaltOnDark, 0.26),
+    );
+  }
+
+  const _NightColors._({
+    required this.sky,
+    required this.text,
+    required this.star,
+    required this.dimInk,
+    required this.dimFill,
+    required this.rowFill,
+    required this.rowBar,
+  });
+
+  /// The night sky.
+  final Color sky;
+
+  /// Text and lines on the sky.
+  final Color text;
+
+  /// A star.
+  final Color star;
+
+  /// A face asleep and the muted text: dim lines on the sky.
+  final Color dimInk;
+
+  /// The head of a face asleep.
+  final Color dimFill;
+
+  /// A muted notification and the bar inside it.
+  final Color rowFill;
+  final Color rowBar;
 }
 
 /// A drawing a screen reader meets as one picture with one [label].
@@ -65,9 +192,9 @@ class _StoryCaption extends StatelessWidget {
           ringsOnSilent
               ? LocaleKeys.onboarding_welcome_caption_rings_silent.tr()
               : LocaleKeys.onboarding_welcome_caption_rings.tr(),
-        WelcomePage.priorities =>
-          LocaleKeys.onboarding_welcome_caption_priorities.tr(),
         WelcomePage.curl => LocaleKeys.onboarding_welcome_caption_curl.tr(),
+        WelcomePage.widgets =>
+          LocaleKeys.onboarding_welcome_widgets_subtitle.tr(),
       };
 
   @override
@@ -110,231 +237,4 @@ class _StoryCaption extends StatelessWidget {
       ],
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Story 1. It rings until you answer.
-
-/// A phone at night. An alert lands on the lock screen, the alarm takes the
-/// screen and rings, and it stops when "I'm up" is tapped: by the user, in
-/// the picture, or by itself a few seconds later.
-class _RingStoryHero extends StatefulWidget {
-  const _RingStoryHero({
-    required this.isAndroid,
-    required this.isOnSilent,
-    required this.onDone,
-  });
-
-  final bool isAndroid;
-
-  /// Draws the phone in silent mode. Only for a phone that does ring
-  /// through it.
-  final bool isOnSilent;
-
-  /// Called once, when the story is over.
-  final VoidCallback onDone;
-
-  @override
-  State<_RingStoryHero> createState() => _RingStoryHeroState();
-}
-
-class _RingStoryHeroState extends _ClockState<_RingStoryHero> {
-  /// A still hero rests on the ringing alarm, with its stop button in reach.
-  @override
-  double get restAt => 3;
-
-  /// When the user tapped the stop button, on the hero's clock.
-  double? _tappedAt;
-  bool _hasSaidDone = false;
-
-  @override
-  List<TimedCue> buildCues() => ringStoryCues();
-
-  /// No pulse plays once the ring was stopped.
-  @override
-  bool mayPlay(HeroCue cue) =>
-      cue != HeroCue.ringPulse ||
-      ringStoryIsRinging(_seconds, tappedAt: _tappedAt);
-
-  @override
-  void onClock(double seconds) {
-    if (_hasSaidDone || seconds < ringStoryEndsAt(tappedAt: _tappedAt)) return;
-    _hasSaidDone = true;
-    widget.onDone();
-  }
-
-  /// The user tapped "I'm up" in the picture. The ring stops on this frame
-  /// and the press is felt here, so the tap is answered at once.
-  void _stop() {
-    final at = t;
-    if (!ringStoryIsRinging(at, tappedAt: _tappedAt)) return;
-    setState(() => _tappedAt = at);
-    AppHaptics.capture();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = this.t;
-    final isAndroid = widget.isAndroid;
-    final stopsAt = ringStoryStopsAt(tappedAt: _tappedAt);
-    final isRinging = ringStoryIsRinging(t, tappedAt: _tappedAt);
-    final hasStopped = t >= stopsAt;
-
-    // The shake comes on fast and is gone on the frame the ring stops.
-    final ring = isRinging ? _window(t, ringStoryRingStartsAt, 0.15) : 0.0;
-    final takeOver = _window(
-      t,
-      ringStoryRingStartsAt,
-      ringStoryTakeOverTakes,
-    );
-    final acked = !hasStopped
-        ? 0.0
-        : _isStill
-        ? 1.0
-        : _window(t, stopsAt, 0.2);
-    final rangFor = (stopsAt - ringStoryRingStartsAt).floor() + 1;
-    final seconds = hasStopped
-        ? rangFor
-        : (t - ringStoryRingStartsAt).clamp(0, 99).floor() + 1;
-
-    // With no tap from the user a finger in the picture presses the button.
-    const pressAt = ringStoryAutoStopAt - 0.1;
-    final showsFinger = _tappedAt == null && !_isStill;
-    final finger = showsFinger
-        ? _shown(t, pressAt - 0.7, pressAt + 0.15, fade: 0.2)
-        : 0.0;
-    final press = showsFinger ? _press(t, pressAt) : 0.0;
-
-    final phone = Transform.rotate(
-      angle: math.sin(t * phoneShakeRate) * 0.012 * ring,
-      child: _MiniPhone(
-        isAndroid: isAndroid,
-        isSilent: widget.isOnSilent,
-        island: isRinging ? _window(t, ringStoryRingStartsAt, 0.25) : 0,
-        screen: Stack(
-          children: [
-            Positioned.fill(
-              child: isAndroid ? const _AndroidLock() : const _IosLock(),
-            ),
-            if (widget.isOnSilent)
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 60,
-                child: Center(child: _SilentPill()),
-              ),
-            Positioned(
-              top: isAndroid ? 60 : 250,
-              left: 0,
-              right: 0,
-              child: _layer(
-                _window(t, ringStoryAlertStartsAt, ringStoryAlertTakes),
-                isAndroid ? const _AndroidNotice() : const _IosNotice(),
-                from: Offset(0, isAndroid ? -120 : -40),
-              ),
-            ),
-            if (acked < 1)
-              Positioned.fill(
-                child: _layer(
-                  takeOver,
-                  _AppAlarm(seconds: seconds, press: press),
-                  from: const Offset(0, 60),
-                ),
-              ),
-            Positioned.fill(
-              child: _layer(acked, _AckScreen(seconds: rangFor)),
-            ),
-            _finger(_appImUp, finger, press),
-          ],
-        ),
-      ),
-    );
-
-    final String label;
-    if (hasStopped) {
-      label = LocaleKeys.onboarding_welcome_story_rings_label_stopped.tr();
-    } else if (widget.isOnSilent) {
-      label = LocaleKeys.onboarding_welcome_story_rings_label_silent.tr();
-    } else {
-      label = LocaleKeys.onboarding_welcome_story_rings_label.tr();
-    }
-
-    return LayoutBuilder(
-      builder: (context, box) {
-        // Where the phone and its "I'm up" button come out in this room, so
-        // the tap area can be a full finger tall however small the phone is
-        // drawn.
-        const fullW = _MiniPhone._w + 2 * _MiniPhone._bezel;
-        const fullH = _MiniPhone._h + 2 * _MiniPhone._bezel;
-        final scale = math.min(
-          box.maxHeight / fullH,
-          box.maxWidth / fullW,
-        );
-        final phoneW = fullW * scale;
-        final phoneTop = (box.maxHeight - fullH * scale) / 2;
-        final buttonY = phoneTop + (_MiniPhone._bezel + _appImUp.dy) * scale;
-        final tapHeight = math.max(setupMinTapHeight + 4, 64 * scale + 24);
-
-        return Semantics(
-          container: true,
-          image: true,
-          label: label,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ExcludeSemantics(child: Center(child: phone)),
-              ),
-              if (isRinging && takeOver >= 1)
-                Positioned(
-                  left: (box.maxWidth - phoneW) / 2,
-                  width: phoneW,
-                  top: buttonY - tapHeight / 2,
-                  height: tapHeight,
-                  child: Semantics(
-                    button: true,
-                    label: LocaleKeys.onboarding_welcome_story_rings_stop.tr(),
-                    onTap: _stop,
-                    child: Listener(
-                      // On the way down: waiting for the finger to lift would
-                      // make the alarm feel slow to stop.
-                      behavior: HitTestBehavior.opaque,
-                      onPointerDown: (_) => _stop(),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// The lock screen's own sign that the phone is in silent mode.
-class _SilentPill extends StatelessWidget {
-  const _SilentPill();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      color: const Color(0x33FFFFFF),
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.notifications_off, color: _white, size: 24),
-        const SizedBox(width: 8),
-        Text(
-          LocaleKeys.onboarding_welcome_story_silent.tr(),
-          style: const TextStyle(
-            color: _white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  );
 }
