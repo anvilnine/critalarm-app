@@ -20,6 +20,7 @@ class AppBottomSheet extends StatelessWidget {
     this.title,
     this.subtitle,
     this.scrollController,
+    this.bottomRoom = 0,
     super.key,
   });
 
@@ -27,6 +28,11 @@ class AppBottomSheet extends StatelessWidget {
   final String? subtitle;
   final Widget child;
   final ScrollController? scrollController;
+
+  /// How much of the 18 under the content the content's own last tap box
+  /// uses: a small button ends in a box taller than the button, and the
+  /// button stays where it was when the sheet gives up the same room.
+  final double bottomRoom;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +84,7 @@ class AppBottomSheet extends StatelessWidget {
     // The bottom safe area sits inside the content, not on the card, so the
     // last row scrolls with the list instead of meeting a hard edge above the
     // home indicator.
-    final bottomPadding = 18 + bottomInset + viewInsets;
+    final bottomPadding = 18 - bottomRoom + bottomInset + viewInsets;
 
     final body = scrollController == null
         ? Padding(

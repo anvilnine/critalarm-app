@@ -124,26 +124,32 @@ class _WeeklyCheckCardRowState extends State<WeeklyCheckCardRow> {
             final standing = _standing(state);
             final title = LocaleKeys.weekly_check_title.tr();
             return switch (weeklyCheckCardKindFor(standing)) {
-              WeeklyCheckCardKind.notOffered => _CardWords(
-                title: title,
-                line: LocaleKeys.weekly_check_own_server_line.tr(),
+              WeeklyCheckCardKind.notOffered => _InCard(
+                child: _CardWords(
+                  title: title,
+                  line: LocaleKeys.weekly_check_own_server_line.tr(),
+                ),
               ),
               WeeklyCheckCardKind.locked => _CardLockedRow(title: title),
-              WeeklyCheckCardKind.held => _CardHeldRow(
-                title: title,
-                view: weeklyCheckCardView(
-                  standing: standing,
-                  check: state.check,
-                  now: DateTime.now(),
+              WeeklyCheckCardKind.held => _InCard(
+                child: _CardHeldRow(
+                  title: title,
+                  view: weeklyCheckCardView(
+                    standing: standing,
+                    check: state.check,
+                    now: DateTime.now(),
+                  ),
+                  isBusy: state.isBusy,
+                  switchLineKey: weeklyCheckSwitchLineKey(state.switchOutcome),
+                  onSwitch: (value) {
+                    AppHaptics.capture();
+                    unawaited(
+                      context.read<WeeklyCheckCubit>().setEnabled(
+                        enabled: value,
+                      ),
+                    );
+                  },
                 ),
-                isBusy: state.isBusy,
-                switchLineKey: weeklyCheckSwitchLineKey(state.switchOutcome),
-                onSwitch: (value) {
-                  AppHaptics.capture();
-                  unawaited(
-                    context.read<WeeklyCheckCubit>().setEnabled(enabled: value),
-                  );
-                },
               ),
             };
           },
@@ -151,6 +157,26 @@ class _WeeklyCheckCardRowState extends State<WeeklyCheckCardRow> {
       ),
     );
   }
+}
+
+/// What the proof card gives up above and below the weekly check row, in
+/// points. The locked row can hold a button in a 48 tap box that is 6 taller
+/// than the button's pill on each side, so the card spends 6 less above and
+/// below and every row adds the 6 back (see [_InCard]).
+const double weeklyCheckCardGive = 6;
+
+/// A row of the weekly check that holds no button: the 6 the proof card gave
+/// up above and below it, so the row sits where it did.
+class _InCard extends StatelessWidget {
+  const _InCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: weeklyCheckCardGive),
+    child: child,
+  );
 }
 
 TextStyle _cardTitleStyle(AppColors colors) => AppTypography.body(
@@ -281,7 +307,7 @@ class _CardLockedRow extends StatelessWidget {
                 planWord: plan,
                 canUnlock: unlock != null,
               )) {
-            return spoken;
+            return _InCard(child: spoken);
           }
           final pill = AppButton(
             label: LocaleKeys.personalize_passes_widgets_see_plan.tr(
@@ -301,20 +327,24 @@ class _CardLockedRow extends StatelessWidget {
               final stacks =
                   scale >= _stackFromScale ||
                   constraints.maxWidth < _stackBelowWidth;
+              // The pill is 36 high in a 48 tap box, 6 above and below it.
+              // The box takes the 6 the card gave up, so the words keep
+              // theirs and the pill stays where it was.
               if (stacks) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    spoken,
-                    const SizedBox(height: Spacing.s3),
+                    // The 6 under the words and the 6 above the pill's box
+                    // are the 12 that were between them.
+                    _InCard(child: spoken),
                     pill,
                   ],
                 );
               }
               return Row(
                 children: [
-                  Expanded(child: spoken),
+                  Expanded(child: _InCard(child: spoken)),
                   const SizedBox(width: Spacing.s2),
                   pill,
                 ],

@@ -116,7 +116,9 @@ class AccountView extends StatelessWidget {
         // Any device on the account may mint a join code, signed in or not,
         // so this sits outside the sheet that switches on sign-in.
         AppSheet(child: _JoinCode(state: state)),
-        const SizedBox(height: Spacing.s4),
+        // 8 less than the 16 it was: the button below is 48 high now, and its
+        // text sits 8 lower in it, so the text stays where it was.
+        const SizedBox(height: Spacing.s2),
         const _DeleteAccountButton(),
       ],
     );
@@ -409,6 +411,7 @@ class _JoinCode extends StatelessWidget {
           AppKeyValueRow(
             label: LocaleKeys.account_join_code_label.tr(),
             value: code,
+            trailingFillsRow: true,
             trailing: TokenActions(
               value: code,
               onCopied: (_) => AppHaptics.selection(),
@@ -420,7 +423,9 @@ class _JoinCode extends StatelessWidget {
             const SizedBox(height: 6),
             AppNote(text: LocaleKeys.account_join_code_retired.tr()),
           ],
-          const SizedBox(height: 8),
+          // The button is a 36 pill in a 48 tap box: 6 less above it, and 6
+          // less of whatever follows it.
+          const SizedBox(height: 2),
           AppButton(
             label: LocaleKeys.account_join_code_saved_button.tr(),
             variant: AppButtonVariant.ghost,
@@ -430,10 +435,12 @@ class _JoinCode extends StatelessWidget {
           ),
         ],
         if (state.joinTokenError != null) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: code != null ? 6 : 12),
           AppNote(text: state.joinTokenError!),
         ],
-        const SizedBox(height: 10),
+        SizedBox(
+          height: code != null && state.joinTokenError == null ? 4 : 10,
+        ),
         Text(
           LocaleKeys.account_join_code_retire_warning.tr(),
           style: TextStyle(
@@ -475,7 +482,9 @@ class _DeleteAccountButton extends StatelessWidget {
         onPressed: () => context.push('/settings/account/delete'),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          minimumSize: Size.zero,
+          // The text is 16 high with 8 above and below. The button is 48
+          // high around it, and the text stays in the middle.
+          minimumSize: const Size(48, 48),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(

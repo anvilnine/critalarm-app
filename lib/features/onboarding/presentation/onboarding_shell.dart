@@ -744,9 +744,14 @@ class _OnboardingShellState extends State<OnboardingShell>
             child: MediaQuery.withClampedTextScaling(
               maxScaleFactor: setupTopBarMaxTextScale,
               child: SizedBox(
-                height: AppScreenScaffold.topBarHeight,
+                // 2 taller than the bar's 56, as every step's bar is.
+                height: AppScreenScaffold.topBarHeight + 2,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  // Back is a 40 circle in a 48 tap box, which reaches 4 past
+                  // it: 4 less on the left, and 2 less above for the 2 the
+                  // bar is taller. The slot holds the 4 back on the left
+                  // while Back is not offered.
+                  padding: const EdgeInsets.fromLTRB(12, 10, 16, 0),
                   child: Row(
                     children: [
                       _BackSlot(onPressed: onBack),
@@ -805,9 +810,9 @@ class _BackSlot extends StatelessWidget {
       curve: AppCurves.easeOut,
       alignment: AlignmentDirectional.centerStart,
       child: onPressed == null
-          ? const SizedBox(height: 40)
+          ? const SizedBox(width: 4, height: 48)
           : Padding(
-              padding: const EdgeInsetsDirectional.only(end: Spacing.s3),
+              padding: const EdgeInsetsDirectional.only(end: Spacing.s3 - 4),
               child: AppIconButton(
                 glyph: GlyphType.back,
                 ariaLabel: LocaleKeys.common_back.tr(),

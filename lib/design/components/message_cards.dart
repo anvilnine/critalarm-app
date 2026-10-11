@@ -2,6 +2,8 @@ import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Message card for topic detail views matching index.html .msg.
@@ -15,7 +17,10 @@ class AppMessageCard extends StatelessWidget {
     this.onShare,
     this.shareLabel,
     super.key,
-  });
+  }) : assert(
+         onShare == null || shareLabel != null,
+         'A share button needs words for a screen reader.',
+       );
 
   final String title;
   final String timestamp;
@@ -54,15 +59,23 @@ class AppMessageCard extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.01 * 15,
-                    color: colors.ink,
+                child: Semantics(
+                  // The border is the only mark of a high message, so a
+                  // screen reader hears it in front of the title.
+                  label: isHigh
+                      ? '${LocaleKeys.common_priority_high.tr()}, $title'
+                      : null,
+                  excludeSemantics: isHigh,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontDisplay,
+                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.01 * 15,
+                      color: colors.ink,
+                    ),
                   ),
                 ),
               ),

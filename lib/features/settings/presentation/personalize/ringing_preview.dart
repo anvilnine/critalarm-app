@@ -278,11 +278,13 @@ class RingingPreviewPage extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.topEnd,
               child: Padding(
-                padding: const EdgeInsets.all(Spacing.s1),
+                // 2 less than the 4 it was: the cross is a 48 tap box now.
+                padding: const EdgeInsets.all(Spacing.s1 - 2),
                 child: AppDismissCross(
                   onPressed: () => Navigator.of(context).pop(),
                   label: LocaleKeys.common_close.tr(),
                   color: colors.onCanvas,
+                  tapSize: kMinTapTarget,
                 ),
               ),
             ),
@@ -310,7 +312,12 @@ class RingingPreviewFrame extends StatelessWidget {
   final AlarmStyle? style;
 
   /// The edge of the square that takes a tap on the play button.
-  static const double playTarget = 44;
+  static const double playTarget = kMinTapTarget;
+
+  /// The gap between the frame and the play target. It was 8 with a 44 target
+  /// around the 40 button, and the 48 target takes 2 of it so the button
+  /// stays where it was.
+  static const double playGap = Spacing.s2 - 2;
 
   /// Puts the play button under the frame instead of beside it.
   final bool playBelow;
@@ -365,7 +372,7 @@ class RingingPreviewFrame extends StatelessWidget {
         ),
       ),
     );
-    // A 44 point target around the 40 point button.
+    // A 48 point target around the 40 point button.
     final play = SizedBox.square(
       dimension: playTarget,
       child: GestureDetector(
@@ -388,7 +395,7 @@ class RingingPreviewFrame extends StatelessWidget {
         // the preview: beside its bottom corner, or under it where the
         // page has no width to spare. Beside, the same room is kept on
         // the other side so the frame stays in the middle.
-        const beside = playTarget + Spacing.s2;
+        const beside = playTarget + playGap;
         final maxWidth = box.maxWidth - (playBelow ? 0 : 2 * beside);
         final height = maxHeight * aspect <= maxWidth
             ? maxHeight
@@ -403,7 +410,7 @@ class RingingPreviewFrame extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               sized,
-              const SizedBox(height: Spacing.s2),
+              const SizedBox(height: playGap),
               play,
             ],
           );
@@ -414,7 +421,7 @@ class RingingPreviewFrame extends StatelessWidget {
           children: [
             const SizedBox(width: beside),
             sized,
-            const SizedBox(width: Spacing.s2),
+            const SizedBox(width: playGap),
             play,
           ],
         );

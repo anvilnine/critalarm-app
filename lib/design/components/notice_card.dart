@@ -1,6 +1,7 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/dismiss_cross.dart';
 import 'package:critalarm/design/components/highlight_card.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
@@ -108,43 +109,74 @@ class AppCreamCard extends StatelessWidget {
             onPressed: onClose!,
             label: closeLabel!,
             color: colors.ink,
+            tapSize: kMinTapTarget,
           );
 
+    // The cross is a 48 box now, not 44, and the pill a 36 pill in a 48 box.
+    // Nothing the card draws moves, because the card gives up the same room.
+    // The words set the height of their row, so they take the room back as
+    // padding of their own: 2 above and below for the cross, 6 for the pill.
+    // The card keeps the least of what each layout can spare (6 above and
+    // below) and each layout adds the rest back where it needs it.
+    final hasCross = cross != null;
     final content = LayoutBuilder(
       builder: (context, constraints) {
         final isStacked =
             scale > kChromeMaxTextScale ||
-            constraints.maxWidth < stackBelowWidth;
+            // The card's right padding is 2 less with a cross, so the room
+            // is measured as it was.
+            constraints.maxWidth - (hasCross ? 2 : 0) < stackBelowWidth;
         if (isStacked) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: words),
-                  ?cross,
-                ],
-              ),
-              const SizedBox(height: Spacing.s3),
-              pill(isFullWidth: true),
-            ],
+          final room = hasCross ? 2.0 : 0.0;
+          return Padding(
+            padding: EdgeInsets.only(top: 6 - room),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: room),
+                        child: words,
+                      ),
+                    ),
+                    ?cross,
+                  ],
+                ),
+                // The pill's box reaches 6 above it: 6 of the 12 gap.
+                const SizedBox(height: Spacing.s3 - 6),
+                pill(isFullWidth: true),
+              ],
+            ),
           );
         }
-        return Row(
-          children: [
-            Expanded(child: words),
-            const SizedBox(width: Spacing.s3),
-            pill(isFullWidth: false),
-            ?cross,
-          ],
+        final room = hasCross ? 2.0 : 6.0;
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 6 - room),
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: room),
+                  child: words,
+                ),
+              ),
+              // With a cross, 2 less than the 12 it was: the cross box is 4
+              // wider and the card's right padding gave up 2 of that.
+              SizedBox(width: Spacing.s3 - (hasCross ? 2 : 0)),
+              pill(isFullWidth: false),
+              ?cross,
+            ],
+          ),
         );
       },
     );
 
     // The cross brings its own room at the right edge.
-    final padding = EdgeInsets.fromLTRB(16, 12, onClose == null ? 16 : 4, 12);
+    final padding = EdgeInsets.fromLTRB(16, 6, onClose == null ? 16 : 2, 6);
     return isOnSheet
         ? AppHighlightCard(
             tone: AppHighlightTone.choice,

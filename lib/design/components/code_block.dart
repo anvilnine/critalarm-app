@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -41,6 +42,9 @@ class AppCodeBlock extends StatefulWidget {
 }
 
 class _AppCodeBlockState extends State<AppCodeBlock> {
+  /// What the Copy pill's 48 box adds above the pill's old 32 (8) and below.
+  static const double _copyRoom = 8;
+
   bool _copied = false;
   bool _copyHovered = false;
 
@@ -65,7 +69,15 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
         color: colors.panel,
         borderRadius: Radii.lgAll,
       ),
-      padding: const EdgeInsets.all(Spacing.s5),
+      // The Copy pill sits in a 48 box that reaches 8 above the pill's old
+      // top edge, so the block gives up 8 of its top padding and the text
+      // takes them back below.
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.s5,
+        Spacing.s5 - _copyRoom,
+        Spacing.s5,
+        Spacing.s5,
+      ),
       child: Stack(
         children: [
           // Code text
@@ -75,7 +87,7 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
               // Room for the Copy pill, which grows with the text size.
               padding: EdgeInsets.only(
                 right: MediaQuery.textScalerOf(context).scale(80),
-                top: 4,
+                top: 4 + _copyRoom,
               ),
               // RichText ignores the system text size unless told, so the
               // code stayed small under Dynamic Type.
@@ -91,34 +103,40 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
             right: 0,
             child: Semantics(
               button: true,
+              // "Copied" replaces "Copy" in place, so say it when it lands.
+              liveRegion: true,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 onEnter: (_) => setState(() => _copyHovered = true),
                 onExit: (_) => setState(() => _copyHovered = false),
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: _handleCopy,
-                  child: AnimatedContainer(
-                    duration: context.motion(AppDurations.quick),
-                    constraints: const BoxConstraints(minHeight: 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: _copyHovered
-                          ? colors.panelHover
-                          : Colors.transparent,
-                      borderRadius: Radii.fullAll,
-                      border: Border.all(color: colors.panelLine, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _copied
-                          ? LocaleKeys.common_copied.tr()
-                          : LocaleKeys.common_copy.tr(),
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colors.onPanel,
+                  child: AppTapTarget(
+                    minWidth: 0,
+                    child: AnimatedContainer(
+                      duration: context.motion(AppDurations.quick),
+                      constraints: const BoxConstraints(minHeight: 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: _copyHovered
+                            ? colors.panelHover
+                            : Colors.transparent,
+                        borderRadius: Radii.fullAll,
+                        border: Border.all(color: colors.panelLine, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _copied
+                            ? LocaleKeys.common_copied.tr()
+                            : LocaleKeys.common_copy.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onPanel,
+                        ),
                       ),
                     ),
                   ),
@@ -138,7 +156,14 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
         color: colors.panel,
         borderRadius: Radii.lgAll,
       ),
-      padding: const EdgeInsets.all(Spacing.s4),
+      // The button is a 44 pill in a 48 box: 2 of the gap above it and 2 of
+      // the padding below it go to the box, so the pill stays put.
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.s4,
+        Spacing.s4,
+        Spacing.s4,
+        Spacing.s4 - 2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -153,7 +178,7 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
               ),
             ),
           ),
-          const SizedBox(height: Spacing.s3),
+          const SizedBox(height: Spacing.s3 - 2),
           Semantics(
             button: true,
             liveRegion: true,
@@ -164,32 +189,35 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _handleCopy,
-                child: AnimatedContainer(
-                  duration: context.motion(AppDurations.quick),
-                  constraints: const BoxConstraints(minHeight: 44),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _copied || _copyHovered
-                        ? colors.panelHover
-                        : Colors.transparent,
-                    borderRadius: Radii.fullAll,
-                    border: Border.all(color: colors.panelLine, width: 1.5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _copied
-                        ? LocaleKeys.common_copied.tr()
-                        : widget.copyLabel ?? LocaleKeys.common_copy.tr(),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colors.onPanel,
+                child: AppTapTarget(
+                  minWidth: 0,
+                  child: AnimatedContainer(
+                    duration: context.motion(AppDurations.quick),
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _copied || _copyHovered
+                          ? colors.panelHover
+                          : Colors.transparent,
+                      borderRadius: Radii.fullAll,
+                      border: Border.all(color: colors.panelLine, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _copied
+                          ? LocaleKeys.common_copied.tr()
+                          : widget.copyLabel ?? LocaleKeys.common_copy.tr(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onPanel,
+                      ),
                     ),
                   ),
                 ),

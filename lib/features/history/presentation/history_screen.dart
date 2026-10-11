@@ -100,6 +100,8 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
               topBar: AppTopBar(
                 title: LocaleKeys.history_title.tr(),
+                // The filter button is a 40 circle in a 48 tap box.
+                trailingTapRoom: AppIconButton.tapRoom(40),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -142,7 +144,8 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 // and no way to try again. `errorMessage` was never rendered.
                 if (state.status == HistoryStatus.failure)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    // 6 less than the 16 it was, for the retry tap box.
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -153,7 +156,8 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                                 state.errorMessage ??
                                 LocaleKeys.history_load_failed.tr(),
                           ),
-                          const SizedBox(height: 10),
+                          // 6 less than the 10 it was, for the same box.
+                          const SizedBox(height: 4),
                           AppButton(
                             label: LocaleKeys.history_retry_button.tr(),
                             variant: AppButtonVariant.ghost,
@@ -361,11 +365,15 @@ class _OlderAlarmsFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The line is 12 high. Its tap box is 48 high from the top of the line,
+    // so the line stays where it was and the room is under it, at the end of
+    // the list where nothing waits for it.
     return Padding(
-      padding: const EdgeInsets.only(top: Spacing.s1, bottom: Spacing.s2),
+      padding: const EdgeInsets.only(top: Spacing.s1),
       child: Semantics(
         button: true,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             AppHaptics.selection();
             unawaited(
@@ -376,10 +384,22 @@ class _OlderAlarmsFooter extends StatelessWidget {
               ),
             );
           },
-          child: Text(
-            LocaleKeys.history_older_notice.plural(count),
-            style: AppTypography.small(context.appColors.ink3, fontSize: 12),
-            textAlign: TextAlign.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: double.infinity,
+              minHeight: kMinTapTarget,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Text(
+                LocaleKeys.history_older_notice.plural(count),
+                style: AppTypography.small(
+                  context.appColors.ink3,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         ),
       ),
@@ -420,9 +440,11 @@ class _FilterButton extends StatelessWidget {
           onPressed: () => unawaited(_open(context)),
         ),
         if (filter.isActive)
+          // 4 more than the 2 it was: the button's box reaches 4 past its
+          // circle, and the dot sits on the circle.
           Positioned(
-            top: 2,
-            right: 2,
+            top: 6,
+            right: 6,
             child: IgnorePointer(
               child: Container(
                 width: 8,

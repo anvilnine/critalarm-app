@@ -114,14 +114,20 @@ class _MakerGuideView extends StatelessWidget {
                             state.outcome == MakerOpenOutcome.failed)
                           Padding(
                             padding: const EdgeInsets.only(top: Spacing.s2),
-                            child: Text(
-                              state.outcome == MakerOpenOutcome.appPage
-                                  ? LocaleKeys.maker_guide_opened_app_page.tr()
-                                  : LocaleKeys.maker_guide_open_failed.tr(),
-                              textAlign: TextAlign.center,
-                              style: AppTypography.small(
-                                colors.ink3,
-                                fontSize: 13,
+                            // Said when it appears: the result of the
+                            // button above, which shows only as text.
+                            child: Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                state.outcome == MakerOpenOutcome.appPage
+                                    ? LocaleKeys.maker_guide_opened_app_page
+                                          .tr()
+                                    : LocaleKeys.maker_guide_open_failed.tr(),
+                                textAlign: TextAlign.center,
+                                style: AppTypography.small(
+                                  colors.ink3,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ),

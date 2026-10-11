@@ -67,9 +67,6 @@ class $AssetsFontsGen {
   /// File path: assets/fonts/BricolageGrotesque-OFL.txt
   String get bricolageGrotesqueOFL => 'assets/fonts/BricolageGrotesque-OFL.txt';
 
-  /// File path: assets/fonts/IBMPlexMono-OFL.txt
-  String get iBMPlexMonoOFL => 'assets/fonts/IBMPlexMono-OFL.txt';
-
   /// File path: assets/fonts/InstrumentSans-OFL.txt
   String get instrumentSansOFL => 'assets/fonts/InstrumentSans-OFL.txt';
 
@@ -84,7 +81,6 @@ class $AssetsFontsGen {
     antonOFL,
     archivoOFL,
     bricolageGrotesqueOFL,
-    iBMPlexMonoOFL,
     instrumentSansOFL,
     jetBrainsMonoOFL,
   ];
