@@ -310,7 +310,8 @@ class _SubscriptionWarning extends StatelessWidget {
     final colors = context.appColors;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      // The button at the end is a 36 pill in a 48 tap box: 6 less below it.
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -340,7 +341,7 @@ class _SubscriptionWarning extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           AppButton(
             label: LocaleKeys.account_delete_manage_subscription.tr(),
             size: AppButtonSize.sm,
@@ -366,7 +367,8 @@ class _LiveAlarm extends StatelessWidget {
     final colors = context.appColors;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      // The button at the end is a 36 pill in a 48 tap box: 6 less below it.
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -396,7 +398,7 @@ class _LiveAlarm extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           AppButton(
             label: LocaleKeys.account_live_incident_button.tr(),
             size: AppButtonSize.sm,

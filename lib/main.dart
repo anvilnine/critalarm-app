@@ -38,7 +38,9 @@ void _registerFontLicenses() {
     for (final entry in const {
       'Anton': 'assets/fonts/Anton-OFL.txt',
       'Archivo': 'assets/fonts/Archivo-OFL.txt',
-      'IBM Plex Mono': 'assets/fonts/IBMPlexMono-OFL.txt',
+      'Bricolage Grotesque': 'assets/fonts/BricolageGrotesque-OFL.txt',
+      'Instrument Sans': 'assets/fonts/InstrumentSans-OFL.txt',
+      'JetBrains Mono': 'assets/fonts/JetBrainsMono-OFL.txt',
     }.entries) {
       final text = await rootBundle.loadString(entry.value);
       yield LicenseEntryWithLineBreaks([entry.key], text);

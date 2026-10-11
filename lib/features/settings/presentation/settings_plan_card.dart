@@ -116,7 +116,12 @@ class SettingsPlanCard extends StatelessWidget {
       child: Padding(
         // 14 at the sides, as a row has, so the card's text starts where the
         // row text and the section labels start.
-        padding: const EdgeInsets.all(14),
+        //
+        // With the pill, 6 less above and below: it is a 36 pill in a 48 tap
+        // box, and the layouts below add back what they need.
+        padding: label == null
+            ? const EdgeInsets.all(14)
+            : const EdgeInsets.fromLTRB(14, 8, 14, 8),
         child: label == null
             ? words
             : LayoutBuilder(
@@ -126,19 +131,28 @@ class SettingsPlanCard extends StatelessWidget {
                   final isStacked =
                       scale > kChromeMaxTextScale || constraints.maxWidth < 300;
                   if (isStacked) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        words,
-                        const SizedBox(height: Spacing.s3),
-                        pill(isFullWidth: true),
-                      ],
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          words,
+                          // The pill's box reaches 6 above it.
+                          const SizedBox(height: Spacing.s3 - 6),
+                          pill(isFullWidth: true),
+                        ],
+                      ),
                     );
                   }
                   return Row(
                     children: [
-                      Expanded(child: words),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: words,
+                        ),
+                      ),
                       const SizedBox(width: Spacing.s3),
                       pill(isFullWidth: false),
                     ],

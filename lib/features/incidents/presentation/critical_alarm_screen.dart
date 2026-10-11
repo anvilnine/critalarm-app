@@ -1046,9 +1046,11 @@ class AcknowledgedScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _title(look, TextAlign.left),
-                          const SizedBox(height: Spacing.s2),
+                          // The topic's tap box is 48 high, not 44: 2 less on
+                          // each side of it.
+                          const SizedBox(height: Spacing.s2 - 2),
                           _topic(context),
-                          const SizedBox(height: Spacing.s2),
+                          const SizedBox(height: Spacing.s2 - 2),
                           _sub(look, TextAlign.left, ackedSub),
                           const SizedBox(height: Spacing.s4),
                           _detailSheet(startedLabel, ackedLabel),
@@ -1116,9 +1118,11 @@ class AcknowledgedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: Spacing.s4),
                 _title(look, TextAlign.center),
-                const SizedBox(height: Spacing.s2),
+                // The topic's tap box is 48 high, not 44: 2 less on each side
+                // of it.
+                const SizedBox(height: Spacing.s2 - 2),
                 _topic(context),
-                const SizedBox(height: Spacing.s2),
+                const SizedBox(height: Spacing.s2 - 2),
                 _sub(look, TextAlign.center, ackedSub),
               ],
             ),
@@ -1317,7 +1321,7 @@ class AcknowledgedScreen extends StatelessWidget {
         onTap: () => _openTopic(context),
         child: ConstrainedBox(
           // A full-size target around a small pill.
-          constraints: const BoxConstraints(minHeight: 44),
+          constraints: const BoxConstraints(minHeight: kMinTapTarget),
           child: Center(
             widthFactor: 1,
             child: DecoratedBox(

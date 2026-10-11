@@ -632,19 +632,37 @@ class _ToolFieldState extends State<_ToolField> {
       // Every row is as tall as a row with a button, so the list is even.
       constraints: const BoxConstraints(minHeight: 48),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
+        // The small button is a 36 pill in a 48 tap box, which takes the 6
+        // above and below that the words keep for themselves.
+        padding: EdgeInsets.fromLTRB(
+          4,
+          field.isCopyable ? 0 : 6,
+          0,
+          field.isCopyable ? 0 : 6,
+        ),
         child: Row(
           children: [
-            Expanded(child: words),
+            Expanded(
+              child: field.isCopyable
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: words,
+                    )
+                  : words,
+            ),
             if (field.isCopyable) ...[
               const SizedBox(width: Spacing.s2),
-              AppButton(
-                label: _isCopied
-                    ? LocaleKeys.common_copied.tr()
-                    : LocaleKeys.common_copy.tr(),
-                variant: AppButtonVariant.paper,
-                size: AppButtonSize.sm,
-                onPressed: _copy,
+              // "Copy" turns into "Copied" in place: say it when it does.
+              Semantics(
+                liveRegion: true,
+                child: AppButton(
+                  label: _isCopied
+                      ? LocaleKeys.common_copied.tr()
+                      : LocaleKeys.common_copy.tr(),
+                  variant: AppButtonVariant.paper,
+                  size: AppButtonSize.sm,
+                  onPressed: _copy,
+                ),
               ),
             ] else
               // Lines the value up with the values that have a button.

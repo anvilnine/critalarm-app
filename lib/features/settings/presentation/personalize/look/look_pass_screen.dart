@@ -460,35 +460,39 @@ class _PlayPill extends StatelessWidget {
               onTap: () => unawaited(toggle()),
               child: MediaQuery(
                 data: MediaQuery.of(context).copyWith(textScaler: capped),
-                child: Container(
-                  height: kPassRingSize,
-                  padding: const EdgeInsetsDirectional.only(
-                    start: 14,
-                    end: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tone.onGround,
-                    borderRadius: BorderRadius.circular(kPassRingSize / 2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppGlyph(
-                        isPlaying ? GlyphType.stop : GlyphType.play,
-                        size: 15,
-                        color: tone.ground,
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        isPlaying
-                            ? LocaleKeys.personalize_passes_look_stop.tr()
-                            : LocaleKeys.personalize_passes_look_play.tr(),
-                        style: AppTypography.body(tone.ground).copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
+                // The pill is 44 high, drawn. The page places it in a 48 row,
+                // so the tap area is 2 more above and below.
+                child: AppTapTarget(
+                  child: Container(
+                    height: kPassRingSize,
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 14,
+                      end: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      color: tone.onGround,
+                      borderRadius: BorderRadius.circular(kPassRingSize / 2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppGlyph(
+                          isPlaying ? GlyphType.stop : GlyphType.play,
+                          size: 15,
+                          color: tone.ground,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 7),
+                        Text(
+                          isPlaying
+                              ? LocaleKeys.personalize_passes_look_stop.tr()
+                              : LocaleKeys.personalize_passes_look_play.tr(),
+                          style: AppTypography.body(tone.ground).copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

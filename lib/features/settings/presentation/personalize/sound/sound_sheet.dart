@@ -361,7 +361,11 @@ class SoundRow extends StatelessWidget {
               duration: context.motion(AppDurations.quick),
               curve: AppCurves.easeSpring,
               constraints: const BoxConstraints(minHeight: 64),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              // The play button is a 40 circle in a 48 tap box, which reaches
+              // 4 past it: 4 less above, below and on the left. The words
+              // take the height back as padding, so the row is as tall as it
+              // was whatever they are.
+              padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
               decoration: BoxDecoration(
                 color: isSelected ? colors.ash : null,
                 borderRadius: Radii.mdAll,
@@ -385,57 +389,60 @@ class SoundRow extends StatelessWidget {
                       unawaited(cubit.togglePreview(sound));
                     },
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 2,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text(
-                              sound.name,
-                              style: AppTypography.body(
-                                colors.ink,
-                                fontSize: 14,
-                              ).copyWith(fontWeight: FontWeight.w600),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 2,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                sound.name,
+                                style: AppTypography.body(
+                                  colors.ink,
+                                  fontSize: 14,
+                                ).copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (hasWave) length,
+                              const FeatureLockBadge(),
+                            ],
+                          ),
+                          // Only a waveform read from the sound itself. While
+                          // it loads, or when it cannot be read, the row shows
+                          // the length and nothing that looks like a waveform
+                          // but is not one.
+                          if (hasWave) ...[
+                            const SizedBox(height: 5),
+                            SizedBox(
+                              height: 22,
+                              width: double.infinity,
+                              child: WaveformBars(
+                                peaks: sound.peaks!,
+                                progress: progress,
+                              ),
                             ),
-                            if (hasWave) length,
-                            const FeatureLockBadge(),
+                          ] else ...[
+                            const SizedBox(height: 2),
+                            length,
                           ],
-                        ),
-                        // Only a waveform read from the sound itself. While
-                        // it loads, or when it cannot be read, the row shows
-                        // the length and nothing that looks like a waveform
-                        // but is not one.
-                        if (hasWave) ...[
-                          const SizedBox(height: 5),
-                          SizedBox(
-                            height: 22,
-                            width: double.infinity,
-                            child: WaveformBars(
-                              peaks: sound.peaks!,
-                              progress: progress,
+                          if (note != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              note,
+                              style: AppTypography.small(
+                                colors.ink2,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                        ] else ...[
-                          const SizedBox(height: 2),
-                          length,
+                          ],
                         ],
-                        if (note != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            note,
-                            style: AppTypography.small(
-                              colors.ink2,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -629,33 +636,43 @@ class _PackRow extends StatelessWidget {
     final status = entry.status;
     final name = packName(entry.pack);
     final line = statusLine(status);
+    // The download button is a 36 pill in a 48 tap box. The row gives up 6 of
+    // its 8 above and below, and the words take them back as padding, so the
+    // row is as tall as it was whatever the words are.
+    final hasButton = status.state.canDownload;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: hasButton ? 2 : 8,
+      ),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: AppTypography.body(
-                    colors.ink,
-                    fontSize: 15,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  LocaleKeys.sound_picker_pack_sound_count.tr(
-                    namedArgs: {'count': '${entry.pack.sounds.length}'},
-                  ),
-                  style: AppTypography.monoBold(colors.ink3, fontSize: 11),
-                ),
-                if (line != null)
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: hasButton ? 6 : 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    line,
-                    style: AppTypography.small(colors.ink2, fontSize: 13),
+                    name,
+                    style: AppTypography.body(
+                      colors.ink,
+                      fontSize: 15,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
-              ],
+                  Text(
+                    LocaleKeys.sound_picker_pack_sound_count.tr(
+                      namedArgs: {'count': '${entry.pack.sounds.length}'},
+                    ),
+                    style: AppTypography.monoBold(colors.ink3, fontSize: 11),
+                  ),
+                  if (line != null)
+                    Text(
+                      line,
+                      style: AppTypography.small(colors.ink2, fontSize: 13),
+                    ),
+                ],
+              ),
             ),
           ),
           if (status.state.canDownload) ...[

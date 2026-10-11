@@ -8,6 +8,7 @@ import 'package:critalarm/design/components/pass_card.dart';
 import 'package:critalarm/design/components/pass_header_geometry.dart';
 import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -26,8 +27,15 @@ const double kPassRingSize = 44;
 const double kPassRingLeft = 16;
 const double kPassRingTop = 5;
 
+/// What the tap box adds around the ring on each side: the ring is 44, the
+/// box is 48. The box is placed that much up and to the left of the ring, so
+/// the ring stays where it is.
+const double kPassRingTapRoom = (kMinTapTarget - kPassRingSize) / 2;
+
 /// A 44 point ring with a back chevron in it: the way out of a pass page, and
 /// the first stop on it. The stack uses it too, for the way back to Settings.
+/// The ring is 44 drawn, in a 48 tap box: whoever places it moves the box by
+/// [kPassRingTapRoom] so the ring stays put.
 ///
 /// [color] is the text colour of the surface under it. The ring is 2 points
 /// wide.
@@ -77,19 +85,21 @@ class _PassBackRingState extends State<PassBackRing> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _activate,
-        child: SizedBox.square(
-          dimension: kPassRingSize,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              // A focused ring is thicker, so a keyboard can see where it is.
-              border: Border.all(
-                color: widget.color,
-                width: _isFocused ? 4 : 2,
+        child: AppTapTarget(
+          child: SizedBox.square(
+            dimension: kPassRingSize,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                // A focused ring is thicker, so a keyboard can see where it is.
+                border: Border.all(
+                  color: widget.color,
+                  width: _isFocused ? 4 : 2,
+                ),
               ),
-            ),
-            child: Center(
-              child: AppGlyph(GlyphType.back, size: 20, color: widget.color),
+              child: Center(
+                child: AppGlyph(GlyphType.back, size: 20, color: widget.color),
+              ),
             ),
           ),
         ),
@@ -684,8 +694,8 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) => Stack(
     children: [
       Positioned(
-        left: kPassRingLeft,
-        top: kPassRingTop,
+        left: kPassRingLeft - kPassRingTapRoom,
+        top: kPassRingTop - kPassRingTapRoom,
         child: IgnorePointer(
           ignoring: ringOpacity == 0,
           child: Opacity(
@@ -701,13 +711,20 @@ class _TopBar extends StatelessWidget {
       if (trailing != null)
         Positioned(
           right: kPassRingLeft,
-          top: kPassRingTop,
-          height: kPassRingSize,
-          child: IgnorePointer(
-            ignoring: ringOpacity == 0,
-            child: Opacity(
-              opacity: ringOpacity,
-              child: _MeasureWidth(onWidth: onTrailingWidth, child: trailing!),
+          top: kPassRingTop - kPassRingTapRoom,
+          height: kMinTapTarget,
+          // The control is 44 high and sits in the middle of the 48 row.
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: IgnorePointer(
+              ignoring: ringOpacity == 0,
+              child: Opacity(
+                opacity: ringOpacity,
+                child: _MeasureWidth(
+                  onWidth: onTrailingWidth,
+                  child: trailing!,
+                ),
+              ),
             ),
           ),
         ),

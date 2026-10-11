@@ -271,7 +271,9 @@ class _ShakeState extends State<_Shake>
             textAlign: TextAlign.center,
             style: hint,
           ),
-          const SizedBox(height: Spacing.s2),
+          // The button is a 36 pill in a 48 tap box, so 6 less above it. The
+          // 6 below it only lengthen the page, which ends here.
+          const SizedBox(height: Spacing.s2 - 6),
           // For anyone who cannot shake a phone and has no setting on that
           // says so. Quiet, and there from the first frame.
           Center(

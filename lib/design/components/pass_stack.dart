@@ -346,8 +346,8 @@ class _Header extends StatelessWidget {
     return Stack(
       children: [
         Positioned(
-          left: layout.columnLeft + kPassRingLeft,
-          top: layout.headerTop,
+          left: layout.columnLeft + kPassRingLeft - kPassRingTapRoom,
+          top: layout.headerTop - kPassRingTapRoom,
           child: PassBackRing(color: color, label: backLabel, onTap: onBack),
         ),
         Positioned(
