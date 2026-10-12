@@ -1,6 +1,10 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Fixed
+- With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
+
 ## 1.0.0+13 - 2026-10-10
 ### Added
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
@@ -103,7 +107,6 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Personalize: a one word value no longer breaks in the middle at the largest text size, and the cards are no longer cut while a page opens or closes.
 - The Look page keeps its action in view at large text and on a phone on its side, where the phones now stay upright.
 - The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
-- With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
