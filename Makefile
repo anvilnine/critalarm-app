@@ -1,4 +1,4 @@
-.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -137,6 +137,11 @@ build-release-ios: google-xcconfig
 # One command from a clean main to a build sitting in App Store Connect.
 # Auth is an App Store Connect API key, so there is no password and no two
 # factor prompt. Run `./scripts/release-ios.sh --help` for the one time setup.
+#
+# Both release scripts build with --obfuscate, keep the build's symbol files
+# under symbols/<version>/ and send them to Crashlytics before the store
+# upload. --bump commits the new build number, and a finished upload tags it.
+# scripts/release-lib.sh holds the shared steps.
 
 release-ios:
 	./scripts/release-ios.sh --bump
@@ -155,6 +160,12 @@ release-android:
 # uncommitted edit changes nothing, so this is safe to run any time.
 release-android-dry:
 	./scripts/release-android.sh --dry-run
+
+# Send the symbols of the builds under build/ to Crashlytics and nothing to a
+# store. For a build that was handed out some other way, or after --skip-symbols.
+release-symbols:
+	./scripts/release-ios.sh --symbols-only
+	./scripts/release-android.sh --symbols-only
 
 # Both stores on the build number already in pubspec. No bump: set it first.
 # The two builds run one after the other, because Xcode and Gradle at the same
