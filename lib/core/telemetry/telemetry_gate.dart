@@ -19,6 +19,17 @@ abstract interface class TelemetryGate {
   // ignore: avoid_positional_boolean_parameters
   Future<void> setCrashlyticsEnabled(bool enabled);
 
+  /// Reports one error to crash reporting. Dropped unless the user switched
+  /// crash reporting on. What is sent is the error's type and its stack
+  /// trace, never its message: a message can quote a server answer or an
+  /// address, and those can hold the user's own words.
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  });
+
   /// Records one analytics event. Dropped unless the user opted in.
   Future<void> logEvent(String name, [Map<String, Object?>? parameters]);
 
@@ -125,6 +136,14 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setCrashlyticsEnabled(bool enabled) async {}
+
+  @override
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  }) async {}
 
   @override
   Future<void> logEvent(

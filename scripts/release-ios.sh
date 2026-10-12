@@ -15,6 +15,14 @@
 #   ./scripts/release-ios.sh --build-only just build the ipa
 #   ./scripts/release-ios.sh --upload-only upload the ipa already under build/, no gates, no build
 #   ./scripts/release-ios.sh --dry-run    build and validate, never upload
+#   ./scripts/release-ios.sh --symbols-only send the symbols of the ipa under build/ to Crashlytics, nothing else
+#   ./scripts/release-ios.sh --skip-symbols upload to the store without sending symbols
+#
+# The build hides Dart names (--obfuscate). Its symbol files are kept under
+# symbols/<version>/ios/ and sent to Crashlytics before the store upload, so a
+# crash report reads as file names and line numbers. scripts/release-lib.sh
+# has the details. --bump commits the new build number, and a finished upload
+# tags that commit.
 #
 # WHAT YOU NEED ONCE
 #
@@ -47,6 +55,8 @@ bump=0
 skip_gates=0
 build_only=0
 upload_only=0
+symbols_only=0
+skip_symbols=0
 dry_run=0
 allow_dirty=0
 
@@ -56,6 +66,8 @@ while [ $# -gt 0 ]; do
     --skip-gates) skip_gates=1 ;;
     --build-only) build_only=1 ;;
     --upload-only) upload_only=1 ;;
+    --symbols-only) symbols_only=1 ;;
+    --skip-symbols) skip_symbols=1 ;;
     --dry-run) dry_run=1 ;;
     --allow-dirty) allow_dirty=1 ;;
     -h|--help) awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; exit 0 ;;
@@ -69,8 +81,14 @@ die() { printf '\033[31mrelease-ios: %s\033[0m\n' "$1" >&2; exit 1; }
 
 # The ipa under build/ already carries its number. Moving pubspec now would
 # upload one number and commit another.
-if [ "$upload_only" -eq 1 ] && [ "$bump" -eq 1 ]; then
-  die "--upload-only cannot take --bump. Bump, then build, then upload."
+if [ "$bump" -eq 1 ] && { [ "$upload_only" -eq 1 ] || [ "$symbols_only" -eq 1 ]; }; then
+  die "--upload-only and --symbols-only cannot take --bump. Bump, then build, then upload."
+fi
+
+# Neither builds, so both work on the ipa already under build/.
+reuse_build=0
+if [ "$upload_only" -eq 1 ] || [ "$symbols_only" -eq 1 ]; then
+  reuse_build=1
 fi
 
 # ---------------------------------------------------------------- preconditions
@@ -99,46 +117,70 @@ current="${version_line#version: }"
 name="${current%%+*}"
 number="${current##*+}"
 
-if [ "$bump" -eq 1 ]; then
-  number=$((number + 1))
-  # Keep the marketing version, move only the build number. Apple rejects a
-  # build number it has seen before for this version, and that rejection lands
-  # after the whole upload has finished.
-  perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
-  say "Build number is now $name+$number"
-elif [ "$upload_only" -eq 1 ]; then
-  say "Uploading the ipa already built for $name+$number."
-else
-  say "Building $name+$number. Pass --bump if Apple already has this build number."
+# shellcheck source=scripts/release-lib.sh
+. scripts/release-lib.sh
+
+if [ "$reuse_build" -eq 1 ]; then
+  check_stamp ios
+  say "Using the ipa already built for $name+$number."
 fi
 
 # ------------------------------------------------------------------------- gates
 
-if [ "$upload_only" -eq 1 ]; then
-  echo "release-ios: --upload-only, skipping gates and build."
+# Before the bump, so a failing check does not leave a commit for a build that
+# was never made.
+if [ "$reuse_build" -eq 1 ]; then
+  echo "release-ios: reusing the build, skipping gates and build."
 elif [ "$skip_gates" -eq 0 ]; then
   say "Running the gates"
-  make test
-  make analyze
-  make check-layers
+  run_gates
 else
   echo "release-ios: skipping gates."
 fi
 
+# ------------------------------------------------------------------------- bump
+
+if [ "$bump" -eq 1 ] && [ "$dry_run" -eq 1 ]; then
+  # Nothing is uploaded, so nothing is committed either. pubspec.yaml is left
+  # edited for the real run to pick up with --allow-dirty, or to throw away.
+  number=$((number + 1))
+  perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
+  say "Build number is now $name+$number, not committed (--dry-run)"
+elif [ "$bump" -eq 1 ]; then
+  # Keeps the marketing version and moves only the build number. Apple refuses
+  # a build number it has seen before, and it refuses it after the whole upload
+  # has finished.
+  bump_and_commit
+elif [ "$reuse_build" -eq 0 ]; then
+  say "Building $name+$number. Pass --bump if Apple already has this build number."
+fi
+
 # ------------------------------------------------------------------------- build
 
-if [ "$upload_only" -eq 0 ]; then
+if [ "$reuse_build" -eq 0 ]; then
   say "Generating Google.xcconfig"
   ./scripts/gen-google-xcconfig.sh
 
   say "Building the ipa"
   # No SKIP_PAYWALL here on purpose. That flag fakes a Pro subscription and
   # hides the paywall, which is the one screen App Review looks hardest at.
-  fvm flutter build ipa --release
+  # --obfuscate hides Dart names in the binary. The names go to
+  # --split-debug-info instead, and keep_symbols copies them out of build/.
+  rm -rf "$(dart_symbols_dir ios)"
+  fvm flutter build ipa --release \
+    --obfuscate --split-debug-info="$(dart_symbols_dir ios)"
+  write_stamp ios
+  keep_symbols ios
+fi
+
+if [ "$symbols_only" -eq 1 ]; then
+  upload_ios_symbols
+  say "Symbols for $name+$number are in Crashlytics. Nothing went to App Store Connect."
+  exit 0
 fi
 
 ipa="$(ls -t build/ios/ipa/*.ipa 2>/dev/null | head -n 1 || true)"
-if [ "$upload_only" -eq 1 ]; then
+if [ "$reuse_build" -eq 1 ]; then
   [ -n "$ipa" ] || die "no .ipa under build/ios/ipa. Run without --upload-only, or with --build-only first."
   say "Found $(basename "$ipa") ($(du -h "$ipa" | cut -f1))"
 else
@@ -190,6 +232,15 @@ if [ "$dry_run" -eq 1 ]; then
   exit 0
 fi
 
+# ----------------------------------------------------------------------- symbols
+
+# Before the store upload, so a build never reaches a tester without them.
+if [ "$skip_symbols" -eq 1 ]; then
+  echo "release-ios: --skip-symbols. Send them later with --symbols-only."
+else
+  upload_ios_symbols
+fi
+
 # ------------------------------------------------------------------------ upload
 
 say "Uploading"
@@ -200,6 +251,7 @@ xcrun altool --upload-app \
   --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
 say "Uploaded $name+$number"
+tag_release ios
 cat <<'NEXT'
 Apple processes the build before it appears. Usually a few minutes, sometimes
 longer. You will get an email either way.

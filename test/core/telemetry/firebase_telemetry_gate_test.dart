@@ -162,6 +162,85 @@ void main() {
       expect(gate.isCrashlyticsEnabled, isFalse);
     });
 
+    group('recordError', () {
+      setUp(() {
+        when(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        ).thenAnswer((_) async {});
+      });
+
+      test('records nothing while crash reporting is off', () async {
+        await gate.recordError(StateError('x'), StackTrace.current);
+        await gate.setCrashlyticsEnabled(true);
+        await gate.setCrashlyticsEnabled(false);
+        await gate.recordError(StateError('x'), StackTrace.current);
+
+        verifyNever(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        );
+      });
+
+      test('sends the type and the stack, never the message', () async {
+        await gate.setCrashlyticsEnabled(true);
+        final stack = StackTrace.current;
+
+        await gate.recordError(
+          const FormatException('the words of a message'),
+          stack,
+          fatal: true,
+          reason: 'widgets library',
+        );
+
+        final sent = verify(
+          () => crashlytics.recordError(
+            captureAny<dynamic>(),
+            stack,
+            reason: 'widgets library',
+            fatal: true,
+          ),
+        ).captured.single;
+        expect(sent, isA<ReportedError>());
+        expect(sent.toString(), 'FormatException');
+        expect(sent.toString(), isNot(contains('words')));
+      });
+
+      test('a plugin that throws does not throw out of the gate', () async {
+        await gate.setCrashlyticsEnabled(true);
+        when(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        ).thenThrow(Exception('no channel'));
+
+        await expectLater(
+          gate.recordError(StateError('x'), StackTrace.current),
+          completes,
+        );
+      });
+
+      test('a gate with no Firebase app drops the report', () async {
+        final bare = FirebaseTelemetryGate();
+        await bare.setCrashlyticsEnabled(true);
+        await expectLater(
+          bare.recordError(StateError('x'), StackTrace.current),
+          completes,
+        );
+      });
+    });
+
     test('paywallEnabled returns typed bool from Remote Config', () {
       when(() => remoteConfig.getBool('paywall_enabled')).thenReturn(true);
 
