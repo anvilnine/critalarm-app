@@ -12,6 +12,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
+import 'package:critalarm/core/telemetry/crash_hooks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -66,6 +67,12 @@ Future<void> main() async {
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  // From here on an error nothing caught is reported, if the user has crash
+  // reporting on. The gate holds that answer and starts every launch at off,
+  // so nothing leaves before the saved choice is put back below.
+  if (getIt.isRegistered<TelemetryGate>()) {
+    installCrashHooks(getIt<TelemetryGate>());
+  }
   // An install that was restored onto another phone drops what named the
   // old one. Awaited, and first: everything below reads an identity, a
   // flag or the acknowledge queue. On a phone that has not moved this is
