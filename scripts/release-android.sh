@@ -11,8 +11,16 @@
 #   ./scripts/release-android.sh --build-only just build the aab
 #   ./scripts/release-android.sh --upload-only upload the aab already under build/, no gates, no build
 #   ./scripts/release-android.sh --dry-run    do everything except commit
+#   ./scripts/release-android.sh --symbols-only send the symbols of the bundle under build/ to Crashlytics, nothing else
+#   ./scripts/release-android.sh --skip-symbols upload to the store without sending symbols
 #   ./scripts/release-android.sh --track closed
 #   ./scripts/release-android.sh --track production --rollout 0.1
+#
+# The build hides Dart names (--obfuscate). Its symbol files are kept under
+# symbols/<version>/android/ and sent to Crashlytics before the store upload,
+# so a crash report reads as file names and line numbers.
+# scripts/release-lib.sh has the details. --bump commits the new build number,
+# and a finished upload tags that commit.
 #
 # WHAT YOU NEED ONCE
 #
@@ -93,6 +101,8 @@ bump=0
 skip_gates=0
 build_only=0
 upload_only=0
+symbols_only=0
+skip_symbols=0
 dry_run=0
 allow_dirty=0
 status="completed"
@@ -105,6 +115,8 @@ while [ $# -gt 0 ]; do
     --skip-gates) skip_gates=1 ;;
     --build-only) build_only=1 ;;
     --upload-only) upload_only=1 ;;
+    --symbols-only) symbols_only=1 ;;
+    --skip-symbols) skip_symbols=1 ;;
     --dry-run) dry_run=1 ;;
     --allow-dirty) allow_dirty=1 ;;
     --draft) status="draft" ;;
@@ -120,10 +132,16 @@ done
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\033[31mrelease-android: %s\033[0m\n' "$1" >&2; exit 1; }
 
-# The bundle under build/ already carries its version code. Moving pubspec now
-# would upload one number and commit another.
-if [ "$upload_only" -eq 1 ] && [ "$bump" -eq 1 ]; then
-  die "--upload-only cannot take --bump. Bump, then build, then upload."
+# The bundle under build/ already carries its number. Moving pubspec now would
+# upload one number and commit another.
+if [ "$bump" -eq 1 ] && { [ "$upload_only" -eq 1 ] || [ "$symbols_only" -eq 1 ]; }; then
+  die "--upload-only and --symbols-only cannot take --bump. Bump, then build, then upload."
+fi
+
+# Neither builds, so both work on the bundle already under build/.
+reuse_build=0
+if [ "$upload_only" -eq 1 ] || [ "$symbols_only" -eq 1 ]; then
+  reuse_build=1
 fi
 
 case "$track" in
@@ -177,46 +195,78 @@ current="${version_line#version: }"
 name="${current%%+*}"
 number="${current##*+}"
 
-if [ "$bump" -eq 1 ]; then
-  number=$((number + 1))
-  # Play refuses a version code it has already seen, and it refuses it after the
-  # whole bundle has finished uploading.
-  perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
-  say "Build number is now $name+$number"
-elif [ "$upload_only" -eq 1 ]; then
-  say "Uploading the bundle already built for $name+$number."
-else
-  say "Building $name+$number. Pass --bump if Play already has this version code."
+# shellcheck source=scripts/release-lib.sh
+. scripts/release-lib.sh
+
+if [ "$reuse_build" -eq 1 ]; then
+  check_stamp android
+  say "Using the bundle already built for $name+$number."
 fi
 
 # ------------------------------------------------------------------------- gates
 
-if [ "$upload_only" -eq 1 ]; then
-  echo "release-android: --upload-only, skipping gates and build."
+# Before the bump, so a failing check does not leave a commit for a build that
+# was never made.
+if [ "$reuse_build" -eq 1 ]; then
+  echo "release-android: reusing the build, skipping gates and build."
 elif [ "$skip_gates" -eq 0 ]; then
   say "Running the gates"
-  make test
-  make analyze
-  make check-layers
+  run_gates
 else
   echo "release-android: skipping gates."
+fi
+
+# ------------------------------------------------------------------------- bump
+
+if [ "$bump" -eq 1 ] && [ "$dry_run" -eq 1 ]; then
+  # Nothing is uploaded, so nothing is committed either. pubspec.yaml is left
+  # edited for the real run to pick up with --allow-dirty, or to throw away.
+  number=$((number + 1))
+  perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
+  say "Build number is now $name+$number, not committed (--dry-run)"
+elif [ "$bump" -eq 1 ]; then
+  # Keeps the marketing version and moves only the build number. Play refuses
+  # a version code it has seen before, and it refuses it after the whole upload
+  # has finished.
+  bump_and_commit
+elif [ "$reuse_build" -eq 0 ]; then
+  say "Building $name+$number. Pass --bump if Play already has this version code."
 fi
 
 # ------------------------------------------------------------------------- build
 
 aab="build/app/outputs/bundle/release/app-release.aab"
 
-if [ "$upload_only" -eq 1 ]; then
+if [ "$reuse_build" -eq 1 ]; then
   [ -f "$aab" ] || die "no bundle at $aab. Run without --upload-only, or with --build-only first."
   say "Found $(basename "$aab") ($(du -h "$aab" | cut -f1))"
 else
   say "Building the app bundle"
   # No SKIP_PAYWALL. That flag fakes a subscription and hides the paywall,
   # which is the screen a reviewer looks hardest at.
-  fvm flutter build appbundle --release
+  # --obfuscate hides Dart names in the binary. The names go to
+  # --split-debug-info instead, and keep_symbols copies them out of build/.
+  rm -rf "$(dart_symbols_dir android)"
+  fvm flutter build appbundle --release \
+    --obfuscate --split-debug-info="$(dart_symbols_dir android)"
 
   [ -f "$aab" ] || die "no bundle at $aab. The build printed why."
   say "Built $(basename "$aab") ($(du -h "$aab" | cut -f1))"
+
+  # Gradle signs a release with the debug key when key.properties does not
+  # load, and says nothing. Play would refuse it, after the upload.
+  if keytool -printcert -jarfile "$aab" 2>/dev/null | grep -q "CN=Android Debug"; then
+    die "the bundle is signed with the debug key. Check android/key.properties and the keystore it names."
+  fi
+
+  write_stamp android
+  keep_symbols android
+fi
+
+if [ "$symbols_only" -eq 1 ]; then
+  upload_android_symbols
+  say "Symbols for $name+$number are in Crashlytics. Nothing went to Play."
+  exit 0
 fi
 
 if [ "$build_only" -eq 1 ]; then
@@ -234,6 +284,15 @@ key_file="$secrets_dir/play-publisher.json"
   See the header of this script for how to make one. The RevenueCat service
   account is not it and must not be used."
 
+# Before the store upload, so a build never reaches a tester without them.
+if [ "$dry_run" -eq 1 ]; then
+  echo "release-android: --dry-run, not sending symbols."
+elif [ "$skip_symbols" -eq 1 ]; then
+  echo "release-android: --skip-symbols. Send them later with --symbols-only."
+else
+  upload_android_symbols
+fi
+
 extra=""
 [ "$dry_run" -eq 1 ] && extra="--validate-only"
 [ -n "$rollout" ] && extra="$extra --rollout $rollout"
@@ -249,4 +308,5 @@ python3 scripts/play_upload.py \
 
 if [ "$dry_run" -eq 0 ]; then
   say "Uploaded $name+$number to the $track track"
+  tag_release android
 fi

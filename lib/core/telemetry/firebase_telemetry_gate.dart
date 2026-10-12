@@ -153,6 +153,29 @@ class FirebaseTelemetryGate implements TelemetryGate {
   }
 
   @override
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  }) async {
+    // Checked here and not left to the plugin. With collection off the
+    // plugin still keeps the report on the phone and sends it the day
+    // collection is switched on.
+    if (!_crashlyticsEnabled) return;
+    try {
+      await crashlytics?.recordError(
+        ReportedError(error),
+        stack,
+        reason: reason,
+        fatal: fatal,
+      );
+    } on Object catch (_) {
+      // Reporting a failure must never be a second failure.
+    }
+  }
+
+  @override
   Future<void> logEvent(String name, [Map<String, Object?>? parameters]) async {
     if (!_analyticsEnabled) return;
     try {
@@ -235,4 +258,16 @@ class FirebaseTelemetryGate implements TelemetryGate {
       return '';
     }
   }
+}
+
+/// What crash reporting is handed in place of the error itself: its type and
+/// nothing else. The plugin sends `toString()` as the report's message, and
+/// the message of a real error can quote a server answer or an address.
+class ReportedError {
+  ReportedError(Object error) : type = error.runtimeType.toString();
+
+  final String type;
+
+  @override
+  String toString() => type;
 }
