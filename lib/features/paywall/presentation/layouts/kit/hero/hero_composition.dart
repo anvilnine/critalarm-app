@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
@@ -111,6 +109,8 @@ typedef HeroHeadlineBuilder =
 ///   `prelude` so a beat of the layout's own plays first.
 /// - [arrange], [tone], [sceneBuilder], [beside], [showsShapes]: the
 ///   stage's, see [HeroStage].
+/// - [alsoIncluded], and [showsLeadLine], to group the benefits after a
+///   lead under a label.
 /// - [motion], a [HeroMotion] that names another atmosphere, entrance,
 ///   idle or way for a preview to arrive.
 /// - [player], to read the frame from outside: for a backdrop that
@@ -142,8 +142,21 @@ class HeroComposition extends StatefulWidget {
     this.motion = const HeroMotion(),
     this.entranceCues,
     this.turnCue = PaywallCue.next,
+    this.alsoIncluded,
+    this.showsLeadLine = true,
     super.key,
   });
+
+  /// The words of the small label that groups every benefit but the first
+  /// under it, in a lighter weight. Null is the plain list. It only shows
+  /// with two benefits or more, the first being the lead. Pass it with
+  /// `heroShowsAlsoIncluded` so a paywall with no lead keeps its list.
+  final String? alsoIncluded;
+
+  /// False leaves the lead's own line out when [alsoIncluded] shows: the
+  /// words above the list (a tag, the headline) and the stage already say
+  /// it. The lead is still the first turn, and the others are still lines.
+  final bool showsLeadLine;
 
   /// The cues of the entrance, by clock second. Null is
   /// [heroEntranceCues] for [motion].
@@ -234,9 +247,10 @@ class _HeroCompositionState extends State<HeroComposition> {
       width: width,
       sizes: sizes,
       tone: widget.tone,
+      alsoIncluded: widget.alsoIncluded,
+      showsLead: widget.showsLeadLine,
     );
     final lines = metrics.lines;
-    final rowHeights = metrics.rowHeights;
     final sentence = isOne ? benefits.single.line : null;
     final sentenceHeight = sentence == null
         ? 0.0
@@ -254,11 +268,7 @@ class _HeroCompositionState extends State<HeroComposition> {
       width,
     );
     final words =
-        headlineHeight +
-        sizes.headlineGap +
-        rowHeights.fold(0, (sum, h) => sum + h) +
-        sizes.rowGap * math.max(0, lines.length - 1) +
-        sentenceHeight;
+        headlineHeight + sizes.headlineGap + metrics.height + sentenceHeight;
 
     // Where the middle of each line is, down the block of words. A tap is
     // matched to a line with these.

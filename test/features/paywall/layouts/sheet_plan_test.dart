@@ -23,6 +23,44 @@ void main() {
     textScale: textScale,
   );
 
+  group('sheetWordsHeight', () {
+    test('without a group it is as before', () {
+      expect(sheetWordsHeight(4), 56 + 24.0 * 4);
+      expect(sheetWordsHeight(0), 56 + 24.0);
+    });
+
+    test(
+      'with the Also included group it counts the label and smaller items',
+      () {
+        // Lead line 24, label block 26, then 20 for each other benefit.
+        expect(sheetWordsHeight(4, hasAlso: true), 56 + 24 + 26 + 20.0 * 3);
+        expect(sheetWordsHeight(2, hasAlso: true), 56 + 24 + 26 + 20.0);
+      },
+    );
+
+    test('a group needs two benefits, one benefit stays a single line', () {
+      expect(sheetWordsHeight(1, hasAlso: true), sheetWordsHeight(1));
+    });
+
+    test('a lead with no line of its own takes no room', () {
+      // The label sits under the headline, then 20 for each other benefit.
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false),
+        56 + 20 + 20.0 * 3,
+      );
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false),
+        lessThan(sheetWordsHeight(4, hasAlso: true)),
+      );
+      // With no group the lead line is never left out.
+      expect(sheetWordsHeight(4, showsLead: false), sheetWordsHeight(4));
+      expect(
+        sheetWordsHeight(1, hasAlso: true, showsLead: false),
+        sheetWordsHeight(1),
+      );
+    });
+  });
+
   group('sheetPlanFor', () {
     test('the lit row is above the sheet with room for the mascot', () {
       for (final compact in [false, true]) {
