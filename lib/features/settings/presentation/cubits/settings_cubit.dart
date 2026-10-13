@@ -134,6 +134,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       state.copyWith(
         access: _access(state.access.identity),
         holdsHosted: _holdsHosted,
+        // Not before the first read: that one waits for the holdings to be
+        // current, and an early answer can say "not held" for a held Pro.
+        proState: state.proState == null ? null : _proState,
       ),
     );
   }
@@ -144,11 +147,16 @@ class SettingsCubit extends Cubit<SettingsState> {
     await holdings?.ready;
     if (isClosed) return;
     final holdsHosted = _holdsHosted;
-    if (state.holdsHosted == holdsHosted) return;
-    emit(state.copyWith(holdsHosted: holdsHosted));
+    final proState = _proState;
+    if (state.holdsHosted == holdsHosted && state.proState == proState) return;
+    emit(state.copyWith(holdsHosted: holdsHosted, proState: proState));
   }
 
   bool get _holdsHosted => holdings?.holds(Holding.hosted) ?? false;
+
+  /// Pro as the Pro row draws it, or null when there are no holdings to ask
+  /// (a test that does not look at it).
+  HoldingState? get _proState => holdings?.stateOf(Holding.pro);
 
   @override
   Future<void> close() {

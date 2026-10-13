@@ -1,3 +1,5 @@
+import 'package:critalarm/features/search/domain/entities/search_result.dart';
+import 'package:critalarm/features/search/domain/search_ranking.dart';
 import 'package:critalarm/features/search/domain/settings_search_index.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -115,6 +117,32 @@ void main() {
       expect(own.map((d) => d.id), isNot(contains('plan')));
       expect(own.any((d) => d.routePath.startsWith('/paywall')), isFalse);
       expect(hosted.map((d) => d.id), contains('plan'));
+    });
+
+    test('searching "pro" finds the Pro row, on any server', () {
+      for (final isSelfHosted in [false, true]) {
+        final pro = SettingsSearchIndex.forBuild(
+          includeDevOnly: false,
+          isSelfHosted: isSelfHosted,
+        ).singleWhere((d) => d.id == 'pro');
+        final result = SearchResult(
+          kind: SearchResultKind.settings,
+          id: pro.id,
+          title: 'Pro',
+          subtitle: 'Plan',
+          keywords: <String>['settings', ...pro.keywords],
+        );
+
+        expect(pro.titleKey, LocaleKeys.settings_pro_title);
+        // It leads to the Settings tab, where the row is. It opens no
+        // paywall of its own, so a person who owns Pro is never offered it.
+        expect(pro.routePath, '/settings');
+        expect(
+          SearchRanking.score(result, query: 'pro'),
+          greaterThan(0),
+          reason: 'own server: $isSelfHosted',
+        );
+      }
     });
 
     test('keywords are lowercase, because matching lowercases the query', () {
