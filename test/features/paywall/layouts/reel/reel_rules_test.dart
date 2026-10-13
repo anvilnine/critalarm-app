@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
@@ -194,6 +196,73 @@ void main() {
           sizes: ReelSizes.of(isCompact: true),
         ),
         0,
+      );
+    });
+
+    test('the smallest stage is the room the smallest mascot needs', () {
+      expect(reelStageMinHeight, heroTopRoom + heroMascotMin);
+      // The stage's own arrangement agrees: at the minimum it draws the
+      // mascot, a point under it draws nothing.
+      expect(
+        heroArrangementFor(const Size(320, reelStageMinHeight)).kind,
+        HeroStageKind.mascot,
+      );
+      expect(
+        heroArrangementFor(const Size(320, reelStageMinHeight - 1)).kind,
+        HeroStageKind.none,
+      );
+    });
+
+    test('a room under the smallest stage is no stage at all', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      final fixed =
+          reelBarsHeight + 100 + sizes.stageGap + sizes.foot + reelSceneGap;
+      double room(double leftOver) =>
+          reelStageHeight(height: fixed + leftOver, words: 100, sizes: sizes);
+      expect(room(reelStageMinHeight - 1), 0);
+      expect(room(1), 0);
+      expect(room(0), 0);
+      expect(room(reelStageMinHeight), reelStageMinHeight);
+      expect(room(reelStageMinHeight + 1), reelStageMinHeight + 1);
+    });
+
+    test('a room that held a readable picture is unchanged', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      // Every height from the smallest stage up is the plain sum, as it was
+      // before the rule: the phone sizes the reel is checked on included.
+      for (final height in [480.0, 560.0, 640.0, 700.0, 780.0]) {
+        for (final words in [100.0, 160.0, 220.0]) {
+          final plain =
+              height -
+              reelBarsHeight -
+              words -
+              sizes.stageGap -
+              sizes.foot -
+              reelSceneGap;
+          final expected = plain < reelStageMinHeight
+              ? 0
+              : plain.floorToDouble();
+          expect(
+            reelStageHeight(height: height, words: words, sizes: sizes),
+            expected,
+            reason: '$height, $words',
+          );
+        }
+      }
+    });
+
+    test('the line takes room from the stage and can take all of it', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      final withLine = reelStageHeight(
+        height: 400,
+        words: 150,
+        sizes: sizes,
+        line: 130,
+      );
+      expect(withLine, 0);
+      expect(
+        reelStageHeight(height: 400, words: 150, sizes: sizes, line: 20),
+        greaterThanOrEqualTo(reelStageMinHeight),
       );
     });
   });

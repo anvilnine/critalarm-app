@@ -15,6 +15,9 @@
 //   hook_kuma_curl_open     the curl chip tapped, curl line open
 //   hook_kuma_copied_url    Copy URL tapped
 //   hook_kuma_copied_token  Copy token tapped
+//   hook_<tool>_last, hook_<tool>_critical_off_last   the steps layout
+//                           scrolled to the last step, with Critical on and
+//                           off (the replay's own state is on)
 //   hook_curl_servers       today's screen, curl first
 //   hook_curl_jobs          today's screen with the note for a job
 //   hook_cron               today's screen with a pasted snippet
@@ -135,6 +138,18 @@ Future<void> _toFoot(WidgetTester tester) async {
   await _frames(tester, 12);
 }
 
+/// Scrolls the last numbered step into the upper part of the screen, so
+/// what it says and the note under the sheet are both in the picture.
+Future<void> _toLastStep(WidgetTester tester) async {
+  await Scrollable.ensureVisible(
+    tester.element(
+      find.textContaining(RegExp(r'^(Press Test|Run the automation)\. ')),
+    ),
+    alignment: 0.3,
+  );
+  await _frames(tester, 6);
+}
+
 final _scenes = <String, _Scene>{
   for (final scene in [
     const _Scene('hook_kuma', _kuma),
@@ -220,6 +235,22 @@ final _scenes = <String, _Scene>{
     ),
   ])
     scene.name: scene,
+  for (final (tool, query) in [
+    ('kuma', _kuma),
+    ('healthchecks', _healthchecks),
+    ('home_assistant', _homeAssistant),
+  ]) ...{
+    'hook_${tool}_last': _Scene(
+      'hook_${tool}_last',
+      query,
+      run: _toLastStep,
+    ),
+    'hook_${tool}_critical_off_last': _Scene(
+      'hook_${tool}_critical_off_last',
+      '$query&show=critical_off',
+      run: _toLastStep,
+    ),
+  },
   'hook_kuma_end': const _Scene('hook_kuma_end', _kuma, run: _toFoot),
   'hook_home_assistant_end': const _Scene(
     'hook_home_assistant_end',
@@ -303,6 +334,17 @@ List<_Shot> _list() {
     [1, 2],
   );
   add(['hook_curl_jobs'], [_p320tall], [light], [1.3]);
+  // The last step with Critical on and off: it says the phone rings, or that
+  // the message lands on it, and the note says what Critical off means.
+  add(
+    [
+      for (final tool in ['kuma', 'healthchecks', 'home_assistant'])
+        for (final state in ['', '_critical_off']) 'hook_$tool${state}_last',
+    ],
+    [_p320, _p390],
+    [light, dark],
+    [1, 2],
+  );
   // Curl opened, copy states, the first message.
   add(
     ['hook_kuma_curl_open'],
