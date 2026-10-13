@@ -6,6 +6,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outr
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_outro.dart';
 import 'package:flutter/widgets.dart';
@@ -34,6 +35,7 @@ const List<PaywallThanksId> _endStates = [
 /// The lengths of the two score files, measured on the m4a files.
 const Map<PaywallOutroId, double> _fileSeconds = {
   PaywallOutroId.breakLiftRing: 4.900,
+  PaywallOutroId.breakLift: 3.698,
   PaywallOutroId.cloudClimb: 5.065,
 };
 
@@ -124,11 +126,13 @@ void main() {
     });
   });
 
-  group('the two built outros', () {
+  group('the built outros', () {
     test('each names its own score and is sound', () {
       expect(breakLiftRing.score, PaywallCue.scoreBreakLiftRing);
+      expect(breakLift.score, PaywallCue.scoreBreakLift);
       expect(cloudClimb.score, PaywallCue.scoreCloudClimb);
       expect(breakLiftRing.isSound, isTrue);
+      expect(breakLift.isSound, isTrue);
       expect(cloudClimb.isSound, isTrue);
     });
 
@@ -138,19 +142,23 @@ void main() {
         closeTo(_fileSeconds[PaywallOutroId.breakLiftRing]!, 1e-9),
       );
       expect(
+        breakLift.scoreSeconds,
+        closeTo(_fileSeconds[PaywallOutroId.breakLift]!, 1e-9),
+      );
+      expect(
         cloudClimb.scoreSeconds,
         closeTo(_fileSeconds[PaywallOutroId.cloudClimb]!, 1e-9),
       );
     });
 
     test('the score files are on disk', () {
-      for (final outro in [breakLiftRing, cloudClimb]) {
+      for (final outro in [breakLiftRing, breakLift, cloudClimb]) {
         expect(File(outro.score!.asset!).existsSync(), isTrue);
       }
     });
 
     test('the tail rings past the swap and not for long', () {
-      for (final outro in [breakLiftRing, cloudClimb]) {
+      for (final outro in [breakLiftRing, breakLift, cloudClimb]) {
         expect(outro.scoreSeconds, greaterThan(outro.seconds));
         expect(outro.scoreSeconds - outro.seconds, lessThan(1.2));
       }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_pieces.dart';
 import 'package:critalarm/features/paywall/presentation/outros/outro_parts.dart';
 import 'package:flutter/material.dart';
 
@@ -94,11 +95,7 @@ class BreakPainter extends CustomPainter {
     }
   }
 
-  Path _path(BreakPiece p) => Path()
-    ..moveTo(p.a.dx, p.a.dy)
-    ..lineTo(p.b.dx, p.b.dy)
-    ..lineTo(p.c.dx, p.c.dy)
-    ..close();
+  Path _path(BreakPiece p) => breakPiecePath(p);
 
   void _piece(Canvas canvas, Size size, BreakPiece piece, double k) {
     final f = _T.flightOf(piece, t, k: k);
@@ -109,40 +106,17 @@ class BreakPainter extends CustomPainter {
         at.dx - far > size.width) {
       return;
     }
-    canvas
-      ..save()
-      ..translate(at.dx, at.dy)
-      ..rotate(f.turn)
-      ..scale(f.scale)
-      ..translate(-piece.centre.dx, -piece.centre.dy);
-    final path = _path(piece);
-    canvas
-      ..drawPath(
-        path.shift(const Offset(0, 8)),
-        Paint()
-          ..color = colors.edge.withValues(alpha: 0.28)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-      )
-      ..drawPath(path, Paint()..color = colors.ground)
-      ..save()
-      ..clipPath(path);
-    paintOutroWall(
+    paintBreakPiece(
       canvas,
-      Offset.zero & size,
-      wall: wall,
+      size,
+      piece,
+      shift: f.shift,
+      turn: f.turn,
+      scale: f.scale,
       ground: colors.ground,
+      edge: colors.edge,
+      wall: wall,
     );
-    canvas
-      ..restore()
-      ..drawPath(
-        path,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3 / f.scale
-          ..strokeJoin = StrokeJoin.round
-          ..color = colors.edge,
-      )
-      ..restore();
   }
 
   void _focusLines(Canvas canvas, Size size, double k) {

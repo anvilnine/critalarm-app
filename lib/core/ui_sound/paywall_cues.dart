@@ -150,6 +150,9 @@ enum PaywallCue {
   /// The score of Break, lift, ring: bold and bright, in three moves.
   scoreBreakLiftRing(sound: 'ui_score_break_lift_ring'),
 
+  /// The score of Break and lift: the calm cut, one smooth rise.
+  scoreBreakLift(sound: 'ui_score_break_lift'),
+
   /// The score of Cloud climb: a lullaby in 6/8, one rise.
   scoreCloudClimb(sound: 'ui_score_cloud_climb'),
 
