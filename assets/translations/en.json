@@ -2108,6 +2108,7 @@
     "names": {
       "none": "Nothing extra",
       "break_lift_ring": "Break, lift, ring",
+      "break_lift": "Break and lift",
       "cloud_climb": "Cloud climb"
     }
   },

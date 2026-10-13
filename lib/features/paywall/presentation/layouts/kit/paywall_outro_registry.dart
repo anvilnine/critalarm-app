@@ -1,4 +1,5 @@
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_outro.dart';
 
@@ -7,6 +8,7 @@ import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud
 /// purchase goes straight to the thanks.
 final Map<PaywallOutroId, PaywallOutro> paywallOutroBuilders = {
   PaywallOutroId.breakLiftRing: breakLiftRing,
+  PaywallOutroId.breakLift: breakLift,
   PaywallOutroId.cloudClimb: cloudClimb,
 };
 

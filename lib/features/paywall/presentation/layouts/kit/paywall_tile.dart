@@ -70,6 +70,7 @@ String paywallOutroNameKey(PaywallOutroId outro) => switch (outro) {
   PaywallOutroId.none => LocaleKeys.paywall_outro_names_none,
   PaywallOutroId.breakLiftRing =>
     LocaleKeys.paywall_outro_names_break_lift_ring,
+  PaywallOutroId.breakLift => LocaleKeys.paywall_outro_names_break_lift,
   PaywallOutroId.cloudClimb => LocaleKeys.paywall_outro_names_cloud_climb,
 };
 

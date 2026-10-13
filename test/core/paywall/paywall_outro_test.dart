@@ -11,6 +11,7 @@ void main() {
       {
         'none': 'none',
         'breakLiftRing': 'break_lift_ring',
+        'breakLift': 'break_lift',
         'cloudClimb': 'cloud_climb',
       },
     );

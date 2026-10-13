@@ -5,6 +5,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outr
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/confetti/confetti_timeline.dart';
@@ -113,17 +114,23 @@ void main() {
 
               // What the end state draws at that second: its box, lifted and
               // stretched. The outro's last frame is the same rectangle.
-              final outroBox = outroEntry.key.key == 'break_lift_ring'
-                  ? BreakLiftRingTimeline.pose(
-                      BreakLiftRingTimeline.end,
-                      size: size,
-                      land: seen,
-                    ).box
-                  : CloudClimbTimeline.critBox(
-                      CloudClimbTimeline.end,
-                      size: size,
-                      land: seen,
-                    );
+              final outroBox = switch (outroEntry.key.key) {
+                'break_lift_ring' => BreakLiftRingTimeline.pose(
+                  BreakLiftRingTimeline.end,
+                  size: size,
+                  land: seen,
+                ).box,
+                'break_lift' => BreakLiftTimeline.pose(
+                  BreakLiftTimeline.end,
+                  size: size,
+                  land: seen,
+                ).box,
+                _ => CloudClimbTimeline.critBox(
+                  CloudClimbTimeline.end,
+                  size: size,
+                  land: seen,
+                ),
+              };
               _expectClose(outroBox, seen, name);
 
               // Frames either side of the swap: only the end state's own pace.
