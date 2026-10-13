@@ -11,6 +11,7 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/incidents/domain/done_hand_off.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/setup_sample.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -19,6 +20,7 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
@@ -46,6 +48,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._endSetupTest,
     this._setupRing,
     this._proofLog,
+    this._setupUse,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -103,7 +106,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// It only observes. Absent in tests that do not look at it.
   final ProofLog? _proofLog;
 
+  /// The answer the user gave on the `use` step, a local read. Only asked
+  /// when the incident on screen is the setup test the server sent. Absent
+  /// reads as no answer.
+  final SetupUse? Function()? _setupUse;
+
   final DateTime Function() _now;
+
+  /// What the server sent for the incident whose text the sample replaced,
+  /// so the card handed to the native side keeps the real words. Null when
+  /// the screen shows what the server sent.
+  ({String incidentId, String title, String body})? _replacedText;
 
   /// The cubit the alarm screen is showing right now, or null when the screen
   /// is not up. The push binding reads it to hand a tapped incident id to the
@@ -451,8 +464,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     final ringing = state;
     // Text of the incident being answered, read before the screen swaps to
     // the next one so the handed-over card names the right incident.
-    final ackTitle = state.title;
-    final ackBody = state.body;
+    final replaced = _replacedText;
+    final isReplaced = replaced != null && replaced.incidentId == targetId;
+    final ackTitle = isReplaced ? replaced.title : state.title;
+    final ackBody = isReplaced ? replaced.body : state.body;
     final ack = _incidents?.acknowledgeNow(incident);
 
     // What is still open once this one is acknowledged, newest first.
@@ -833,6 +848,27 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
   }
 
+  /// The sample message for [incident], or null when it is not the setup
+  /// test the server sent. The answer is only read for that test. A read
+  /// that throws leaves the server's text, since nothing here may stop an
+  /// alarm from showing.
+  ({String title, String body})? _setupSampleFor(Incident incident) {
+    try {
+      final kind = setupTestKind(
+        incidentId: incident.id,
+        setupTestIncidentIds: _setupTestIncidentIds?.call() ?? const <String>{},
+      );
+      if (kind != SetupTestKind.serverSent) return null;
+      return setupSampleFor(
+        kind: kind,
+        use: _setupUse?.call(),
+        text: (key) => key.tr(),
+      );
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
   void _applyIncident(Incident incident, {List<Incident>? openIncidents}) {
     _stopRingTicker();
     final open = openIncidents ?? state.openIncidents;
@@ -841,12 +877,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // about a database, which read as the real thing to someone woken by it.
     // Say what is actually known instead: the topic, and that nothing came
     // with it.
-    final title =
+    final serverTitle =
         firstMsg?.title ??
         LocaleKeys.critical_alarm_fallback_title.tr(
           namedArgs: {'topic': incident.topic},
         );
-    final body = (firstMsg != null && firstMsg.message.isNotEmpty)
+    final serverBody = (firstMsg != null && firstMsg.message.isNotEmpty)
         ? firstMsg.message
         : LocaleKeys.critical_alarm_fallback_body.tr();
     final topic = incident.topic;
@@ -858,8 +894,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     if (firstMsg != null && incident.id != 'inc_demo') {
       final cached = _alarm?.cacheIncidentContent(
         incidentId: incident.id,
-        title: title,
-        body: body,
+        title: serverTitle,
+        body: serverBody,
         tags: firstMsg.tags,
         click: firstMsg.click,
         topic: topic,
@@ -869,6 +905,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       );
       if (cached != null) unawaited(cached);
     }
+
+    // The setup test shows a sample message for the user's answer. It is
+    // decided here, before anything is drawn, so no frame shows the
+    // server's words first. The cache above and the native card keep what
+    // the server sent.
+    final sample = _setupSampleFor(incident);
+    final title = sample?.title ?? serverTitle;
+    final body = sample?.body ?? serverBody;
+    _replacedText = sample == null
+        ? null
+        : (incidentId: incident.id, title: serverTitle, body: serverBody);
 
     // Read once, before anything is drawn: the same incident id can be a
     // later ring, and then it is an alarm like any other.

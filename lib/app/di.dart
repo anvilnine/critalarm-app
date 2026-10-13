@@ -2465,6 +2465,9 @@ Future<void> configureDependencies({
         getIt<EndSetupTestUsecase>(),
         getIt<SetupTestRing>(),
         getIt<ProofLog>(),
+        // Setup never rings a real alarm in a replay, so the saved answer is
+        // the one the test alarm was sent for.
+        getIt<SetupUseStore>().read,
       ),
     )
     ..registerFactory(
