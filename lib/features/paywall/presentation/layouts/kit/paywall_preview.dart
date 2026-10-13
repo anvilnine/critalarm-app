@@ -1,5 +1,6 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/alarm_screens_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/app_icons_preview.dart';
@@ -95,6 +96,11 @@ class PaywallPreview extends StatelessWidget {
     final fit = paywallPreviewFit(sizeClass: sizeClass, box: size);
     final builder = paywallPreviewBuilders[id];
     final name = topicName;
+    // The person's own alarms, when the route carries some. A gallery tile
+    // or a picker has no route and draws the made-up rows.
+    final own = id == PaywallPreviewId.history
+        ? PaywallRouteInfo.maybeOf(context)?.historyOwn
+        : null;
     return ExcludeSemantics(
       child: SizedBox.fromSize(
         size: fit.box,
@@ -106,6 +112,8 @@ class PaywallPreview extends StatelessWidget {
                     playFrom: playFrom,
                     child: id == PaywallPreviewId.topics && name != null
                         ? TopicsPreview(size: fit.drawn, topicName: name)
+                        : own != null
+                        ? HistoryPreview(size: fit.drawn, own: own)
                         : builder(context, fit.drawn),
                   )
                 : PreviewGlyphTile.glyph(

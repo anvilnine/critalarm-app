@@ -1869,6 +1869,9 @@
     "tag_hosted": "Hosted",
     "tag_pro": "Pro"
   },
+  "paywall_history_own": {
+    "headline": "See older alarms"
+  },
   "paywall_sheet": {
     "headline": {
       "topics": "Critical on every topic",
