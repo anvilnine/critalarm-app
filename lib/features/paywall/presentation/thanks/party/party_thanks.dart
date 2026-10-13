@@ -24,6 +24,7 @@ const PaywallThanks partyThanks = PaywallThanks(
   buttonAt: PartyTimeline.goOn,
   beats: partyBeats,
   mascotAt: partyMascotAt,
+  mascotPoseAt: partyMascotPoseAt,
   builder: _build,
 );
 
@@ -68,6 +69,15 @@ List<PaywallThanksBeat> partyBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     PartyThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose partyMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: PartyTimeline.lift(t, lines: count),
+    stretch: PartyTimeline.stretch(t),
+  );
+}
 
 /// Draws the receipt party for the second its scope's clock reads.
 class PartyThanks extends StatelessWidget {

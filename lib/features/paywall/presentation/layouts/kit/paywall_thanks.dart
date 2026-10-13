@@ -129,6 +129,10 @@ List<PaywallThanksBeat> _noBeats(int lines) => const [];
 /// Second zero is the frame the purchase is confirmed. The buy block plays
 /// the purchase cue on that frame, so a version never plays it and times
 /// its show to it: see [paywallBoughtCueSeconds].
+/// How high a version lifts its mascot (a share of its height) and how
+/// tall it is against its rest height. Lift 0 and stretch 1 is at rest.
+typedef PaywallThanksPose = ({double lift, double stretch});
+
 @immutable
 class PaywallThanks {
   const PaywallThanks({
@@ -140,6 +144,7 @@ class PaywallThanks {
     this.beats = _noBeats,
     this.pickUp = 0.5,
     this.mascotAt,
+    this.mascotPoseAt,
   });
 
   /// The length of the show. From here on the version draws its resting
@@ -172,6 +177,13 @@ class PaywallThanks {
   /// coordinates, as it draws it: the box the outro's mascot lands on at the
   /// swap. A version that has none cannot follow an outro.
   final Rect Function(PaywallThanksScope scope, double t)? mascotAt;
+
+  /// How far the mascot is lifted off its box and how far it is stretched at
+  /// second `t`: what the version draws it with on top of [mascotAt]. The
+  /// outro's mascot lands on the box with both applied, so the swap is
+  /// exact even when the version is mid jump. Null reads as at rest.
+  final PaywallThanksPose Function(PaywallThanksScope scope, double t)?
+  mascotPoseAt;
 
   /// Whether the times are in order, the button is on soon enough and no
   /// beat makes a sound under the purchase cue. A test asks this of every
@@ -805,7 +817,10 @@ class _ThanksLayer extends StatelessWidget {
           product: product,
           wall: wall,
           mascot: mascot,
-          land: thanks.mascotAt!(end, from),
+          land: thanksCritSeen(
+            thanks.mascotAt!(end, from),
+            thanks.mascotPoseAt?.call(end, from),
+          ),
           ground: PaywallToneColors.of(context, thanks.tone).background,
           words: LocaleKeys.paywall_outro_welcome.tr(
             namedArgs: {'product': paywallProductName(product)},
