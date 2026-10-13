@@ -113,9 +113,9 @@ Future<void> main() async {
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
-  // A locked widget tapped while the app was closed names the shipped
-  // paywall. This is where it learns which paywall that is (the widgets
-  // decision picks the product) and what it is set to open.
+  // A locked widget tapped while the app was closed names the raw paywall
+  // path. This is where it learns which paywall that is (the widgets
+  // decision picks the product) and which layout it opens.
   final initialLocation = await resolvePaywallLocationWhenReady(
     await getIt<InitialRouteResolver>()(deepLink: tappedRoute),
   );

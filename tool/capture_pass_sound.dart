@@ -702,7 +702,7 @@ void main() {
         await _settle(tester);
         expect(
           run.router.routerDelegate.currentConfiguration.last.matchedLocation,
-          '/pro',
+          '/plans/sheet',
           reason: 'keeping a locked own sound opens the paywall',
         );
       },
@@ -722,7 +722,7 @@ void main() {
         await _settle(tester);
         expect(
           run.router.routerDelegate.currentConfiguration.last.matchedLocation,
-          '/pro',
+          '/plans/sheet',
           reason: '$way opens the paywall while own sounds are locked',
         );
       },

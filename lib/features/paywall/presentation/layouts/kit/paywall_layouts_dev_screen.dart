@@ -8,6 +8,7 @@ import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
@@ -74,13 +75,7 @@ String _soundLabel(IntroSoundFlavour flavour) => switch (flavour) {
 };
 
 String _routeLabel(PaywallLayoutSetting? setting) {
-  if (setting == null) {
-    return LocaleKeys.settings_developer_paywall_route_follow.tr();
-  }
-  if (setting.isShipped) {
-    return LocaleKeys.settings_developer_paywall_route_shipped.tr();
-  }
-  if (setting.isAuto) {
+  if (setting == null || setting.isAuto) {
     return LocaleKeys.settings_developer_paywall_route_auto.tr();
   }
   final layout = setting.layout;
@@ -136,6 +131,17 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Auto, the coded default, is the first choice.
+          AppButton(
+            label: LocaleKeys.paywall_picker_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(introSwitch.setIntro(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
           _TileRow(
             count: _intros.length,
             selected: _intros.indexOf(introSwitch.value ?? PaywallIntroId.none),
@@ -152,16 +158,6 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                   Navigator.of(sheetContext).pop();
                 },
               );
-            },
-          ),
-          const SizedBox(height: Spacing.s3),
-          AppButton(
-            label: LocaleKeys.settings_developer_paywall_route_follow.tr(),
-            variant: AppButtonVariant.ghost,
-            isFullWidth: true,
-            onPressed: () {
-              unawaited(introSwitch.setIntro(null));
-              Navigator.of(sheetContext).pop();
             },
           ),
         ],
@@ -181,6 +177,17 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Auto, the coded default, is the first choice.
+          AppButton(
+            label: LocaleKeys.paywall_picker_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(thanksSwitch.setThanks(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
           _TileRow(
             count: _allThanks.length,
             selected: _allThanks.indexOf(
@@ -201,16 +208,6 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
               );
             },
           ),
-          const SizedBox(height: Spacing.s3),
-          AppButton(
-            label: LocaleKeys.settings_developer_paywall_route_follow.tr(),
-            variant: AppButtonVariant.ghost,
-            isFullWidth: true,
-            onPressed: () {
-              unawaited(thanksSwitch.setThanks(null));
-              Navigator.of(sheetContext).pop();
-            },
-          ),
         ],
       ),
     );
@@ -226,23 +223,9 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // An outro needs a paywall under it to mean anything, so a still
-          // row with the name is enough.
-          for (final outro in _allOutros) ...[
-            AppListRow(
-              name: paywallOutroName(outro),
-              meta: '',
-              faceState: null,
-              isSelected: outro == (outroSwitch.value ?? PaywallOutroId.none),
-              onTap: () {
-                unawaited(outroSwitch.setOutro(outro));
-                Navigator.of(sheetContext).pop();
-              },
-            ),
-            const SizedBox(height: Spacing.s2),
-          ],
+          // Auto, the coded default, is the first choice.
           AppButton(
-            label: LocaleKeys.settings_developer_paywall_route_follow.tr(),
+            label: LocaleKeys.paywall_picker_auto.tr(),
             variant: AppButtonVariant.ghost,
             isFullWidth: true,
             onPressed: () {
@@ -250,6 +233,22 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
               Navigator.of(sheetContext).pop();
             },
           ),
+          const SizedBox(height: Spacing.s2),
+          // An outro needs a paywall under it to mean anything, so a still
+          // row with the name is enough.
+          for (final outro in _allOutros) ...[
+            AppListRow(
+              name: paywallOutroName(outro),
+              meta: '',
+              faceState: null,
+              isSelected: outro == outroSwitch.value,
+              onTap: () {
+                unawaited(outroSwitch.setOutro(outro));
+                Navigator.of(sheetContext).pop();
+              },
+            ),
+            const SizedBox(height: Spacing.s2),
+          ],
         ],
       ),
     );
@@ -262,27 +261,46 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
       context: context,
       title: LocaleKeys.paywall_picker_paywall_sheet_title.tr(),
       subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
-      content: (sheetContext) => _TileRow(
-        count: _layouts.length,
-        selected: math.max(
-          0,
-          _layouts.indexOf(layoutSwitch.value?.layout ?? _layouts.first),
-        ),
-        tileBuilder: (context, index) {
-          final layout = _layouts[index];
-          return PaywallLayoutTile(
-            layout: layout,
-            product: product,
-            label: paywallLayoutName(layout),
-            isSelected: layout == layoutSwitch.value?.layout,
-            onTap: () {
-              unawaited(
-                layoutSwitch.setSetting(PaywallLayoutSetting.pinned(layout)),
-              );
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto, the place table, is the first choice.
+          AppButton(
+            label: LocaleKeys.settings_developer_paywall_route_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(layoutSwitch.setSetting(null));
               Navigator.of(sheetContext).pop();
             },
-          );
-        },
+          ),
+          const SizedBox(height: Spacing.s3),
+          _TileRow(
+            count: _layouts.length,
+            selected: math.max(
+              0,
+              _layouts.indexOf(layoutSwitch.value?.layout ?? _layouts.first),
+            ),
+            tileBuilder: (context, index) {
+              final layout = _layouts[index];
+              return PaywallLayoutTile(
+                layout: layout,
+                product: product,
+                label: paywallLayoutName(layout),
+                isSelected: layout == layoutSwitch.value?.layout,
+                onTap: () {
+                  unawaited(
+                    layoutSwitch.setSetting(
+                      PaywallLayoutSetting.pinned(layout),
+                    ),
+                  );
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -293,8 +311,9 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         _layout,
         _product,
         intro: _introSwitch.value ?? PaywallIntroId.none,
-        thanks: _thanksSwitch.value ?? PaywallThanksId.none,
-        outro: _outroSwitch.value ?? PaywallOutroId.none,
+        // Auto plays what a store build plays for this product.
+        thanks: _thanksSwitch.value ?? paywallDefaultThanksFor(_product),
+        outro: _outroSwitch.value ?? paywallDefaultOutroFor(_product),
         showsUnbuilt: true,
         isTryOut: true,
       ),
@@ -360,7 +379,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                           AppListRow(
                             name: LocaleKeys.paywall_picker_intro_row.tr(),
                             meta: intro == null
-                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                ? LocaleKeys.paywall_picker_auto.tr()
                                 : _introLabel(intro),
                             faceState: null,
                             trailing: arrow,
@@ -369,9 +388,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                           const SizedBox(height: Spacing.s2),
                           AppListRow(
                             name: LocaleKeys.paywall_picker_paywall_row.tr(),
-                            meta: setting == null
-                                ? LocaleKeys.paywall_picker_follows_remote.tr()
-                                : _routeLabel(setting),
+                            meta: _routeLabel(setting),
                             faceState: null,
                             trailing: arrow,
                             onTap: _pickLayout,
@@ -380,7 +397,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                           AppListRow(
                             name: LocaleKeys.paywall_outro_picker_row.tr(),
                             meta: outro == null
-                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                ? LocaleKeys.paywall_picker_auto.tr()
                                 : paywallOutroName(outro),
                             faceState: null,
                             trailing: arrow,
@@ -390,7 +407,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                           AppListRow(
                             name: LocaleKeys.paywall_thanks_picker_row.tr(),
                             meta: thanks == null
-                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                ? LocaleKeys.paywall_picker_auto.tr()
                                 : paywallThanksName(thanks),
                             faceState: null,
                             trailing: arrow,
@@ -440,28 +457,25 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             ),
                           ),
                           const SizedBox(height: Spacing.s2),
-                          for (final choice in <PaywallLayoutSetting?>[
-                            null,
-                            PaywallLayoutSetting.shipped,
-                            PaywallLayoutSetting.auto,
-                          ]) ...[
-                            AppListRow(
-                              name: _routeLabel(choice),
-                              meta: '',
-                              faceState: null,
-                              trailing: choice == setting
-                                  ? AppGlyph(
-                                      GlyphType.check,
-                                      color: colors.highlight,
-                                      size: 16,
-                                    )
-                                  : null,
-                              onTap: () => unawaited(
-                                _layoutSwitch.setSetting(choice),
-                              ),
+                          // The one routing choice that is not a named
+                          // layout: the place table, which is what a store
+                          // build opens.
+                          AppListRow(
+                            name: _routeLabel(null),
+                            meta: '',
+                            faceState: null,
+                            trailing: setting == null
+                                ? AppGlyph(
+                                    GlyphType.check,
+                                    color: colors.highlight,
+                                    size: 16,
+                                  )
+                                : null,
+                            onTap: () => unawaited(
+                              _layoutSwitch.setSetting(null),
                             ),
-                            const SizedBox(height: Spacing.s1),
-                          ],
+                          ),
+                          const SizedBox(height: Spacing.s1),
                           // Every id, the ones with no layout of their own
                           // too: the tiles above only list what is built.
                           AppPickerRow<PaywallLayoutId>(

@@ -4,11 +4,9 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/widget_sync.dart';
 import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/holding.dart';
-import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
-import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
@@ -168,56 +166,7 @@ class _PaywallsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return DeveloperOptionsGroup(
       title: LocaleKeys.developer_options_section_paywalls.tr(),
-      rows: const [
-        if (buildHasPaywallLab) _PaywallVariantRow(),
-        _PaywallLayoutsRow(),
-      ],
-    );
-  }
-}
-
-/// Pins the shipped paywall to one variant so a single build can show every
-/// one.
-///
-/// Only drawn in a `--dart-define=PAYWALL_LAB=true` build. Null means Remote
-/// Config decides, which is what every store build does.
-class _PaywallVariantRow extends StatelessWidget {
-  const _PaywallVariantRow();
-
-  static String _label(PaywallVariant? variant) {
-    switch (variant) {
-      case null:
-        return LocaleKeys.settings_developer_paywall_variant_auto.tr();
-      case PaywallVariant.straight:
-        return LocaleKeys.settings_developer_paywall_variant_straight.tr();
-      case PaywallVariant.compare:
-        return LocaleKeys.settings_developer_paywall_variant_compare.tr();
-      case PaywallVariant.oneJob:
-        return LocaleKeys.settings_developer_paywall_variant_one_job.tr();
-      case PaywallVariant.hostedTemplate:
-        return LocaleKeys.settings_developer_paywall_variant_hosted_template
-            .tr();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final variantSwitch = getIt<DevPaywallVariantSwitch>();
-    return ValueListenableBuilder<PaywallVariant?>(
-      valueListenable: variantSwitch,
-      builder: (context, selected, _) => AppPickerRow<PaywallVariant?>(
-        title: LocaleKeys.developer_options_variant_title.tr(),
-        sheetNote: LocaleKeys.settings_developer_paywall_variant_subtitle.tr(),
-        selected: selected,
-        options: [
-          for (final choice in const <PaywallVariant?>[
-            null,
-            ...PaywallVariant.values,
-          ])
-            AppPickerOption(value: choice, label: _label(choice)),
-        ],
-        onPick: (choice) => unawaited(variantSwitch.setVariant(choice)),
-      ),
+      rows: const [_PaywallLayoutsRow()],
     );
   }
 }
@@ -228,11 +177,7 @@ class _PaywallLayoutsRow extends StatelessWidget {
   const _PaywallLayoutsRow();
 
   static String _layoutLabel(PaywallLayoutSetting? setting) {
-    if (setting == null) return LocaleKeys.developer_options_remote.tr();
-    if (setting.isShipped) {
-      return LocaleKeys.settings_developer_paywall_route_shipped.tr();
-    }
-    if (setting.isAuto) {
+    if (setting == null || setting.isAuto) {
       return LocaleKeys.settings_developer_paywall_route_auto.tr();
     }
     final layout = setting.layout;
@@ -261,7 +206,7 @@ class _PaywallLayoutsRow extends StatelessWidget {
         switches.proOutro,
       ]),
       builder: (context, _) {
-        final remote = LocaleKeys.developer_options_remote.tr();
+        final auto = LocaleKeys.developer_options_auto.tr();
         String steps(
           DevPaywallIntroSwitch intro,
           DevPaywallLayoutSwitch at,
@@ -274,7 +219,7 @@ class _PaywallLayoutsRow extends StatelessWidget {
             thanks: thanks.value == null
                 ? null
                 : paywallThanksName(thanks.value!),
-            remote: remote,
+            auto: auto,
             outro: outro.value == null ? null : paywallOutroName(outro.value!),
           );
         }

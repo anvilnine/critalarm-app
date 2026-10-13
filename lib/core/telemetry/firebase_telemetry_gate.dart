@@ -27,30 +27,12 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   static const Duration defaultFetchTimeout = Duration(seconds: 10);
   static const Duration minimumFetchInterval = Duration(hours: 1);
-  static const String paywallEnabledKey = 'paywall_enabled';
-  static const String paywallVariantKeyName = 'paywall_variant';
   static const String onboardingFlowKey = 'onboarding_flow';
   static const String onboardingOfferKey = 'onboarding_offer';
-  static const String paywallLayoutKeyName = 'paywall_layout';
-  static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
-  static const String paywallIntroKeyName = 'paywall_intro';
-  static const String proPaywallIntroKeyName = 'pro_paywall_intro';
-  static const String paywallThanksKeyName = 'paywall_thanks';
-  static const String proPaywallThanksKeyName = 'pro_paywall_thanks';
-  static const String paywallOutroKeyName = 'paywall_outro';
-  static const String proPaywallOutroKeyName = 'pro_paywall_outro';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
-    paywallEnabledKey: false,
-    paywallVariantKeyName: 'straight',
     onboardingFlowKey: '',
     onboardingOfferKey: '',
-    paywallLayoutKeyName: '',
-    proPaywallLayoutKeyName: '',
-    paywallIntroKeyName: '',
-    proPaywallIntroKeyName: '',
-    paywallThanksKeyName: '',
-    proPaywallThanksKeyName: '',
   };
 
   bool _isInitialized = false;
@@ -109,7 +91,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
         ),
       );
 
-      // Sets Remote Config defaults ({'paywall_enabled': false})
+      // Sets Remote Config defaults
       await remoteConfig?.setDefaults(remoteConfigDefaults);
 
       // Attempt to fetch and activate remote config values
@@ -196,27 +178,6 @@ class FirebaseTelemetryGate implements TelemetryGate {
   }
 
   @override
-  bool get paywallEnabled {
-    try {
-      return remoteConfig?.getBool(paywallEnabledKey) ?? false;
-    } on Object catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  bool get isPaywallEnabled => paywallEnabled;
-
-  @override
-  String get paywallVariantKey {
-    try {
-      return remoteConfig?.getString(paywallVariantKeyName) ?? '';
-    } on Object catch (_) {
-      return '';
-    }
-  }
-
-  @override
   String get onboardingFlowJson {
     try {
       return remoteConfig?.getString(onboardingFlowKey) ?? '';
@@ -229,39 +190,6 @@ class FirebaseTelemetryGate implements TelemetryGate {
   String get onboardingOfferJson {
     try {
       return remoteConfig?.getString(onboardingOfferKey) ?? '';
-    } on Object catch (_) {
-      return '';
-    }
-  }
-
-  @override
-  String get paywallLayoutKey => _layoutValue(paywallLayoutKeyName);
-
-  @override
-  String get proPaywallLayoutKey => _layoutValue(proPaywallLayoutKeyName);
-
-  @override
-  String get paywallIntroKey => _layoutValue(paywallIntroKeyName);
-
-  @override
-  String get proPaywallIntroKey => _layoutValue(proPaywallIntroKeyName);
-
-  @override
-  String get paywallThanksKey => _layoutValue(paywallThanksKeyName);
-
-  @override
-  String get proPaywallThanksKey => _layoutValue(proPaywallThanksKeyName);
-
-  @override
-  String get paywallOutroKey => _layoutValue(paywallOutroKeyName);
-
-  @override
-  String get proPaywallOutroKey => _layoutValue(proPaywallOutroKeyName);
-
-  /// Empty when Firebase is missing or the read fails: the shipped paywall.
-  String _layoutValue(String key) {
-    try {
-      return remoteConfig?.getString(key) ?? '';
     } on Object catch (_) {
       return '';
     }
