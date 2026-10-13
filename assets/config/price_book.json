@@ -1,0 +1,15 @@
+{
+  "hosted": {
+    "offering": null,
+    "plans": {
+      "yearly": { "amount": 39.99, "currency": "USD", "package": "$rc_annual" },
+      "monthly": { "amount": 4.99, "currency": "USD", "package": "$rc_monthly" }
+    }
+  },
+  "pro": {
+    "offering": "pro",
+    "plans": {
+      "once": { "amount": 49.99, "currency": "USD", "package": null }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_rules.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
@@ -19,6 +20,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   ProPaywallBuyCubit({
     required this._access,
     required this._shop,
+    this._priceBook = const EmptyPriceBook(),
     List<Duration>? confirmWaits,
     Future<void> Function(Duration)? wait,
   }) : _confirmWaits = confirmWaits ?? defaultConfirmWaits,
@@ -41,6 +43,9 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
 
   final ProPackAccess _access;
   final ProPackShop _shop;
+
+  /// The price drawn while the store sends no offer.
+  final PriceBook _priceBook;
   final List<Duration> _confirmWaits;
   final Future<void> Function(Duration) _wait;
   late final Future<void> Function() _stopListening;
@@ -61,15 +66,37 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     _offers
       ..clear()
       ..addAll({for (final offer in offers) offer.handle: offer});
-    show(restingState(state, options: proPlanOptions(offers)));
+    // The store's offers win. With none, the book draws the price.
+    show(
+      restingState(
+        state,
+        options: offers.isEmpty
+            ? bookPlanOptions(PaywallProduct.pro, _priceBook)
+            : proPlanOptions(offers),
+      ),
+    );
   }
 
   @override
   Future<void> buy() async {
-    final offer = _offers[state.selectedId];
-    if (!state.canBuy || offer == null) return;
+    if (!state.canBuy) return;
+    var offer = _offers[state.selectedId];
     began(PaywallBuyAction.purchase);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
+    if (offer == null) {
+      // The price on screen is the book's. The store may have an offer by
+      // now, and if it still has none, nothing is bought or written down.
+      final offers = await _shop.readOffers();
+      if (isClosed || _isDone) return;
+      if (offers.isEmpty) {
+        show(afterStore(state, PaywallStoreResult.notReady));
+        return;
+      }
+      _offers
+        ..clear()
+        ..addAll({for (final offer in offers) offer.handle: offer});
+      offer = offers.first;
+    }
     // Written down before the store is asked, so a purchase the app does
     // not live to see confirmed is asked about again on the next launch.
     await _access.purchaseStarted();
