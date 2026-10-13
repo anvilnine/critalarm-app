@@ -8,8 +8,10 @@ PaywallBenefitId? sheetBenefitIdFor(PaywallSource source) => switch (source) {
   PaywallSource.history ||
   PaywallSource.historyOlder => PaywallBenefitId.history,
   PaywallSource.widgetLocked ||
-  PaywallSource.homeWidgets => PaywallBenefitId.widgets,
-  PaywallSource.appIcon => PaywallBenefitId.appIcons,
+  PaywallSource.homeWidgets ||
+  PaywallSource.personalizeWidgets => PaywallBenefitId.widgets,
+  PaywallSource.appIcon ||
+  PaywallSource.personalizeAppIcon => PaywallBenefitId.appIcons,
   PaywallSource.settingsPlan ||
   PaywallSource.askSheet ||
   PaywallSource.planSheetEnding ||
@@ -19,6 +21,8 @@ PaywallBenefitId? sheetBenefitIdFor(PaywallSource source) => switch (source) {
   PaywallSource.reminderProLater ||
   PaywallSource.homeDay0Card ||
   PaywallSource.onboardingOffer ||
+  PaywallSource.personalizeSound ||
+  PaywallSource.reliability ||
   PaywallSource.direct => null,
 };
 

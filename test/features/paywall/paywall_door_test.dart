@@ -222,7 +222,7 @@ void main() {
       final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history',
+        '/plans/proof?product=hosted&source=history',
       );
       expect(
         install.door.resolve('/paywall?source=reminder_pro_later'),
@@ -247,7 +247,7 @@ void main() {
       final install = _Install()..pro = 'auto';
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
-        '/plans/sheet?product=pro&source=reliability',
+        '/plans/proof?product=pro&source=reliability',
       );
       expect(
         install.door.hostedLocation(PaywallSource.history),
@@ -293,36 +293,54 @@ void main() {
   });
 
   group('the false alarm intro', () {
-    test('plays once from the Settings plan row, then hero alone', () {
+    test('plays once at the critical topic limit, then the sheet alone', () {
       final install = _Install()..hosted = 'auto';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card'
+        '&intro=false_alarm',
       );
       expect(install.marks, 1);
+      expect(
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card',
+      );
+      expect(install.marks, 1);
+    });
+
+    test('a person who saw it from Settings before does not see it again', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card',
+      );
+      expect(install.marks, 0);
+    });
+
+    test('the Settings plan row plays nothing', () {
+      final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.settingsPlan),
         '/plans/hero?product=hosted&source=settings_plan',
       );
-      expect(install.marks, 1);
+      expect(install.marks, 0);
     });
 
     test('a stored value that names it as a layout opens hero with it', () {
       final install = _Install()..hosted = 'false_alarm';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
-      );
-      expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&intro=false_alarm',
       );
+      expect(install.marks, 1);
     });
 
-    test('other entries neither play it nor use up its showing', () {
+    test('other places neither play it nor use up its showing', () {
       final install = _Install()..hosted = 'auto';
       for (final source in PaywallSource.values) {
-        if (source == PaywallSource.settingsPlan) continue;
+        if (source == PaywallSource.createTopicCard) continue;
         expect(
           install.door.hostedLocation(source),
           isNot(contains('false_alarm')),
@@ -331,16 +349,19 @@ void main() {
       expect(install.marks, 0);
     });
 
-    test('a build that cannot play it opens hero and keeps the showing', () {
-      final install = _Install()
-        ..hosted = 'auto'
-        ..falseAlarmIsBuilt = false;
-      expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan',
-      );
-      expect(install.marks, 0);
-    });
+    test(
+      'a build that cannot play it opens the sheet and keeps the showing',
+      () {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..falseAlarmIsBuilt = false;
+        expect(
+          install.door.hostedLocation(PaywallSource.createTopicCard),
+          '/plans/sheet?product=hosted&source=create_topic_card',
+        );
+        expect(install.marks, 0);
+      },
+    );
   });
 
   group('the intro value', () {
@@ -410,14 +431,14 @@ void main() {
         ..hosted = 'auto'
         ..hostedThanks = 'unlock';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan'
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card'
         '&intro=false_alarm&thanks=unlock',
       );
       // The intro has had its one showing. The thanks has no such rule.
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&thanks=unlock',
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card&thanks=unlock',
       );
     });
 

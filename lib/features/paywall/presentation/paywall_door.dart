@@ -7,6 +7,7 @@ import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
@@ -38,6 +39,7 @@ class PaywallDoor {
     this._developerThanks = _noDeveloperThanks,
     this._isThanksBuilt = paywallThanksIsBuilt,
     this._widgetsDecision = _widgetsLockedForPro,
+    this._listedBenefits = _builtBenefitIds,
   });
 
   /// The prefs key that says the false alarm intro was shown on this
@@ -48,6 +50,10 @@ class PaywallDoor {
   static PaywallIntroId? _noDeveloperIntro(PaywallProduct product) => null;
   static String _noThanksValue(PaywallProduct product) => '';
   static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
+  static Set<PaywallBenefitId> _builtBenefitIds(PaywallProduct product) => {
+    for (final benefit in paywallBenefitsFor(product)) benefit.id,
+  };
+
   static FeatureDecision _widgetsLockedForPro() =>
       const FeatureDecision.locked(Holding.pro);
 
@@ -66,6 +72,10 @@ class PaywallDoor {
   /// widget arrives as a link, and this is what picks its paywall.
   final FeatureDecision Function() _widgetsDecision;
 
+  /// The benefit ids this build lists for a product. A lead outside this
+  /// set is dropped by [paywallOpeningFor].
+  final Set<PaywallBenefitId> Function(PaywallProduct product) _listedBenefits;
+
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
 
@@ -79,10 +89,10 @@ class PaywallDoor {
     }
   }
 
-  /// What opens for [product] from [entry], or null for the shipped
+  /// What opens for [product] from [place], or null for the shipped
   /// surface. A paywall that opens on the false alarm intro is its one
   /// showing, so this writes that down.
-  PaywallOpening? openingFor(PaywallProduct product, PaywallEntry entry) {
+  PaywallOpening? openingFor(PaywallProduct product, PaywallPlace place) {
     try {
       final remoteValue = _remoteValue(product);
       final developer = _developer(product);
@@ -91,7 +101,8 @@ class PaywallDoor {
       final canDrawFalseAlarm = _isIntroBuilt(PaywallIntroId.falseAlarm);
       final opening = paywallOpeningFor(
         product: product,
-        entry: entry,
+        place: place,
+        listedBenefits: _listedBenefits(product),
         remote: PaywallLayoutSetting.parse(remoteValue),
         developer: developer,
         remoteIntro: PaywallIntroId.parse(_remoteIntroValue(product)),
@@ -117,6 +128,8 @@ class PaywallDoor {
         thanks: _isThanksBuilt(opening.thanks)
             ? opening.thanks
             : PaywallThanksId.none,
+        lead: opening.lead,
+        headline: opening.headline,
       );
     } on Object catch (_) {
       return null;
@@ -125,7 +138,7 @@ class PaywallDoor {
 
   /// The location that opens Hosted for [source].
   String hostedLocation(PaywallSource source) {
-    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
+    final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
     return opening == null
         ? paywallLocation(source)
         : paywallLayoutLocation(
@@ -145,7 +158,7 @@ class PaywallDoor {
     if (uri == null || uri.path != paywallPath) return location;
     final source = PaywallSource.parse(uri.queryParameters['source']);
     if (source == PaywallSource.widgetLocked) return _widgetTapLocation();
-    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
+    final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
     return opening == null
         ? location
         : paywallLayoutLocation(
@@ -185,7 +198,7 @@ class PaywallDoor {
   String? proLayoutLocation(ProPackSheetSource source) {
     final opening = openingFor(
       PaywallProduct.pro,
-      paywallEntryOfProSheet(source),
+      paywallPlaceOfPro(source),
     );
     return opening == null
         ? null
@@ -293,8 +306,7 @@ String? paywallLocationFor(FeatureDecision decision, LockSource source) {
   return switch (decision.offer) {
     Holding.hosted => hostedPaywallLocation(source.hosted),
     Holding.pro =>
-      _door?.proLayoutLocation(source.pro) ??
-          proPackSheetLocation(source.pro),
+      _door?.proLayoutLocation(source.pro) ?? proPackSheetLocation(source.pro),
   };
 }
 
