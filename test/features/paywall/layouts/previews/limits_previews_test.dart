@@ -404,6 +404,36 @@ void main() {
       }
     });
 
+    test('with no rows inside the window the band stays clear of a tag', () {
+      // The Proof layout puts its tag across the top edge of the card. With
+      // nothing above the band, the band sits at that edge: it has to keep
+      // below the tag at every moment of the loop.
+      for (final size in const [
+        Size.square(200),
+        Size(350, 300),
+        Size(320, 240),
+        Size(350, 110),
+      ]) {
+        final layout = historyPreviewLayoutFor(size);
+        for (final t in _loop) {
+          final scroll = layout.scrollFor(history(t), 0);
+          final bandTop = layout.lineTop(0) - scroll;
+          expect(
+            bandTop,
+            greaterThanOrEqualTo(historyPreviewTagRoom),
+            reason: '$size at $t',
+          );
+        }
+      }
+    });
+
+    test('rows inside the window put the band where it was', () {
+      final layout = historyPreviewLayoutFor(const Size(350, 300));
+      for (final inside in [1, 3, 7]) {
+        expect(layout.lineTop(inside), inside * layout.rowHeight);
+      }
+    });
+
     test('a medium scene draws bars, a large one names and ages', () {
       final medium = historyPreviewLayoutFor(const Size.square(120));
       expect(medium.showsTags, isTrue);
