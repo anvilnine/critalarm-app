@@ -185,6 +185,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The alarm screen of the setup test shows a sample message for the answer picked on the use step. The title and body the server sent stay in the history, the notification and the extension cache.
 - Paywall pieces for a lead benefit: a route lead on the reel, the Hosted weekly check as a fifth benefit, a topic name on the topics picture, a thanks button label and an intro hint line.
 - Setup has a use step between permissions and the first topic (What should wake you?), on a new flow 2026-10-c that is now the default. One tap saves the answer on the phone, a skip saves Something else, and a pick event (onboarding\_use\_picked) goes through the same consent buffer as the other setup events. Phones pinned to 2026-10-b keep running it.
+- The hook-up step leads with numbered steps, Copy URL, Copy token and a curl chip when the saved tool is Uptime Kuma, Healthchecks or Home Assistant (toolStepsFor, maskToken, HookUpStepsLayout). Any other tool keeps the curl screen, and the replay reads ?use=<wire id> in a developer build.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
