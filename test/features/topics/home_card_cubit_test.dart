@@ -20,6 +20,7 @@ import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/topics/data/reader_missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
@@ -186,6 +187,13 @@ class _Rig {
   final List<_FakeTimer> timers = [];
   DateTime clock = now;
 
+  /// What the phone's own records say about setup. Read on every change.
+  bool isSetupOpen = false;
+  bool setupOpenThrows = false;
+
+  /// The topics the app holds in memory, or null for none.
+  List<HeldTopic>? heldTopics;
+
   HomeCardCubit? _cubit;
 
   /// Starts on first use, so a test can build its own with other parts.
@@ -198,6 +206,11 @@ class _Rig {
     toolTemplates: tools,
     testRouteName: 'testRing',
     askPermissionsRouteName: 'askPermissions',
+    isSetupOpen: () {
+      if (setupOpenThrows) throw StateError('prefs are gone');
+      return isSetupOpen;
+    },
+    readHeldTopics: () => heldTopics,
     clock: () => clock,
     timer: (after, run) {
       final timer = _FakeTimer(after, run);
@@ -668,6 +681,226 @@ void main() {
       rig.setup.set(const HomeSetupState());
       await rig.settle();
       expect(rig.kind, HomeCardKind.idle);
+    });
+
+    group('what the phone expects before the list has answered', () {
+      test('the first frame is the waiting card with the right line', () {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        rig.use.answer = SetupUse.homelab;
+
+        // Home has not loaded and the checklist has said nothing.
+        final first = rig.cubit.state.model;
+        expect(first.kind, HomeCardKind.waiting);
+        expect(first.label, HomeCardLabel.firstMessage);
+        expect(first.numeral, const NotYet());
+        expect(first.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        expect(first.action, const GetFirstLine(null));
+      });
+
+      test('the waiting card does not change when the list loads', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        rig.use.answer = SetupUse.homelab;
+        final models = <HomeCardModel>[rig.cubit.state.model];
+        final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+        addTearDown(sub.cancel);
+
+        rig.home.set(const HomeState(status: HomeStatus.loading));
+        await rig.settle();
+        rig.home.set(_loaded());
+        await rig.settle();
+        // The checklist has not looked yet, then it says waiting.
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+
+        expect(rig.kind, HomeCardKind.waiting);
+        for (final model in models) {
+          expect(model.kind, HomeCardKind.waiting);
+          expect(model.label, HomeCardLabel.firstMessage);
+          expect(model.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        }
+        // Only the button learns its topic.
+        expect(rig.model.action, const GetFirstLine('prod-db'));
+      });
+
+      test('the list can still turn it into the setup card', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.waiting);
+
+        rig.home.set(_loaded());
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupAfterServer,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.setup);
+      });
+
+      test(
+        'a held list with no Critical topic starts on the setup card',
+        () async {
+          final rig = _Rig()
+            ..isSetupOpen = true
+            ..heldTopics = [(name: 'prod-db', isCritical: false)];
+          addTearDown(rig.dispose);
+          final models = <HomeCardModel>[rig.cubit.state.model];
+          final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+          addTearDown(sub.cancel);
+
+          final first = models.single;
+          expect(first.kind, HomeCardKind.setup);
+          expect(first.numeral, const Count(1, 3));
+          expect(first.action, const ContinueSetup('/topics/prod-db'));
+
+          // The list loads and the checklist agrees: nothing changes.
+          rig.home.set(
+            _loaded(items: const [HomeTopicItem(name: 'prod-db')]),
+          );
+          rig.setup.set(
+            const HomeSetupState(
+              phase: HomeSetupPhase.checklist,
+              checklist: setupAfterServer,
+              firstTopic: 'prod-db',
+              watchedTopic: 'prod-db',
+            ),
+          );
+          await rig.settle();
+          expect(rig.kind, HomeCardKind.setup);
+          for (final model in models) {
+            expect(model, first);
+          }
+        },
+      );
+
+      test(
+        'a held list with a Critical topic starts on waiting, with its line',
+        () async {
+          final rig = _Rig()
+            ..isSetupOpen = true
+            ..heldTopics = [(name: 'prod-db', isCritical: true)];
+          addTearDown(rig.dispose);
+          rig.use.answer = SetupUse.servers;
+          rig.tools.saved['prod-db'] = ToolTemplate.uptimeKuma;
+          final models = <HomeCardModel>[rig.cubit.state.model];
+          final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+          addTearDown(sub.cancel);
+
+          final first = models.single;
+          expect(first.kind, HomeCardKind.waiting);
+          // The topic is held, so the saved tool's line is there at once.
+          expect(first.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+          expect(first.action, const GetFirstLine('prod-db'));
+
+          rig.home.set(_loaded());
+          rig.setup.set(
+            const HomeSetupState(
+              phase: HomeSetupPhase.checklist,
+              checklist: setupFirstMessageOpen,
+              firstTopic: 'prod-db',
+              watchedTopic: 'prod-db',
+            ),
+          );
+          await rig.settle();
+          expect(rig.kind, HomeCardKind.waiting);
+          for (final model in models) {
+            expect(model, first);
+          }
+        },
+      );
+
+      test('a wrong guess from the held list is corrected', () async {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..heldTopics = [(name: 'prod-db', isCritical: false)];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.setup);
+
+        // The topic turned Critical on after the list was held.
+        rig.home.set(_loaded());
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.waiting);
+      });
+
+      test('a held list with no topic in it guesses nothing', () {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..heldTopics = const [];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+      });
+
+      test('a held list means nothing when the flags say setup is over', () {
+        final rig = _Rig()..heldTopics = [(name: 'prod-db', isCritical: false)];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+      });
+
+      test('a phone whose records say nothing shows the dots', () {
+        final rig = _Rig();
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+        expect(rig.cubit.state.model.numeral, const Dots());
+      });
+
+      test('a failed read is no guess', () {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..setupOpenThrows = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+      });
+
+      test('once setup is retired the guess is dropped', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.waiting);
+
+        rig.isSetupOpen = false;
+        rig.home.set(_loaded());
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.idle);
+      });
+
+      test('the button finds the topic when it is pressed', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.actionFor(const GetFirstLine(null)), const NoEffect());
+
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod db',
+          ),
+        );
+        await rig.settle();
+        expect(
+          rig.cubit.actionFor(const GetFirstLine(null)),
+          const OpenPath('/topics/prod%20db?curl=1'),
+        );
+      });
     });
 
     test('the waiting card names the line on its first frame', () async {

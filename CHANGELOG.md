@@ -108,6 +108,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup no longer says the test message rings this phone when the topic has Critical delivery off. It says the message lands on the phone.
 - At the largest text sizes on a small phone, the alarm's message card stays above I'm up and Silence and scrolls when the message is long.
 - An alarm sent without tags no longer shows a stray slash after the time.
+- The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
