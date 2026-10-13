@@ -6,6 +6,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cloc
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_painters.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_pieces.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_painters.dart'
     show BreakPainter;
@@ -48,6 +49,7 @@ class BreakLift extends StatefulWidget {
 
 class _BreakLiftState extends State<BreakLift> {
   late List<BreakPiece> _pieces = _T.pieces(widget.scope.size);
+  final BreakLiftPieceBatch _batch = BreakLiftPieceBatch();
 
   @override
   void didUpdateWidget(BreakLift old) {
@@ -55,6 +57,12 @@ class _BreakLiftState extends State<BreakLift> {
     if (old.scope.size != widget.scope.size) {
       _pieces = _T.pieces(widget.scope.size);
     }
+  }
+
+  @override
+  void dispose() {
+    _batch.dispose();
+    super.dispose();
   }
 
   @override
@@ -109,6 +117,7 @@ class _BreakLiftState extends State<BreakLift> {
                       : BreakLiftPainter(
                           t: t,
                           pieces: _pieces,
+                          batch: _batch,
                           colors: palette,
                           wall: scope.wall,
                           crit: pose.box,
