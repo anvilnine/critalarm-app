@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -117,6 +118,36 @@ void main() {
         expect((a.a - b.a).abs(), lessThan(0.05));
         expect((a.b - b.b).abs(), lessThan(0.05));
       }
+    });
+
+    test(
+      'his cloud leaves by opacity, continuously, and is gone at the swap',
+      () {
+        var last = T.cloudAlpha(0);
+        for (final t in _times(_frame).skip(1)) {
+          final alpha = T.cloudAlpha(t);
+          expect((alpha - last).abs(), lessThan(0.05));
+          last = alpha;
+        }
+        expect(T.cloudAlpha(3.3), 1);
+        expect(T.cloudAlpha(3.75), lessThan(0.2));
+        expect(T.cloudAlpha(T.end), 0);
+      },
+    );
+
+    test('he goes from asleep to glad with no wide-eyed face between', () {
+      final seen = <HeroFace>{};
+      for (final t in _times(_frame)) {
+        final face = T.face(t);
+        seen
+          ..add(face.from)
+          ..add(face.to);
+      }
+      expect(seen, {HeroFace.glad, HeroFace.relieved, HeroFace.listening});
+      final waking = T.face(3.4);
+      expect(waking.from, HeroFace.listening);
+      expect(waking.to, HeroFace.glad);
+      expect(T.face(3.6).blend, 1);
     });
 
     test('the faces blend and never cut', () {

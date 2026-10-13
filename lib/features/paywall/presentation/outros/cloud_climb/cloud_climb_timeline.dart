@@ -312,9 +312,8 @@ abstract final class CloudClimbTimeline {
     (at: 0.5, face: HeroFace.glad),
     // Asleep, then a sleepy smile: eyes shut.
     (at: 0.75, face: HeroFace.listening),
-    // Calm, then glad.
-    (at: 3.25, face: HeroFace.watching),
-    (at: 3.45, face: HeroFace.glad),
+    // He wakes straight to glad, with no wide-eyed face between.
+    (at: 3.3, face: HeroFace.glad),
   ];
 
   /// His face: each turn blends into the next over [heroFaceBlend].
