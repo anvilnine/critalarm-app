@@ -140,6 +140,19 @@ enum PaywallCue {
   /// each hop of the button, cut dead on the gulp.
   scoreAlarmSnack(sound: 'ui_score_alarm_snack', hasFlavours: true),
 
+  // The scores of the success outros: one composed piece each, started on
+  // the purchase frame and timed to the picture. Each takes the place of
+  // [bought] when its outro plays. Sound only: the outro's beats carry the
+  // haptics, and there is one file each, with no flavours. Each ends on a
+  // D major chord and rings out past the swap, so a cue of the end state
+  // that rings as a note is in tune with the tail.
+
+  /// The score of Break, lift, ring: bold and bright, in three moves.
+  scoreBreakLiftRing(sound: 'ui_score_break_lift_ring'),
+
+  /// The score of Cloud climb: a lullaby in 6/8, one rise.
+  scoreCloudClimb(sound: 'ui_score_cloud_climb'),
+
   /// The arrival alone, the last part of every score: a short pickup and
   /// the chord it lands on. What a skipped intro plays.
   introArrive(
@@ -205,6 +218,10 @@ abstract class PaywallCues {
 
   /// Plays [cue]: its sound, if it has one, and its haptic.
   void play(PaywallCue cue);
+
+  /// Stops the sound that is playing. Safe when nothing is. For a long
+  /// score that a tap cuts short.
+  void stop() {}
 
   /// The paywall came on screen.
   void open() => play(PaywallCue.open);

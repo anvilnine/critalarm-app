@@ -305,6 +305,26 @@ void main() {
     });
   });
 
+  group('the scores of the outros', () {
+    test('each is one file, sound only, with no flavours', () {
+      for (final cue in [
+        PaywallCue.scoreBreakLiftRing,
+        PaywallCue.scoreCloudClimb,
+      ]) {
+        expect(cue.haptic, HapticPattern.none, reason: cue.name);
+        expect(cue.hasFlavours, isFalse, reason: cue.name);
+        expect(cue.mayRepeat, isFalse, reason: cue.name);
+        expect(cue.asset, startsWith('assets/ui_sounds/ui_score_'));
+        expect(File(cue.asset!).existsSync(), isTrue, reason: cue.name);
+      }
+    });
+
+    test('stop reaches the player', () {
+      cuesWith().stop();
+      expect(player.calls, ['stop']);
+    });
+  });
+
   group('the cues of the step after a purchase', () {
     test('each has a sound of its own and one short haptic', () {
       const cues = [PaywallCue.settle, PaywallCue.lock, PaywallCue.key];
@@ -673,8 +693,9 @@ void main() {
           .whereType<File>()
           .fold<int>(0, (sum, file) => sum + file.lengthSync());
       // The intro scores are music, a few seconds each in two flavours,
-      // and are most of what is over the first 400 kB.
-      expect(bytes, lessThan(560 * 1024));
+      // and are most of what is over the first 400 kB. The two outro scores
+      // are one file each, about 72 kB together.
+      expect(bytes, lessThan(640 * 1024));
     });
 
     test('no cue is one of the alarm sounds', () {

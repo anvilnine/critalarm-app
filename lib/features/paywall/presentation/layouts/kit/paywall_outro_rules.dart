@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
 import 'package:flutter/painting.dart';
@@ -45,7 +46,11 @@ double paywallThanksRestAfterOutro({
 /// The beats of an end state, as the host's clock hears them after
 /// [outro]: later by what the outro took, and none that were over before
 /// it was picked up. A beat that is heard and would land inside the
-/// purchase cue is dropped, as the cue owns that time.
+/// purchase sound is dropped, as that sound owns the time. The purchase
+/// sound is the outro's score through its whole file, tail included, or
+/// the purchase cue for [paywallBoughtCueSeconds]. The player cuts a
+/// sound off when a different one starts, so a beat that started inside
+/// the tail would stop it dead.
 List<PaywallThanksBeat> paywallThanksBeatsAfterOutro(
   List<PaywallThanksBeat> beats, {
   required PaywallOutro outro,
@@ -54,12 +59,23 @@ List<PaywallThanksBeat> paywallThanksBeatsAfterOutro(
   for (final beat in beats)
     if (beat.at >= pickUp)
       if (!beat.isHeard ||
-          beat.at - pickUp + outro.uncover >= paywallBoughtCueSeconds)
+          beat.at - pickUp + outro.uncover >=
+              paywallPurchaseSoundSeconds(outro))
         if (beat.cue case final cue?)
           PaywallThanksBeat(beat.at - pickUp + outro.uncover, cue)
         else
           PaywallThanksBeat.tap(beat.at - pickUp + outro.uncover, beat.haptic),
 ];
+
+/// The cue the purchase frame plays: the score of the outro that [playing]
+/// is, or the purchase cue when no outro plays or the outro has no score.
+PaywallCue paywallPurchaseCue({required PaywallOutro? playing}) =>
+    playing?.score ?? PaywallCue.bought;
+
+/// How long the sound the purchase frame starts lasts, in the host's
+/// seconds, when [outro] plays or when none does (null).
+double paywallPurchaseSoundSeconds(PaywallOutro? outro) =>
+    outro?.score == null ? paywallBoughtCueSeconds : outro!.scoreSeconds;
 
 /// Whether an outro plays for this purchase.
 ///
