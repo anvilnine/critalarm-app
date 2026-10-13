@@ -181,6 +181,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Pick a server step is one layout for Crit Alarm Cloud and your own server: the routes picture, titles, card and pinned bar follow one clock (ConnectMorphLayout), so switching grows and fades the parts that differ and keeps the dot travelling. AppButton gains animatesLabel.
 - release --bump runs the gates first, commits the new build number, and a finished upload tags the commit. --upload-only refuses a build whose stamp does not match pubspec.yaml. The gates also run check-l10n and check-access. release-android.sh refuses a bundle signed with the debug key.
 - Added the setup answer data: a SetupUse enum, its per-answer table, a prefs store with an in-memory replay holder, and curl as a tool template with no snippet.
+- The setup test's It works screen throws no confetti and plays no success haptic when the offer step follows.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
