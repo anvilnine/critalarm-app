@@ -106,6 +106,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
 - Setup no longer says the test message rings this phone when the topic has Critical delivery off. It says the message lands on the phone.
+- At the largest text sizes on a small phone, the alarm's message card stays above I'm up and Silence and scrolls when the message is long.
+- An alarm sent without tags no longer shows a stray slash after the time.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

@@ -211,4 +211,93 @@ void main() {
       }
     });
   });
+
+  group('ringingCardScrollRoomFor', () {
+    double? room({
+      double height = 667,
+      double textScale = 1,
+      int openAlarms = 1,
+      double cardHeight = shortCard,
+      bool isCompact = false,
+      int pinnedButtons = 3,
+    }) => ringingCardScrollRoomFor(
+      viewportHeight: height,
+      textScale: textScale,
+      openAlarms: openAlarms,
+      cardHeight: cardHeight,
+      isCompact: isCompact,
+      pinnedButtons: pinnedButtons,
+    );
+
+    test('is null when the whole card fits above the buttons', () {
+      expect(room(), isNull);
+      expect(room(height: 844), isNull);
+      expect(room(height: 932, textScale: 1.3, cardHeight: 200), isNull);
+    });
+
+    test('is null when the card is exactly the room', () {
+      // 667 less the buttons 172, the room over them 16 and the header 168.
+      expect(room(cardHeight: 667 - 172 - 16 - 168), isNull);
+      expect(room(cardHeight: 667 - 172 - 16 - 168 + 1), 311);
+    });
+
+    test('is what is left under the header when the card is taller', () {
+      // A 616 high screen at twice the text: the buttons 172, 16 over them
+      // and a header of 32 + 79.5 + 8 + 54 + 8 + 48 + 16.
+      expect(room(height: 616, textScale: 2, cardHeight: 330), 182.5);
+    });
+
+    test('a setup test, with two buttons, leaves the card more room', () {
+      final three = room(height: 616, textScale: 2, cardHeight: 330)!;
+      final two = room(
+        height: 616,
+        textScale: 2,
+        cardHeight: 330,
+        pinnedButtons: 2,
+      )!;
+      expect(two, three + 56);
+    });
+
+    test('the compact header leaves the card more room', () {
+      final full = room(height: 616, textScale: 3, cardHeight: 900)!;
+      final compact = room(
+        height: 616,
+        textScale: 3,
+        cardHeight: 900,
+        isCompact: true,
+      )!;
+      expect(compact, greaterThan(full));
+    });
+
+    test('never gives the card less than its least room', () {
+      expect(room(height: 480, textScale: 3.1, cardHeight: 900), 120);
+      expect(room(height: 300, cardHeight: 900), ringingCardMinRoom);
+    });
+
+    test('is null whenever the face is drawn, because the card fits then', () {
+      for (var height = 400.0; height <= 1000; height += 11) {
+        for (final scale in [1.0, 1.3, 2.0, 3.1]) {
+          for (var card = 100.0; card <= 900; card += 37) {
+            final face = ringingFaceSizeFor(
+              viewportHeight: height,
+              textScale: scale,
+              openAlarms: 1,
+              cardHeight: card,
+            );
+            if (face == 0) continue;
+            expect(
+              ringingCardScrollRoomFor(
+                viewportHeight: height,
+                textScale: scale,
+                openAlarms: 1,
+                cardHeight: card,
+              ),
+              isNull,
+              reason: 'height $height at $scale with a card of $card',
+            );
+          }
+        }
+      }
+    });
+  });
 }

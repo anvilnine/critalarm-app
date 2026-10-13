@@ -248,15 +248,7 @@ void main() {
           (_written[scene.name] ??= []).add(file.path);
           print('SAVED ${file.path}');
         });
-        // The screen's own column overflows on a 320 by 640 phone at the
-        // largest text size. That is how the screen is today, and this tool
-        // does not change it, so it is printed and the run goes on.
-        final isKnown = phone == _narrow && scale >= 2;
-        if (isKnown && errors.isNotEmpty) {
-          print('OVERFLOW $name: ${errors.join(' | ')}');
-        } else {
-          expect(errors, isEmpty, reason: errors.join('\n'));
-        }
+        expect(errors, isEmpty, reason: errors.join('\n'));
       } finally {
         if (!answer.isCompleted) answer.complete(false);
         // Takes the screen down so no timer is left running.
