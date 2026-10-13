@@ -221,6 +221,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubi
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
 import 'package:critalarm/features/paywall/data/history_own_reader.dart';
+import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -2759,6 +2760,32 @@ Future<void> configureDependencies({
         ),
         readHistoryOwn: () =>
             HistoryOwnReader(incidents: localStore?.incidents).read(),
+        readLeavingFacts: () => LeavingFactsReader(
+          incidents: localStore?.incidents,
+          // The app's one topic list, which is for the server and account
+          // the phone is on. A list that is not read, is being replaced or
+          // failed is not a count: it throws, and the paywall opens as if
+          // the numbers could not be read.
+          readCriticalTopics: () async {
+            final topics = getIt<TopicsCubit>();
+            await (topics.state.isRefreshing
+                    ? topics.refresh()
+                    : topics.ensureLoaded())
+                .timeout(const Duration(seconds: 2), onTimeout: () {});
+            final state = topics.state;
+            if (!state.isReady || state.isRefreshing) {
+              throw StateError('The topic list is not read.');
+            }
+            return state.topics.where((topic) => topic.critical).length;
+          },
+          setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        ).read(),
+        leavingShownFor: () =>
+            getIt<SharedPreferences>().getString(PaywallDoor.leavingShownKey),
+        markLeavingShown: (value) => getIt<SharedPreferences>().setString(
+          PaywallDoor.leavingShownKey,
+          value,
+        ),
       ),
     )
     // The Interface sounds switch in Settings. On until the user turns it off.

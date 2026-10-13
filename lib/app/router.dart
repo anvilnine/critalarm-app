@@ -36,6 +36,7 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart'
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
@@ -885,6 +886,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             intro: intro,
             lead: paywallLeadFromQuery(query),
             headline: PaywallHeadlineVariant.parse(query['headline']),
+            leaving: PaywallLeaving.fromQuery(query),
             // The person's own rows are read only for a history lead.
             historyOwn:
                 paywallLeadFromQuery(query)?.benefit == PaywallBenefitId.history

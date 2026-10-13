@@ -30,6 +30,8 @@ class PaywallBuyBlockStyle {
     this.buttonVariant,
     this.showsPicker = true,
     this.horizontalPadding = 20,
+    this.buttonLabel,
+    this.note,
   });
 
   final PaywallPlanPickerStyle pickerStyle;
@@ -44,6 +46,14 @@ class PaywallBuyBlockStyle {
   /// somewhere else on the screen.
   final bool showsPicker;
   final double horizontalPadding;
+
+  /// What the idle buy button says. Null says the product and its price as
+  /// the store has them. A paused check still says "Check again".
+  final String? buttonLabel;
+
+  /// The small print under the button, in place of the own-server promise.
+  /// Null keeps the promise.
+  final String? note;
 }
 
 /// The product's name as copy says it.
@@ -260,7 +270,9 @@ class _Offer extends StatelessWidget {
           label: busyLabel,
           // 48 points. The 60 point size is for the alarm screen only.
           child: AppButton(
-            label: buyButtonLabel(state, name: name),
+            label: isPaused || style.buttonLabel == null
+                ? buyButtonLabel(state, name: name)
+                : style.buttonLabel!,
             variant: variant,
             isFullWidth: true,
             isLoading: state.isBusy,
@@ -278,7 +290,7 @@ class _Offer extends StatelessWidget {
         // buying.
         if (state.product == PaywallProduct.hosted) ...[
           Text(
-            LocaleKeys.paywall_self_hosted_note.tr(),
+            style.note ?? LocaleKeys.paywall_self_hosted_note.tr(),
             textAlign: TextAlign.center,
             style: AppTypography.small(
               tone.note,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -8,6 +10,7 @@ import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +36,13 @@ class _Install {
   bool widgetsThrow = false;
   HistoryOwn? historyOwn;
   bool historyOwnThrows = false;
+  bool historyOwnHangs = false;
+  LeavingFacts? leavingFacts;
+  bool leavingThrows = false;
+  bool leavingHangs = false;
+  bool leavingMarkThrows = false;
+  String? leavingShown;
+  int leavingMarks = 0;
 
   late final door = PaywallDoor(
     widgetsDecision: () {
@@ -63,8 +73,21 @@ class _Install {
     isThanksBuilt: (thanks) => thanks == PaywallThanksId.none || thanksAreBuilt,
     readHistoryOwn: () async {
       if (historyOwnThrows) throw StateError('no store');
+      if (historyOwnHangs) return Completer<HistoryOwn?>().future;
       return historyOwn;
     },
+    readLeavingFacts: () async {
+      if (leavingThrows) throw StateError('no store');
+      if (leavingHangs) return Completer<LeavingFacts?>().future;
+      return leavingFacts;
+    },
+    leavingShownFor: () => leavingShown,
+    markLeavingShown: (value) async {
+      leavingMarks++;
+      if (leavingMarkThrows) throw StateError('no prefs');
+      leavingShown = value;
+    },
+    leavingReadTimeout: const Duration(milliseconds: 50),
   );
 }
 
@@ -636,6 +659,303 @@ void main() {
       expect(await install.door.readHistoryOwn(), isNotNull);
       install.historyOwnThrows = true;
       expect(await install.door.readHistoryOwn(), isNull);
+    });
+  });
+
+  group('the leaving paywall', () {
+    const good = LeavingFacts(
+      rang: 142,
+      answered: 139,
+      nights: 9,
+      criticalTopics: 4,
+      historyDaysHeld: 61,
+    );
+    const thin = LeavingFacts(
+      rang: 4,
+      answered: 4,
+      nights: 0,
+      criticalTopics: 1,
+      historyDaysHeld: 20,
+    );
+    const young = LeavingFacts(
+      rang: 2,
+      answered: 2,
+      nights: 0,
+      criticalTopics: 1,
+      historyDaysHeld: 3,
+    );
+    final ends = DateTime(2026, 10, 20, 14, 30);
+    const wipeWithoutNumbers =
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20';
+
+    test(
+      'good numbers open the receipt with the date and the numbers',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good;
+        expect(
+          await install.door.leavingLocation(ends),
+          '/plans/receipt?product=hosted&source=plan_sheet_ending'
+          '&headline=leaving&ends=2026-10-20'
+          '&rang=142&ans=139&nights=9&crit=4&days=61',
+        );
+      },
+    );
+
+    test('thin numbers open Wipe on history', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = thin;
+      expect(
+        await install.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20'
+        '&rang=4&ans=4&nights=0&crit=1&days=20',
+      );
+    });
+
+    test('two numbers over their floor are enough, one is not', () async {
+      // Alarms that rang and critical topics clear. Answered, nights do not.
+      final two = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = const LeavingFacts(
+          rang: 12,
+          answered: 2,
+          nights: 1,
+          criticalTopics: 3,
+          historyDaysHeld: 30,
+        );
+      expect(await two.door.leavingLocation(ends), contains('/plans/receipt?'));
+      final one = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = const LeavingFacts(
+          rang: 12,
+          answered: 2,
+          nights: 1,
+          criticalTopics: 2,
+          historyDaysHeld: 30,
+        );
+      expect(await one.door.leavingLocation(ends), contains('/plans/wipe?'));
+    });
+
+    test('under 7 days of history open Wipe on critical topics', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = young;
+      expect(
+        await install.door.leavingLocation(ends),
+        contains(
+          '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=topics',
+        ),
+      );
+    });
+
+    test('the rows the phone holds ride along for a Wipe on history', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = thin
+        ..historyOwn = const HistoryOwn(
+          inside: [HistoryOwnRow('prod-db', 1)],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      final location = await install.door.leavingLocation(ends);
+      expect(location, contains('/plans/wipe?'));
+      expect(location, contains('&hbe='));
+    });
+
+    test(
+      'a receipt carries no history rows: it shows no history picture',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good
+          ..historyOwn = const HistoryOwn(
+            inside: [],
+            beyond: [HistoryOwnRow('nas', 12)],
+          );
+        expect(
+          await install.door.leavingLocation(ends),
+          isNot(contains('hbe=')),
+        );
+      },
+    );
+
+    test('a Wipe on critical topics carries no history rows', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = young
+        ..historyOwn = const HistoryOwn(
+          inside: [],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      expect(
+        await install.door.leavingLocation(ends),
+        isNot(contains('hbe=')),
+      );
+    });
+
+    group('numbers that cannot be read', () {
+      test('none were found: Wipe on history with the date', () async {
+        final install = _Install()..hosted = 'auto';
+        expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+      });
+
+      test('a read that throws opens Wipe and never throws', () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good
+          ..leavingThrows = true;
+        expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+      });
+
+      test(
+        'a read that never answers opens Wipe once the wait is up',
+        () async {
+          final install = _Install()
+            ..hosted = 'auto'
+            ..leavingFacts = good
+            ..leavingHangs = true;
+          expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+        },
+      );
+
+      test('rows that cannot be read leave the numbers in place', () async {
+        for (final fail in [
+          (_Install install) => install.historyOwnThrows = true,
+          (_Install install) => install.historyOwnHangs = true,
+        ]) {
+          final install = _Install()
+            ..hosted = 'auto'
+            ..leavingFacts = thin;
+          fail(install);
+          final location = await install.door.leavingLocation(ends);
+          expect(location, contains('/plans/wipe?'));
+          expect(location, contains('&rang=4&'));
+          expect(location, isNot(contains('hbe=')));
+        }
+      });
+
+      test('nothing is read when no layout is set', () async {
+        var reads = 0;
+        final door = PaywallDoor(
+          remoteValue: (_) => '',
+          developer: (_) => null,
+          hasSeenFalseAlarm: () => true,
+          markFalseAlarmSeen: () async {},
+          readLeavingFacts: () async {
+            reads++;
+            return good;
+          },
+        );
+        expect(
+          await door.leavingLocation(ends),
+          '/paywall?source=plan_sheet_ending',
+        );
+        expect(reads, 0);
+      });
+    });
+
+    test(
+      'a pinned layout or a Developer options choice outranks the table',
+      () async {
+        final remote = _Install()
+          ..hosted = 'hero'
+          ..leavingFacts = good;
+        final remoteLocation = await remote.door.leavingLocation(ends);
+        expect(remoteLocation, startsWith('/plans/hero?'));
+        expect(remoteLocation, contains('&headline=leaving'));
+        // The numbers go only to the two layouts that draw them.
+        expect(remoteLocation, isNot(contains('rang=')));
+        expect(remoteLocation, contains('&ends=2026-10-20'));
+
+        final developer = _Install()
+          ..hosted = 'auto'
+          ..devHosted = PaywallLayoutSetting.parse('wipe')
+          ..leavingFacts = good;
+        expect(
+          await developer.door.leavingLocation(ends),
+          contains('/plans/wipe?'),
+        );
+      },
+    );
+
+    test(
+      'the second open before that date is at rest, a new date is not',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good;
+        final first = await install.door.leavingLocation(ends);
+        expect(first, isNot(contains('rest=1')));
+        expect(install.leavingShown, '2026-10-20');
+        final second = await install.door.leavingLocation(ends);
+        expect(second, contains('&ends=2026-10-20&rest=1&'));
+        expect(install.leavingMarks, 1, reason: 'the rest open writes nothing');
+        final later = await install.door.leavingLocation(
+          DateTime(2026, 11, 20),
+        );
+        expect(later, isNot(contains('rest=1')));
+        expect(install.leavingShown, '2026-11-20');
+      },
+    );
+
+    test('a flag that cannot be saved still opens the paywall', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = good
+        ..leavingMarkThrows = true;
+      expect(
+        await install.door.leavingLocation(ends),
+        contains('/plans/receipt?'),
+      );
+    });
+
+    test(
+      'with no layout set the shipped paywall opens and nothing is written',
+      () async {
+        final install = _Install()..leavingFacts = good;
+        expect(
+          await install.door.leavingLocation(ends),
+          '/paywall?source=plan_sheet_ending',
+        );
+        expect(install.leavingMarks, 0);
+      },
+    );
+
+    test('the door never throws', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..remoteThrows = true;
+      expect(
+        await install.door.leavingLocation(ends),
+        '/paywall?source=plan_sheet_ending',
+      );
+    });
+
+    test('the receipt opens from this place and no other', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = good;
+      for (final source in PaywallSource.values) {
+        if (source == PaywallSource.planSheetEnding) continue;
+        expect(
+          install.door.hostedLocation(source),
+          isNot(contains('/plans/receipt')),
+          reason: source.wire,
+        );
+        expect(
+          install.door.resolve(paywallLocation(source)),
+          isNot(contains('/plans/receipt')),
+          reason: source.wire,
+        );
+      }
+      // The same sheet's other way in, with no numbers counted, is Wipe.
+      expect(
+        install.door.hostedLocation(PaywallSource.planSheetEnding),
+        contains('/plans/wipe?'),
+      );
     });
   });
 }
