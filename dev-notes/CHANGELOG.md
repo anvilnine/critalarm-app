@@ -215,6 +215,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
 - The reel draws no picture and no placeholder when the stage is under reelStageMinHeight, and the lead line stands under the headline, so a lead at 320 wide and text scale 2.0 no longer leaves a grey dot.
 - Home's status card draws the waiting card on its first frame when the phone's own records say setup waits on the first message (firstMessageExpected), and AppStatusCard fades the old label and foot out before the new ones fade in, so two texts are never drawn over each other.
+- Home's status card picks the waiting card or the setup card for its first frame from the topic list the app already holds in memory (expectedSetupFor), so a first topic with Critical delivery off starts on the setup card. Without a held list the waiting card stays the guess.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

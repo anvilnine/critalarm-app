@@ -9,6 +9,7 @@ import 'package:critalarm/features/reliability/domain/entities/reliability_check
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
@@ -78,6 +79,23 @@ const setupAfterServer = SetupChecklist(
   hasFirstMessage: false,
 );
 
+/// What the phone expects with no topic list: the waiting card.
+const expectedWaitingBlind = ExpectedSetup(checklist: setupFirstMessageOpen);
+
+/// What the phone expects with the topic list held and no topic Critical.
+const expectedSetupHeld = ExpectedSetup(
+  checklist: setupAfterServer,
+  firstTopic: 'prod-db',
+  watchedTopic: 'prod-db',
+);
+
+/// What the phone expects with the topic list held and one Critical.
+const expectedWaitingHeld = ExpectedSetup(
+  checklist: setupFirstMessageOpen,
+  firstTopic: 'prod-db',
+  watchedTopic: 'prod-db',
+);
+
 const setupFirstMessageOpen = SetupChecklist(
   isVisible: true,
   hasServer: true,
@@ -125,7 +143,7 @@ class Draft {
   DateTime? newestMessageAt;
   DateTime? lastAlarmAt;
   bool hasCriticalTopic = true;
-  bool expectsFirstMessage = false;
+  ExpectedSetup? expectedSetup;
 
   HomeCardInput build() => HomeCardInput(
     now: at,
@@ -153,7 +171,7 @@ class Draft {
     newestMessageAt: newestMessageAt,
     lastAlarmAt: lastAlarmAt,
     hasCriticalTopic: hasCriticalTopic,
-    expectsFirstMessage: expectsFirstMessage,
+    expectedSetup: expectedSetup,
   );
 }
 
