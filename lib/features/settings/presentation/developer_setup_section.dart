@@ -10,6 +10,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_config.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
@@ -101,6 +102,7 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 _jumpRow(context),
                 ?_ringStateRow(context),
                 ?_hookUpStateRow(context),
+                ?_offerStateRow(context),
                 _moreStateRow(context),
               ],
             ),
@@ -337,6 +339,20 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
     },
   );
 
+  /// One choice per answer of the use step, each opening the offer step as a
+  /// replay on that answer. The step still follows the offer switches, so
+  /// they have to be on, and the store of this build has to list the
+  /// product. Nothing is sent or saved.
+  Widget? _offerStateRow(BuildContext context) => _stateRow(
+    context,
+    title: LocaleKeys.onboarding_offer_developer_title.tr(),
+    note: LocaleKeys.onboarding_offer_developer_note.tr(),
+    stepId: OnboardingStepId.offer,
+    queries: {
+      for (final use in SetupUse.values) use.wire: 'use=${use.wire}',
+    },
+  );
+
   /// Screens around setup that no step route reaches, each opened with
   /// made-up values. Nothing is sent or saved.
   Widget _moreStateRow(BuildContext context) {
@@ -422,16 +438,14 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
 
     void save({
       bool? enabled,
-      PaywallProduct? Function()? cloudProduct,
+      OfferCloudChoice? cloudProduct,
       PaywallProduct? Function()? selfHostedProduct,
       String? layoutKey,
     }) => unawaited(
       _overrides.setOfferJson(
         OnboardingOfferConfig(
           enabled: enabled ?? now.enabled,
-          cloudProduct: cloudProduct == null
-              ? now.cloudProduct
-              : cloudProduct(),
+          cloudProduct: cloudProduct ?? now.cloudProduct,
           selfHostedProduct: selfHostedProduct == null
               ? now.selfHostedProduct
               : selfHostedProduct(),
@@ -461,17 +475,16 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
         value: now.enabled,
         onChanged: (on) => save(enabled: on),
       ),
-      AppPickerRow<PaywallProduct?>(
+      AppPickerRow<OfferCloudChoice>(
         title: OnboardingOfferConfig.cloudProductField,
         sheetNote: note,
         isMonoValue: true,
         selected: now.cloudProduct,
         options: [
-          product(PaywallProduct.pro),
-          product(PaywallProduct.hosted),
-          product(null),
+          for (final choice in OfferCloudChoice.values)
+            AppPickerOption(value: choice, label: choice.key),
         ],
-        onPick: (picked) => save(cloudProduct: () => picked),
+        onPick: (picked) => save(cloudProduct: picked),
       ),
       AppPickerRow<PaywallProduct?>(
         title: OnboardingOfferConfig.selfHostedProductField,

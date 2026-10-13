@@ -25,3 +25,7 @@ bool paywallIntroIsBuilt(PaywallIntroId intro) =>
 /// The layouts an intro leaves no tag on. Their mascot does not stand in
 /// air of its own, so a tag by it would lie over the picture behind.
 const Set<PaywallLayoutId> paywallIntroTaglessLayouts = {PaywallLayoutId.sheet};
+
+/// The layouts whose mascot has a headline right over its head. The tag
+/// stands under the mascot's foot there, so it never lies over the words.
+const Set<PaywallLayoutId> paywallIntroTagBelowLayouts = {PaywallLayoutId.reel};

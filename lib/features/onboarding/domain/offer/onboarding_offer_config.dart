@@ -3,6 +3,35 @@ import 'dart:convert';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:flutter/foundation.dart';
 
+/// What a phone on Crit Alarm Cloud is offered.
+enum OfferCloudChoice {
+  /// Picked by the user's answer on the `use` step: Hosted for most answers
+  /// and the Pro pack for the home one.
+  auto('auto'),
+
+  /// The Pro pack for every answer.
+  pro('pro'),
+
+  /// Hosted for every answer.
+  hosted('hosted'),
+
+  /// Nothing is offered.
+  none('none');
+
+  const OfferCloudChoice(this.key);
+
+  /// The value in the JSON, remote and developer alike.
+  final String key;
+
+  /// The choice [key] names, or null for anything else.
+  static OfferCloudChoice? fromKey(Object? key) {
+    for (final choice in values) {
+      if (choice.key == key) return choice;
+    }
+    return null;
+  }
+}
+
 /// The four switches of the `offer` setup step.
 ///
 /// Where the step sits is not one of them: that is its place in the flow
@@ -20,9 +49,9 @@ class OnboardingOfferConfig {
   /// What ships inside the app: the step is off.
   static const bundled = OnboardingOfferConfig(
     enabled: false,
-    cloudProduct: PaywallProduct.pro,
+    cloudProduct: OfferCloudChoice.auto,
     selfHostedProduct: PaywallProduct.pro,
-    layoutKey: 'hero',
+    layoutKey: 'reel',
   );
 
   /// The field names of the JSON value, remote and developer alike.
@@ -40,8 +69,8 @@ class OnboardingOfferConfig {
 
   final bool enabled;
 
-  /// What a phone on Crit Alarm Cloud is offered. Null for nothing.
-  final PaywallProduct? cloudProduct;
+  /// What a phone on Crit Alarm Cloud is offered.
+  final OfferCloudChoice cloudProduct;
 
   /// What a phone on a self-hosted server is offered: the Pro pack or
   /// nothing. Null for nothing.
@@ -73,11 +102,10 @@ class OnboardingOfferConfig {
     final layout = decoded[layoutField] ?? bundled.layoutKey;
     if (layout is! String || !_layoutPattern.hasMatch(layout)) return null;
 
-    final cloud = _product(
-      decoded[cloudProductField],
-      fallback: bundled.cloudProduct,
-      allowed: const {PaywallProduct.pro, PaywallProduct.hosted},
-    );
+    final cloudValue = decoded[cloudProductField];
+    final cloud = cloudValue == null
+        ? bundled.cloudProduct
+        : OfferCloudChoice.fromKey(cloudValue);
     final selfHosted = _product(
       decoded[selfHostedProductField],
       fallback: bundled.selfHostedProduct,
@@ -87,7 +115,7 @@ class OnboardingOfferConfig {
 
     return OnboardingOfferConfig(
       enabled: enabled,
-      cloudProduct: cloud.product,
+      cloudProduct: cloud,
       selfHostedProduct: selfHosted.product,
       layoutKey: layout,
     );
@@ -110,7 +138,7 @@ class OnboardingOfferConfig {
   /// The JSON text [tryParse] reads back.
   String encode() => jsonEncode({
     enabledField: enabled,
-    cloudProductField: cloudProduct?.key ?? noProduct,
+    cloudProductField: cloudProduct.key,
     selfHostedProductField: selfHostedProduct?.key ?? noProduct,
     layoutField: layoutKey,
   });

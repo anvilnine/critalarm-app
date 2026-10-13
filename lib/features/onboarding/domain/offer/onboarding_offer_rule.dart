@@ -2,29 +2,14 @@ import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_config.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_opening.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:flutter/foundation.dart';
 
-/// Why the `offer` step shows nothing and moves on.
-enum OfferSkipReason {
-  /// The run is a replay, a look at the screens.
-  replay,
-
-  /// The step is switched off.
-  notEnabled,
-
-  /// Nothing is offered on this kind of server.
-  noProduct,
-
-  /// The layout named is not built in this version.
-  unknownLayout,
-
-  /// This phone has no account yet, so there is nobody to sell to.
-  noAccount,
-
-  /// The user already holds what would be offered.
-  alreadyHeld,
-}
+export 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_opening.dart'
+    show OfferSkipReason;
 
 /// What the `offer` step does: show one product in one layout, or skip.
 @immutable
@@ -32,14 +17,20 @@ class OfferDecision {
   const OfferDecision.show({
     required PaywallProduct this.product,
     required String this.layoutKey,
+    this.lead,
   }) : skipReason = null;
 
   const OfferDecision.skip(OfferSkipReason this.skipReason)
     : product = null,
-      layoutKey = null;
+      layoutKey = null,
+      lead = null;
 
   final PaywallProduct? product;
   final String? layoutKey;
+
+  /// The benefit the reel opens on, by the user's answer. Null for the
+  /// product's own order.
+  final PaywallLead? lead;
   final OfferSkipReason? skipReason;
 
   bool get isShown => skipReason == null;
@@ -49,10 +40,11 @@ class OfferDecision {
       other is OfferDecision &&
       product == other.product &&
       layoutKey == other.layoutKey &&
+      lead == other.lead &&
       skipReason == other.skipReason;
 
   @override
-  int get hashCode => Object.hash(product, layoutKey, skipReason);
+  int get hashCode => Object.hash(product, layoutKey, lead, skipReason);
 
   @override
   String toString() => isShown
@@ -74,7 +66,9 @@ bool offerCountsAsReplay({
 /// The step skips itself when the run is a replay, when it is switched off,
 /// when nothing is offered on this kind of server, when the layout is not
 /// built in this version, when no account id is known, or when the user
-/// already holds the product.
+/// already holds the product. [use] is the user's answer, null for none:
+/// with the Cloud product on `auto` it picks the product, and it picks the
+/// benefit the reel opens on.
 OfferDecision decideOnboardingOffer({
   required OnboardingOfferConfig config,
   required bool isSelfHosted,
@@ -83,25 +77,36 @@ OfferDecision decideOnboardingOffer({
   required bool holdsPro,
   required bool holdsHosted,
   required bool isReplay,
+  SetupUse? use,
+  String? topicName,
 }) {
   if (isReplay) return const OfferDecision.skip(OfferSkipReason.replay);
   if (!config.enabled) {
     return const OfferDecision.skip(OfferSkipReason.notEnabled);
   }
-  final product = isSelfHosted ? config.selfHostedProduct : config.cloudProduct;
-  if (product == null) {
-    return const OfferDecision.skip(OfferSkipReason.noProduct);
+  final opening = offerOpening(
+    config: config,
+    use: use,
+    isSelfHosted: isSelfHosted,
+    holdsPro: holdsPro,
+    holdsHosted: holdsHosted,
+    topicName: topicName,
+  );
+  // The reasons are told in this order: what is offered, whether the
+  // layout is built, whether there is an account, whether it is held.
+  if (opening.skipReason == OfferSkipReason.noProduct) {
+    return OfferDecision.skip(opening.skipReason!);
   }
   if (!builtLayoutKeys.contains(config.layoutKey)) {
     return const OfferDecision.skip(OfferSkipReason.unknownLayout);
   }
   if (!hasAccountId) return const OfferDecision.skip(OfferSkipReason.noAccount);
-  final isHeld = switch (product) {
-    PaywallProduct.pro => holdsPro,
-    PaywallProduct.hosted => holdsHosted,
-  };
-  if (isHeld) return const OfferDecision.skip(OfferSkipReason.alreadyHeld);
-  return OfferDecision.show(product: product, layoutKey: config.layoutKey);
+  if (!opening.isShown) return OfferDecision.skip(opening.skipReason!);
+  return OfferDecision.show(
+    product: opening.product!,
+    layoutKey: config.layoutKey,
+    lead: opening.lead,
+  );
 }
 
 /// Whether the offer step is still to come in this setup run: setup is not
@@ -135,7 +140,14 @@ class OnboardingOfferGate {
     required this.isSetupComplete,
     required this.readFlowSteps,
     required this.readCompletedSteps,
+    this.readUse = _noUse,
+    this.readTopicName = _noTopicName,
+    this.markFalseAlarmShown = _noMark,
   });
+
+  static SetupUse? _noUse({required bool isReplay}) => null;
+  static String? _noTopicName() => null;
+  static Future<void> _noMark() async {}
 
   /// The value a developer set, or null. Always null in a store build.
   final String? Function() readDeveloperJson;
@@ -162,11 +174,27 @@ class OnboardingOfferGate {
   final List<String> Function() readFlowSteps;
   final Set<String> Function() readCompletedSteps;
 
+  /// The user's answer on the `use` step, or null for none. A replay reads
+  /// the replay's own pick.
+  final SetupUse? Function({required bool isReplay}) readUse;
+
+  /// The name of the topic setup made, or null when it is not known.
+  final String? Function() readTopicName;
+
+  /// Writes down that the false alarm was shown on this install, so the
+  /// Settings plan row does not play it again.
+  final Future<void> Function() markFalseAlarmShown;
+
   /// The switches in use right now. A source that throws counts as empty.
   ChosenOnboardingOffer chosen() => chooseOnboardingOffer(
     developerJson: _text(readDeveloperJson),
     remoteJson: _text(readRemoteJson),
   );
+
+  static String? _nameOrNull(String? Function() read) {
+    final name = _text(read)?.trim();
+    return name == null || name.isEmpty ? null : name;
+  }
 
   static String? _text(String? Function() read) {
     try {
@@ -202,6 +230,8 @@ class OnboardingOfferGate {
         holdsPro: holdsPro(),
         holdsHosted: await readHoldsHosted(),
         isReplay: countsAsReplay,
+        use: readUse(isReplay: isReplay),
+        topicName: _nameOrNull(readTopicName),
       );
     } on Object {
       // What the phone knows about the account could not be read.
