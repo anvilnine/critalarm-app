@@ -166,6 +166,10 @@ class _WipeCompositionState extends State<WipeComposition> {
               after: after,
               lead: lead,
               reversed: reversed,
+              leavingCritical: wipeLeavingCriticalFor(
+                reversed: reversed,
+                facts: leaving?.facts,
+              ),
               label: reversed
                   ? LocaleKeys.paywall_leaving_wipe_compare_label.tr(
                       namedArgs: {'before': before, 'after': after},

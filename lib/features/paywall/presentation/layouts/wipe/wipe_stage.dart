@@ -38,8 +38,13 @@ class WipeStage extends StatefulWidget {
     required this.showing,
     this.lead = 0,
     this.reversed = false,
+    this.leavingCritical,
     super.key,
   });
+
+  /// How many critical topics the person has, for the topics picture of the
+  /// run for a plan that is leaving: see `wipeLeavingCriticalFor`.
+  final int? leavingCritical;
 
   /// The head start of the sweep after an intro. See `wipeLeadFor`.
   final double lead;
@@ -228,6 +233,7 @@ class _WipeStageState extends State<WipeStage> {
               sizeClass: PaywallPreviewClass.large,
               size: box,
               playFrom: wipeFrozenSecond - wipeFreeOffsetFor(preview),
+              leavingCritical: widget.leavingCritical,
             ),
           ),
         ),
@@ -406,6 +412,11 @@ class _WipeStageState extends State<WipeStage> {
                                               seconds: seconds,
                                               bleedTop: bleed,
                                               arrange: wipeArrangementFor,
+                                              // The leaving run draws the
+                                              // same picture on both sides.
+                                              sceneBuilder: reversed
+                                                  ? heldPicture
+                                                  : null,
                                               // The disc alone: nothing
                                               // rises on this side.
                                               showsShapes: false,

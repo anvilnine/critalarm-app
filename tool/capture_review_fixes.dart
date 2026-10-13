@@ -56,6 +56,7 @@ import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -127,6 +128,15 @@ const _four = LeavingFacts(
   historyDaysHeld: 95,
 );
 
+/// Thin numbers with [n] critical topics.
+LeavingFacts _thinWith(int n) => LeavingFacts(
+  rang: 4,
+  answered: 2,
+  nights: 0,
+  criticalTopics: n,
+  historyDaysHeld: 40,
+);
+
 final DateTime _ends = DateTime(2026, 10, 20);
 
 /// The sentence the leaving layouts used to print under the button.
@@ -163,6 +173,17 @@ String _leaving(PaywallLayoutId layout, LeavingFacts facts) =>
       leaving: PaywallLeaving(endsOn: _ends, facts: facts),
     );
 
+/// The leaving layout with the critical topics as its lead picture.
+String _leavingOnTopics(PaywallLayoutId layout, LeavingFacts facts) =>
+    paywallLayoutLocation(
+      layout,
+      PaywallProduct.hosted,
+      source: PaywallSource.planSheetEnding,
+      lead: PaywallBenefitId.topics,
+      headline: PaywallHeadlineVariant.leaving,
+      leaving: PaywallLeaving(endsOn: _ends, facts: facts),
+    );
+
 String _proof(HistoryOwn own) => paywallLayoutLocation(
   PaywallLayoutId.proof,
   PaywallProduct.hosted,
@@ -183,6 +204,12 @@ final _scenes = <_Scene>[
     () => _leaving(PaywallLayoutId.wipe, _thin),
     times: [1.0, 3, 9, 14],
   ),
+  for (final n in const [1, 2, 3, 7])
+    _Scene(
+      'wipe_leaving_topics$n',
+      () => _leavingOnTopics(PaywallLayoutId.wipe, _thinWith(n)),
+      times: [1.4, 3],
+    ),
   _Scene(
     'proof_lead_history',
     () => _proof(_ownRows),
@@ -348,6 +375,25 @@ String _headlineOn(WidgetTester tester) {
       if (find.textContaining('Make nightly').evaluate().isNotEmpty) {
         problems.add('The headline names a name over 16 characters.');
       }
+  }
+  if (scene.name.startsWith('wipe_leaving_topics')) {
+    final n = int.parse(scene.name.substring('wipe_leaving_topics'.length));
+    final pictures = tester
+        .widgetList<TopicsPreview>(find.byType(TopicsPreview))
+        .toList();
+    said.write(
+      ': ${pictures.length} topics pictures, counts '
+      '${[for (final p in pictures) p.leavingCritical]}',
+    );
+    // Once the grey has covered the stage, every picture on it is the one
+    // that holds the person's count.
+    if (seconds == null || seconds >= 1.4) {
+      for (final p in pictures) {
+        if (p.leavingCritical != n) {
+          problems.add('A topics picture does not hold the count $n.');
+        }
+      }
+    }
   }
   if (scene.name == 'wipe_leaving') {
     said.write(', date tags on the card: $tags');
