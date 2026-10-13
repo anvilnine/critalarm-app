@@ -347,6 +347,79 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     _before = _buy.state;
     _thanks = paywallThanksBuilders[widget.thanks];
     _outro = paywallOutroBuilders[widget.outro];
+    _handle.purchaseCue = _purchaseCue;
+  }
+
+  /// Whether the score of the outro is still sounding and was started by
+  /// this purchase.
+  bool _isScoreOn = false;
+
+  /// The outro has a score that the host still has to sound: the buy block
+  /// left the purchase frame silent for it. Cleared when the score starts
+  /// with the clock, or when the outro is given up and the purchase cue
+  /// plays in its place.
+  bool _isScorePending = false;
+
+  /// Whether this purchase sounds nothing (a thumbnail), read when it began
+  /// so it is safe to ask while the host is going away.
+  bool _isMuted = false;
+
+  /// Plays the score at second zero of the outro, as its clock starts.
+  void _startScore() {
+    final outro = _playing;
+    if (!_isScorePending || outro == null) return;
+    _isScorePending = false;
+    final cue = paywallPurchaseCueByHost(
+      outro: outro,
+      hasStarted: true,
+      isMuted: _isMuted,
+    );
+    if (cue == null) return;
+    _isScoreOn = true;
+    getIt<PaywallCues>().play(cue);
+  }
+
+  /// The outro will not play after all, before its clock started: the
+  /// purchase gets its own cue, so it is never silent.
+  void _giveUpScore() {
+    final outro = _playing ?? _outro;
+    if (!_isScorePending) return;
+    _isScorePending = false;
+    final cue = paywallPurchaseCueByHost(
+      outro: outro,
+      hasStarted: false,
+      isMuted: _isMuted,
+    );
+    if (cue != null) getIt<PaywallCues>().play(cue);
+  }
+
+  /// The cue the buy block plays on the purchase frame. It is worked out
+  /// from what is known then, so it does not depend on which listener hears
+  /// the purchase first.
+  PaywallCue? _purchaseCue() {
+    final outro = _outro;
+    final thanks = _thanks;
+    final plays =
+        outro != null &&
+        thanks != null &&
+        paywallOutroPlays(
+          kind: PaywallThanksKind.purchase,
+          isStill: _isStill,
+          isOutroBuilt: true,
+          isThanksBuilt: thanks.mascotAt != null,
+        );
+    return paywallPurchaseCueByBuyBlock(playing: plays ? outro : null);
+  }
+
+  /// Stops the score when the outro is cut short, a skip, a still or the
+  /// route going away. After the swap the tail is left to ring out: it is
+  /// under the end state and nothing may cut it dead.
+  void _stopScore() {
+    final outro = _outro;
+    if (!_isScoreOn || outro == null) return;
+    if (_clock.seconds >= outro.seconds) return;
+    _isScoreOn = false;
+    getIt<PaywallCues>().stop();
   }
 
   void _onBuy(BuildContext context, PaywallBuyState after) {
@@ -377,6 +450,9 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
       isThanksBuilt: thanks.mascotAt != null,
     );
     _playing = plays ? outro : null;
+    _isScoreOn = false;
+    _isScorePending = plays && outro!.score != null;
+    _isMuted = PaywallMuted.of(context);
     _endClock?.dispose();
     _endClock = plays ? _AfterOutroClock(_clock, outro!, thanks.pickUp) : null;
     _beats = _beatsFor(kind);
@@ -447,6 +523,8 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
       _isGrabbing = false;
       _isCovered = true;
     });
+    // The clock starts in the sync below: the score starts with it.
+    _startScore();
     _sync();
   }
 
@@ -492,6 +570,8 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
   /// A tap while the picture is being taken: the end state's resting
   /// frame, and no outro.
   void _skipGrab() {
+    _giveUpScore();
+    _stopScore();
     _grabs++;
     _isGrabbing = false;
     _playing = null;
@@ -524,6 +604,10 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
       }
     }
     _heard = t;
+    final scored = _playing;
+    if (_isScoreOn && scored != null && t >= scored.scoreSeconds) {
+      _isScoreOn = false;
+    }
     if (!_isCovered && _run >= _coverAt) setState(() => _isCovered = true);
     _clock.tell();
     final outro = _playing;
@@ -535,6 +619,7 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     final now = _clock.seconds;
     final to = paywallThanksSkip(_seconds, now);
     if (to == now) return;
+    _stopScore();
     _skipped += to - now;
     _clock.seconds = to;
     // The moments a tap jumps over are not played.
@@ -630,7 +715,9 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     } else if (kind != null && _isStill) {
       // Motion was turned off half way: the resting frame, at once. With
       // no outro either: one waiting for its picture is let go.
+      _stopScore();
       if (_isGrabbing) {
+        _giveUpScore();
         _grabs++;
         _isGrabbing = false;
         _playing = null;
@@ -654,6 +741,8 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     if (kind != null && !_leftByButton) {
       _reporter?.thanksLeft(kind.wire, how: 'away', skipped: _wasSkipped);
     }
+    _giveUpScore();
+    _stopScore();
     _grabs++;
     _wall?.dispose();
     _wall = null;

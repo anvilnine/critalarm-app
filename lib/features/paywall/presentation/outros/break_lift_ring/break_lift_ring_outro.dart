@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
@@ -19,8 +20,14 @@ const PaywallOutro breakLiftRing = PaywallOutro(
   seconds: BreakLiftRingTimeline.end,
   uncover: BreakLiftRingTimeline.uncover,
   beats: BreakLiftRingTimeline.beats,
+  score: PaywallCue.scoreBreakLiftRing,
+  scoreSeconds: breakLiftRingScoreSeconds,
   builder: _build,
 );
+
+/// How long the score file is. It starts with the outro's clock and rings
+/// 1.15 s past the swap, 17 dB under its peak at the swap.
+const double breakLiftRingScoreSeconds = 4.9;
 
 Widget _build(BuildContext context, PaywallOutroScope scope) =>
     BreakLiftRing(scope: scope);

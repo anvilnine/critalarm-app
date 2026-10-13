@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
@@ -69,8 +70,9 @@ typedef PaywallOutroBuilder =
 /// show, and what draws it.
 ///
 /// Second zero is the frame the purchase is confirmed. The buy block plays
-/// the purchase cue on that frame and owns the first
-/// [paywallBoughtCueSeconds], so the beats of an outro are haptics alone.
+/// the purchase cue on that frame, or the host plays the outro's [score] in
+/// its place when the outro's clock starts, and that sound owns the room
+/// until it is over, so the beats of an outro are haptics alone.
 @immutable
 class PaywallOutro {
   const PaywallOutro({
@@ -78,6 +80,8 @@ class PaywallOutro {
     required this.uncover,
     required this.builder,
     this.beats = const [],
+    this.score,
+    this.scoreSeconds = 0,
   });
 
   /// The swap. The outro is taken away on this second, with its mascot at
@@ -91,13 +95,34 @@ class PaywallOutro {
   /// What is felt on the way. Haptics alone.
   final List<PaywallThanksBeat> beats;
 
+  /// The composed piece that plays from second zero of the outro, in place
+  /// of the purchase cue. The host starts it with the outro's clock, which
+  /// runs once the picture of the layout is taken. Null plays the purchase
+  /// cue as it always did. It is a cue with a sound and no haptic: the beats
+  /// carry those.
+  final PaywallCue? score;
+
+  /// How long the file of [score] is, in seconds. It reaches past
+  /// [seconds], and the tail rings under the end state. No sound of the end
+  /// state may start before it is over: a second sound cuts the first dead.
+  /// Zero with no score.
+  final double scoreSeconds;
+
   final PaywallOutroBuilder builder;
 
-  /// Whether the times are in order and no beat makes a sound. A test
-  /// asks this of every registered outro.
+  /// Whether the times are in order, no beat makes a sound and a named
+  /// score is a cue with a sound that lasts to the swap. A test asks this
+  /// of every registered outro.
   bool get isSound =>
       uncover > 0 &&
       uncover < seconds &&
       beats.every((beat) => !beat.isHeard) &&
-      paywallThanksBeatsAreSound(beats, seconds: seconds);
+      paywallThanksBeatsAreSound(beats, seconds: seconds) &&
+      _scoreIsSound;
+
+  bool get _scoreIsSound {
+    final score = this.score;
+    if (score == null) return scoreSeconds == 0;
+    return score.sound != null && scoreSeconds >= seconds;
+  }
 }
