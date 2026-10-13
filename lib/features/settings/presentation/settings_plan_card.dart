@@ -123,57 +123,63 @@ class SettingsPlanCard extends StatelessWidget {
     );
 
     final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.cream,
-        borderRadius: Radii.lgAll,
-      ),
-      child: Padding(
-        // 14 at the sides, as a row has, so the card's text starts where the
-        // row text and the section labels start.
-        //
-        // With the pill, 6 less above and below: it is a 36 pill in a 48 tap
-        // box, and the layouts below add back what they need.
-        padding: label == null
-            ? const EdgeInsets.all(14)
-            : const EdgeInsets.fromLTRB(14, 8, 14, 8),
-        child: label == null
-            ? words
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  // The pill goes under the words when the card is narrow or
-                  // the text is large, as the cream notice card does.
-                  final isStacked =
-                      scale > kChromeMaxTextScale || constraints.maxWidth < 300;
-                  if (isStacked) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          words,
-                          // The pill's box reaches 6 above it.
-                          const SizedBox(height: Spacing.s3 - 6),
-                          pill(isFullWidth: true),
-                        ],
-                      ),
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: words,
+    // Full width with or without a pill: a card with no pill would otherwise
+    // shrink to its words when its parent does not stretch it.
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.cream,
+          borderRadius: Radii.lgAll,
+        ),
+        child: Padding(
+          // 14 at the sides, as a row has, so the card's text starts where the
+          // row text and the section labels start.
+          //
+          // With the pill, 6 less above and below: it is a 36 pill in a 48 tap
+          // box, and the layouts below add back what they need.
+          padding: label == null
+              ? const EdgeInsets.all(14)
+              : const EdgeInsets.fromLTRB(14, 8, 14, 8),
+          child: label == null
+              ? words
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    // The pill goes under the words when the card is narrow or
+                    // the text is large, as the cream notice card does.
+                    final isStacked =
+                        scale > kChromeMaxTextScale ||
+                        constraints.maxWidth < 300;
+                    if (isStacked) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            words,
+                            // The pill's box reaches 6 above it.
+                            const SizedBox(height: Spacing.s3 - 6),
+                            pill(isFullWidth: true),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: Spacing.s3),
-                      pill(isFullWidth: false),
-                    ],
-                  );
-                },
-              ),
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: words,
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.s3),
+                        pill(isFullWidth: false),
+                      ],
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
