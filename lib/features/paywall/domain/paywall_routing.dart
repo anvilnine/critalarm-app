@@ -170,6 +170,20 @@ PaywallPlaceRow paywallRowFor(PaywallPlace place) => switch (place) {
   ),
 };
 
+/// The success outro a product's paywall plays when nothing else is set:
+/// Cloud climb for Hosted, Break, lift, ring for Pro.
+PaywallOutroId paywallDefaultOutroFor(PaywallProduct product) =>
+    switch (product) {
+      PaywallProduct.hosted => PaywallOutroId.cloudClimb,
+      PaywallProduct.pro => PaywallOutroId.breakLiftRing,
+    };
+
+/// Reads a product's remote outro value. Empty is null: no value is set, so
+/// the product's own outro stands. `none` is a value and switches the outro
+/// off, and so does a value this build does not know.
+PaywallOutroId? paywallRemoteOutroOf(String? value) =>
+    (value ?? '').trim().isEmpty ? null : PaywallOutroId.parse(value);
+
 /// What the door worked out about a plan that is ending: which of the two
 /// layouts the person's numbers earn, and how many days of history the
 /// phone holds.
@@ -260,8 +274,10 @@ class PaywallOpening {
 /// outranks [remoteThanks]. It never opens a layout, so the shipped
 /// surface is still null whatever the thanks says.
 ///
-/// The outro is a fourth value with the same rule: [developerOutro]
-/// outranks [remoteOutro]. It plays between a purchase and the thanks, so
+/// The outro is a fourth value. [developerOutro] outranks [remoteOutro],
+/// `none` included, and [remoteOutro] outranks the product's own outro
+/// ([paywallDefaultOutroFor]), which stands when [remoteOutro] is null. The
+/// place never changes it. It plays between a purchase and the thanks, so
 /// it is `none` whenever the thanks is.
 ///
 /// [leaving] is the one input for a Hosted plan that is ending
@@ -283,7 +299,7 @@ PaywallOpening? paywallOpeningFor({
   PaywallIntroId? legacyIntro,
   PaywallThanksId remoteThanks = PaywallThanksId.none,
   PaywallThanksId? developerThanks,
-  PaywallOutroId remoteOutro = PaywallOutroId.none,
+  PaywallOutroId? remoteOutro,
   PaywallOutroId? developerOutro,
   LeavingChoice? leaving,
 }) {
@@ -336,7 +352,7 @@ PaywallOpening? paywallOpeningFor({
     thanks: thanks,
     outro: thanks == PaywallThanksId.none
         ? PaywallOutroId.none
-        : developerOutro ?? remoteOutro,
+        : developerOutro ?? remoteOutro ?? paywallDefaultOutroFor(product),
     lead: lead,
     headline: row.headline,
   );
