@@ -26,8 +26,7 @@ abstract final class AnalyticsEvents {
   static const proPackPurchaseFinished = 'pro_pack_purchase_finished';
   static const proPackRestoreFinished = 'pro_pack_restore_finished';
 
-  // Sent by the paywall layouts alone. The shipped paywall and the Pro
-  // sheet have no event for these moments.
+  // Moments the surfaces before the paywall layouts had no event for.
   static const paywallRestoreFinished = 'paywall_restore_finished';
   static const paywallClosed = 'paywall_closed';
   static const proPackPurchaseStarted = 'pro_pack_purchase_started';

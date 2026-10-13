@@ -2,7 +2,7 @@
 /// the third step of a paywall, beside the intro and the layout: any one
 /// goes with any layout, for either product.
 ///
-/// The keys go in the route (`?thanks=<key>`), in remote values and in
+/// The keys go in the route (`?thanks=<key>`), in saved values and in
 /// analytics, so a shipped key never changes.
 enum PaywallThanksId {
   /// Nothing of its own: the purchase ends as it did before there was a
@@ -46,7 +46,7 @@ enum PaywallThanksId {
     return null;
   }
 
-  /// Reads a remote value or a route's `thanks`. Empty means [none], and so
+  /// Reads a saved value or a route's `thanks`. Empty means [none], and so
   /// does a value this build does not know.
   static PaywallThanksId parse(String? value) => fromKey(value?.trim()) ?? none;
 }

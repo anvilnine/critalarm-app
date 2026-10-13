@@ -23,26 +23,36 @@ const Set<LockSource> _noHostedSource = {
   LockSource.topicLook,
 };
 
+/// With no door registered every lock opens the plan layout of the product
+/// its decision offers, with that product's coded thanks and outro.
+String _hostedPlan(String source) =>
+    '/plans/hero?product=hosted&source=$source'
+    '&thanks=party&outro=cloud_climb';
+
+String _proPlan(String source) =>
+    '/plans/hero?product=pro&source=$source'
+    '&thanks=stamp&outro=break_lift_ring';
+
 void main() {
   group('paywallLocationFor', () {
-    test('a decision that offers Hosted opens the Hosted paywall', () {
+    test('a decision that offers Hosted opens a Hosted layout', () {
       for (final source in LockSource.values) {
         expect(
           paywallLocationFor(
             const FeatureDecision.locked(Holding.hosted),
             source,
           ),
-          paywallLocation(source.hosted),
+          _hostedPlan(source.hosted.wire),
           reason: source.name,
         );
       }
     });
 
-    test('a decision that offers Pro opens the Pro sheet', () {
+    test('a decision that offers Pro opens a Pro layout', () {
       for (final source in LockSource.values) {
         expect(
           paywallLocationFor(const FeatureDecision.locked(Holding.pro), source),
-          '/pro?source=${source.pro.wire}',
+          _proPlan(source.pro.wire),
           reason: source.name,
         );
       }
@@ -87,14 +97,14 @@ void main() {
           free.features.decide(AppFeature.appIcons),
           LockSource.appIcon,
         ),
-        '/paywall?source=app_icon',
+        _hostedPlan('app_icon'),
       );
       expect(
         paywallLocationFor(
           free.features.decide(AppFeature.widgets),
           LockSource.homeWidgets,
         ),
-        '/pro?source=${LockSource.homeWidgets.pro.wire}',
+        _proPlan(LockSource.homeWidgets.pro.wire),
       );
       // The weekly check on the Reliability screen sells Hosted, also to
       // someone who holds Pro.
@@ -106,7 +116,7 @@ void main() {
             access.features.decide(AppFeature.weeklyCheck),
             LockSource.reliability,
           ),
-          '/paywall?source=reliability',
+          _hostedPlan('reliability'),
         );
       }
       // On a server of the user's own the same row opens nothing.

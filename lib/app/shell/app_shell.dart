@@ -242,8 +242,8 @@ class _AppShellContentState extends State<_AppShellContent>
 
     final listed = result.routePath;
     if (listed == null) return;
-    // The plan result lists the shipped paywall. This is where it learns
-    // what that paywall is set to open.
+    // The plan result lists the raw paywall path. This is where it learns
+    // which layout that opens.
     final path = resolvePaywallLocation(listed);
     _closeSearch();
 

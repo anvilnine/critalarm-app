@@ -34,37 +34,37 @@ List<DeveloperSection> developerSectionsFor({
 ];
 
 /// What one product's paywall opens, as a few words: the intro, then the
-/// layout. A null is a choice left to the remote value and reads [remote].
-/// With both left to it the answer is [remote] once.
+/// layout. A null is a choice left to the coded default and reads [auto].
+/// With both left to it the answer is [auto] once.
 String paywallPairText({
   required String? intro,
   required String? layout,
-  required String remote,
+  required String auto,
 }) {
-  if (intro == null && layout == null) return remote;
-  return '${intro ?? remote}, ${layout ?? remote}';
+  if (intro == null && layout == null) return auto;
+  return '${intro ?? auto}, ${layout ?? auto}';
 }
 
 /// What one product's paywall opens, as a few words: the intro, the
 /// layout, the outro when one is set, and what plays after a purchase. A
-/// null is a choice left to the remote value and reads [remote]. With the
-/// first three left to it the answer is [remote] once, so a lone outro
-/// reads "remote" then the outro, and not one "remote" a step.
+/// null is a choice left to the coded default and reads [auto]. With the
+/// first three left to it the answer is [auto] once, so a lone outro reads
+/// "auto" then the outro, and not one "auto" a step.
 String paywallStepsText({
   required String? intro,
   required String? layout,
   required String? thanks,
-  required String remote,
+  required String auto,
   String? outro,
 }) {
   if (intro == null && layout == null && thanks == null) {
-    return outro == null ? remote : '$remote, $outro';
+    return outro == null ? auto : '$auto, $outro';
   }
   return [
-    intro ?? remote,
-    layout ?? remote,
+    intro ?? auto,
+    layout ?? auto,
     ?outro,
-    thanks ?? remote,
+    thanks ?? auto,
   ].join(', ');
 }
 

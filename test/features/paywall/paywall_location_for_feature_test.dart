@@ -27,7 +27,6 @@ TestAccess _install({
 }) {
   final access = TestAccess(held: held);
   final door = PaywallDoor(
-    remoteValue: (_) => 'auto',
     developer: (_) => null,
     hasSeenFalseAlarm: () => true,
     markFalseAlarmSeen: () async {},
@@ -73,7 +72,11 @@ void main() {
       LockSource.history,
       ownWait: wait,
     );
-    expect(location, '/plans/proof?product=hosted&source=history&lead=history');
+    expect(
+      location,
+      '/plans/proof?product=hosted&source=history'
+      '&thanks=party&outro=cloud_climb&lead=history',
+    );
   });
 
   test('a read that is too slow still opens, with sample rows', () async {
@@ -83,7 +86,11 @@ void main() {
       LockSource.history,
       ownWait: wait,
     );
-    expect(location, '/plans/proof?product=hosted&source=history&lead=history');
+    expect(
+      location,
+      '/plans/proof?product=hosted&source=history'
+      '&thanks=party&outro=cloud_climb&lead=history',
+    );
   });
 
   test('a feature that is not locked opens nothing', () async {
