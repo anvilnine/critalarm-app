@@ -33,6 +33,18 @@ List<DeveloperSection> developerSectionsFor({
   DeveloperSection.tools,
 ];
 
+/// What one product's paywall opens, as a few words: the intro, then the
+/// layout. A null is a choice left to the remote value and reads [remote].
+/// With both left to it the answer is [remote] once.
+String paywallPairText({
+  required String? intro,
+  required String? layout,
+  required String remote,
+}) {
+  if (intro == null && layout == null) return remote;
+  return '${intro ?? remote}, ${layout ?? remote}';
+}
+
 /// What one product's paywall opens, as a few words: the intro, the
 /// layout, what plays after a purchase, and the outro when one is set. A
 /// null is a choice left to the remote value and reads [remote]. With the
