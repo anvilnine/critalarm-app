@@ -54,11 +54,11 @@ void main() {
       }
     });
 
-    test('is picked up at 0.5 seconds, and Confetti at 0.3', () {
+    test('is picked up at 0.5 seconds, and Confetti at 0.2', () {
       for (final entry in paywallThanksBuilders.entries) {
         expect(
           entry.value.pickUp,
-          entry.key.key == 'confetti' ? 0.3 : 0.5,
+          entry.key.key == 'confetti' ? 0.2 : 0.5,
           reason: entry.key.name,
         );
       }

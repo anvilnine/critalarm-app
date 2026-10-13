@@ -230,7 +230,7 @@ const PaywallOutro cloudClimb = PaywallOutro(
 
 **One clock, two timelines.** `PaywallThanksHost` has one clock `t`, seconds since the purchase
 was confirmed. The outro reads `t`. The thanks reads `paywallThanksSecondAfterOutro(t, ...)`: it
-is not built before `uncover`, then it runs from its own `pickUp` second (0.5, or 0.3 for
+is not built before `uncover`, then it runs from its own `pickUp` second (0.5, or 0.2 for
 Confetti). So `t` and the thanks' second differ by a constant after `uncover`.
 
 **The scope.** A `PaywallOutroScope` has `clock`, `size`, `padding`, `product`, `wall`, `mascot`,
@@ -252,8 +252,10 @@ Confetti). So `t` and the thanks' second differ by a constant after `uncover`.
 in the box `mascotAt` gave. Two mascots never show at once and the thanks' one never jumps.
 A version of the thanks that gets an outro needs `pickUp` and `mascotAt`. `mascotAt` returns the
 box the version stands its mascot in at that second, taken from the version's own timeline. The
-version's lift and squash move that box and are not in it, so choose the outro's `seconds` so
-that the version is at rest at the swap, or the mascot pops by that much.
+version's lift and squash move that box and are not in it. `mascotPoseAt` gives them (lift as a
+share of the height, and stretch), and the host lands the outro's mascot on the box with both
+applied (`thanksCritSeen`), so the swap is exact even when the version is mid jump. A version
+whose mascot also leans at the swap needs a `pickUp` where the lean is zero.
 
 **Beats.** The purchase cue owns the first `paywallBoughtCueSeconds` (2.2), so every beat of an
 outro is `PaywallThanksBeat.tap`. `PaywallOutro.isSound` checks it and a test asks it of every

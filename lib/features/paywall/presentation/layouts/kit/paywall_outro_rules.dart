@@ -23,11 +23,14 @@ double paywallThanksSecondAfterOutro(
 
 /// The second the end state's mascot takes over from the outro's: the end
 /// state draws none before it. It is the end state's own second at the
-/// swap, and the second `PaywallThanks.mascotAt` is asked about.
+/// swap, and the second `PaywallThanks.mascotAt` is asked about. It is
+/// worked out in the same order as [paywallThanksSecondAfterOutro] so the
+/// end state's clock at the swap is never a rounding error short of it,
+/// which would leave one frame with no mascot at all.
 double paywallThanksMascotFrom({
   required PaywallOutro outro,
   required double pickUp,
-}) => pickUp + outro.seconds - outro.uncover;
+}) => pickUp + (outro.seconds - outro.uncover);
 
 /// The host's second at which the end state rests, when it plays after
 /// [outro]: its own length [thanksSeconds] less what it already played

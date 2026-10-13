@@ -42,6 +42,20 @@ class BreakLiftRingPose {
     width: size * squashX,
     height: size * squashY,
   );
+
+  /// The smallest upright box that holds him as he leans, which is what
+  /// must stay on screen.
+  Rect get turnedBox {
+    final cos = math.cos(angle).abs();
+    final sin = math.sin(angle).abs();
+    final w = size * squashX;
+    final h = size * squashY;
+    return Rect.fromCenter(
+      center: centre,
+      width: w * cos + h * sin,
+      height: w * sin + h * cos,
+    );
+  }
 }
 
 /// One triangle of the broken wall.
@@ -311,7 +325,7 @@ abstract final class BreakLiftRingTimeline {
       final e = easeOut(p);
       final turn = easeOut(phase(p, 0.42, 1));
       final z = zoom(t);
-      final x = lerp(118, 195, e) + math.sin(p * math.pi) * 46;
+      final x = lerp(172, 195, e) + math.sin(p * math.pi) * 24;
       final y = lerp(640, 330, e);
       // The dip before the first ring starts here, so his size does not
       // jump where the rings part takes over.

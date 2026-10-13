@@ -75,10 +75,10 @@
 //     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
 //     --dart-define=PICKER=intro --dart-define=T=2.5
 //
-// PICKER is `page` (the three rows), `intro`, `paywall` or `thanks` (that
+// PICKER is `page` (the rows), `intro`, `paywall`, `thanks` or `outro` (that
 // sheet open).
 // PRODUCT picks the tab. T lets the tiles play to that second after the
-// sheet opens. It writes one size, light and dark, at the default text size.
+// sheet opens. It writes one size, light and dark, at both text sizes.
 // PICKED=<layout>,<intro> opens it with those already chosen for Hosted, as
 // the developer switches would hold them, to see the mark on a tile.
 //
@@ -526,9 +526,9 @@ void main() {
     );
     expect(motion, isNotNull, reason: 'MOTION has a name no variant has.');
     expect(
-      const ['', 'page', 'intro', 'paywall', 'thanks'],
+      const ['', 'page', 'intro', 'paywall', 'thanks', 'outro'],
       contains(_picker),
-      reason: 'PICKER is page, intro, paywall or thanks.',
+      reason: 'PICKER is page, intro, paywall, thanks or outro.',
     );
     expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
     expect(
@@ -541,10 +541,10 @@ void main() {
   final isPicker = _picker.isNotEmpty;
 
   for (final (sizeName, size, topInset, bottomInset) in _phones) {
-    // The picker is a developer page: one phone, the default text size.
+    // The picker is a developer page: one phone, both text sizes.
     if (isPicker && sizeName != _phones.first.$1) continue;
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final scale in [1.0, if (!isPicker) _largest]) {
+      for (final scale in [1.0, _largest]) {
         final name = [
           if (isPicker) 'picker_$_picker' else layout.key,
           if (_picked.isNotEmpty) 'picked-${_picked.replaceAll(',', '-')}',
@@ -653,6 +653,7 @@ void main() {
                 'intro' => LocaleKeys.paywall_picker_intro_row,
                 'paywall' => LocaleKeys.paywall_picker_paywall_row,
                 'thanks' => LocaleKeys.paywall_thanks_picker_row,
+                'outro' => LocaleKeys.paywall_outro_picker_row,
                 _ => null,
               };
               if (row != null) {

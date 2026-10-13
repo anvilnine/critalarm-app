@@ -21,6 +21,7 @@ const PaywallThanks keyThanks = PaywallThanks(
   tone: PaywallTone.surface,
   beats: keyBeats,
   mascotAt: keyMascotAt,
+  mascotPoseAt: keyMascotPoseAt,
   builder: _build,
 );
 
@@ -69,6 +70,15 @@ List<PaywallThanksBeat> keyBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     KeyThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose keyMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: KeyTimeline.lift(t, lines: count),
+    stretch: KeyTimeline.stretch(t),
+  );
+}
 
 /// Draws the key version for the second its scope's clock reads.
 class KeyThanks extends StatelessWidget {
