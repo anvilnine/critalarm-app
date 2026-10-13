@@ -1,5 +1,6 @@
 import 'package:critalarm/features/incidents/domain/ack_confetti_rule.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,53 +12,64 @@ void main() {
       AckedExits.legacyCreateTopicOrFinish,
       AckedExits.legacyFinish,
     ];
+    const answers = <OfferOutlook?>[...OfferOutlook.values, null];
 
     test('every exit but the setup test ignores the offer answer', () {
       for (final exits in others) {
-        for (final isOfferAhead in <bool?>[true, false, null]) {
+        for (final offer in answers) {
           expect(
             ackConfettiMayFly(
               exits: exits,
-              isOfferAhead: isOfferAhead,
+              offer: offer,
               reduceMotion: false,
             ),
             isTrue,
-            reason: '$exits with the offer answer $isOfferAhead',
+            reason: '$exits with the offer answer $offer',
           );
         }
       }
     });
 
-    test(
-      'the setup test throws only once the offer is known not to follow',
-      () {
-        expect(
-          ackConfettiMayFly(
-            exits: AckedExits.continueSetup,
-            isOfferAhead: false,
-            reduceMotion: false,
-          ),
-          isTrue,
-        );
-      },
-    );
-
-    test('the setup test stays calm when the offer follows', () {
+    test('the setup test throws when no offer follows', () {
       expect(
         ackConfettiMayFly(
           exits: AckedExits.continueSetup,
-          isOfferAhead: true,
+          offer: OfferOutlook.none,
+          reduceMotion: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('the setup test stays calm when the offer follows and sells', () {
+      expect(
+        ackConfettiMayFly(
+          exits: AckedExits.continueSetup,
+          offer: OfferOutlook.coming,
           reduceMotion: false,
         ),
         isFalse,
       );
     });
 
-    test('the setup test waits while the offer answer is not known', () {
+    test('the setup test throws while the store has not answered', () {
+      // A session is never left with no celebration. The offer still shows
+      // afterwards only if the product turns out to be buyable.
       expect(
         ackConfettiMayFly(
           exits: AckedExits.continueSetup,
-          isOfferAhead: null,
+          offer: OfferOutlook.unsure,
+          reduceMotion: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('the setup test waits while the gate has not answered', () {
+      expect(
+        ackConfettiMayFly(
+          exits: AckedExits.continueSetup,
+          offer: null,
           reduceMotion: false,
         ),
         isFalse,
@@ -66,15 +78,15 @@ void main() {
 
     test('reduced motion throws nothing for any exit or answer', () {
       for (final exits in AckedExits.values) {
-        for (final isOfferAhead in <bool?>[true, false, null]) {
+        for (final offer in answers) {
           expect(
             ackConfettiMayFly(
               exits: exits,
-              isOfferAhead: isOfferAhead,
+              offer: offer,
               reduceMotion: true,
             ),
             isFalse,
-            reason: '$exits with the offer answer $isOfferAhead',
+            reason: '$exits with the offer answer $offer',
           );
         }
       }

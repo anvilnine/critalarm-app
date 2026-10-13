@@ -100,6 +100,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
 - tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
 - AppTextField.fitText steps the typed text down to the default size before the line scrolls, and keeps the box height; setup's topic name field uses it.
+- OfferSaleProbe starts the offer's store check when the real alarm step opens and caches the answer. OnboardingOfferGate.outlook() (coming, none, unsure) and hasNoOffer() read it without waiting, and the offer step takes the loaded buy model with takeOnSale. The It works screen now throws its confetti unless the offer follows and the store said on sale (ackConfettiMayFly takes an OfferOutlook), so a session is never left with no celebration. A cached not on sale answer also makes the engine skip the step.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -197,6 +198,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Settings analytics line also names the setup answer, which the same switch sends.
 - capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
 - Setup steps with no top bar of their own now back the tracker with the app's default bar backing (AppBarBackingScope.barOverTop), and the shell no longer paints its own gradient.
+- The offer setup step ships switched on: OnboardingOfferConfig.bundled has enabled true, so a remote value that leaves enabled out keeps it on and only enabled false switches it off. Remote Config and the developer value still override it.
+- The offer setup step no longer plays the false alarm intro, its tag or its skip hint, and no longer writes paywall.false\_alarm\_shown, so the Settings plan row keeps its false alarm. The reel rises over the setup step, opaque, from the bottom edge in 400 ms (buildOfferLayerTransition). The kit keeps the intro, the tag rule and the hint parameter for other triggers. Removed offerIntro, offerUsesUpFalseAlarm and OnboardingOfferGate.markFalseAlarmShown.
+- Older strings that used page for an alarm say alarm, ring or wake instead (create\_critical\_body, critical\_alarm fallback title and body, no\_alarm\_body, the disconnect and server stage lines, the permission descriptions and the battery explanation).
+- tool/capture\_offer\_sequence.dart captures the new sequence (It works, Continue, the rise in four frames, thanks, hook up) and no longer captures the intro or tag. tool/capture\_works\_screen.dart has a works\_store\_unsure scene.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

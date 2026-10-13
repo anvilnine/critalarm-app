@@ -11,9 +11,12 @@
 // sheet_<scene>.png, so a run can be read at a glance.
 //
 // Scenes:
-//   works_offer_ahead   the gate said the offer follows: no confetti, 2.5 s in
-//   works_no_offer      the gate said nothing follows: confetti 1 s into the
-//                       throw
+//   works_offer_ahead   the gate said the offer follows and the store said it
+//                       is on sale: no confetti, 2.5 s in
+//   works_no_offer      the gate said nothing follows (or the store said
+//                       nothing is on sale): confetti 1 s into the throw
+//   works_store_unsure  the offer is to come and the store had not answered:
+//                       confetti 1 s into the throw
 //   works_no_offer_start  the first frames after a late answer: the confetti
 //                       has just started
 //   works_first_frame   the first frame after the screen appears, the gate
@@ -68,10 +71,10 @@ const _narrow = _Phone('320', Size(320, 640), 24, 0);
 class _FakeGate implements OnboardingOfferGate {
   _FakeGate(this.answer);
 
-  final Completer<bool> answer;
+  final Completer<OfferOutlook> answer;
 
   @override
-  Future<bool> isAhead() => answer.future;
+  Future<OfferOutlook> outlook() => answer.future;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -88,7 +91,7 @@ class _Scene {
   final String name;
 
   /// What the gate answers, or null when it does not answer at all.
-  final bool? answer;
+  final OfferOutlook? answer;
   final bool isFirstTool;
 
   /// How the clock is stepped before the shot. The gate answers after the
@@ -101,19 +104,25 @@ const _ms = Duration(milliseconds: 1);
 final _scenes = <_Scene>[
   _Scene(
     'works_offer_ahead',
-    answer: true,
+    answer: OfferOutlook.coming,
     isFirstTool: false,
     steps: [_ms * 16, _ms * 2500],
   ),
   _Scene(
     'works_no_offer',
-    answer: false,
+    answer: OfferOutlook.none,
+    isFirstTool: false,
+    steps: [_ms * 16, _ms * 1000],
+  ),
+  _Scene(
+    'works_store_unsure',
+    answer: OfferOutlook.unsure,
     isFirstTool: false,
     steps: [_ms * 16, _ms * 1000],
   ),
   _Scene(
     'works_no_offer_start',
-    answer: false,
+    answer: OfferOutlook.none,
     isFirstTool: false,
     steps: [_ms * 16, _ms * 48],
   ),
@@ -188,7 +197,7 @@ void main() {
       tester.view.viewPadding = tester.view.padding;
       addTearDown(tester.view.reset);
 
-      final answer = Completer<bool>();
+      final answer = Completer<OfferOutlook>();
       if (getIt.isRegistered<OnboardingOfferGate>()) {
         getIt.unregister<OnboardingOfferGate>();
       }
@@ -250,7 +259,7 @@ void main() {
         });
         expect(errors, isEmpty, reason: errors.join('\n'));
       } finally {
-        if (!answer.isCompleted) answer.complete(false);
+        if (!answer.isCompleted) answer.complete(OfferOutlook.none);
         // Takes the screen down so no timer is left running.
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(seconds: 3));
