@@ -7,6 +7,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
@@ -21,6 +22,7 @@ import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
@@ -46,6 +48,9 @@ class PaywallDoor {
     this._remoteThanksValue = _noThanksValue,
     this._developerThanks = _noDeveloperThanks,
     this._isThanksBuilt = paywallThanksIsBuilt,
+    this._remoteOutroValue = _noOutroValue,
+    this._developerOutro = _noDeveloperOutro,
+    this._isOutroBuilt = paywallOutroIsBuilt,
     this._widgetsDecision = _widgetsLockedForPro,
     this._listedBenefits = _builtBenefitIds,
     this._readHistoryOwn = _noHistoryOwn,
@@ -63,6 +68,8 @@ class PaywallDoor {
   static PaywallIntroId? _noDeveloperIntro(PaywallProduct product) => null;
   static String _noThanksValue(PaywallProduct product) => '';
   static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
+  static String _noOutroValue(PaywallProduct product) => '';
+  static PaywallOutroId? _noDeveloperOutro(PaywallProduct product) => null;
   static Set<PaywallBenefitId> _builtBenefitIds(PaywallProduct product) => {
     for (final benefit in paywallBenefitsFor(product)) benefit.id,
   };
@@ -89,6 +96,9 @@ class PaywallDoor {
   final String Function(PaywallProduct product) _remoteThanksValue;
   final PaywallThanksId? Function(PaywallProduct product) _developerThanks;
   final bool Function(PaywallThanksId thanks) _isThanksBuilt;
+  final String Function(PaywallProduct product) _remoteOutroValue;
+  final PaywallOutroId? Function(PaywallProduct product) _developerOutro;
+  final bool Function(PaywallOutroId outro) _isOutroBuilt;
 
   /// `FeatureAccess.decide` for the widgets feature. A tap on a locked
   /// widget arrives as a link, and this is what picks its paywall.
@@ -167,6 +177,8 @@ class PaywallDoor {
         hasSeenFalseAlarm: !canDrawFalseAlarm || _hasSeenFalseAlarm(),
         remoteThanks: PaywallThanksId.parse(_remoteThanksValue(product)),
         developerThanks: _developerThanks(product),
+        remoteOutro: PaywallOutroId.parse(_remoteOutroValue(product)),
+        developerOutro: _developerOutro(product),
         leaving: leaving,
       );
       if (opening == null) return null;
@@ -175,14 +187,20 @@ class PaywallDoor {
       }
       // An intro this build has no animation for is no intro, and the
       // same goes for a thanks.
+      final thanks = _isThanksBuilt(opening.thanks)
+          ? opening.thanks
+          : PaywallThanksId.none;
       return PaywallOpening(
         opening.layout,
         intro: _isIntroBuilt(opening.intro)
             ? opening.intro
             : PaywallIntroId.none,
-        thanks: _isThanksBuilt(opening.thanks)
-            ? opening.thanks
-            : PaywallThanksId.none,
+        thanks: thanks,
+        // The same for an outro this build cannot draw, and an outro
+        // needs a thanks to hand over to.
+        outro: thanks != PaywallThanksId.none && _isOutroBuilt(opening.outro)
+            ? opening.outro
+            : PaywallOutroId.none,
         lead: opening.lead,
         headline: opening.headline,
       );
@@ -208,6 +226,7 @@ class PaywallDoor {
       PaywallProduct.hosted,
       intro: opening.intro,
       thanks: opening.thanks,
+      outro: opening.outro,
       source: source,
       lead: opening.lead,
       headline: opening.headline,
@@ -270,6 +289,7 @@ class PaywallDoor {
         PaywallProduct.hosted,
         intro: opening.intro,
         thanks: opening.thanks,
+        outro: opening.outro,
         source: PaywallSource.planSheetEnding,
         lead: opening.lead,
         headline: opening.headline,
@@ -332,6 +352,7 @@ class PaywallDoor {
             PaywallProduct.hosted,
             intro: opening.intro,
             thanks: opening.thanks,
+            outro: opening.outro,
             source: source,
             lead: opening.lead,
             headline: opening.headline,
@@ -375,6 +396,7 @@ class PaywallDoor {
             PaywallProduct.pro,
             intro: opening.intro,
             thanks: opening.thanks,
+            outro: opening.outro,
             sourceWire: source.wire,
             lead: opening.lead,
             headline: opening.headline,

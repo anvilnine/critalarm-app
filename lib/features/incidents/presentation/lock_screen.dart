@@ -12,9 +12,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+/// What sits faintly behind the lock screen.
+enum LockWatermark {
+  /// A yellow head with its ink features, faded back.
+  yellowFace,
+
+  /// An abstract shape from the ambient set. No face.
+  shape,
+}
+
+/// Which watermark the lock screen ships with. The one place to switch it.
+const LockWatermark lockScreenWatermark = LockWatermark.yellowFace;
+
 /// Lock Screen mockup matching docs/design-system/index.html.
 class LockScreen extends StatelessWidget {
-  const LockScreen({super.key});
+  const LockScreen({this.watermark = lockScreenWatermark, super.key});
+
+  final LockWatermark watermark;
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +38,15 @@ class LockScreen extends StatelessWidget {
         unawaited(cubit.load());
         return cubit;
       },
-      child: const _LockScreenView(),
+      child: _LockScreenView(watermark: watermark),
     );
   }
 }
 
 class _LockScreenView extends StatelessWidget {
-  const _LockScreenView();
+  const _LockScreenView({required this.watermark});
+
+  final LockWatermark watermark;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +61,7 @@ class _LockScreenView extends StatelessWidget {
           body: GhostField(
             child: Stack(
               children: [
-                // Watermark alarmed face (520px, faint ghost stroke)
-                // matching mockup
+                // Watermark behind the clock and cards, see [LockWatermark].
                 Positioned.fill(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -57,17 +72,12 @@ class _LockScreenView extends StatelessWidget {
                             top: top,
                             left: (constraints.maxWidth - 520.0) / 2.0,
                             child: IgnorePointer(
-                              // An engraving in the page's own ghost
-                              // colour, not a face: it has no head colour.
-                              child: CustomPaint(
-                                size: const Size.square(520),
-                                painter: FacePainter(
-                                  state: FaceState.alarmed,
-                                  fillColor: Colors.transparent,
-                                  strokeColor: colors.canvasGhostStrong,
-                                  inkColor: colors.canvasGhostStrong,
-                                ),
-                              ),
+                              child: switch (watermark) {
+                                LockWatermark.yellowFace =>
+                                  const GhostWatermarkFace(size: 520),
+                                LockWatermark.shape =>
+                                  const GhostWatermarkShape(size: 520),
+                              },
                             ),
                           ),
                         ],

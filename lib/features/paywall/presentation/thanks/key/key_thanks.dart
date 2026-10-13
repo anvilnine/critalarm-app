@@ -20,8 +20,34 @@ const PaywallThanks keyThanks = PaywallThanks(
   buttonAt: KeyTimeline.button,
   tone: PaywallTone.surface,
   beats: keyBeats,
+  mascotAt: keyMascotAt,
+  mascotPoseAt: keyMascotPoseAt,
   builder: _build,
 );
+
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, KeyStage place, double t) {
+  final stage = place.stage;
+  return Rect.lerp(
+    thanksStartBox(scope.mascot) ?? stage.crit,
+    stage.crit.shift(Offset(-place.unit * 0.1 * KeyTimeline.reach(t), 0)),
+    KeyTimeline.travel(t),
+  )!;
+}
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it. Its lean is not counted.
+Rect keyMascotAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  final place = KeyStage.of(
+    size: scope.size,
+    padding: scope.padding,
+    lines: count,
+    textScale: scope.textScale,
+  );
+  return _critBox(scope, place, t);
+}
 
 /// What is felt and heard on the way. Under the purchase cue every beat is
 /// a haptic alone. The second turn and the fall come after it, so they
@@ -44,6 +70,15 @@ List<PaywallThanksBeat> keyBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     KeyThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose keyMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: KeyTimeline.lift(t, lines: count),
+    stretch: KeyTimeline.stretch(t),
+  );
+}
 
 /// Draws the key version for the second its scope's clock reads.
 class KeyThanks extends StatelessWidget {
@@ -100,11 +135,7 @@ class KeyThanks extends StatelessWidget {
         final rest = t - KeyTimeline.end;
         final reach = KeyTimeline.reach(t);
         final lift = KeyTimeline.lift(t, lines: count);
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? stage.crit,
-          stage.crit.shift(Offset(-unit * 0.1 * reach, 0)),
-          KeyTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, place, t);
         final dropped = KeyTimeline.dropped(t);
         final keyhole = place.keyhole(dropped);
         final hand =
@@ -203,16 +234,17 @@ class KeyThanks extends StatelessWidget {
                 ),
               ),
             ),
-            ThanksCrit(
-              box: box,
-              face: KeyTimeline.face(t),
-              lift: lift,
-              stretch: KeyTimeline.stretch(t),
-              angle: -0.09 * reach,
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              bob: math.max(0, rest),
-              shadow: KeyTimeline.travel(t),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: KeyTimeline.face(t),
+                lift: lift,
+                stretch: KeyTimeline.stretch(t),
+                angle: -0.09 * reach,
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                bob: math.max(0, rest),
+                shadow: KeyTimeline.travel(t),
+              ),
             ThanksWords(
               stage: stage,
               tone: _tone,

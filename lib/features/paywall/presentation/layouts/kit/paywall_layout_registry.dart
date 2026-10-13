@@ -5,6 +5,7 @@ import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -23,6 +24,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intr
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_reporter.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_layout.dart';
@@ -75,7 +77,8 @@ const String paywallTryOut = 'buy';
 
 /// The location that opens [layout] selling [product], after [intro] when
 /// one is given, with [thanks] after a confirmed purchase when one is
-/// given. The one place this path is built.
+/// given, and [outro] between the two when one is given. The one place
+/// this path is built.
 ///
 /// [sourceWire] replaces [source] for an entry point that is not a
 /// [PaywallSource], which is every Pro one. [lead] is the benefit the
@@ -94,6 +97,7 @@ String paywallLayoutLocation(
   PaywallProduct product, {
   PaywallIntroId intro = PaywallIntroId.none,
   PaywallThanksId thanks = PaywallThanksId.none,
+  PaywallOutroId outro = PaywallOutroId.none,
   PaywallSource source = PaywallSource.direct,
   String? sourceWire,
   PaywallBenefitId? lead,
@@ -109,6 +113,7 @@ String paywallLayoutLocation(
     'source': sourceWire ?? source.wire,
     if (intro != PaywallIntroId.none) 'intro': intro.key,
     if (thanks != PaywallThanksId.none) 'thanks': thanks.key,
+    if (outro != PaywallOutroId.none) 'outro': outro.key,
     if (lead != null) 'lead': lead.key,
     if (headline != PaywallHeadlineVariant.none) 'headline': headline.key,
     ...?leaving?.toQuery(),
@@ -129,6 +134,7 @@ class PaywallLayoutView extends StatelessWidget {
     required this.product,
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
+    this.outro = PaywallOutroId.none,
     this.onThanksDone,
     this.buttonLabel,
     this.hint,
@@ -141,6 +147,10 @@ class PaywallLayoutView extends StatelessWidget {
 
   /// What plays once a purchase is confirmed. `none` plays nothing.
   final PaywallThanksId thanks;
+
+  /// What plays between a confirmed purchase and [thanks]. `none` plays
+  /// nothing.
+  final PaywallOutroId outro;
 
   /// Where the one button of [thanks] goes.
   final VoidCallback? onThanksDone;
@@ -156,6 +166,7 @@ class PaywallLayoutView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PaywallThanksHost(
     thanks: thanks,
+    outro: outro,
     product: product,
     onDone: onThanksDone,
     buttonLabel: buttonLabel,
@@ -179,6 +190,7 @@ class PaywallLayoutScreen extends StatelessWidget {
     required this.product,
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
+    this.outro = PaywallOutroId.none,
     this.isTryOut = false,
     this.source = PaywallSource.direct,
     this.sourceWire,
@@ -200,6 +212,10 @@ class PaywallLayoutScreen extends StatelessWidget {
   /// What plays once a purchase is confirmed. `none`, or an id this build
   /// has no version for, ends the purchase as it always has.
   final PaywallThanksId thanks;
+
+  /// What plays between a confirmed purchase and [thanks]. `none`, or an id
+  /// this build has no outro for, goes straight to the thanks.
+  final PaywallOutroId outro;
 
   /// Developer builds only: the picker's "Open it". A build that skips the
   /// store then confirms a purchase at once and a restore finds the
@@ -247,6 +263,7 @@ class PaywallLayoutScreen extends StatelessWidget {
         isHosted: isHosted,
         intro: paywallIntroIsBuilt(intro) ? intro : PaywallIntroId.none,
         thanks: paywallThanksIsBuilt(thanks) ? thanks : PaywallThanksId.none,
+        outro: paywallOutroIsBuilt(outro) ? outro : PaywallOutroId.none,
       ),
       source: isHosted
           ? source.wire
@@ -312,6 +329,7 @@ class PaywallLayoutScreen extends StatelessWidget {
                 product: product,
                 intro: intro,
                 thanks: thanks,
+                outro: outro,
                 onThanksDone: () => _afterThanks(context),
               );
               // The sad opening was shown for this end date: open at rest.
