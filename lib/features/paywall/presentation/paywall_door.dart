@@ -147,6 +147,8 @@ class PaywallDoor {
             intro: opening.intro,
             thanks: opening.thanks,
             source: source,
+            lead: opening.lead,
+            headline: opening.headline,
           );
   }
 
@@ -167,6 +169,8 @@ class PaywallDoor {
             intro: opening.intro,
             thanks: opening.thanks,
             source: source,
+            lead: opening.lead,
+            headline: opening.headline,
           );
   }
 
@@ -208,6 +212,8 @@ class PaywallDoor {
             intro: opening.intro,
             thanks: opening.thanks,
             sourceWire: source.wire,
+            lead: opening.lead,
+            headline: opening.headline,
           );
   }
 

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -189,6 +190,7 @@ class PaywallRouteInfo extends InheritedWidget {
     required super.child,
     this.showsUnbuilt = false,
     this.lead,
+    this.headline = PaywallHeadlineVariant.none,
     super.key,
   });
 
@@ -199,6 +201,10 @@ class PaywallRouteInfo extends InheritedWidget {
   /// in the product's display order.
   final PaywallLead? lead;
 
+  /// The words for a plan that is ending or ended. Receipt and Wipe read it;
+  /// the other layouts ignore it.
+  final PaywallHeadlineVariant headline;
+
   /// A developer view that also lists the benefits this build does not
   /// have yet, to see a layout with the full list.
   final bool showsUnbuilt;
@@ -206,11 +212,16 @@ class PaywallRouteInfo extends InheritedWidget {
   static PaywallRouteInfo? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PaywallRouteInfo>();
 
+  /// The headline variant of the route above [context]: `none` with no route.
+  static PaywallHeadlineVariant headlineOf(BuildContext context) =>
+      maybeOf(context)?.headline ?? PaywallHeadlineVariant.none;
+
   @override
   bool updateShouldNotify(PaywallRouteInfo oldWidget) =>
       layout != oldWidget.layout ||
       source != oldWidget.source ||
       lead != oldWidget.lead ||
+      headline != oldWidget.headline ||
       showsUnbuilt != oldWidget.showsUnbuilt;
 }
 

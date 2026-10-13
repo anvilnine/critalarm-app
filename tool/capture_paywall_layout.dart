@@ -18,6 +18,12 @@
 //                                  store build does (default: every benefit)
 //   --dart-define=SOURCE=<wire>    what opened the paywall, as a PaywallSource
 //                                  wire name such as history (default direct)
+//   --dart-define=LEAD=<key>       the benefit the paywall opens on, a
+//                                  PaywallBenefitId key such as history
+//                                  (default none)
+//   --dart-define=HEADLINE=<key>   the words for a plan that is ending or
+//                                  ended, a PaywallHeadlineVariant key such
+//                                  as ended (default none)
 //   --dart-define=T=<seconds>      let motion run and capture that second,
 //                                  to look at an entrance half way. The clock
 //                                  is stepped a frame at a time, so every
@@ -130,6 +136,8 @@ const _t = String.fromEnvironment('T');
 const _also = String.fromEnvironment('ALSO');
 const _only = String.fromEnvironment('ONLY');
 const _sourceKey = String.fromEnvironment('SOURCE');
+const _leadKey = String.fromEnvironment('LEAD');
+const _headlineKey = String.fromEnvironment('HEADLINE');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
 const _tap = String.fromEnvironment('TAP');
@@ -486,6 +494,8 @@ void main() {
           if (_state.isNotEmpty) _state,
           if (_benefits.isNotEmpty) 'benefits-$_benefits',
           if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
+          if (_leadKey.isNotEmpty) 'lead-$_leadKey',
+          if (_headlineKey.isNotEmpty) 'headline-$_headlineKey',
           if (second != null) 't$_t',
           if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
           if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
@@ -526,6 +536,8 @@ void main() {
                           'try': paywallTryOut,
                         },
                         if (_sourceKey.isNotEmpty) 'source': source.wire,
+                        if (_leadKey.isNotEmpty) 'lead': _leadKey,
+                        if (_headlineKey.isNotEmpty) 'headline': _headlineKey,
                         if (_state.isNotEmpty) 'state': _state,
                         // The route lists what the build has unless asked
                         // for all.

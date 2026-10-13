@@ -53,3 +53,9 @@ PaywallIntroId? paywallIntroInLayoutValue(String? layoutValue) =>
     layoutValue?.trim() == paywallFalseAlarmLayoutKey
     ? PaywallIntroId.falseAlarm
     : null;
+
+/// Whether the paywall route opens with no slide. An intro that plays cuts
+/// in: its first frame has to be on screen within 100 ms of the tap, and a
+/// slide would delay it. [isBuilt] is `paywallIntroIsBuilt(intro)`.
+bool paywallRouteCutsIn(PaywallIntroId intro, {required bool isBuilt}) =>
+    intro != PaywallIntroId.none && isBuilt;

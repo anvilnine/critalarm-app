@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
@@ -72,7 +75,10 @@ const String paywallTryOut = 'buy';
 /// given. The one place this path is built.
 ///
 /// [sourceWire] replaces [source] for an entry point that is not a
-/// [PaywallSource], which is every Pro one. [showsUnbuilt] asks for the
+/// [PaywallSource], which is every Pro one. [lead] is the benefit the
+/// paywall opens on and [headline] the words for a plan that is ending or
+/// ended; both are left out of the location when they say nothing.
+/// [showsUnbuilt] asks for the
 /// developer view that lists every benefit, built or not, and [isTryOut]
 /// for the one where a build that skips the store confirms a purchase at
 /// once.
@@ -83,6 +89,8 @@ String paywallLayoutLocation(
   PaywallThanksId thanks = PaywallThanksId.none,
   PaywallSource source = PaywallSource.direct,
   String? sourceWire,
+  PaywallBenefitId? lead,
+  PaywallHeadlineVariant headline = PaywallHeadlineVariant.none,
   bool showsUnbuilt = false,
   bool isTryOut = false,
 }) => Uri(
@@ -92,6 +100,8 @@ String paywallLayoutLocation(
     'source': sourceWire ?? source.wire,
     if (intro != PaywallIntroId.none) 'intro': intro.key,
     if (thanks != PaywallThanksId.none) 'thanks': thanks.key,
+    if (lead != null) 'lead': lead.key,
+    if (headline != PaywallHeadlineVariant.none) 'headline': headline.key,
     if (showsUnbuilt) 'benefits': paywallAllBenefits,
     if (isTryOut) 'try': paywallTryOut,
   },
@@ -163,6 +173,8 @@ class PaywallLayoutScreen extends StatelessWidget {
     this.sourceWire,
     this.demoStatus,
     this.showsUnbuilt = false,
+    this.lead,
+    this.headline = PaywallHeadlineVariant.none,
     super.key,
   });
 
@@ -194,6 +206,13 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   /// Developer builds only: also lists the benefits not in this build.
   final bool showsUnbuilt;
+
+  /// The benefit the paywall opens on, from `?lead=`. Null lists the
+  /// benefits in the product's own order.
+  final PaywallLead? lead;
+
+  /// The words for a plan that is ending or ended, from `?headline=`.
+  final PaywallHeadlineVariant headline;
 
   /// What reports this paywall, or null in a build with no telemetry.
   PaywallLayoutReporter? _reporter() {
@@ -259,6 +278,8 @@ class PaywallLayoutScreen extends StatelessWidget {
         child: PaywallRouteInfo(
           layout: layout,
           source: source,
+          lead: lead,
+          headline: headline,
           showsUnbuilt: showsUnbuilt,
           child: Builder(
             builder: (context) => PaywallLayoutView(
