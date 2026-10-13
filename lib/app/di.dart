@@ -12,6 +12,7 @@ import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
+import 'package:critalarm/app/state/critical_topic_count.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
@@ -2762,22 +2763,9 @@ Future<void> configureDependencies({
             HistoryOwnReader(incidents: localStore?.incidents).read(),
         readLeavingFacts: () => LeavingFactsReader(
           incidents: localStore?.incidents,
-          // The app's one topic list, which is for the server and account
-          // the phone is on. A list that is not read, is being replaced or
-          // failed is not a count: it throws, and the paywall opens as if
-          // the numbers could not be read.
-          readCriticalTopics: () async {
-            final topics = getIt<TopicsCubit>();
-            await (topics.state.isRefreshing
-                    ? topics.refresh()
-                    : topics.ensureLoaded())
-                .timeout(const Duration(seconds: 2), onTimeout: () {});
-            final state = topics.state;
-            if (!state.isReady || state.isRefreshing) {
-              throw StateError('The topic list is not read.');
-            }
-            return state.topics.where((topic) => topic.critical).length;
-          },
+          // The app's one topic list: see `readCriticalTopicCount`.
+          readCriticalTopics: () =>
+              readCriticalTopicCount(getIt<TopicsCubit>()),
           setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
         ).read(),
         leavingShownFor: () =>

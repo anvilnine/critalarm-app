@@ -112,13 +112,28 @@ Future<bool> keepOrOpenPaywall(
 /// is not locked. For a caller that closes itself first and is left with
 /// a router and no context, such as a sheet. It waits for the plan to be
 /// read, as [openPaywallForFeature] does.
+///
+/// A Hosted paywall that leads with history carries the person's own rows,
+/// read the way the "Older alarms" line reads them. A read that fails or
+/// takes longer than [ownWait] opens the paywall with sample rows.
 Future<String?> paywallLocationForFeature(
   AppFeature feature,
-  LockSource source,
-) async {
+  LockSource source, {
+  Duration ownWait = const Duration(seconds: 3),
+}) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
-  return paywallLocationFor(access.decide(feature), source);
+  final decision = access.decide(feature);
+  if (decision is! FeatureLocked || decision.offer != Holding.hosted) {
+    return paywallLocationFor(decision, source);
+  }
+  try {
+    return await hostedPaywallLocationWithOwn(
+      source.hosted,
+    ).timeout(ownWait);
+  } on Object catch (_) {
+    return paywallLocationFor(decision, source);
+  }
 }
 
 /// [FeatureLock], fed from `FeatureAccess` for one [feature].

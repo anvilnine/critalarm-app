@@ -46,6 +46,21 @@ final FaceShape heroSadFace = FaceShape(
   props: const [PropShape(PropKind.tear, at: Offset(50, 136), scale: 1.15)],
 );
 
+/// The rig's calm face with its mouth flattened. The mouth is a touch
+/// shorter and nearly level, with the smallest upward curve, so the face
+/// under a leaving headline is neither glad nor sad. The dot eyes stay.
+final FaceShape heroCalmFace = FaceShape(
+  leftEye: calmFace.leftEye,
+  rightEye: calmFace.rightEye,
+  mouth: MouthShape(
+    curveMouth(
+      const Offset(72, 137),
+      const Offset(100, 146),
+      const Offset(128, 137),
+    ),
+  ),
+);
+
 /// The shape of [face].
 FaceShape heroFaceShape(HeroFace face) => switch (face) {
   HeroFace.arriving => faceFor(FaceState.surprised),
@@ -63,7 +78,7 @@ FaceShape heroFaceShape(HeroFace face) => switch (face) {
   HeroFace.listening => faceFor(FaceState.content),
   HeroFace.loving => faceFor(FaceState.love),
   HeroFace.sad => heroSadFace,
-  HeroFace.calm => faceFor(FaceState.calm),
+  HeroFace.calm => heroCalmFace,
 };
 
 /// The shape on the mascot at [frame]: one face on its way to the next,

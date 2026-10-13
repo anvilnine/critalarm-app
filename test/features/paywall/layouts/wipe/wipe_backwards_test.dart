@@ -1,6 +1,7 @@
 import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
@@ -292,6 +293,42 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('the pictures the stage plays', () {
+    final listed = paywallBenefitsFor(PaywallProduct.hosted);
+
+    test('the leaving Wipe holds on its lead picture and never cycles', () {
+      final loop = wipeLoopFor(listed, reversed: true, lead: 0.3);
+      expect(loop.scenes, hasLength(1));
+      expect(loop.scenes.single.preview, listed.first.previewId);
+      for (final t in [0.0, 3, 9, 14, 30, 120, 600]) {
+        final frame = loop.frameAt(t.toDouble());
+        expect(frame.scene?.preview, listed.first.previewId, reason: 'at $t');
+        expect(frame.activeIndex, 0, reason: 'at $t');
+      }
+    });
+
+    test('the lead is the picture it holds on', () {
+      final reordered = [listed[2], listed[0], listed[1]];
+      final loop = wipeLoopFor(reordered, reversed: true, lead: 0);
+      expect(loop.scenes.single.preview, reordered.first.previewId);
+    });
+
+    test('the normal Wipe still plays every picture, as it did', () {
+      final loop = wipeLoopFor(listed, reversed: false, lead: 0.3);
+      expect(
+        [for (final s in loop.scenes) s.preview],
+        [
+          for (final b in listed) b.previewId,
+        ],
+      );
+      expect(loop.prelude, -0.3);
+      final seen = <PaywallPreviewId?>{
+        for (var t = 0.0; t < 90; t += 0.5) loop.frameAt(t).scene?.preview,
+      };
+      expect(seen.length, greaterThan(1));
     });
   });
 }

@@ -97,6 +97,31 @@ const double wipeBackStrikeAt = (wipeBackSweepEnd + wipeBackHoldEnd) / 2;
 bool wipeLeavingStruckAt(double t, {required bool isStill, double lead = 0}) =>
     isStill || t + lead >= wipeBackStrikeAt;
 
+/// The pictures the stage plays, in order. The normal Wipe cycles through
+/// every benefit in [listed]. The leaving Wipe ([reversed]) holds on the
+/// lead's picture, the first listed, and never moves on: its list under
+/// the stage is the whole story and the loop has nothing to add to it.
+/// [lead] is the head start after an intro, see [wipeLeadFor].
+HeroLoop wipeLoopFor(
+  List<PaywallBenefit> listed, {
+  required bool reversed,
+  required double lead,
+}) => HeroLoop([
+  for (final b in reversed ? listed.take(1) : listed) b.previewId,
+], prelude: -lead);
+
+/// The words of the small tag on the card, or null for none. On the
+/// leaving Wipe the card rests on the colour side under "Today" with its
+/// rows struck, which would read as today's history being hidden already.
+/// While the card shows that struck frame ([isStruck]) it carries [date],
+/// the date of the grey side. With today's rows showing, and on the
+/// plain Wipe, it carries nothing.
+String? wipeCardTagFor({
+  required bool reversed,
+  required bool isStruck,
+  required String date,
+}) => reversed && isStruck ? date : null;
+
 /// The second the divider is on the mascot to the eye: the sweep eases
 /// out, so it is home long before it stops. The landing's cue plays here.
 const double wipeLandsAt = wipeSweepStart + 0.4;
