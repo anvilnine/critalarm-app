@@ -32,13 +32,23 @@ void main() {
       );
     });
 
-    test('the leaving variant reads as the plain headline until Part 2', () {
+    test('the leaving variant has its own headline for Hosted', () {
       expect(
         wipeHeadlineFor(
           isHosted: true,
           variant: PaywallHeadlineVariant.leaving,
         ),
-        WipeHeadline.hosted,
+        WipeHeadline.leaving,
+      );
+    });
+
+    test('Pro keeps its headline whatever the variant says', () {
+      expect(
+        wipeHeadlineFor(
+          isHosted: false,
+          variant: PaywallHeadlineVariant.leaving,
+        ),
+        WipeHeadline.pro,
       );
     });
   });
