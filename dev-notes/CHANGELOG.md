@@ -180,6 +180,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Every setup step has its own ambient canvas step and arrangement (the offer and the legacy test no longer share one), and the canvas takes a live profile so a pager can drag the shapes. The bundled flows no longer list how\_it\_rings or widgets, since the welcome shows both.
 - The Pick a server step is one layout for Crit Alarm Cloud and your own server: the routes picture, titles, card and pinned bar follow one clock (ConnectMorphLayout), so switching grows and fades the parts that differ and keeps the dot travelling. AppButton gains animatesLabel.
 - release --bump runs the gates first, commits the new build number, and a finished upload tags the commit. --upload-only refuses a build whose stamp does not match pubspec.yaml. The gates also run check-l10n and check-access. release-android.sh refuses a bundle signed with the debug key.
+- Paywall pieces for a lead benefit: a route lead on the reel, the Hosted weekly check as a fifth benefit, a topic name on the topics picture, a thanks button label and an intro hint line.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

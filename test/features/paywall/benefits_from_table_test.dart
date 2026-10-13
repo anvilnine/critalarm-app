@@ -129,15 +129,16 @@ void main() {
   });
 
   group('the layout lists', () {
-    test('follow the table: the weekly check is off the Pro list', () {
-      // The Hosted layout list is the four it was. The weekly check is in
-      // `HostedBenefit.all` and has no line and preview for a layout yet,
-      // so a layout does not list it.
+    test('follow the table: the weekly check is off the Pro list, on the '
+        'Hosted one', () {
+      // The Hosted layout list is `HostedBenefit.all`, the weekly check
+      // last.
       expect(_ids(featureTable, PaywallProduct.hosted), [
         PaywallBenefitId.topics,
         PaywallBenefitId.pushes,
         PaywallBenefitId.history,
         PaywallBenefitId.appIcons,
+        PaywallBenefitId.reliabilityChecks,
       ]);
       expect(_ids(featureTable, PaywallProduct.pro), [
         PaywallBenefitId.wakeUpChallenges,
@@ -163,12 +164,16 @@ void main() {
       }
     });
 
-    test('the weekly check comes back to the Pro list if the table says '
-        'Pro again', () {
+    test('the weekly check moves to the Pro list if the table says Pro '
+        'again, and leaves the Hosted one', () {
       final moved = _tableWith({AppFeature.weeklyCheck: _pro});
       expect(
         _ids(moved, PaywallProduct.pro),
         contains(PaywallBenefitId.reliabilityChecks),
+      );
+      expect(
+        _ids(moved, PaywallProduct.hosted),
+        isNot(contains(PaywallBenefitId.reliabilityChecks)),
       );
     });
 
@@ -240,6 +245,7 @@ void main() {
         PaywallBenefitId.topics,
         PaywallBenefitId.pushes,
         PaywallBenefitId.history,
+        PaywallBenefitId.reliabilityChecks,
       ]);
     });
   });

@@ -342,7 +342,11 @@ void main() {
 
     test('each free value reads as the limit it is, and each number is '
         'the plan fact', () {
-      final benefits = paywallBenefitsFor(PaywallProduct.hosted);
+      // The weekly check has no number to lift, so it has no row.
+      final benefits = [
+        for (final b in paywallBenefitsFor(PaywallProduct.hosted))
+          if (b.id != PaywallBenefitId.reliabilityChecks) b,
+      ];
       final plain = limitsRowsFor(benefits)!;
       final caps = limitsCapRowsFor(benefits)!;
       expect(caps, hasLength(plain.length));
@@ -383,6 +387,30 @@ void main() {
         expect(limitsHostedFor(benefit), isNull, reason: benefit.id.key);
       }
       expect(limitsCapRowsFor(paywallBenefitsFor(PaywallProduct.pro)), isNull);
+    });
+
+    test('the weekly check is a Hosted benefit with no limits row, so a '
+        'list that holds it is drawn as cards', () {
+      final hosted = paywallBenefitsFor(PaywallProduct.hosted);
+      final weekly = hosted.firstWhere(
+        (b) => b.id == PaywallBenefitId.reliabilityChecks,
+      );
+      final facts = limitsHostedFor(weekly)!;
+      expect(facts.id, HostedBenefitId.weeklyCheck);
+      // No number on either plan.
+      expect(facts.freeValue, isNull);
+      expect(facts.hostedValue, isNull);
+      expect(limitsRowsFor([weekly]), isNull);
+      expect(limitsRowsFor(hosted), isNull);
+      expect(limitsCapRowsFor(hosted), isNull);
+      // The four that have a number keep their rows.
+      expect(
+        limitsRowsFor([
+          for (final b in hosted)
+            if (b.id != PaywallBenefitId.reliabilityChecks) b,
+        ]),
+        hasLength(4),
+      );
     });
   });
 }
