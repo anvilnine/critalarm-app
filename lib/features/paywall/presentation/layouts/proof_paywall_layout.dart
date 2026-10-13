@@ -159,6 +159,12 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
         final product = scope.isHosted
             ? LocaleKeys.paywall_proof_tag_hosted.tr()
             : LocaleKeys.paywall_proof_tag_pro.tr();
+        // With a lead, the first beat plays its Free moment and the other
+        // benefits follow under a small label.
+        final showsAlso = heroShowsAlsoIncluded(
+          hasLead: scope.lead != null,
+          benefitCount: scope.benefits.length,
+        );
 
         return Stack(
           children: [
@@ -175,6 +181,9 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
                 entranceCues: proofEntranceCues(prelude: player.loop.prelude),
                 // The lift is the loop's own cue, so a change has none.
                 turnCue: null,
+                alsoIncluded: showsAlso
+                    ? LocaleKeys.paywall_also_label.tr()
+                    : null,
                 // The benefit's own preview, held on its Free frame first.
                 sceneBuilder: (context, scene, size, playFrom) => ProofScene(
                   scene: scene,
