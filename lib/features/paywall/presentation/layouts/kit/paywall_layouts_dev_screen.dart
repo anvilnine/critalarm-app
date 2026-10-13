@@ -378,16 +378,6 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                           ),
                           const SizedBox(height: Spacing.s2),
                           AppListRow(
-                            name: LocaleKeys.paywall_thanks_picker_row.tr(),
-                            meta: thanks == null
-                                ? LocaleKeys.paywall_picker_follows_remote.tr()
-                                : paywallThanksName(thanks),
-                            faceState: null,
-                            trailing: arrow,
-                            onTap: _pickThanks,
-                          ),
-                          const SizedBox(height: Spacing.s2),
-                          AppListRow(
                             name: LocaleKeys.paywall_outro_picker_row.tr(),
                             meta: outro == null
                                 ? LocaleKeys.paywall_picker_follows_remote.tr()
@@ -395,6 +385,16 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             faceState: null,
                             trailing: arrow,
                             onTap: _pickOutro,
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_thanks_picker_row.tr(),
+                            meta: thanks == null
+                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                : paywallThanksName(thanks),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickThanks,
                           ),
                           if (soundSwitch != null) ...[
                             const SizedBox(height: Spacing.s2),
