@@ -208,6 +208,13 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     final benefits = offer.benefits;
     final lead = benefits.firstOrNull;
     final kind = sheetPageKindFor(lead?.id);
+    // A lead and at least one other benefit: the others sit under a small
+    // label. The lit row, the headline and the preview already say the
+    // lead, so it gets no line of its own.
+    final showsAlso = heroShowsAlsoIncluded(
+      hasLead: offer.lead != null,
+      benefitCount: benefits.length,
+    );
     // After an intro the preview and the words come up with the sheet.
     final followsIntro =
         !isStill &&
@@ -230,6 +237,8 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       buyBlockHeight: _frame.buyBlockHeight.value,
       benefitCount: benefits.length,
       textScale: media.textScaler.scale(100) / 100,
+      hasAlso: showsAlso,
+      showsLead: false,
     );
     final showsAir = media.textScaler.scale(100) / 100 <= 1.01;
     final travel =
@@ -456,7 +465,11 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                     height: math.max(
                                       0,
                                       scope.size.height -
-                                          sheetWordsHeight(benefits.length) -
+                                          sheetWordsHeight(
+                                            benefits.length,
+                                            hasAlso: showsAlso,
+                                            showsLead: false,
+                                          ) -
                                           _airTop -
                                           _airBottom,
                                     ),
@@ -476,6 +489,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                     clock: scope.clock,
                                     closeOnLeft: scope.closeOnLeft,
                                     close: scope.close,
+                                    lead: scope.lead,
                                   ),
                                   tone: PaywallTone.surface,
                                   headline: _headline(lead),
@@ -492,6 +506,10 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   // The sheet has its own: the rise and
                                   // the landing.
                                   entranceCues: const [],
+                                  alsoIncluded: showsAlso
+                                      ? LocaleKeys.paywall_also_label.tr()
+                                      : null,
+                                  showsLeadLine: false,
                                 ),
                               ],
                             ),
