@@ -46,7 +46,7 @@ String paywallPairText({
 }
 
 /// What one product's paywall opens, as a few words: the intro, the
-/// layout, what plays after a purchase, and the outro when one is set. A
+/// layout, the outro when one is set, and what plays after a purchase. A
 /// null is a choice left to the remote value and reads [remote]. With the
 /// first three left to it the answer is [remote] once, so a lone outro
 /// reads "remote" then the outro, and not one "remote" a step.
@@ -57,10 +57,15 @@ String paywallStepsText({
   required String remote,
   String? outro,
 }) {
-  final steps = intro == null && layout == null && thanks == null
-      ? remote
-      : '${intro ?? remote}, ${layout ?? remote}, ${thanks ?? remote}';
-  return outro == null ? steps : '$steps, $outro';
+  if (intro == null && layout == null && thanks == null) {
+    return outro == null ? remote : '$remote, $outro';
+  }
+  return [
+    intro ?? remote,
+    layout ?? remote,
+    ?outro,
+    thanks ?? remote,
+  ].join(', ');
 }
 
 /// The value of the flow row: [none] with no override, [custom] for a typed
