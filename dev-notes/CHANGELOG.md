@@ -98,6 +98,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Two other first welcome pages (night falls, stays silent), built behind welcomeFirstPage (default word) and opened from Developer options, Setup flow, Open a step as a replay with first=night or first=silent. tool/capture\_welcome\_first\_pages.dart captures them.
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
+- tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -191,6 +192,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The offer setup step plays the false alarm, a reel that opens on the answer from the use step and the confetti thanks, and its thanks button opens hook up. It asks the store what is on sale first and skips with no intro when nothing is. cloud\_product takes auto, the bundled layout is reel, the three offer funnel events carry use, and Developer options replay the step on one answer.
 - Setup stats line on the hook-up step now names the answer to the question step. The hero, receipt, reel and sentence paywall layouts and the thanks tick call the Hosted weekly check Weekly delivery check, the name Settings uses.
 - tool/capture\_works\_screen.dart fails on an overflow at 320 wide and text scale 2.0 like every other size, instead of printing it.
+- The alarm screen's three error strings (acknowledge failed on a topic and on the alarm, and the alarm failing to load) say the alarm is still open, not the page.
+- Settings analytics line also names the setup answer, which the same switch sends.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -217,6 +220,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The setup test's acknowledged screen steps its title down until the longest word fits (AppFittedTitle at setupTitleMinFontSize) and scrolls its words above the pinned button when they are taller than the room, so Continue and Finish stay on screen at 320 wide and text scale 2.0. ackedDemoRippleHeightFor gives the ripple what is left.
 - RingingScreen scrolls the message card inside the room above the pinned buttons once the face is gone and the card is still too tall (ringingCardScrollRoomFor, ringingCardMinRoom). Cards that fit are drawn as before.
 - alarmMetaLine joins the time and the tags with a slash only when the message has tags.
+- The intro's tag stands where paywallIntroTagPlace finds room clear of the layout's paragraphs, previews and buttons (it slides along the mascot, tries both sides) and is left out where there is none. IntroHost collects those rects a few times a second.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

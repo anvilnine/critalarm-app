@@ -27,5 +27,5 @@ bool paywallIntroIsBuilt(PaywallIntroId intro) =>
 const Set<PaywallLayoutId> paywallIntroTaglessLayouts = {PaywallLayoutId.sheet};
 
 /// The layouts whose mascot has a headline right over its head. The tag
-/// stands under the mascot's foot there, so it never lies over the words.
+/// tries under the mascot's foot first there, and over its head second.
 const Set<PaywallLayoutId> paywallIntroTagBelowLayouts = {PaywallLayoutId.reel};
