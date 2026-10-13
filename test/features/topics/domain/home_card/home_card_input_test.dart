@@ -2,8 +2,12 @@
 // ignore_for_file: avoid_redundant_argument_values
 
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
+import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'home_card_fixtures.dart';
@@ -219,6 +223,40 @@ void main() {
     test('a different field is different', () {
       final other = Draft()..warningCount = 1;
       expect(Draft().build(), isNot(other.build()));
+    });
+
+    test('the saved answer and the saved tool count', () {
+      final answered = Draft()..use = SetupUse.homelab;
+      final tooled = Draft()..watchedTool = ToolTemplate.uptimeKuma;
+      expect(Draft().build(), isNot(answered.build()));
+      expect(Draft().build(), isNot(tooled.build()));
+      expect(answered.build(), (Draft()..use = SetupUse.homelab).build());
+      expect(
+        tooled.build().hashCode,
+        (Draft()..watchedTool = ToolTemplate.uptimeKuma).build().hashCode,
+      );
+    });
+  });
+
+  group('HomeCardFoot', () {
+    test('the waiting line counts for equality and hashCode', () {
+      const plain = HomeCardFoot(HomeCardFootSlot.sendTheLine);
+      const kuma = HomeCardFoot(
+        HomeCardFootSlot.sendTheLine,
+        waitingLine: SetupWaitingLine.uptimeKuma,
+      );
+      const kumaAgain = HomeCardFoot(
+        HomeCardFootSlot.sendTheLine,
+        waitingLine: SetupWaitingLine.uptimeKuma,
+      );
+      const job = HomeCardFoot(
+        HomeCardFootSlot.sendTheLine,
+        waitingLine: SetupWaitingLine.runTheJob,
+      );
+      expect(kuma, kumaAgain);
+      expect(kuma.hashCode, kumaAgain.hashCode);
+      expect(kuma, isNot(plain));
+      expect(kuma, isNot(job));
     });
   });
 }

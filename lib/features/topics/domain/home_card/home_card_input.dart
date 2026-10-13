@@ -1,8 +1,10 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:flutter/foundation.dart';
 
 /// How long the list can go without a message before the card says so.
@@ -237,6 +239,8 @@ class HomeCardInput {
     this.setup,
     this.firstTopic,
     this.watchedTopic,
+    this.watchedTool,
+    this.use,
     this.newestMessageAt,
     this.lastAlarmAt,
     this.hasCriticalTopic = false,
@@ -289,6 +293,14 @@ class HomeCardInput {
   /// The topic Home watches for the first message.
   final String? watchedTopic;
 
+  /// The tool saved on [watchedTopic], or null when none is saved or the
+  /// read failed.
+  final ToolTemplate? watchedTool;
+
+  /// The answer saved on the `use` step, or null when none is saved or the
+  /// read failed.
+  final SetupUse? use;
+
   // Quiet and idle.
 
   /// When the newest message on any topic came in.
@@ -319,6 +331,8 @@ class HomeCardInput {
       other.setup == setup &&
       other.firstTopic == firstTopic &&
       other.watchedTopic == watchedTopic &&
+      other.watchedTool == watchedTool &&
+      other.use == use &&
       other.newestMessageAt == newestMessageAt &&
       other.lastAlarmAt == lastAlarmAt &&
       other.hasCriticalTopic == hasCriticalTopic;
@@ -341,6 +355,8 @@ class HomeCardInput {
     setup,
     firstTopic,
     watchedTopic,
+    watchedTool,
+    use,
     newestMessageAt,
     lastAlarmAt,
     hasCriticalTopic,
