@@ -49,7 +49,7 @@ String paywallPairText({
 /// layout, what plays after a purchase, and the outro when one is set. A
 /// null is a choice left to the remote value and reads [remote]. With the
 /// first three left to it the answer is [remote] once, so a lone outro
-/// reads "remote, <outro>" and not one "remote" a step.
+/// reads "remote" then the outro, and not one "remote" a step.
 String paywallStepsText({
   required String? intro,
   required String? layout,

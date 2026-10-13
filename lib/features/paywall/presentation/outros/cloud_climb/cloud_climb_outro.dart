@@ -76,7 +76,7 @@ class CloudClimb extends StatelessWidget {
                       cream: colors.cream,
                     ),
                   ),
-                  _words(context, t, colors.cream),
+                  _words(context, t, colors.onPanel),
                   _layer(
                     CloudClimbMoonPainter(
                       t,
