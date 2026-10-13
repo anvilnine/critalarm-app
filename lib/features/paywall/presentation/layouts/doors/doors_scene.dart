@@ -13,6 +13,10 @@ import 'package:flutter/material.dart';
 const double _doorRadius = 10;
 const double _doorStroke = 3;
 
+/// The outline of the doorway on the dark canvas. It is a drawing colour of
+/// the door, not part of any face.
+const Color _darkOutline = Color(0xFFB08A22);
+
 /// The colours of the doorway and the door on the app's canvas, in the
 /// current theme.
 @immutable
@@ -39,12 +43,15 @@ class DoorsColors {
           ? Color.alphaBlend(c.yellow.withValues(alpha: 0.4), c.canvas)
           : Color.alphaBlend(c.surface.withValues(alpha: 0.5), c.canvasAlt),
       rays: isDark ? c.yellow.withValues(alpha: 0.2) : c.canvasGhostStrong,
-      // The mascot's own outline, so the door is drawn by the same hand.
-      frame: c.faceStroke,
+      // The mascot's own outline in the light theme, so the door is drawn by
+      // the same hand there.
+      frame: isDark ? _darkOutline : c.faceStroke,
       door: isDark
           ? Color.alphaBlend(c.onCanvas.withValues(alpha: 0.12), c.canvas)
           : c.cream,
-      panel: c.faceStroke.withValues(alpha: isDark ? 0.4 : 0.22),
+      panel: (isDark ? _darkOutline : c.faceStroke).withValues(
+        alpha: isDark ? 0.4 : 0.22,
+      ),
     );
   }
 

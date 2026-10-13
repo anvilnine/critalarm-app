@@ -807,9 +807,6 @@ class AcknowledgedScreen extends StatelessWidget {
     final faceState = state.faceState;
     final style = AlarmStyleScope.of(context);
     final look = style.acknowledged;
-    // The face keeps the outline and features it has everywhere else. The
-    // acknowledged palette turns both white for the text around it.
-    final facePalette = style.facePaletteFor(Theme.of(context).brightness);
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -1036,8 +1033,6 @@ class AcknowledgedScreen extends StatelessWidget {
                         math.min<double>(260, look.maxFace),
                         math.max(_minFace, wideRoom),
                       ),
-                      overrideStrokeColor: facePalette.faceStroke,
-                      overrideInkColor: facePalette.faceInk,
                     ),
                   ),
                   const SizedBox(width: 40),
@@ -1115,8 +1110,6 @@ class AcknowledgedScreen extends StatelessWidget {
                   child: FaceWidget(
                     state: faceState,
                     size: faceSize,
-                    overrideStrokeColor: facePalette.faceStroke,
-                    overrideInkColor: facePalette.faceInk,
                   ),
                 ),
                 const SizedBox(height: Spacing.s4),

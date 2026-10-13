@@ -153,9 +153,6 @@ class _MiniPhone extends StatelessWidget {
             const FaceWidget(
               state: FaceState.alarmed,
               size: 24,
-              overrideFillColor: _yellow,
-              overrideStrokeColor: _yellow,
-              overrideInkColor: _darkInk,
             ),
             Icon(Icons.notifications, color: bell, size: 20),
           ],
@@ -352,9 +349,6 @@ Widget _appIcon(double size, Color fill, {bool round = false}) => Container(
     child: FaceWidget(
       state: FaceState.alarmed,
       size: size * 0.7,
-      overrideFillColor: _yellow,
-      overrideStrokeColor: _darkInk,
-      overrideInkColor: _darkInk,
     ),
   ),
 );
@@ -381,9 +375,6 @@ class _LiveActivity extends StatelessWidget {
             state: FaceState.alarmed,
             size: 64,
             isLive: _mockFaceMoves(context),
-            overrideFillColor: crit,
-            overrideStrokeColor: crit,
-            overrideInkColor: _darkInk,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -578,9 +569,6 @@ class _AppAlarm extends StatelessWidget {
                 state: FaceState.alarmed,
                 size: 210,
                 isLive: _mockFaceMoves(context),
-                overrideFillColor: _yellow,
-                overrideStrokeColor: _yellow,
-                overrideInkColor: _darkInk,
               ),
             ),
             const SizedBox(height: 8),
@@ -721,9 +709,6 @@ class _AckScreen extends StatelessWidget {
                 child: const FaceWidget(
                   state: FaceState.acked,
                   size: 170,
-                  overrideFillColor: _yellow,
-                  overrideStrokeColor: _yellow,
-                  overrideInkColor: _darkInk,
                 ),
               ),
             ),
@@ -1738,7 +1723,7 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
               ),
               node(
                 xs[0],
-                _face(server, face, fill: const Color(0xFF4EAAD8)),
+                _face(server, face),
                 LocaleKeys.onboarding_welcome_story_your_server.tr(),
               ),
               node(
@@ -1759,9 +1744,6 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
                       child: FaceWidget(
                         state: phoneState,
                         size: face,
-                        overrideFillColor: const Color(0xFFF2A7C3),
-                        overrideStrokeColor: _darkInk,
-                        overrideInkColor: _darkInk,
                       ),
                     ),
                   ),
@@ -1897,9 +1879,6 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
       state: state,
       size: size,
       isLive: state == FaceState.alarmed && _mockFaceMoves(context),
-      overrideFillColor: fill,
-      overrideStrokeColor: _darkInk,
-      overrideInkColor: _darkInk,
     );
 
     Widget ringingBadge() =>

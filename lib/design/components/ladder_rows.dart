@@ -13,7 +13,6 @@ class AppLadderRow extends StatelessWidget {
     required this.priority,
     required this.description,
     required this.faceState,
-    this.faceStrokeColor,
     this.isCrit = false,
     super.key,
   });
@@ -21,7 +20,6 @@ class AppLadderRow extends StatelessWidget {
   final PriorityLevel priority;
   final String description;
   final FaceState faceState;
-  final Color? faceStrokeColor;
   final bool isCrit;
 
   @override
@@ -36,16 +34,6 @@ class AppLadderRow extends StatelessWidget {
         : const EdgeInsets.symmetric(horizontal: 18, vertical: 14);
     final shadows = isCrit ? AppShadows.lightMd : null;
     final faceSize = isCrit ? 48.0 : 36.0;
-
-    final faceFill = isCrit ? colors.panel : colors.canvas;
-    final faceStroke =
-        faceStrokeColor ??
-        (isCrit
-            ? colors.crit
-            : (faceState == FaceState.worried
-                  ? colors.high
-                  : colors.faceStroke));
-    final faceInk = isCrit ? colors.onPanel : colors.faceInk;
 
     return Container(
       padding: padding,
@@ -80,9 +68,6 @@ class AppLadderRow extends StatelessWidget {
           FaceWidget(
             state: faceState,
             size: faceSize,
-            overrideFillColor: faceFill,
-            overrideStrokeColor: faceStroke,
-            overrideInkColor: faceInk,
           ),
         ],
       ),

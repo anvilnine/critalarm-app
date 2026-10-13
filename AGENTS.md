@@ -1259,6 +1259,12 @@ holds the steps the two share.
   `tokens/`, components in `components/`, the face in `faces/`, the theme in
   `theme/`. `NOTES.md` lists the components and when to use each. The debug
   route `/gallery` shows every one.
+- The Crit face is always yellow (`#FFC93C`) with a dark outline and dark
+  features, in the light theme, the dark theme and on every canvas. The page
+  around it may change colour. `FaceWidget` and `RingingFaceWidget` take no
+  colour for the head, and `AppColors.dark` has the same face tokens as
+  `AppColors.light`. Tell a wall of faces apart by expression, size, tilt or a
+  ring around them (`rippleCellLook`), never by head colour.
 - `lib/design_system/` is the older folder. It re-exports `lib/design/` and
   keeps the motion and haptics helpers. Do not add components there.
 

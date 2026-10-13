@@ -321,11 +321,7 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
                         height: faceSize,
                         child: Transform.rotate(
                           angle: frame.face.turn,
-                          child: _face(
-                            faceShape,
-                            faceSize,
-                            fill: colors.yellow,
-                          ),
+                          child: _face(faceShape, faceSize),
                         ),
                       ),
                     ],

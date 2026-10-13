@@ -225,10 +225,7 @@ class _YellowFace extends StatelessWidget {
           colors,
         ],
       ),
-      child: RingingFaceFill(
-        keepsFill: true,
-        child: pin == null ? child : RingingFacePin(style: pin!, child: child),
-      ),
+      child: pin == null ? child : RingingFacePin(style: pin!, child: child),
     );
   }
 }

@@ -375,9 +375,6 @@ class _AppInboxRowState extends State<AppInboxRow> {
                   child: FaceWidget(
                     state: face,
                     size: 38,
-                    overrideFillColor: colors.yellow,
-                    overrideStrokeColor: colors.inkFixed,
-                    overrideInkColor: colors.inkFixed,
                   ),
                 ),
                 const SizedBox(width: 12),

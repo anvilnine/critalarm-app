@@ -57,12 +57,16 @@ class _LockScreenView extends StatelessWidget {
                             top: top,
                             left: (constraints.maxWidth - 520.0) / 2.0,
                             child: IgnorePointer(
-                              child: FaceWidget(
-                                state: FaceState.alarmed,
-                                size: 520,
-                                overrideFillColor: Colors.transparent,
-                                overrideStrokeColor: colors.canvasGhostStrong,
-                                overrideInkColor: colors.canvasGhostStrong,
+                              // An engraving in the page's own ghost
+                              // colour, not a face: it has no head colour.
+                              child: CustomPaint(
+                                size: const Size.square(520),
+                                painter: FacePainter(
+                                  state: FaceState.alarmed,
+                                  fillColor: Colors.transparent,
+                                  strokeColor: colors.canvasGhostStrong,
+                                  inkColor: colors.canvasGhostStrong,
+                                ),
                               ),
                             ),
                           ),

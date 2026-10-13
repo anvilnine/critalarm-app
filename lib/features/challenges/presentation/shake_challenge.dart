@@ -184,16 +184,10 @@ class _ShakeState extends State<_Shake>
 
   Widget _face(BuildContext context, int count) {
     final colors = context.appColors;
-    // Crit is yellow here whatever the theme: the face is the point of
-    // this challenge, and it sits on the acknowledged canvas.
-    const palette = AppColors.light;
     final face = FaceWidget(
       state: _faceFor(shakeMoodFor(count)),
       size: _faceSize,
       isLive: !widget.run.isPicture,
-      overrideFillColor: palette.faceFill,
-      overrideStrokeColor: palette.faceStroke,
-      overrideInkColor: palette.faceInk,
     );
     return SizedBox.square(
       dimension: _ringSize,

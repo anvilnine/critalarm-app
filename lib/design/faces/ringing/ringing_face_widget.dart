@@ -18,9 +18,7 @@ class RingingFaceWidget extends StatefulWidget {
     this.size = 160,
     this.isLive = true,
     this.speed = 1,
-    this.fillColor,
     this.strokeColor,
-    this.inkColor,
     this.accentColor,
     super.key,
   });
@@ -37,14 +35,8 @@ class RingingFaceWidget extends StatefulWidget {
   /// How fast the loop plays, 1 being its normal speed.
   final double speed;
 
-  /// The head. Defaults to the face fill.
-  final Color? fillColor;
-
   /// The head outline. Defaults to the alarm red.
   final Color? strokeColor;
-
-  /// Brows, eyes and mouth. Defaults to the face ink.
-  final Color? inkColor;
 
   /// The flush, the siren and the other red extras. Defaults to the alarm
   /// red.
@@ -103,9 +95,10 @@ class _RingingFaceWidgetState extends State<RingingFaceWidget>
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final fill = widget.fillColor ?? colors.faceFill;
+    // The head is yellow with dark features in every theme.
+    final fill = AppColors.light.faceFill;
     final stroke = widget.strokeColor ?? colors.crit;
-    final ink = widget.inkColor ?? colors.faceInk;
+    final ink = AppColors.light.faceInk;
     final accent = widget.accentColor ?? colors.crit;
 
     return RepaintBoundary(

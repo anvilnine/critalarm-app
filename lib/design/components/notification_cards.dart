@@ -57,10 +57,6 @@ class AppNotificationCard extends StatelessWidget {
       shadows = AppShadows.lightMd;
     }
 
-    final faceStroke = isCrit ? colors.crit : colors.faceStroke;
-    final faceFill = colors.surface;
-    final faceInk = colors.ink;
-
     final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -75,9 +71,6 @@ class AppNotificationCard extends StatelessWidget {
           FaceWidget(
             state: isCrit ? FaceState.alarmed : faceState,
             size: 44,
-            overrideFillColor: faceFill,
-            overrideStrokeColor: faceStroke,
-            overrideInkColor: faceInk,
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -612,13 +612,10 @@ class _ShownStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Yellow with an ink outline in both themes, as every face is.
-            ExcludeSemantics(
+            const ExcludeSemantics(
               child: FaceWidget(
                 state: FaceState.happy,
                 size: 52,
-                overrideFillColor: colors.yellow,
-                overrideStrokeColor: colors.inkFixed,
-                overrideInkColor: colors.inkFixed,
               ),
             ),
             const SizedBox(width: 12),

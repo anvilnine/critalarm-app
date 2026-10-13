@@ -4,21 +4,9 @@ import 'dart:math' as math;
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-
-/// Ink for the bright crowd heads, the same in light and dark mode.
-const Color faceCrowdInk = Color(0xFF1A140F);
-
-/// Bright heads for the crowd animations. Dark ink on all of them, so they
-/// read the same in light and dark mode.
-const List<Color> faceCrowdFills = [
-  Color(0xFFFFC93C),
-  Color(0xFF4EAAD8),
-  Color(0xFFE2673D),
-  Color(0xFF3FA652),
-  Color(0xFFF2A7C3),
-];
 
 final Map<FaceState, FaceShape> _shapes = {};
 
@@ -39,14 +27,25 @@ FaceShape _withBlink(FaceShape face, double t, {double offset = 0}) {
   return local < 0.12 ? face.blinking : face;
 }
 
-Widget _face(FaceShape shape, double size, {Color? fill}) => FaceWidget(
-  state: FaceState.calm,
-  shape: shape,
-  size: size,
-  overrideFillColor: fill,
-  overrideStrokeColor: fill == null ? null : faceCrowdInk,
-  overrideInkColor: fill == null ? null : faceCrowdInk,
-);
+Widget _face(FaceShape shape, double size) =>
+    FaceWidget(state: FaceState.calm, shape: shape, size: size);
+
+/// How one head of the grid sits in its cell. Every head is brand yellow,
+/// so a wall of them is told apart by size, tilt and a ring, not by colour.
+/// Always the same for a cell, so a frame is repeatable.
+@visibleForTesting
+({double scale, double tilt, bool ringed}) rippleCellLook(int cell) {
+  const looks = <({double scale, double tilt, bool ringed})>[
+    (scale: 1.0, tilt: 0.0, ringed: false),
+    (scale: 0.86, tilt: 0.12, ringed: false),
+    (scale: 0.7, tilt: 0.0, ringed: true),
+    (scale: 0.8, tilt: -0.14, ringed: false),
+    (scale: 0.94, tilt: 0.06, ringed: false),
+    (scale: 0.7, tilt: -0.08, ringed: true),
+    (scale: 0.88, tilt: -0.1, ringed: false),
+  ];
+  return looks[(cell * 3 + cell ~/ 4) % looks.length];
+}
 
 /// Every face there is, bar the blink, which is a moment rather than a
 /// face. What the welcome screen's ripple picks from.
@@ -147,7 +146,7 @@ FaceState rippleRestFace({
   return (size: size, rows: rows, cols: cols);
 }
 
-/// A grid of faces in every colour, flipping over in waves. The welcome
+/// A grid of yellow faces, flipping over in waves. The welcome
 /// screen's "Ripple" hero (every face) and the picture on the test alarm's
 /// acknowledged screen (happy faces only). It fills the box it is given.
 /// With animations switched off it sits still on a settled frame.
@@ -261,6 +260,43 @@ class _FaceRippleState extends State<FaceRipple>
     _ => ((rows - 1 - r) + (cols - 1 - c)).toDouble(),
   };
 
+  /// The head in its cell: smaller and tilted by [rippleCellLook], inside a
+  /// ring when the look has one.
+  Widget _head(int cell, FaceShape face, double size) {
+    final look = rippleCellLook(cell);
+    final head = Transform.rotate(
+      angle: look.tilt,
+      child: Transform.scale(
+        scale: look.scale,
+        child: _face(face, size),
+      ),
+    );
+    if (!look.ringed) return head;
+    final ring = Theme.of(context).extension<AppColors>()?.onCanvas;
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: (ring ?? const Color(0xFFFFFFFF)).withValues(
+                    alpha: 0.5,
+                  ),
+                  width: math.max(1.5, size * 0.03),
+                ),
+              ),
+            ),
+          ),
+          head,
+        ],
+      ),
+    );
+  }
+
   Widget _cell(int r, int c, int rows, int cols, double size, double t) {
     final cell = r * cols + c;
     final pop = Curves.easeOutBack.transform(
@@ -282,12 +318,9 @@ class _FaceRippleState extends State<FaceRipple>
       }
     }
 
-    // Each wave flips the face over like a card: a new colour on the back
-    // and a new face, which it holds, then settles back to calm. Two waves
-    // show every face there is.
-    final fillBefore =
-        faceCrowdFills[(cell + math.max<int>(wave, 0)) % faceCrowdFills.length];
-    final fillAfter = faceCrowdFills[(cell + wave + 1) % faceCrowdFills.length];
+    // Each wave flips the face over like a card: a new face on the back,
+    // which it holds, then settles back to calm. Two waves show every face
+    // there is.
     final reaction = pickRippleFace(
       widget.faces ?? allRippleFaces,
       wave: wave,
@@ -304,15 +337,11 @@ class _FaceRippleState extends State<FaceRipple>
     FaceShape face;
     var flip = 0.0;
     var bump = 0.0;
-    var fill = wave < 0
-        ? faceCrowdFills[cell % faceCrowdFills.length]
-        : fillAfter;
     if (wave < 0 || local > 1.7) {
       face = _withBlink(_shape(rest), t, offset: cell * 0.37);
     } else if (local < 0.4) {
       flip = local / 0.4;
       final halfway = flip >= 0.5;
-      if (!halfway) fill = fillBefore;
       face = halfway ? _shape(reaction) : _shape(rest);
       bump = math.sin(flip * math.pi) * 0.18;
     } else if (local < 1.3) {
@@ -339,7 +368,7 @@ class _FaceRippleState extends State<FaceRipple>
         transform: transform,
         child: Transform.scale(
           scale: pop + bump,
-          child: _face(face, size, fill: fill),
+          child: _head(cell, face, size),
         ),
       ),
     );
