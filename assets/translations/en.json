@@ -1919,6 +1919,9 @@
     "word": "ALARM",
     "admission": "Just kidding."
   },
+  "paywall_outro": {
+    "welcome": "Welcome to {product}"
+  },
   "paywall_lead": {
     "servers_headline": "Every server can wake you",
     "servers_line": "Free rings {free_critical_topics} critical topics. Hosted rings all of them.",

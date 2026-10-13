@@ -807,7 +807,9 @@ class _ThanksLayer extends StatelessWidget {
           mascot: mascot,
           land: thanks.mascotAt!(end, from),
           ground: PaywallToneColors.of(context, thanks.tone).background,
-          words: paywallProductName(product),
+          words: LocaleKeys.paywall_outro_welcome.tr(
+            namedArgs: {'product': paywallProductName(product)},
+          ),
         );
         final under = KeyedSubtree(
           key: const ValueKey('end'),
