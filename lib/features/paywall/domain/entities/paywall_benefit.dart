@@ -21,6 +21,14 @@ enum PaywallBenefitId {
   const PaywallBenefitId(this.key);
 
   final String key;
+
+  /// The benefit [key] names, or null for a missing or unknown key.
+  static PaywallBenefitId? fromKey(String? key) {
+    for (final id in values) {
+      if (id.key == key) return id;
+    }
+    return null;
+  }
 }
 
 /// One thing a product gives, as a layout draws it: a title, one short line

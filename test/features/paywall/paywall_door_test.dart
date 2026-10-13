@@ -182,7 +182,7 @@ void main() {
       final install = _Install()..pro = 'auto';
       expect(
         install.door.resolve(tap),
-        '/plans/sheet?product=pro&source=widget_locked',
+        '/plans/sheet?product=pro&source=widget_locked&lead=widgets',
       );
     });
 
@@ -222,7 +222,7 @@ void main() {
       final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/proof?product=hosted&source=history',
+        '/plans/proof?product=hosted&source=history&lead=history',
       );
       expect(
         install.door.resolve('/paywall?source=reminder_pro_later'),
@@ -298,12 +298,12 @@ void main() {
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
         '/plans/sheet?product=hosted&source=create_topic_card'
-        '&intro=false_alarm',
+        '&intro=false_alarm&lead=topics',
       );
       expect(install.marks, 1);
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
-        '/plans/sheet?product=hosted&source=create_topic_card',
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
       );
       expect(install.marks, 1);
     });
@@ -314,7 +314,7 @@ void main() {
         ..seen = true;
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
-        '/plans/sheet?product=hosted&source=create_topic_card',
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
       );
       expect(install.marks, 0);
     });
@@ -332,7 +332,7 @@ void main() {
       final install = _Install()..hosted = 'false_alarm';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&intro=false_alarm',
+        '/plans/hero?product=hosted&source=history&intro=false_alarm&lead=history',
       );
       expect(install.marks, 1);
     });
@@ -357,7 +357,7 @@ void main() {
           ..falseAlarmIsBuilt = false;
         expect(
           install.door.hostedLocation(PaywallSource.createTopicCard),
-          '/plans/sheet?product=hosted&source=create_topic_card',
+          '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
         );
         expect(install.marks, 0);
       },
@@ -373,7 +373,7 @@ void main() {
         ..proIntro = 'false_alarm';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history&intro=false_alarm',
+        '/plans/sheet?product=hosted&source=history&intro=false_alarm&lead=history',
       );
       expect(install.marks, 1);
       // Its one showing is used up, for either product.
@@ -399,7 +399,7 @@ void main() {
         ..devHostedIntro = PaywallIntroId.none;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
       expect(install.marks, 0);
     });
@@ -414,11 +414,11 @@ void main() {
         ..proThanks = ' unlock ';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+        '/plans/sheet?product=hosted&source=history&thanks=confetti&lead=history',
       );
       expect(
         install.door.resolve('/paywall?source=history'),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+        '/plans/sheet?product=hosted&source=history&thanks=confetti&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
@@ -433,12 +433,12 @@ void main() {
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
         '/plans/sheet?product=hosted&source=create_topic_card'
-        '&intro=false_alarm&thanks=unlock',
+        '&intro=false_alarm&thanks=unlock&lead=topics',
       );
       // The intro has had its one showing. The thanks has no such rule.
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
-        '/plans/sheet?product=hosted&source=create_topic_card&thanks=unlock',
+        '/plans/sheet?product=hosted&source=create_topic_card&thanks=unlock&lead=topics',
       );
     });
 
@@ -450,7 +450,7 @@ void main() {
         ..falseAlarmIsBuilt = false;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=confetti',
+        '/plans/hero?product=hosted&source=history&thanks=confetti&lead=history',
       );
       expect(install.marks, 0);
     });
@@ -466,7 +466,7 @@ void main() {
       // The intro still plays.
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&intro=false_alarm',
+        '/plans/hero?product=hosted&source=history&intro=false_alarm&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
@@ -480,7 +480,7 @@ void main() {
         ..hostedThanks = 'fireworks';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
     });
 
@@ -510,7 +510,7 @@ void main() {
         ..devProThanks = PaywallThanksId.unlock;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
@@ -527,7 +527,66 @@ void main() {
       );
       expect(
         door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
+      );
+    });
+  });
+
+  group('the lead and the headline', () {
+    test('a place with a lead puts it in the location', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..pro = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.appIcon),
+        '/plans/sheet?product=hosted&source=app_icon&lead=app_icons',
+      );
+      // Own sounds are a Pro benefit: Hosted does not list it, so only the
+      // Pro location carries the lead.
+      expect(
+        install.door.hostedLocation(PaywallSource.personalizeSound),
+        '/plans/sheet?product=hosted&source=personalize_sound',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.personalizeSound),
+        '/plans/sheet?product=pro&source=personalize_sound'
+        '&lead=custom_sounds',
+      );
+    });
+
+    test('the plan ended carries its headline', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.planSheetEnded),
+        '/plans/wipe?product=hosted&source=plan_sheet_ended'
+        '&lead=history&headline=ended',
+      );
+    });
+
+    test('a lead this build does not list is left out', () {
+      final install = _Install()..hosted = 'auto';
+      final door = PaywallDoor(
+        remoteValue: (_) => 'auto',
+        developer: (_) => null,
+        hasSeenFalseAlarm: () => true,
+        markFalseAlarmSeen: () async {},
+        listedBenefits: (_) => const {},
+      );
+      expect(
+        door.hostedLocation(PaywallSource.history),
+        '/plans/proof?product=hosted&source=history',
+      );
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        contains('lead=history'),
+      );
+    });
+
+    test('Pro puts a lead it lists in the location', () {
+      final install = _Install()..pro = 'auto';
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.personalizeWidgets),
+        '/plans/sheet?product=pro&source=personalize_widgets&lead=widgets',
       );
     });
   });
