@@ -668,7 +668,7 @@
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
-    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again.",
+    "ack_failed": "The server did not confirm. This phone is quiet, but the alarm is still open. Tap Stop the alarm again.",
     "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority.",
     "delete_button": "Delete topic",
     "delete_dialog_title": "Delete {topic}?",
@@ -846,10 +846,10 @@
     "load_failed_title": "Could not load the alarm",
     "close_queued_title": "Closing when your server answers",
     "close_queued_body": "The close is sent as soon as this phone can reach your server. Until then the alarm can ring again.",
-    "load_failed_body": "The page is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
+    "load_failed_body": "The alarm is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
     "retry_button": "Try again",
     "silence_button": "Stop the noise on this phone",
-    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again."
+    "ack_failed": "The server did not confirm. This phone is quiet, but the alarm is still open. Tap Stop the alarm again."
   },
   "lock_screen": {
     "back_aria_label": "Back",
@@ -890,7 +890,7 @@
     "theme_dark": "Dark",
     "privacy_header": "Privacy",
     "analytics_title": "Share anonymous usage analytics",
-    "analytics_subtitle": "Which screens you open. No topic names, no message content.",
+    "analytics_subtitle": "Which screens you open and your setup answer. No topic names, no message content.",
     "crash_reports_title": "Send crash reports",
     "crash_reports_subtitle": "What the app was doing when it crashed, plus your device model.",
     "about_header": "About",

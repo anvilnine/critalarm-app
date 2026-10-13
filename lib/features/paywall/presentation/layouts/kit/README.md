@@ -98,9 +98,12 @@ takes 1.25 s from the reveal to ring out, played through or skipped. The frame's
 played after an intro either.
 
 **The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
-small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
-when there is air and under its foot when there is not, and only while that mascot is there at
-about full size. It takes no room and no touch, and at a large text size it is left out.
+small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, and only while
+that mascot is there at about full size. It takes no room and no touch, and at a large text size it
+is left out. `paywallIntroTagPlace` (`kit/paywall_intro_tag_rules.dart`) picks the spot: over the
+head, or under the foot first for a layout in `paywallIntroTagBelowLayouts`, sliding along the
+mascot to clear air. The host hands it the rects of the layout's paragraphs, previews and buttons,
+and the tag keeps 4 points off every one. With no clear spot it is not shown.
 
 What `PaywallIntroHost` does, so an intro does not:
 
