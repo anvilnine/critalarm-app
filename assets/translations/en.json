@@ -336,7 +336,7 @@
     "curl": "curl",
     "step_test": "Press Test. This phone rings.",
     "step_test_lands": "Press Test. It lands on this phone.",
-    "uptime_kuma_1": "Settings, Notifications, Setup Notification",
+    "uptime_kuma_1": "Settings, Notifications, Set Up Notification",
     "healthchecks_1": "Project, Integrations",
     "home_assistant_1": "Add this block to configuration.yaml, then restart",
     "home_assistant_2": "Add the action rest_command.critalarm to an automation",
@@ -2144,6 +2144,17 @@
       "limits": "Limits lifted",
       "key": "Key",
       "party": "Receipt party"
+    }
+  },
+  "paywall_outro": {
+    "welcome": "Welcome to {product}",
+    "picker_row": "Success outro",
+    "picker_sheet_title": "Choose what plays after purchase",
+    "names": {
+      "none": "Nothing extra",
+      "break_lift_ring": "Break, lift, ring",
+      "break_lift": "Break and lift",
+      "cloud_climb": "Cloud climb"
     }
   },
   "feature_lock": {

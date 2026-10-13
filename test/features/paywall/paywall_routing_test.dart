@@ -2,6 +2,7 @@ import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -27,6 +28,8 @@ PaywallOpening? _open(
   PaywallIntroId? developerIntro,
   String remoteThanks = '',
   PaywallThanksId? developerThanks,
+  String remoteOutro = '',
+  PaywallOutroId? developerOutro,
   bool hasSeenFalseAlarm = false,
   Set<PaywallBenefitId>? listed,
   LeavingChoice? leaving,
@@ -40,6 +43,8 @@ PaywallOpening? _open(
   legacyIntro: developer == null ? paywallIntroInLayoutValue(remote) : null,
   remoteThanks: PaywallThanksId.parse(remoteThanks),
   developerThanks: developerThanks,
+  remoteOutro: paywallRemoteOutroOf(remoteOutro),
+  developerOutro: developerOutro,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
   listedBenefits: listed ?? _all,
   leaving: leaving,
@@ -806,6 +811,7 @@ void main() {
           PaywallLayoutId.sheet,
           intro: PaywallIntroId.falseAlarm,
           thanks: PaywallThanksId.unlock,
+          outro: PaywallOutroId.cloudClimb,
           lead: PaywallBenefitId.topics,
         ),
       );
@@ -820,6 +826,7 @@ void main() {
         const PaywallOpening(
           PaywallLayoutId.sheet,
           thanks: PaywallThanksId.unlock,
+          outro: PaywallOutroId.cloudClimb,
           lead: PaywallBenefitId.topics,
         ),
       );
@@ -986,6 +993,365 @@ void main() {
           }
         }
       }
+    });
+  });
+
+  group('the outro value', () {
+    test('goes with any layout, from any place, for both products', () {
+      for (final product in PaywallProduct.values) {
+        for (final place in PaywallPlace.values) {
+          for (final layout in ['hero', 'sheet', 'doors', 'auto']) {
+            expect(
+              _open(
+                product,
+                place,
+                remote: layout,
+                remoteThanks: 'stamp',
+                remoteOutro: 'cloud_climb',
+              )?.outro,
+              PaywallOutroId.cloudClimb,
+              reason: '$product $place $layout',
+            );
+          }
+        }
+      }
+    });
+
+    test('none, and a value this build does not know, is no outro', () {
+      for (final value in ['none', ' none ', 'fireworks', 'Cloud_Climb']) {
+        expect(
+          _open(
+            _pro,
+            PaywallPlace.plan,
+            remote: 'hero',
+            remoteThanks: 'stamp',
+            remoteOutro: value,
+          )?.outro,
+          PaywallOutroId.none,
+          reason: value,
+        );
+      }
+    });
+
+    test('the developer value outranks the remote one', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.plan,
+          remote: 'hero',
+          remoteThanks: 'stamp',
+          remoteOutro: 'cloud_climb',
+          developerOutro: PaywallOutroId.breakLiftRing,
+        )?.outro,
+        PaywallOutroId.breakLiftRing,
+      );
+      // No outro, set by hand, is a choice too.
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.plan,
+          remote: 'hero',
+          remoteThanks: 'stamp',
+          remoteOutro: 'cloud_climb',
+          developerOutro: PaywallOutroId.none,
+        )?.outro,
+        PaywallOutroId.none,
+      );
+    });
+
+    test('it is none when the thanks is none', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.plan,
+          remote: 'hero',
+          remoteOutro: 'cloud_climb',
+        )?.outro,
+        PaywallOutroId.none,
+      );
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.plan,
+          remote: 'hero',
+          remoteThanks: 'stamp',
+          developerThanks: PaywallThanksId.none,
+          developerOutro: PaywallOutroId.breakLiftRing,
+        )?.outro,
+        PaywallOutroId.none,
+      );
+    });
+
+    test('alone it never opens a layout: the shipped surface is null', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.plan,
+          remoteThanks: 'stamp',
+          remoteOutro: 'cloud_climb',
+          developerOutro: PaywallOutroId.breakLiftRing,
+        ),
+        isNull,
+      );
+    });
+
+    test('it leaves the intro and the thanks alone', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.criticalLimit,
+          remote: 'auto',
+          remoteThanks: 'unlock',
+          remoteOutro: 'cloud_climb',
+        ),
+        const PaywallOpening(
+          PaywallLayoutId.sheet,
+          intro: PaywallIntroId.falseAlarm,
+          thanks: PaywallThanksId.unlock,
+          outro: PaywallOutroId.cloudClimb,
+          lead: PaywallBenefitId.topics,
+        ),
+      );
+    });
+
+    test('an opening with no outro equals one made before there was one', () {
+      expect(
+        const PaywallOpening(PaywallLayoutId.hero).toString(),
+        'PaywallOpening(hero, intro: none, thanks: none, '
+        'lead: null, headline: none)',
+      );
+      expect(
+        const PaywallOpening(PaywallLayoutId.hero),
+        isNot(
+          const PaywallOpening(
+            PaywallLayoutId.hero,
+            outro: PaywallOutroId.cloudClimb,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('the outro per product', () {
+    PaywallOutroId? outro(
+      PaywallProduct product,
+      PaywallPlace place, {
+      String remote = 'auto',
+      String remoteThanks = 'stamp',
+      PaywallThanksId? developerThanks,
+      String remoteOutro = '',
+      PaywallOutroId? developerOutro,
+    }) => _open(
+      product,
+      place,
+      remote: remote,
+      remoteThanks: remoteThanks,
+      developerThanks: developerThanks,
+      remoteOutro: remoteOutro,
+      developerOutro: developerOutro,
+      hasSeenFalseAlarm: true,
+    )?.outro;
+
+    test('Hosted is Cloud climb and Pro is Break, lift, ring', () {
+      expect(
+        paywallDefaultOutroFor(PaywallProduct.hosted),
+        PaywallOutroId.cloudClimb,
+      );
+      expect(
+        paywallDefaultOutroFor(PaywallProduct.pro),
+        PaywallOutroId.breakLiftRing,
+      );
+    });
+
+    test(
+      'on auto with no outro set, every place takes the product default',
+      () {
+        for (final place in PaywallPlace.values) {
+          expect(
+            outro(_hosted, place),
+            PaywallOutroId.cloudClimb,
+            reason: '$place',
+          );
+          expect(
+            outro(_pro, place),
+            PaywallOutroId.breakLiftRing,
+            reason: '$place',
+          );
+        }
+      },
+    );
+
+    test('a pinned layout takes it too, remote or from Developer options', () {
+      for (final layout in [
+        'hero',
+        'sheet',
+        'proof',
+        'reel',
+        'wipe',
+        'doors',
+      ]) {
+        expect(
+          outro(_hosted, PaywallPlace.plan, remote: layout),
+          PaywallOutroId.cloudClimb,
+          reason: layout,
+        );
+        expect(
+          outro(_pro, PaywallPlace.widgets, remote: layout),
+          PaywallOutroId.breakLiftRing,
+          reason: layout,
+        );
+      }
+      expect(
+        _open(
+          _pro,
+          PaywallPlace.plan,
+          developer: PaywallLayoutSetting.parse('bento'),
+          remoteThanks: 'stamp',
+        )?.outro,
+        PaywallOutroId.breakLiftRing,
+      );
+    });
+
+    test('an empty remote value is no value: the default stands', () {
+      for (final value in ['', '  ']) {
+        expect(
+          outro(_hosted, PaywallPlace.plan, remoteOutro: value),
+          PaywallOutroId.cloudClimb,
+          reason: '"$value"',
+        );
+        expect(
+          outro(_pro, PaywallPlace.plan, remoteOutro: value),
+          PaywallOutroId.breakLiftRing,
+          reason: '"$value"',
+        );
+      }
+      expect(paywallRemoteOutroOf(''), isNull);
+      expect(paywallRemoteOutroOf('  '), isNull);
+      expect(paywallRemoteOutroOf('none'), PaywallOutroId.none);
+      expect(paywallRemoteOutroOf('fireworks'), PaywallOutroId.none);
+      expect(paywallRemoteOutroOf(' cloud_climb '), PaywallOutroId.cloudClimb);
+    });
+
+    test('a remote outro outranks the default, for both products', () {
+      expect(
+        outro(_hosted, PaywallPlace.history, remoteOutro: 'break_lift'),
+        PaywallOutroId.breakLift,
+      );
+      expect(
+        outro(_pro, PaywallPlace.widgets, remoteOutro: 'cloud_climb'),
+        PaywallOutroId.cloudClimb,
+      );
+      // A remote none is a value: it switches the default off.
+      expect(
+        outro(_hosted, PaywallPlace.history, remoteOutro: 'none'),
+        PaywallOutroId.none,
+      );
+      expect(
+        outro(_pro, PaywallPlace.widgets, remoteOutro: 'none'),
+        PaywallOutroId.none,
+      );
+    });
+
+    test('a Developer options outro outranks both, none included', () {
+      for (final product in PaywallProduct.values) {
+        for (final remoteOutro in ['', 'cloud_climb', 'break_lift_ring']) {
+          for (final developerOutro in PaywallOutroId.values) {
+            expect(
+              outro(
+                product,
+                PaywallPlace.plan,
+                remoteOutro: remoteOutro,
+                developerOutro: developerOutro,
+              ),
+              developerOutro,
+              reason: '$product "$remoteOutro" $developerOutro',
+            );
+          }
+        }
+      }
+    });
+
+    test('the shipped surface returns no opening, so it plays no outro', () {
+      for (final product in PaywallProduct.values) {
+        for (final place in PaywallPlace.values) {
+          expect(
+            _open(product, place, remoteThanks: 'stamp'),
+            isNull,
+            reason: '$product $place',
+          );
+          expect(
+            _open(
+              product,
+              place,
+              remote: 'auto',
+              developer: PaywallLayoutSetting.shipped,
+              remoteThanks: 'stamp',
+            ),
+            isNull,
+            reason: '$product $place',
+          );
+        }
+      }
+    });
+
+    test('the default is tied to the thanks like any outro', () {
+      for (final product in PaywallProduct.values) {
+        for (final place in PaywallPlace.values) {
+          expect(
+            outro(product, place, remoteThanks: ''),
+            PaywallOutroId.none,
+            reason: '$product $place',
+          );
+          expect(
+            outro(product, place, developerThanks: PaywallThanksId.none),
+            PaywallOutroId.none,
+            reason: '$product $place',
+          );
+        }
+      }
+    });
+
+    test('the leaving place takes the Hosted default, whatever it opens', () {
+      const choices = [
+        null,
+        LeavingChoice(showsReceipt: true, historyDaysHeld: 60),
+        LeavingChoice(showsReceipt: false, historyDaysHeld: 60),
+        LeavingChoice(showsReceipt: false, historyDaysHeld: 3),
+      ];
+      for (final choice in choices) {
+        final opening = _open(
+          _hosted,
+          PaywallPlace.planEnding,
+          remote: 'auto',
+          remoteThanks: 'stamp',
+          hasSeenFalseAlarm: true,
+          leaving: choice,
+        )!;
+        expect(
+          opening.outro,
+          PaywallOutroId.cloudClimb,
+          reason: '${choice?.showsReceipt} ${choice?.historyDaysHeld}',
+        );
+        expect(opening.headline, PaywallHeadlineVariant.leaving);
+      }
+      expect(outro(_hosted, PaywallPlace.planEnded), PaywallOutroId.cloudClimb);
+    });
+
+    test('the default changes nothing else about an opening', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.history,
+          remote: 'auto',
+          remoteThanks: 'stamp',
+        ),
+        const PaywallOpening(
+          PaywallLayoutId.proof,
+          thanks: PaywallThanksId.stamp,
+          outro: PaywallOutroId.cloudClimb,
+          lead: PaywallBenefitId.history,
+        ),
+      );
     });
   });
 }

@@ -292,6 +292,21 @@ void main() {
       verifyNever(() => remoteConfig.fetchAndActivate());
     });
 
+    test('the outro values read empty, which is no outro', () {
+      expect(FirebaseTelemetryGate().paywallOutroKey, isEmpty);
+      expect(FirebaseTelemetryGate().proPaywallOutroKey, isEmpty);
+      expect(const NoopTelemetryGate().paywallOutroKey, isEmpty);
+      expect(const NoopTelemetryGate().proPaywallOutroKey, isEmpty);
+
+      when(() => remoteConfig.getString('paywall_outro')).thenReturn('');
+      when(
+        () => remoteConfig.getString('pro_paywall_outro'),
+      ).thenReturn('break_lift_ring');
+      expect(gate.paywallOutroKey, isEmpty);
+      expect(gate.proPaywallOutroKey, 'break_lift_ring');
+      verifyNever(() => remoteConfig.fetchAndActivate());
+    });
+
     test('the thanks values default to empty, which is no thanks', () {
       const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
       expect(defaults['paywall_thanks'], isEmpty);
