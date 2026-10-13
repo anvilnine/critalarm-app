@@ -47,7 +47,7 @@ import 'capture_fonts.dart';
 
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/walk');
 const _only = String.fromEnvironment('ONLY');
-const _settle = int.fromEnvironment('SETTLE', defaultValue: 12) / 10;
+const double _settle = int.fromEnvironment('SETTLE', defaultValue: 12) / 10;
 
 class _Phone {
   const _Phone(this.name, this.size, this.top, this.bottom);
@@ -82,17 +82,25 @@ class _Pair {
   final String? extra;
 }
 
-const _hosted = PaywallProduct.hosted;
-const _pro = PaywallProduct.pro;
+const PaywallProduct _hosted = PaywallProduct.hosted;
+const PaywallProduct _pro = PaywallProduct.pro;
 
 const _pairs = <_Pair>[
-  _Pair(_hosted, PaywallPlace.criticalLimit, hosted: PaywallSource.createTopicCard),
+  _Pair(
+    _hosted,
+    PaywallPlace.criticalLimit,
+    hosted: PaywallSource.createTopicCard,
+  ),
   _Pair(_hosted, PaywallPlace.history, hosted: PaywallSource.history),
   _Pair(_hosted, PaywallPlace.appIcons, hosted: PaywallSource.appIcon),
   _Pair(_hosted, PaywallPlace.weeklyCheck, hosted: PaywallSource.reliability),
   _Pair(_hosted, PaywallPlace.plan, hosted: PaywallSource.settingsPlan),
   _Pair(_hosted, PaywallPlace.nudge, hosted: PaywallSource.askSheet),
-  _Pair(_hosted, PaywallPlace.planEnding, hosted: PaywallSource.planSheetEnding),
+  _Pair(
+    _hosted,
+    PaywallPlace.planEnding,
+    hosted: PaywallSource.planSheetEnding,
+  ),
   _Pair(_hosted, PaywallPlace.planEnded, hosted: PaywallSource.planSheetEnded),
   _Pair(
     _hosted,
@@ -210,7 +218,8 @@ void main() {
         : [(_normal, ThemeMode.light)];
     for (final (phone, mode) in sizes) {
       testWidgets(
-        'walk ${pair.product.key} ${pair.place.name} ${phone.name} ${mode.name}',
+        'walk ${pair.product.key} ${pair.place.name} '
+        '${phone.name} ${mode.name}',
         (tester) async {
           final location = await tester.runAsync(() => _locationFor(pair));
           final uri = Uri.parse(location!);
@@ -310,7 +319,8 @@ void main() {
             )) {
               if (s.position.maxScrollExtent > 0.5) {
                 problems.add(
-                  'Scrolls by ${s.position.maxScrollExtent.toStringAsFixed(1)}.',
+                  'Scrolls by '
+                  '${s.position.maxScrollExtent.toStringAsFixed(1)}.',
                 );
               }
             }
