@@ -37,9 +37,17 @@ class IncidentFaceTest {
     }
 
     @Test
-    fun `acked face strokes in white, every other face strokes in ink`() {
-        assertEquals(0xFFFFFFFF.toInt(), CritAlarmFace.ACKED.strokeColor)
-        assertEquals(0xFF1A140F.toInt(), CritAlarmFace.ALARMED.strokeColor)
-        assertEquals(0xFF1A140F.toInt(), CritAlarmFace.CALM.strokeColor)
+    fun `every face has a yellow head and ink features`() {
+        for (face in CritAlarmFace.values()) {
+            assertEquals(face.name, 0xFFFFC93C.toInt(), face.headColor)
+            assertEquals(face.name, 0xFF1A140F.toInt(), face.strokeColor)
+        }
+    }
+
+    @Test
+    fun `the surface accent still follows the state`() {
+        assertEquals(0xFFF5473A.toInt(), CritAlarmFace.ALARMED.canvasColor)
+        assertEquals(0xFF2A3BD8.toInt(), CritAlarmFace.ACKED.canvasColor)
+        assertEquals(0xFFFF8A1F.toInt(), CritAlarmFace.WORRIED.canvasColor)
     }
 }
