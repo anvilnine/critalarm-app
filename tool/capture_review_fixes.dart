@@ -49,12 +49,14 @@ import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_plan_picker.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
@@ -84,9 +86,6 @@ class _Phone {
 
 const _tall = _Phone('390x844', Size(390, 844), 47, 34);
 const _narrow = _Phone('320x568', Size(320, 568), 20, 0);
-
-/// The Receipt has always needed this much height at 320 wide.
-const _narrowTall = _Phone('320x640', Size(320, 640), 24, 0);
 
 /// A few rows inside the Free window and a few past it.
 const _ownRows = HistoryOwn(
@@ -149,7 +148,6 @@ class _Scene {
     this.name,
     this.location, {
     this.times = const [],
-    this.narrow = _narrow,
   });
 
   final String name;
@@ -157,9 +155,6 @@ class _Scene {
 
   /// The seconds captured with motion on.
   final List<double> times;
-
-  /// The 320 wide phone this scene is captured on.
-  final _Phone narrow;
 }
 
 String _leaving(PaywallLayoutId layout, LeavingFacts facts) =>
@@ -243,7 +238,6 @@ final _scenes = <_Scene>[
     'receipt_leaving',
     () => _leaving(PaywallLayoutId.receipt, _four),
     times: [3.5],
-    narrow: _narrowTall,
   ),
   _Scene(
     'wipe_leaving',
@@ -365,7 +359,12 @@ String _headlineOn(WidgetTester tester) {
   if (!onScreen(find.byType(AppButton))) {
     problems.add('The button is not on screen.');
   }
-  if (scale == 1.0) {
+  // The leaving Receipt scrolls its slip as the last thing to give, when the
+  // three lines under it and the buy block leave no more room: only at 320
+  // wide and 568 tall.
+  final mayScroll =
+      scene.name == 'receipt_leaving' && screen.width < 340 && scale == 1.0;
+  if (scale == 1.0 && !mayScroll) {
     for (final s in tester.stateList<ScrollableState>(
       find.byType(Scrollable),
     )) {
@@ -391,6 +390,39 @@ String _headlineOn(WidgetTester tester) {
         ? 'headline: ${_headlineOn(tester)}'
         : scene.name,
   );
+
+  if (scene.name == 'receipt_leaving') {
+    // The three lines about what Free gives are whole and above the buy
+    // block, however little room there is.
+    final after = {
+      'history': find.text(
+        LocaleKeys.paywall_leaving_receipt_after_history.tr(
+          namedArgs: HostedBenefit.args,
+        ),
+      ),
+      'critical': find.textContaining('stay critical'),
+      'pushes': find.text(
+        LocaleKeys.paywall_leaving_receipt_after_pushes.tr(
+          namedArgs: HostedBenefit.args,
+        ),
+      ),
+    };
+    final buyTop = tester.getTopLeft(find.byType(PaywallPlanPicker).first).dy;
+    for (final MapEntry(key: name, value: text) in after.entries) {
+      if (text.evaluate().isEmpty) {
+        problems.add('The $name after line is missing.');
+        continue;
+      }
+      final rect = tester.getRect(text.first);
+      if (rect.bottom > buyTop + 0.5) {
+        problems.add('The $name after line runs behind the buy block.');
+      }
+    }
+    final labelFinder = find.textContaining('AFTER ');
+    if (labelFinder.evaluate().isEmpty) {
+      problems.add('The after label is missing.');
+    }
+  }
 
   switch (scene.name) {
     case 'receipt_leaving' || 'wipe_leaving':
@@ -558,7 +590,7 @@ void main() {
   }
 
   for (final scene in _scenes) {
-    for (final phone in [_tall, scene.narrow]) {
+    for (final phone in [_tall, _narrow]) {
       for (final mode in [ThemeMode.light, ThemeMode.dark]) {
         for (final scale in const [1.0, 2.0]) {
           capture(scene, phone: phone, mode: mode, scale: scale, isStill: true);
@@ -569,8 +601,8 @@ void main() {
     for (final (phone, mode, scale) in [
       (_tall, ThemeMode.light, 1.0),
       (_tall, ThemeMode.dark, 1.0),
-      (scene.narrow, ThemeMode.light, 1.0),
-      (scene.narrow, ThemeMode.dark, 2.0),
+      (_narrow, ThemeMode.light, 1.0),
+      (_narrow, ThemeMode.dark, 2.0),
     ]) {
       capture(scene, phone: phone, mode: mode, scale: scale, isStill: false);
     }

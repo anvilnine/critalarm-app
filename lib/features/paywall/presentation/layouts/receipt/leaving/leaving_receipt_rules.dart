@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/leaving_floors.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
@@ -86,6 +87,7 @@ class LeavingReceiptLayout {
     required this.plan,
     required this.mascot,
     required this.isStacked,
+    this.showsFace = true,
   });
 
   /// The slot, the paper and the figures' room.
@@ -94,6 +96,9 @@ class LeavingReceiptLayout {
 
   /// Text scale above 1.3: a full width slip with the face below it.
   final bool isStacked;
+
+  /// False when the face was given up for room. Its box is empty then.
+  final bool showsFace;
 
   Rect get paper => plan.paper;
   Rect get slot => plan.slot;
@@ -113,12 +118,32 @@ double _mascotFor(Rect paper) => math.min(
 /// over its edge, so a slip of two rows composes the way a slip of four
 /// does. Past [leavingReceiptStackedAbove] the slip takes the width and the
 /// face stands under it at the right.
+///
+/// [showsFace] false gives the face up. Only a stacked slip has room to
+/// win by it: the face under the slip takes [ReceiptPlan.mascotMin] and four
+/// points. Side by side the face stands at the corner and takes no height,
+/// so it stays.
 LeavingReceiptLayout leavingReceiptLayoutFor(
   Size stage, {
   required int rows,
   required double textScale,
+  bool showsFace = true,
 }) {
   final isStacked = textScale > leavingReceiptStackedAbove;
+  if (isStacked && !showsFace) {
+    return LeavingReceiptLayout(
+      plan: ReceiptPlan.of(
+        stage,
+        count: rows,
+        hasCard: false,
+        hasTotal: false,
+        fullWidth: true,
+      ),
+      isStacked: true,
+      showsFace: false,
+      mascot: Rect.zero,
+    );
+  }
   if (isStacked) {
     const below = ReceiptPlan.mascotMin + 4;
     final plan = ReceiptPlan.of(
@@ -167,10 +192,112 @@ LeavingReceiptLayout leavingReceiptLayoutFor(
   );
 }
 
-/// The least stage height a slip of [rows] rows fits on.
-double leavingReceiptMinHeight(int rows, {required double textScale}) {
+/// The least stage height a slip of [rows] rows fits on. [showsFace] false
+/// leaves out the room the stacked face takes.
+double leavingReceiptMinHeight(
+  int rows, {
+  required double textScale,
+  bool showsFace = true,
+}) {
   final slip = ReceiptPlan.minHeight(rows, hasTotal: false);
-  return textScale > leavingReceiptStackedAbove
+  return showsFace && textScale > leavingReceiptStackedAbove
       ? slip + ReceiptPlan.mascotMin + 4
       : slip;
+}
+
+/// What the leaving Receipt keeps and what gives way in the box above the buy
+/// block.
+@immutable
+class LeavingReceiptFit {
+  const LeavingReceiptFit({
+    required this.showsFace,
+    required this.showsSubline,
+    required this.scrolls,
+    required this.stage,
+    required this.room,
+  });
+
+  final bool showsFace;
+  final bool showsSubline;
+
+  /// True when even the slip at its smallest rows does not fit with the
+  /// three lines under it. The part above them then scrolls, and the lines
+  /// stay in view.
+  final bool scrolls;
+
+  /// The stage's height.
+  final double stage;
+
+  /// How the height is shared out when nothing scrolls.
+  final HeroStageRoom room;
+}
+
+/// Works out what gives way when the box above the buy block is [height]
+/// points tall. The three lines under the slip ([afterHeight]) never give
+/// way and never clip. In order:
+///
+/// 1. The face, when it stands under a stacked slip. Side by side it takes
+///    no height, so it stays.
+/// 2. The line under the headline ([sublineBlock] with its gap).
+/// 3. The slip's rows, down to the kit's smallest ([ReceiptPlan.rowMin]).
+///    This one is not a choice: the stage takes what the words leave, and
+///    the rows with it, so it has happened by the time a step is needed.
+/// 4. The part above the lines scrolls, and the lines stay where they are.
+///
+/// [top] is everything above the stage: the gap at the top, the headline
+/// and the gap under it.
+LeavingReceiptFit leavingReceiptFitFor({
+  required double height,
+  required double top,
+  required double sublineBlock,
+  required double afterHeight,
+  required double stageGap,
+  required double bottomGap,
+  required int rows,
+  required double textScale,
+}) {
+  final isStacked = textScale > leavingReceiptStackedAbove;
+  final steps = <({bool face, bool subline})>[
+    (face: true, subline: true),
+    if (isStacked) (face: false, subline: true),
+    (face: !isStacked, subline: false),
+  ];
+  HeroStageRoom roomFor(({bool face, bool subline}) step) => heroStageRoomFor(
+    height: height,
+    words: top + (step.subline ? sublineBlock : 0) + afterHeight,
+    gap: stageGap,
+    bottomGap: bottomGap,
+    stageMax:
+        ReceiptPlan.maxHeight(rows, hasTotal: false) +
+        (step.face && isStacked ? ReceiptPlan.mascotMin + 4 : 0),
+  );
+  for (final step in steps) {
+    final room = roomFor(step);
+    final least = leavingReceiptMinHeight(
+      rows,
+      textScale: textScale,
+      showsFace: step.face,
+    );
+    if (room.stage >= least) {
+      return LeavingReceiptFit(
+        showsFace: step.face,
+        showsSubline: step.subline,
+        scrolls: false,
+        stage: room.stage,
+        room: room,
+      );
+    }
+  }
+  final last = steps.last;
+  return LeavingReceiptFit(
+    showsFace: last.face,
+    showsSubline: last.subline,
+    scrolls: true,
+    stage: leavingReceiptMinHeight(
+      rows,
+      textScale: textScale,
+      showsFace: last.face,
+    ),
+    room: roomFor(last),
+  );
 }
