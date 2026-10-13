@@ -4,18 +4,33 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_rules.dart';
 import 'package:flutter/material.dart';
 
+/// How the rows of the slip are set.
+enum ReceiptLinesStyle {
+  /// A tick, then the words: the benefit slip.
+  ticked,
+
+  /// The words at the left, a figure at the right, no tick. Its rows are
+  /// read, not pressed.
+  figures,
+}
+
 /// One line of the slip: what it says, what a screen reader adds, and what
-/// a tap on it does.
+/// a tap on it does. With [ReceiptLinesStyle.figures] a line also has a
+/// [value], the figure at its right.
 class ReceiptLine {
   const ReceiptLine({
     required this.text,
     required this.label,
     required this.onTap,
+    this.value,
   });
 
   final String text;
   final String label;
   final VoidCallback onTap;
+
+  /// The figure at the right of a line set as figures.
+  final String? value;
 }
 
 /// The colours of the slip and its slot. Paper is light in both themes:
@@ -91,6 +106,8 @@ class ReceiptPaper extends StatelessWidget {
       scale: 1,
       angle: ReceiptTimeline.stampAngle,
     ),
+    this.linesStyle = ReceiptLinesStyle.ticked,
+    this.showsTotal = true,
     super.key,
   });
 
@@ -112,6 +129,15 @@ class ReceiptPaper extends StatelessWidget {
   final double marker;
   final ReceiptStamp stamp;
 
+  /// Ticked lines, or the words with a figure at the right.
+  final ReceiptLinesStyle linesStyle;
+
+  /// False leaves out the second rule and the total. The plan must have
+  /// been made with no total too.
+  final bool showsTotal;
+
+  bool get _isFigures => linesStyle == ReceiptLinesStyle.figures;
+
   /// The slip's type grows this much with the text size and no further.
   static const double maxTextScale = 1.3;
 
@@ -132,11 +158,16 @@ class ReceiptPaper extends StatelessWidget {
       MediaQuery.textScalerOf(context).scale(10) / 10,
       maxTextScale,
     );
+    // A figure takes room beside its words: a space and its letters.
     final longest = lines.fold<int>(
       0,
-      (most, line) => math.max(most, line.text.length),
+      (most, line) => math.max(
+        most,
+        line.text.length + (_isFigures ? 1 + (line.value?.length ?? 0) : 0),
+      ),
     );
-    final fontSize = plan.lineFont(longest) / math.max(1, grown);
+    final fontSize =
+        plan.lineFont(longest, hasTick: !_isFigures) / math.max(1, grown);
     final strong = AppTypography.monoBold(
       inks.ink,
       fontSize: fontSize,
@@ -185,7 +216,7 @@ class ReceiptPaper extends StatelessWidget {
                       height: plan.row - 6,
                       child: ExcludeSemantics(
                         child: Opacity(
-                          opacity: marker,
+                          opacity: active < 0 ? 0 : marker,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: colors.yellow.withValues(alpha: 0.7),
@@ -225,31 +256,72 @@ class ReceiptPaper extends StatelessWidget {
                         height: plan.row,
                         child: Opacity(
                           opacity: _ink(i + 1),
+                          child: _isFigures
+                              ? _figureRow(line, i == active, strong, quiet)
+                              : Semantics(
+                                  label: '${line.text}. ${line.label}',
+                                  button: true,
+                                  selected: i == active,
+                                  onTap: line.onTap,
+                                  excludeSemantics: true,
+                                  child: Row(
+                                    children: [
+                                      AppGlyph(
+                                        GlyphType.check,
+                                        size: ReceiptPlan.tick,
+                                        color: inks.ink,
+                                        strokeWidth: 2.4,
+                                      ),
+                                      const SizedBox(
+                                        width: ReceiptPlan.tickGap,
+                                      ),
+                                      Expanded(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: AnimatedDefaultTextStyle(
+                                            duration: context.motion(
+                                              AppDurations.base,
+                                            ),
+                                            style: i == active ? strong : quiet,
+                                            child: Text(line.text, maxLines: 1),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+                    if (showsTotal)
+                      _rule(
+                        plan.totalTop - ReceiptPlan.rule,
+                        inks.faint,
+                        lines.length + 1,
+                      ),
+                    if (showsTotal)
+                      Positioned(
+                        left: pad,
+                        right: pad,
+                        top: plan.totalTop,
+                        height: ReceiptPlan.total,
+                        child: Opacity(
+                          opacity: _ink(lines.length + 1),
                           child: Semantics(
-                            label: '${line.text}. ${line.label}',
-                            button: true,
-                            selected: i == active,
-                            onTap: line.onTap,
+                            label: price == null ? name : '$name, $price',
                             excludeSemantics: true,
                             child: Row(
                               children: [
-                                AppGlyph(
-                                  GlyphType.check,
-                                  size: ReceiptPlan.tick,
-                                  color: inks.ink,
-                                  strokeWidth: 2.4,
-                                ),
-                                const SizedBox(width: ReceiptPlan.tickGap),
+                                Text(name, maxLines: 1, style: totalStyle),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: AnimatedDefaultTextStyle(
-                                      duration: context.motion(
-                                        AppDurations.base,
-                                      ),
-                                      style: i == active ? strong : quiet,
-                                      child: Text(line.text, maxLines: 1),
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      price ?? '',
+                                      maxLines: 1,
+                                      style: totalStyle,
                                     ),
                                   ),
                                 ),
@@ -258,41 +330,6 @@ class ReceiptPaper extends StatelessWidget {
                           ),
                         ),
                       ),
-                    _rule(
-                      plan.totalTop - ReceiptPlan.rule,
-                      inks.faint,
-                      lines.length + 1,
-                    ),
-                    Positioned(
-                      left: pad,
-                      right: pad,
-                      top: plan.totalTop,
-                      height: ReceiptPlan.total,
-                      child: Opacity(
-                        opacity: _ink(lines.length + 1),
-                        child: Semantics(
-                          label: price == null ? name : '$name, $price',
-                          excludeSemantics: true,
-                          child: Row(
-                            children: [
-                              Text(name, maxLines: 1, style: totalStyle),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    price ?? '',
-                                    maxLines: 1,
-                                    style: totalStyle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -303,18 +340,35 @@ class ReceiptPaper extends StatelessWidget {
                 right: pad,
                 top: plan.stampTop,
                 height: ReceiptPlan.stampRoom - 4,
+                // The stamp of the benefit slip repeats the name beside it. A
+                // figures slip's stamp holds the end date, so it is read.
                 child: ExcludeSemantics(
-                  child: Align(
-                    alignment: const Alignment(0.72, 0),
-                    child: Opacity(
-                      opacity: stamp.opacity,
-                      child: Transform.rotate(
-                        angle: stamp.angle,
-                        child: Transform.scale(
-                          scale: stamp.scale,
-                          child: _StampMark(
-                            text: stampText,
-                            color: colors.crit,
+                  excluding: !_isFigures,
+                  child: Semantics(
+                    label: stampText,
+                    excludeSemantics: true,
+                    child: Align(
+                      alignment: const Alignment(0.72, 0),
+                      child: Opacity(
+                        opacity: stamp.opacity,
+                        child: Transform.rotate(
+                          angle: stamp.angle,
+                          child: Transform.scale(
+                            scale: stamp.scale,
+                            child: _isFigures
+                                // A date is longer than a product's name, so
+                                // the stamp shrinks to the paper if it must.
+                                ? FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: _StampMark(
+                                      text: stampText,
+                                      color: colors.crit,
+                                    ),
+                                  )
+                                : _StampMark(
+                                    text: stampText,
+                                    color: colors.crit,
+                                  ),
                           ),
                         ),
                       ),
@@ -327,6 +381,35 @@ class ReceiptPaper extends StatelessWidget {
       ),
     );
   }
+
+  /// One row set as figures: the words at the left, the figure at the
+  /// right. It is read, not pressed.
+  Widget _figureRow(
+    ReceiptLine line,
+    bool isActive,
+    TextStyle strong,
+    TextStyle quiet,
+  ) => Semantics(
+    label: '${line.text}, ${line.value}',
+    excludeSemantics: true,
+    child: Row(
+      children: [
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              line.text,
+              maxLines: 1,
+              style: isActive ? strong : quiet,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(line.value ?? '', maxLines: 1, style: strong),
+      ],
+    ),
+  );
 
   Widget _rule(double top, Color color, int part) => Positioned(
     left: ReceiptPlan.pad,
