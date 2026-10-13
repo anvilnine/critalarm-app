@@ -44,6 +44,9 @@ enum OnboardingFunnelState {
 /// The offer step adds three events of its own: shown, closed and bought.
 /// Each is the product, the layout and the flow id, checked the same way,
 /// and they wait, go and are dropped with the step events.
+///
+/// The use step adds one more: the answer the user gave, as one word from a
+/// closed set. It waits, goes and is dropped the same way.
 final class OnboardingFunnel {
   OnboardingFunnel({
     required this._prefs,
@@ -80,6 +83,19 @@ final class OnboardingFunnel {
     _offerBought,
   };
   static const _offerFields = {'k', 'product', 'layout', 'flow_id', 'at'};
+
+  static const _usePicked = 'up';
+  static const _useFields = {'k', 'use', 'flow_id', 'at'};
+
+  /// The words a pick can be sent as: the five answers and a skip.
+  static const Set<String> _useAnswers = {
+    'servers',
+    'homelab',
+    'jobs',
+    'home',
+    'other',
+    'skipped',
+  };
 
   /// The two products an offer can name.
   static const Set<String> _offerProducts = {'pro', 'hosted'};
@@ -139,6 +155,23 @@ final class OnboardingFunnel {
     required String flowId,
     bool isReplay = false,
   }) => _recordOffer(_offerBought, product, layout, flowId, isReplay: isReplay);
+
+  /// The user answered the use step. [use] is one of `servers`, `homelab`,
+  /// `jobs`, `home`, `other` or `skipped`.
+  Future<void> usePicked({
+    required String use,
+    required String flowId,
+    bool isReplay = false,
+  }) {
+    if (isReplay) return Future.value();
+    if (!_useAnswers.contains(use) || !_flowIdPattern.hasMatch(flowId)) {
+      return Future.value();
+    }
+    final at = _clock().millisecondsSinceEpoch;
+    return _enqueue(
+      () => _handle({'k': _usePicked, 'use': use, 'flow_id': flowId, 'at': at}),
+    );
+  }
 
   /// The app opened. [analyticsOn] is the saved analytics preference. This
   /// is where a leftover list is sent, deleted or aged out.
@@ -266,6 +299,9 @@ final class OnboardingFunnel {
   Future<void> _send(Map<String, Object?> event) {
     final kind = event['k']! as String;
     final flowId = event['flow_id']! as String;
+    if (kind == _usePicked) {
+      return _analytics.usePicked(use: event['use']! as String, flowId: flowId);
+    }
     if (_offerKinds.contains(kind)) {
       final product = event['product']! as String;
       final layout = event['layout']! as String;
@@ -333,6 +369,15 @@ final class OnboardingFunnel {
       final at = row['at'];
       if (flowId is! String || !_flowIdPattern.hasMatch(flowId)) return null;
       if (at is! int) return null;
+      if (kind == _usePicked) {
+        if (row.length != _useFields.length ||
+            !row.keys.every(_useFields.contains)) {
+          return null;
+        }
+        if (!_useAnswers.contains(row['use'])) return null;
+        events.add(Map<String, Object?>.from(row));
+        continue;
+      }
       if (_offerKinds.contains(kind)) {
         if (row.length != _offerFields.length ||
             !row.keys.every(_offerFields.contains)) {

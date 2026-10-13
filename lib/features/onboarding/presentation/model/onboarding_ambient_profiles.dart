@@ -37,6 +37,9 @@ enum OnboardingAmbientStep {
   /// Step 2A: Connect to server (Cloud or self-hosted).
   connect,
 
+  /// The use step: one question and five answers.
+  use,
+
   /// The first topic, created inside setup.
   firstTopic,
 
@@ -180,6 +183,23 @@ abstract final class OnboardingAmbientProfiles {
         ],
         scales: const [0.42, 0.34, 0.30],
         turns: const [0.08, -0.12, 0.20],
+        depths: const [0.35, 0.65, 0.85],
+      ),
+      // The title and the face sit top left and right, and the sheet fills
+      // the middle, so the shapes take the corners the sheet leaves free:
+      // one top right behind the face, one low left, one low right.
+      OnboardingAmbientStep.use: _profile(
+        canvas: colors.canvas,
+        surfaceOpacity: 0.84,
+        colors: [colors.high, colors.cobalt, colors.crit],
+        opacities: const [0.26, 0.20, 0.12],
+        anchors: const [
+          Alignment(0.84, -0.88),
+          Alignment(-0.88, 0.80),
+          Alignment(0.90, 0.30),
+        ],
+        scales: const [0.46, 0.36, 0.26],
+        turns: const [0.02, -0.14, 0.10],
         depths: const [0.35, 0.65, 0.85],
       ),
       OnboardingAmbientStep.firstTopic: _profile(

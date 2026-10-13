@@ -14,11 +14,15 @@ void main() {
       expect(onboardingChapterOf('how_it_rings'), OnboardingChapter.meet);
     });
 
-    test('Set up is connect, the permissions and the first topic', () {
-      expect(onboardingChapterOf('connect'), OnboardingChapter.setUp);
-      expect(onboardingChapterOf('permissions'), OnboardingChapter.setUp);
-      expect(onboardingChapterOf('first_topic'), OnboardingChapter.setUp);
-    });
+    test(
+      'Set up is connect, permissions, the use step and the first topic',
+      () {
+        expect(onboardingChapterOf('connect'), OnboardingChapter.setUp);
+        expect(onboardingChapterOf('permissions'), OnboardingChapter.setUp);
+        expect(onboardingChapterOf('use'), OnboardingChapter.setUp);
+        expect(onboardingChapterOf('first_topic'), OnboardingChapter.setUp);
+      },
+    );
 
     test('Hear it is the real ring', () {
       expect(onboardingChapterOf('real_ring'), OnboardingChapter.hearIt);
@@ -53,9 +57,26 @@ void main() {
       expect(fill.chapter, OnboardingChapter.setUp);
     });
 
-    test('the second bar fills a third for each step behind', () {
-      expect(fillAt('permissions').bars[1], closeTo(1 / 3, 1e-9));
-      expect(fillAt('first_topic').bars[1], closeTo(2 / 3, 1e-9));
+    test('the second bar fills a quarter for each step behind', () {
+      expect(fillAt('connect').bars[1], 0);
+      expect(fillAt('permissions').bars[1], closeTo(1 / 4, 1e-9));
+      expect(fillAt('use').bars[1], closeTo(2 / 4, 1e-9));
+      expect(fillAt('first_topic').bars[1], closeTo(3 / 4, 1e-9));
+    });
+
+    test('the use step is the third of four steps in Set up', () {
+      final inSetUp = [
+        for (final step in flow)
+          if (onboardingChapterOf(step) == OnboardingChapter.setUp) step,
+      ];
+      expect(inSetUp, ['connect', 'permissions', 'use', 'first_topic']);
+      expect(fillAt('use').chapter, OnboardingChapter.setUp);
+    });
+
+    test('a flow that predates the use step keeps three steps in Set up', () {
+      final steps = BundledOnboardingFlows.october2026B.steps;
+      expect(fillAt('permissions', steps).bars[1], closeTo(1 / 3, 1e-9));
+      expect(fillAt('first_topic', steps).bars[1], closeTo(2 / 3, 1e-9));
     });
 
     test('the third bar is empty while the real ring is on screen', () {
@@ -85,9 +106,8 @@ void main() {
   group('skipped steps', () {
     test('a step the run passed over counts as behind the user', () {
       // The permissions were already granted, so the run went from connect
-      // straight to the first topic. The bar shows two of three all the
-      // same.
-      expect(fillAt('first_topic').bars[1], closeTo(2 / 3, 1e-9));
+      // straight to the use step. The bar shows two of four all the same.
+      expect(fillAt('use').bars[1], closeTo(2 / 4, 1e-9));
     });
 
     test('a whole chapter passed over is a full bar', () {

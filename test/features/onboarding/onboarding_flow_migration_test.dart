@@ -42,13 +42,13 @@ void main() {
     }
   }
 
-  test('connected, with permissions, resumes at the first topic', () async {
+  test('connected, with permissions, resumes at the use step', () async {
     final h = EngineHarness(
       facts: FakeOnboardingStepFacts(connected: true, permissions: true),
       repository: FakeOnboardingFlowRepository(legacyStep: 'test'),
     );
 
-    expect((await h.engine.resume()).route, '/onboarding/first-topic');
+    expect((await h.engine.resume()).route, '/onboarding/use');
   });
 
   test('a name the old enum never had is treated as past the intro', () async {
@@ -120,7 +120,7 @@ void main() {
 
       expect(next.route, '/onboarding');
       expect(prefs.containsKey('onboarding_step'), isFalse);
-      expect(prefs.getString('onboarding_flow_id'), '2026-10-b');
+      expect(prefs.getString('onboarding_flow_id'), '2026-10-c');
       expect(
         prefs.getStringList('onboarding_flow_steps'),
         BundledOnboardingFlows.defaultFlow.steps,
@@ -132,6 +132,7 @@ void main() {
 
       // Completing setup clears all three.
       await h.engine.finishStep('permissions');
+      await h.engine.finishStep('use');
       await h.engine.finishStep('first_topic');
       await h.engine.finishStep('real_ring');
       expect((await h.engine.finishStep('hook_up')).isHome, isTrue);
