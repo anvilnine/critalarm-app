@@ -43,9 +43,7 @@ import 'capture_fonts.dart';
 
 const _out = String.fromEnvironment(
   'OUT',
-  defaultValue:
-      '../../../critalarm-planning/docs/superpowers/plans/'
-      '2026-10-13-leaving-paywall-shots/A263',
+  defaultValue: 'build/captures/hero_faces',
 );
 const _only = String.fromEnvironment('ONLY');
 
