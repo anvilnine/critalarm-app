@@ -176,14 +176,12 @@ class CloudClimbCloudPainter extends _SecondPainter {
     super.t, {
     required this.box,
     required this.cloud,
-    required this.ground,
     required this.ink,
     required this.dots,
   });
 
   final Rect box;
   final Color cloud;
-  final Color ground;
   final Color ink;
   final Color dots;
 
@@ -196,15 +194,16 @@ class CloudClimbCloudPainter extends _SecondPainter {
     canvas.translate(box.center.dx, box.center.dy + 92);
     canvas.rotate(T.angle(t) * 0.6);
     canvas.scale(grow);
-    paintOutroCloud(
-      canvas,
-      Offset.zero,
-      250,
-      88,
-      Color.lerp(cloud, ground, melt)!,
+    // The cloud leaves by opacity, as one piece, so his outline shows
+    // through it as it goes.
+    canvas.saveLayer(
+      const Rect.fromLTRB(-160, -80, 160, 90),
+      Paint()..color = cloud.withValues(alpha: 1 - melt),
     );
+    paintOutroCloud(canvas, Offset.zero, 250, 88, cloud);
     final alpha = T.boxAlpha(t);
     if (alpha > 0) _serverBox(canvas, const Offset(0, 10), 52, alpha);
+    canvas.restore();
     canvas.restore();
   }
 

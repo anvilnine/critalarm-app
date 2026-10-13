@@ -105,7 +105,6 @@ class CloudClimb extends StatelessWidget {
                 t,
                 box: box,
                 cloud: colors.cream,
-                ground: scope.ground,
                 ink: colors.inkFixed,
                 dots: colors.yellow,
               ),
