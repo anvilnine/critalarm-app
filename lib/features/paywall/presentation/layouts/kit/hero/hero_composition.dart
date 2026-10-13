@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
@@ -131,6 +133,8 @@ class HeroComposition extends StatefulWidget {
     required this.scope,
     this.headline,
     this.headlineBuilder,
+    this.headlineAt,
+    this.headlineAlternatives = const [],
     this.lines,
     this.loop,
     this.player,
@@ -170,6 +174,16 @@ class HeroComposition extends StatefulWidget {
   /// Null is the approved headline for the scope's product.
   final String? headline;
   final HeroHeadlineBuilder? headlineBuilder;
+
+  /// The headline for the frame on the stage, for a layout whose headline
+  /// follows the beat. Null keeps [headline] for every frame. It only
+  /// changes the words: no motion goes with the change. The room for the
+  /// headline is the tallest of [headline] and [headlineAlternatives], so
+  /// the stage never moves when the words do.
+  final String Function(HeroFrame frame)? headlineAt;
+
+  /// Every other text [headlineAt] can answer, to measure the room by.
+  final List<String> headlineAlternatives;
 
   /// One short line per benefit. Null is [heroLineFor] each.
   final List<String>? lines;
@@ -219,6 +233,29 @@ class _HeroCompositionState extends State<HeroComposition> {
     super.dispose();
   }
 
+  /// The headline: [fallback] for every frame, or the words
+  /// `headlineAt` gives for the frame on the stage, drawn in a box of the
+  /// measured height.
+  Widget _headlineText(
+    HeroPlayer player,
+    String fallback,
+    TextStyle style,
+    double height,
+  ) {
+    final at = widget.headlineAt;
+    if (at == null) return Text(fallback, style: style);
+    return SizedBox(
+      height: height,
+      child: Align(
+        alignment: AlignmentDirectional.topStart,
+        child: PaywallClockBuilder(
+          clock: scope.clock,
+          builder: (context, t, _) => Text(at(player.frameAt(t)), style: style),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tones = PaywallToneColors.of(context, widget.tone);
@@ -261,12 +298,10 @@ class _HeroCompositionState extends State<HeroComposition> {
                 sentenceStyle,
                 metrics.textWidth,
               );
-    final headlineHeight = paywallTextHeight(
-      context,
-      headline,
-      headlineStyle,
-      width,
-    );
+    final headlineHeight = [
+      for (final text in [headline, ...widget.headlineAlternatives])
+        paywallTextHeight(context, text, headlineStyle, width),
+    ].reduce(math.max);
     final words =
         headlineHeight + sizes.headlineGap + metrics.height + sentenceHeight;
 
@@ -368,7 +403,12 @@ class _HeroCompositionState extends State<HeroComposition> {
                               headline,
                               headlineStyle,
                             ) ??
-                            Text(headline, style: headlineStyle),
+                            _headlineText(
+                              player,
+                              headline,
+                              headlineStyle,
+                              headlineHeight,
+                            ),
                       ),
                     ),
                     SizedBox(height: sizes.headlineGap),

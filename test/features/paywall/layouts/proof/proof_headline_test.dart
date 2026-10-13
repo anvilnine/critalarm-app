@@ -55,4 +55,28 @@ void main() {
       ProofHeadline.pro,
     );
   });
+
+  group('which beat the headline shows on', () {
+    test('See older alarms stays on the lead beat only', () {
+      expect(
+        proofHeadlineOnBeat(ProofHeadline.olderAlarms, beat: 0),
+        ProofHeadline.olderAlarms,
+      );
+      for (var beat = 1; beat < 8; beat++) {
+        expect(
+          proofHeadlineOnBeat(ProofHeadline.olderAlarms, beat: beat),
+          ProofHeadline.hosted,
+          reason: 'beat $beat',
+        );
+      }
+    });
+
+    test('the other headlines do not follow the beat', () {
+      for (final headline in [ProofHeadline.hosted, ProofHeadline.pro]) {
+        for (var beat = 0; beat < 4; beat++) {
+          expect(proofHeadlineOnBeat(headline, beat: beat), headline);
+        }
+      }
+    });
+  });
 }
