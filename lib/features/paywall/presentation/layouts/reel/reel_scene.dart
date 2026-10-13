@@ -286,26 +286,32 @@ class _ReelCompositionState extends State<ReelComposition> {
         rise: isLeaving ? null : scope.clock,
         riseAfter: player.loop.prelude,
         pull: pull,
-        stage: HeroStage(
-          size: stage,
-          frame: frame,
-          seconds: player.stageSeconds(t),
-          tone: reelAirFor(tone),
-          motion: reelMotion,
-          sceneBuilder: lead?.topicName == null
-              ? null
-              : (context, scene, size, playFrom) {
-                  final preview = scene.preview;
-                  if (preview == null) return SizedBox.fromSize(size: size);
-                  return PaywallPreview(
-                    preview,
-                    sizeClass: PaywallPreviewClass.large,
-                    size: size,
-                    playFrom: playFrom,
-                    topicName: lead!.topicName,
-                  );
-                },
-        ),
+        // Too little room for a picture that reads: none is drawn, and not
+        // a placeholder either.
+        stage: stage.isEmpty
+            ? null
+            : HeroStage(
+                size: stage,
+                frame: frame,
+                seconds: player.stageSeconds(t),
+                tone: reelAirFor(tone),
+                motion: reelMotion,
+                sceneBuilder: lead?.topicName == null
+                    ? null
+                    : (context, scene, size, playFrom) {
+                        final preview = scene.preview;
+                        if (preview == null) {
+                          return SizedBox.fromSize(size: size);
+                        }
+                        return PaywallPreview(
+                          preview,
+                          sizeClass: PaywallPreviewClass.large,
+                          size: size,
+                          playFrom: playFrom,
+                          topicName: lead!.topicName,
+                        );
+                      },
+              ),
       );
     }
 
@@ -536,7 +542,9 @@ class _ReelPanel extends StatelessWidget {
 
   /// The height the line is laid out at, measured for the lead's line.
   final double lineHeight;
-  final Widget stage;
+
+  /// The picture. Null when the scene has no room for one that reads.
+  final Widget? stage;
 
   /// The clock the words rise on during the entrance. Null for a scene on
   /// its way out, whose words are already there.
@@ -562,6 +570,7 @@ class _ReelPanel extends StatelessWidget {
     );
     final clock = rise;
     final under = line;
+    final picture = stage;
     return ColoredBox(
       color: colors.background,
       child: Transform.translate(
@@ -570,16 +579,20 @@ class _ReelPanel extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // The stage first, so its disc never paints over the words.
-            Positioned(
-              left: 0,
-              top: top + words + sizes.stageGap,
-              child: stage,
-            ),
+            if (picture != null)
+              Positioned(
+                left: 0,
+                top: top + words + sizes.stageGap,
+                child: picture,
+              ),
             if (under != null)
               Positioned(
                 left: heroSideInset,
                 right: heroSideInset,
-                bottom: sizes.foot,
+                // Under the picture, or straight under the words when there
+                // is none.
+                top: picture == null ? top + words + sizes.stageGap : null,
+                bottom: picture == null ? null : sizes.foot,
                 height: lineHeight,
                 child: clock == null
                     ? under

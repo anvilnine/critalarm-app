@@ -202,24 +202,35 @@ class ReelSizes {
   final double foot;
 }
 
+/// The shortest stage that draws something to read: the room above the
+/// mascot and the smallest mascot the stage draws. A shorter one would hold
+/// only the soft disc behind the picture, which reads as a stray dot.
+const double reelStageMinHeight = heroTopRoom + heroMascotMin;
+
 /// The height left for the stage in a scene [height] points tall whose
 /// words take [words] and whose line under the picture takes [line], gap
-/// included. Never under zero: at a large text size the stage's own
-/// arrangement drops the picture, then the mascot.
+/// included. Never under zero.
+///
+/// A room under [reelStageMinHeight] is zero: the scene draws no stage and
+/// no placeholder, and the words keep the room. At a larger text size the
+/// stage's own arrangement still drops the card before the mascot.
 double reelStageHeight({
   required double height,
   required double words,
   required ReelSizes sizes,
   double line = 0,
-}) => math
-    .max(
-      0,
-      height -
-          reelBarsHeight -
-          words -
-          sizes.stageGap -
-          line -
-          sizes.foot -
-          reelSceneGap,
-    )
-    .floorToDouble();
+}) {
+  final room = math
+      .max(
+        0,
+        height -
+            reelBarsHeight -
+            words -
+            sizes.stageGap -
+            line -
+            sizes.foot -
+            reelSceneGap,
+      )
+      .floorToDouble();
+  return room < reelStageMinHeight ? 0 : room;
+}
