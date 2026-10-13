@@ -262,7 +262,8 @@ void main() {
       expect(find.text('Share anonymous usage analytics'), findsOneWidget);
       expect(
         find.text(
-          'Which screens you open. No topic names, no message content.',
+          'Which screens you open and your setup answer. '
+          'No topic names, no message content.',
         ),
         findsOneWidget,
       );

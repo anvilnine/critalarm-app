@@ -22,6 +22,9 @@
 //                 not answering in time, a held product, the switch off
 //   replay        a developer replay on one answer (run with
 //                 --dart-define=PAYWALL_LAB=true so ?use= is read)
+//   tag_<answer>  only the frame with the tag, for every answer and the own
+//                 server at every text size (ONLY=tag_). At 2.0 the frame
+//                 shows no tag.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
@@ -518,9 +521,10 @@ Future<void> _sequence(
         t = await _stepTo(tester, t, 1.52);
         await _save(tester, run, name('offer_handover_$label'));
         t = await _stepTo(tester, t, 2.2);
-        // The tag is detail, so it goes at the largest text size.
+        // The tag is detail, so it goes at the largest text size, and where
+        // it has no clear room it is not shown.
         if (config.scale <= 1.3) {
-          expect(find.text('Just kidding.'), findsOneWidget);
+          expect(find.text('Just kidding.').evaluate().length, lessThan(2));
           await _save(tester, run, name('offer_tag_just_kidding_$label'));
         }
       } else {
@@ -617,6 +621,49 @@ Future<void> _sequence(
     expect(buffer, contains('"k":"ob"'));
     await _afterClose(tester, run, scenario);
   }
+}
+
+/// Only the frame of the intro's tag, for every text size: the tag is there
+/// at 1.0 and 1.3 when it has room and never at 2.0.
+Future<void> _tag(
+  WidgetTester tester,
+  _Config config,
+  _Scenario scenario,
+  List<String> errors,
+) async {
+  final file =
+      'offer_tag_just_kidding_${scenario.name}_${config.phone.name}_'
+      '${config.mode.name}_${config.scale.toStringAsFixed(1)}x';
+  final run = await _open(tester, config, scenario, errors: errors);
+  await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
+  run.router.go(_offerPath);
+  await tester.pump();
+  for (
+    var i = 0;
+    i < 400 && find.byType(PaywallIntroHost).evaluate().isEmpty;
+    i++
+  ) {
+    await _frame(tester);
+  }
+  expect(find.byType(PaywallIntroHost), findsOneWidget, reason: 'layer up');
+  await tester.pump(const Duration(milliseconds: 16));
+  await _stepTo(tester, 0.016, 2.2);
+  if (config.scale > 1.3) {
+    expect(find.text('Just kidding.'), findsNothing, reason: 'detail goes');
+  }
+  final isShown = find.text('Just kidding.').evaluate().isNotEmpty;
+  print('  tag ${isShown ? 'shown' : 'hidden'} $file');
+  await _save(tester, run, file);
+  await tester.tap(find.byType(AppDismissCross).first);
+  await tester.pump();
+  await _stepTo(tester, 0, 0.12);
+  await _untilLeft(
+    tester,
+    run,
+    from: _offerPath,
+    name: (scene) => scene,
+  );
+  await _afterClose(tester, run, scenario);
 }
 
 Future<void> _afterClose(
@@ -1013,6 +1060,33 @@ void main() {
             // would show the same frames.
             if (reduce) continue;
             _configuration(config, scenario, _skip);
+          }
+        }
+      }
+    }
+  }
+
+  // The tag frame alone, for every answer (ONLY=tag_).
+  if (_only.split(',').contains('tag_')) {
+    for (final phone in _phones) {
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        for (final scale in _scales) {
+          final config = _Config(phone, mode, scale, reduce: false);
+          for (final scenario in _scenarios) {
+            _configuration(
+              config,
+              _Scenario(
+                'tag_${scenario.name}',
+                use: scenario.use,
+                isOwnServer: scenario.isOwnServer,
+              ),
+              (tester, config, tagged, errors) => _tag(
+                tester,
+                config,
+                scenario,
+                errors,
+              ),
+            );
           }
         }
       }
