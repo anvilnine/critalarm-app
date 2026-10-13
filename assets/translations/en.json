@@ -329,6 +329,19 @@
     "tool_uptime_kuma": "Add a notification, pick the type Ntfy and fill in these fields.",
     "tool_healthchecks": "Add an ntfy integration and fill in these fields."
   },
+  "onboarding_hook_up_steps": {
+    "label": "Hook up",
+    "copy_url": "Copy URL",
+    "copy_token": "Copy token",
+    "curl": "curl",
+    "step_test": "Press Test. This phone rings.",
+    "uptime_kuma_1": "Settings, Notifications, Setup Notification",
+    "healthchecks_1": "Project, Integrations, Add",
+    "home_assistant_1": "Add the block to configuration.yaml and restart",
+    "home_assistant_2": "Add the action to an automation",
+    "home_assistant_3": "Run the action in Home Assistant. This phone rings.",
+    "jobs_note": "One line for the end of the script, or on failure."
+  },
   "onboarding_permissions": {
     "denied_title": "Crit Alarm can't reach you yet",
     "denied_description": "Turn these on in Settings, or carry on and fix it later under Will it wake me?",

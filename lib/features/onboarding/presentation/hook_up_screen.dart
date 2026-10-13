@@ -7,29 +7,38 @@ import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/hook_up_waiting_line.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/hook_up_steps.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/domain/tool_snippet.dart';
+import 'package:critalarm/features/topics/domain/tool_steps.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_message_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 /// The last step of setup: the curl line for the topic setup made, the row
 /// that waits for the first message, and the one analytics switch.
+///
+/// A tool with documented steps (Uptime Kuma, Healthchecks, Home Assistant)
+/// leads with those steps instead, and keeps the curl line one tap away
+/// (`HookUpStepsLayout`).
 ///
 /// Done is always there and never waits on anything.
 class HookUpScreen extends StatelessWidget {
@@ -39,6 +48,9 @@ class HookUpScreen extends StatelessWidget {
   /// developer build only.
   static const replayStateParam = 'show';
   static const replayToolParam = 'tool';
+
+  /// A wire id of the `use` answer the replay should act on.
+  static const replayUseParam = 'use';
 
   static const _arrived = 'arrived';
   static const _criticalOff = 'critical_off';
@@ -57,6 +69,14 @@ class HookUpScreen extends StatelessWidget {
     HookUpPhase.noTopic.name,
     HookUpPhase.noServer.name,
   ]);
+
+  /// Puts the answer the replay shows in memory, before the first frame, so
+  /// the screen never draws once for the saved answer.
+  static void _pickUse(Uri uri) {
+    if (!buildHasOnboardingDeveloperTools) return;
+    final use = SetupUse.tryParse(uri.queryParameters[replayUseParam]);
+    if (use != null) getIt<SetupUseReplay>().set(use);
+  }
 
   static void _show(HookUpCubit cubit, Uri uri) {
     if (!buildHasOnboardingDeveloperTools) return;
@@ -83,6 +103,7 @@ class HookUpScreen extends StatelessWidget {
     final isReplay = isOnboardingReplayUri(uri);
     return BlocProvider(
       create: (_) {
+        if (isReplay) _pickUse(uri);
         final cubit = getIt<HookUpCubit>(param1: isReplay);
         unawaited(
           cubit
@@ -217,6 +238,19 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
         // screen, so it goes into the body, under the line.
         final textScale = setupTextScaleOf(context);
         final pinsRow = setupPinsFirstMessageRow(textScale);
+        final waitingLineKey = _stepsWaitingLineKey(context, state);
+        // The row that waits for the message. The steps layout has its own
+        // card for it, which turns into the same row when the message lands.
+        Widget waitingRow({required bool isCompact}) => waitingLineKey == null
+            ? FirstMessageRow(
+                isReceived: state.isFirstMessageReceived,
+                isCompact: isCompact,
+              )
+            : HookUpWaitingCard(
+                isReceived: state.isFirstMessageReceived,
+                lineKey: waitingLineKey,
+                isCompact: isCompact,
+              );
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
@@ -240,8 +274,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showsRow && pinsRow) ...[
-                FirstMessageRow(
-                  isReceived: state.isFirstMessageReceived,
+                waitingRow(
                   // Waiting, the row is a face, one line and the empty
                   // tick. The second line is the proof, so it shows once
                   // the message has landed, where there is room for it.
@@ -273,10 +306,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                     _top(context, state, cubit),
                     if (showsRow && !pinsRow) ...[
                       const SizedBox(height: Spacing.s5),
-                      FirstMessageRow(
-                        isReceived: state.isFirstMessageReceived,
-                        isCompact: !state.isFirstMessageReceived,
-                      ),
+                      waitingRow(isCompact: !state.isFirstMessageReceived),
                     ],
                     const SizedBox(height: Spacing.s5),
                     // The one ask in setup: a row, no sheet, nothing held.
@@ -332,6 +362,30 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       HookUpPhase.ready => _ready(context, state),
     };
   }
+
+  /// The answer the screen draws for: the replay's pick in a replay, the
+  /// saved one otherwise. Null reads as [SetupUse.other].
+  SetupUse? _use(BuildContext context) => setupUseFor(
+    isReplay: isOnboardingReplay(context),
+    store: getIt<SetupUseStore>(),
+    replay: getIt<SetupUseReplay>(),
+  );
+
+  /// The `en.json` key of the waiting card's mono line when the steps layout
+  /// is on screen, or null when the screen is today's.
+  String? _stepsWaitingLineKey(BuildContext context, HookUpState state) {
+    if (!_usesSteps(state)) return null;
+    return hookUpWaitingLineKey(
+      waitingLineFor(use: _use(context), savedTool: state.template),
+    );
+  }
+
+  /// Whether the tool saved on the topic has steps to lead with, and the
+  /// line they sit around is there to show.
+  bool _usesSteps(HookUpState state) =>
+      state.phase == HookUpPhase.ready &&
+      state.hasLine &&
+      toolStepsFor(state.template) != null;
 
   /// A wait: the face, waiting, over the one line that says what for.
   Widget _wait(String message) => Center(
@@ -397,6 +451,53 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       isWrapped: true,
       copyLabel: LocaleKeys.onboarding_hook_up_copy_line.tr(),
     );
+    // What the user is told about the token and about ringing.
+    final notes = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          state.isExample
+              ? LocaleKeys.onboarding_hook_up_example.tr()
+              : LocaleKeys.create_topic_token_warning.tr(),
+          style: note,
+        ),
+        if (state.isCritical == false) ...[
+          const SizedBox(height: Spacing.s2),
+          // The words about ringing follow what this phone can do.
+          // Same weight as the note above it: it stands out by its
+          // ink, not by going bold next to a regular line.
+          Text(
+            switch (state.claim) {
+              RingClaim.alarm =>
+                LocaleKeys.onboarding_hook_up_critical_off.tr(),
+              RingClaim.timeSensitive =>
+                LocaleKeys.onboarding_hook_up_critical_off_time_sensitive.tr(),
+            },
+            style: note.copyWith(color: colors.onCanvas),
+          ),
+        ],
+      ],
+    );
+
+    final steps = toolStepsFor(state.template);
+    if (_usesSteps(state) && steps != null && snippet != null) {
+      return HookUpStepsLayout(
+        template: state.template!,
+        steps: steps,
+        snippet: snippet,
+        serverUrl: serverUrl,
+        token: token,
+        curl: curl,
+        notes: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: notes,
+        ),
+      );
+    }
+
+    // A job runs the line once, at the end of a script or when it fails.
+    final isJobs = _use(context) == SetupUse.jobs;
     // The line rings: it carries the priority a critical topic opens an
     // alarm for. It wraps, so the whole of it shows at any text size, and
     // the copy button sits under it.
@@ -412,28 +513,14 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                state.isExample
-                    ? LocaleKeys.onboarding_hook_up_example.tr()
-                    : LocaleKeys.create_topic_token_warning.tr(),
-                style: note,
-              ),
-              if (state.isCritical == false) ...[
-                const SizedBox(height: Spacing.s2),
-                // The words about ringing follow what this phone can do.
-                // Same weight as the note above it: it stands out by its
-                // ink, not by going bold next to a regular line.
+              if (isJobs) ...[
                 Text(
-                  switch (state.claim) {
-                    RingClaim.alarm =>
-                      LocaleKeys.onboarding_hook_up_critical_off.tr(),
-                    RingClaim.timeSensitive =>
-                      LocaleKeys.onboarding_hook_up_critical_off_time_sensitive
-                          .tr(),
-                  },
-                  style: note.copyWith(color: colors.onCanvas),
+                  LocaleKeys.onboarding_hook_up_steps_jobs_note.tr(),
+                  style: note,
                 ),
+                const SizedBox(height: Spacing.s2),
               ],
+              notes,
             ],
           ),
         ),
@@ -543,133 +630,12 @@ class _ToolSection extends StatelessWidget {
                 // stacked tiles read as a settings page.
                 for (final (index, field) in fields.indexed) ...[
                   if (index > 0) Divider(height: 1, color: colors.hairline),
-                  _ToolField(field: field),
+                  HookUpToolField(field: field),
                 ],
               ],
             ),
           },
         ],
-      ),
-    );
-  }
-}
-
-/// One field of the tool's form: its name and the whole value, on one line
-/// where both fit and stacked where they do not. The value wraps, so a token
-/// is never cut short at any text size.
-///
-/// A value the user pastes has a copy button. A value they only read and
-/// pick in the tool's own list has none.
-class _ToolField extends StatefulWidget {
-  const _ToolField({required this.field});
-
-  final ToolSnippetField field;
-
-  @override
-  State<_ToolField> createState() => _ToolFieldState();
-}
-
-class _ToolFieldState extends State<_ToolField> {
-  bool _isCopied = false;
-
-  void _copy() {
-    unawaited(Clipboard.setData(ClipboardData(text: widget.field.value)));
-    setState(() => _isCopied = true);
-    unawaited(
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() => _isCopied = false);
-      }),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final field = widget.field;
-    final labelStyle = AppTypography.small(colors.ink3, fontSize: 13);
-    final valueStyle = AppTypography.monoBold(colors.ink, fontSize: 13);
-
-    final words = LayoutBuilder(
-      builder: (context, constraints) {
-        double width(String text, TextStyle style) => (TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 1,
-        )..layout()).width;
-        final fitsOneLine =
-            width(field.label, labelStyle) +
-                Spacing.s3 +
-                width(field.value, valueStyle) <=
-            constraints.maxWidth;
-        if (fitsOneLine) {
-          return Row(
-            children: [
-              Text(field.label, style: labelStyle),
-              const SizedBox(width: Spacing.s3),
-              Expanded(
-                child: Text(
-                  field.value,
-                  textAlign: TextAlign.end,
-                  style: valueStyle,
-                ),
-              ),
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(field.label, style: labelStyle),
-            const SizedBox(height: 2),
-            Text(field.value, style: valueStyle),
-          ],
-        );
-      },
-    );
-
-    return ConstrainedBox(
-      // Every row is as tall as a row with a button, so the list is even.
-      constraints: const BoxConstraints(minHeight: 48),
-      child: Padding(
-        // The small button is a 36 pill in a 48 tap box, which takes the 6
-        // above and below that the words keep for themselves.
-        padding: EdgeInsets.fromLTRB(
-          4,
-          field.isCopyable ? 0 : 6,
-          0,
-          field.isCopyable ? 0 : 6,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: field.isCopyable
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: words,
-                    )
-                  : words,
-            ),
-            if (field.isCopyable) ...[
-              const SizedBox(width: Spacing.s2),
-              // "Copy" turns into "Copied" in place: say it when it does.
-              Semantics(
-                liveRegion: true,
-                child: AppButton(
-                  label: _isCopied
-                      ? LocaleKeys.common_copied.tr()
-                      : LocaleKeys.common_copy.tr(),
-                  variant: AppButtonVariant.paper,
-                  size: AppButtonSize.sm,
-                  onPressed: _copy,
-                ),
-              ),
-            ] else
-              // Lines the value up with the values that have a button.
-              const SizedBox(width: 4),
-          ],
-        ),
       ),
     );
   }

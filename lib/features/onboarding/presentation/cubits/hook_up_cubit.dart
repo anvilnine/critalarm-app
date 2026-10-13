@@ -101,7 +101,7 @@ class HookUpCubit extends Cubit<HookUpState> {
   /// What a replay shows in place of a real address, topic and token.
   static const exampleServerUrl = 'https://api.critalarm.app';
   static const exampleTopic = 'my-topic';
-  static const exampleToken = 'tk_example';
+  static const exampleToken = 'tk_da39a3ee5e6b4b0d3255bfef95601890a1c9';
 
   StreamSubscription<bool>? _arrivals;
   StreamSubscription<String>? _alarms;
