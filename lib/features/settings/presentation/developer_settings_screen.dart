@@ -268,18 +268,15 @@ class _PaywallLayoutsRow extends StatelessWidget {
           DevPaywallThanksSwitch thanks,
           DevPaywallOutroSwitch outro,
         ) {
-          final text = paywallStepsText(
+          return paywallStepsText(
             intro: intro.value == null ? null : paywallIntroName(intro.value!),
             layout: at.value == null ? null : _layoutLabel(at.value),
             thanks: thanks.value == null
                 ? null
                 : paywallThanksName(thanks.value!),
             remote: remote,
+            outro: outro.value == null ? null : paywallOutroName(outro.value!),
           );
-          final outroValue = outro.value;
-          return outroValue == null
-              ? text
-              : '$text, ${paywallOutroName(outroValue)}';
         }
 
         return AppValueRow(

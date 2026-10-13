@@ -21,6 +21,7 @@ const PaywallThanks stampThanks = PaywallThanks(
   buttonAt: StampTimeline.goOn,
   beats: stampBeats,
   mascotAt: stampMascotAt,
+  mascotPoseAt: stampMascotPoseAt,
   builder: _build,
 );
 
@@ -62,6 +63,15 @@ List<PaywallThanksBeat> stampBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     StampThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose stampMascotPoseAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  return (
+    lift: StampTimeline.lift(t, lines: lines),
+    stretch: StampTimeline.stretch(t),
+  );
+}
 
 /// Draws the stamp version for the second its scope's clock reads.
 class StampThanks extends StatelessWidget {

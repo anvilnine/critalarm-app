@@ -19,6 +19,7 @@ const PaywallThanks unlockThanks = PaywallThanks(
   tone: PaywallTone.panel,
   beats: unlockBeats,
   mascotAt: unlockMascotAt,
+  mascotPoseAt: unlockMascotPoseAt,
   builder: _build,
 );
 
@@ -58,6 +59,15 @@ List<PaywallThanksBeat> unlockBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     UnlockThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose unlockMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: UnlockTimeline.lift(t, count: count),
+    stretch: UnlockTimeline.stretch(t, count: count),
+  );
+}
 
 /// Draws the unlock version for the second its scope's clock reads.
 class UnlockThanks extends StatelessWidget {
