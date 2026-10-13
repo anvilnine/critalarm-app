@@ -30,6 +30,7 @@ class SheetPlan {
     required this.rowsAbove,
     this.isMeasured = true,
     this.standsInFront = true,
+    this.isNarrow = false,
   });
 
   /// The most quiet rows drawn between the title and the lit row.
@@ -61,6 +62,19 @@ class SheetPlan {
   /// the sheet and looks over the edge.
   final bool standsInFront;
 
+  /// True on a phone under [sheetNarrowWidth] points wide. The mascot is
+  /// then small and still, and stands wholly above the sheet's top edge:
+  /// beside the preview it would lie over the words.
+  final bool isNarrow;
+
+  /// True when the mascot is drawn without motion: no bob, no blink, no hop.
+  bool get isFaceStill => isNarrow;
+
+  /// True when the mascot stands beside the preview, over the sheet's top
+  /// edge. A narrow phone has no room for that, and past the default text
+  /// size the mascot is behind the sheet.
+  bool get showsFaceBesideCard => standsInFront && !isNarrow;
+
   /// The back row at the top of the screen behind.
   double get navHeight => switch (header) {
     SheetHeader.none => 0,
@@ -87,13 +101,19 @@ class SheetPlan {
 
   /// The mascot on the sheet's edge. In front of the sheet it is close to
   /// the size the approved stage draws it at.
-  double get faceSize =>
-      standsInFront ? (isCompact ? 112 : 150) : (isCompact ? 72 : 108);
+  double get faceSize => isNarrow
+      ? sheetNarrowFace
+      : standsInFront
+      ? (isCompact ? 112 : 150)
+      : (isCompact ? 72 : 108);
 
   /// How much of the mascot is above the sheet's edge. In front of the
   /// sheet the rest of it is on the sheet, beside the preview.
-  double get faceShown =>
-      standsInFront ? (isCompact ? 0.36 : 0.37) : faceShownBehind;
+  double get faceShown => isNarrow
+      ? 1
+      : standsInFront
+      ? (isCompact ? 0.36 : 0.37)
+      : faceShownBehind;
 
   /// How many points of the mascot are above the sheet's edge.
   double get faceAbove => faceSize * faceShown;
@@ -102,7 +122,14 @@ class SheetPlan {
   /// it, with a little air for a hop and for what it wears.
   double get peekGap =>
       faceAbove +
-      (standsInFront ? (isCompact ? 10 : 16) : (isCompact ? 6 : 10));
+      (isNarrow
+          ? 6
+          : standsInFront
+          ? (isCompact ? 10 : 16)
+          : (isCompact ? 6 : 10));
+
+  /// Where the mascot's top is.
+  double get faceTop => sheetTop - faceAbove;
 
   double get litTop =>
       topInset + navHeight + titleBlock + rowsAbove * (rowHeight + rowGap);
@@ -112,6 +139,25 @@ class SheetPlan {
   /// The sheet's top edge.
   double get sheetTop => litBottom + peekGap;
 }
+
+/// A phone narrower than this has the small, still face wholly above the
+/// sheet.
+const double sheetNarrowWidth = 360;
+
+/// The edge of the mascot on a narrow phone.
+const double sheetNarrowFace = 72;
+
+/// True when a screen [width] points wide is narrow for the Sheet.
+bool sheetIsNarrow(double width) => width < sheetNarrowWidth;
+
+/// How far from the right edge the headline stops, or zero for no extra
+/// room. The close control sits over the sheet's top right corner. Where
+/// the stage has no room above the headline (a narrow phone, a large text
+/// size) the headline starts under it.
+double sheetHeadlineEndRoomFor({
+  required double width,
+  required double textScale,
+}) => sheetIsNarrow(width) || textScale > 1.01 ? sheetCrossRoom : 0;
 
 /// The room the preview keeps above and below it in the sheet's stage.
 const double sheetCardRoom = 6;
@@ -193,6 +239,7 @@ SheetPlan sheetPlanFor({
   required bool isCompact,
   required double? buyBlockHeight,
   required int benefitCount,
+  double screenWidth = 390,
   double textScale = 1,
   bool hasAlso = false,
   bool showsLead = true,
@@ -207,6 +254,7 @@ SheetPlan sheetPlanFor({
         rowsAbove: rows,
         isMeasured: isMeasured,
         standsInFront: !isLargeText,
+        isNarrow: sheetIsNarrow(screenWidth),
       );
   if (isLargeText) return plan(SheetHeader.none, 0);
   if (buyBlockHeight == null) {
