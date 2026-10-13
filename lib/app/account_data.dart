@@ -1,5 +1,6 @@
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
@@ -28,6 +29,9 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 ///    (`alarm_style_own_photo`), the accent (`alarm_style_own_accent`)
 ///    and any copy of a picked photo a pick left in the cache
 ///    (`alarm_style_own_pending`). Listed last and dropped first.
+/// 9. The topic list the phone kept to open with (the `topics` table of the
+///    local store). It is also read only for the account and server it was
+///    written for, so a copy that survives a failed drop is still never shown.
 ///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
@@ -52,6 +56,7 @@ class AccountData {
     required this._soundLock,
     required this._ownLook,
     this._proofLog,
+    this._heldTopics,
     this._afterForget,
   });
 
@@ -63,6 +68,10 @@ class AccountData {
   final OwnSoundLockFlag _soundLock;
   final OwnLookStore _ownLook;
   final ProofLog? _proofLog;
+
+  /// The topic list kept on the phone. Null where the local store is not
+  /// open: the web build, or a store that would not open.
+  final TopicStore? _heldTopics;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -100,6 +109,8 @@ class AccountData {
     await _quietly(_soundLock.clear);
     final proofLog = _proofLog;
     if (proofLog != null) await _quietly(proofLog.clear);
+    final heldTopics = _heldTopics;
+    if (heldTopics != null) await _quietly(heldTopics.clear);
     final after = _afterForget;
     if (after != null) await _quietly(after);
     final failed = failure;

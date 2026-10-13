@@ -79,6 +79,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A topic's look, sound, wake-up challenge and tokens are four colour cards that open their own pages.
 - The welcome now has three pages: the word page, the curl that rings your phone, and the home screen widgets. The background shapes move with your swipe.
 - A topic's messages page shows how many messages there are with the last seven days as bars, and lists them by day. A message that rang has a red mark and says how long it rang and how it ended.
+- The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

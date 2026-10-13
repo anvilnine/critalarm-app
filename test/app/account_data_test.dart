@@ -11,6 +11,8 @@ import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
+import 'package:critalarm/core/store/held_scope.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
@@ -29,9 +31,11 @@ import 'package:critalarm/features/reliability/data/shared_prefs_proof_log_store
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
+import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'account_data_fixture.dart';
 
@@ -125,6 +129,13 @@ class _UnclearableProofStore extends SharedPrefsProofLogStore {
   Future<void> clear() async => throw StateError('stuck');
 }
 
+class _UnclearableTopics extends TopicStore {
+  _UnclearableTopics(super._db);
+
+  @override
+  Future<void> clear() async => throw StateError('stuck');
+}
+
 class _MockEstablish extends Mock implements EstablishApiSessionUsecase {}
 
 class _MockSave extends Mock implements SaveConnectionUsecase {}
@@ -151,6 +162,9 @@ final class _Phone {
   late final AlarmStyleGate lookGate;
   late final OwnLookOnDisk ownLook;
   late final AccountData accountData;
+
+  /// The topic list kept on the phone, when a test gives the wipe one.
+  TopicStore? heldTopics;
 
   /// The account the phone is on. Null for none.
   String? accountId;
@@ -225,6 +239,7 @@ final class _Phone {
       challenges: challenges,
       alarmStyles: looks,
       soundLock: soundLock,
+      heldTopics: heldTopics,
       afterForget: () async {
         await soundSync.checkAfterWipe();
         await challengeSync.checkAfterWipe();
@@ -254,6 +269,7 @@ final class _Phone {
 }
 
 void main() {
+  sqfliteFfiInit();
   setUpAll(() {
     registerFallbackValue(Uri.parse('https://x.example.com'));
     registerFallbackValue(_info);
@@ -283,6 +299,42 @@ void main() {
       expect(phone.looks.assignments.perTopic, isEmpty);
       expect(phone.looks.openNote, isNull);
       expect(phone.soundLock.written, isNull);
+    });
+
+    test('drops the topic list the phone kept, for a sign-out, an account '
+        'delete and a connect to another server alike', () async {
+      final store = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+      );
+      addTearDown(store.close);
+      final scope = heldScopeFor(
+        serverUrl: 'https://server.example',
+        accountId: 'acc_1',
+      )!;
+      await store.topics.replaceAll(scope, [const Topic(name: 'prod')]);
+      final phone = _Phone()..heldTopics = store.topics;
+      await phone.start(accountDataFor('acc_1'), accountId: 'acc_1');
+      expect(await store.topics.count(), 1);
+
+      await phone.accountData.forget();
+
+      expect(await store.topics.count(), 0);
+      expect(await store.topics.read(scope), isNull);
+    });
+
+    test('a topic list that will not clear stops nothing and nobody', () async {
+      final store = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+      );
+      addTearDown(store.close);
+      final phone = _Phone()..heldTopics = _UnclearableTopics(store.db);
+      await phone.start(accountDataFor('acc_1'), accountId: 'acc_1');
+
+      await phone.accountData.forget();
+
+      expectAccountDataGone(phone.prefs);
     });
 
     test('with the plan unreadable, the cleared flags still reach the '

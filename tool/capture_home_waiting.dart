@@ -27,6 +27,13 @@
 //   home_cold_critical_off  as above with Critical off: the guess is the
 //                           waiting card and the list turns it into the setup
 //                           card (the one change the card can still make)
+//   home_stored_critical_off  a phone opened again after setup, with the
+//                           topic list kept from the last answer read before
+//                           the first frame: Critical off, so the card is
+//                           the setup card from the first frame and never
+//                           changes
+//   home_stored_critical_on   as above with Critical on: the waiting card
+//                           from the first frame
 //   home_walkthrough_sheet  the walkthrough offer over the card
 //
 // Frames (the "frame" part of a name):
@@ -38,9 +45,11 @@
 //   plus150    the changes scene only: 150 ms after the first frame
 //   plus210    the changes scene only: 210 ms after the first frame
 //
-// Every scene but the two cold ones starts as a phone does after setup in the
-// same run of the app: the topic list setup loaded is held in memory before
-// Home opens.
+// Every scene but the two cold ones and the two stored ones starts as a phone
+// does after setup in the same run of the app: the topic list setup loaded is
+// held in memory before Home opens. The stored ones start as a phone does at
+// launch: the list is read from the local store before the first frame
+// (`TopicsCubit.loadHeld`), and the server has not answered yet.
 //
 // Each scene is drawn at a 390 and a 320 wide phone, light and dark. Settled
 // frames come at text scales 1.0, 1.3 and 2.0 and once more under reduced
@@ -70,6 +79,9 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/store/held_scope.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_offer_sheet.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
@@ -85,6 +97,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
@@ -109,6 +122,7 @@ class _Scene {
     this.isSeeded = true,
     this.isCritical = true,
     this.isListHeld = true,
+    this.isListStored = false,
   });
 
   final String name;
@@ -144,6 +158,11 @@ class _Scene {
   /// The app holds the topic list in memory before Home opens, as it does
   /// after setup in the same run. False is a phone opened again after setup.
   final bool isListHeld;
+
+  /// The list comes from the phone's local store, read before the first
+  /// frame, and not from the server. [isListHeld] stays true: the app holds
+  /// the list when Home opens, only the way it got it differs.
+  final bool isListStored;
 
   /// The card ends on the setup card, not the waiting card.
   bool get endsOnSetup => !isCritical;
@@ -229,6 +248,21 @@ const _scenes = <_Scene>[
     isListHeld: false,
   ),
   _Scene(
+    'home_stored_critical_off',
+    topic: 'prod-db',
+    use: 'servers',
+    line: 'send the first line from your server',
+    isCritical: false,
+    isListStored: true,
+  ),
+  _Scene(
+    'home_stored_critical_on',
+    topic: 'prod-db',
+    use: 'servers',
+    line: 'send the first line from your server',
+    isListStored: true,
+  ),
+  _Scene(
     'home_walkthrough_sheet',
     topic: 'uptime-kuma',
     use: 'homelab',
@@ -297,12 +331,31 @@ Future<void> _boot(_Scene scene) async {
     'has_completed_showcase_tour': true,
   });
   await getIt.reset();
-  await configureDependencies(useMockApi: true);
+  // A stored scene gives the app a local store holding the last list. The
+  // address is the one saved above, and there is no account on the mock.
+  LocalStore? store;
+  if (scene.isListStored) {
+    store = await LocalStore.open(
+      factory: databaseFactoryFfi,
+      path: inMemoryDatabasePath,
+    );
+    await store.topics.replaceAll(
+      heldScopeFor(serverUrl: 'api.critalarm.app', accountId: null)!,
+      [Topic(name: scene.topic, critical: scene.isCritical)],
+    );
+  }
+  await configureDependencies(useMockApi: true, openedStore: store);
   getIt<MockServer>()
     ..seedWatching()
     ..createTopic(name: scene.topic, critical: scene.isCritical);
-  // Setup's last steps load the topic list before Home opens.
-  if (scene.isListHeld) await getIt<TopicsCubit>().ensureLoaded();
+  if (scene.isListStored) {
+    // What `main` does before the first frame.
+    await getIt<TopicsCubit>().loadHeld();
+    expect(getIt<TopicsCubit>().state.isKept, isTrue);
+  } else if (scene.isListHeld) {
+    // Setup's last steps load the topic list before Home opens.
+    await getIt<TopicsCubit>().ensureLoaded();
+  }
 
   await getIt.unregister<ReliabilityCubit>();
   getIt.registerLazySingleton<ReliabilityCubit>(
@@ -511,6 +564,7 @@ bool _wanted(String name) =>
 
 void main() {
   setUpAll(() async {
+    sqfliteFfiInit();
     await loadTestTranslations();
     await loadAppFonts();
   });
