@@ -15,7 +15,6 @@ void main() {
         'snooze': 'snooze',
         'wakeUp': 'wake_up',
         'curtain': 'curtain',
-        'alarmSnack': 'alarm_snack',
       },
     );
   });

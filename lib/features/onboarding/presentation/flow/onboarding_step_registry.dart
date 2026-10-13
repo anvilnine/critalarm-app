@@ -3,7 +3,6 @@ import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.d
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
-import 'package:critalarm/features/onboarding/domain/welcome_pages.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
@@ -123,9 +122,6 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
             ? WelcomeVariant.fromQuery(state.uri.queryParameters['v'])
             : null,
         isPreview: state.uri.queryParameters['preview'] == 'true',
-        firstPage: WelcomeFirstPage.fromQuery(
-          state.uri.queryParameters['first'],
-        ),
       ),
     ),
     OnboardingStepEntry(
