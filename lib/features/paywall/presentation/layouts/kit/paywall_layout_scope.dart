@@ -235,10 +235,11 @@ class PaywallThanksHandle {
   /// under it plays no cue of its own.
   bool hasBegun = false;
 
-  /// The cue the layout plays when the purchase is confirmed: the score of
-  /// the outro that will play, or the purchase cue. Null means the purchase
-  /// cue. Set by the host, read by the buy block on that frame.
-  PaywallCue Function()? purchaseCue;
+  /// The cue the buy block plays when the purchase is confirmed: null when
+  /// the host plays the sound itself (the score of an outro, started with
+  /// its clock). Unset means the purchase cue. Set by the host, read by the
+  /// buy block on that frame.
+  PaywallCue? Function()? purchaseCue;
 }
 
 /// Says that something of its own plays after a purchase on the layout
@@ -262,16 +263,16 @@ class PaywallThanksPlay extends InheritedWidget {
   static bool takesOver(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PaywallThanksPlay>() != null;
 
-  /// The cue for a confirmed purchase under [context]: what the step after
-  /// it asks for, or [PaywallCue.bought] when there is none. It does not
-  /// listen.
-  static PaywallCue purchaseCueOf(BuildContext context) =>
-      context
-          .getInheritedWidgetOfExactType<PaywallThanksPlay>()
-          ?.handle
-          .purchaseCue
-          ?.call() ??
-      PaywallCue.bought;
+  /// The cue the buy block plays for a confirmed purchase under [context]:
+  /// [PaywallCue.bought], or null when the step after the purchase plays
+  /// the sound itself. It does not listen.
+  static PaywallCue? purchaseCueOf(BuildContext context) {
+    final ask = context
+        .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+        ?.handle
+        .purchaseCue;
+    return ask == null ? PaywallCue.bought : ask();
+  }
 
   /// Whether that step has begun. It does not listen, so it is safe on a
   /// tick.

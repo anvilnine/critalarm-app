@@ -70,9 +70,9 @@ typedef PaywallOutroBuilder =
 /// show, and what draws it.
 ///
 /// Second zero is the frame the purchase is confirmed. The buy block plays
-/// the purchase cue on that frame, or the outro's [score] in its place, and
-/// that sound owns the room until it is over, so the beats of an outro are
-/// haptics alone.
+/// the purchase cue on that frame, or the host plays the outro's [score] in
+/// its place when the outro's clock starts, and that sound owns the room
+/// until it is over, so the beats of an outro are haptics alone.
 @immutable
 class PaywallOutro {
   const PaywallOutro({
@@ -95,9 +95,11 @@ class PaywallOutro {
   /// What is felt on the way. Haptics alone.
   final List<PaywallThanksBeat> beats;
 
-  /// The composed piece that plays from the purchase frame, in place of the
-  /// purchase cue. Null plays the purchase cue as it always did. It is a
-  /// cue with a sound and no haptic: the beats carry those.
+  /// The composed piece that plays from second zero of the outro, in place
+  /// of the purchase cue. The host starts it with the outro's clock, which
+  /// runs once the picture of the layout is taken. Null plays the purchase
+  /// cue as it always did. It is a cue with a sound and no haptic: the beats
+  /// carry those.
   final PaywallCue? score;
 
   /// How long the file of [score] is, in seconds. It reaches past

@@ -67,10 +67,31 @@ List<PaywallThanksBeat> paywallThanksBeatsAfterOutro(
           PaywallThanksBeat.tap(beat.at - pickUp + outro.uncover, beat.haptic),
 ];
 
-/// The cue the purchase frame plays: the score of the outro that [playing]
-/// is, or the purchase cue when no outro plays or the outro has no score.
-PaywallCue paywallPurchaseCue({required PaywallOutro? playing}) =>
-    playing?.score ?? PaywallCue.bought;
+/// The cue the buy block plays on the purchase frame: the purchase cue,
+/// except when the outro that [playing] is has a score. That score must
+/// start with the outro's clock, which runs only after the picture is
+/// taken, so the host plays it ([paywallPurchaseCueByHost]) and the block
+/// plays nothing (null).
+PaywallCue? paywallPurchaseCueByBuyBlock({required PaywallOutro? playing}) =>
+    playing?.score == null ? PaywallCue.bought : null;
+
+/// The cue the host plays for a purchase whose outro has a score, or null
+/// when the buy block already sounded the purchase or sounds are [isMuted].
+///
+/// - [hasStarted] true: the outro's clock started, so the score plays now,
+///   at second zero of the outro.
+/// - [hasStarted] false: the outro was given up before its clock started (a
+///   tap while the picture was taken, motion turned off, the route going
+///   away), so the purchase cue plays and no purchase is ever silent.
+PaywallCue? paywallPurchaseCueByHost({
+  required PaywallOutro? outro,
+  required bool hasStarted,
+  required bool isMuted,
+}) {
+  final score = outro?.score;
+  if (isMuted || score == null) return null;
+  return hasStarted ? score : PaywallCue.bought;
+}
 
 /// How long the sound the purchase frame starts lasts, in the host's
 /// seconds, when [outro] plays or when none does (null).

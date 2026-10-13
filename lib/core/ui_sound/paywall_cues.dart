@@ -141,7 +141,7 @@ enum PaywallCue {
   scoreAlarmSnack(sound: 'ui_score_alarm_snack', hasFlavours: true),
 
   // The scores of the success outros: one composed piece each, started on
-  // the purchase frame and timed to the picture. Each takes the place of
+  // the outro's clock and timed to the picture. Each takes the place of
   // [bought] when its outro plays. Sound only: the outro's beats carry the
   // haptics, and there is one file each, with no flavours. Each ends on a
   // D major chord and rings out past the swap, so a cue of the end state

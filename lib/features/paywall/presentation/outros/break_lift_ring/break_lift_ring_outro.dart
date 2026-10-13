@@ -25,7 +25,7 @@ const PaywallOutro breakLiftRing = PaywallOutro(
   builder: _build,
 );
 
-/// How long the score file is. It starts on the purchase frame and rings
+/// How long the score file is. It starts with the outro's clock and rings
 /// 1.15 s past the swap, 17 dB under its peak at the swap.
 const double breakLiftRingScoreSeconds = 4.9;
 
