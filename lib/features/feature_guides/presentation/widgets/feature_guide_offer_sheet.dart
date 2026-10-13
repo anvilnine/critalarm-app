@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -32,6 +34,9 @@ Future<FeatureGuideOfferAnswer?> showFeatureGuideOfferSheet(
 
 /// The body of the offer: a face, the question, what the guides are, where to
 /// find it later, and the two ways out.
+///
+/// The words scroll when the screen is too short for them, at a large text
+/// size for example. The two buttons stay under them, always on screen.
 class _FeatureGuideOffer extends StatelessWidget {
   const _FeatureGuideOffer({required this.onAccept, required this.onDecline});
 
@@ -41,49 +46,70 @@ class _FeatureGuideOffer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final media = MediaQuery.of(context);
+    // The sheet may fill the screen below the status bar, less what its card
+    // keeps around the content. Past that the words scroll and the two
+    // buttons stay where they are.
+    final room =
+        media.size.height -
+        media.padding.top -
+        AppBottomSheet.chromeHeight(context);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Center(
-          child: FaceWidget(state: FaceState.watching, size: 88),
-        ),
-        const SizedBox(height: Spacing.s3),
-        Text(
-          LocaleKeys.feature_guides_offer_title.tr(),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontDisplay,
-            fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-            fontWeight: FontWeight.w700,
-            fontSize: 19,
-            letterSpacing: -0.02 * 19,
-            color: colors.ink,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: math.max(room, 0)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: FaceWidget(state: FaceState.watching, size: 88),
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                  Text(
+                    LocaleKeys.feature_guides_offer_title.tr(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontDisplay,
+                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 19,
+                      letterSpacing: -0.02 * 19,
+                      color: colors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    LocaleKeys.feature_guides_offer_body.tr(),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.small(colors.ink2),
+                  ),
+                  const SizedBox(height: 16),
+                  AppNote(text: LocaleKeys.feature_guides_offer_note.tr()),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          LocaleKeys.feature_guides_offer_body.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.small(colors.ink2),
-        ),
-        const SizedBox(height: 16),
-        AppNote(text: LocaleKeys.feature_guides_offer_note.tr()),
-        const SizedBox(height: 16),
-        AppButton(
-          label: LocaleKeys.feature_guides_offer_accept.tr(),
-          isFullWidth: true,
-          onPressed: onAccept,
-        ),
-        const SizedBox(height: 8),
-        AppButton(
-          label: LocaleKeys.feature_guides_offer_decline.tr(),
-          variant: AppButtonVariant.ghost,
-          isFullWidth: true,
-          onPressed: onDecline,
-        ),
-      ],
+          AppButton(
+            label: LocaleKeys.feature_guides_offer_accept.tr(),
+            isFullWidth: true,
+            onPressed: onAccept,
+          ),
+          const SizedBox(height: 8),
+          AppButton(
+            label: LocaleKeys.feature_guides_offer_decline.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: onDecline,
+          ),
+        ],
+      ),
     );
   }
 }

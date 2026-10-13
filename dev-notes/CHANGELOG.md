@@ -194,6 +194,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - tool/capture\_works\_screen.dart fails on an overflow at 320 wide and text scale 2.0 like every other size, instead of printing it.
 - The alarm screen's three error strings (acknowledge failed on a topic and on the alarm, and the alarm failing to load) say the alarm is still open, not the page.
 - Settings analytics line also names the setup answer, which the same switch sends.
+- capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -221,6 +222,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - RingingScreen scrolls the message card inside the room above the pinned buttons once the face is gone and the card is still too tall (ringingCardScrollRoomFor, ringingCardMinRoom). Cards that fit are drawn as before.
 - alarmMetaLine joins the time and the tags with a slash only when the message has tags.
 - The intro's tag stands where paywallIntroTagPlace finds room clear of the layout's paragraphs, previews and buttons (it slides along the mascot, tries both sides) and is left out where there is none. IntroHost collects those rects a few times a second.
+- Home's status card draws the waiting card on its first frame when the phone's own records say setup waits on the first message (firstMessageExpected), and AppStatusCard fades the old label and foot out before the new ones fade in, so two texts are never drawn over each other.
+- Home's status card picks the waiting card or the setup card for its first frame from the topic list the app already holds in memory (expectedSetupFor), so a first topic with Critical delivery off starts on the setup card. Without a held list the waiting card stays the guess.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

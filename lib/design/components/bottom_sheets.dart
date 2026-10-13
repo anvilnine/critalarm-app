@@ -34,6 +34,18 @@ class AppBottomSheet extends StatelessWidget {
   /// button stays where it was when the sheet gives up the same room.
   final double bottomRoom;
 
+  /// The height the card keeps for itself around its content when it has no
+  /// title: the top padding, the handle and its gap, and the room under the
+  /// content with the safe area and the keyboard. A sheet that has to fit a
+  /// short screen subtracts it from the room it may fill.
+  static double chromeHeight(BuildContext context) =>
+      10 +
+      5 +
+      14 +
+      18 +
+      MediaQuery.paddingOf(context).bottom +
+      MediaQuery.viewInsetsOf(context).bottom;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;

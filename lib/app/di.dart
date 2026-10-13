@@ -329,6 +329,7 @@ import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/home_card/first_message_expected.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
@@ -2154,6 +2155,31 @@ Future<void> configureDependencies({
         toolTemplates: getIt<ToolTemplateStore>(),
         testRouteName: AppRoute.testRing,
         askPermissionsRouteName: AppRoute.askPermissions,
+        // What the phone itself holds, so the waiting card is drawn on the
+        // first frame and not after the list loads.
+        isSetupOpen: () {
+          final prefs = getIt<SharedPreferences>();
+          bool isSaved(String key) => (prefs.getString(key) ?? '').isNotEmpty;
+          final checklist = getIt<SetupChecklistStore>();
+          return firstMessageExpected(
+            hasServer:
+                isSaved(SharedPrefsConnectionRepository.serverUrlKey) &&
+                isSaved(SharedPrefsConnectionRepository.adminTokenKey),
+            wasSetUpHere: checklist.wasSetUpHere,
+            isChecklistRetired: checklist.isDone,
+            isFirstMessageReceived: getIt<FirstMessageStore>().isReceived,
+          );
+        },
+        // The list setup's last steps already loaded. A phone that was
+        // closed and opened again after setup holds none.
+        readHeldTopics: () {
+          final held = getIt<TopicsCubit>().state;
+          if (!held.isReady) return null;
+          return [
+            for (final topic in held.topics)
+              (name: topic.name, isCritical: topic.critical),
+          ];
+        },
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it

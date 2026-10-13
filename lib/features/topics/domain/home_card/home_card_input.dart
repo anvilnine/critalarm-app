@@ -2,6 +2,7 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -244,6 +245,7 @@ class HomeCardInput {
     this.newestMessageAt,
     this.lastAlarmAt,
     this.hasCriticalTopic = false,
+    this.expectedSetup,
   });
 
   final DateTime now;
@@ -312,6 +314,15 @@ class HomeCardInput {
   /// Some topic has Critical delivery on.
   final bool hasCriticalTopic;
 
+  /// What the phone itself holds says about where setup stands, or null
+  /// when it says nothing ([expectedSetup]).
+  ///
+  /// It is a guess from local records, so the card uses it only until Home's
+  /// own checklist has an answer: while the list loads, and while the
+  /// checklist has not looked yet. It lets the card start on the kind it will
+  /// settle on, so no other kind's words show before it.
+  final ExpectedSetup? expectedSetup;
+
   @override
   bool operator ==(Object other) =>
       other is HomeCardInput &&
@@ -335,7 +346,8 @@ class HomeCardInput {
       other.use == use &&
       other.newestMessageAt == newestMessageAt &&
       other.lastAlarmAt == lastAlarmAt &&
-      other.hasCriticalTopic == hasCriticalTopic;
+      other.hasCriticalTopic == hasCriticalTopic &&
+      other.expectedSetup == expectedSetup;
 
   @override
   int get hashCode => Object.hashAll([
@@ -360,5 +372,6 @@ class HomeCardInput {
     newestMessageAt,
     lastAlarmAt,
     hasCriticalTopic,
+    expectedSetup,
   ]);
 }
