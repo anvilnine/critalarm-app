@@ -2362,5 +2362,9 @@
       "home_assistant": "run the action in Home Assistant",
       "healthchecks": "press Test in Healthchecks"
     }
+  },
+  "first_topic_answer": {
+    "or": "or",
+    "what_sends_it": "What sends it"
   }
 }
