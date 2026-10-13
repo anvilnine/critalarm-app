@@ -2101,6 +2101,15 @@
       "party": "Receipt party"
     }
   },
+  "paywall_outro": {
+    "picker_row": "Success outro",
+    "picker_sheet_title": "Pick what plays right after a purchase",
+    "names": {
+      "none": "Nothing extra",
+      "break_lift_ring": "Break, lift, ring",
+      "cloud_climb": "Cloud climb"
+    }
+  },
   "feature_lock": {
     "locked": "locked",
     "try_hint": "Double tap to try this option",
