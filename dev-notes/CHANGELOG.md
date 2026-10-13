@@ -98,6 +98,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Two other first welcome pages (night falls, stays silent), built behind welcomeFirstPage (default word) and opened from Developer options, Setup flow, Open a step as a replay with first=night or first=silent. tool/capture\_welcome\_first\_pages.dart captures them.
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
+- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
