@@ -12,7 +12,11 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Each success outro can name a score (PaywallOutro.score, scoreSeconds): one m4a that the host starts with the outro clock in place of PaywallCue.bought, plays the purchase cue if the outro is given up first, stops on a skip before the swap, and keeps end state sounds out of its tail.
 - PaywallOutroId.breakLift (key break\_lift), Break and lift: a calm success outro that breaks the paywall and rises into the night in one eased move, with no flash, rings or popping words. Its pieces of the wall are shared with Break, lift, ring through outros/break\_pieces.dart.
 - Break and lift has its own score, PaywallCue.scoreBreakLift (ui\_score\_break\_lift.m4a, 3.698 s, 0.9 s tail past the swap), and its backdrop now eases from the screen's colour into the night with no paper step, under a soft yellow glow instead of a trail.
-- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes. The done mark (prefs key relay\_hash\_moved.<server>|<topic>) names the device id and the hash, so a phone that registers again or a topic made again under the same name subscribes again.
+- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes. The done mark (prefs key relay\_hash\_moved.<server>\|<topic>) names the device id and the hash, so a phone that registers again or a topic made again under the same name subscribes again.
+- Paywalls route by place: PaywallPlace and paywallRowFor pick the layout, the lead benefit and the intro, and the location carries lead, headline, the person's own facts and history rows.
+- Sheet and Proof draw the lead on its own and the other benefits under paywall\_also.label. The Sheet shows the person's own critical topic count, and Proof and Wipe show their own older alarms, hidden on Free.
+- A Hosted plan that is ending opens a leaving Receipt or a Wipe run backwards, picked on the phone by LeavingNumbers and leaving\_floors.dart. HeroFace gains sad and calm.
+- A paywall with no outro set takes its product's own: cloudClimb for Hosted, breakLiftRing for Pro. It still plays only when a thanks is set.
 
 ### Changed
 - The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.
@@ -42,6 +46,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The face in the iOS Live Activity, the iOS widgets and the Android widgets is brand yellow with ink features in every state. The surface around it keeps the state colour.
 - Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
 - Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
+- The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
