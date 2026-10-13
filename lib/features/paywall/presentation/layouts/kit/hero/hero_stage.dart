@@ -54,6 +54,7 @@ class HeroStage extends StatelessWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.hidesMascot = false,
     this.motion = const HeroMotion(),
     super.key,
   });
@@ -91,6 +92,9 @@ class HeroStage extends StatelessWidget {
   /// Whether the small shapes drift around the disc. Null keeps the
   /// approved rule: only when the mascot and the card both stand.
   final bool? showsShapes;
+
+  /// True draws no mascot, for a layout that draws its own over the stage.
+  final bool hidesMascot;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +172,7 @@ class HeroStage extends StatelessWidget {
                   ),
                 ),
               ),
-            if (arrangement.kind != HeroStageKind.none)
+            if (arrangement.kind != HeroStageKind.none && !hidesMascot)
               Positioned.fromRect(
                 rect: arrangement.mascot,
                 child: _FootClip(
