@@ -101,7 +101,23 @@ void main() {
       expect(text(thanks: 'Stamp'), 'remote, remote, Stamp');
       expect(
         text(layout: 'Hero', thanks: 'Stamp', outro: 'Cloud climb'),
-        'remote, Hero, Stamp, Cloud climb',
+        'remote, Hero, Cloud climb, Stamp',
+      );
+    });
+
+    test('four set steps read intro, paywall, outro, after purchase', () {
+      expect(
+        text(
+          intro: 'Snooze',
+          layout: 'Hero',
+          outro: 'Cloud climb',
+          thanks: 'Stamp',
+        ),
+        'Snooze, Hero, Cloud climb, Stamp',
+      );
+      expect(
+        text(intro: 'Snooze', layout: 'Hero', thanks: 'Stamp'),
+        'Snooze, Hero, Stamp',
       );
     });
   });
