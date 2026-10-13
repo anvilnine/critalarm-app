@@ -49,6 +49,13 @@ enum HeroFace {
 
   /// Taken with something: soft eyes and a heart above the head.
   loving,
+
+  /// Sad: wet eyes, brows tipped up in the middle, a frown, one tear.
+  sad,
+
+  /// Calm: round dot eyes and an easy smile. Plain, still and upright. The
+  /// face a leaving layout rests on.
+  calm,
 }
 
 /// What the mascot wears.
