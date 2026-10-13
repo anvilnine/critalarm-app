@@ -20,7 +20,6 @@ class AppListRow extends StatefulWidget {
     required this.name,
     required this.meta,
     this.faceState = FaceState.calm,
-    this.faceStrokeColor,
     this.trailing,
     this.trailingTapRoom = 0,
     this.timeText,
@@ -43,7 +42,6 @@ class AppListRow extends StatefulWidget {
   /// Null draws no face at all. A face says something about the state of a
   /// thing, so a row that only opens another screen does not get one.
   final FaceState? faceState;
-  final Color? faceStrokeColor;
   final Widget? trailing;
 
   /// How far [trailing]'s tap box reaches past what it draws, on each side.
@@ -100,34 +98,22 @@ class _AppListRowState extends State<AppListRow> {
     Color bg;
     final Color nameColor;
     final Color metaColor;
-    final Color faceFill;
-    final Color faceStroke;
-    final Color faceInk;
     final List<BoxShadow> shadows;
 
     if (widget.isCrit) {
       bg = colors.panel;
       nameColor = colors.onPanel;
       metaColor = colors.onPanelMuted;
-      faceFill = colors.panel;
-      faceStroke = colors.crit;
-      faceInk = colors.onPanel;
       shadows = AppShadows.lightMd;
     } else if (widget.isQuiet) {
       bg = colors.ash;
       nameColor = colors.ink;
       metaColor = colors.ink3;
-      faceFill = colors.canvas;
-      faceStroke = widget.faceStrokeColor ?? colors.faceStroke;
-      faceInk = colors.faceInk;
       shadows = const [];
     } else {
       bg = colors.surface;
       nameColor = colors.ink;
       metaColor = colors.ink3;
-      faceFill = colors.canvas;
-      faceStroke = widget.faceStrokeColor ?? colors.faceStroke;
-      faceInk = colors.faceInk;
       shadows = _isHovered ? AppShadows.lightMd : const [];
     }
 
@@ -202,9 +188,6 @@ class _AppListRowState extends State<AppListRow> {
                       FaceWidget(
                         state: widget.faceState!,
                         size: 40,
-                        overrideFillColor: faceFill,
-                        overrideStrokeColor: faceStroke,
-                        overrideInkColor: faceInk,
                       ),
                       const SizedBox(width: 14),
                     ],

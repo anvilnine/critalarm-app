@@ -232,9 +232,7 @@ class _NightFallsHeroState extends _ClockState<_NightFallsHero> {
 
         Widget face(
           FaceState state,
-          double opacity,
-          Color fill,
-          Color lines, {
+          double opacity, {
           Color? tongue,
         }) => opacity <= 0.002
             ? const SizedBox.shrink()
@@ -244,9 +242,6 @@ class _NightFallsHeroState extends _ClockState<_NightFallsHero> {
                   state: FaceState.calm,
                   shape: _shape(state),
                   size: faceSize,
-                  overrideFillColor: fill,
-                  overrideStrokeColor: lines,
-                  overrideInkColor: lines,
                   overrideTongueColor: tongue,
                 ),
               );
@@ -313,25 +308,13 @@ class _NightFallsHeroState extends _ClockState<_NightFallsHero> {
                           scale: frame.faceScale,
                           child: Stack(
                             children: [
-                              face(
-                                _nightDayFace,
-                                frame.dayFaceOpacity,
-                                colors.yellow,
-                                colors.inkFixed,
-                              ),
+                              face(_nightDayFace, frame.dayFaceOpacity),
                               face(
                                 _nightSleepFace,
                                 frame.sleepFaceOpacity,
-                                night.dimFill,
-                                night.dimInk,
-                                tongue: night.dimInk,
+                                tongue: colors.inkFixed,
                               ),
-                              face(
-                                _nightShoutFace,
-                                frame.shoutFaceOpacity,
-                                colors.yellow,
-                                colors.inkFixed,
-                              ),
+                              face(_nightShoutFace, frame.shoutFaceOpacity),
                             ],
                           ),
                         ),

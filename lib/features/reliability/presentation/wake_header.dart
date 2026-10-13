@@ -163,9 +163,6 @@ class _WakeFace extends StatelessWidget {
     child: FaceWidget(
       state: face,
       size: size,
-      overrideFillColor: AppColors.light.faceFill,
-      overrideStrokeColor: AppColors.light.faceStroke,
-      overrideInkColor: AppColors.light.faceInk,
     ),
   );
 }

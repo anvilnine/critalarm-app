@@ -7,16 +7,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Palette modes for testing face character expressions.
-enum FacePaletteMode {
-  screenshot('Screenshot'),
-  yellow('Signature'),
-  severity('Severity');
-
-  const FacePaletteMode(this.label);
-  final String label;
-}
-
 /// Developer screen demoing and showcasing all character faces of the app,
 /// including the 8 newly designed vector expressions (Shocked, Laughing,
 /// Surprised, Skeptical, Dizzy, Determined, Confused, Sad).
@@ -84,36 +74,10 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
   /// Set when a ringing face is picked, which the hero then shows instead
   /// of [_selectedFace].
   RingingStyle? _selectedRinging;
-  FacePaletteMode _paletteMode = FacePaletteMode.screenshot;
   bool _isLive = true;
   double _customTiltDegrees = 0;
   bool _useNaturalTilt = true;
   double _previewSize = 120;
-
-  Color _resolveFillColor(FaceState state, AppColors colors) {
-    return switch (_paletteMode) {
-      FacePaletteMode.screenshot => state.characteristicColor,
-      FacePaletteMode.yellow => colors.faceFill,
-      FacePaletteMode.severity => switch (state) {
-        FaceState.alarmed || FaceState.shocked => colors.critCanvas,
-        FaceState.worried => colors.highCanvas,
-        FaceState.acked => colors.ackCanvas,
-        _ => colors.faceFill,
-      },
-    };
-  }
-
-  Color? _resolveStrokeColor(FaceState state, AppColors colors) {
-    if (_paletteMode == FacePaletteMode.severity) {
-      return switch (state) {
-        FaceState.alarmed || FaceState.shocked => colors.crit,
-        FaceState.worried => colors.high,
-        FaceState.acked => colors.cobalt,
-        _ => colors.faceStroke,
-      };
-    }
-    return null;
-  }
 
   double _getEffectiveTilt(FaceState state) {
     if (_useNaturalTilt) {
@@ -159,17 +123,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AppSectionHeader('Palette mode'),
-                  AppSegmentedControl<FacePaletteMode>(
-                    items: FacePaletteMode.values,
-                    selectedItem: _paletteMode,
-                    labelBuilder: (mode) => mode.label,
-                    onChanged: (mode) {
-                      AppHaptics.selection();
-                      setState(() => _paletteMode = mode);
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   AppToggleRow(
                     title: 'Live motion',
                     subtitle: 'Animate eyes, jitters, bounce & drift',
@@ -430,8 +383,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     final ringing = _selectedRinging;
     if (ringing != null) return _buildRingingHero(ringing, colors);
     final tilt = _getEffectiveTilt(_selectedFace);
-    final fill = _resolveFillColor(_selectedFace, colors);
-    final stroke = _resolveStrokeColor(_selectedFace, colors);
 
     return AppSheet(
       child: Column(
@@ -443,8 +394,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
               size: _previewSize,
               isLive: _isLive,
               tiltAngle: tilt,
-              overrideFillColor: fill,
-              overrideStrokeColor: stroke,
             ),
           ),
           const SizedBox(height: 16),
@@ -493,11 +442,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
   }
 
   Widget _buildRingingHero(RingingStyle style, AppColors colors) {
-    // The palette modes pick a head colour per expression; a ringing face is
-    // always the alarm, so only the screenshot mode keeps its own yellow.
-    final fill = _paletteMode == FacePaletteMode.severity
-        ? colors.critCanvas
-        : null;
     return AppSheet(
       child: Column(
         children: [
@@ -506,7 +450,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
               style: style,
               size: _previewSize * 1.6,
               isLive: _isLive,
-              fillColor: fill,
             ),
           ),
           const SizedBox(height: 8),
@@ -560,8 +503,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     AppColors colors,
   ) {
     final tilt = _getEffectiveTilt(face);
-    final fill = _resolveFillColor(face, colors);
-    final stroke = _resolveStrokeColor(face, colors);
 
     return _buildCard(
       isSelected: isSelected,
@@ -579,8 +520,6 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
         size: 68,
         isLive: _isLive,
         tiltAngle: tilt,
-        overrideFillColor: fill,
-        overrideStrokeColor: stroke,
       ),
     );
   }

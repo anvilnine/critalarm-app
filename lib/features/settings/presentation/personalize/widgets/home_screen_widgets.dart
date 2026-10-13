@@ -143,9 +143,6 @@ class _WidgetFace extends StatelessWidget {
   Widget build(BuildContext context) => FaceWidget(
     state: FaceState.alarmed,
     size: size,
-    overrideFillColor: AppColors.light.faceFill,
-    overrideStrokeColor: AppColors.light.faceStroke,
-    overrideInkColor: AppColors.light.faceInk,
   );
 }
 

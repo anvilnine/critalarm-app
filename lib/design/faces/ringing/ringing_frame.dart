@@ -120,14 +120,13 @@ class RingFx {
 
 /// Everything about a ringing face at one moment of its loop.
 class RingingFrame {
-  /// The [face] at this moment, moved and tinted as the rest says.
+  /// The [face] at this moment, moved as the rest says. The head keeps its
+  /// colour through every frame.
   const RingingFrame({
     required this.face,
     this.tilt = 0,
     this.nudge = Offset.zero,
     this.scale = 1,
-    this.flush = 0,
-    this.flash = 0,
     this.spin = 0,
     this.fx = const [],
   });
@@ -141,8 +140,6 @@ class RingingFrame {
         tilt: lerpDouble(a.tilt, b.tilt, t)!,
         nudge: Offset.lerp(a.nudge, b.nudge, t)!,
         scale: lerpDouble(a.scale, b.scale, t)!,
-        flush: lerpDouble(a.flush, b.flush, t)!,
-        flash: lerpDouble(a.flash, b.flash, t)!,
         spin: lerpDouble(a.spin, b.spin, t)!,
         fx: [
           for (final fx in a.fx) fx.faded(1 - t),
@@ -161,12 +158,6 @@ class RingingFrame {
 
   /// How big the head is against its normal size.
   final double scale;
-
-  /// How far the head's fill has gone toward the alarm red, 0 to 1.
-  final double flush;
-
-  /// How far the fill and ink have swapped, 0 to 1. A shock flashes this.
-  final double flash;
 
   /// How far a swirl eye is turned, in radians.
   final double spin;
