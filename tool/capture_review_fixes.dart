@@ -192,7 +192,53 @@ String _proof(HistoryOwn own) => paywallLayoutLocation(
   own: own,
 );
 
+/// The Sheet from the critical limit: 2 of 2 used, the topic billing-api.
+String _sheetCritical() =>
+    Uri.parse(
+          paywallLayoutLocation(
+            PaywallLayoutId.sheet,
+            PaywallProduct.hosted,
+            source: PaywallSource.createTopicCard,
+            lead: PaywallBenefitId.topics,
+          ),
+        )
+        .replace(
+          queryParameters: {
+            ...Uri.parse(
+              paywallLayoutLocation(
+                PaywallLayoutId.sheet,
+                PaywallProduct.hosted,
+                source: PaywallSource.createTopicCard,
+                lead: PaywallBenefitId.topics,
+              ),
+            ).queryParameters,
+            'used': '2',
+            'limit': '2',
+            'topic': 'billing-api',
+          },
+        )
+        .toString();
+
 final _scenes = <_Scene>[
+  _Scene(
+    'sheet_no_lead',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.sheet,
+      PaywallProduct.hosted,
+      source: PaywallSource.settingsPlan,
+    ),
+  ),
+  const _Scene('sheet_critical_lifted', _sheetCritical, times: [3.9]),
+  _Scene(
+    'sheet_history',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.sheet,
+      PaywallProduct.hosted,
+      source: PaywallSource.history,
+      lead: PaywallBenefitId.history,
+    ),
+    times: const [3.9],
+  ),
   _Scene(
     'receipt_leaving',
     () => _leaving(PaywallLayoutId.receipt, _four),
