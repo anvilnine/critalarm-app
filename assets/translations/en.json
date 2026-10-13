@@ -421,6 +421,11 @@
   "feature_guides": {
     "progress": "{step} of {count}",
     "skip": "Skip guide",
+    "leave_title": "Leave the guide?",
+    "leave_body": "Settings has every guide if you want one later.",
+    "leave_stop_all": "Do not show guides again",
+    "leave_stay": "Keep going",
+    "leave_confirm": "Leave",
     "back": "Back",
     "next": "Next",
     "done": "Got it",

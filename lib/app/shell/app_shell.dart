@@ -151,7 +151,10 @@ class _AppShellContentState extends State<_AppShellContent>
     if (!focus) return;
     // After the frame that swaps the bar over, so the field exists to take it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _isSearching) _focusNode.requestFocus();
+      if (!mounted || !_isSearching) return;
+      // A guide can start between the tap and this frame.
+      if (getIt<FeatureGuideCubit>().state.isActive) return;
+      _focusNode.requestFocus();
     });
   }
 
@@ -186,10 +189,13 @@ class _AppShellContentState extends State<_AppShellContent>
     _search.updateQuery(query);
   }
 
-  /// The search button. The first time, search gets its own short guide.
+  /// The search button. The first time, search gets its own short guide,
+  /// and then the keyboard stays down: it would cover the results the guide
+  /// points at.
   void _openSearchFromBar() {
-    _openSearch();
-    getIt<FeatureGuideCubit>().requestIfNew(FeatureGuide.search);
+    final guides = getIt<FeatureGuideCubit>();
+    _openSearch(focus: !guides.takesScreenFor(FeatureGuide.search));
+    guides.requestIfNew(FeatureGuide.search);
   }
 
   void _closeSearch() {

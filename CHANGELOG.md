@@ -8,6 +8,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ### Changed
 - The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
+- The Android back button during a Feature Guide now asks whether to leave it, with a switch to stop guides showing by themselves
 
 ### Fixed
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
@@ -16,6 +17,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - An alarm sent without tags no longer shows a stray slash after the time.
 - The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
 - A long topic name no longer gets cut off in the name field during setup at a large text size.
+- The keyboard no longer opens over a Feature Guide on Search and on the new topic screen
 
 ## 1.0.0+13 - 2026-10-10
 ### Added
