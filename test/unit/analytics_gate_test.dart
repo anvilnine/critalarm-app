@@ -174,8 +174,6 @@ void main() {
         expect(unconfiguredGate.isInitialized, isFalse);
         expect(unconfiguredGate.isAnalyticsEnabled, isFalse);
         expect(unconfiguredGate.isCrashlyticsEnabled, isFalse);
-        expect(unconfiguredGate.paywallEnabled, isFalse);
-        expect(unconfiguredGate.isPaywallEnabled, isFalse);
 
         // initialize should not throw when Firebase is missing
         await expectLater(unconfiguredGate.initialize(), completes);
@@ -203,21 +201,14 @@ void main() {
 
   group('TelemetryGate Interface Contract', () {
     test(
-      'NoopTelemetryGate satisfies contract and defaults to false',
+      'NoopTelemetryGate satisfies contract',
       () async {
         const gate = NoopTelemetryGate();
-        expect(gate.paywallEnabled, isFalse);
-        expect(gate.isPaywallEnabled, isFalse);
-
         await expectLater(gate.initialize(), completes);
         await expectLater(gate.setAnalyticsEnabled(true), completes);
         await expectLater(gate.setAnalyticsEnabled(false), completes);
         await expectLater(gate.setCrashlyticsEnabled(true), completes);
         await expectLater(gate.setCrashlyticsEnabled(false), completes);
-
-        const activeGate = NoopTelemetryGate(paywallEnabled: true);
-        expect(activeGate.paywallEnabled, isTrue);
-        expect(activeGate.isPaywallEnabled, isTrue);
       },
     );
   });

@@ -2,7 +2,7 @@
 /// not a layout: it plays once, full screen, and hands over to whichever
 /// layout was chosen. Any intro goes with any layout.
 ///
-/// The keys go in the route (`?intro=<key>`), in remote values and in
+/// The keys go in the route (`?intro=<key>`), in saved values and in
 /// analytics, so a shipped key never changes.
 enum PaywallIntroId {
   /// No intro: the layout opens with its own entrance.
@@ -36,15 +36,15 @@ enum PaywallIntroId {
     return null;
   }
 
-  /// Reads a remote value or a route's `intro`. Empty means [none], and so
+  /// Reads a saved value or a route's `intro`. Empty means [none], and so
   /// does a value this build does not know. That covers the key of an intro
   /// that was taken out, such as `countdown`: it plays nothing.
   static PaywallIntroId parse(String? value) => fromKey(value?.trim()) ?? none;
 }
 
-/// The layout key the false alarm had while it was a layout. A stored or
-/// remote layout value that still says it reads as the `hero` layout with
-/// the [PaywallIntroId.falseAlarm] intro.
+/// The layout key the false alarm had while it was a layout. A stored layout
+/// value or a route that still says it reads as the `hero` layout with the
+/// [PaywallIntroId.falseAlarm] intro.
 const String paywallFalseAlarmLayoutKey = 'false_alarm';
 
 /// The intro a layout value carries from the time intros were layouts, or

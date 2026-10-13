@@ -48,10 +48,6 @@ void main() {
   group('the key the false alarm had as a layout', () {
     test('reads as the hero layout', () {
       expect(
-        PaywallLayoutSetting.parse('false_alarm'),
-        const PaywallLayoutSetting.pinned(PaywallLayoutId.hero),
-      );
-      expect(
         PaywallLayoutSetting.fromStored('false_alarm'),
         const PaywallLayoutSetting.pinned(PaywallLayoutId.hero),
       );
@@ -71,8 +67,7 @@ void main() {
       }
     });
 
-    test('the layout that was removed outright is the shipped surface', () {
-      expect(PaywallLayoutSetting.parse('plain'), PaywallLayoutSetting.shipped);
+    test('the layout that was removed outright pins nothing', () {
       expect(PaywallLayoutSetting.fromStored('plain'), isNull);
     });
   });

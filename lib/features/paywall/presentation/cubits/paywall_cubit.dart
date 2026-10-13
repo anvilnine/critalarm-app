@@ -3,11 +3,9 @@ import 'dart:async';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
-import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
-import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
@@ -22,10 +20,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
-/// Cubit managing Pro upgrade, offerings, and purchase restoration.
+/// Cubit managing a Hosted upgrade, offerings, purchase restoration and
+/// the customer centre.
 class PaywallCubit extends Cubit<PaywallState> {
   PaywallCubit({
-    this.telemetryGate,
     this.identityStore,
     this.refreshRegistration,
     this.getOfferingsUsecase,
@@ -34,28 +32,18 @@ class PaywallCubit extends Cubit<PaywallState> {
     this.getCustomerInfoUsecase,
     SubscriptionRepository? subscriptionRepository,
     ProOverride? proOverride,
-    PaywallVariantOverride? variantOverride,
     this.analytics,
     List<Duration>? tierRefreshWaits,
     PlanChanges? planChanges,
   }) : _proOverride = proOverride ?? appProOverride,
        _planChanges = planChanges ?? appPlanChanges,
-       _variantOverride = variantOverride ?? appPaywallVariantOverride,
        _tierRefreshWaits = tierRefreshWaits ?? _defaultTierRefreshWaits,
-       super(
-         PaywallState(
-           paywallEnabled: telemetryGate?.paywallEnabled ?? false,
-           variant:
-               (variantOverride ?? appPaywallVariantOverride).forcedVariant ??
-               PaywallVariant.fromKey(telemetryGate?.paywallVariantKey),
-         ),
-       ) {
+       super(const PaywallState()) {
     if (subscriptionRepository != null) {
       _customerInfoSubscription = subscriptionRepository.customerInfoStream
           .listen(_onCustomerInfoUpdated);
     }
     _proOverride.listenable?.addListener(_onForceProChanged);
-    _variantOverride.listenable?.addListener(_onVariantChanged);
   }
 
   /// How long to wait between the tries at re-reading the tier. Four waits
@@ -71,10 +59,8 @@ class PaywallCubit extends Cubit<PaywallState> {
   final List<Duration> _tierRefreshWaits;
   final PlanChanges _planChanges;
   final Future<void> Function()? refreshRegistration;
-  final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
   final ProOverride _proOverride;
-  final PaywallVariantOverride _variantOverride;
   final PaywallAnalytics? analytics;
 
   /// What opened this paywall. Set by [loadSubscriptionData].
@@ -93,30 +79,11 @@ class PaywallCubit extends Cubit<PaywallState> {
   /// different about this device.
   void _onForceProChanged() => unawaited(_refreshTier());
 
-  /// The developer variant picker moved, so a different layout should be on
-  /// screen. Counts as a fresh view, because that is what the reader sees.
-  void _onVariantChanged() {
-    final next = resolveVariant();
-    if (next == state.variant) return;
-    emit(state.copyWith(variant: next));
-    unawaited(analytics?.viewed(variant: next, source: _source));
-  }
-
-  /// The layout this device should show. A developer build wins, then Remote
-  /// Config, then the default.
-  PaywallVariant resolveVariant() =>
-      _variantOverride.forcedVariant ??
-      PaywallVariant.fromKey(telemetryGate?.paywallVariantKey);
   final GetOfferingsUsecase? getOfferingsUsecase;
   final PurchasePackageUsecase? purchasePackageUsecase;
   final RestorePurchasesUsecase? restorePurchasesUsecase;
   final GetCustomerInfoUsecase? getCustomerInfoUsecase;
   StreamSubscription<CustomerInfo>? _customerInfoSubscription;
-
-  bool get isPaywallEnabled =>
-      telemetryGate?.isPaywallEnabled ?? state.paywallEnabled;
-
-  bool get paywallEnabled => isPaywallEnabled;
 
   /// Loads current entitlement status, customer info, and available offerings.
   Future<void> loadSubscriptionData({
@@ -164,8 +131,6 @@ class PaywallCubit extends Cubit<PaywallState> {
       );
     }
 
-    final variant = resolveVariant();
-
     emit(
       state.copyWith(
         status: PaywallStatus.initial,
@@ -174,12 +139,11 @@ class PaywallCubit extends Cubit<PaywallState> {
         offerings: offerings,
         selectedPackage: selectedPackage,
         selectedTier: selectedTier,
-        variant: variant,
       ),
     );
 
     if (!isPro) {
-      await analytics?.viewed(variant: variant, source: _source);
+      await analytics?.viewed(source: _source);
     }
   }
 
@@ -200,10 +164,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     );
 
     unawaited(
-      analytics?.planSelected(
-        variant: state.variant,
-        plan: tier.analyticsKey,
-      ),
+      analytics?.planSelected(plan: tier.analyticsKey),
     );
   }
 
@@ -219,15 +180,14 @@ class PaywallCubit extends Cubit<PaywallState> {
 
     final targetPackage = package ?? state.selectedPackage;
     final plan = state.selectedTier.analyticsKey;
-    final variant = state.variant;
 
     if (purchasePackageUsecase != null && targetPackage != null) {
-      await analytics?.purchaseStarted(variant: variant, plan: plan);
+      await analytics?.purchaseStarted(plan: plan);
       final result = await purchasePackageUsecase!(targetPackage);
 
       await result.fold(
         (customerInfo) async {
-          await analytics?.purchaseCompleted(variant: variant, plan: plan);
+          await analytics?.purchaseCompleted(plan: plan);
           final isPro = await _refreshTierUntilPaid() || await _isPaid();
           if (isClosed) return;
           emit(
@@ -247,7 +207,6 @@ class PaywallCubit extends Cubit<PaywallState> {
               (failure.message?.contains('cancelled') ?? false);
           unawaited(
             analytics?.purchaseFailed(
-              variant: variant,
               plan: plan,
               reason: cancelled ? 'cancelled' : 'failed',
             ),
@@ -352,50 +311,6 @@ class PaywallCubit extends Cubit<PaywallState> {
     return false;
   }
 
-  /// Turns the app Pro from the store's answer, so the buyer does not wait on
-  /// the server. Reads the customer info again rather than trusting a stream
-  /// event to have landed already.
-  Future<void> _mirrorStorePro() async {
-    if (getCustomerInfoUsecase == null) return;
-    (await getCustomerInfoUsecase!(const NoParams())).fold(
-      (info) => _planChanges.setStoreSaysPro(
-        value: info.entitlements.active.containsKey(
-          SubscriptionTier.proEntitlement,
-        ),
-      ),
-      (_) {},
-    );
-  }
-
-  /// Presents the native RevenueCat Paywall UI.
-  Future<PaywallResult> presentNativePaywall({Offering? offering}) async {
-    final variant = state.variant;
-    final plan = state.selectedTier.analyticsKey;
-    await analytics?.purchaseStarted(variant: variant, plan: plan);
-
-    final result = await RevenueCatUI.presentPaywall(
-      offering: offering ?? state.offerings?.current,
-      displayCloseButton: true,
-    );
-
-    if (result == PaywallResult.purchased || result == PaywallResult.restored) {
-      await analytics?.purchaseCompleted(variant: variant, plan: plan);
-      await _mirrorStorePro();
-      // The server hears about the purchase through a webhook a few seconds
-      // later. Keep asking in the background and move on now. The
-      // registration bumps PlanChanges once the tier flips.
-      unawaited(_refreshTierUntilPaid());
-      if (!isClosed) emit(state.copyWith(isPro: await _isPaid()));
-    } else {
-      await analytics?.purchaseFailed(
-        variant: variant,
-        plan: plan,
-        reason: result.name,
-      );
-    }
-    return result;
-  }
-
   /// Presents the native RevenueCat Customer Center UI.
   Future<void> presentCustomerCenter() async {
     await RevenueCatUI.presentCustomerCenter(
@@ -458,7 +373,6 @@ class PaywallCubit extends Cubit<PaywallState> {
   @override
   Future<void> close() async {
     _proOverride.listenable?.removeListener(_onForceProChanged);
-    _variantOverride.listenable?.removeListener(_onVariantChanged);
     await _customerInfoSubscription?.cancel();
     return super.close();
   }

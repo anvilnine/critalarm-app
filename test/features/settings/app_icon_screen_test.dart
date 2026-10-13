@@ -33,14 +33,13 @@ void main() {
             .isEmpty,
   );
 
-  /// The screen on a router that also has the two paywalls, as stubs.
+  /// The screen on a router that also has the paywall layout, as a stub.
   GoRouter routerFor() => GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const AppIconScreen()),
-      GoRoute(path: '/paywall', builder: (_, _) => const SizedBox()),
       GoRoute(
-        path: '/pro',
-        name: 'proPack',
+        path: '/plans/:layout',
+        name: 'paywallLayout',
         builder: (_, _) => const SizedBox(),
       ),
     ],
@@ -161,7 +160,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       // The one door picks the paywall from the decision, not the screen.
-      expect(top(router), anyOf('/paywall', '/pro'));
+      expect(top(router), startsWith('/plans/'));
     });
 
     testWidgets('an open icon has no badge and offers Use this icon', (

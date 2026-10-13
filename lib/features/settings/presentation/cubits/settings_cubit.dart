@@ -158,9 +158,6 @@ class SettingsCubit extends Cubit<SettingsState> {
     return super.close();
   }
 
-  bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
-  bool get paywallEnabled => isPaywallEnabled;
-
   /// How long the phone keeps alarms before deleting them itself.
   Future<void> setRetention(HistoryRetention retention) async {
     emit(state.copyWith(storage: state.storage.copyWith(retention: retention)));
