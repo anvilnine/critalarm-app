@@ -24,6 +24,7 @@ enum ToolTemplate {
   ),
   cron(id: 'cron', label: 'cron', suggestedName: 'cron'),
   ci(id: 'ci', label: 'CI', suggestedName: 'ci'),
+  curl(id: 'curl', label: 'curl', suggestedName: null),
 
   /// Something else. Fills no name. The screen shows a translated label.
   other(id: 'other', label: null, suggestedName: null);
