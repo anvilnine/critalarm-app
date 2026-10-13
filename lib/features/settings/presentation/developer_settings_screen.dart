@@ -257,6 +257,8 @@ class _PaywallLayoutsRow extends StatelessWidget {
         switches.proIntro,
         switches.hostedThanks,
         switches.proThanks,
+        switches.hostedOutro,
+        switches.proOutro,
       ]),
       builder: (context, _) {
         final remote = LocaleKeys.developer_options_remote.tr();
@@ -264,14 +266,22 @@ class _PaywallLayoutsRow extends StatelessWidget {
           DevPaywallIntroSwitch intro,
           DevPaywallLayoutSwitch at,
           DevPaywallThanksSwitch thanks,
-        ) => paywallStepsText(
-          intro: intro.value == null ? null : paywallIntroName(intro.value!),
-          layout: at.value == null ? null : _layoutLabel(at.value),
-          thanks: thanks.value == null
-              ? null
-              : paywallThanksName(thanks.value!),
-          remote: remote,
-        );
+          DevPaywallOutroSwitch outro,
+        ) {
+          final text = paywallStepsText(
+            intro: intro.value == null ? null : paywallIntroName(intro.value!),
+            layout: at.value == null ? null : _layoutLabel(at.value),
+            thanks: thanks.value == null
+                ? null
+                : paywallThanksName(thanks.value!),
+            remote: remote,
+          );
+          final outroValue = outro.value;
+          return outroValue == null
+              ? text
+              : '$text, ${paywallOutroName(outroValue)}';
+        }
+
         return AppValueRow(
           title: title,
           detail: LocaleKeys.developer_options_layouts_value.tr(
@@ -281,12 +291,14 @@ class _PaywallLayoutsRow extends StatelessWidget {
                 switches.hostedIntro,
                 switches.hosted,
                 switches.hostedThanks,
+                switches.hostedOutro,
               ),
               'pro_name': paywallProductName(PaywallProduct.pro),
               'pro': steps(
                 switches.proIntro,
                 switches.pro,
                 switches.proThanks,
+                switches.proOutro,
               ),
             },
           ),

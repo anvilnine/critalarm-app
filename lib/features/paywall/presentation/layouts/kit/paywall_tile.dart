@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -63,6 +64,15 @@ String paywallThanksNameKey(PaywallThanksId thanks) => switch (thanks) {
   PaywallThanksId.receiptParty => LocaleKeys.paywall_thanks_names_party,
 };
 
+/// The key of the name a person reads for [outro]. See
+/// [paywallLayoutNameKey].
+String paywallOutroNameKey(PaywallOutroId outro) => switch (outro) {
+  PaywallOutroId.none => LocaleKeys.paywall_outro_names_none,
+  PaywallOutroId.breakLiftRing =>
+    LocaleKeys.paywall_outro_names_break_lift_ring,
+  PaywallOutroId.cloudClimb => LocaleKeys.paywall_outro_names_cloud_climb,
+};
+
 /// The names themselves.
 String paywallLayoutName(PaywallLayoutId layout) =>
     paywallLayoutNameKey(layout).tr();
@@ -70,6 +80,8 @@ String paywallIntroName(PaywallIntroId intro) =>
     paywallIntroNameKey(intro).tr();
 String paywallThanksName(PaywallThanksId thanks) =>
     paywallThanksNameKey(thanks).tr();
+String paywallOutroName(PaywallOutroId outro) =>
+    paywallOutroNameKey(outro).tr();
 
 /// A small phone playing one layout, live, to pick it by.
 ///
