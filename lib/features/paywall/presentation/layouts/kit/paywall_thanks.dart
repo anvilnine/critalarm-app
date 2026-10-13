@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
@@ -12,6 +14,8 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_reporter.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -19,6 +23,7 @@ import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -53,6 +58,8 @@ class PaywallThanksScope {
     required this.benefits,
     this.origin,
     this.mascot,
+    this.mascotFrom = 0,
+    this.textScale = 1,
   });
 
   /// Seconds since the purchase was confirmed, which is the frame the
@@ -82,6 +89,15 @@ class PaywallThanksScope {
   /// confirmed. A version starts its mascot there, so the two read as one.
   /// Null when the layout shows none.
   final Rect? mascot;
+
+  /// The version draws no mascot, and no hands, before this second. After a
+  /// success outro it is the second its own mascot takes over from the
+  /// outro's. Zero draws it from the start.
+  final double mascotFrom;
+
+  /// The text scale the version is drawn at, which `mascotAt` needs to find
+  /// its stage with no context to read it from.
+  final double textScale;
 
   /// Where a version may draw words: the screen less the safe areas and
   /// the host's button.
@@ -113,6 +129,10 @@ List<PaywallThanksBeat> _noBeats(int lines) => const [];
 /// Second zero is the frame the purchase is confirmed. The buy block plays
 /// the purchase cue on that frame, so a version never plays it and times
 /// its show to it: see [paywallBoughtCueSeconds].
+/// How high a version lifts its mascot (a share of its height) and how
+/// tall it is against its rest height. Lift 0 and stretch 1 is at rest.
+typedef PaywallThanksPose = ({double lift, double stretch});
+
 @immutable
 class PaywallThanks {
   const PaywallThanks({
@@ -122,6 +142,9 @@ class PaywallThanks {
     required this.builder,
     this.tone = PaywallTone.canvas,
     this.beats = _noBeats,
+    this.pickUp = 0.5,
+    this.mascotAt,
+    this.mascotPoseAt,
   });
 
   /// The length of the show. From here on the version draws its resting
@@ -144,6 +167,23 @@ class PaywallThanks {
   final PaywallThanksBeats beats;
 
   final PaywallThanksBuilder builder;
+
+  /// The second of its own timeline the version is picked up at after a
+  /// success outro. It is built under the outro from here, so its cover has
+  /// grown by then. Read only after an outro.
+  final double pickUp;
+
+  /// Where the version's mascot is at second `t`, in the screen's
+  /// coordinates, as it draws it: the box the outro's mascot lands on at the
+  /// swap. A version that has none cannot follow an outro.
+  final Rect Function(PaywallThanksScope scope, double t)? mascotAt;
+
+  /// How far the mascot is lifted off its box and how far it is stretched at
+  /// second `t`: what the version draws it with on top of [mascotAt]. The
+  /// outro's mascot lands on the box with both applied, so the swap is
+  /// exact even when the version is mid jump. Null reads as at rest.
+  final PaywallThanksPose Function(PaywallThanksScope scope, double t)?
+  mascotPoseAt;
 
   /// Whether the times are in order, the button is on soon enough and no
   /// beat makes a sound under the purchase cue. A test asks this of every
@@ -181,6 +221,11 @@ double paywallThanksSkip(double seconds, double t) => t < seconds ? seconds : t;
 /// - A tap anywhere skips the show to its resting frame. The one button
 ///   calls [onDone] and says [buttonLabel], or "Continue" when that is
 ///   null.
+/// - With an [outro] set and built, a confirmed purchase takes one picture
+///   of the layout, plays the outro over it and picks the show up under
+///   the outro's end. Both run on the host's one clock. A tap, reduce
+///   motion, a still, a restore and a product already held play no
+///   outro.
 /// - With reduce motion on, or under a `PaywallStill`, the resting frame
 ///   is there at once and nothing moves.
 class PaywallThanksHost extends StatefulWidget {
@@ -188,12 +233,17 @@ class PaywallThanksHost extends StatefulWidget {
     required this.thanks,
     required this.product,
     required this.child,
+    this.outro = PaywallOutroId.none,
     this.onDone,
     this.buttonLabel,
     super.key,
   });
 
   final PaywallThanksId thanks;
+
+  /// What plays between a confirmed purchase and [thanks]. `none`, or an id
+  /// this build has no outro for, plays nothing.
+  final PaywallOutroId outro;
   final PaywallProduct product;
 
   /// Where the one button goes. Null in a thumbnail, which has no touch.
@@ -218,6 +268,28 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
 
   /// The version set for this paywall, or null for none.
   PaywallThanks? _thanks;
+
+  /// The outro set for this paywall, or null for none.
+  PaywallOutro? _outro;
+
+  /// The outro this purchase plays, or null when it plays none.
+  PaywallOutro? _playing;
+
+  /// The end state's clock while an outro plays.
+  _AfterOutroClock? _endClock;
+
+  /// The layout as it was painted when the purchase was confirmed, its
+  /// mascot patched out. Disposed when the outro ends, when a tap skips it
+  /// and with the host.
+  ui.Image? _wall;
+
+  /// The picture is being taken. The layout is still on screen, and a tap
+  /// skips to the resting frame with no outro.
+  bool _isGrabbing = false;
+  int _grabs = 0;
+
+  /// What is felt on the way, in the host's seconds.
+  List<PaywallThanksBeat> _beats = const [];
 
   /// Why the step is on screen, or null while it is not.
   PaywallThanksKind? _kind;
@@ -244,7 +316,14 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
 
   /// The length of what plays for [_kind], and when it covers the screen.
   double get _seconds => switch (_kind) {
-    PaywallThanksKind.purchase => _thanks!.seconds,
+    PaywallThanksKind.purchase =>
+      _playing == null
+          ? _thanks!.seconds
+          : paywallThanksRestAfterOutro(
+              outro: _playing!,
+              pickUp: _thanks!.pickUp,
+              thanksSeconds: _thanks!.seconds,
+            ),
     PaywallThanksKind.restore => paywallThanksQuietSeconds,
     PaywallThanksKind.owned || null => 0,
   };
@@ -267,6 +346,80 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     _buy = context.read<PaywallBuyCubit>();
     _before = _buy.state;
     _thanks = paywallThanksBuilders[widget.thanks];
+    _outro = paywallOutroBuilders[widget.outro];
+    _handle.purchaseCue = _purchaseCue;
+  }
+
+  /// Whether the score of the outro is still sounding and was started by
+  /// this purchase.
+  bool _isScoreOn = false;
+
+  /// The outro has a score that the host still has to sound: the buy block
+  /// left the purchase frame silent for it. Cleared when the score starts
+  /// with the clock, or when the outro is given up and the purchase cue
+  /// plays in its place.
+  bool _isScorePending = false;
+
+  /// Whether this purchase sounds nothing (a thumbnail), read when it began
+  /// so it is safe to ask while the host is going away.
+  bool _isMuted = false;
+
+  /// Plays the score at second zero of the outro, as its clock starts.
+  void _startScore() {
+    final outro = _playing;
+    if (!_isScorePending || outro == null) return;
+    _isScorePending = false;
+    final cue = paywallPurchaseCueByHost(
+      outro: outro,
+      hasStarted: true,
+      isMuted: _isMuted,
+    );
+    if (cue == null) return;
+    _isScoreOn = true;
+    getIt<PaywallCues>().play(cue);
+  }
+
+  /// The outro will not play after all, before its clock started: the
+  /// purchase gets its own cue, so it is never silent.
+  void _giveUpScore() {
+    final outro = _playing ?? _outro;
+    if (!_isScorePending) return;
+    _isScorePending = false;
+    final cue = paywallPurchaseCueByHost(
+      outro: outro,
+      hasStarted: false,
+      isMuted: _isMuted,
+    );
+    if (cue != null) getIt<PaywallCues>().play(cue);
+  }
+
+  /// The cue the buy block plays on the purchase frame. It is worked out
+  /// from what is known then, so it does not depend on which listener hears
+  /// the purchase first.
+  PaywallCue? _purchaseCue() {
+    final outro = _outro;
+    final thanks = _thanks;
+    final plays =
+        outro != null &&
+        thanks != null &&
+        paywallOutroPlays(
+          kind: PaywallThanksKind.purchase,
+          isStill: _isStill,
+          isOutroBuilt: true,
+          isThanksBuilt: thanks.mascotAt != null,
+        );
+    return paywallPurchaseCueByBuyBlock(playing: plays ? outro : null);
+  }
+
+  /// Stops the score when the outro is cut short, a skip, a still or the
+  /// route going away. After the swap the tail is left to ring out: it is
+  /// under the end state and nothing may cut it dead.
+  void _stopScore() {
+    final outro = _outro;
+    if (!_isScoreOn || outro == null) return;
+    if (_clock.seconds >= outro.seconds) return;
+    _isScoreOn = false;
+    getIt<PaywallCues>().stop();
   }
 
   void _onBuy(BuildContext context, PaywallBuyState after) {
@@ -288,6 +441,21 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
       _mascot = _findMascot();
     }
     final isStill = _isStill;
+    final thanks = _thanks!;
+    final outro = _outro;
+    final plays = paywallOutroPlays(
+      kind: kind,
+      isStill: isStill,
+      isOutroBuilt: outro != null,
+      isThanksBuilt: thanks.mascotAt != null,
+    );
+    _playing = plays ? outro : null;
+    _isScoreOn = false;
+    _isScorePending = plays && outro!.score != null;
+    _isMuted = PaywallMuted.of(context);
+    _endClock?.dispose();
+    _endClock = plays ? _AfterOutroClock(_clock, outro!, thanks.pickUp) : null;
+    _beats = _beatsFor(kind);
     final start = _startFor(kind);
     _banked = isStill ? _seconds + start : start;
     _skipped = 0;
@@ -298,6 +466,124 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     if (reporter is PaywallLayoutReporter && !PaywallMuted.of(context)) {
       _reporter = reporter..thanksShown(kind.wire);
     }
+    if (plays) {
+      // The layout stays on screen until the picture is taken, and the
+      // clock starts when it is.
+      _isGrabbing = true;
+      unawaited(_grab(++_grabs));
+    }
+    _sync();
+  }
+
+  /// The beats of what plays for [kind], in the host's seconds.
+  List<PaywallThanksBeat> _beatsFor(PaywallThanksKind kind) {
+    if (kind != PaywallThanksKind.purchase) return const [];
+    final thanks = _thanks!;
+    final own = thanks.beats(paywallBenefitsFor(widget.product).length);
+    final outro = _playing;
+    if (outro == null) return own;
+    return [
+      ...outro.beats,
+      ...paywallThanksBeatsAfterOutro(
+        own,
+        outro: outro,
+        pickUp: thanks.pickUp,
+      ),
+    ]..sort((a, b) => a.at.compareTo(b.at));
+  }
+
+  /// Takes the picture the outro starts from, then starts the clock. It is
+  /// async: a tap, a change of motion or the route going away in the
+  /// meantime makes the ticket stale and the picture is thrown away.
+  Future<void> _grab(int ticket) async {
+    final ratio = math.min<double>(2, MediaQuery.devicePixelRatioOf(context));
+    final mascot = _mascot;
+    ui.Image? picture;
+    try {
+      final boundary = _layoutKey.currentContext?.findRenderObject();
+      if (boundary is RenderRepaintBoundary) {
+        picture = await boundary.toImage(pixelRatio: ratio);
+        if (mascot != null && ticket == _grabs) {
+          final patched = await _patched(picture, mascot, ratio);
+          picture.dispose();
+          picture = patched;
+        }
+      }
+    } on Object catch (_) {
+      // The outro plays without its picture.
+      picture?.dispose();
+      picture = null;
+    }
+    if (!mounted || ticket != _grabs) {
+      picture?.dispose();
+      return;
+    }
+    setState(() {
+      _wall = picture;
+      _isGrabbing = false;
+      _isCovered = true;
+    });
+    // The clock starts in the sync below: the score starts with it.
+    _startScore();
+    _sync();
+  }
+
+  /// [picture] with a patch over where the layout's own mascot stood,
+  /// painted in the colour of one pixel beside it, so the outro's mascot is
+  /// the only one.
+  Future<ui.Image> _patched(ui.Image picture, Rect mascot, double ratio) async {
+    final data = await picture.toByteData();
+    final point = paywallOutroSamplePoint(mascot);
+    final x = (point.dx * ratio).round().clamp(0, picture.width - 1);
+    final y = (point.dy * ratio).round().clamp(0, picture.height - 1);
+    var color = const Color(0x00000000);
+    if (data != null) {
+      final at = (y * picture.width + x) * 4;
+      color = Color.fromARGB(
+        data.getUint8(at + 3),
+        data.getUint8(at),
+        data.getUint8(at + 1),
+        data.getUint8(at + 2),
+      );
+    }
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..drawImage(picture, Offset.zero, Paint())
+      ..scale(ratio)
+      ..drawRRect(paywallOutroPatch(mascot), Paint()..color = color);
+    final drawn = recorder.endRecording();
+    try {
+      return await drawn.toImage(picture.width, picture.height);
+    } finally {
+      drawn.dispose();
+    }
+  }
+
+  /// Lets go of the picture once the frame that stops using it is drawn.
+  void _releaseWall() {
+    final wall = _wall;
+    if (wall == null) return;
+    _wall = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) => wall.dispose());
+  }
+
+  /// A tap while the picture is being taken: the end state's resting
+  /// frame, and no outro.
+  void _skipGrab() {
+    _giveUpScore();
+    _stopScore();
+    _grabs++;
+    _isGrabbing = false;
+    _playing = null;
+    _beats = _beatsFor(_kind!);
+    _wasSkipped = true;
+    final rest = _thanks!.seconds;
+    _banked = rest;
+    _skipped = 0;
+    _clock.seconds = rest;
+    _heard = rest;
+    if (!PaywallMuted.of(context)) AppHaptics.play(HapticPattern.tick);
+    setState(() => _isCovered = true);
     _sync();
   }
 
@@ -311,16 +597,21 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     _clock.seconds = t;
     if (_kind == PaywallThanksKind.purchase && !PaywallMuted.of(context)) {
       final cues = getIt<PaywallCues>();
-      final beats = thanks.beats(paywallBenefitsFor(widget.product).length);
       // Single short beats under the purchase cue. Nothing here vibrates
       // as an alarm does.
-      for (final beat in paywallThanksBeatsBetween(beats, _heard, t)) {
+      for (final beat in paywallThanksBeatsBetween(_beats, _heard, t)) {
         beat.play(cues);
       }
     }
     _heard = t;
+    final scored = _playing;
+    if (_isScoreOn && scored != null && t >= scored.scoreSeconds) {
+      _isScoreOn = false;
+    }
     if (!_isCovered && _run >= _coverAt) setState(() => _isCovered = true);
     _clock.tell();
+    final outro = _playing;
+    if (outro != null && t >= outro.seconds) _releaseWall();
   }
 
   void _skip() {
@@ -328,12 +619,14 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     final now = _clock.seconds;
     final to = paywallThanksSkip(_seconds, now);
     if (to == now) return;
+    _stopScore();
     _skipped += to - now;
     _clock.seconds = to;
     // The moments a tap jumps over are not played.
     _heard = to;
     _wasSkipped = true;
     if (!PaywallMuted.of(context)) AppHaptics.play(HapticPattern.tick);
+    _releaseWall();
     if (_isCovered) return _clock.tell();
     setState(() => _isCovered = true);
   }
@@ -401,7 +694,7 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     final isOnTop = ModalRoute.of(context)?.isCurrent ?? true;
     final isStill = _isStill;
     _clock.still = isStill;
-    final shouldRun = _kind != null && !isStill && isOnTop;
+    final shouldRun = _kind != null && !isStill && isOnTop && !_isGrabbing;
     if (!shouldRun && _ticker.isActive) {
       _banked = _clock.seconds - _skipped;
       _ticker.stop();
@@ -420,7 +713,16 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
         _start(PaywallThanksKind.owned);
       }
     } else if (kind != null && _isStill) {
-      // Motion was turned off half way: the resting frame, at once.
+      // Motion was turned off half way: the resting frame, at once. With
+      // no outro either: one waiting for its picture is let go.
+      _stopScore();
+      if (_isGrabbing) {
+        _giveUpScore();
+        _grabs++;
+        _isGrabbing = false;
+        _playing = null;
+        _beats = const [];
+      }
       final rest = _startFor(kind) + _seconds;
       if (_clock.seconds < rest) {
         _skipped += rest - _clock.seconds;
@@ -428,6 +730,7 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
         _heard = rest;
       }
       _isCovered = true;
+      _releaseWall();
     }
     _sync();
   }
@@ -438,6 +741,12 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
     if (kind != null && !_leftByButton) {
       _reporter?.thanksLeft(kind.wire, how: 'away', skipped: _wasSkipped);
     }
+    _giveUpScore();
+    _stopScore();
+    _grabs++;
+    _wall?.dispose();
+    _wall = null;
+    _endClock?.dispose();
     _ticker.dispose();
     _clock.dispose();
     super.dispose();
@@ -463,10 +772,20 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
               offstage: isAway,
               child: PaywallStill(
                 isStill: isAway || PaywallStill.of(context),
-                child: KeyedSubtree(key: _layoutKey, child: widget.child),
+                child: RepaintBoundary(key: _layoutKey, child: widget.child),
               ),
             ),
-            if (kind != null)
+            // The layout is still showing while its picture is taken. A tap
+            // in that gap goes to the end state's resting frame.
+            if (kind != null && _isGrabbing)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTap: _skipGrab,
+                ),
+              ),
+            if (kind != null && !_isGrabbing)
               Positioned.fill(
                 child: _ThanksLayer(
                   thanks: thanks,
@@ -476,6 +795,9 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
                   product: widget.product,
                   origin: _origin,
                   mascot: _mascot,
+                  outro: _playing,
+                  endClock: _endClock,
+                  wall: _wall,
                   buttonLabel: widget.buttonLabel,
                   onSkip: _skip,
                   onGoOn: _goOn,
@@ -501,6 +823,9 @@ class _ThanksLayer extends StatelessWidget {
     required this.buttonLabel,
     required this.onSkip,
     required this.onGoOn,
+    this.outro,
+    this.endClock,
+    this.wall,
   });
 
   final PaywallThanks thanks;
@@ -512,6 +837,12 @@ class _ThanksLayer extends StatelessWidget {
   final PaywallProduct product;
   final Rect? origin;
   final Rect? mascot;
+
+  /// The outro this purchase plays, or null for none. With one, [endClock]
+  /// is the end state's own clock and [wall] its picture of the layout.
+  final PaywallOutro? outro;
+  final PaywallClock? endClock;
+  final ui.Image? wall;
 
   /// What the button says, or null for the step's own word.
   final String? buttonLabel;
@@ -532,9 +863,15 @@ class _ThanksLayer extends StatelessWidget {
         ? paywallThanksQuietButtonAt
         : 0.0;
 
+    final outro = this.outro;
+    final endClock = this.endClock;
     Widget content = LayoutBuilder(
       builder: (context, constraints) {
-        final scope = PaywallThanksScope(
+        PaywallThanksScope scopeFor(
+          PaywallClock clock, {
+          Rect? mascot,
+          double mascotFrom = 0,
+        }) => PaywallThanksScope(
           clock: clock,
           size: constraints.biggest,
           padding: padding,
@@ -542,10 +879,62 @@ class _ThanksLayer extends StatelessWidget {
           benefits: paywallBenefitsFor(product),
           origin: origin,
           mascot: mascot,
+          mascotFrom: mascotFrom,
+          textScale: MediaQuery.textScalerOf(context).scale(1),
         );
-        return isQuiet
-            ? ThanksQuiet(scope: scope, tone: thanks.tone)
-            : thanks.builder(context, scope);
+        if (isQuiet) {
+          return ThanksQuiet(
+            scope: scopeFor(clock, mascot: mascot),
+            tone: thanks.tone,
+          );
+        }
+        if (outro == null || endClock == null) {
+          return thanks.builder(context, scopeFor(clock, mascot: mascot));
+        }
+        // After an outro the end state starts on its own stage and draws no
+        // mascot until the swap. The outro's mascot lands where it will
+        // be.
+        final from = paywallThanksMascotFrom(
+          outro: outro,
+          pickUp: thanks.pickUp,
+        );
+        final end = scopeFor(endClock, mascotFrom: from);
+        final outroScope = PaywallOutroScope(
+          clock: clock,
+          size: constraints.biggest,
+          padding: padding,
+          product: product,
+          wall: wall,
+          mascot: mascot,
+          land: thanksCritSeen(
+            thanks.mascotAt!(end, from),
+            thanks.mascotPoseAt?.call(end, from),
+          ),
+          ground: PaywallToneColors.of(context, thanks.tone).background,
+          words: LocaleKeys.paywall_outro_welcome.tr(
+            namedArgs: {'product': paywallProductName(product)},
+          ),
+        );
+        final under = KeyedSubtree(
+          key: const ValueKey('end'),
+          child: thanks.builder(context, end),
+        );
+        final over = KeyedSubtree(
+          key: const ValueKey('outro'),
+          child: outro.builder(context, outroScope),
+        );
+        return PaywallClockBuilder(
+          clock: clock,
+          builder: (context, t, _) => Stack(
+            fit: StackFit.expand,
+            children: [
+              // The end state is built from the second the outro lets it
+              // show, and the outro is gone at the swap.
+              if (t >= outro.uncover) under,
+              if (t < outro.seconds) over,
+            ],
+          ),
+        );
       },
     );
     // A frame with no show of its own comes over the layout in one short
@@ -584,7 +973,7 @@ class _ThanksLayer extends StatelessWidget {
               right: thanksSideInset,
               bottom: padding.bottom + Spacing.s4,
               child: PaywallClockBuilder(
-                clock: clock,
+                clock: endClock ?? clock,
                 builder: (context, t, child) {
                   final on = clock.isStill
                       ? 1.0
@@ -616,6 +1005,37 @@ class _ThanksLayer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// The end state's clock after an outro: the host's, read through
+/// [paywallThanksSecondAfterOutro].
+class _AfterOutroClock extends ChangeNotifier implements PaywallClock {
+  _AfterOutroClock(this._source, this._outro, this._pickUp) {
+    _source.addListener(notifyListeners);
+  }
+
+  final _ThanksClock _source;
+  final PaywallOutro _outro;
+  final double _pickUp;
+
+  @override
+  double get value => paywallThanksSecondAfterOutro(
+    _source.value,
+    outro: _outro,
+    pickUp: _pickUp,
+  );
+
+  @override
+  bool get isStill => _source.isStill;
+
+  @override
+  void restart() {}
+
+  @override
+  void dispose() {
+    _source.removeListener(notifyListeners);
+    super.dispose();
   }
 }
 

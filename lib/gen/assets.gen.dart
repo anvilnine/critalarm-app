@@ -476,6 +476,13 @@ class $AssetsUiSoundsGen {
   String get uiScoreAlarmSnackPiano =>
       'assets/ui_sounds/ui_score_alarm_snack_piano.m4a';
 
+  /// File path: assets/ui_sounds/ui_score_break_lift_ring.m4a
+  String get uiScoreBreakLiftRing =>
+      'assets/ui_sounds/ui_score_break_lift_ring.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_cloud_climb.m4a
+  String get uiScoreCloudClimb => 'assets/ui_sounds/ui_score_cloud_climb.m4a';
+
   /// File path: assets/ui_sounds/ui_score_curtain_kalimba.m4a
   String get uiScoreCurtainKalimba =>
       'assets/ui_sounds/ui_score_curtain_kalimba.m4a';
@@ -561,6 +568,8 @@ class $AssetsUiSoundsGen {
     uiRoll,
     uiScoreAlarmSnackKalimba,
     uiScoreAlarmSnackPiano,
+    uiScoreBreakLiftRing,
+    uiScoreCloudClimb,
     uiScoreCurtainKalimba,
     uiScoreCurtainPiano,
     uiScoreFalseAlarmKalimba,
