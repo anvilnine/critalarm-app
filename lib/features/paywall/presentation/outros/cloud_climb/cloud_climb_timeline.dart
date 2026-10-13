@@ -182,7 +182,7 @@ abstract final class CloudClimbTimeline {
 
   /// One line, two rows, in the sky.
   static double wordsAlpha(double t) =>
-      sine(phase(t, 1.25, 1.75)) * (1 - sine(phase(t, 2.6, 3.0)));
+      sine(phase(t, 1.25, 1.75)) * (1 - sine(phase(t, 2.6, 3)));
 
   /// How far the words have drifted down.
   static double wordsDrop(double t) => math.max(0, t - 1.25) * 9;
@@ -197,7 +197,7 @@ abstract final class CloudClimbTimeline {
   // ---- the moon
 
   /// How far the moon has come, 0 to 1.
-  static double moonProgress(double t) => sine(phase(t, 2.0, 3.6));
+  static double moonProgress(double t) => sine(phase(t, 2, 3.6));
 
   static Offset moonCentre(double t, Size size) {
     final mp = moonProgress(t);
@@ -219,8 +219,8 @@ abstract final class CloudClimbTimeline {
       Offset(0, size.height),
       Offset(size.width, size.height),
     ];
-    final full = math.max(
-      640.0,
+    final full = math.max<double>(
+      640,
       corners.map((c) => (c - centre).distance).reduce(math.max) + 8,
     );
     return _lerp(64, full, mp * mp);
@@ -295,7 +295,7 @@ abstract final class CloudClimbTimeline {
     const degree = math.pi / 180;
     return (4 * degree * sine(phase(t, 0.6, 1.3)) +
             math.sin(t * 1.3) * 2 * degree * _float(t)) *
-        (1 - sine(phase(t, 3.0, 3.5)));
+        (1 - sine(phase(t, 3, 3.5)));
   }
 
   /// His height against his rest height: a small squash into the yawn and a
