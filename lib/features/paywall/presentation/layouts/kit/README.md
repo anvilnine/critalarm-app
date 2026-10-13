@@ -265,10 +265,10 @@ outro. Nothing may ring or buzz like an alarm.
 
 **Outro scores.** An outro may name a `score`, one composed piece of music in one m4a file under
 `assets/ui_sounds/`, with a `PaywallCue` for it (sound only, no flavours, no haptic) and its file
-length in `scoreSeconds`. It starts on the purchase frame and is timed to the picture, in D major.
-It takes the place of `PaywallCue.bought`: `paywallPurchaseCue` picks the score when an outro plays
-and has one, and `bought` for everything else (no outro, an outro with no score, a thanks of
-`none`, a restore). `isSound` asks that a named score is a cue with a sound and that its length
+length in `scoreSeconds`. It starts at second zero of the outro, with its clock, and is timed to the
+picture, in D major. It takes the place of `PaywallCue.bought` when an outro plays and has one: the
+host plays it as the clock starts, and the buy block plays nothing on the purchase frame. `bought` plays for everything else (no outro, an outro with no score, a thanks
+of `none`, a restore). `isSound` asks that a named score is a cue with a sound and that its length
 reaches the swap. `OUTRO-SCORES.md` is where the composition rules live: the tempo from the
 timeline's seconds, the Crit call, and the end.
 
@@ -282,6 +282,10 @@ timeline's seconds, the Crit call, and the end.
 - **A new score** is a new file, a new cue, and a `score` and `scoreSeconds` on the outro. The
   file should end on a plain D major chord, ring out inside 1.2 s past the swap, and sit 12 dB or
   more under its peak at the swap.
+- **A score given up.** If the outro is dropped after the purchase frame and before its clock
+  starts (a tap while the picture is taken, motion turned off, the route going away), the host
+  plays `bought` in the score's place, so a purchase is never silent. The rules are
+  `paywallPurchaseCueByBuyBlock` and `paywallPurchaseCueByHost`.
 - Interface sounds off plays no score, as for every cue.
 
 What the host does, so an outro does not:

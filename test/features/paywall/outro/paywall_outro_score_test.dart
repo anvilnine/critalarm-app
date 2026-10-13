@@ -38,24 +38,65 @@ const Map<PaywallOutroId, double> _fileSeconds = {
 };
 
 void main() {
-  group('paywallPurchaseCue', () {
-    test('an outro with a score plays the score and not the purchase cue', () {
-      final outro = _outro(
-        score: PaywallCue.scoreCloudClimb,
-        scoreSeconds: 5,
+  group('who sounds the purchase, and when', () {
+    final scored = _outro(score: PaywallCue.scoreCloudClimb, scoreSeconds: 5);
+
+    test('outro plays with a score: the buy block is silent, the host plays '
+        'the score when the clock starts', () {
+      expect(paywallPurchaseCueByBuyBlock(playing: scored), isNull);
+      expect(
+        paywallPurchaseCueByHost(
+          outro: scored,
+          hasStarted: true,
+          isMuted: false,
+        ),
+        PaywallCue.scoreCloudClimb,
       );
-      expect(paywallPurchaseCue(playing: outro), PaywallCue.scoreCloudClimb);
     });
 
-    test('an outro with no score leaves the purchase cue', () {
-      expect(paywallPurchaseCue(playing: _outro()), PaywallCue.bought);
+    test('outro given up before its clock started: the host plays the '
+        'purchase cue, so the purchase is never silent', () {
+      expect(
+        paywallPurchaseCueByHost(
+          outro: scored,
+          hasStarted: false,
+          isMuted: false,
+        ),
+        PaywallCue.bought,
+      );
     });
 
-    test('no outro leaves the purchase cue', () {
-      expect(paywallPurchaseCue(playing: null), PaywallCue.bought);
+    test('outro with no score: the buy block plays the purchase cue', () {
+      final plain = _outro();
+      expect(paywallPurchaseCueByBuyBlock(playing: plain), PaywallCue.bought);
+      for (final started in [true, false]) {
+        expect(
+          paywallPurchaseCueByHost(
+            outro: plain,
+            hasStarted: started,
+            isMuted: false,
+          ),
+          isNull,
+        );
+      }
     });
 
-    test('a thanks of none plays no outro, so the purchase cue sounds', () {
+    test(
+      'no outro: the buy block plays the purchase cue, the host nothing',
+      () {
+        expect(paywallPurchaseCueByBuyBlock(playing: null), PaywallCue.bought);
+        expect(
+          paywallPurchaseCueByHost(
+            outro: null,
+            hasStarted: false,
+            isMuted: false,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test('a thanks of none plays no outro, so the buy block sounds it', () {
       final playing = paywallOutroPlays(
         kind: PaywallThanksKind.purchase,
         isStill: false,
@@ -64,11 +105,22 @@ void main() {
       );
       expect(playing, isFalse);
       expect(
-        paywallPurchaseCue(
-          playing: playing ? paywallOutroBuilders.values.first : null,
-        ),
+        paywallPurchaseCueByBuyBlock(playing: playing ? scored : null),
         PaywallCue.bought,
       );
+    });
+
+    test('sounds muted: the host plays nothing, started or given up', () {
+      for (final started in [true, false]) {
+        expect(
+          paywallPurchaseCueByHost(
+            outro: scored,
+            hasStarted: started,
+            isMuted: true,
+          ),
+          isNull,
+        );
+      }
     });
   });
 
