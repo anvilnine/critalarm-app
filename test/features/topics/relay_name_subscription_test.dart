@@ -296,6 +296,59 @@ void main() {
       );
     });
 
+    test('a phone that registers again under a new device id subscribes '
+        'again', () async {
+      seedMovedFromName();
+      await refresh();
+      // A sign-out and a phone restored from a backup both end here: a new
+      // device id, which the relay holds no subscription for.
+      await identity.resetIdentity();
+      final again = await identity.readOrCreate();
+      final registration = await client.registerDevice(
+        DeviceRegistration(
+          deviceId: again.deviceId,
+          platform: 'ios',
+          pushToken: 'apns_2',
+          appVersion: '1',
+        ),
+      );
+      await identity.saveRegistration(
+        deviceToken: registration.deviceToken!,
+        accountId: registration.accountId,
+        tier: registration.tier,
+        caps: registration.caps,
+      );
+      requests.clear();
+      await refresh();
+      expect(server.subscriptions[again.deviceId], {hashOf(_relayName)});
+    });
+
+    test('a topic made again under the same name subscribes to its new '
+        'relay name', () async {
+      seedMovedFromName();
+      await refresh();
+      const second = 'c2Vjb25kLXJlbGF5LW5hbWUtMDEyMzQ1Njc4OWFiY2RlZg';
+      server.seedState(
+        topics: [const Topic(name: 'prod', relayName: second)],
+      );
+      requests.clear();
+      await refresh();
+      expect(subscriptionCalls(), contains('POST ${hashOf(second)}'));
+      expect(server.subscriptions['dev_phone'], contains(hashOf(second)));
+    });
+
+    test('the done mark holds no relay name', () async {
+      seedMovedFromName();
+      await refresh();
+      final marks = prefs.getKeys().where(
+        (key) => key.startsWith(InMemoryTopicRepository.movedKeyPrefix),
+      );
+      expect(marks, isNotEmpty);
+      for (final key in marks) {
+        expect('$key ${prefs.get(key)}', isNot(contains(_relayName)));
+      }
+    });
+
     test('a topic with no relay name is left alone', () async {
       seedMovedFromName(relayName: null);
       await refresh();
