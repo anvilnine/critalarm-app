@@ -20,8 +20,31 @@ const PaywallThanks stampThanks = PaywallThanks(
   cover: StampTimeline.cover,
   buttonAt: StampTimeline.goOn,
   beats: stampBeats,
+  mascotAt: stampMascotAt,
+  mascotPoseAt: stampMascotPoseAt,
   builder: _build,
 );
+
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, StampPlan plan, double t) => Rect.lerp(
+  thanksStartBox(scope.mascot) ?? plan.crit,
+  plan.crit,
+  StampTimeline.travel(t),
+)!;
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it.
+Rect stampMascotAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  final plan = StampPlan.of(
+    size: scope.size,
+    padding: scope.padding,
+    lines: lines,
+    textScale: scope.textScale,
+  );
+  return _critBox(scope, plan, t);
+}
 
 /// What is felt on the way, and the one thing heard. While the purchase
 /// cue sounds every beat is a haptic alone. The stamp lands after it, so
@@ -40,6 +63,15 @@ List<PaywallThanksBeat> stampBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     StampThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose stampMascotPoseAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  return (
+    lift: StampTimeline.lift(t, lines: lines),
+    stretch: StampTimeline.stretch(t),
+  );
+}
 
 /// Draws the stamp version for the second its scope's clock reads.
 class StampThanks extends StatelessWidget {
@@ -76,11 +108,7 @@ class StampThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - StampTimeline.end;
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? plan.crit,
-          plan.crit,
-          StampTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, plan, t);
         final fed = StampTimeline.fed(t);
         final lift = StampTimeline.lift(t, lines: lines.length);
         final button = StampTimeline.button(t);
@@ -102,15 +130,16 @@ class StampThanks extends StatelessWidget {
               grown: StampTimeline.covered(t),
             ),
             ThanksDisc(stage: stage, tone: _tone, grown: StampTimeline.disc(t)),
-            ThanksCrit(
-              box: box,
-              face: StampTimeline.face(t),
-              lift: lift,
-              stretch: StampTimeline.stretch(t),
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              // The slip hangs where its shadow would fall.
-              shadow: StampTimeline.travel(t) * (1 - fed),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: StampTimeline.face(t),
+                lift: lift,
+                stretch: StampTimeline.stretch(t),
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                // The slip hangs where its shadow would fall.
+                shadow: StampTimeline.travel(t) * (1 - fed),
+              ),
             if (fed > 0)
               Positioned.fill(
                 child: ClipRect(
@@ -137,7 +166,7 @@ class StampThanks extends StatelessWidget {
                 ),
               ),
             // The mascot's two hands on the slip's top edge.
-            if (fed >= 1)
+            if (fed >= 1 && t >= scope.mascotFrom)
               ...thanksHands(context, paper: paper, edge: plan.crit.width),
             // The pressed button, which the slip comes out of.
             if (origin != null && button > 0)

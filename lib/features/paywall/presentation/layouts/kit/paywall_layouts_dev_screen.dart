@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -11,6 +12,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
@@ -57,6 +59,12 @@ List<PaywallThanksId> get _allThanks => [
     if (paywallThanksIsBuilt(thanks)) thanks,
 ];
 
+/// What this build can play right after a purchase, `none` first.
+List<PaywallOutroId> get _allOutros => [
+  for (final outro in PaywallOutroId.values)
+    if (paywallOutroIsBuilt(outro)) outro,
+];
+
 String _introLabel(PaywallIntroId intro) => paywallIntroName(intro);
 
 String _soundLabel(IntroSoundFlavour flavour) => switch (flavour) {
@@ -97,6 +105,11 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
   DevPaywallThanksSwitch get _thanksSwitch => switch (_product) {
     PaywallProduct.hosted => _switches.hostedThanks,
     PaywallProduct.pro => _switches.proThanks,
+  };
+
+  DevPaywallOutroSwitch get _outroSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hostedOutro,
+    PaywallProduct.pro => _switches.proOutro,
   };
 
   /// The switch for the intros' instruments, or null in a build that has
@@ -203,6 +216,45 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
     );
   }
 
+  Future<void> _pickOutro() async {
+    final outroSwitch = _outroSwitch;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_outro_picker_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // An outro needs a paywall under it to mean anything, so a still
+          // row with the name is enough.
+          for (final outro in _allOutros) ...[
+            AppListRow(
+              name: paywallOutroName(outro),
+              meta: '',
+              faceState: null,
+              isSelected: outro == (outroSwitch.value ?? PaywallOutroId.none),
+              onTap: () {
+                unawaited(outroSwitch.setOutro(outro));
+                Navigator.of(sheetContext).pop();
+              },
+            ),
+            const SizedBox(height: Spacing.s2),
+          ],
+          AppButton(
+            label: LocaleKeys.settings_developer_paywall_route_follow.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(outroSwitch.setOutro(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickLayout() async {
     final product = _product;
     final layoutSwitch = _layoutSwitch;
@@ -242,6 +294,7 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         _product,
         intro: _introSwitch.value ?? PaywallIntroId.none,
         thanks: _thanksSwitch.value ?? PaywallThanksId.none,
+        outro: _outroSwitch.value ?? PaywallOutroId.none,
         showsUnbuilt: true,
         isTryOut: true,
       ),
@@ -278,12 +331,15 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                 _switches.proIntro,
                 _switches.hostedThanks,
                 _switches.proThanks,
+                _switches.hostedOutro,
+                _switches.proOutro,
                 ?soundSwitch,
               ]),
               builder: (context, _) {
                 final setting = _layoutSwitch.value;
                 final intro = _introSwitch.value;
                 final thanks = _thanksSwitch.value;
+                final outro = _outroSwitch.value;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
@@ -319,6 +375,16 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             faceState: null,
                             trailing: arrow,
                             onTap: _pickLayout,
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_outro_picker_row.tr(),
+                            meta: outro == null
+                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                : paywallOutroName(outro),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickOutro,
                           ),
                           const SizedBox(height: Spacing.s2),
                           AppListRow(

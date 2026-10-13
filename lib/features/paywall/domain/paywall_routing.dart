@@ -1,6 +1,7 @@
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -93,6 +94,7 @@ class PaywallOpening {
     this.layout, {
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
+    this.outro = PaywallOutroId.none,
   });
 
   final PaywallLayoutId layout;
@@ -103,20 +105,26 @@ class PaywallOpening {
   /// `none` when a purchase ends with nothing of its own.
   final PaywallThanksId thanks;
 
+  /// `none` when a purchase goes straight to the thanks. Always `none`
+  /// when [thanks] is.
+  final PaywallOutroId outro;
+
   @override
   bool operator ==(Object other) =>
       other is PaywallOpening &&
       other.layout == layout &&
       other.intro == intro &&
-      other.thanks == thanks;
+      other.thanks == thanks &&
+      other.outro == outro;
 
   @override
-  int get hashCode => Object.hash(layout, intro, thanks);
+  int get hashCode => Object.hash(layout, intro, thanks, outro);
 
   @override
   String toString() =>
       'PaywallOpening(${layout.key}, intro: ${intro.key}, '
-      'thanks: ${thanks.key})';
+      'thanks: ${thanks.key}'
+      '${outro == PaywallOutroId.none ? '' : ', outro: ${outro.key}'})';
 }
 
 /// What opens for [product] from [entry]: a layout with its intro and its
@@ -138,6 +146,10 @@ class PaywallOpening {
 /// The thanks is a third value with no rule of its own: [developerThanks]
 /// outranks [remoteThanks]. It never opens a layout, so the shipped
 /// surface is still null whatever the thanks says.
+///
+/// The outro is a fourth value with the same rule: [developerOutro]
+/// outranks [remoteOutro]. It plays between a purchase and the thanks, so
+/// it is `none` whenever the thanks is.
 PaywallOpening? paywallOpeningFor({
   required PaywallProduct product,
   required PaywallEntry entry,
@@ -149,6 +161,8 @@ PaywallOpening? paywallOpeningFor({
   PaywallIntroId? legacyIntro,
   PaywallThanksId remoteThanks = PaywallThanksId.none,
   PaywallThanksId? developerThanks,
+  PaywallOutroId remoteOutro = PaywallOutroId.none,
+  PaywallOutroId? developerOutro,
 }) {
   final setting = developer ?? remote;
   if (setting.isShipped) return null;
@@ -168,9 +182,13 @@ PaywallOpening? paywallOpeningFor({
   if (intro == PaywallIntroId.falseAlarm && hasSeenFalseAlarm) {
     intro = PaywallIntroId.none;
   }
+  final thanks = developerThanks ?? remoteThanks;
   return PaywallOpening(
     layout,
     intro: intro,
-    thanks: developerThanks ?? remoteThanks,
+    thanks: thanks,
+    outro: thanks == PaywallThanksId.none
+        ? PaywallOutroId.none
+        : developerOutro ?? remoteOutro,
   );
 }

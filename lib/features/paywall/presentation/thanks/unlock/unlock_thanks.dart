@@ -18,8 +18,32 @@ const PaywallThanks unlockThanks = PaywallThanks(
   buttonAt: UnlockTimeline.button,
   tone: PaywallTone.panel,
   beats: unlockBeats,
+  mascotAt: unlockMascotAt,
+  mascotPoseAt: unlockMascotPoseAt,
   builder: _build,
 );
+
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, ThanksStage stage, double t) =>
+    Rect.lerp(
+      thanksStartBox(scope.mascot) ?? stage.crit,
+      stage.crit,
+      UnlockTimeline.travel(t),
+    )!;
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it.
+Rect unlockMascotAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  final stage = ThanksStage.of(
+    size: scope.size,
+    padding: scope.padding,
+    lines: count,
+    textScale: scope.textScale,
+  );
+  return _critBox(scope, stage, t);
+}
 
 /// What is felt on the way. The purchase cue is sounding the whole time,
 /// so every beat is a haptic alone: one small click a padlock, then the
@@ -35,6 +59,15 @@ List<PaywallThanksBeat> unlockBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     UnlockThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose unlockMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: UnlockTimeline.lift(t, count: count),
+    stretch: UnlockTimeline.stretch(t, count: count),
+  );
+}
 
 /// Draws the unlock version for the second its scope's clock reads.
 class UnlockThanks extends StatelessWidget {
@@ -62,11 +95,7 @@ class UnlockThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - UnlockTimeline.end;
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? stage.crit,
-          stage.crit,
-          UnlockTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, stage, t);
         final ring = UnlockTimeline.ring(t, count: count);
 
         return Stack(
@@ -98,15 +127,16 @@ class UnlockThanks extends StatelessWidget {
                   ),
                 ),
               ),
-            ThanksCrit(
-              box: box,
-              face: UnlockTimeline.face(t, count: count),
-              lift: UnlockTimeline.lift(t, count: count),
-              stretch: UnlockTimeline.stretch(t, count: count),
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              bob: math.max(0, rest),
-              shadow: UnlockTimeline.travel(t),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: UnlockTimeline.face(t, count: count),
+                lift: UnlockTimeline.lift(t, count: count),
+                stretch: UnlockTimeline.stretch(t, count: count),
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                bob: math.max(0, rest),
+                shadow: UnlockTimeline.travel(t),
+              ),
             ThanksWords(
               stage: stage,
               tone: _tone,

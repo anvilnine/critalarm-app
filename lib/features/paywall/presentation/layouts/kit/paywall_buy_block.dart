@@ -523,7 +523,12 @@ class _BuyCuesState extends State<_BuyCues> {
     );
     _before = after;
     if (cue == null || PaywallMuted.of(context)) return;
-    getIt<PaywallCues>().play(cue);
+    // A confirmed purchase may be sounded by an outro's score instead, which
+    // the host starts with the outro's clock.
+    final played = cue == PaywallCue.bought
+        ? PaywallThanksPlay.purchaseCueOf(context)
+        : cue;
+    if (played != null) getIt<PaywallCues>().play(played);
   }
 
   @override

@@ -132,6 +132,9 @@ final class PlayingPaywallCues extends PaywallCues {
     }
   }
 
+  @override
+  void stop() => player.stop();
+
   Future<void> dispose() async {
     for (final sub in _subs) {
       await sub.cancel();
