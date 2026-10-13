@@ -1049,14 +1049,18 @@ class LimitsRow {
   }
 }
 
-/// The Hosted benefit behind [benefit], where the plan numbers are kept,
-/// or null for a benefit that is not a Hosted limit.
+/// The Hosted benefit behind [benefit], where the plan facts are kept, or
+/// null for a benefit that is not a Hosted one.
+///
+/// The weekly delivery check is one, with no number on either plan: see
+/// [limitsRowsFor].
 HostedBenefit? limitsHostedFor(PaywallBenefit benefit) {
   final id = switch (benefit.id) {
     PaywallBenefitId.topics => HostedBenefitId.topics,
     PaywallBenefitId.pushes => HostedBenefitId.pushes,
     PaywallBenefitId.history => HostedBenefitId.history,
     PaywallBenefitId.appIcons => HostedBenefitId.appIcons,
+    PaywallBenefitId.reliabilityChecks => HostedBenefitId.weeklyCheck,
     _ => null,
   };
   for (final hosted in HostedBenefit.all) {
@@ -1067,11 +1071,16 @@ HostedBenefit? limitsHostedFor(PaywallBenefit benefit) {
 
 /// The rows for [benefits], or null when one of them has no limit to
 /// show. Then a version draws something else for each.
+///
+/// The weekly delivery check has none: the free plan has no check and
+/// Hosted has one every week, which is no number to lift.
 List<LimitsRow>? limitsRowsFor(List<PaywallBenefit> benefits) {
   final rows = <LimitsRow>[];
   for (final benefit in benefits) {
     final hosted = limitsHostedFor(benefit);
-    if (hosted == null) return null;
+    if (hosted == null || hosted.id == HostedBenefitId.weeklyCheck) {
+      return null;
+    }
     rows.add(
       LimitsRow(
         label: hosted.compareLabelKey.tr(namedArgs: HostedBenefit.args),

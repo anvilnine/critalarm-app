@@ -54,7 +54,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
       context: context,
       kicker: 'CONFIRM',
       title: 'Disconnect server?',
-      body: 'You will stop receiving pages until you connect again.',
+      body: 'You will stop receiving alarms until you connect again.',
       actions: const [
         AppDialogAction(
           label: 'Cancel',

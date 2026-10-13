@@ -22,7 +22,6 @@ void main() {
       for (final state in FaceState.values) {
         expect(state.label.isNotEmpty, isTrue);
         expect(state.description.isNotEmpty, isTrue);
-        expect(state.characteristicColor, isA<Color>());
       }
     });
 
@@ -30,13 +29,6 @@ void main() {
       expect(FaceState.confused.defaultTilt, lessThan(0));
       expect(FaceState.calm.defaultTilt, 0);
       expect(FaceState.shocked.defaultTilt, 0);
-    });
-
-    test('Characteristic colors match sample screenshot specifications', () {
-      expect(FaceState.laughing.characteristicColor, const Color(0xFF4EAAD8));
-      expect(FaceState.surprised.characteristicColor, const Color(0xFFE2673D));
-      expect(FaceState.dizzy.characteristicColor, const Color(0xFF3FA652));
-      expect(FaceState.shocked.characteristicColor, const Color(0xFFFFC93C));
     });
   });
 
@@ -94,7 +86,7 @@ void main() {
       }
     });
 
-    testWidgets('supports tiltAngle and color overrides', (tester) async {
+    testWidgets('supports tiltAngle and a tongue colour', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -102,8 +94,6 @@ void main() {
               state: FaceState.confused,
               size: 100,
               tiltAngle: -0.2,
-              overrideFillColor: Color(0xFF4EAAD8),
-              overrideStrokeColor: Color(0xFFF5473A),
               overrideTongueColor: Color(0xFFFF6A5E),
             ),
           ),

@@ -5,36 +5,13 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/ringing/ringing_frame.dart';
 import 'package:flutter/rendering.dart';
 
-/// The colour of the head and of the features of a ringing face.
-///
-/// A [flush] takes the head's [fill] toward the [accent] colour, and a
-/// [flash] swaps the head and the features for a moment. With [keepsFill]
-/// neither happens: the head is [fill] and the features are [ink] whatever
-/// the frame says. The expression, the extras, the outline and the motion
-/// are not colours of the head and are drawn as ever.
-({Color head, Color ink}) ringingFaceColors({
-  required Color fill,
-  required Color accent,
-  required Color ink,
-  required double flush,
-  required double flash,
-  bool keepsFill = false,
-}) {
-  if (keepsFill) return (head: fill, ink: ink);
-  final flushed = Color.lerp(fill, accent, flush * 0.8)!;
-  return (
-    head: Color.lerp(flushed, ink, flash)!,
-    ink: Color.lerp(ink, flushed, flash)!,
-  );
-}
-
 /// Draws one [RingingFrame] on a square stage.
 ///
 /// The stage is [stageUnits] wide in the same units the face painter uses,
 /// with the face's 200 unit box in the middle, so the extras have room to
 /// fly off the head without being cut off. The head, brows, eyes and mouth
-/// are drawn by [FacePainter]; this adds the head's movement, its colour
-/// changes and the extras.
+/// are drawn by [FacePainter]; this adds the head's movement and the
+/// extras. The head stays [fillColor] on every frame.
 class RingingFacePainter extends CustomPainter {
   /// Paints [frame] in the given colours.
   const RingingFacePainter({
@@ -43,7 +20,6 @@ class RingingFacePainter extends CustomPainter {
     required this.strokeColor,
     required this.inkColor,
     required this.accentColor,
-    this.keepsFill = false,
     this.canvasInkColor,
   });
 
@@ -61,10 +37,6 @@ class RingingFacePainter extends CustomPainter {
 
   /// The alarm colour: the flush, the siren, the anger vein.
   final Color accentColor;
-
-  /// Holds the head at [fillColor] through a flush and a flash. See
-  /// [ringingFaceColors].
-  final bool keepsFill;
 
   /// The sound waves, which are lines drawn beside the head with nothing
   /// of the face behind them. Null draws them in the features' ink, as
@@ -89,14 +61,9 @@ class RingingFacePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final f = frame;
-    final (head: headFill, :ink) = ringingFaceColors(
-      fill: fillColor,
-      accent: accentColor,
-      ink: inkColor,
-      flush: f.flush,
-      flash: f.flash,
-      keepsFill: keepsFill,
-    );
+    // The head is [fillColor] and the features [inkColor] on every frame.
+    final headFill = fillColor;
+    final ink = inkColor;
 
     canvas
       ..save()
@@ -436,6 +403,5 @@ class RingingFacePainter extends CustomPainter {
       oldDelegate.strokeColor != strokeColor ||
       oldDelegate.inkColor != inkColor ||
       oldDelegate.accentColor != accentColor ||
-      oldDelegate.keepsFill != keepsFill ||
       oldDelegate.canvasInkColor != canvasInkColor;
 }

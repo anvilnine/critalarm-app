@@ -2,6 +2,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/sheets.dart';
+import 'package:critalarm/design/faces/face_painter.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -367,13 +368,19 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-      expect(face.overrideStrokeColor, AppColors.light.faceStroke);
-      expect(face.overrideInkColor, AppColors.light.faceInk);
-      expect(
-        tester.element(find.byType(FaceWidget)).appColors.faceFill,
-        AppColors.light.yellow,
-      );
+      final painter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: find.byType(FaceWidget),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter!
+              as FacePainter;
+      expect(painter.fillColor, AppColors.light.yellow);
+      expect(painter.strokeColor, AppColors.light.faceStroke);
+      expect(painter.inkColor, AppColors.light.faceInk);
     });
 
     testWidgets('the acknowledged colours stay after At my desk', (
@@ -415,9 +422,19 @@ void main() {
           ),
         );
 
-        final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-        expect(face.overrideStrokeColor, AppColors.light.faceStroke);
-        expect(face.overrideInkColor, AppColors.light.faceInk);
+        final painter =
+            tester
+                    .widget<CustomPaint>(
+                      find.descendant(
+                        of: find.byType(FaceWidget),
+                        matching: find.byType(CustomPaint),
+                      ),
+                    )
+                    .painter!
+                as FacePainter;
+        expect(painter.fillColor, AppColors.light.yellow);
+        expect(painter.strokeColor, AppColors.light.faceStroke);
+        expect(painter.inkColor, AppColors.light.faceInk);
       }
     });
   });

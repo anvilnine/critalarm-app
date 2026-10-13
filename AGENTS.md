@@ -215,9 +215,11 @@ To add a step:
 3. When the user is done with the screen, call
    `finishOnboardingStep(context, OnboardingStepId.yourStep)`. A screen never
    names the step after it.
-4. List the id in a flow. `BundledOnboardingFlows` holds the three that
-   ship: `2026-10-b` (the default), `2026-10-a` (the default before it, kept
-   for phones that pinned it) and `legacy-1` (the first shipped order).
+4. List the id in a flow. `BundledOnboardingFlows` holds the four that
+   ship: `2026-10-c` (the default), `2026-10-b` (the default before it, with
+   no `use` step), `2026-10-a` (the one before that) and `legacy-1` (the
+   first shipped order). The older three are kept for phones that pinned
+   them. A shipped flow is never edited: a new order is a new flow id.
 5. Give it a chapter in `onboarding_chapters.dart` if the tracker should
    count it. A step with no chapter sits outside the tracker.
 
@@ -268,37 +270,118 @@ and for which page may play haptics are in that file.
   flow that lists them shows them. No bundled flow does, because the welcome
   already shows the curl and the widgets.
 
-`offer` is a frame around one paywall layout (`offer_step_screen.dart`). It
-holds no words, prices or benefit lists: it builds the layout an id names
-from `paywallLayoutBuilders`, over the whole screen. Closing the layout
-finishes the step and so does a purchase. `2026-10-b` lists it between
-`real_ring` and `hook_up`, it has no chapter, and it ships switched off.
+`use` is the question step, "What should wake you?": five rows (servers,
+homelab, jobs, home, something else) and a `skip` control. A tap on a row
+saves the answer, sends the pick event and finishes the step at once; there
+is no Continue button. The answer is `SetupUse`, one wire id each (`servers`,
+`homelab`, `jobs`, `home`, `other`), kept under the one prefs key `setup_use`
+by `SetupUseStore`. It is not part of the setup draft, because setup clears
+the draft when it ends and Home and the offer read the answer afterwards.
+`skip` saves `other`. A missing or unreadable answer reads as `other`, which
+is what a phone on an older flow has. Everything an answer changes is data
+in `SetupUseProfile` (`domain/setup_use/`): the topic name and name chips,
+the tool chip order and the tool that starts selected, the sample alarm
+message, what the offer opens on and the Home waiting line. A replay keeps
+its pick in memory (`SetupUseReplay`) and saves nothing; readers ask
+`setupUseFor`. The step is in the Set up chapter, is satisfied for a user
+who already owns a topic, and flow `2026-10-c` lists it between
+`permissions` and `first_topic`.
 
-- Four switches (`OnboardingOfferConfig`): `enabled` (false), `cloud_product`
-  (`pro`, `hosted` or `none`; `pro`), `self_hosted_product` (`pro` or `none`;
-  `pro`) and `layout` (a `PaywallLayoutId.key`; `plain`). The bundled value is
-  in brackets. They are one JSON object, read from Developer options
+`offer` is a frame around the offer sequence (`offer_step_screen.dart`). It
+holds no words, prices or benefit lists: the layout and the thanks screen own
+those. `2026-10-b` and `2026-10-c` list it between `real_ring` and `hook_up`,
+it has no chapter, and it ships switched on.
+
+- Four switches (`OnboardingOfferConfig`): `enabled` (true), `cloud_product`
+  (`auto`, `pro`, `hosted` or `none`; `auto`), `self_hosted_product` (`pro` or
+  `none`; `pro`) and `layout` (a `PaywallLayoutId.key`; `reel`). The bundled
+  value is in brackets. They are one JSON object, read from Developer options
   (`dev.onboarding_offer`), then the Remote Config key `onboarding_offer`
   (`TelemetryGate.onboardingOfferJson`), then the bundled value. A field left
-  out takes its bundled value. A field with a value it cannot have sets the
-  whole object aside and the next source is asked.
-- `decideOnboardingOffer` is the rule. The step skips itself on a replay,
-  when it is off, when the product is `none` for this kind of server, when
-  the layout is not built in this version, when no account id is known, and
-  when the user already holds the product. `OnboardingOfferGate` reads the
-  phone for it, and a read that fails is a skip.
+  out takes its bundled value, so a remote value that leaves `enabled` out
+  keeps the step on and only `{"enabled": false}` switches it off. A field
+  with a value it cannot have sets the whole object aside and the next
+  source is asked. A build older than `auto`
+  sets a value holding it aside the same way.
+- `auto` picks the product from the answer on Cloud: the Pro pack for the
+  home answer, Hosted for the rest. `pro`, `hosted` and `none` force one
+  answer for everyone. On a server of the user's own only
+  `self_hosted_product` counts, and Hosted is never offered there.
+- `decideOnboardingOffer` is the rule. The step skips itself on a replay
+  (see below), when it is off, when the product is `none` for this kind of
+  server, when the layout is not built in this version, when no account id is
+  known, and when the user already holds the product. `OnboardingOfferGate`
+  reads the phone for it, and a read that fails is a skip. It reads no store.
+- The store check starts early. When the real alarm step opens,
+  `OnboardingOfferGate.startSaleCheck()` has `OfferSaleProbe` make the buy
+  model and load it, so the store answer is cached before "It works" appears.
+  It is the one store read the paywall already makes and no request goes to
+  the app's own server. The step takes the loaded model (`takeOnSale`): a
+  cached answer costs no wait, and with no answer yet it waits up to 2
+  seconds (`offerSaleWait`) on the plain setup canvas. Only a product that is
+  on sale goes on. Not on sale, a failed load and a timeout all skip the step.
+  A cached "not on sale" also makes the engine skip the step
+  (`hasNoOfferToShow`), so Continue goes straight to `hook_up`.
+- There is no intro. After Continue the reel rises over the setup step from
+  the bottom edge, fully opaque (`buildOfferLayerTransition`, 400 ms), so the
+  setup canvas and its tracker are covered by the moving edge and never show
+  through a half-faded reel. With reduced motion it opens at once. The setup
+  offer plays no false alarm, shows no tag and no skip hint, and never writes
+  `paywall.false_alarm_shown`: the Settings plan row keeps its false alarm.
+  The false alarm intro, its tag rule and the paywall kit's `hint` parameter
+  stay in the kit for other triggers.
+- Then the reel, and on a purchase the confetti thanks. The reel opens on the
+  benefit the answer leads with (`offerLeadFor`): the critical topics for
+  servers (naming the user's topic), the weekly delivery check for homelab
+  and jobs, widgets for home and for any answer on an own server. An answer
+  of `other` keeps the paywall's own order. A lead never names a benefit the
+  product does not list. A scene whose picture has less room than
+  `reelStageMinHeight` (the smallest mascot and the room above it) draws no
+  picture and no placeholder, and the lead's line stands under the headline.
+  It happens at 320 wide and text scale 2.0 with a lead line.
+- The thanks screen has one button, "Hook up your tool". It pops the layer
+  and the step finishes, so setup goes on to `hook_up` and never to Home.
+  Closing the layer with the cross does the same with no purchase.
+- A real alarm wins. When one starts while the layer is open, or the step
+  goes away under it, the layer is taken off at once, the step finishes in
+  the engine with no navigation and no purchase is recorded.
 - A step that skips counts as already done (`hasNoOfferToShow`), so a run
   never opens it and the funnel never counts it.
-- A replay skips the step. The one exception is a developer value: with the
-  Offer step switches set in Developer options, "Open a step" shows it.
+- A replay plays the step in a build that skips the store (`SKIP_PAYWALL`,
+  `OnboardingOfferGate.readUsesDemoStore`), and nowhere else. Redo onboarding
+  there goes on from the ring step into the reel, led by the answer picked in
+  that replay (`SetupUseReplay`), then the made-up purchase or the cross, the
+  thanks and hook up. On that made-up buy model a replay ignores the account
+  and the products held (`offerIgnoresHoldings`), so a tester sees the paywall
+  with no account, with Hosted already held and with Pro already held. It
+  still follows the switches: the offer switched off (by the developer value
+  or the remote one), no product for an own server, and an unbuilt layout all
+  skip it. An own server gets the `self_hosted_product` offer, as a real run
+  would. The replay writes nothing: no answer, no step marked done, no funnel
+  event (`isReplay` goes to `OnboardingFunnel`), no false alarm flag, and no
+  `appPlanChanges` or `appAccountIdentityChanges` bump after the made-up
+  purchase. The replayed real alarm step sends nothing and its button moves
+  on, so a replay has no "It works" screen and no confetti rule to follow.
+- A replay with a real store skips the step, because the buy button would
+  start a real purchase. The one exception is a developer value: with the
+  Offer step switches set in Developer options, "Open a step" shows it, and
+  the Offer sequence row there opens it on one answer (`?use=<wire id>`). That
+  replay asks the phone as a real run does (account, products held), reads
+  the real store, and is the tester's own choice.
+  `tool/capture_offer_sequence.dart` (`ONLY=redo`) walks the whole Redo
+  onboarding and checks that the prefs end as they began.
 - The buy model comes from the same `PaywallBuyCubit` factory the paywall
   route uses, so only a `SKIP_PAYWALL` build gets the stand-in.
 - Three funnel events go through `OnboardingFunnel`: `onboarding_offer_shown`,
   `onboarding_offer_closed` and `onboarding_offer_bought`, each with
-  `product`, `layout` and `flow_id`. They wait for the analytics answer with
-  the step events.
-- While the step is still to come (`offerStepIsAhead`), `AfterAckDecider`
-  gives an acknowledged alarm no follow-up.
+  `product`, `layout`, `use` and `flow_id`. They wait for the analytics answer
+  with the step events.
+- While the step is still to come (`offerStepIsAhead`) and the store has not
+  said no, `AfterAckDecider` gives an acknowledged alarm no follow-up.
+  `OnboardingOfferGate.outlook()` is the one answer: `coming` (step ahead,
+  store said on sale), `none` (not ahead, or the store said nothing is on
+  sale) and `unsure` (step ahead, no store answer yet). `ackConfettiMayFly`
+  is the pure rule on it.
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
@@ -362,7 +445,7 @@ replaced by the bundled default with the completed steps kept.
 
 Chapters and the tracker: setup has three chapters (`OnboardingChapter`):
 Meet (`welcome`, and `how_it_rings` in a flow that lists it), Set up
-(`connect`, `permissions`, `first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
+(`connect`, `permissions`, `use`, `first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
 where a step's top bar has its title: one small face and three bars.
 `onboardingTrackerFillFor` holds the maths. Bars before the current chapter
 are full, and the current one is the chapter's steps listed before this one
@@ -378,7 +461,7 @@ or a callback, and passes null to hand the choice back. `TravellingFaceMood`
 has the five it can be. A step never draws a face of its own in the top bar.
 
 Back: `onboardingBackStepFor` is the rule. Back is offered on
-`how_it_rings` (where a flow lists it), `connect`, `permissions` and
+`how_it_rings` (where a flow lists it), `connect`, `permissions`, `use` and
 `first_topic`, and is gone for
 good once the first topic exists. It goes to the nearest earlier step of the
 flow that was on screen at any point in this run
@@ -391,7 +474,9 @@ while it is offered, never greyed out, and `OnboardingStepFrame` makes the
 Android back button and an iPhone edge swipe follow the same rule.
 `OnboardingFlowEngine.goBack` takes the step that was left out of the
 completed steps, so going forward opens it again. Back opens the step with
-`?back=true` (`isOnboardingCameBack`): the connect step then shows
+`?back=true` (`isOnboardingCameBack`): the use step then draws the saved
+answer's row picked, and a tap on any row saves it again and moves on. The
+connect step shows
 "Connected to" the server that is saved, or where a connect still running
 stands, with a way to change it through the call Settings > Server makes.
 The permissions list every permission of this phone as allowed or not
@@ -463,7 +548,8 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
   `dev.onboarding_flow`. It fills the `developerOnboardingFlowSource` slot, so
   it outranks the remote value and still passes the validator.
 - Redo onboarding: replays the flow that would run now (`?demo=true`) and
-  names its id.
+  names its id. In a `SKIP_PAYWALL` build it plays on through the offer
+  (see the `offer` step).
 - Open a step: every registered step, opened as a replay. A step that is not
   on this phone, or has no screen yet, is listed greyed with the reason. A
   replay of the permissions step takes `?skip=<n>` to open on a later step
@@ -559,11 +645,30 @@ user's first topic (`isFirstTopicFor`: the shared list is ready and empty,
   title and one line (`firstTopicCardCopy`), plus the plan line on the free
   plan. Its tone comes from `firstTopicCardTone`, the one place to change it:
   `choice` while off, `crit` once on, never `calm`.
-- A row of tool chips (`ToolTemplate`) above the name field. A chip fills the
-  name only when the field is empty or still holds a name a chip put there.
-  The chosen id is saved under `topic_tool_template.<topic name>`
-  (`ToolTemplateStore`) once the topic exists. Nothing about it goes to the
-  server. `ToolTemplate.other` has no chip: picking none means the same.
+- A row of tool chips (`ToolTemplate`). Outside setup (`FirstTopicLayout.wrapping`)
+  they wrap above the name field. A chip fills the name only when the field is
+  empty or still holds a name a chip put there. The chosen id is saved under
+  `topic_tool_template.<topic name>` (`ToolTemplateStore`) once the topic
+  exists. Nothing about it goes to the server. `ToolTemplate.other` has no
+  chip: picking none means the same. `curl` is a tool with a chip, no
+  suggested name and no snippet: its hook-up content is the curl line.
+
+In setup the first topic reads the answer from the `use` step
+(`FirstTopicLayout.answerFirst`, never a route parameter) and the form is laid
+out in this order:
+
+1. The name field arrives filled with the answer's name. The answer `other`
+   leaves it empty with the example placeholder.
+2. Under it, unless the answer is `other`, one line of name chips from the
+   answer's table. A name chip always replaces the field.
+3. One line of tool chips, ordered by the answer, with the answer's tool
+   selected. The row scrolls sideways and fades at its right edge, and all
+   six tools are in it. A tool tap replaces the name only when the field is
+   empty or holds a name an earlier chip or the answer filled; a name the
+   user typed is never replaced.
+4. The Critical delivery card and the Create button as above.
+
+Later topics keep the plain screen.
 
 In setup the screen is one step (`CreateTopicCubit.isOneStep`, set whenever
 the screen is given `onDone`). The pinned button creates the topic from the
@@ -663,6 +768,15 @@ rules are pure functions in
 - The Critical card on this step carries the same free-plan line as on the
   first topic (`criticalPlanFor`, from `readCriticalLimit`).
 - A replay sends nothing: the button moves on to the next step.
+- The server fixes the test alarm's title and message, so the sample for the
+  user's answer shows on the alarm screen from local state
+  (`setupSampleFor`, applied where `CriticalAlarmCubit` sets the incident's
+  title and body). It applies only to the setup test the server sent: the
+  title is the answer's sample message and the body is a short line saying it
+  is what a real one looks like. A real incident, the first tool alarm, a
+  Settings test, the phone-only test and an `other` answer keep the server's
+  text. The OS notification and the text cached for the iOS extension stay as
+  the server sent them, so the lock screen shows the server's text.
 
 **After the ring.** The acknowledged screen says what the alarm proved
 (`setupTestKind`: server-sent, phone-only, or not a test) as a list of
@@ -674,6 +788,17 @@ it shows one Continue button, which calls `finishOnboardingStep` and never
 completes setup itself: the engine does, when no step is left. `legacy-1`
 keeps its two buttons and completes setup from them. A test run again after
 setup ends on one Finish button.
+
+The setup test's acknowledged screen ("It works") stays calm only when the
+offer follows and the store said the product is on sale (`OfferOutlook.coming`).
+It asks the offer gate (`outlook`) once, reads the cached store answer without
+waiting, builds nothing until that answer is in, and throws its confetti and
+plays its success haptic a few frames late for every other answer: no offer,
+the store said nothing is on sale, or the store has not answered yet. So a
+session is never left with no celebration. The one case where the two differ:
+the store answers after "It works" opened, so the confetti flies and the offer
+still shows. The face ripple stays either way. The first tool alarm keeps its
+confetti.
 
 Setup never closes, silences or walks away from a real alarm. Continue on a
 server-sent test calls `CriticalAlarmCubit.closeSetupTests(id)`, which does
@@ -739,6 +864,25 @@ because no step is left.
   tool's own form (Uptime Kuma, Healthchecks). The CI snippet reads the
   token from a secret and never holds it. Field labels are the tool's own
   words and stay in English.
+- Layout follows the tool saved on the topic, not the answer. Uptime Kuma,
+  Healthchecks and Home Assistant are the three tools with documented steps
+  (`toolStepsFor`), and they get the steps layout (`HookUpStepsLayout`): a
+  `Hook up` label, the tool name as the title, a white sheet of numbered
+  steps with the tool's fields or code inside it, a row of chips (Copy URL,
+  Copy token, curl), the waiting card and Done. It has no face. The address
+  and token are masked where they are only looked at and whole when copied.
+  The curl line is one tap away under the chips. Every other tool, and no
+  tool, keeps the curl screen: the face, the curl block with the tool's
+  snippet after it. For the `jobs` answer that screen carries one line under
+  the curl block about where a job sends it.
+- The last step follows the topic's Critical switch. `toolStepsFor` takes
+  `isCritical`: on keeps "This phone rings.", off or not known says "It lands
+  on this phone." A topic with Critical off does not ring. The switch is
+  `HookUpState.isCritical`, the one the `critical_off` note reads. It is
+  in the first frame because `FirstTopicHandoffEntry.isCritical` carries what
+  the topic was made with, and the topic list read has the last word.
+- The waiting card's line follows the saved tool when it has documented
+  steps, and the answer's line otherwise (`waitingLineFor`).
 - `FirstMessageWatcher` (`lib/features/topics/domain/first_message/`) polls
   the topic every 5 seconds while its screen is open and the app is in
   front, and backs off to a minute when the server cannot be asked. Where
@@ -779,6 +923,16 @@ topic name, URL, token or device id ever goes in them. `OnboardingFunnel`
 (`lib/core/telemetry/onboarding_funnel.dart`) sends them, fed by
 `OnboardingFlowEngine.onStepEvent`, so screens make no calls of their own.
 The names live in `AnalyticsEvents` and the wrapper is `OnboardingAnalytics`.
+
+The `use` step adds one event, `onboarding_use_picked`, with `use` and
+`flow_id`. `use` is one of `servers`, `homelab`, `jobs`, `home`, `other` or
+`skipped`, and the funnel drops any other word. The three offer events carry
+the same `use` parameter (the answer's wire id, `other` when there is none),
+so conversion can be read by answer. An offer event buffered before the
+parameter existed is sent as `other`. Both go through the same buffer and the
+same consent rule, and a replay records neither. The hook-up switch says so:
+step names, timings and the answer to the question, never messages. The
+answer is never sent to the server.
 
 The consent question comes on the last step, so events wait on the phone
 until the user answers:
@@ -835,7 +989,9 @@ the status card speaks for. The card shows the label SETUP, the count as
 Nothing in the list sheet or above the tab bar shows the rows any more: the
 floating checklist card that did is gone. Once the first two
 rows are true the card turns into the wait for the first message
-(`HomeCardKind.waiting`). The rules are pure functions in
+(`HomeCardKind.waiting`). Its foot is the waiting line of the saved tool when
+that tool has documented steps, and of the user's answer otherwise
+(`waitingLineFor`); an `other` answer leaves "send the first line". The rules are pure functions in
 `lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit` runs
 them from the list Home drew. The card rule is in
 `lib/features/topics/domain/home_card/home_card_rule.dart`.
@@ -1063,6 +1219,43 @@ never seen, and a person's own alarm photo and own sounds are in no backup.
   files. Both then name a file that is not there, which the app already
   treats as nothing to draw and nothing to ring.
 
+**Local store and the held topic list.** `LocalStore` (`lib/core/store/local_store.dart`,
+`critalarm.db`, schema version 3) holds three tables. `incidents` and `messages` are the
+archive: the user's own copy, deleted only by the auto-delete setting. `topics` is the last list
+the server gave, kept so the app opens with the topics it already knows. It is a copy the server
+replaces on every answer, not an archive.
+
+- A table change bumps `LocalStore.schemaVersion` and adds a step in `_upgrade`. A test builds
+  the previous version's file by hand and checks the old rows survive (`test/core/store/`).
+- What a `topics` row holds: name, Critical delivery, the three timers, the relay content
+  setting, when the topic was made (milliseconds, because the Topic screen matches what it
+  remembered about a topic by that exact time) and the order the server gave. A topic token, its
+  id and its name are never written. The server shows a token once, on creation. An empty list
+  is stored as no rows, so an empty copy is never shown as "no topics yet".
+- Every row carries a scope: a hash of the saved server address and the account id
+  (`heldScopeFor`, `lib/core/store/held_scope.dart`). A read names its scope and gets nothing
+  for any other, and deletes what it finds under another. `TopicsCubit` writes only when the
+  scope is the same as when the request went out and no sign-in, sign-out or account switch
+  happened since (`_generation`). `AccountData.forget()` (sign-out, account delete, dead
+  credential, a moved phone, a connect to a different server) and `LocalStore.clearServerData`
+  both clear it.
+- `TopicsCubit.loadHeld()` starts the state from the copy. `main()` calls it before `runApp`,
+  after the store is open and after `MovedPhoneReset`, with an 800 ms limit. The state is ready
+  and `TopicsState.isKept`, so screens draw the topics as real data with no loading state.
+  `ensureLoaded()` still asks the server once while `isKept`. The first answer replaces the
+  list and clears `isKept`, and a topic deleted elsewhere is gone from both. A failed answer
+  keeps the list and sets the usual failure.
+- While `isKept`, `HomeCubit` and `TopicDetailCubit` do not run their full build, which polls
+  every topic's messages, because the server's list is about to say which topics those are. The
+  Topic screen's seed (`seedFor`) and the Home card guess (`heldTopicsFrom`) read the held list.
+- Write-through: the refresh, `applyTopic` (the Critical switch, from the Topic screen and from
+  setup's real ring step), a delete the server took, and `noteCreated`, which
+  `CreateTopicUsecase.onCreated` calls for a new topic (stored without its token, memory left
+  to the next refresh). Nothing is written before a list is loaded.
+- Where the store is not open (the web build, or `local_store_open_failed` at launch) the list
+  stays in memory and the app behaves as it did before the copy existed. Push, alarms and
+  incident handling never read the `topics` table.
+
 **Motion.** One large living thing per screen, and everything under it quiet. A screen that
 persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
 Crit reacting, or a feature shown doing its job, driven from one clock with a pure, tested
@@ -1143,6 +1336,12 @@ holds the steps the two share.
   `tokens/`, components in `components/`, the face in `faces/`, the theme in
   `theme/`. `NOTES.md` lists the components and when to use each. The debug
   route `/gallery` shows every one.
+- The Crit face is always yellow (`#FFC93C`) with a dark outline and dark
+  features, in the light theme, the dark theme and on every canvas. The page
+  around it may change colour. `FaceWidget` and `RingingFaceWidget` take no
+  colour for the head, and `AppColors.dark` has the same face tokens as
+  `AppColors.light`. Tell a wall of faces apart by expression, size, tilt or a
+  ring around them (`rippleCellLook`), never by head colour.
 - `lib/design_system/` is the older folder. It re-exports `lib/design/` and
   keeps the motion and haptics helpers. Do not add components there.
 

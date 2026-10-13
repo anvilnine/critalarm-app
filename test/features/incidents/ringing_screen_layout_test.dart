@@ -199,12 +199,18 @@ void main() {
       );
       expect(face.canvasInkColor, context.appColors.onCanvas);
       // The head stays yellow whichever face is shuffled in.
-      expect(
-        RingingFaceFill.keepsFillOf(
-          tester.element(find.byType(ShufflingRingingFace)),
-        ),
-        isTrue,
-      );
+      final painter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: find.byType(ShufflingRingingFace),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter!
+              as RingingFacePainter;
+      expect(painter.fillColor, AppColors.light.yellow);
+      expect(painter.inkColor, AppColors.light.faceInk);
     });
 
     testWidgets('gives Silence and Read the full message a thin edge, and '

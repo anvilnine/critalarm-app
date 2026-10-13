@@ -67,6 +67,7 @@ class PaywallPreview extends StatelessWidget {
     this.sizeClass,
     this.size,
     this.playFrom,
+    this.topicName,
     super.key,
   });
 
@@ -85,10 +86,15 @@ class PaywallPreview extends StatelessWidget {
   /// clock as it is: a preview that shares a loop waits for its turn.
   final double? playFrom;
 
+  /// A topic name for the topics preview to show in its first row. No
+  /// other preview reads it.
+  final String? topicName;
+
   @override
   Widget build(BuildContext context) {
     final fit = paywallPreviewFit(sizeClass: sizeClass, box: size);
     final builder = paywallPreviewBuilders[id];
+    final name = topicName;
     return ExcludeSemantics(
       child: SizedBox.fromSize(
         size: fit.box,
@@ -98,7 +104,9 @@ class PaywallPreview extends StatelessWidget {
             child: builder != null
                 ? PaywallPreviewPlay(
                     playFrom: playFrom,
-                    child: builder(context, fit.drawn),
+                    child: id == PaywallPreviewId.topics && name != null
+                        ? TopicsPreview(size: fit.drawn, topicName: name)
+                        : builder(context, fit.drawn),
                   )
                 : PreviewGlyphTile.glyph(
                     paywallPreviewGlyph(id),

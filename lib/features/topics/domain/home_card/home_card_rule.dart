@@ -1,6 +1,7 @@
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/attention_order.dart';
 import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
@@ -79,23 +80,81 @@ bool _isIssueLook(HomeCardInput i) => _readiness(i) == ReadinessKind.look;
 
 bool _isWarning(HomeCardInput i) => i.warningCount > 0;
 
+/// Where setup stands for the card: the checklist Home drew, or, before it
+/// has drawn one, what the phone's own records expect
+/// ([HomeCardInput.expectedSetup]). Null when neither says anything.
+class _SetupView {
+  const _SetupView(
+    this.checklist, {
+    required this.firstTopic,
+    required this.watchedTopic,
+    required this.isExpected,
+  });
+
+  final SetupChecklist checklist;
+  final String? firstTopic;
+  final String? watchedTopic;
+
+  /// The view is the phone's guess, not Home's own checklist.
+  final bool isExpected;
+}
+
+_SetupView? _setupViewOf(HomeCardInput i) {
+  final setup = i.setup;
+  if (setup != null && setup.isVisible) {
+    return _SetupView(
+      setup,
+      firstTopic: i.firstTopic,
+      watchedTopic: i.watchedTopic,
+      isExpected: false,
+    );
+  }
+  final expected = i.expectedSetup;
+  if (expected == null) return null;
+  return _SetupView(
+    expected.checklist,
+    firstTopic: expected.firstTopic,
+    watchedTopic: expected.watchedTopic,
+    isExpected: true,
+  );
+}
+
 /// Setup is on screen and unfinished, and more than the first message is
 /// left to do.
 bool _isSetup(HomeCardInput i) {
-  final setup = i.setup;
-  return setup != null &&
-      setup.isVisible &&
-      !setup.isComplete &&
-      !_onlyFirstMessageOpen(setup);
+  final view = _setupViewOf(i);
+  if (view == null) return false;
+  final setup = view.checklist;
+  return setup.isVisible && !setup.isComplete && !_onlyFirstMessageOpen(setup);
 }
 
+/// Setup waits on the first message.
 bool _isWaiting(HomeCardInput i) {
-  final setup = i.setup;
-  return setup != null && setup.isVisible && _onlyFirstMessageOpen(setup);
+  final view = _setupViewOf(i);
+  return view != null &&
+      view.checklist.isVisible &&
+      _onlyFirstMessageOpen(view.checklist);
 }
 
 bool _onlyFirstMessageOpen(SetupChecklist setup) =>
     setup.hasServer && setup.hasCriticalTopic && !setup.hasFirstMessage;
+
+/// The first frames of a Home whose list has not answered. When the phone's
+/// own records say which setup card is coming, that card is drawn at once, so
+/// the list answering later changes nothing on it. Otherwise the dots.
+HomeCardModel _loadingOrExpected(HomeCardInput i) {
+  final expected = i.expectedSetup;
+  if (expected == null) return _loading();
+  final view = _SetupView(
+    expected.checklist,
+    firstTopic: expected.firstTopic,
+    watchedTopic: expected.watchedTopic,
+    isExpected: true,
+  );
+  final checklist = view.checklist;
+  if (!checklist.isVisible || checklist.isComplete) return _loading();
+  return _onlyFirstMessageOpen(checklist) ? _waiting(i, view) : _setup(view);
+}
 
 /// The newest message anywhere is older than [quietAfter]. With no message
 /// on record there is nothing to be quiet about.
@@ -105,7 +164,7 @@ bool _isQuiet(HomeCardInput i) {
 }
 
 HomeCardModel _build(HomeCardKind kind, HomeCardInput i) => switch (kind) {
-  HomeCardKind.loading => _loading(),
+  HomeCardKind.loading => _loadingOrExpected(i),
   HomeCardKind.ringing => _ringing(i.ringing!),
   HomeCardKind.acknowledged => _acknowledged(i.acknowledged!),
   HomeCardKind.handled => _handled(i.handled!),
@@ -117,8 +176,8 @@ HomeCardModel _build(HomeCardKind kind, HomeCardInput i) => switch (kind) {
   HomeCardKind.issueBroken => _issue(i, kind),
   HomeCardKind.issueLook => _issue(i, kind),
   HomeCardKind.warning => _warning(i),
-  HomeCardKind.setup => _setup(i),
-  HomeCardKind.waiting => _waiting(i),
+  HomeCardKind.setup => _setup(_setupViewOf(i)!),
+  HomeCardKind.waiting => _waiting(i, _setupViewOf(i)!),
   HomeCardKind.quiet => _quiet(i),
   HomeCardKind.idle => _idle(i),
 };
@@ -299,16 +358,16 @@ SetupChecklistRow? _nextOpenRow(SetupChecklist setup) {
   return null;
 }
 
-HomeCardModel _setup(HomeCardInput i) {
-  final setup = i.setup!;
+HomeCardModel _setup(_SetupView view) {
+  final setup = view.checklist;
   final next = _nextOpenRow(setup);
   final route = next == null
       ? null
       : setupChecklistRoute(
           next,
           checklist: setup,
-          firstTopic: i.firstTopic,
-          watchedTopic: i.watchedTopic,
+          firstTopic: view.firstTopic,
+          watchedTopic: view.watchedTopic,
         );
   return HomeCardModel(
     kind: HomeCardKind.setup,
@@ -327,14 +386,19 @@ HomeCardModel _setup(HomeCardInput i) {
   );
 }
 
-HomeCardModel _waiting(HomeCardInput i) {
-  final topic = i.watchedTopic;
+HomeCardModel _waiting(HomeCardInput i, _SetupView view) {
+  final topic = view.watchedTopic;
   return HomeCardModel(
     kind: HomeCardKind.waiting,
     label: HomeCardLabel.firstMessage,
     numeral: const NotYet(),
-    foot: const HomeCardFoot(HomeCardFootSlot.sendTheLine),
-    action: topic == null ? null : GetFirstLine(topic),
+    foot: HomeCardFoot(
+      HomeCardFootSlot.sendTheLine,
+      waitingLine: waitingLineFor(use: i.use, savedTool: i.watchedTool),
+    ),
+    // Home's list names the topic. Until it has, a guess still draws the
+    // button, and it finds the topic when it is pressed.
+    action: topic == null && !view.isExpected ? null : GetFirstLine(topic),
     face: FaceState.watching,
     severity: SeverityMode.none,
     discTone: HomeCardDiscTone.paleYellow,

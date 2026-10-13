@@ -12,6 +12,10 @@ abstract final class OnboardingStepId {
   static const howItRings = 'how_it_rings';
   static const connect = 'connect';
   static const permissions = 'permissions';
+
+  /// What the user mostly wants the phone to wake them for. One tap, and the
+  /// steps after it start from the answer.
+  static const use = 'use';
   static const firstTopic = 'first_topic';
   static const realRing = 'real_ring';
 
@@ -89,7 +93,27 @@ class OnboardingFlow {
 /// The flows that ship inside the app.
 abstract final class BundledOnboardingFlows {
   /// What a fresh install runs when no other source has a valid flow.
-  static const defaultFlow = OnboardingFlow(
+  static const OnboardingFlow defaultFlow = october2026C;
+
+  /// `2026-10-b` with the use step between the permissions and the first
+  /// topic.
+  static const october2026C = OnboardingFlow(
+    id: '2026-10-c',
+    steps: [
+      OnboardingStepId.welcome,
+      OnboardingStepId.connect,
+      OnboardingStepId.permissions,
+      OnboardingStepId.use,
+      OnboardingStepId.firstTopic,
+      OnboardingStepId.realRing,
+      OnboardingStepId.offer,
+      OnboardingStepId.hookUp,
+    ],
+  );
+
+  /// The default before `2026-10-c`. A phone that pinned it keeps running
+  /// it, with no use step, and it stays here so the two can be compared.
+  static const october2026B = OnboardingFlow(
     id: '2026-10-b',
     steps: [
       OnboardingStepId.welcome,
@@ -132,5 +156,10 @@ abstract final class BundledOnboardingFlows {
     ],
   );
 
-  static const List<OnboardingFlow> all = [defaultFlow, october2026A, legacy];
+  static const List<OnboardingFlow> all = [
+    defaultFlow,
+    october2026B,
+    october2026A,
+    legacy,
+  ];
 }

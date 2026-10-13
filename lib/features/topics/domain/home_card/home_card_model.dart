@@ -1,5 +1,6 @@
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
@@ -223,6 +224,8 @@ enum HomeCardFootSlot {
 
   /// [HomeCardFoot.setupRow].
   setupNext,
+
+  /// [HomeCardFoot.waitingLine], or the plain line when it is null.
   sendTheLine,
 
   /// [HomeCardFoot.time].
@@ -242,6 +245,7 @@ class HomeCardFoot {
     this.checkId,
     this.reason,
     this.setupRow,
+    this.waitingLine,
   });
 
   final HomeCardFootSlot slot;
@@ -252,6 +256,10 @@ class HomeCardFoot {
   final String? reason;
   final SetupChecklistRow? setupRow;
 
+  /// Which line the waiting card shows, for [HomeCardFootSlot.sendTheLine].
+  /// Null reads as [SetupWaitingLine.sendFirstLine].
+  final SetupWaitingLine? waitingLine;
+
   @override
   bool operator ==(Object other) =>
       other is HomeCardFoot &&
@@ -261,7 +269,8 @@ class HomeCardFoot {
       other.duration == duration &&
       other.checkId?.value == checkId?.value &&
       other.reason == reason &&
-      other.setupRow == setupRow;
+      other.setupRow == setupRow &&
+      other.waitingLine == waitingLine;
 
   @override
   int get hashCode => Object.hash(
@@ -272,6 +281,7 @@ class HomeCardFoot {
     checkId?.value,
     reason,
     setupRow,
+    waitingLine,
   );
 
   @override
@@ -373,10 +383,14 @@ final class ContinueSetup extends HomeCardAction {
 }
 
 /// Open the token and curl line of [topic].
+///
+/// [topic] is null on the first frames, before Home's list has named the
+/// topic it watches. The screen's cubit fills it in when the button is
+/// pressed.
 final class GetFirstLine extends HomeCardAction {
   const GetFirstLine(this.topic);
 
-  final String topic;
+  final String? topic;
 
   @override
   bool operator ==(Object other) =>

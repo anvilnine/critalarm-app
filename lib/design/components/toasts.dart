@@ -43,12 +43,6 @@ class AppToast extends StatelessWidget {
           AppToastVariant.ack => FaceState.acked,
         };
 
-    final stroke = switch (variant) {
-      AppToastVariant.normal => colors.onPanel,
-      AppToastVariant.crit => colors.crit,
-      AppToastVariant.ack => colors.cobaltOnDark,
-    };
-
     Widget content;
     if (child != null) {
       content = child!;
@@ -102,9 +96,6 @@ class AppToast extends StatelessWidget {
             FaceWidget(
               state: resolvedFace,
               size: 32,
-              overrideFillColor: colors.panel,
-              overrideStrokeColor: stroke,
-              overrideInkColor: colors.onPanel,
             ),
             const SizedBox(width: 12),
             Flexible(child: content),

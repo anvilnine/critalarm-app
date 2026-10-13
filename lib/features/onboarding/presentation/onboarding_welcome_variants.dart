@@ -576,11 +576,7 @@ class _AngryParadeHeroState extends _ClockState<_AngryParadeHero> {
             child: Transform(
               alignment: Alignment.bottomCenter,
               transform: Matrix4.diagonal3Values(sx, sy, 1),
-              child: _face(
-                face,
-                size,
-                fill: _crowdFills[i % _crowdFills.length],
-              ),
+              child: _face(face, size),
             ),
           ),
         ],
@@ -811,8 +807,6 @@ class _RingingOrbitHeroState extends _ClockState<_RingingOrbitHero> {
             child: RingingFaceWidget(
               style: _moons[i],
               size: size,
-              fillColor: _crowdFills[i % _crowdFills.length],
-              inkColor: _darkInk,
             ),
           ),
         ),

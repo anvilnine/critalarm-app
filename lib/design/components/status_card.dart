@@ -61,6 +61,22 @@ enum AppStatusVariant {
     ? (fill: colors.surfaceElevated, line: colors.panelLine)
     : (fill: colors.panel, line: null);
 
+/// How the label and the foot swap when their words change.
+///
+/// The old words fade out over the first half of the swap and the new ones
+/// fade in over the second half, so two texts are never on screen at the
+/// same time. The switcher runs one controller per text: forward for the
+/// words coming in, backward for the words going out, so the outgoing curve
+/// is read from 1 down to 0.
+const Curve statusCardSwapIn = Interval(0.5, 1, curve: AppCurves.easeOut);
+
+/// The curve of the words going out, read backward. See [statusCardSwapIn].
+const Curve statusCardSwapOut = Interval(
+  0.5,
+  1,
+  curve: FlippedCurve(AppCurves.easeOut),
+);
+
 /// The dark card that answers one question on a screen.
 ///
 /// A mono label, a big numeral, optional pips, a mono foot and an optional
@@ -89,6 +105,7 @@ class AppStatusCard extends StatefulWidget {
     this.numeralTone = AppStatusTone.yellow,
     this.foot,
     this.footTone = AppStatusTone.muted,
+    this.footMaxLines = 1,
     this.pips,
     this.actionLabel,
     this.onAction,
@@ -116,6 +133,7 @@ class AppStatusCard extends StatefulWidget {
     this.numeralTone = AppStatusTone.yellow,
     this.foot,
     this.footTone = AppStatusTone.muted,
+    this.footMaxLines = 1,
     this.pips,
     this.actionLabel,
     this.onAction,
@@ -142,8 +160,13 @@ class AppStatusCard extends StatefulWidget {
   /// The numeral's colour.
   final AppStatusTone numeralTone;
 
-  /// The mono line under the numeral. One line, cut with an ellipsis.
+  /// The mono line under the numeral. [footMaxLines] lines, the last one cut
+  /// with an ellipsis.
   final String? foot;
+
+  /// How many lines [foot] may take. One unless a screen has a foot that
+  /// is a sentence.
+  final int footMaxLines;
 
   /// The foot's colour.
   final AppStatusTone footTone;
@@ -309,8 +332,8 @@ class _AppStatusCardState extends State<AppStatusCard>
   Widget _cross(Widget child, Object key) => ExcludeSemantics(
     child: AnimatedSwitcher(
       duration: context.motion(AppDurations.base),
-      switchInCurve: AppCurves.easeOut,
-      switchOutCurve: AppCurves.easeOut,
+      switchInCurve: statusCardSwapIn,
+      switchOutCurve: statusCardSwapOut,
       layoutBuilder: (current, previous) => Stack(
         alignment: Alignment.centerLeft,
         children: [...previous, ?current],
@@ -373,7 +396,7 @@ class _AppStatusCardState extends State<AppStatusCard>
             _cross(
               Text(
                 widget.foot!,
-                maxLines: 1,
+                maxLines: widget.footMaxLines,
                 overflow: TextOverflow.ellipsis,
                 style: _foot(widget.footTone.color(colors)),
               ),
@@ -392,9 +415,6 @@ class _AppStatusCardState extends State<AppStatusCard>
         child: FaceWidget(
           state: widget.face!,
           size: 40,
-          overrideFillColor: colors.yellow,
-          overrideStrokeColor: colors.inkFixed,
-          overrideInkColor: colors.inkFixed,
         ),
       );
       Widget title({required int maxLines}) => ExcludeSemantics(

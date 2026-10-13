@@ -3,6 +3,54 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ## Unreleased
 ### Added
+- Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
+- TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
+- tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
+- AppTextField.fitText steps the typed text down to the default size before the line scrolls, and keeps the box height; setup's topic name field uses it.
+- LocalStore schema version 3 adds a topics table (TopicStore, scoped by a hash of the saved server and the account id with heldScopeFor, no token columns, no row for an empty list). TopicsCubit.loadHeld reads it before runApp and sets TopicsState.isKept until the first server answer. Every list change is written back, AccountData.forget and LocalStore.clearServerData clear it, and HomeCubit and TopicDetailCubit wait for the server's list before their full build. configureDependencies takes an openedStore for tests and captures, and tool/capture\_home\_waiting.dart has two scenes that start from a stored list.
+- OfferSaleProbe starts the offer's store check when the real alarm step opens and caches the answer. OnboardingOfferGate.outlook() (coming, none, unsure) and hasNoOffer() read it without waiting, and the offer step takes the loaded buy model with takeOnSale. The It works screen now throws its confetti unless the offer follows and the store said on sale (ackConfettiMayFly takes an OfferOutlook), so a session is never left with no celebration. A cached not on sale answer also makes the engine skip the step.
+- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes.
+
+### Changed
+- release --bump runs the gates first, commits the new build number, and a finished upload tags the commit. --upload-only refuses a build whose stamp does not match pubspec.yaml. The gates also run check-l10n and check-access. release-android.sh refuses a bundle signed with the debug key.
+- Added the setup answer data: a SetupUse enum, its per-answer table, a prefs store with an in-memory replay holder, and curl as a tool template with no snippet.
+- The setup test's It works screen throws no confetti and plays no success haptic when the offer step follows.
+- The alarm screen of the setup test shows a sample message for the answer picked on the use step. The title and body the server sent stay in the history, the notification and the extension cache.
+- Paywall pieces for a lead benefit: a route lead on the reel, the Hosted weekly check as a fifth benefit, a topic name on the topics picture, a thanks button label and an intro hint line.
+- Setup has a use step between permissions and the first topic (What should wake you?), on a new flow 2026-10-c that is now the default. One tap saves the answer on the phone, a skip saves Something else, and a pick event (onboarding\_use\_picked) goes through the same consent buffer as the other setup events. Phones pinned to 2026-10-b keep running it.
+- The hook-up step leads with numbered steps, Copy URL, Copy token and a curl chip when the saved tool is Uptime Kuma, Healthchecks or Home Assistant (toolStepsFor, maskToken, HookUpStepsLayout). Any other tool keeps the curl screen, and the replay reads ?use=<wire id> in a developer build.
+- The Home card that waits for the first message names the step for the saved answer and tool, and its line can wrap to three lines.
+- The first topic in setup arrives filled from the answer to the question step, with other names and the tools as one-line chips that scroll sideways, and the Terms and Privacy links sit at the end of the page so rows no longer run under them.
+- The offer setup step plays the false alarm, a reel that opens on the answer from the use step and the confetti thanks, and its thanks button opens hook up. It asks the store what is on sale first and skips with no intro when nothing is. cloud\_product takes auto, the bundled layout is reel, the three offer funnel events carry use, and Developer options replay the step on one answer.
+- Setup stats line on the hook-up step now names the answer to the question step. The hero, receipt, reel and sentence paywall layouts and the thanks tick call the Hosted weekly check Weekly delivery check, the name Settings uses.
+- tool/capture\_works\_screen.dart fails on an overflow at 320 wide and text scale 2.0 like every other size, instead of printing it.
+- The alarm screen's three error strings (acknowledge failed on a topic and on the alarm, and the alarm failing to load) say the alarm is still open, not the page.
+- Settings analytics line also names the setup answer, which the same switch sends.
+- capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
+- Setup steps with no top bar of their own now back the tracker with the app's default bar backing (AppBarBackingScope.barOverTop), and the shell no longer paints its own gradient.
+- The Crit face is yellow with a dark outline and dark features in every theme and on every canvas. AppColors.dark has the light face tokens, withSeverity leaves them alone, and FaceWidget and RingingFaceWidget no longer take a fill, stroke or ink colour.
+- FaceRipple draws only yellow heads and tells them apart with rippleCellLook (size, tilt and a ring), so the It works wall of faces is not one flat block.
+- The offer setup step ships switched on: OnboardingOfferConfig.bundled has enabled true, so a remote value that leaves enabled out keeps it on and only enabled false switches it off. Remote Config and the developer value still override it.
+- The offer setup step no longer plays the false alarm intro, its tag or its skip hint, and no longer writes paywall.false\_alarm\_shown, so the Settings plan row keeps its false alarm. The reel rises over the setup step, opaque, from the bottom edge in 400 ms (buildOfferLayerTransition). The kit keeps the intro, the tag rule and the hint parameter for other triggers. Removed offerIntro, offerUsesUpFalseAlarm and OnboardingOfferGate.markFalseAlarmShown.
+- Older strings that used page for an alarm say alarm, ring or wake instead (create\_critical\_body, critical\_alarm fallback title and body, no\_alarm\_body, the disconnect and server stage lines, the permission descriptions and the battery explanation).
+- tool/capture\_offer\_sequence.dart captures the new sequence (It works, Continue, the rise in four frames, thanks, hook up) and no longer captures the intro or tag. tool/capture\_works\_screen.dart has a works\_store\_unsure scene.
+- Redo onboarding in a build that skips the store plays on through the offer, on the answer picked in that replay, with the made-up buy model, and saves nothing. A build with the real store skips the offer in a replay as before.
+
+### Fixed
+- toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
+- The reel draws no picture and no placeholder when the stage is under reelStageMinHeight, and the lead line stands under the headline, so a lead at 320 wide and text scale 2.0 no longer leaves a grey dot.
+- The setup test's acknowledged screen steps its title down until the longest word fits (AppFittedTitle at setupTitleMinFontSize) and scrolls its words above the pinned button when they are taller than the room, so Continue and Finish stay on screen at 320 wide and text scale 2.0. ackedDemoRippleHeightFor gives the ripple what is left.
+- RingingScreen scrolls the message card inside the room above the pinned buttons once the face is gone and the card is still too tall (ringingCardScrollRoomFor, ringingCardMinRoom). Cards that fit are drawn as before.
+- alarmMetaLine joins the time and the tags with a slash only when the message has tags.
+- The intro's tag stands where paywallIntroTagPlace finds room clear of the layout's paragraphs, previews and buttons (it slides along the mascot, tries both sides) and is left out where there is none. IntroHost collects those rects a few times a second.
+- Home's status card draws the waiting card on its first frame when the phone's own records say setup waits on the first message (firstMessageExpected), and AppStatusCard fades the old label and foot out before the new ones fade in, so two texts are never drawn over each other.
+- Home's status card picks the waiting card or the setup card for its first frame from the topic list the app already holds in memory (expectedSetupFor), so a first topic with Critical delivery off starts on the setup card. Without a held list the waiting card stays the guess.
+
+### Removed
+- Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
+
+## 1.0.0+13 - 2026-10-10
+### Added
 - Setup flow engine in `lib/features/onboarding/domain/flow/`: a flow is an id plus a list of step ids, checked by `validateOnboardingFlow`, chosen from ordered `OnboardingFlowSource`s and pinned when the user taps Get started. `OnboardingStepRegistry` holds one entry per step (route, screen, `isAvailable`, `isSatisfied`, `requires`, canvas step) and the router builds the step routes from it. Screens call `finishOnboardingStep(context, stepId)` and no longer name the next step.
 - Prefs keys `onboarding_flow_id`, `onboarding_flow_steps` and `onboarding_flow_completed` hold the pinned setup flow and the steps finished in it. All three are cleared when setup completes.
 - Routes `/onboarding/first-topic`, `/onboarding/real-ring` and `/onboarding/test`. `CreateTopicScreen` takes an optional `onDone` callback that replaces its three exits, and `OnboardingConnectScreen` takes a `part` (connect or test).
@@ -96,9 +144,6 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - tool/capture\_screen\_nav.dart captures a Topic and Settings sub screens at 0, 25, 50, 75 and 100 percent of the page change
 - AppScrollBarTitle is the bar title that comes in once a header has scrolled under the bar, shared by Will it wake me and the messages page. Day bars, day grouping and the ring line are pure functions in topic\_messages\_page.dart, and tool/capture\_messages\_page.dart captures the page.
 - Two other first welcome pages (night falls, stays silent), built behind welcomeFirstPage (default word) and opened from Developer options, Setup flow, Open a step as a replay with first=night or first=silent. tool/capture\_welcome\_first\_pages.dart captures them.
-- Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
-- TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
-- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -180,7 +225,6 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
 - Every setup step has its own ambient canvas step and arrangement (the offer and the legacy test no longer share one), and the canvas takes a live profile so a pager can drag the shapes. The bundled flows no longer list how\_it\_rings or widgets, since the welcome shows both.
 - The Pick a server step is one layout for Crit Alarm Cloud and your own server: the routes picture, titles, card and pinned bar follow one clock (ConnectMorphLayout), so switching grows and fades the parts that differ and keeps the dot travelling. AppButton gains animatesLabel.
-- release --bump runs the gates first, commits the new build number, and a finished upload tags the commit. --upload-only refuses a build whose stamp does not match pubspec.yaml. The gates also run check-l10n and check-access. release-android.sh refuses a bundle signed with the debug key.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

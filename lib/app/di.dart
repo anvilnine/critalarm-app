@@ -82,6 +82,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -172,6 +173,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
@@ -192,6 +194,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flo
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -216,6 +219,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -327,6 +331,7 @@ import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/home_card/first_message_expected.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
@@ -339,6 +344,7 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/held_topics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
@@ -374,14 +380,18 @@ const _appIconWelcomedKey = 'app_icon.welcomed';
 Future<void> configureDependencies({
   bool useMockApi = buildUsesMockApi,
   http.Client? httpClient,
+  LocalStore? openedStore,
 }) async {
   final prefs = await SharedPreferences.getInstance();
 
   // The phone's own copy of every incident and message (api.md §4.2, where
   // `history_days` became retention). Web has no sqflite, so the dashboard
   // build keeps reading the server live and every store call is skipped.
-  LocalStore? localStore;
-  if (!kIsWeb) {
+  //
+  // [openedStore] is a store the caller already opened, for a test or a
+  // capture that has no documents directory. It is used as it is.
+  var localStore = openedStore;
+  if (!kIsWeb && localStore == null) {
     try {
       localStore = await LocalStore.open();
     } on Object catch (error, stack) {
@@ -1257,6 +1267,13 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ToolTemplateStore>(
       () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
     )
+    // What the user said they send alarms from. A preference: setup ending
+    // and a sign-out leave it. The replay holder keeps a replay's pick in
+    // memory only.
+    ..registerLazySingleton<SetupUseStore>(
+      () => SharedPrefsSetupUseStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<SetupUseReplay>(SetupUseReplay.new)
     // "A first message arrived", set once, and where each topic's watch
     // for it starts from.
     ..registerLazySingleton<FirstMessageStore>(
@@ -1332,6 +1349,30 @@ Future<void> configureDependencies({
         readFlowSteps: () => getIt<OnboardingFlowEngine>().runningFlow().steps,
         readCompletedSteps: () =>
             getIt<OnboardingFlowRepository>().read().completed,
+        readUse: ({required isReplay}) => setupUseFor(
+          isReplay: isReplay,
+          store: getIt<SetupUseStore>(),
+          replay: getIt<SetupUseReplay>(),
+        ),
+        // The topic setup made: in memory while the run lasts, else the
+        // name the phone kept.
+        readTopicName: () =>
+            getIt<FirstTopicHandoff>().entry?.topicName ??
+            getIt<FirstTopicHandoff>().savedTopicName,
+        // The store's answer about the product, asked for when the real
+        // alarm step starts and read by "It works" and by the offer step.
+        readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
+        startSale: (product) => getIt<OfferSaleProbe>().start(product),
+        // Only a build that skips the store has the made-up buy model, the
+        // one a replay may play the offer on.
+        readUsesDemoStore: () => buildSkipsPaywall,
+      ),
+    )
+    // The one store check of the offer, shared by the gate and the step. It
+    // makes the buy model the paywall route makes.
+    ..registerLazySingleton(
+      () => OfferSaleProbe(
+        makeBuyModel: (product) => getIt<PaywallBuyCubit>(param1: product),
       ),
     )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the
@@ -1570,6 +1611,19 @@ Future<void> configureDependencies({
           await getIt<ChallengeFlagSync>().check();
           await getIt<AlarmStyleChoices>().forgetTopic(name);
         },
+        // The list is kept on the phone for the server and account it is on
+        // now. Where the store is not open the list stays in memory only.
+        held: localStore?.topics,
+        heldScope: () async {
+          final connection = (await getIt<GetConnectionUsecase>()(
+            const NoParams(),
+          )).getOrNull();
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          return heldScopeFor(
+            serverUrl: connection?.serverUrl,
+            accountId: identity.accountId,
+          );
+        },
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
@@ -1619,6 +1673,7 @@ Future<void> configureDependencies({
         soundLock: getIt<OwnSoundLockFlag>(),
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
+        heldTopics: localStore?.topics,
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {
@@ -1878,6 +1933,8 @@ Future<void> configureDependencies({
           // the first topic.
           await getIt<InAppNoticeRepository>().markFirstTopicOwned();
           unawaited(getIt<LocalReminderPlanTrigger>().run());
+          // The phone's copy of the list gains it before the next answer.
+          getIt<TopicsCubit>().noteCreated(topic);
         },
       ),
     )
@@ -2125,8 +2182,28 @@ Future<void> configureDependencies({
         reliability: getIt<ReliabilityCubit>(),
         setup: setup,
         missed: getIt<MissedAlarmFeed>(),
+        setupUse: getIt<SetupUseStore>(),
+        toolTemplates: getIt<ToolTemplateStore>(),
         testRouteName: AppRoute.testRing,
         askPermissionsRouteName: AppRoute.askPermissions,
+        // What the phone itself holds, so the waiting card is drawn on the
+        // first frame and not after the list loads.
+        isSetupOpen: () {
+          final prefs = getIt<SharedPreferences>();
+          bool isSaved(String key) => (prefs.getString(key) ?? '').isNotEmpty;
+          final checklist = getIt<SetupChecklistStore>();
+          return firstMessageExpected(
+            hasServer:
+                isSaved(SharedPrefsConnectionRepository.serverUrlKey) &&
+                isSaved(SharedPrefsConnectionRepository.adminTokenKey),
+            wasSetUpHere: checklist.wasSetUpHere,
+            isChecklistRetired: checklist.isDone,
+            isFirstMessageReceived: getIt<FirstMessageStore>().isReceived,
+          );
+        },
+        // The list the app holds: the one setup's last steps loaded, or the
+        // copy the phone kept at the last answer after a cold start.
+        readHeldTopics: () => heldTopicsFrom(getIt<TopicsCubit>().state),
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it
@@ -2456,6 +2533,9 @@ Future<void> configureDependencies({
         getIt<EndSetupTestUsecase>(),
         getIt<SetupTestRing>(),
         getIt<ProofLog>(),
+        // Setup never rings a real alarm in a replay, so the saved answer is
+        // the one the test alarm was sent for.
+        getIt<SetupUseStore>().read,
       ),
     )
     ..registerFactory(

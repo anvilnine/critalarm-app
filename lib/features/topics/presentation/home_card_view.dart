@@ -3,6 +3,7 @@ import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/reliability/presentation/readiness_view.dart';
@@ -25,6 +26,7 @@ class HomeCardView {
     required this.gaze,
     this.label,
     this.foot,
+    this.footLines = 1,
     this.pips,
     this.actionLabel,
     this.isLive = false,
@@ -35,6 +37,10 @@ class HomeCardView {
   final String numeral;
   final AppStatusTone numeralTone;
   final String? foot;
+
+  /// How many lines the foot may take. The waiting card has a sentence for a
+  /// foot and takes three, every other kind keeps one.
+  final int footLines;
   final AppStatusTone footTone;
   final List<AppPipTone>? pips;
   final String? actionLabel;
@@ -60,6 +66,7 @@ HomeCardView homeCardViewFor(
     numeral: homeCardNumeralText(numeral, now: now),
     numeralTone: _numeralTone(model.numeralTone),
     foot: _foot(model.foot, now: now),
+    footLines: model.kind == HomeCardKind.waiting ? 3 : 1,
     footTone: _footTone(model.kind),
     pips: model.pips.isEmpty ? null : [for (final pip in model.pips) _pip(pip)],
     actionLabel: action == null ? null : _actionLabel(action),
@@ -207,8 +214,9 @@ String _foot(HomeCardFoot foot, {required DateTime now}) {
           : LocaleKeys.home_card_foot_setup_next.tr(
               namedArgs: {'row': _setupRow(foot.setupRow!)},
             ),
-    HomeCardFootSlot.sendTheLine =>
-      LocaleKeys.home_card_foot_send_the_line.tr(),
+    HomeCardFootSlot.sendTheLine => homeCardWaitingLineKey(
+      foot.waitingLine ?? SetupWaitingLine.sendFirstLine,
+    ).tr(),
     HomeCardFootSlot.lastAlarm => LocaleKeys.home_card_foot_last_alarm.tr(
       namedArgs: {'time': time == null ? '' : _time(time, now)},
     ),
@@ -217,6 +225,17 @@ String _foot(HomeCardFoot foot, {required DateTime now}) {
       LocaleKeys.home_card_foot_no_topic_rings.tr(),
   };
 }
+
+/// The `en.json` key of a waiting line. The plain one is the card's own.
+String homeCardWaitingLineKey(SetupWaitingLine line) => switch (line) {
+  SetupWaitingLine.sendFirstLine => LocaleKeys.home_card_foot_send_the_line,
+  SetupWaitingLine.fromYourServer =>
+    LocaleKeys.setup_use_waiting_from_your_server,
+  SetupWaitingLine.runTheJob => LocaleKeys.setup_use_waiting_run_the_job,
+  SetupWaitingLine.uptimeKuma => LocaleKeys.setup_use_waiting_uptime_kuma,
+  SetupWaitingLine.homeAssistant => LocaleKeys.setup_use_waiting_home_assistant,
+  SetupWaitingLine.healthchecks => LocaleKeys.setup_use_waiting_healthchecks,
+};
 
 String _setupRow(SetupChecklistRow row) => switch (row) {
   SetupChecklistRow.server => LocaleKeys.home_card_setup_row_server.tr(),

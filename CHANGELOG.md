@@ -3,6 +3,22 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ## Unreleased
 ### Added
+- Setup asks what you want to be woken for and fills in your first topic to match.
+- After your first test alarm, setup shows what Hosted adds, or the Pro pack if you use Crit Alarm for your home, before it moves on to hooking up your tool. Close it at any time, and nothing rings falsely.
+
+### Changed
+- The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
+
+### Fixed
+- With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
+- Setup no longer says the test message rings this phone when the topic has Critical delivery off. It says the message lands on the phone.
+- At the largest text sizes on a small phone, the alarm's message card stays above I'm up and Silence and scrolls when the message is long.
+- An alarm sent without tags no longer shows a stray slash after the time.
+- The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
+- A long topic name no longer gets cut off in the name field during setup at a large text size.
+
+## 1.0.0+13 - 2026-10-10
+### Added
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
 - The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
 - The connect step says what the push relay can see, taken from the server's own answer
@@ -103,7 +119,6 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Personalize: a one word value no longer breaks in the middle at the largest text size, and the cards are no longer cut while a page opens or closes.
 - The Look page keeps its action in view at large text and on a phone on its side, where the phones now stay upright.
 - The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
-- With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

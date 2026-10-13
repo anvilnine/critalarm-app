@@ -510,20 +510,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
               ),
               const FaceWidget(state: FaceState.calm, size: 40),
               const FaceWidget(state: FaceState.watching, size: 40),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.worried,
                 size: 40,
-                overrideStrokeColor: colors.high,
               ),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.alarmed,
                 size: 40,
-                overrideStrokeColor: colors.crit,
               ),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.acked,
                 size: 40,
-                overrideStrokeColor: colors.cobalt,
               ),
               Text(
                 'stroke 10 / 200 viewBox',
@@ -560,7 +557,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
               state: state,
               size: 100,
               isLive: isLive,
-              overrideStrokeColor: strokeColor,
             ),
             const SizedBox(height: 14),
             Text(
@@ -1894,12 +1890,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
               PulseRingWidget(
                 size: 200,
                 color: colors.ink.withValues(alpha: 0.2),
-                child: FaceWidget(
+                child: const FaceWidget(
                   state: FaceState.alarmed,
                   size: 200,
                   isLive: true,
-                  overrideStrokeColor: colors.ink,
-                  overrideFillColor: colors.critCanvas,
                 ),
               ),
               const SizedBox(height: 24),

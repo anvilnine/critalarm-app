@@ -10,6 +10,7 @@ import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
@@ -69,6 +70,16 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// the first step and its token is named for the user. Everywhere else
   /// the token-name step comes first.
   bool isOneStep = false;
+
+  /// True when this screen is a replay of setup. It makes no topic, and it
+  /// shows what the first topic starts from whatever topics the user owns.
+  bool isReplay = false;
+
+  /// [applySetupUse] ran, so the answer fills nothing a second time.
+  bool _hasAppliedSetupUse = false;
+
+  /// The answer put the name in the field, and nothing has changed it since.
+  bool _nameIsFromSetupUse = false;
 
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
@@ -173,6 +184,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   }
 
   void nameChanged(String name) {
+    _nameIsFromSetupUse = false;
     emit(state.copyWith(name: name, clearError: true));
   }
 
@@ -194,6 +206,73 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       return;
     }
     emit(state.copyWith(existingNames: lowered, isListReady: isListReady));
+    _dropSetupUseNameForLaterTopic();
+  }
+
+  /// The list arrived with a topic in it, so this is not the first topic
+  /// after all. The name the answer filled goes again, unless the user has
+  /// touched the name since.
+  void _dropSetupUseNameForLaterTopic() {
+    if (!_nameIsFromSetupUse) return;
+    final layout = firstTopicLayoutFor(
+      isSetup: isOneStep,
+      isReplay: isReplay,
+      existingNames: state.existingNames,
+      isListReady: state.isListReady,
+    );
+    if (layout == FirstTopicLayout.answerFirst) return;
+    _nameIsFromSetupUse = false;
+    emit(state.copyWith(name: '', toolPick: const ToolTemplatePick()));
+  }
+
+  /// Fills the first topic of setup from the answer: the name, and the tool
+  /// that starts picked. The name counts as one a chip put there, so a tap on
+  /// a tool replaces it and a name the user typed is never replaced.
+  ///
+  /// Called once by the screen, after the topic list is fed in. It does
+  /// nothing outside setup, and nothing for a later topic. An answer with no
+  /// name ([SetupUse.other] and a missing one) leaves the field empty and
+  /// nothing picked.
+  void applySetupUse(SetupUse? use) {
+    if (_hasAppliedSetupUse) return;
+    final layout = firstTopicLayoutFor(
+      isSetup: isOneStep,
+      isReplay: isReplay,
+      existingNames: state.existingNames,
+      isListReady: state.isListReady,
+    );
+    if (layout != FirstTopicLayout.answerFirst) return;
+    _hasAppliedSetupUse = true;
+    final start = firstTopicStartFor(use);
+    final name = start.name;
+    if (name == null) return;
+    _nameIsFromSetupUse = true;
+    emit(
+      state.copyWith(
+        name: name,
+        toolPick: ToolTemplatePick(
+          selected: start.selectedTool,
+          filledName: name,
+        ),
+        clearError: true,
+      ),
+    );
+  }
+
+  /// A tap on one of the other names. Always puts it in the name field,
+  /// whatever the field held, and keeps the picked tool.
+  void nameChipTapped(String name) {
+    _nameIsFromSetupUse = false;
+    emit(
+      state.copyWith(
+        name: name,
+        toolPick: ToolTemplatePick(
+          selected: state.toolPick.selected,
+          filledName: name,
+        ),
+        clearError: true,
+      ),
+    );
   }
 
   /// A tap on a tool chip. Picks it, and fills the name field only when the
@@ -201,6 +280,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// the picked chip clears the pick and leaves the name. Never touches
   /// [CreateTopicState.isCritical].
   void toolTemplateTapped(ToolTemplate tapped) {
+    _nameIsFromSetupUse = false;
     final result = tapToolTemplate(
       current: state.toolPick,
       currentName: state.name,
@@ -281,6 +361,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             serverUrl: await _serverUrlToHandOn(),
             token: token,
             templateId: template?.id,
+            isCritical: topic.critical,
           ),
         );
         // Setup never shows this token on this screen. Should the app be

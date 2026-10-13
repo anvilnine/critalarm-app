@@ -98,8 +98,7 @@ class AlarmStyleStage extends StatelessWidget {
     final backdrop = style.backdrop;
     Widget content = AlarmStyleScope(
       style: style,
-      // Always in the tree, so its shape does not depend on the look.
-      child: RingingFaceFill(keepsFill: !style.keepsThemeFace, child: child),
+      child: child,
     );
     if (backdrop != null) {
       content = Stack(

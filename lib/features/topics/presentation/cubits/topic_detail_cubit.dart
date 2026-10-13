@@ -112,11 +112,17 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     // A topic they do not hold (a link with nothing loaded yet) starts as
     // loading.
     final seed = state.topicName == topicName ? null : seedFor(topicName);
+    // The incident list may not be loaded yet (a link, a launch from a
+    // notification), so there is no full seed. The topic list may hold the
+    // topic all the same, and Critical delivery is a field of it: the canvas
+    // reads it while the card still shows its dots.
+    final listed = _topics.state.named(topicName);
     emit(
       seed ??
           state.copyWith(
             status: TopicDetailStatus.loading,
             topicName: topicName,
+            critical: listed?.critical ?? state.critical,
           ),
     );
 
@@ -232,7 +238,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       return;
     }
 
-    if (!incidents.isReady || !topics.isReady) return;
+    // The topic list the phone kept seeds the first state ([seedFor]). The
+    // full build reads this topic's messages, so it waits for the server's
+    // list rather than reading them twice.
+    if (!incidents.isReady || !topics.isReady || topics.isKept) return;
     if (identical(incidents.incidents, _builtFromIncidents) &&
         identical(topics.topics, _builtFromTopics)) {
       return;

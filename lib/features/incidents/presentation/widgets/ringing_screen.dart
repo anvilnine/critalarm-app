@@ -284,78 +284,119 @@ class RingingScreen extends StatelessWidget {
   /// The message wins the room. The face takes what is left once the whole
   /// card sits above the buttons, and goes away when that is too little. If
   /// the title still ends under the buttons, the lines above the card drop
-  /// to a smaller text size. The rules are in `ringing_layout_rules.dart`.
+  /// to a smaller text size. A card that is still too tall for the room
+  /// scrolls inside it, so it never ends under a button. The rules are in
+  /// `ringing_layout_rules.dart`.
   Widget _tall(AlarmRingingLook look, Widget bottomBar) {
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderContent,
       slivers: [
-        SliverToBoxAdapter(
-          // Built inside the page, where the width of the card and the text
-          // style its lines inherit are known.
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final layout = _tallLayoutFor(
-                context,
-                state,
-                look,
-                box.maxWidth,
-                inherited: DefaultTextStyle.of(context).style,
-              );
-              // The layout decides the face. A look may only cap it.
-              final faceSize = math.min(layout.faceSize, look.maxFace);
-              final header = Column(
+        // Built inside the page, where the width of the card and the text
+        // style its lines inherit are known.
+        SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final layout = _tallLayoutFor(
+              context,
+              state,
+              look,
+              constraints.crossAxisExtent,
+              inherited: DefaultTextStyle.of(context).style,
+            );
+            // The layout decides the face. A look may only cap it.
+            final faceSize = math.min(layout.faceSize, look.maxFace);
+            final header = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _word(look, TextAlign.center),
+                const SizedBox(height: Spacing.s2),
+                _topic(look, TextAlign.center),
+                _alarmCountPill(context),
+                const SizedBox(height: Spacing.s2),
+                _subtext(look, TextAlign.center),
+              ],
+            );
+            final top = Padding(
+              padding: EdgeInsets.fromLTRB(
+                _cardInset,
+                layout.isCompact ? ringingCompactTopGap : ringingTopGap,
+                _cardInset,
+                0,
+              ),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _word(look, TextAlign.center),
-                  const SizedBox(height: Spacing.s2),
-                  _topic(look, TextAlign.center),
-                  _alarmCountPill(context),
-                  const SizedBox(height: Spacing.s2),
-                  _subtext(look, TextAlign.center),
+                  if (faceSize > 0) ...[
+                    _face(look, faceSize),
+                    const SizedBox(height: ringingFaceGap),
+                  ],
+                  if (layout.isCompact)
+                    MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        textScaler: MediaQuery.textScalerOf(context).clamp(
+                          maxScaleFactor: ringingCompactTextScale,
+                        ),
+                      ),
+                      child: header,
+                    )
+                  else
+                    header,
+                ],
+              ),
+            );
+            Widget card(Widget child) => Padding(
+              padding: const EdgeInsets.fromLTRB(
+                _cardInset,
+                Spacing.s4,
+                _cardInset,
+                0,
+              ),
+              child: child,
+            );
+            final cardRoom = layout.cardScrollRoom;
+            if (cardRoom == null) {
+              return SliverMainAxisGroup(
+                slivers: [
+                  SliverToBoxAdapter(child: top),
+                  SliverToBoxAdapter(child: card(_detailSheet(look))),
                 ],
               );
-              return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  _cardInset,
-                  layout.isCompact ? ringingCompactTopGap : ringingTopGap,
-                  _cardInset,
-                  0,
-                ),
+            }
+            // The card is taller than the room above the buttons, so it
+            // takes what the header leaves, whatever the header came out at,
+            // and scrolls inside it. A screen too small to leave the card
+            // its least room lets the page scroll instead.
+            final media = MediaQuery.of(context);
+            final textScale = media.textScaler.scale(16) / 16;
+            final maxHeight = math.max(
+              media.size.height -
+                  media.padding.vertical -
+                  ringingBarHeightFor(
+                    textScale: textScale,
+                    pinnedButtons: state.ackedExits.isSetupTest ? 2 : 3,
+                  ) -
+                  ringingBarClearance,
+              ringingHeaderHeightFor(
+                    textScale: textScale,
+                    openAlarms: state.openIncidents.length,
+                    isCompact: layout.isCompact,
+                  ) +
+                  ringingCardMinRoom,
+            );
+            return SliverToBoxAdapter(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeight),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (faceSize > 0) ...[
-                      _face(look, faceSize),
-                      const SizedBox(height: ringingFaceGap),
-                    ],
-                    if (layout.isCompact)
-                      MediaQuery(
-                        data: MediaQuery.of(context).copyWith(
-                          textScaler: MediaQuery.textScalerOf(context).clamp(
-                            maxScaleFactor: ringingCompactTextScale,
-                          ),
-                        ),
-                        child: header,
-                      )
-                    else
-                      header,
+                    top,
+                    Flexible(child: card(_detailSheet(look, scrolls: true))),
                   ],
                 ),
-              );
-            },
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _cardInset,
-              Spacing.s4,
-              _cardInset,
-              0,
-            ),
-            child: _detailSheet(look),
-          ),
+              ),
+            );
+          },
         ),
       ],
       bottomBar: bottomBar,
@@ -373,7 +414,8 @@ class RingingScreen extends StatelessWidget {
   ///
   /// [inherited] is the text style the card's lines inherit where they
   /// are drawn. Only sizes are read, so no colour is needed.
-  static ({double faceSize, bool isCompact}) _tallLayoutFor(
+  static ({double faceSize, bool isCompact, double? cardScrollRoom})
+  _tallLayoutFor(
     BuildContext context,
     CriticalAlarmState state,
     AlarmRingingLook look,
@@ -411,6 +453,13 @@ class RingingScreen extends StatelessWidget {
     // A setup test has no Read the full message button.
     final pinnedButtons = state.ackedExits.isSetupTest ? 2 : 3;
     final openAlarms = state.openIncidents.length;
+    final isCompact = ringingHeaderIsCompact(
+      viewportHeight: viewportHeight,
+      textScale: textScale,
+      openAlarms: openAlarms,
+      titleBottom: titleBottom,
+      pinnedButtons: pinnedButtons,
+    );
     return (
       faceSize: ringingFaceSizeFor(
         viewportHeight: viewportHeight,
@@ -419,11 +468,13 @@ class RingingScreen extends StatelessWidget {
         cardHeight: cardHeight,
         pinnedButtons: pinnedButtons,
       ),
-      isCompact: ringingHeaderIsCompact(
+      isCompact: isCompact,
+      cardScrollRoom: ringingCardScrollRoomFor(
         viewportHeight: viewportHeight,
         textScale: textScale,
         openAlarms: openAlarms,
-        titleBottom: titleBottom,
+        cardHeight: cardHeight,
+        isCompact: isCompact,
         pinnedButtons: pinnedButtons,
       ),
     );
@@ -599,7 +650,7 @@ class RingingScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailSheet(AlarmRingingLook look) {
+  Widget _detailSheet(AlarmRingingLook look, {bool scrolls = false}) {
     // One stop for the whole message, so it is one swipe to hear it and one
     // more to reach Silence.
     return Semantics(
@@ -611,7 +662,7 @@ class RingingScreen extends StatelessWidget {
         meta: state.meta,
       ),
       excludeSemantics: true,
-      child: _detailCard(look),
+      child: scrolls ? _scrollingCard(look) : _detailCard(look),
     );
   }
 
@@ -630,17 +681,106 @@ class RingingScreen extends StatelessWidget {
   static const double _bodyGap = 8;
 
   Widget _detailCard(AlarmRingingLook look) {
+    return AppSheet(child: _cardLines(look));
+  }
+
+  /// The card for a message too tall for the room above the buttons: the
+  /// same card, with its words scrolling inside it.
+  Widget _scrollingCard(AlarmRingingLook look) {
+    return _ScrollingCard(
+      padding: _cardPadding,
+      fadeColor: colors.surface,
+      child: _cardLines(look),
+    );
+  }
+
+  Widget _cardLines(AlarmRingingLook look) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(state.title, style: _titleStyle(look)),
+        const SizedBox(height: _titleGap),
+        Text(state.body, style: _bodyStyle(look)),
+        const SizedBox(height: _bodyGap),
+        Text(state.meta, style: _metaStyle(look)),
+      ],
+    );
+  }
+}
+
+/// The message card with its words in a scroll view, for a message that is
+/// taller than the room it has. The card keeps its shape and shadow. A soft
+/// edge at the bottom says there is more while there is.
+class _ScrollingCard extends StatefulWidget {
+  const _ScrollingCard({
+    required this.child,
+    required this.padding,
+    required this.fadeColor,
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+  final Color fadeColor;
+
+  @override
+  State<_ScrollingCard> createState() => _ScrollingCardState();
+}
+
+class _ScrollingCardState extends State<_ScrollingCard> {
+  /// The card only scrolls when it is too tall, so it starts with more
+  /// below it.
+  bool _hasMore = true;
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(ScrollNotification note) {
+    final hasMore = note.metrics.extentAfter > 0.5;
+    if (hasMore != _hasMore) setState(() => _hasMore = hasMore);
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return AppSheet(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(state.title, style: _titleStyle(look)),
-          const SizedBox(height: _titleGap),
-          Text(state.body, style: _bodyStyle(look)),
-          const SizedBox(height: _bodyGap),
-          Text(state.meta, style: _metaStyle(look)),
-        ],
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: Radii.xlAll,
+        child: Stack(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              // The thumb stays up, so a card that ends mid-message says it
+              // scrolls.
+              child: Scrollbar(
+                controller: _controller,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _controller,
+                  physics: const ClampingScrollPhysics(),
+                  padding: widget.padding,
+                  child: widget.child,
+                ),
+              ),
+            ),
+            if (_hasMore)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AppScrollFade(
+                  edge: ScrollFadeEdge.bottom,
+                  height: 32,
+                  color: widget.fadeColor,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
