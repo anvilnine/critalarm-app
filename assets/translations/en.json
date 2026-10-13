@@ -2102,6 +2102,7 @@
     }
   },
   "paywall_outro": {
+    "welcome": "Welcome to {product}",
     "picker_row": "Success outro",
     "picker_sheet_title": "Pick what plays right after a purchase",
     "names": {
