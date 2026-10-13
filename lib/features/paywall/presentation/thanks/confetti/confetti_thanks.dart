@@ -18,8 +18,33 @@ const PaywallThanks confettiThanks = PaywallThanks(
   cover: ConfettiTimeline.cover,
   buttonAt: ConfettiTimeline.goOn,
   beats: confettiBeats,
+  pickUp: 0.2,
+  mascotAt: confettiMascotAt,
+  mascotPoseAt: confettiMascotPoseAt,
   builder: _build,
 );
+
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, ThanksStage stage, double t) =>
+    Rect.lerp(
+      thanksStartBox(scope.mascot) ?? stage.crit,
+      stage.crit,
+      ConfettiTimeline.travel(t),
+    )!;
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it.
+Rect confettiMascotAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  final stage = ThanksStage.of(
+    size: scope.size,
+    padding: scope.padding,
+    lines: lines,
+    textScale: scope.textScale,
+  );
+  return _critBox(scope, stage, t);
+}
 
 /// What is felt on the way. While the purchase cue sounds every beat is a
 /// haptic alone. The last one comes as it ends: the confetti settling,
@@ -41,6 +66,15 @@ List<PaywallThanksBeat> confettiBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     ConfettiThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose confettiMascotPoseAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  return (
+    lift: ConfettiTimeline.lift(t, lines: lines),
+    stretch: ConfettiTimeline.stretch(t),
+  );
+}
 
 /// Draws the confetti version for the second its scope's clock reads.
 class ConfettiThanks extends StatelessWidget {
@@ -70,11 +104,7 @@ class ConfettiThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - ConfettiTimeline.end;
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? stage.crit,
-          stage.crit,
-          ConfettiTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, stage, t);
         final button = ConfettiTimeline.button(t);
 
         return Stack(
@@ -113,20 +143,21 @@ class ConfettiThanks extends StatelessWidget {
                 ),
               ),
             ),
-            ThanksCrit(
-              box: box,
-              face: ConfettiTimeline.face(t),
-              lift: ConfettiTimeline.lift(t, lines: lines.length),
-              stretch: ConfettiTimeline.stretch(t),
-              angle: ConfettiTimeline.lean(t),
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              bob: math.max(0, rest),
-              props: {
-                if (ConfettiTimeline.crown(t) > 0)
-                  HeroProp.crown: ConfettiTimeline.crown(t),
-              },
-              shadow: ConfettiTimeline.travel(t),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: ConfettiTimeline.face(t),
+                lift: ConfettiTimeline.lift(t, lines: lines.length),
+                stretch: ConfettiTimeline.stretch(t),
+                angle: ConfettiTimeline.lean(t),
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                bob: math.max(0, rest),
+                props: {
+                  if (ConfettiTimeline.crown(t) > 0)
+                    HeroProp.crown: ConfettiTimeline.crown(t),
+                },
+                shadow: ConfettiTimeline.travel(t),
+              ),
             ThanksWords(
               stage: stage,
               tone: _tone,

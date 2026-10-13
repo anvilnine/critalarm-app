@@ -33,15 +33,15 @@ ToolSteps? toolStepsFor(
 }) {
   final isRinging = isCritical ?? false;
   return switch (template) {
-    ToolTemplate.uptimeKuma => ToolSteps(
+    ToolTemplate.uptimeKuma => const ToolSteps(
       keys: [
         LocaleKeys.onboarding_hook_up_steps_uptime_kuma_1,
         // The sentence that names the notification type the fields belong to.
         LocaleKeys.onboarding_hook_up_tool_uptime_kuma,
-        if (isRinging)
-          LocaleKeys.onboarding_hook_up_steps_step_test
-        else
-          LocaleKeys.onboarding_hook_up_steps_step_test_lands,
+        // Uptime Kuma's Test button posts at the Priority field, which is 3
+        // so that a recovery does not ring. A DOWN event uses the other
+        // field. So Test lands as a notification whatever the switch says.
+        LocaleKeys.onboarding_hook_up_steps_step_test_lands,
       ],
       blockAfter: 2,
     ),

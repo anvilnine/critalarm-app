@@ -3,6 +3,7 @@ import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -191,6 +192,7 @@ class PaywallOpening {
     this.layout, {
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
+    this.outro = PaywallOutroId.none,
     this.lead,
     this.headline = PaywallHeadlineVariant.none,
   });
@@ -202,6 +204,10 @@ class PaywallOpening {
 
   /// `none` when a purchase ends with nothing of its own.
   final PaywallThanksId thanks;
+
+  /// `none` when a purchase goes straight to the thanks. Always `none`
+  /// when [thanks] is.
+  final PaywallOutroId outro;
 
   /// The benefit to open on. Null when the place names none, or when the
   /// product does not list it.
@@ -216,17 +222,19 @@ class PaywallOpening {
       other.layout == layout &&
       other.intro == intro &&
       other.thanks == thanks &&
+      other.outro == outro &&
       other.lead == lead &&
       other.headline == headline;
 
   @override
-  int get hashCode => Object.hash(layout, intro, thanks, lead, headline);
+  int get hashCode => Object.hash(layout, intro, thanks, outro, lead, headline);
 
   @override
   String toString() =>
       'PaywallOpening(${layout.key}, intro: ${intro.key}, '
-      'thanks: ${thanks.key}, lead: ${lead?.key}, '
-      'headline: ${headline.key})';
+      'thanks: ${thanks.key}'
+      '${outro == PaywallOutroId.none ? '' : ', outro: ${outro.key}'}, '
+      'lead: ${lead?.key}, headline: ${headline.key})';
 }
 
 /// What opens for [product] from [place]: a layout with its intro, thanks,
@@ -252,6 +260,10 @@ class PaywallOpening {
 /// outranks [remoteThanks]. It never opens a layout, so the shipped
 /// surface is still null whatever the thanks says.
 ///
+/// The outro is a fourth value with the same rule: [developerOutro]
+/// outranks [remoteOutro]. It plays between a purchase and the thanks, so
+/// it is `none` whenever the thanks is.
+///
 /// [leaving] is the one input for a Hosted plan that is ending
 /// ([PaywallPlace.planEnding]), and no other place reads it. With good
 /// numbers the layout is the receipt and no lead. With thin ones it is Wipe,
@@ -271,6 +283,8 @@ PaywallOpening? paywallOpeningFor({
   PaywallIntroId? legacyIntro,
   PaywallThanksId remoteThanks = PaywallThanksId.none,
   PaywallThanksId? developerThanks,
+  PaywallOutroId remoteOutro = PaywallOutroId.none,
+  PaywallOutroId? developerOutro,
   LeavingChoice? leaving,
 }) {
   final setting = developer ?? remote;
@@ -315,10 +329,14 @@ PaywallOpening? paywallOpeningFor({
     intro = PaywallIntroId.none;
   }
 
+  final thanks = developerThanks ?? remoteThanks;
   return PaywallOpening(
     layout,
     intro: intro,
-    thanks: developerThanks ?? remoteThanks,
+    thanks: thanks,
+    outro: thanks == PaywallThanksId.none
+        ? PaywallOutroId.none
+        : developerOutro ?? remoteOutro,
     lead: lead,
     headline: row.headline,
   );

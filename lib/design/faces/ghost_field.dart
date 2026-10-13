@@ -4,6 +4,115 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 
+/// How loud the watermark on the lock screen is. 0 is gone, 1 is a full face.
+/// Low enough that the clock, the cards and the button read over it.
+const double ghostWatermarkOpacity = 0.12;
+
+/// The colours a watermark face is drawn in: the brand head, outline and
+/// ink, the same as every other face. Only the opacity makes it quiet.
+({Color head, Color outline, Color ink}) ghostWatermarkColors(
+  AppColors colors,
+) => (
+  head: colors.faceFill,
+  outline: colors.faceStroke,
+  ink: colors.faceInk,
+);
+
+/// A big Crit face faded back to sit behind a screen. The head is brand
+/// yellow with its dark outline and features, so it is still a face and
+/// still yellow. The whole face is faded as one piece.
+class GhostWatermarkFace extends StatelessWidget {
+  const GhostWatermarkFace({
+    required this.size,
+    this.state = FaceState.alarmed,
+    this.opacity = ghostWatermarkOpacity,
+    super.key,
+  });
+
+  final double size;
+  final FaceState state;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ghostWatermarkColors(context.appColors);
+    return Opacity(
+      opacity: opacity,
+      child: CustomPaint(
+        size: Size.square(size),
+        painter: FacePainter(
+          state: state,
+          fillColor: c.head,
+          strokeColor: c.outline,
+          inkColor: c.ink,
+        ),
+      ),
+    );
+  }
+}
+
+/// A big abstract shape from the ambient set (a ring and a pill) in the
+/// page's own ghost colours, for a watermark that has no face.
+class GhostWatermarkShape extends StatelessWidget {
+  const GhostWatermarkShape({required this.size, super.key});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _GhostWatermarkShapePainter(
+        fill: colors.canvasGhost,
+        line: colors.canvasGhostStrong,
+      ),
+    );
+  }
+}
+
+class _GhostWatermarkShapePainter extends CustomPainter {
+  const _GhostWatermarkShapePainter({required this.fill, required this.line});
+
+  final Color fill;
+  final Color line;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final extent = size.shortestSide;
+    final center = size.center(Offset.zero);
+    canvas.drawCircle(
+      center,
+      extent / 2 - 2,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = line,
+    );
+    final height = extent * 0.58 * 0.6;
+    canvas
+      ..save()
+      ..translate(center.dx, center.dy)
+      ..rotate(-14.0 * math.pi / 180.0)
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: extent * 0.84,
+            height: height,
+          ),
+          Radius.circular(height / 2),
+        ),
+        Paint()..color = fill,
+      )
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _GhostWatermarkShapePainter oldDelegate) =>
+      oldDelegate.fill != fill || oldDelegate.line != line;
+}
+
 /// Decorative background with floating ghost shapes (circles, rings,
 /// tilted squares, dots, lock face).
 class GhostField extends StatelessWidget {
@@ -59,13 +168,9 @@ class GhostField extends StatelessWidget {
               child: SizedBox(
                 width: 380,
                 height: 380,
-                child: CustomPaint(
-                  painter: FacePainter(
-                    state: lockFaceState,
-                    fillColor: Colors.transparent,
-                    strokeColor: colors.canvasGhostStrong,
-                    inkColor: colors.canvasGhostStrong,
-                  ),
+                child: GhostWatermarkFace(
+                  size: 380,
+                  state: lockFaceState,
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -265,6 +266,12 @@ class PaywallThanksHandle {
   /// the purchase has the screen and the sound from then on, so the layout
   /// under it plays no cue of its own.
   bool hasBegun = false;
+
+  /// The cue the buy block plays when the purchase is confirmed: null when
+  /// the host plays the sound itself (the score of an outro, started with
+  /// its clock). Unset means the purchase cue. Set by the host, read by the
+  /// buy block on that frame.
+  PaywallCue? Function()? purchaseCue;
 }
 
 /// Says that something of its own plays after a purchase on the layout
@@ -287,6 +294,17 @@ class PaywallThanksPlay extends InheritedWidget {
   /// under [context].
   static bool takesOver(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PaywallThanksPlay>() != null;
+
+  /// The cue the buy block plays for a confirmed purchase under [context]:
+  /// [PaywallCue.bought], or null when the step after the purchase plays
+  /// the sound itself. It does not listen.
+  static PaywallCue? purchaseCueOf(BuildContext context) {
+    final ask = context
+        .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+        ?.handle
+        .purchaseCue;
+    return ask == null ? PaywallCue.bought : ask();
+  }
 
   /// Whether that step has begun. It does not listen, so it is safe on a
   /// tick.
