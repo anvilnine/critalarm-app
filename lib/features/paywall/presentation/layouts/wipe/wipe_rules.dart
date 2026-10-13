@@ -253,6 +253,15 @@ double wipeSettleFor(HeroArrangement arrangement, double width) {
   return (arrangement.mascot.center.dx / width).clamp(0.16, 0.5);
 }
 
+/// Where the grip's left edge is when the divider is [x] points from the
+/// stage's left edge. It stands on the divider, kept far enough in that the
+/// whole circle is on screen: the divider itself runs to either edge.
+double wipeGripLeftFor(
+  double x, {
+  required double width,
+  required double grip,
+}) => math.max(0, math.min(x - grip / 2, width - grip));
+
 /// How far down the stage the grip sits: under the mascot, clear of its
 /// face.
 double wipeGripCentreFor(HeroArrangement arrangement, Size size) =>
