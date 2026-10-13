@@ -919,20 +919,20 @@ FaceShape _withBlink(FaceShape face, double t, {double offset = 0}) {
   return local < 0.12 ? face.blinking : face;
 }
 
-const Color _darkInk = faceCrowdInk;
+const Color _darkInk = Color(0xFF1A140F);
 
-/// Bright heads for the crowd variants. Dark ink on all of them, so they
-/// read the same in light and dark mode.
-const List<Color> _crowdFills = faceCrowdFills;
+/// Bright accents for the sparkles and chips of the crowd variants. A face
+/// is always yellow, so none of these is ever a head.
+const List<Color> _crowdFills = [
+  Color(0xFFFFC93C),
+  Color(0xFF4EAAD8),
+  Color(0xFFE2673D),
+  Color(0xFF3FA652),
+  Color(0xFFF2A7C3),
+];
 
-Widget _face(FaceShape shape, double size, {Color? fill}) => FaceWidget(
-  state: FaceState.calm,
-  shape: shape,
-  size: size,
-  overrideFillColor: fill,
-  overrideStrokeColor: fill == null ? null : _darkInk,
-  overrideInkColor: fill == null ? null : _darkInk,
-);
+Widget _face(FaceShape shape, double size) =>
+    FaceWidget(state: FaceState.calm, shape: shape, size: size);
 
 // ---------------------------------------------------------------------------
 // 1. Wake up.
@@ -1104,7 +1104,7 @@ class _ParadeHeroState extends _ClockState<_ParadeHero> {
     );
     return Transform.translate(
       offset: Offset(slide, hop),
-      child: _face(face, size, fill: _crowdFills[i % _crowdFills.length]),
+      child: _face(face, size),
     );
   }
 }
@@ -1187,7 +1187,7 @@ class _OrbitHeroState extends _ClockState<_OrbitHero> {
       offset: Offset(math.cos(angle) * r, math.sin(angle) * r),
       child: Opacity(
         opacity: out.clamp(0.0, 1.0),
-        child: _face(face, size, fill: _crowdFills[i % _crowdFills.length]),
+        child: _face(face, size),
       ),
     );
   }

@@ -122,7 +122,6 @@ class _NightColors {
         Color.lerp(colors.onPanelMuted, colors.cobaltOnDark, 0.5)!,
         0.8,
       ),
-      dimFill: toward(colors.cobaltOnDark, 0.20),
       rowFill: toward(colors.cobaltOnDark, 0.12),
       rowBar: toward(colors.cobaltOnDark, 0.26),
     );
@@ -133,7 +132,6 @@ class _NightColors {
     required this.text,
     required this.star,
     required this.dimInk,
-    required this.dimFill,
     required this.rowFill,
     required this.rowBar,
   });
@@ -147,11 +145,8 @@ class _NightColors {
   /// A star.
   final Color star;
 
-  /// A face asleep and the muted text: dim lines on the sky.
+  /// The muted text: dim lines on the sky.
   final Color dimInk;
-
-  /// The head of a face asleep.
-  final Color dimFill;
 
   /// A muted notification and the bar inside it.
   final Color rowFill;

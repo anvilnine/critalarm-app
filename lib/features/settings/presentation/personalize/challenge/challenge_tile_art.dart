@@ -184,14 +184,10 @@ class _CritArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return FaceWidget(
+    return const FaceWidget(
       state: FaceState.surprised,
       size: 66,
       tiltAngle: 0,
-      overrideFillColor: colors.yellow,
-      overrideStrokeColor: colors.inkFixed,
-      overrideInkColor: colors.inkFixed,
     );
   }
 }
