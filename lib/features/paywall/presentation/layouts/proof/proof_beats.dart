@@ -161,8 +161,8 @@ ProofTurn proofTurnFor(PaywallPreviewId preview, {required int count}) {
       liftFace: HeroFace.keen,
       then: const HeroBeat(2.4, HeroFace.winning),
     ),
-    // The challenge waits behind the lock. Then the code is scanned and
-    // the alarm stops.
+    // The challenge waits behind the lock. Then it is done and the alarm
+    // stops.
     PaywallPreviewId.wakeUpChallenges => _turn(
       ProofStart.locked,
       from: 0.12,

@@ -407,7 +407,7 @@ void main() {
       expect(reelLineFor(null), isNull);
       expect(
         reelHeadlineFor(benefit(pro, PaywallBenefitId.widgets)),
-        'Widgets on your Home screen',
+        'Widgets on your home screen',
       );
     });
 
