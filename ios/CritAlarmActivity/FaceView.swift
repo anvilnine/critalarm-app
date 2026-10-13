@@ -27,9 +27,15 @@ enum CritAlarmFace: String {
         }
     }
 
+    /// Text and glyphs that sit on the `canvas` colour, such as a status chip.
     var stroke: Color {
         self == .acked ? CritAlarmPalette.onHighlight : CritAlarmPalette.ink
     }
+
+    /// The head is brand yellow with ink features in every state. `canvas`
+    /// and `stroke` colour the surface around the face, never the face.
+    var head: Color { CritAlarmPalette.yellow }
+    var features: Color { CritAlarmPalette.ink }
 }
 
 /// Tokens copied from `lib/design/tokens/colors.dart` (light palette).
@@ -53,12 +59,12 @@ struct FaceView: View {
     /// a faint square instead.
     @Environment(\.widgetRenderingMode) private var renderingMode
     private var fullColor: Bool { renderingMode == .fullColor }
-    private var featureColor: Color { fullColor ? face.stroke : .white }
+    private var featureColor: Color { fullColor ? face.features : .white }
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .fill(fullColor ? face.canvas : Color.white.opacity(0.18))
+                .fill(fullColor ? face.head : Color.white.opacity(0.18))
             Canvas { context, canvasSize in
                 draw(in: &context, size: canvasSize)
             }
