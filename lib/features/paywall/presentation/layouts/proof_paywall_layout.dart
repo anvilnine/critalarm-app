@@ -27,6 +27,23 @@ ProofHeadline proofHeadlineFor({
       : ProofHeadline.hosted;
 }
 
+/// The headline for beat [beat] of the loop (0 is the lead's). "See older
+/// alarms" speaks for the history lead, so it shows on the lead's own beat
+/// and the layout's normal headline shows on every other.
+ProofHeadline proofHeadlineOnBeat(
+  ProofHeadline headline, {
+  required int beat,
+}) => headline == ProofHeadline.olderAlarms && beat != 0
+    ? ProofHeadline.hosted
+    : headline;
+
+/// The words of [headline].
+String proofHeadlineText(ProofHeadline headline) => switch (headline) {
+  ProofHeadline.hosted => LocaleKeys.paywall_proof_headline_hosted.tr(),
+  ProofHeadline.pro => LocaleKeys.paywall_proof_headline_pro.tr(),
+  ProofHeadline.olderAlarms => LocaleKeys.paywall_history_own_headline.tr(),
+};
+
 /// Shows each benefit twice over: as it is on Free, then lifted.
 ///
 /// It is the Hero composition with every turn split in two. For the first
@@ -185,23 +202,26 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
           benefitCount: scope.benefits.length,
         );
 
+        final headline = proofHeadlineFor(
+          isHosted: scope.isHosted,
+          lead: scope.lead?.benefit,
+          own: PaywallRouteInfo.maybeOf(context)?.historyOwn,
+        );
+
         return Stack(
           children: [
             Positioned.fill(
               child: HeroComposition(
                 scope: scope,
-                headline: switch (proofHeadlineFor(
-                  isHosted: scope.isHosted,
-                  lead: scope.lead?.benefit,
-                  own: PaywallRouteInfo.maybeOf(context)?.historyOwn,
-                )) {
-                  ProofHeadline.hosted =>
-                    LocaleKeys.paywall_proof_headline_hosted.tr(),
-                  ProofHeadline.pro =>
-                    LocaleKeys.paywall_proof_headline_pro.tr(),
-                  ProofHeadline.olderAlarms =>
-                    LocaleKeys.paywall_history_own_headline.tr(),
-                },
+                headline: proofHeadlineText(headline),
+                headlineAt: (frame) => proofHeadlineText(
+                  proofHeadlineOnBeat(headline, beat: frame.activeIndex),
+                ),
+                // The headline the lead's gives way to, to measure by.
+                headlineAlternatives: [
+                  if (headline == ProofHeadline.olderAlarms)
+                    proofHeadlineText(ProofHeadline.hosted),
+                ],
                 loop: player.loop,
                 player: player,
                 arrange: _arrange,

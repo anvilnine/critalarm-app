@@ -8,20 +8,39 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
 
 /// The buy block of a layout, with the leaving words when the route is the
-/// leaving one: the button "Keep Hosted" and the line that critical topics
-/// already on keep ringing. Any other route gets the plain style.
+/// leaving one: the button "Keep Hosted" and no small print above the
+/// renewal lines. Any other route gets the plain style.
 PaywallBuyBlockStyle leavingBuyStyle(
   BuildContext context, {
   PaywallTone tone = PaywallTone.canvas,
 }) {
-  if (PaywallRouteInfo.headlineOf(context) != PaywallHeadlineVariant.leaving) {
-    return PaywallBuyBlockStyle(tone: tone);
-  }
+  final isLeaving =
+      PaywallRouteInfo.headlineOf(context) == PaywallHeadlineVariant.leaving;
+  return leavingBuyStyleFor(
+    isLeaving: isLeaving,
+    tone: tone,
+    keepLabel: isLeaving
+        ? LocaleKeys.paywall_leaving_button.tr(
+            namedArgs: {'name': paywallProductName(PaywallProduct.hosted)},
+          )
+        : null,
+  );
+}
+
+/// [leavingBuyStyle] for a route that [isLeaving], with the button words
+/// ([keepLabel]) already in hand.
+///
+/// The leaving layouts already say that critical topics keep ringing, so
+/// the slot between the button and the renewal lines is left empty.
+PaywallBuyBlockStyle leavingBuyStyleFor({
+  required bool isLeaving,
+  required PaywallTone tone,
+  String? keepLabel,
+}) {
+  if (!isLeaving) return PaywallBuyBlockStyle(tone: tone);
   return PaywallBuyBlockStyle(
     tone: tone,
-    buttonLabel: LocaleKeys.paywall_leaving_button.tr(
-      namedArgs: {'name': paywallProductName(PaywallProduct.hosted)},
-    ),
-    note: LocaleKeys.paywall_leaving_note.tr(),
+    buttonLabel: keepLabel,
+    showsNote: false,
   );
 }

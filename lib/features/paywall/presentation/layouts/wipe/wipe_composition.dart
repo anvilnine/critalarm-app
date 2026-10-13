@@ -146,9 +146,7 @@ class _WipeCompositionState extends State<WipeComposition> {
     final lead = wipeLeadFor(followsIntro: scope.followsIntro);
     final player = _playing
       ..clock = scope.clock
-      ..loop = HeroLoop([
-        for (final b in benefits) b.previewId,
-      ], prelude: -lead);
+      ..loop = wipeLoopFor(benefits, reversed: reversed, lead: lead);
 
     return PaywallCueScore(
       clock: scope.clock,
@@ -183,24 +181,35 @@ class _WipeCompositionState extends State<WipeComposition> {
             ),
             SizedBox(
               height: room.gap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-                child: HeroPips(
-                  player: player,
-                  count: lines.length,
-                  color: tones.ink,
-                ),
-              ),
+              // One picture held: nothing to count.
+              child: reversed
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: heroSideInset,
+                      ),
+                      child: HeroPips(
+                        player: player,
+                        count: lines.length,
+                        color: tones.ink,
+                      ),
+                    ),
             ),
             // The room under the last line counts as that line, so it has
             // its full tap area.
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
-              onTapUp: (details) {
-                final line = heroLineAt(details.localPosition.dy, centres);
-                if (line != null) player.touch(index: line);
-              },
+              // The leaving list is not a set of lines to pick from.
+              onTapUp: reversed
+                  ? null
+                  : (details) {
+                      final line = heroLineAt(
+                        details.localPosition.dy,
+                        centres,
+                      );
+                      if (line != null) player.touch(index: line);
+                    },
               child: Padding(
                 padding: EdgeInsets.only(
                   left: heroSideInset,

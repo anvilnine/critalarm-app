@@ -1,43 +1,40 @@
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_headline_rules.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('middleEllipsis', () {
-    test('a name that fits is left alone', () {
-      expect(middleEllipsis('billing-api'), 'billing-api');
-      expect(middleEllipsis('a' * 16), 'a' * 16);
-    });
-
-    test('a longer name loses its middle and keeps both ends', () {
-      final cut = middleEllipsis('nightly-database-backup-eu-west');
-      expect(cut.length, 16);
-      expect(cut.substring(0, 8), 'nightly-');
-      expect(cut[8], '…');
-      expect(cut.endsWith('eu-west'), isTrue);
-    });
-
-    test('17 characters is cut to 16', () {
-      expect(middleEllipsis('a' * 17).length, 16);
-    });
-
+  group('a long name', () {
     test('3, 12, 16, 17, 40 and 64 characters', () {
       for (final length in [3, 12, 16, 17, 40, 64]) {
-        final cut = middleEllipsis('a' * length);
-        expect(cut.length, length <= 16 ? length : 16, reason: '$length');
-        expect(cut.contains('…'), length > 16, reason: '$length');
+        expect(
+          sheetTopicHeadlineFor(name: 'a' * length, fits: true),
+          length <= 16 ? SheetTopicHeadline.named : SheetTopicHeadline.generic,
+          reason: '$length',
+        );
       }
     });
 
-    test('an emoji is never split in half', () {
-      final name = 'ab${'\u{1F514}' * 20}yz';
-      final cut = middleEllipsis(name);
-      expect(cut.characters.length, 16);
-      expect(cut.startsWith('ab'), isTrue);
-      expect(cut.endsWith('yz'), isTrue);
-      // Every code unit pairs up: no lone half of an emoji.
-      expect(() => Uri.encodeComponent(cut), returnsNormally);
-      expect(middleEllipsis('\u{1F514}' * 16), '\u{1F514}' * 16);
+    test('is counted in characters, so an emoji is one', () {
+      expect(
+        sheetTopicHeadlineFor(name: '\u{1F514}' * 16, fits: true),
+        SheetTopicHeadline.named,
+      );
+      expect(
+        sheetTopicHeadlineFor(name: '\u{1F514}' * 17, fits: true),
+        SheetTopicHeadline.generic,
+      );
+    });
+
+    test('gives the headline with no name, and never a cut name', () {
+      const name = 'nightly-database-backup-eu-west-region-1';
+      expect(
+        sheetTopicHeadlineFor(name: name, fits: true),
+        SheetTopicHeadline.generic,
+      );
+      expect(sheetHeadlineName(name), isNull);
+      expect(sheetHeadlineName('billing-api'), 'billing-api');
+      expect(sheetHeadlineName('a' * 16), 'a' * 16);
+      expect(sheetHeadlineName(''), isNull);
+      expect(sheetHeadlineName(null), isNull);
     });
   });
 

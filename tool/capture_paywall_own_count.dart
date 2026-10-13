@@ -25,8 +25,8 @@
 //   sheet_topics_own_count_lifted    the same, 3.2 s in: the switch is on
 //   sheet_topics_one_of_two          1 of 2 used
 //   sheet_topics_no_name             the count and no topic name
-//   sheet_topics_long_name           a name over 16 characters, cut in the
-//                                    middle in the headline
+//   sheet_topics_long_name           a name over 16 characters: the headline
+//                                    has no name
 //   sheet_topics_very_long_name      a 64 character name
 //   sheet_topics_junk_facts          junk in the location: no tag, no name
 //   sheet_topics_with_false_alarm_intro_handover
@@ -164,11 +164,11 @@ class _Scene {
   /// The headlines the topics lead may show: the named one when the name
   /// reached the paywall, and the plain one.
   List<String> get headlines {
-    final name = read.topicName;
+    final name = sheetHeadlineName(read.topicName);
     return [
       if (name != null)
         LocaleKeys.paywall_own_count_headline_named.tr(
-          namedArgs: {'name': middleEllipsis(name)},
+          namedArgs: {'name': name},
         ),
       LocaleKeys.paywall_own_count_headline_generic.tr(),
     ];

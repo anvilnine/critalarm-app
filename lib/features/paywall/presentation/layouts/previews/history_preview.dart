@@ -234,8 +234,14 @@ class HistoryPreviewLayout {
   /// Height of the place the line takes in the list.
   double get lineSlot => rowHeight * 0.62;
 
-  /// Top of the line's place, in the list, under [inside] rows.
-  double lineTop(int inside) => inside * rowHeight;
+  /// Top of the line's place, in the list, under [inside] rows. With none,
+  /// the line is the first thing in the list and would sit at the top edge
+  /// of the card, where a layout may lay a tag across it. It stands
+  /// [historyPreviewTagRoom] below the edge, and a little more for the
+  /// tug, which moves the list up.
+  double lineTop(int inside) => inside == 0
+      ? historyPreviewTagRoom + rowHeight * 0.16
+      : inside * rowHeight;
 
   /// How far the list is scrolled for [frame], under [inside] rows.
   double scrollFor(HistoryPreviewFrame frame, int inside) {
@@ -268,6 +274,11 @@ HistoryPreviewLayout historyPreviewLayoutFor(Size size) {
     tagSize: tagSize >= limitsPreviewMinType ? tagSize : 0,
   );
 }
+
+/// How far below the card's top edge a tag laid across that edge reaches, in
+/// points, at the largest text size a tag grows to. With no rows above it,
+/// the line starts below this.
+const double historyPreviewTagRoom = 20;
 
 /// An age as the list writes it.
 String historyPreviewAge(int days) => '${days}d'; // l10n-ok: unit letter
