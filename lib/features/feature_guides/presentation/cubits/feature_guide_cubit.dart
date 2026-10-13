@@ -56,6 +56,13 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
     _request(guide);
   }
 
+  /// True when a guide is up, or when [guide] starts the moment its screen
+  /// comes up. A screen asks before it opens the keyboard by itself: the
+  /// guide is asked for a frame after the screen is built, so by then the
+  /// keyboard would already be over the spot the guide points at.
+  bool takesScreenFor(FeatureGuide guide) =>
+      state.isActive || (hasSeenFirstGuide && !hasSeen(guide));
+
   /// The user said yes to the offer. Plays the short Topics guide, not the
   /// full replay. Does nothing unless the offer is up.
   void acceptOffer() {
@@ -138,6 +145,17 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
       _repository.markGuidesSeen(
         guide == null ? FeatureGuide.values.map((g) => g.name) : [guide.name],
       ),
+    );
+    emit(const FeatureGuideState());
+  }
+
+  /// The user left a guide and asked not to be shown any again. Every guide
+  /// counts as seen, the same as declining the offer. Settings still has
+  /// them all.
+  void finishAll() {
+    if (!state.isActive) return;
+    unawaited(
+      _repository.markGuidesSeen(FeatureGuide.values.map((g) => g.name)),
     );
     emit(const FeatureGuideState());
   }

@@ -151,6 +151,77 @@ void main() {
     });
   });
 
+  group('the keyboard waits for a guide', () {
+    test('a screen whose guide plays on this visit holds the keyboard', () {
+      repo.seen.add(FeatureGuide.home.name);
+      expect(cubit.takesScreenFor(FeatureGuide.search), isTrue);
+      expect(cubit.takesScreenFor(FeatureGuide.createTopic), isTrue);
+    });
+
+    test('a screen whose guide was seen opens the keyboard', () {
+      repo.seen
+        ..add(FeatureGuide.home.name)
+        ..add(FeatureGuide.search.name);
+      expect(cubit.takesScreenFor(FeatureGuide.search), isFalse);
+    });
+
+    test('before the offer is answered no screen holds the keyboard', () {
+      expect(cubit.takesScreenFor(FeatureGuide.createTopic), isFalse);
+      expect(cubit.takesScreenFor(FeatureGuide.search), isFalse);
+    });
+
+    test('any guide on screen holds the keyboard, seen or not', () {
+      repo.seen.addAll(FeatureGuide.values.map((g) => g.name));
+      cubit.request();
+      expect(cubit.takesScreenFor(FeatureGuide.search), isTrue);
+      cubit.begin();
+      expect(cubit.takesScreenFor(FeatureGuide.createTopic), isTrue);
+    });
+
+    test('it agrees with what the visit then asks for', () {
+      repo.seen.add(FeatureGuide.home.name);
+      for (final guide in FeatureGuide.values) {
+        final holds = cubit.takesScreenFor(guide);
+        cubit.requestIfNew(guide);
+        expect(cubit.state.isActive, holds, reason: guide.name);
+        cubit.stop();
+      }
+    });
+  });
+
+  group('leaving for good', () {
+    test('marks every guide seen and ends the one playing', () async {
+      repo.seen.add(FeatureGuide.home.name);
+      cubit
+        ..requestIfNew(FeatureGuide.search)
+        ..begin()
+        ..finishAll();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      for (final guide in FeatureGuide.values) {
+        expect(cubit.hasSeen(guide), isTrue, reason: guide.name);
+        cubit.requestIfNew(guide);
+        expect(cubit.state.status, FeatureGuideStatus.idle);
+      }
+    });
+
+    test('Settings can still play one afterwards', () async {
+      cubit
+        ..request()
+        ..begin()
+        ..finishAll();
+      await Future<void>.delayed(Duration.zero);
+      cubit.requestGuide(FeatureGuide.topic);
+      expect(cubit.state.status, FeatureGuideStatus.requested);
+    });
+
+    test('does nothing with no guide up', () async {
+      cubit.finishAll();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.hasSeen(FeatureGuide.home), isFalse);
+    });
+  });
+
   group('a single guide', () {
     setUp(() {
       repo.seen.add(FeatureGuide.home.name);
