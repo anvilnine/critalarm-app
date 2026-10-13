@@ -22,10 +22,31 @@ void main() {
     expect(shape.mouth, same(sadFace.mouth));
   });
 
-  test('the calm face is the rig calm face, with no prop', () {
+  test('the calm face keeps the rig dot eyes and has no prop', () {
     final shape = heroFaceShape(HeroFace.calm);
-    expect(shape, same(faceFor(FaceState.calm)));
+    final rig = faceFor(FaceState.calm);
+    expect(shape.leftEye, same(rig.leftEye));
+    expect(shape.rightEye, same(rig.rightEye));
     expect(shape.props, isEmpty);
+  });
+
+  test('the calm mouth is nearly level: the smallest upward curve', () {
+    // How far the middle of the mouth sits below its ends. The rig calm
+    // smile is 10; a mouth that curves down would be negative.
+    double sag(FaceShape shape) {
+      // The first seven points trace the lower lip, corner to corner.
+      final points = shape.mouth.points;
+      return points[3].dy - (points[0].dy + points[6].dy) / 2;
+    }
+
+    final calm = sag(heroFaceShape(HeroFace.calm));
+    expect(calm, greaterThan(0), reason: 'not sad or doubtful');
+    expect(calm, greaterThanOrEqualTo(3), reason: 'not a flat bar');
+    expect(calm, lessThanOrEqualTo(5), reason: 'not a smile');
+    expect(calm, lessThan(sag(faceFor(FaceState.calm)) * 0.6));
+    // The sad frown is the other way round.
+    final sad = sag(heroFaceShape(HeroFace.sad));
+    expect(sad, lessThan(0));
   });
 
   test('turning from sad to calm fades the tear out', () {
