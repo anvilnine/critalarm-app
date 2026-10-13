@@ -2323,5 +2323,21 @@
     "empty_tools": "Start from a tool",
     "example_message_ringing": "Disk is 94% full",
     "example_message_quiet": "Backup finished"
+  },
+  "setup_use": {
+    "sample": {
+      "servers": "Replication lag 14 min",
+      "homelab": "Nextcloud is down",
+      "jobs": "Nightly backup missed its check-in",
+      "home": "Freezer is above -10 C"
+    },
+    "sample_body": "This is what a real one looks like.",
+    "waiting": {
+      "from_your_server": "send the first line from your server",
+      "run_the_job": "run the job once",
+      "uptime_kuma": "press Test in Uptime Kuma",
+      "home_assistant": "run the action in Home Assistant",
+      "healthchecks": "press Test in Healthchecks"
+    }
   }
 }
