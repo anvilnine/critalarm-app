@@ -123,6 +123,56 @@ bool offerStepIsAhead({
     !completedSteps.contains(OnboardingStepId.offer) &&
     decision.isShown;
 
+/// What the store has said about the product the offer would sell.
+enum OfferSaleAnswer {
+  /// The store listed the product and it can be bought.
+  onSale,
+
+  /// Nothing to buy, or the store failed: the step will skip.
+  notOnSale,
+
+  /// The check has not been started or has not answered yet.
+  unknown,
+}
+
+/// Whether an offer follows the setup test, as far as the phone can tell at
+/// one moment. The "It works" screen and the offer step read the same
+/// cached store answer, so they agree whenever it was ready.
+enum OfferOutlook {
+  /// No offer follows: the step is not to come, or the store has nothing on
+  /// sale and the step will skip.
+  none,
+
+  /// The step is to come and the store said the product is on sale.
+  coming,
+
+  /// The step is to come and the store has not answered. The offer shows
+  /// only if the product turns out to be buyable.
+  unsure,
+}
+
+/// The [OfferOutlook] for a step that is or is not to come ([isStepAhead],
+/// see [offerStepIsAhead]) and the store's [sale] answer.
+OfferOutlook offerOutlookFor({
+  required bool isStepAhead,
+  required OfferSaleAnswer sale,
+}) {
+  if (!isStepAhead) return OfferOutlook.none;
+  return switch (sale) {
+    OfferSaleAnswer.onSale => OfferOutlook.coming,
+    OfferSaleAnswer.notOnSale => OfferOutlook.none,
+    OfferSaleAnswer.unknown => OfferOutlook.unsure,
+  };
+}
+
+/// Whether the offer step would skip for this user right now: one of its
+/// local skip reasons holds, or the store already said nothing is on sale.
+/// An answer still to come is not a skip.
+bool offerWouldSkip({
+  required OfferDecision decision,
+  required OfferSaleAnswer sale,
+}) => !decision.isShown || sale == OfferSaleAnswer.notOnSale;
+
 /// Reads what [decideOnboardingOffer] needs from the phone and answers.
 ///
 /// Everything it is given is a local read. A read that fails ends in a
@@ -142,12 +192,15 @@ class OnboardingOfferGate {
     required this.readCompletedSteps,
     this.readUse = _noUse,
     this.readTopicName = _noTopicName,
-    this.markFalseAlarmShown = _noMark,
+    this.readSale = _noSaleAnswer,
+    this.startSale = _noSaleStart,
   });
 
   static SetupUse? _noUse({required bool isReplay}) => null;
   static String? _noTopicName() => null;
-  static Future<void> _noMark() async {}
+  static OfferSaleAnswer _noSaleAnswer(PaywallProduct product) =>
+      OfferSaleAnswer.unknown;
+  static void _noSaleStart(PaywallProduct product) {}
 
   /// The value a developer set, or null. Always null in a store build.
   final String? Function() readDeveloperJson;
@@ -181,9 +234,13 @@ class OnboardingOfferGate {
   /// The name of the topic setup made, or null when it is not known.
   final String? Function() readTopicName;
 
-  /// Writes down that the false alarm was shown on this install, so the
-  /// Settings plan row does not play it again.
-  final Future<void> Function() markFalseAlarmShown;
+  /// What the store check already started for the product has answered,
+  /// read at once and never waited for. Unknown when none was started.
+  final OfferSaleAnswer Function(PaywallProduct product) readSale;
+
+  /// Starts the store check for a product and keeps its answer for
+  /// [readSale] and for the step. Safe to call more than once.
+  final void Function(PaywallProduct product) startSale;
 
   /// The switches in use right now. A source that throws counts as empty.
   ChosenOnboardingOffer chosen() => chooseOnboardingOffer(
@@ -239,18 +296,64 @@ class OnboardingOfferGate {
     }
   }
 
-  /// Whether the offer step is still to come in this run. False when it
-  /// cannot be worked out.
-  Future<bool> isAhead() async {
+  /// Whether the offer step is still to come in this run, and not known to
+  /// skip. False when it cannot be worked out. An answer from the store that
+  /// is still to come counts as ahead, so nothing else asks the user to buy
+  /// while the offer may show.
+  Future<bool> isAhead() async => (await outlook()) != OfferOutlook.none;
+
+  /// What follows the setup test, from local reads and the cached store
+  /// answer. It never waits for the store. `none` when it cannot be worked
+  /// out.
+  Future<OfferOutlook> outlook() async {
     try {
-      return offerStepIsAhead(
+      final decision = await decide(isReplay: false);
+      final isStepAhead = offerStepIsAhead(
         isSetupComplete: await isSetupComplete(),
         flowSteps: readFlowSteps(),
         completedSteps: readCompletedSteps(),
-        decision: await decide(isReplay: false),
+        decision: decision,
+      );
+      final product = decision.product;
+      return offerOutlookFor(
+        isStepAhead: isStepAhead,
+        sale: product == null ? OfferSaleAnswer.unknown : readSale(product),
       );
     } on Object {
-      return false;
+      return OfferOutlook.none;
     }
+  }
+
+  /// Starts the store check for the product this user would be offered, so
+  /// its answer is cached before the setup test ends. Does nothing when the
+  /// step is not to come. It reads the store the paywall reads and no other
+  /// server.
+  Future<void> startSaleCheck() async {
+    try {
+      final decision = await decide(isReplay: false);
+      final product = decision.product;
+      if (product == null) return;
+      final isStepAhead = offerStepIsAhead(
+        isSetupComplete: await isSetupComplete(),
+        flowSteps: readFlowSteps(),
+        completedSteps: readCompletedSteps(),
+        decision: decision,
+      );
+      if (isStepAhead) startSale(product);
+    } on Object {
+      // A check that cannot start is a check with no answer.
+    }
+  }
+
+  /// Whether the offer step would show nothing to this user right now, local
+  /// reasons and the cached store answer both counted. A step that skips
+  /// counts as already done.
+  Future<bool> hasNoOffer() async {
+    final decision = await decide(isReplay: false);
+    final product = decision.product;
+    return offerWouldSkip(
+      decision: decision,
+      sale: product == null ? OfferSaleAnswer.unknown : readSale(product),
+    );
   }
 }

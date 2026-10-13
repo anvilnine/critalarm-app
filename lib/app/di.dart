@@ -218,6 +218,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -1352,12 +1353,17 @@ Future<void> configureDependencies({
         readTopicName: () =>
             getIt<FirstTopicHandoff>().entry?.topicName ??
             getIt<FirstTopicHandoff>().savedTopicName,
-        // The offer plays the false alarm, so the Settings plan row does
-        // not play it again.
-        markFalseAlarmShown: () => getIt<SharedPreferences>().setBool(
-          PaywallDoor.falseAlarmShownKey,
-          true,
-        ),
+        // The store's answer about the product, asked for when the real
+        // alarm step starts and read by "It works" and by the offer step.
+        readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
+        startSale: (product) => getIt<OfferSaleProbe>().start(product),
+      ),
+    )
+    // The one store check of the offer, shared by the gate and the step. It
+    // makes the buy model the paywall route makes.
+    ..registerLazySingleton(
+      () => OfferSaleProbe(
+        makeBuyModel: (product) => getIt<PaywallBuyCubit>(param1: product),
       ),
     )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the

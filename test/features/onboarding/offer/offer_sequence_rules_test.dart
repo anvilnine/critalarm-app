@@ -1,4 +1,3 @@
-import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sequence_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,62 +72,6 @@ void main() {
             reason: '$status $timedOut',
           );
         }
-      }
-    });
-  });
-
-  group('the false alarm showing', () {
-    test('the offer plays the false alarm', () {
-      expect(offerIntro, PaywallIntroId.falseAlarm);
-    });
-
-    test('a run that can play it uses it up', () {
-      expect(
-        offerUsesUpFalseAlarm(
-          intro: offerIntro,
-          isReplay: false,
-          reduceMotion: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test('a replay writes nothing', () {
-      for (final reduceMotion in [false, true]) {
-        expect(
-          offerUsesUpFalseAlarm(
-            intro: offerIntro,
-            isReplay: true,
-            reduceMotion: reduceMotion,
-          ),
-          isFalse,
-        );
-      }
-    });
-
-    test('with reduced motion no intro plays, so none is used up', () {
-      expect(
-        offerUsesUpFalseAlarm(
-          intro: offerIntro,
-          isReplay: false,
-          reduceMotion: true,
-        ),
-        isFalse,
-      );
-    });
-
-    test('another intro never touches the flag', () {
-      for (final intro in PaywallIntroId.values) {
-        if (intro == PaywallIntroId.falseAlarm) continue;
-        expect(
-          offerUsesUpFalseAlarm(
-            intro: intro,
-            isReplay: false,
-            reduceMotion: false,
-          ),
-          isFalse,
-          reason: intro.key,
-        );
       }
     });
   });

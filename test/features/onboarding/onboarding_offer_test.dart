@@ -9,20 +9,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/onboarding_flow_fakes.dart';
 
-const _on = OnboardingOfferConfig(
-  enabled: true,
-  cloudProduct: OfferCloudChoice.auto,
-  selfHostedProduct: PaywallProduct.pro,
-  layoutKey: 'reel',
-);
+/// What a value of `{"enabled": true}` reads as: the bundled switches.
+const OnboardingOfferConfig _on = OnboardingOfferConfig.bundled;
 
 const _onJson = '{"enabled": true}';
+const _offJson = '{"enabled": false}';
 
 void main() {
   group('the bundled switches', () {
-    test('are off, by the answer on Cloud, Pro on a server, the reel', () {
+    test('are on, by the answer on Cloud, Pro on a server, the reel', () {
       const bundled = OnboardingOfferConfig.bundled;
-      expect(bundled.enabled, isFalse);
+      expect(bundled.enabled, isTrue);
       expect(bundled.cloudProduct, OfferCloudChoice.auto);
       expect(bundled.selfHostedProduct, PaywallProduct.pro);
       expect(bundled.layoutKey, 'reel');
@@ -88,11 +85,22 @@ void main() {
         OnboardingOfferConfig.tryParse('{}'),
         OnboardingOfferConfig.bundled,
       );
+      // A value that leaves `enabled` out keeps the step on.
       expect(
         OnboardingOfferConfig.tryParse('{"cloud_product": "none"}'),
         const OnboardingOfferConfig(
-          enabled: false,
+          enabled: true,
           cloudProduct: OfferCloudChoice.none,
+          selfHostedProduct: PaywallProduct.pro,
+          layoutKey: 'reel',
+        ),
+      );
+      // Only a value that says so switches it off.
+      expect(
+        OnboardingOfferConfig.tryParse(_offJson),
+        const OnboardingOfferConfig(
+          enabled: false,
+          cloudProduct: OfferCloudChoice.auto,
           selfHostedProduct: PaywallProduct.pro,
           layoutKey: 'reel',
         ),
@@ -197,7 +205,7 @@ void main() {
         remoteJson: '{"enabled": true, "cloud_product": "gold"}',
       );
       expect(chosen.origin, OnboardingOfferOrigin.bundled);
-      expect(chosen.config.enabled, isFalse);
+      expect(chosen.config.enabled, isTrue);
     });
   });
 
@@ -257,10 +265,8 @@ void main() {
         decide(config: config(enabled: false)).skipReason,
         OfferSkipReason.notEnabled,
       );
-      expect(
-        decide(config: OnboardingOfferConfig.bundled).skipReason,
-        OfferSkipReason.notEnabled,
-      );
+      // What ships is on: it skips for the other reasons only.
+      expect(decide().isShown, isTrue);
     });
 
     test('skips when the product is none for this kind of server', () {
@@ -434,15 +440,8 @@ void main() {
   });
 
   group('the gate', () {
-    test('with no value anywhere the step is off', () async {
+    test('with no value anywhere the step is on', () async {
       final decision = await offerGateFor().decide(isReplay: false);
-      expect(decision.skipReason, OfferSkipReason.notEnabled);
-    });
-
-    test('a remote value turns it on', () async {
-      final decision = await offerGateFor(
-        remoteJson: _onJson,
-      ).decide(isReplay: false);
       expect(
         decision,
         const OfferDecision.show(
@@ -451,6 +450,32 @@ void main() {
         ),
       );
     });
+
+    test(
+      'a remote value turns it off, and one that says on keeps it',
+      () async {
+        final off = await offerGateFor(remoteJson: _offJson).decide(
+          isReplay: false,
+        );
+        expect(off.skipReason, OfferSkipReason.notEnabled);
+
+        final on = await offerGateFor(
+          remoteJson: _onJson,
+        ).decide(isReplay: false);
+        expect(on.isShown, isTrue);
+      },
+    );
+
+    test(
+      'the developer value outranks a remote one that turns it off',
+      () async {
+        final decision = await offerGateFor(
+          developerJson: _onJson,
+          remoteJson: _offJson,
+        ).decide(isReplay: false);
+        expect(decision.isShown, isTrue);
+      },
+    );
 
     test('reads the answer and the topic name for the lead', () async {
       final servers = await offerGateFor(
@@ -506,12 +531,12 @@ void main() {
       expect(seen, [true, false]);
     });
 
-    test('a bad remote value leaves the step off', () async {
+    test('a bad remote value leaves the bundled one, on', () async {
       for (final raw in ['{', '{"enabled": "yes"}', '{"layout": 4}']) {
         final decision = await offerGateFor(
           remoteJson: raw,
         ).decide(isReplay: false);
-        expect(decision.skipReason, OfferSkipReason.notEnabled, reason: raw);
+        expect(decision.isShown, isTrue, reason: raw);
       }
     });
 
@@ -575,10 +600,8 @@ void main() {
         readFlowSteps: () => const [],
         readCompletedSteps: () => const {},
       );
-      expect(
-        (await sources.decide(isReplay: false)).skipReason,
-        OfferSkipReason.notEnabled,
-      );
+      // Sources that cannot be read leave the bundled value, which is on.
+      expect((await sources.decide(isReplay: false)).isShown, isTrue);
 
       final account = OnboardingOfferGate(
         readDeveloperJson: () => null,
@@ -647,7 +670,10 @@ void main() {
         await offerGateFor(remoteJson: _onJson, flowSteps: steps).isAhead(),
         isTrue,
       );
-      expect(await offerGateFor(flowSteps: steps).isAhead(), isFalse);
+      expect(
+        await offerGateFor(remoteJson: _offJson, flowSteps: steps).isAhead(),
+        isFalse,
+      );
       expect(
         await offerGateFor(
           remoteJson: _onJson,
@@ -656,6 +682,167 @@ void main() {
         ).isAhead(),
         isFalse,
       );
+    });
+  });
+
+  group('what follows the setup test', () {
+    const everyAnswer = OfferSaleAnswer.values;
+
+    test(
+      'a step that is not ahead means no offer, whatever the store says',
+      () {
+        for (final sale in everyAnswer) {
+          expect(
+            offerOutlookFor(isStepAhead: false, sale: sale),
+            OfferOutlook.none,
+            reason: '$sale',
+          );
+        }
+      },
+    );
+
+    test('a step that is ahead follows the store', () {
+      expect(
+        offerOutlookFor(isStepAhead: true, sale: OfferSaleAnswer.onSale),
+        OfferOutlook.coming,
+      );
+      expect(
+        offerOutlookFor(isStepAhead: true, sale: OfferSaleAnswer.notOnSale),
+        OfferOutlook.none,
+      );
+      expect(
+        offerOutlookFor(isStepAhead: true, sale: OfferSaleAnswer.unknown),
+        OfferOutlook.unsure,
+      );
+    });
+
+    test('the step would skip on a local reason or on a no from the store', () {
+      const show = OfferDecision.show(
+        product: PaywallProduct.hosted,
+        layoutKey: 'reel',
+      );
+      const skip = OfferDecision.skip(OfferSkipReason.alreadyHeld);
+      for (final sale in everyAnswer) {
+        expect(offerWouldSkip(decision: skip, sale: sale), isTrue);
+      }
+      expect(
+        offerWouldSkip(decision: show, sale: OfferSaleAnswer.onSale),
+        isFalse,
+      );
+      expect(
+        offerWouldSkip(decision: show, sale: OfferSaleAnswer.unknown),
+        isFalse,
+        reason: 'an answer still to come is not a skip',
+      );
+      expect(
+        offerWouldSkip(decision: show, sale: OfferSaleAnswer.notOnSale),
+        isTrue,
+      );
+    });
+
+    test('the gate gives the same cached answer to every reader', () async {
+      final steps = BundledOnboardingFlows.defaultFlow.steps;
+      for (final (sale, outlook, ahead, skips) in [
+        (OfferSaleAnswer.onSale, OfferOutlook.coming, true, false),
+        (OfferSaleAnswer.notOnSale, OfferOutlook.none, false, true),
+        (OfferSaleAnswer.unknown, OfferOutlook.unsure, true, false),
+      ]) {
+        final gate = offerGateFor(flowSteps: steps, sale: sale);
+        expect(await gate.outlook(), outlook, reason: '$sale');
+        expect(await gate.isAhead(), ahead, reason: '$sale');
+        expect(await gate.hasNoOffer(), skips, reason: '$sale');
+      }
+    });
+
+    test('the gate says none when the step is off or finished', () async {
+      final steps = BundledOnboardingFlows.defaultFlow.steps;
+      for (final gate in [
+        offerGateFor(
+          remoteJson: _offJson,
+          flowSteps: steps,
+          sale: OfferSaleAnswer.onSale,
+        ),
+        offerGateFor(
+          flowSteps: steps,
+          completedSteps: {OnboardingStepId.offer},
+          sale: OfferSaleAnswer.onSale,
+        ),
+        offerGateFor(
+          flowSteps: steps,
+          isSetupComplete: true,
+          sale: OfferSaleAnswer.onSale,
+        ),
+      ]) {
+        expect(await gate.outlook(), OfferOutlook.none);
+      }
+    });
+
+    test(
+      'the gate asks the store about the product the answer picks',
+      () async {
+        final steps = BundledOnboardingFlows.defaultFlow.steps;
+        final started = <PaywallProduct>[];
+        await offerGateFor(
+          flowSteps: steps,
+          use: SetupUse.servers,
+          started: started,
+        ).startSaleCheck();
+        await offerGateFor(
+          flowSteps: steps,
+          use: SetupUse.home,
+          started: started,
+        ).startSaleCheck();
+        expect(started, [PaywallProduct.hosted, PaywallProduct.pro]);
+      },
+    );
+
+    test(
+      'no check starts when the step will not show or is not ahead',
+      () async {
+        final steps = BundledOnboardingFlows.defaultFlow.steps;
+        final started = <PaywallProduct>[];
+        for (final gate in [
+          offerGateFor(
+            remoteJson: _offJson,
+            flowSteps: steps,
+            started: started,
+          ),
+          offerGateFor(flowSteps: steps, holdsHosted: true, started: started),
+          offerGateFor(flowSteps: steps, accountId: null, started: started),
+          offerGateFor(
+            flowSteps: BundledOnboardingFlows.legacy.steps,
+            started: started,
+          ),
+          offerGateFor(
+            flowSteps: steps,
+            isSetupComplete: true,
+            started: started,
+          ),
+        ]) {
+          await gate.startSaleCheck();
+        }
+        expect(started, isEmpty);
+      },
+    );
+
+    test('a read that throws is no outlook and starts nothing', () async {
+      Never fail() => throw StateError('no');
+      final gate = OnboardingOfferGate(
+        readDeveloperJson: () => null,
+        readRemoteJson: () => null,
+        readServerMode: () async => ServerMode.hosted,
+        builtLayoutKeys: () => const {'reel'},
+        readAccountId: () async => 'acct_1',
+        holdsPro: () => false,
+        readHoldsHosted: () async => false,
+        isSetupComplete: () async => false,
+        readFlowSteps: () => BundledOnboardingFlows.defaultFlow.steps,
+        readCompletedSteps: () => const {},
+        readSale: (_) => fail(),
+        startSale: (_) => fail(),
+      );
+      expect(await gate.outlook(), OfferOutlook.none);
+      await expectLater(gate.startSaleCheck(), completes);
     });
   });
 }

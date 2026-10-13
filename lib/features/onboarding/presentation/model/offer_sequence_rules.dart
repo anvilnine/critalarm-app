@@ -1,24 +1,19 @@
-import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 
 // The rules of the offer sequence that need no screen: whether the store can
-// sell, when the once-per-install flag is written, and what happens when
-// something else takes the user off the step. The screen hands in the facts.
+// sell, and what happens when something else takes the user off the step. The
+// screen hands in the facts.
 
 /// How long the step waits for the store before it gives up and moves on.
 const Duration offerSaleWait = Duration(seconds: 2);
 
-/// The intro the offer plays. The setup test has just closed its incident,
-/// and this is the first place a user can meet the false alarm.
-const PaywallIntroId offerIntro = PaywallIntroId.falseAlarm;
-
 /// What the step does with the buy model's answer about the store.
 enum OfferSaleDecision {
-  /// The product is on sale: the sequence plays.
+  /// The product is on sale: the sequence opens.
   goOn,
 
-  /// Nothing to buy, or the store could not say: the step finishes with no
-  /// intro.
+  /// Nothing to buy, or the store could not say: the step finishes with
+  /// nothing shown.
   skip,
 
   /// No answer yet and time is left.
@@ -43,17 +38,6 @@ OfferSaleDecision offerSaleDecision(
   PaywallBuyStatus.loading ||
   null => timedOut ? OfferSaleDecision.skip : OfferSaleDecision.keepWaiting,
 };
-
-/// Whether opening the sequence uses up the false alarm's one showing.
-///
-/// Only a real run does, and only when the intro can play: with reduced
-/// motion the intro host plays none, so the showing is kept for a later
-/// look. A replay writes nothing.
-bool offerUsesUpFalseAlarm({
-  required PaywallIntroId intro,
-  required bool isReplay,
-  required bool reduceMotion,
-}) => intro == PaywallIntroId.falseAlarm && !isReplay && !reduceMotion;
 
 /// Whether the sequence may be on screen. A real alarm under way wins, and
 /// so does anything that took the user off the step: the layer must not sit
