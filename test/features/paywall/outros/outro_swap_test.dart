@@ -73,6 +73,26 @@ void main() {
     }
   });
 
+  test(
+    'the end state draws its mascot on the very first frame of the swap',
+    () {
+      for (final outro in paywallOutroBuilders.values) {
+        for (final thanks in paywallThanksBuilders.values) {
+          final from = paywallThanksMascotFrom(
+            outro: outro,
+            pickUp: thanks.pickUp,
+          );
+          final clock = paywallThanksSecondAfterOutro(
+            outro.seconds,
+            outro: outro,
+            pickUp: thanks.pickUp,
+          );
+          expect(clock >= from, isTrue, reason: '$clock vs $from');
+        }
+      }
+    },
+  );
+
   group('the swap, for every outro and every end state', () {
     for (final outroEntry in paywallOutroBuilders.entries) {
       for (final thanksEntry in paywallThanksBuilders.entries) {

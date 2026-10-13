@@ -2104,7 +2104,7 @@
   "paywall_outro": {
     "welcome": "Welcome to {product}",
     "picker_row": "Success outro",
-    "picker_sheet_title": "Pick what plays right after a purchase",
+    "picker_sheet_title": "Choose what plays after purchase",
     "names": {
       "none": "Nothing extra",
       "break_lift_ring": "Break, lift, ring",
