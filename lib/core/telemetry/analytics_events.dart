@@ -16,6 +16,7 @@ abstract final class AnalyticsEvents {
   static const paywallPurchaseFailed = 'paywall_purchase_failed';
   static const onboardingStepViewed = 'onboarding_step_viewed';
   static const onboardingStepCompleted = 'onboarding_step_completed';
+  static const onboardingUsePicked = 'onboarding_use_picked';
   static const onboardingOfferShown = 'onboarding_offer_shown';
   static const onboardingOfferClosed = 'onboarding_offer_closed';
   static const onboardingOfferBought = 'onboarding_offer_bought';
@@ -130,6 +131,14 @@ final class OnboardingAnalytics {
     AnalyticsEvents.onboardingOfferBought,
     _offerParams(product, layout, flowId),
   );
+
+  /// The use step's answer. Carries the answer as one word and the flow id,
+  /// and nothing else.
+  Future<void> usePicked({required String use, required String flowId}) =>
+      _gate.logEvent(AnalyticsEvents.onboardingUsePicked, {
+        'use': use,
+        'flow_id': flowId,
+      });
 
   static Map<String, Object?> _offerParams(
     String product,

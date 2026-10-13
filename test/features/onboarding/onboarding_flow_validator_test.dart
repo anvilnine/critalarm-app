@@ -72,8 +72,19 @@ void main() {
     });
 
     test('the bundled lists are the ones that ship', () {
-      expect(BundledOnboardingFlows.defaultFlow.id, '2026-10-b');
+      expect(BundledOnboardingFlows.defaultFlow.id, '2026-10-c');
       expect(BundledOnboardingFlows.defaultFlow.steps, [
+        'welcome',
+        'connect',
+        'permissions',
+        'use',
+        'first_topic',
+        'real_ring',
+        'offer',
+        'hook_up',
+      ]);
+      expect(BundledOnboardingFlows.october2026B.id, '2026-10-b');
+      expect(BundledOnboardingFlows.october2026B.steps, [
         'welcome',
         'connect',
         'permissions',
