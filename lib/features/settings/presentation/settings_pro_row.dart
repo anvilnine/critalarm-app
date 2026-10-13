@@ -29,12 +29,6 @@ class SettingsProRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Full width in every state: the two with no pill would otherwise shrink
-    // to their words.
-    return SizedBox(width: double.infinity, child: _card());
-  }
-
-  Widget _card() {
     final title = LocaleKeys.settings_pro_title.tr();
     switch (state) {
       case HoldingState.held:
