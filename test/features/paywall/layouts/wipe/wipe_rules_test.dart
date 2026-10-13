@@ -313,4 +313,33 @@ void main() {
       expect(wipeLeavingCriticalFor(reversed: false, facts: facts(3)), isNull);
     });
   });
+
+  group('the grip', () {
+    const width = 390.0;
+    const grip = 36.0;
+
+    test('stands on the divider while the whole circle is on screen', () {
+      expect(wipeGripLeftFor(200, width: width, grip: grip), 200 - grip / 2);
+    });
+
+    test('stays whole on screen at either edge', () {
+      expect(wipeGripLeftFor(width, width: width, grip: grip), width - grip);
+      expect(wipeGripLeftFor(0, width: width, grip: grip), 0);
+    });
+
+    test('is whole on screen at every frame of both runs', () {
+      for (final reversed in [true, false]) {
+        for (var t = 0.0; t < 6; t += 0.02) {
+          final at = wipeDividerAt(t, settle: 0.27, reversed: reversed);
+          final left = wipeGripLeftFor(at * width, width: width, grip: grip);
+          expect(left, greaterThanOrEqualTo(0), reason: '$reversed $t');
+          expect(left + grip, lessThanOrEqualTo(width), reason: '$reversed $t');
+        }
+      }
+    });
+
+    test('is whole on a stage narrower than itself', () {
+      expect(wipeGripLeftFor(10, width: 20, grip: grip), 0);
+    });
+  });
 }

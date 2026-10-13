@@ -514,7 +514,11 @@ class _WipeStageState extends State<WipeStage> {
                             ),
                           ),
                           Positioned(
-                            left: x - _grip / 2,
+                            left: wipeGripLeftFor(
+                              x,
+                              width: size.width,
+                              grip: _grip,
+                            ),
                             top: gripY - _grip / 2,
                             child: Opacity(
                               opacity: line,

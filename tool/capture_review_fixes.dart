@@ -255,6 +255,15 @@ final _scenes = <_Scene>[
     () => _proof(_ownRows),
     times: [2.5, 5.5, 8.5, 11.5, 14.5],
   ),
+  _Scene(
+    'wipe_forward',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.wipe,
+      PaywallProduct.hosted,
+      source: PaywallSource.settingsPlan,
+    ),
+    times: [0.75, 1.0, 3.0],
+  ),
   _Scene('proof_sample_rows', () => _proof(null), times: [2.0, 3.0, 8.5]),
   _Scene(
     'proof_old_only',
