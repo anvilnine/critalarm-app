@@ -94,6 +94,7 @@ PaywallPlace paywallPlaceOfPro(ProPackSheetSource source) => switch (source) {
   ProPackSheetSource.personalizeChallenge ||
   ProPackSheetSource.topicChallenge => PaywallPlace.challenge,
   ProPackSheetSource.reliability => PaywallPlace.weeklyCheck,
+  ProPackSheetSource.settingsPlan ||
   ProPackSheetSource.direct => PaywallPlace.plan,
 };
 

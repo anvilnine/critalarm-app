@@ -179,6 +179,7 @@ void main() {
         ProPackSheetSource.personalizeChallenge: PaywallPlace.challenge,
         ProPackSheetSource.topicChallenge: PaywallPlace.challenge,
         ProPackSheetSource.reliability: PaywallPlace.weeklyCheck,
+        ProPackSheetSource.settingsPlan: PaywallPlace.plan,
         ProPackSheetSource.direct: PaywallPlace.plan,
       };
       for (final source in ProPackSheetSource.values) {

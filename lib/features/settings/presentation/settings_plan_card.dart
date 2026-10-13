@@ -12,10 +12,12 @@ double? planUsageFraction({required int used, required int? limit}) {
 /// pill. A cream card, drawn on the white sheet.
 ///
 /// The card draws and reports taps. What the pill does belongs to the caller.
+/// The Pro row is the same card with no usage line and a mark after its name.
 class SettingsPlanCard extends StatelessWidget {
   const SettingsPlanCard({
     required this.title,
-    required this.usage,
+    this.usage,
+    this.titleMark,
     this.fraction,
     this.actionLabel,
     this.onAction,
@@ -27,8 +29,11 @@ class SettingsPlanCard extends StatelessWidget {
 
   final String title;
 
-  /// The line under the title.
-  final String usage;
+  /// The line under the title. Null draws none.
+  final String? usage;
+
+  /// A small mark after the title, such as the one that says it is owned.
+  final Widget? titleMark;
 
   /// Fills the bar under the usage line. Null draws no bar.
   final double? fraction;
@@ -40,31 +45,41 @@ class SettingsPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final fraction = this.fraction;
+    final titleStyle = TextStyle(
+      fontFamily: AppTypography.fontBody,
+      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      color: colors.ink,
+    );
     final words = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: colors.ink,
+        if (titleMark == null)
+          Text(title, style: titleStyle)
+        else
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(title, style: titleStyle)),
+              const SizedBox(width: 8),
+              titleMark!,
+            ],
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          usage,
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 13.5,
-            height: 1.3,
-            color: colors.ink2,
+        if (usage != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            usage!,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 13.5,
+              height: 1.3,
+              color: colors.ink2,
+            ),
           ),
-        ),
+        ],
         if (fraction != null) ...[
           const SizedBox(height: 8),
           ExcludeSemantics(
