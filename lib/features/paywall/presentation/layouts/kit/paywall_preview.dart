@@ -69,6 +69,7 @@ class PaywallPreview extends StatelessWidget {
     this.size,
     this.playFrom,
     this.topicName,
+    this.topicsOwn,
     super.key,
   });
 
@@ -91,6 +92,11 @@ class PaywallPreview extends StatelessWidget {
   /// other preview reads it.
   final String? topicName;
 
+  /// The person's own count and the topic they were making, for the topics
+  /// preview: a tag with their count, and their topic as the row that
+  /// switches on. It wins over [topicName]. No other preview reads it.
+  final TopicsPreviewOwn? topicsOwn;
+
   @override
   Widget build(BuildContext context) {
     final fit = paywallPreviewFit(sizeClass: sizeClass, box: size);
@@ -110,7 +116,9 @@ class PaywallPreview extends StatelessWidget {
             child: builder != null
                 ? PaywallPreviewPlay(
                     playFrom: playFrom,
-                    child: id == PaywallPreviewId.topics && name != null
+                    child: id == PaywallPreviewId.topics && topicsOwn != null
+                        ? TopicsPreview(size: fit.drawn, own: topicsOwn)
+                        : id == PaywallPreviewId.topics && name != null
                         ? TopicsPreview(size: fit.drawn, topicName: name)
                         : own != null
                         ? HistoryPreview(size: fit.drawn, own: own)

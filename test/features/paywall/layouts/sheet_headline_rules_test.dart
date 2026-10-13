@@ -1,0 +1,136 @@
+import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_headline_rules.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('middleEllipsis', () {
+    test('a name that fits is left alone', () {
+      expect(middleEllipsis('billing-api'), 'billing-api');
+      expect(middleEllipsis('a' * 16), 'a' * 16);
+    });
+
+    test('a longer name loses its middle and keeps both ends', () {
+      final cut = middleEllipsis('nightly-database-backup-eu-west');
+      expect(cut.length, 16);
+      expect(cut.substring(0, 8), 'nightly-');
+      expect(cut[8], '…');
+      expect(cut.endsWith('eu-west'), isTrue);
+    });
+
+    test('17 characters is cut to 16', () {
+      expect(middleEllipsis('a' * 17).length, 16);
+    });
+
+    test('3, 12, 16, 17, 40 and 64 characters', () {
+      for (final length in [3, 12, 16, 17, 40, 64]) {
+        final cut = middleEllipsis('a' * length);
+        expect(cut.length, length <= 16 ? length : 16, reason: '$length');
+        expect(cut.contains('…'), length > 16, reason: '$length');
+      }
+    });
+
+    test('an emoji is never split in half', () {
+      final name = 'ab${'\u{1F514}' * 20}yz';
+      final cut = middleEllipsis(name);
+      expect(cut.characters.length, 16);
+      expect(cut.startsWith('ab'), isTrue);
+      expect(cut.endsWith('yz'), isTrue);
+      // Every code unit pairs up: no lone half of an emoji.
+      expect(() => Uri.encodeComponent(cut), returnsNormally);
+      expect(middleEllipsis('\u{1F514}' * 16), '\u{1F514}' * 16);
+    });
+  });
+
+  group('sheetTopicHeadlineFor', () {
+    test('the named headline when there is a name and it fits', () {
+      expect(
+        sheetTopicHeadlineFor(name: 'billing-api', fits: true),
+        SheetTopicHeadline.named,
+      );
+    });
+
+    test(
+      'the plain headline with no name, or when two lines are not enough',
+      () {
+        expect(
+          sheetTopicHeadlineFor(name: null, fits: true),
+          SheetTopicHeadline.generic,
+        );
+        expect(
+          sheetTopicHeadlineFor(name: '', fits: true),
+          SheetTopicHeadline.generic,
+        );
+        expect(
+          sheetTopicHeadlineFor(name: 'billing-api', fits: false),
+          SheetTopicHeadline.generic,
+        );
+      },
+    );
+  });
+
+  group('sheetHeadlineRepeats', () {
+    const tapped = ['2 of 2 critical topics used', 'No limit on billing-api'];
+
+    test('a headline that says what the card says repeats it', () {
+      expect(sheetHeadlineRepeats('No limit on billing-api', tapped), isTrue);
+      expect(
+        sheetHeadlineRepeats('2 of 2 critical topics used', tapped),
+        isTrue,
+      );
+    });
+
+    test('Make billing-api critical does not', () {
+      expect(
+        sheetHeadlineRepeats('Make billing-api critical', tapped),
+        isFalse,
+      );
+      expect(
+        sheetHeadlineRepeats('Make this topic critical', tapped),
+        isFalse,
+      );
+    });
+
+    test('case and punctuation do not hide a repeat', () {
+      expect(sheetHeadlineRepeats('NO LIMIT ON BILLING-API!', tapped), isTrue);
+    });
+
+    test('an empty headline repeats nothing', () {
+      expect(sheetHeadlineRepeats('', tapped), isFalse);
+    });
+  });
+
+  group('sheetShowsLeadLine', () {
+    test('the check line goes when a tag already says the lead', () {
+      expect(
+        sheetShowsLeadLine(
+          hasTag: true,
+          headline: 'Make a critical',
+          leadLine: 'Unlimited critical topics',
+        ),
+        isFalse,
+      );
+    });
+
+    test('it goes when the headline already says it', () {
+      expect(
+        sheetShowsLeadLine(
+          hasTag: false,
+          headline: 'Unlimited critical topics',
+          leadLine: 'Unlimited critical topics',
+        ),
+        isFalse,
+      );
+    });
+
+    test('it stays when nothing else says the lead', () {
+      expect(
+        sheetShowsLeadLine(
+          hasTag: false,
+          headline: 'Alarms on your home screen',
+          leadLine: 'Home screen widgets',
+        ),
+        isTrue,
+      );
+    });
+  });
+}
