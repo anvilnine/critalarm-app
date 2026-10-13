@@ -125,6 +125,7 @@ class Draft {
   DateTime? newestMessageAt;
   DateTime? lastAlarmAt;
   bool hasCriticalTopic = true;
+  bool expectsFirstMessage = false;
 
   HomeCardInput build() => HomeCardInput(
     now: at,
@@ -152,6 +153,7 @@ class Draft {
     newestMessageAt: newestMessageAt,
     lastAlarmAt: lastAlarmAt,
     hasCriticalTopic: hasCriticalTopic,
+    expectsFirstMessage: expectsFirstMessage,
   );
 }
 

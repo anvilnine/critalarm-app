@@ -186,6 +186,10 @@ class _Rig {
   final List<_FakeTimer> timers = [];
   DateTime clock = now;
 
+  /// What the phone's own records say about setup. Read on every change.
+  bool isSetupOpen = false;
+  bool setupOpenThrows = false;
+
   HomeCardCubit? _cubit;
 
   /// Starts on first use, so a test can build its own with other parts.
@@ -198,6 +202,10 @@ class _Rig {
     toolTemplates: tools,
     testRouteName: 'testRing',
     askPermissionsRouteName: 'askPermissions',
+    isSetupOpen: () {
+      if (setupOpenThrows) throw StateError('prefs are gone');
+      return isSetupOpen;
+    },
     clock: () => clock,
     timer: (after, run) {
       final timer = _FakeTimer(after, run);
@@ -668,6 +676,119 @@ void main() {
       rig.setup.set(const HomeSetupState());
       await rig.settle();
       expect(rig.kind, HomeCardKind.idle);
+    });
+
+    group('what the phone expects before the list has answered', () {
+      test('the first frame is the waiting card with the right line', () {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        rig.use.answer = SetupUse.homelab;
+
+        // Home has not loaded and the checklist has said nothing.
+        final first = rig.cubit.state.model;
+        expect(first.kind, HomeCardKind.waiting);
+        expect(first.label, HomeCardLabel.firstMessage);
+        expect(first.numeral, const NotYet());
+        expect(first.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        expect(first.action, const GetFirstLine(null));
+      });
+
+      test('the waiting card does not change when the list loads', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        rig.use.answer = SetupUse.homelab;
+        final models = <HomeCardModel>[rig.cubit.state.model];
+        final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+        addTearDown(sub.cancel);
+
+        rig.home.set(const HomeState(status: HomeStatus.loading));
+        await rig.settle();
+        rig.home.set(_loaded());
+        await rig.settle();
+        // The checklist has not looked yet, then it says waiting.
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+
+        expect(rig.kind, HomeCardKind.waiting);
+        for (final model in models) {
+          expect(model.kind, HomeCardKind.waiting);
+          expect(model.label, HomeCardLabel.firstMessage);
+          expect(model.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        }
+        // Only the button learns its topic.
+        expect(rig.model.action, const GetFirstLine('prod-db'));
+      });
+
+      test('the list can still turn it into the setup card', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.waiting);
+
+        rig.home.set(_loaded());
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupAfterServer,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.setup);
+      });
+
+      test('a phone whose records say nothing shows the dots', () {
+        final rig = _Rig();
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+        expect(rig.cubit.state.model.numeral, const Dots());
+      });
+
+      test('a failed read is no guess', () {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..setupOpenThrows = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+      });
+
+      test('once setup is retired the guess is dropped', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.waiting);
+
+        rig.isSetupOpen = false;
+        rig.home.set(_loaded());
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.idle);
+      });
+
+      test('the button finds the topic when it is pressed', () async {
+        final rig = _Rig()..isSetupOpen = true;
+        addTearDown(rig.dispose);
+        expect(rig.cubit.actionFor(const GetFirstLine(null)), const NoEffect());
+
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod db',
+          ),
+        );
+        await rig.settle();
+        expect(
+          rig.cubit.actionFor(const GetFirstLine(null)),
+          const OpenPath('/topics/prod%20db?curl=1'),
+        );
+      });
     });
 
     test('the waiting card names the line on its first frame', () async {

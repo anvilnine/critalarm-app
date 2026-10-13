@@ -117,9 +117,10 @@ HomeCardEffect homeCardEffectFor(
   RetryLoad() => const RefreshHome(),
   Fix(:final fix) => _fixEffect(fix, askPermissionsRouteName),
   ContinueSetup(:final route) => OpenPath(route),
-  GetFirstLine(:final topic) => OpenPath(
-    '${AppLinkRoutes.topic(topic)}?curl=1',
-  ),
+  GetFirstLine(:final topic) =>
+    topic == null
+        ? const NoEffect()
+        : OpenPath('${AppLinkRoutes.topic(topic)}?curl=1'),
   SendTest() => OpenRoute(testRouteName),
 };
 

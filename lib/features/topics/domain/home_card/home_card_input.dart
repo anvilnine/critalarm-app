@@ -244,6 +244,7 @@ class HomeCardInput {
     this.newestMessageAt,
     this.lastAlarmAt,
     this.hasCriticalTopic = false,
+    this.expectsFirstMessage = false,
   });
 
   final DateTime now;
@@ -312,6 +313,16 @@ class HomeCardInput {
   /// Some topic has Critical delivery on.
   final bool hasCriticalTopic;
 
+  /// What the phone itself holds says setup is open and only the first
+  /// message is missing: a server is saved, setup was finished here, the
+  /// checklist is not retired and no first message ever came.
+  ///
+  /// It is a guess from local records, so the card uses it only until Home's
+  /// own checklist has an answer: while the list loads, and while the
+  /// checklist has not looked yet. It lets the waiting card be the first one
+  /// drawn, so no other kind's words show before it.
+  final bool expectsFirstMessage;
+
   @override
   bool operator ==(Object other) =>
       other is HomeCardInput &&
@@ -335,7 +346,8 @@ class HomeCardInput {
       other.use == use &&
       other.newestMessageAt == newestMessageAt &&
       other.lastAlarmAt == lastAlarmAt &&
-      other.hasCriticalTopic == hasCriticalTopic;
+      other.hasCriticalTopic == hasCriticalTopic &&
+      other.expectsFirstMessage == expectsFirstMessage;
 
   @override
   int get hashCode => Object.hashAll([
@@ -360,5 +372,6 @@ class HomeCardInput {
     newestMessageAt,
     lastAlarmAt,
     hasCriticalTopic,
+    expectsFirstMessage,
   ]);
 }

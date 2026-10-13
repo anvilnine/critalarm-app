@@ -365,6 +365,101 @@ void main() {
       expect(m.action, isNull);
     });
 
+    group('what the phone itself expects', () {
+      test('the list still loading shows the waiting card, not the dots', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectsFirstMessage = true;
+          d.setup = null;
+          d.watchedTopic = null;
+          d.use = SetupUse.homelab;
+        });
+        expect(m.kind, HomeCardKind.waiting);
+        expect(m.label, HomeCardLabel.firstMessage);
+        expect(m.numeral, const NotYet());
+        expect(m.foot.slot, HomeCardFootSlot.sendTheLine);
+        expect(m.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        expect(m.face, FaceState.watching);
+      });
+
+      test('the button is there before the topic is named', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectsFirstMessage = true;
+          d.watchedTopic = null;
+        });
+        expect(m.action, const GetFirstLine(null));
+      });
+
+      test('a loading list with nothing expected still shows the dots', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectsFirstMessage = false;
+        });
+        expect(m.kind, HomeCardKind.loading);
+        expect(m.numeral, const Dots());
+      });
+
+      test('a loaded list the checklist has not looked at stays waiting', () {
+        final m = resolve((d) {
+          d.expectsFirstMessage = true;
+          d.setup = SetupChecklist.hidden;
+          d.watchedTopic = null;
+        });
+        expect(m.kind, HomeCardKind.waiting);
+        expect(m.action, const GetFirstLine(null));
+      });
+
+      test(
+        'a checklist that is visible decides, whatever the phone expects',
+        () {
+          final setupCard = resolve((d) {
+            d.expectsFirstMessage = true;
+            d.setup = setupAfterServer;
+          });
+          expect(setupCard.kind, HomeCardKind.setup);
+
+          final retired = resolve((d) {
+            d.expectsFirstMessage = true;
+            d.setup = const SetupChecklist(
+              isVisible: true,
+              hasServer: true,
+              hasTopics: true,
+              hasCriticalTopic: true,
+              hasFirstMessage: true,
+            );
+          });
+          expect(retired.kind, HomeCardKind.idle);
+        },
+      );
+
+      test('what the list says outranks the guess', () {
+        for (final (edit, kind) in <(void Function(Draft), HomeCardKind)>[
+          ((d) => d.topicCount = 0, HomeCardKind.noTopics),
+          ((d) => d.hasServer = false, HomeCardKind.noServer),
+          ((d) => d.isStale = true, HomeCardKind.stale),
+          ((d) => d.loadFailed = true, HomeCardKind.loadFailed),
+          ((d) => d.warningCount = 1, HomeCardKind.warning),
+        ]) {
+          final m = resolve((d) {
+            d.expectsFirstMessage = true;
+            d.setup = SetupChecklist.hidden;
+            edit(d);
+          });
+          expect(m.kind, kind, reason: kind.name);
+        }
+      });
+
+      test('the guess changes nothing but the button on a settled card', () {
+        final settled = resolve(satisfy[HomeCardKind.waiting]);
+        final guessed = resolve((d) {
+          satisfy[HomeCardKind.waiting]!(d);
+          d.expectsFirstMessage = true;
+        });
+        expect(guessed, settled);
+      });
+    });
+
     test('waiting with no answer and no tool keeps the plain line', () {
       final m = resolve(satisfy[HomeCardKind.waiting]);
       expect(

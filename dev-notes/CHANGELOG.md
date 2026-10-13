@@ -190,6 +190,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The first topic in setup arrives filled from the answer to the question step, with other names and the tools as one-line chips that scroll sideways, and the Terms and Privacy links sit at the end of the page so rows no longer run under them.
 - The offer setup step plays the false alarm, a reel that opens on the answer from the use step and the confetti thanks, and its thanks button opens hook up. It asks the store what is on sale first and skips with no intro when nothing is. cloud\_product takes auto, the bundled layout is reel, the three offer funnel events carry use, and Developer options replay the step on one answer.
 - Setup stats line on the hook-up step now names the answer to the question step. The hero, receipt, reel and sentence paywall layouts and the thanks tick call the Hosted weekly check Weekly delivery check, the name Settings uses.
+- capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -213,6 +214,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Messages page: the count stands alone and the 7 day caption sits with the bars, and a message is linked to its alarm by id instead of by matching its words
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
 - The reel draws no picture and no placeholder when the stage is under reelStageMinHeight, and the lead line stands under the headline, so a lead at 320 wide and text scale 2.0 no longer leaves a grey dot.
+- Home's status card draws the waiting card on its first frame when the phone's own records say setup waits on the first message (firstMessageExpected), and AppStatusCard fades the old label and foot out before the new ones fade in, so two texts are never drawn over each other.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
