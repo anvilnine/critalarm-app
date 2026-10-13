@@ -100,6 +100,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
 - tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
 - AppTextField.fitText steps the typed text down to the default size before the line scrolls, and keeps the box height; setup's topic name field uses it.
+- LocalStore schema version 3 adds a topics table (TopicStore, scoped by a hash of the saved server and the account id with heldScopeFor, no token columns, no row for an empty list). TopicsCubit.loadHeld reads it before runApp and sets TopicsState.isKept until the first server answer. Every list change is written back, AccountData.forget and LocalStore.clearServerData clear it, and HomeCubit and TopicDetailCubit wait for the server's list before their full build. configureDependencies takes an openedStore for tests and captures, and tool/capture\_home\_waiting.dart has two scenes that start from a stored list.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
