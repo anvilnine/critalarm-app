@@ -52,14 +52,33 @@ class OfferDecision {
       : 'OfferDecision.skip(${skipReason!.name})';
 }
 
-/// Whether a replay counts as one for the offer step. A replay skips the
-/// step. The one exception is a developer who switched the step on in
-/// Developer options: that is the only way to look at it, and a store build
-/// has no developer value.
+/// Whether a replay counts as one for the offer step, which then skips.
+///
+/// A replay shows the step in two cases only:
+///
+/// - The build uses the made-up buy model ([usesDemoStore]). Nothing in it
+///   can charge anyone or unlock anything, so the replay plays the whole
+///   offer.
+/// - A developer switched the step on in Developer options. That is a
+///   deliberate choice made for a build that may have a store, and a store
+///   build has no developer value.
+///
+/// Every other replay skips: a real store must never be one tap from a real
+/// purchase inside something that claims to be a look at the screens.
 bool offerCountsAsReplay({
   required bool isReplay,
   required OnboardingOfferOrigin origin,
-}) => isReplay && origin != OnboardingOfferOrigin.developer;
+  bool usesDemoStore = false,
+}) => isReplay && origin != OnboardingOfferOrigin.developer && !usesDemoStore;
+
+/// Whether the offer ignores what the phone knows about the user: the
+/// account and the products held. A replay on the made-up buy model does,
+/// since the point of the replay is to see the paywall and the made-up
+/// purchase unlocks nothing. Every other run asks the phone.
+bool offerIgnoresHoldings({
+  required bool isReplay,
+  required bool usesDemoStore,
+}) => isReplay && usesDemoStore;
 
 /// The rule of the `offer` step, with nothing to read from.
 ///
@@ -69,6 +88,11 @@ bool offerCountsAsReplay({
 /// already holds the product. [use] is the user's answer, null for none:
 /// with the Cloud product on `auto` it picks the product, and it picks the
 /// benefit the reel opens on.
+///
+/// [isDemoReplay] is a replay on the made-up buy model (the caller has
+/// already turned [isReplay] off for it, see [offerCountsAsReplay]). The
+/// account and the products held are not asked: [hasAccountId], [holdsPro]
+/// and [holdsHosted] are ignored.
 OfferDecision decideOnboardingOffer({
   required OnboardingOfferConfig config,
   required bool isSelfHosted,
@@ -77,6 +101,7 @@ OfferDecision decideOnboardingOffer({
   required bool holdsPro,
   required bool holdsHosted,
   required bool isReplay,
+  bool isDemoReplay = false,
   SetupUse? use,
   String? topicName,
 }) {
@@ -88,8 +113,8 @@ OfferDecision decideOnboardingOffer({
     config: config,
     use: use,
     isSelfHosted: isSelfHosted,
-    holdsPro: holdsPro,
-    holdsHosted: holdsHosted,
+    holdsPro: holdsPro && !isDemoReplay,
+    holdsHosted: holdsHosted && !isDemoReplay,
     topicName: topicName,
   );
   // The reasons are told in this order: what is offered, whether the
@@ -100,7 +125,9 @@ OfferDecision decideOnboardingOffer({
   if (!builtLayoutKeys.contains(config.layoutKey)) {
     return const OfferDecision.skip(OfferSkipReason.unknownLayout);
   }
-  if (!hasAccountId) return const OfferDecision.skip(OfferSkipReason.noAccount);
+  if (!hasAccountId && !isDemoReplay) {
+    return const OfferDecision.skip(OfferSkipReason.noAccount);
+  }
   if (!opening.isShown) return OfferDecision.skip(opening.skipReason!);
   return OfferDecision.show(
     product: opening.product!,
@@ -194,6 +221,7 @@ class OnboardingOfferGate {
     this.readTopicName = _noTopicName,
     this.readSale = _noSaleAnswer,
     this.startSale = _noSaleStart,
+    this.readUsesDemoStore = _noDemoStore,
   });
 
   static SetupUse? _noUse({required bool isReplay}) => null;
@@ -201,6 +229,7 @@ class OnboardingOfferGate {
   static OfferSaleAnswer _noSaleAnswer(PaywallProduct product) =>
       OfferSaleAnswer.unknown;
   static void _noSaleStart(PaywallProduct product) {}
+  static bool _noDemoStore() => false;
 
   /// The value a developer set, or null. Always null in a store build.
   final String? Function() readDeveloperJson;
@@ -242,6 +271,12 @@ class OnboardingOfferGate {
   /// [readSale] and for the step. Safe to call more than once.
   final void Function(PaywallProduct product) startSale;
 
+  /// Whether the buy model in this build is the made-up one, which charges
+  /// nothing and unlocks nothing. Only a build that skips the store says
+  /// true. A replay plays the offer when it does, and skips it when the
+  /// store is real (unless a developer switched the step on).
+  final bool Function() readUsesDemoStore;
+
   /// The switches in use right now. A source that throws counts as empty.
   ChosenOnboardingOffer chosen() => chooseOnboardingOffer(
     developerJson: _text(readDeveloperJson),
@@ -251,6 +286,14 @@ class OnboardingOfferGate {
   static String? _nameOrNull(String? Function() read) {
     final name = _text(read)?.trim();
     return name == null || name.isEmpty ? null : name;
+  }
+
+  static bool _flag(bool Function() read) {
+    try {
+      return read();
+    } on Object {
+      return false;
+    }
   }
 
   static String? _text(String? Function() read) {
@@ -266,9 +309,15 @@ class OnboardingOfferGate {
     try {
       final chosen = this.chosen();
       final config = chosen.config;
+      final usesDemoStore = isReplay && _flag(readUsesDemoStore);
       final countsAsReplay = offerCountsAsReplay(
         isReplay: isReplay,
         origin: chosen.origin,
+        usesDemoStore: usesDemoStore,
+      );
+      final isDemoReplay = offerIgnoresHoldings(
+        isReplay: isReplay,
+        usesDemoStore: usesDemoStore,
       );
       // Asked before anything is read, so a step that is off costs a launch
       // nothing.
@@ -278,15 +327,18 @@ class OnboardingOfferGate {
       if (!config.enabled) {
         return const OfferDecision.skip(OfferSkipReason.notEnabled);
       }
-      final accountId = await readAccountId();
+      // A replay on the made-up store asks neither the account nor the
+      // holdings: it plays the offer whatever they say.
+      final accountId = isDemoReplay ? null : await readAccountId();
       return decideOnboardingOffer(
         config: config,
         isSelfHosted: isOwnServerMode(await readServerMode()),
         builtLayoutKeys: builtLayoutKeys(),
         hasAccountId: accountId != null && accountId.isNotEmpty,
-        holdsPro: holdsPro(),
-        holdsHosted: await readHoldsHosted(),
+        holdsPro: !isDemoReplay && holdsPro(),
+        holdsHosted: !isDemoReplay && await readHoldsHosted(),
         isReplay: countsAsReplay,
+        isDemoReplay: isDemoReplay,
         use: readUse(isReplay: isReplay),
         topicName: _nameOrNull(readTopicName),
       );

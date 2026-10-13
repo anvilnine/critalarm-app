@@ -54,6 +54,11 @@ const String _replayUseParam = 'use';
 /// here can hold the rest of setup back. Neither ends on Home: the next
 /// step opens.
 ///
+/// A replay plays the same sequence on the made-up buy model of a build that
+/// skips the store, on the answer the replay picked. It records no funnel
+/// event, tells no screen the plan changed and holds nothing. With a real
+/// store a replay skips the step, unless a developer switched it on.
+///
 /// A real alarm wins. The layer sits on the root navigator, above the
 /// router's pages, so a screen the router opens would draw under it. When
 /// the step goes away under the layer, or an alarm starts, the layer is
@@ -68,6 +73,9 @@ class OfferStepScreen extends StatefulWidget {
 class _OfferStepScreenState extends State<OfferStepScreen> {
   bool _hasStarted = false;
   bool _hasBumpedPlan = false;
+
+  /// Whether the run is a replay, and so records nothing real.
+  bool _isReplay = false;
 
   /// Where the router stands for this step. A page the router replaces stays
   /// built while it slides out, so the step is only here while the router
@@ -88,6 +96,7 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
     if (_hasStarted) return;
     _hasStarted = true;
     final isReplay = isOnboardingReplay(context);
+    _isReplay = isReplay;
     if (isReplay) _readReplayUse(GoRouterState.of(context).uri);
     // After the first frame, so the layer opens over a step that is
     // already on screen.
@@ -249,9 +258,13 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
 
   /// A confirmed purchase changes the plan: screens look again, and Hosted
   /// is a new account state too. Once only, whichever way the layer ends.
+  ///
+  /// A replay on the made-up buy model bought nothing, so nothing changed
+  /// and no screen is told to look again.
   void _afterPurchase(PaywallProduct product) {
     if (_hasBumpedPlan) return;
     _hasBumpedPlan = true;
+    if (_isReplay && getIt<OnboardingOfferGate>().readUsesDemoStore()) return;
     appPlanChanges.bump();
     if (product == PaywallProduct.hosted) appAccountIdentityChanges.bump();
   }

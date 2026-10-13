@@ -137,6 +137,7 @@ OnboardingOfferGate offerGateFor({
   String? topicName,
   OfferSaleAnswer sale = OfferSaleAnswer.unknown,
   List<PaywallProduct>? started,
+  bool usesDemoStore = false,
 }) => OnboardingOfferGate(
   readDeveloperJson: () => developerJson,
   readRemoteJson: () => remoteJson,
@@ -152,6 +153,7 @@ OnboardingOfferGate offerGateFor({
   readTopicName: () => topicName,
   readSale: (_) => sale,
   startSale: (product) => started?.add(product),
+  readUsesDemoStore: () => usesDemoStore,
 );
 
 /// A source whose flow can be swapped while a test runs.
