@@ -52,6 +52,14 @@
 //                                  three seconds first. With no T it is the
 //                                  resting frame. With STATE=done it is what
 //                                  a buyer who already has the product sees.
+//   --dart-define=OUTRO=<key>      with THANKS and T: play that success outro
+//                                  between the purchase and the thanks, a
+//                                  PaywallOutroId key such as cloud_climb.
+//                                  `plain` is a debug outro of this tool: a
+//                                  flat colour over the paywall picture, the
+//                                  mascot walking to where the thanks stands
+//                                  it, then the colour fades away. T then
+//                                  counts from the confirmed purchase.
 //   --dart-define=RESTORE=true     with THANKS: restore in place of buying
 //   --dart-define=MOTION=<names>   draw the Hero composition with these
 //                                  motion variants in place of LAYOUT: any
@@ -108,7 +116,10 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_fram
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -139,6 +150,48 @@ const _then = String.fromEnvironment('THEN');
 const _introKey = String.fromEnvironment('INTRO');
 const _thanksKey = String.fromEnvironment('THANKS');
 const _restore = bool.fromEnvironment('RESTORE');
+const _outroKey = String.fromEnvironment('OUTRO');
+
+/// The `OUTRO` word for the debug outro of this tool.
+const _plainOutro = 'plain';
+
+/// A debug outro that proves the host and nothing else. The paywall picture
+/// fades under a flat colour, the mascot walks from where the layout had it
+/// to where the thanks stands it, and the colour fades away to show the
+/// thanks under it. It is registered under one id for the length of the run.
+final PaywallOutro _plain = PaywallOutro(
+  seconds: 1.6,
+  uncover: 0.9,
+  builder: (context, scope) => PaywallClockBuilder(
+    clock: scope.clock,
+    builder: (context, t, _) {
+      final wall = scope.wall;
+      final from = scope.mascot ?? scope.land;
+      final walk = Curves.easeInOut.transform(phase(t, 0.1, 1));
+      return Stack(
+        children: [
+          if (wall != null && t < 0.4)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 1 - phase(t, 0, 0.3),
+                child: RawImage(image: wall, fit: BoxFit.fill),
+              ),
+            ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: phase(t, 0, 0.3) * (1 - phase(t, 1, 1.5)),
+              child: ColoredBox(color: Colors.indigo.shade900),
+            ),
+          ),
+          ThanksCrit(
+            box: Rect.lerp(from, scope.land, walk)!,
+            face: (from: HeroFace.glad, to: HeroFace.glad, blend: 1),
+          ),
+        ],
+      );
+    },
+  ),
+);
 
 /// How long the layout plays before the purchase, with THANKS and T.
 const double _beforeBuying = 3;
@@ -443,7 +496,23 @@ void main() {
   final intro = PaywallIntroId.fromKey(_introKey);
   final motion = _motionOf(_motion);
   final thanks = PaywallThanksId.fromKey(_thanksKey);
+  final outro = _outroKey == _plainOutro
+      ? PaywallOutroId.breakLiftRing
+      : PaywallOutroId.fromKey(_outroKey);
+  if (_outroKey == _plainOutro) {
+    paywallOutroBuilders[PaywallOutroId.breakLiftRing] = _plain;
+  }
   test('LAYOUT names a layout', () {
+    expect(
+      _outroKey.isEmpty || outro != null,
+      isTrue,
+      reason: 'No outro has the key "$_outroKey".',
+    );
+    expect(
+      _outroKey.isEmpty || thanks != null,
+      isTrue,
+      reason: 'OUTRO plays between a purchase and a THANKS: set both.',
+    );
     expect(
       _thanksKey.isEmpty || thanks != null,
       isTrue,
@@ -493,6 +562,7 @@ void main() {
           if (_then.isNotEmpty) 'then$_then',
           if (_introKey.isNotEmpty) 'intro-$_introKey',
           if (_thanksKey.isNotEmpty) 'thanks-$_thanksKey',
+          if (_outroKey.isNotEmpty) 'outro-$_outroKey',
           if (_restore) 'restore',
           if (_motion.isNotEmpty) 'motion-${_motion.replaceAll(',', '-')}',
         ].join('_');
@@ -524,6 +594,7 @@ void main() {
                         if (thanks != null) ...{
                           'thanks': thanks.key,
                           'try': paywallTryOut,
+                          if (outro != null) 'outro': outro.key,
                         },
                         if (_sourceKey.isNotEmpty) 'source': source.wire,
                         if (_state.isNotEmpty) 'state': _state,
@@ -606,6 +677,17 @@ void main() {
                 await (_restore ? cubit.restore() : cubit.buy());
               });
               await tester.pump();
+              if (outro != null && second != null) {
+                // The picture the outro starts from is taken off the clock:
+                // let it finish in real time before the seconds run.
+                for (var i = 0; i < 24; i++) {
+                  await tester.runAsync(
+                    () =>
+                        Future<void>.delayed(const Duration(milliseconds: 25)),
+                  );
+                  await tester.pump();
+                }
+              }
               if (second != null) await _stepTo(tester, second);
               // The purchase cue's haptic is a short pattern on a timer.
               if (second == null) {

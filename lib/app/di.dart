@@ -483,6 +483,11 @@ Future<void> configureDependencies({
             prefs,
             DevPaywallThanksSwitch.proKey,
           ),
+          hostedOutro: DevPaywallOutroSwitch(
+            prefs,
+            DevPaywallOutroSwitch.hostedKey,
+          ),
+          proOutro: DevPaywallOutroSwitch(prefs, DevPaywallOutroSwitch.proKey),
         ),
       );
     }
@@ -499,6 +504,8 @@ Future<void> configureDependencies({
       proIntro: layoutSwitches.proIntro,
       hostedThanks: layoutSwitches.hostedThanks,
       proThanks: layoutSwitches.proThanks,
+      hostedOutro: layoutSwitches.hostedOutro,
+      proOutro: layoutSwitches.proOutro,
     );
   }
 
@@ -2744,6 +2751,18 @@ Future<void> configureDependencies({
         developerThanks: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedThanks,
           PaywallProduct.pro => appPaywallLayoutOverride.proThanks,
+        },
+        remoteOutroValue: (product) {
+          if (!getIt.isRegistered<TelemetryGate>()) return '';
+          final gate = getIt<TelemetryGate>();
+          return switch (product) {
+            PaywallProduct.hosted => gate.paywallOutroKey,
+            PaywallProduct.pro => gate.proPaywallOutroKey,
+          };
+        },
+        developerOutro: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hostedOutro,
+          PaywallProduct.pro => appPaywallLayoutOverride.proOutro,
         },
         widgetsDecision: () =>
             getIt<FeatureAccess>().decide(AppFeature.widgets),

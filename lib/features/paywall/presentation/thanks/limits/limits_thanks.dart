@@ -23,6 +23,7 @@ const PaywallThanks limitsThanks = PaywallThanks(
   cover: LimitsTimeline.cover,
   buttonAt: LimitsTimeline.goOn,
   beats: limitsBeats,
+  mascotAt: limitsMascotAt,
   builder: _build,
 );
 
@@ -86,6 +87,28 @@ List<LimitsRow>? limitsCapRowsFor(List<PaywallBenefit> benefits) {
   ];
 }
 
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, LimitsPlan plan, double t) => Rect.lerp(
+  thanksStartBox(scope.mascot) ?? plan.crit,
+  plan.critAt(LimitsTimeline.size(t, count: scope.benefits.length)),
+  LimitsTimeline.travel(t),
+)!;
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it.
+Rect limitsMascotAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  final plan = LimitsPlan.of(
+    size: scope.size,
+    padding: scope.padding,
+    count: count,
+    isCards: limitsRowsFor(scope.benefits) == null,
+    textScale: scope.textScale,
+  );
+  return _critBox(scope, plan, t);
+}
+
 /// Draws the limits version for the second its scope's clock reads.
 class LimitsThanks extends StatelessWidget {
   const LimitsThanks({required this.scope, super.key});
@@ -119,11 +142,7 @@ class LimitsThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - LimitsTimeline.end;
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? plan.crit,
-          plan.critAt(LimitsTimeline.size(t, count: count)),
-          LimitsTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, plan, t);
         final ring = LimitsTimeline.ring(t);
 
         return Stack(
@@ -155,15 +174,16 @@ class LimitsThanks extends StatelessWidget {
                   ),
                 ),
               ),
-            ThanksCrit(
-              box: box,
-              face: LimitsTimeline.face(t, count: count),
-              lift: LimitsTimeline.lift(t, count: count),
-              stretch: LimitsTimeline.stretch(t),
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              bob: math.max(0, rest),
-              shadow: LimitsTimeline.travel(t),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: LimitsTimeline.face(t, count: count),
+                lift: LimitsTimeline.lift(t, count: count),
+                stretch: LimitsTimeline.stretch(t),
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                bob: math.max(0, rest),
+                shadow: LimitsTimeline.travel(t),
+              ),
             ThanksWords(
               stage: stage,
               tone: _tone,

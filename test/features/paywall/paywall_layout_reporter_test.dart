@@ -1,4 +1,5 @@
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -299,5 +300,50 @@ void main() {
     expect(cubit.state.status, PaywallBuyStatus.done);
     await cubit.close();
     expect(gate.events, isEmpty);
+  });
+
+  group('the outro tag', () {
+    PaywallLayoutReporter withOutro(PaywallOutroId outro) =>
+        PaywallLayoutReporter(
+          PaywallLayoutAnalytics(
+            gate,
+            layout: PaywallLayoutId.hero,
+            isHosted: true,
+            thanks: PaywallThanksId.stamp,
+            outro: outro,
+          ),
+          source: 'history',
+        );
+
+    test('every event carries the outro that is set', () {
+      withOutro(PaywallOutroId.cloudClimb)
+        ..viewed()
+        ..thanksShown('purchase')
+        ..thanksLeft('purchase', how: 'button', skipped: true)
+        ..closed();
+      expect(gate.events, [
+        for (final name in [
+          'paywall_viewed',
+          'paywall_thanks_shown',
+          'paywall_thanks_left',
+          'paywall_closed',
+        ])
+          predicate<List<Object?>>(
+            (event) =>
+                event[0] == name &&
+                (event[1]! as Map<String, Object?>)['outro'] == 'cloud_climb',
+            name,
+          ),
+      ]);
+    });
+
+    test('with none set, the events carry what they carried before', () {
+      withOutro(PaywallOutroId.none)
+        ..viewed()
+        ..thanksShown('purchase');
+      for (final event in gate.events) {
+        expect((event[1]! as Map<String, Object?>).containsKey('outro'), false);
+      }
+    });
   });
 }

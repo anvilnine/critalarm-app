@@ -23,8 +23,32 @@ const PaywallThanks partyThanks = PaywallThanks(
   cover: PartyTimeline.cover,
   buttonAt: PartyTimeline.goOn,
   beats: partyBeats,
+  mascotAt: partyMascotAt,
   builder: _build,
 );
+
+/// The box the mascot stands in at second [t], which its lift and squash
+/// move. After an outro it starts on the stage.
+Rect _critBox(PaywallThanksScope scope, ThanksSlipPlan plan, double t) =>
+    Rect.lerp(
+      thanksStartBox(scope.mascot) ?? plan.crit,
+      plan.crit,
+      PartyTimeline.travel(t),
+    )!;
+
+/// Where the mascot's box is at second [t], the box its moves are made
+/// on. Its lift and squash are not in it.
+Rect partyMascotAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  final plan = ThanksSlipPlan.of(
+    size: scope.size,
+    padding: scope.padding,
+    lines: count,
+    textScale: scope.textScale,
+    foot: PartyTimeline.foot,
+  );
+  return _critBox(scope, plan, t);
+}
 
 /// What is felt on the way, and the one thing heard. While the purchase
 /// cue sounds every beat is a haptic alone: the stamp is a thud under the
@@ -84,11 +108,7 @@ class PartyThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - PartyTimeline.end;
-        final box = Rect.lerp(
-          thanksStartBox(scope.mascot) ?? plan.crit,
-          plan.crit,
-          PartyTimeline.travel(t),
-        )!;
+        final box = _critBox(scope, plan, t);
         final fed = PartyTimeline.fed(t);
         final lift = PartyTimeline.lift(t, lines: count);
         final button = PartyTimeline.button(t);
@@ -110,15 +130,16 @@ class PartyThanks extends StatelessWidget {
               grown: PartyTimeline.covered(t),
             ),
             ThanksDisc(stage: stage, tone: _tone, grown: PartyTimeline.disc(t)),
-            ThanksCrit(
-              box: box,
-              face: PartyTimeline.face(t),
-              lift: lift,
-              stretch: PartyTimeline.stretch(t),
-              blink: rest > 0 ? heroBlinkAt(rest) : 0,
-              // The slip hangs where its shadow would fall.
-              shadow: PartyTimeline.travel(t) * (1 - fed),
-            ),
+            if (t >= scope.mascotFrom)
+              ThanksCrit(
+                box: box,
+                face: PartyTimeline.face(t),
+                lift: lift,
+                stretch: PartyTimeline.stretch(t),
+                blink: rest > 0 ? heroBlinkAt(rest) : 0,
+                // The slip hangs where its shadow would fall.
+                shadow: PartyTimeline.travel(t) * (1 - fed),
+              ),
             if (fed > 0)
               Positioned.fill(
                 child: ClipRect(
@@ -154,7 +175,7 @@ class PartyThanks extends StatelessWidget {
                 ),
               ),
             // The mascot's two hands on the slip's top edge.
-            if (fed >= 1)
+            if (fed >= 1 && t >= scope.mascotFrom)
               ...thanksHands(context, paper: paper, edge: plan.crit.width),
             // The pressed button, which the slip comes out of.
             if (origin != null && button > 0)
