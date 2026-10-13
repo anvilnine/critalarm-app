@@ -2170,6 +2170,16 @@ Future<void> configureDependencies({
             isFirstMessageReceived: getIt<FirstMessageStore>().isReceived,
           );
         },
+        // The list setup's last steps already loaded. A phone that was
+        // closed and opened again after setup holds none.
+        readHeldTopics: () {
+          final held = getIt<TopicsCubit>().state;
+          if (!held.isReady) return null;
+          return [
+            for (final topic in held.topics)
+              (name: topic.name, isCritical: topic.critical),
+          ];
+        },
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it

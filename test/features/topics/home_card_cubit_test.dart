@@ -20,6 +20,7 @@ import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/topics/data/reader_missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
@@ -190,6 +191,9 @@ class _Rig {
   bool isSetupOpen = false;
   bool setupOpenThrows = false;
 
+  /// The topics the app holds in memory, or null for none.
+  List<HeldTopic>? heldTopics;
+
   HomeCardCubit? _cubit;
 
   /// Starts on first use, so a test can build its own with other parts.
@@ -206,6 +210,7 @@ class _Rig {
       if (setupOpenThrows) throw StateError('prefs are gone');
       return isSetupOpen;
     },
+    readHeldTopics: () => heldTopics,
     clock: () => clock,
     timer: (after, run) {
       final timer = _FakeTimer(after, run);
@@ -742,6 +747,113 @@ void main() {
         );
         await rig.settle();
         expect(rig.kind, HomeCardKind.setup);
+      });
+
+      test(
+        'a held list with no Critical topic starts on the setup card',
+        () async {
+          final rig = _Rig()
+            ..isSetupOpen = true
+            ..heldTopics = [(name: 'prod-db', isCritical: false)];
+          addTearDown(rig.dispose);
+          final models = <HomeCardModel>[rig.cubit.state.model];
+          final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+          addTearDown(sub.cancel);
+
+          final first = models.single;
+          expect(first.kind, HomeCardKind.setup);
+          expect(first.numeral, const Count(1, 3));
+          expect(first.action, const ContinueSetup('/topics/prod-db'));
+
+          // The list loads and the checklist agrees: nothing changes.
+          rig.home.set(
+            _loaded(items: const [HomeTopicItem(name: 'prod-db')]),
+          );
+          rig.setup.set(
+            const HomeSetupState(
+              phase: HomeSetupPhase.checklist,
+              checklist: setupAfterServer,
+              firstTopic: 'prod-db',
+              watchedTopic: 'prod-db',
+            ),
+          );
+          await rig.settle();
+          expect(rig.kind, HomeCardKind.setup);
+          for (final model in models) {
+            expect(model, first);
+          }
+        },
+      );
+
+      test(
+        'a held list with a Critical topic starts on waiting, with its line',
+        () async {
+          final rig = _Rig()
+            ..isSetupOpen = true
+            ..heldTopics = [(name: 'prod-db', isCritical: true)];
+          addTearDown(rig.dispose);
+          rig.use.answer = SetupUse.servers;
+          rig.tools.saved['prod-db'] = ToolTemplate.uptimeKuma;
+          final models = <HomeCardModel>[rig.cubit.state.model];
+          final sub = rig.cubit.stream.listen((s) => models.add(s.model));
+          addTearDown(sub.cancel);
+
+          final first = models.single;
+          expect(first.kind, HomeCardKind.waiting);
+          // The topic is held, so the saved tool's line is there at once.
+          expect(first.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+          expect(first.action, const GetFirstLine('prod-db'));
+
+          rig.home.set(_loaded());
+          rig.setup.set(
+            const HomeSetupState(
+              phase: HomeSetupPhase.checklist,
+              checklist: setupFirstMessageOpen,
+              firstTopic: 'prod-db',
+              watchedTopic: 'prod-db',
+            ),
+          );
+          await rig.settle();
+          expect(rig.kind, HomeCardKind.waiting);
+          for (final model in models) {
+            expect(model, first);
+          }
+        },
+      );
+
+      test('a wrong guess from the held list is corrected', () async {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..heldTopics = [(name: 'prod-db', isCritical: false)];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.setup);
+
+        // The topic turned Critical on after the list was held.
+        rig.home.set(_loaded());
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+        expect(rig.kind, HomeCardKind.waiting);
+      });
+
+      test('a held list with no topic in it guesses nothing', () {
+        final rig = _Rig()
+          ..isSetupOpen = true
+          ..heldTopics = const [];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
+      });
+
+      test('a held list means nothing when the flags say setup is over', () {
+        final rig = _Rig()..heldTopics = [(name: 'prod-db', isCritical: false)];
+        addTearDown(rig.dispose);
+        expect(rig.cubit.state.model.kind, HomeCardKind.loading);
       });
 
       test('a phone whose records say nothing shows the dots', () {

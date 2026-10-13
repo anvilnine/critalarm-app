@@ -19,9 +19,14 @@
 //   home_waiting_tool_wins  answer "My servers and apps", Uptime Kuma saved
 //   home_waiting_unseeded   as a phone that has just finished setup: the
 //                           checklist has not looked at it yet
-//   home_waiting_changes    the first topic has Critical delivery off, so the
-//                           list later turns the waiting card into the setup
-//                           card (the one change the card still makes)
+//   home_setup_critical_off the first topic has Critical delivery off, so
+//                           the card is the setup card from the first frame
+//   home_cold_waiting       a phone opened again after setup, holding no topic
+//                           list: the waiting card is a guess, the saved tool
+//                           names its line once the list has answered
+//   home_cold_critical_off  as above with Critical off: the guess is the
+//                           waiting card and the list turns it into the setup
+//                           card (the one change the card can still make)
 //   home_walkthrough_sheet  the walkthrough offer over the card
 //
 // Frames (the "frame" part of a name):
@@ -32,6 +37,10 @@
 //   mid        the walkthrough sheet part way through its rise
 //   plus150    the changes scene only: 150 ms after the first frame
 //   plus210    the changes scene only: 210 ms after the first frame
+//
+// Every scene but the two cold ones starts as a phone does after setup in the
+// same run of the app: the topic list setup loaded is held in memory before
+// Home opens.
 //
 // Each scene is drawn at a 390 and a 320 wide phone, light and dark. Settled
 // frames come at text scales 1.0, 1.3 and 2.0 and once more under reduced
@@ -59,6 +68,7 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_offer_sheet.dart';
@@ -86,10 +96,6 @@ const _only = String.fromEnvironment('ONLY');
 /// `en.json`, written out here so the capture does not use the code it checks.
 const _plainLine = 'send the first line';
 
-/// Words of other card kinds. None of them may show while the card is
-/// waiting for the first message.
-const _otherKinds = ['PHONE CHECKS', 'asking the server', '···', 'SETUP'];
-
 /// One made-up phone and what the capture looks for on it.
 class _Scene {
   const _Scene(
@@ -102,6 +108,7 @@ class _Scene {
     this.opensSheet = false,
     this.isSeeded = true,
     this.isCritical = true,
+    this.isListHeld = true,
   });
 
   final String name;
@@ -118,9 +125,10 @@ class _Scene {
   /// The words the settled card has to show under "Not yet".
   final String line;
 
-  /// The words the first frames may show instead of [line]. The saved tool
-  /// sits on a topic the phone cannot name before the list loads, so the line
-  /// may change once the list has. Null means [line] from the first frame.
+  /// The words the first frames of a cold scene may show instead of [line].
+  /// The saved tool sits on a topic the phone cannot name before the list
+  /// loads, so the line may change once the list has. Null means [line] from
+  /// the first frame.
   final String? firstLine;
 
   /// Opens the walkthrough offer over Home.
@@ -130,12 +138,24 @@ class _Scene {
   /// has just finished setup.
   final bool isSeeded;
 
-  /// The topic has Critical delivery on. Off, the list turns the waiting card
-  /// into the setup card.
+  /// The topic has Critical delivery on. Off, the card is the setup card.
   final bool isCritical;
+
+  /// The app holds the topic list in memory before Home opens, as it does
+  /// after setup in the same run. False is a phone opened again after setup.
+  final bool isListHeld;
 
   /// The card ends on the setup card, not the waiting card.
   bool get endsOnSetup => !isCritical;
+
+  /// The words every frame may show, or null when the first frames are a
+  /// guess the list corrects and only the overlap is checked.
+  Set<String>? get allowedWords {
+    if (endsOnSetup) {
+      return isListHeld ? {'SETUP', 'next: turn on Critical'} : null;
+    }
+    return {'FIRST MESSAGE', line, if (!isListHeld) ?firstLine};
+  }
 }
 
 const _scenes = <_Scene>[
@@ -176,7 +196,15 @@ const _scenes = <_Scene>[
     use: 'servers',
     tool: 'uptime_kuma',
     line: 'press Test in Uptime Kuma',
+  ),
+  _Scene(
+    'home_cold_waiting',
+    topic: 'prod-db',
+    use: 'servers',
+    tool: 'uptime_kuma',
+    line: 'press Test in Uptime Kuma',
     firstLine: 'send the first line from your server',
+    isListHeld: false,
   ),
   _Scene(
     'home_waiting_unseeded',
@@ -186,11 +214,19 @@ const _scenes = <_Scene>[
     isSeeded: false,
   ),
   _Scene(
-    'home_waiting_changes',
+    'home_setup_critical_off',
     topic: 'prod-db',
     use: 'servers',
     line: 'send the first line from your server',
     isCritical: false,
+  ),
+  _Scene(
+    'home_cold_critical_off',
+    topic: 'prod-db',
+    use: 'servers',
+    line: 'send the first line from your server',
+    isCritical: false,
+    isListHeld: false,
   ),
   _Scene(
     'home_walkthrough_sheet',
@@ -265,6 +301,8 @@ Future<void> _boot(_Scene scene) async {
   getIt<MockServer>()
     ..seedWatching()
     ..createTopic(name: scene.topic, critical: scene.isCritical);
+  // Setup's last steps load the topic list before Home opens.
+  if (scene.isListHeld) await getIt<TopicsCubit>().ensureLoaded();
 
   await getIt.unregister<ReliabilityCubit>();
   getIt.registerLazySingleton<ReliabilityCubit>(
@@ -324,15 +362,10 @@ List<List<String>> _visibleWords(WidgetTester tester) {
   return slots;
 }
 
-/// Checks one frame. Two words in one slot is always a failure. While the
-/// card has not got its answer ([isBeforeAnswer]) any word of another kind is
-/// a failure too, and so is a foot other than the scene's lines.
-void _checkFrame(
-  WidgetTester tester,
-  _Scene scene,
-  String frame, {
-  required bool isBeforeAnswer,
-}) {
+/// Checks one frame. Two words in one slot is always a failure. So is a word
+/// the scene does not have: another kind's words ("PHONE CHECKS", the dots,
+/// "asking the server") before the card has its answer, or the wrong card.
+void _checkFrame(WidgetTester tester, _Scene scene, String frame) {
   final slots = _visibleWords(tester);
   for (final words in slots) {
     expect(
@@ -341,20 +374,12 @@ void _checkFrame(
       reason: '$frame of ${scene.name} drew $words over each other',
     );
   }
-  if (!isBeforeAnswer) return;
-  final all = [for (final words in slots) ...words];
-  for (final other in _otherKinds) {
-    expect(
-      all,
-      isNot(contains(other)),
-      reason: '$frame of ${scene.name} showed "$other"',
-    );
-  }
-  final feet = {scene.line, ?scene.firstLine};
+  final allowed = scene.allowedWords;
+  if (allowed == null) return;
   expect(
-    all.where((w) => w != 'FIRST MESSAGE'),
-    everyElement(isIn(feet)),
-    reason: '$frame of ${scene.name} showed a line the scene does not have',
+    [for (final words in slots) ...words],
+    everyElement(isIn(allowed)),
+    reason: '$frame of ${scene.name} showed words the scene does not have',
   );
 }
 
@@ -427,10 +452,10 @@ Future<GoRouter> _open(
     drawn = find.byType(AppStatusCard).evaluate().isNotEmpty;
   }
   expect(drawn, isTrue, reason: 'no card in ${scene.name}');
-  // The scene that ends on the setup card changes its words on the way, so
-  // for it only the overlap is checked, at the frames that cross the change.
-  final isBefore = !scene.endsOnSetup;
-  _checkFrame(tester, scene, 'the first frame', isBeforeAnswer: isBefore);
+  // A cold scene that ends on the setup card changes its words on the way:
+  // the frames that cross the change are saved and checked for overlap.
+  final crossesChange = scene.endsOnSetup && !scene.isListHeld;
+  _checkFrame(tester, scene, 'the first frame');
   if (timeline.contains('first')) {
     await _save(tester, key, nameOf('first'), errors);
   }
@@ -441,24 +466,23 @@ Future<GoRouter> _open(
     ('plus150', 150),
     ('plus210', 210),
   ]) {
-    if (at > 120 && !scene.endsOnSetup) break;
+    if (at > 120 && !crossesChange) break;
     await tester.pump(Duration(milliseconds: at - elapsed));
     elapsed = at;
-    _checkFrame(tester, scene, 'the frame at $at ms', isBeforeAnswer: isBefore);
+    _checkFrame(tester, scene, 'the frame at $at ms');
     if (timeline.contains(frame)) {
       await _save(tester, key, nameOf(frame), errors);
     }
   }
 
   // Step until the list has answered and the card shows the scene's end.
-  bool hasEnded() => scene.endsOnSetup
-      ? find.text('SETUP').evaluate().isNotEmpty
-      : find.text(scene.topic).evaluate().isNotEmpty &&
-            find.text(scene.line).evaluate().isNotEmpty;
+  bool hasEnded() =>
+      find.text(scene.topic).evaluate().isNotEmpty &&
+      find.text(scene.endsOnSetup ? 'SETUP' : scene.line).evaluate().isNotEmpty;
   var isEnded = hasEnded();
   for (var i = 0; i < 120 && !isEnded; i++) {
     await _step(tester);
-    _checkFrame(tester, scene, 'step $i', isBeforeAnswer: isBefore);
+    _checkFrame(tester, scene, 'step $i');
     isEnded = hasEnded();
   }
   expect(isEnded, isTrue, reason: 'no settled card in ${scene.name}');
@@ -474,12 +498,7 @@ Future<GoRouter> _open(
   // Let the rest of Home settle, checking the card stays put.
   for (var i = 0; i < 6; i++) {
     await _step(tester, 100);
-    _checkFrame(
-      tester,
-      scene,
-      'settling $i',
-      isBeforeAnswer: !scene.endsOnSetup,
-    );
+    _checkFrame(tester, scene, 'settling $i');
     if (!scene.endsOnSetup) {
       expect(find.text(scene.line), findsOneWidget);
     }
@@ -594,7 +613,10 @@ void main() {
             timeline: {
               if (scene.opensSheet) 'mid',
               if (!scene.opensSheet && isBig) ...['first', 'plus16', 'plus120'],
-              if (scene.endsOnSetup && isBig) ...['plus150', 'plus210'],
+              if (scene.endsOnSetup && !scene.isListHeld && isBig) ...[
+                'plus150',
+                'plus210',
+              ],
             },
           );
         }
