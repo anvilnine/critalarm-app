@@ -97,6 +97,18 @@ const double wipeBackStrikeAt = (wipeBackSweepEnd + wipeBackHoldEnd) / 2;
 bool wipeLeavingStruckAt(double t, {required bool isStill, double lead = 0}) =>
     isStill || t + lead >= wipeBackStrikeAt;
 
+/// The words of the small tag on the card, or null for none. On the
+/// leaving Wipe the card rests on the colour side under "Today" with its
+/// rows struck, which would read as today's history being hidden already.
+/// While the card shows that struck frame ([isStruck]) it carries [date],
+/// the date of the grey side. With today's rows showing, and on the
+/// plain Wipe, it carries nothing.
+String? wipeCardTagFor({
+  required bool reversed,
+  required bool isStruck,
+  required String date,
+}) => reversed && isStruck ? date : null;
+
 /// The second the divider is on the mascot to the eye: the sweep eases
 /// out, so it is home long before it stops. The landing's cue plays here.
 const double wipeLandsAt = wipeSweepStart + 0.4;

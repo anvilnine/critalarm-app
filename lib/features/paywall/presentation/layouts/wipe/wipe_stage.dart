@@ -5,6 +5,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
 
@@ -66,6 +67,9 @@ class WipeStage extends StatefulWidget {
 class _WipeStageState extends State<WipeStage> {
   static const double _tagGap = 10;
   static const double _tagTop = 2;
+
+  /// How far in from the card's right edge its tag stands.
+  static const double _cardTagInset = 14;
 
   /// The least room a tag keeps from the screen's edge.
   static const double _tagEdge = 8;
@@ -291,6 +295,13 @@ class _WipeStageState extends State<WipeStage> {
                     reversed &&
                     wipeLeavingStruckAt(t, isStill: isStill, lead: lead);
                 final face = wipeLeavingFaceAt(t + lead, atRest: isStill);
+                final cardTag = arrangement.kind == HeroStageKind.pair
+                    ? wipeCardTagFor(
+                        reversed: reversed,
+                        isStruck: isStruck,
+                        date: widget.before,
+                      )
+                    : null;
 
                 return Semantics(
                   container: true,
@@ -339,6 +350,29 @@ class _WipeStageState extends State<WipeStage> {
                             sceneBuilder: isStruck ? heldPicture : null,
                             motion: reversed ? wipeLeavingMotion : wipeMotion,
                           ),
+                          // The card shows the struck frame under "Today":
+                          // a tag with the date of the grey side says it is
+                          // the day after the plan ends. It sits under the
+                          // grey, so it is there when the grey leaves.
+                          if (cardTag != null)
+                            Positioned(
+                              top: arrangement.card.top,
+                              right:
+                                  size.width -
+                                  arrangement.card.right +
+                                  _cardTagInset,
+                              child: IgnorePointer(
+                                child: ExcludeSemantics(
+                                  child: FractionalTranslation(
+                                    translation: const Offset(0, -0.65),
+                                    child: ProofLabelTag(
+                                      text: cardTag,
+                                      isCompact: scope.isCompact,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           Positioned(
                             left: 0,
                             top: -bleed,
