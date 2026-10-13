@@ -23,6 +23,8 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/app_icon/app_icon.dart';
+import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
@@ -190,6 +192,40 @@ final List<_Screen> _screens = [
   (
     id: 'paywall.hosted',
     route: _paywallRoute,
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  // The stack of pass cards Settings opens: Look, Sound, Wake-up challenge,
+  // Widgets and App icon.
+  (
+    id: 'personalize',
+    route: '/settings/personalize',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  // The Sound pass. It is a root route of its own, shared with a topic's
+  // sound, so it is not under /settings/personalize.
+  (
+    id: 'personalize.sound',
+    route: '/sounds',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  // "Will it wake me?", the phone's own checks. Every permission reads as
+  // granted here, as on a phone that is set up.
+  (
+    id: 'reliability',
+    route: '/settings/reliability',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'priorities',
+    route: '/settings/priorities',
     fixture: 'calm',
     after: null,
     story: null,
@@ -732,6 +768,15 @@ void main() {
                   defaultTargetPlatform == TargetPlatform.iOS
               ? AlarmAuthorization.authorized.name
               : null,
+        );
+    // The icon channel has no native side here either, and a phone that
+    // cannot say which icon it shows gets no App icon pass. Answer as a
+    // phone showing the icon every install starts with.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel(AppIconHost.channelName),
+          (call) async =>
+              call.method == 'current' ? AppIcon.standard.platformName : null,
         );
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfiNoIsolate;
