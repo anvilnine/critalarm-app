@@ -40,6 +40,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Redo onboarding in a build that skips the store plays on through the offer, on the answer picked in that replay, with the made-up buy model, and saves nothing. A build with the real store skips the offer in a replay as before.
 - The face in the iOS Live Activity, the iOS widgets and the Android widgets is brand yellow with ink features in every state. The surface around it keeps the state colour.
 - Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
+- Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.

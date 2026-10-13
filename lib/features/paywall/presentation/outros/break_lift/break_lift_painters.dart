@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_pieces.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift/break_lift_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_painters.dart';
-import 'package:critalarm/features/paywall/presentation/outros/break_pieces.dart';
 import 'package:critalarm/features/paywall/presentation/outros/outro_parts.dart';
 import 'package:flutter/material.dart';
 
@@ -20,6 +20,7 @@ class BreakLiftPainter extends CustomPainter {
   const BreakLiftPainter({
     required this.t,
     required this.pieces,
+    required this.batch,
     required this.colors,
     required this.crit,
     required this.lean,
@@ -28,6 +29,9 @@ class BreakLiftPainter extends CustomPainter {
 
   final double t;
   final List<BreakPiece> pieces;
+
+  /// Draws the pieces. The owner keeps it between frames.
+  final BreakLiftPieceBatch batch;
   final BreakLiftRingColors colors;
   final ui.Image? wall;
 
@@ -51,35 +55,26 @@ class BreakLiftPainter extends CustomPainter {
     _clouds(canvas, size, BreakLiftLayer.mid, 0.17);
     _plume(canvas, size);
     _clouds(canvas, size, BreakLiftLayer.near, 0.26);
-    final k = size.shortestSide / _T.reference.width;
-    for (final piece in pieces) {
-      final f = _T.flightOf(piece, t, k: k);
-      if (f.alpha <= 0) continue;
-      paintBreakPiece(
-        canvas,
-        size,
-        piece,
-        shift: f.shift,
-        turn: f.turn,
-        scale: f.scale,
-        ground: colors.ground,
-        edge: colors.edge,
-        wall: wall,
-        alpha: f.alpha,
-      );
-    }
+    batch.paint(
+      canvas,
+      size,
+      t: t,
+      pieces: pieces,
+      wall: wall,
+      ground: colors.ground,
+      edge: colors.edge,
+    );
   }
 
   void _stars(Canvas canvas, Size size, double night) {
     if (night <= 0) return;
+    final paint = Paint();
     for (var i = 0; i < _T.stars.length; i++) {
       final star = _T.stars[i];
-      paintOutroStar(
-        canvas,
-        _T.starAt(i, t, size),
-        star.edge,
-        colors.cream.withValues(alpha: star.alpha * night),
-      );
+      final at = _T.starAt(i, t, size);
+      if (at.dy < -star.edge || at.dy > size.height + star.edge) continue;
+      paint.color = colors.cream.withValues(alpha: star.alpha * night);
+      canvas.drawCircle(at, star.edge * 0.6, paint);
     }
   }
 
@@ -115,44 +110,50 @@ class BreakLiftPainter extends CustomPainter {
     }
   }
 
-  /// One rocket plume under him: a tapered flame of his yellow round a
-  /// paler core, soft on every edge and fading to nothing along its
-  /// length. It leans with him and its tip sways on the clock.
+  /// One rocket plume under him: a soft teardrop of his yellow round a
+  /// paler core, fading to nothing on every side and along its length. It
+  /// is two round gradients stretched to the flame, so there is no blur to
+  /// pay for. It leans with him and its tip sways on the clock.
   void _plume(Canvas canvas, Size size) {
     final alpha = _T.plumeAlpha(t);
     final length = _T.plumeLength(t, size);
     final width = _T.plumeWidth(t, size);
     if (alpha <= 0.002 || length <= 1 || width <= 1) return;
     final sway = _T.plumeSway(t, size);
-    final k = size.shortestSide / _T.reference.width;
     final core = Color.lerp(colors.yellow, colors.cream, 0.6)!;
-    Path flame(double w, double l, double tip) => Path()
-      ..moveTo(-w / 2, 0)
-      ..quadraticBezierTo(-w * 0.5, l * 0.5, tip, l)
-      ..quadraticBezierTo(w * 0.5, l * 0.5, w / 2, 0)
-      ..close();
-    Paint paint(Color color, double a, double l, double blur) => Paint()
-      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, l), [
-        color.withValues(alpha: a),
-        color.withValues(alpha: 0),
-      ])
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * k);
+    void glow(Color color, double a, double w, double l, double lean) {
+      canvas
+        ..save()
+        ..translate(sway * lean, l * 0.5)
+        ..scale(w / 2, l / 2)
+        ..drawCircle(
+          Offset.zero,
+          1,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              Offset.zero,
+              1,
+              [
+                color.withValues(alpha: a),
+                color.withValues(alpha: a * 0.45),
+                color.withValues(alpha: 0),
+              ],
+              const [0, 0.45, 1],
+            ),
+        )
+        ..restore();
+    }
+
     canvas
       ..save()
       ..translate(
         crit.center.dx - math.sin(lean) * crit.height * 0.36,
         crit.center.dy + math.cos(lean) * crit.height * 0.36,
       )
-      ..rotate(lean)
-      ..drawPath(
-        flame(width, length, sway),
-        paint(colors.yellow, alpha * 0.8, length, 9),
-      )
-      ..drawPath(
-        flame(width * 0.5, length * 0.62, sway * 0.6),
-        paint(core, alpha, length * 0.62, 5),
-      )
-      ..restore();
+      ..rotate(lean);
+    glow(colors.yellow, alpha * 0.85, width * 1.1, length * 1.05, 0.6);
+    glow(core, alpha, width * 0.5, length * 0.62, 0.3);
+    canvas.restore();
   }
 
   @override
