@@ -4,6 +4,10 @@ import 'dart:ui';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
+import 'package:critalarm/features/paywall/presentation/outros/break_pieces.dart';
+
+export 'package:critalarm/features/paywall/presentation/outros/break_pieces.dart'
+    show BreakPiece;
 
 // The Pro outro as numbers. Crit breaks the paywall like a wall, lifts off
 // into the night, slows to a stop in the middle of the sky, and three rings
@@ -56,37 +60,6 @@ class BreakLiftRingPose {
       height: w * sin + h * cos,
     );
   }
-}
-
-/// One triangle of the broken wall.
-class BreakPiece {
-  const BreakPiece({
-    required this.a,
-    required this.b,
-    required this.c,
-    required this.centre,
-    required this.reach,
-    required this.velocity,
-    required this.spin,
-    required this.depth,
-  });
-
-  final Offset a;
-  final Offset b;
-  final Offset c;
-  final Offset centre;
-
-  /// How far its centre is from where the wall breaks, in screen units.
-  final double reach;
-
-  /// Screen points a second, outward from the break.
-  final Offset velocity;
-
-  /// Radians a second.
-  final double spin;
-
-  /// 0 to 1: how near the viewer it flies, so how much it grows.
-  final double depth;
 }
 
 abstract final class BreakLiftRingTimeline {

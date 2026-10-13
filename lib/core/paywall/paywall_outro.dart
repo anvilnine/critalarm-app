@@ -11,6 +11,9 @@ enum PaywallOutroId {
   /// The paywall breaks, Crit lifts off and rings out in the sky.
   breakLiftRing('break_lift_ring'),
 
+  /// The paywall breaks and Crit rises into the night in one smooth move.
+  breakLift('break_lift'),
+
   /// A cloud floats Crit up to the moon.
   cloudClimb('cloud_climb');
 
