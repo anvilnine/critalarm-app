@@ -33,6 +33,10 @@ void main() {
         PaywallSource.reminderProLater: 'reminder_pro_later',
         PaywallSource.homeDay0Card: 'home_day0_card',
         PaywallSource.onboardingOffer: 'onboarding_offer',
+        PaywallSource.personalizeSound: 'personalize_sound',
+        PaywallSource.personalizeWidgets: 'personalize_widgets',
+        PaywallSource.personalizeAppIcon: 'personalize_app_icon',
+        PaywallSource.reliability: 'reliability',
         PaywallSource.direct: 'direct',
       };
       for (final source in PaywallSource.values) {

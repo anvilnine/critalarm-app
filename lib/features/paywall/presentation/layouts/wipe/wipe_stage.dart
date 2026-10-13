@@ -3,7 +3,9 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cloc
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
 
@@ -19,6 +21,13 @@ import 'package:flutter/material.dart';
 ///
 /// A sideways drag anywhere on the stage moves the divider. A tap plays
 /// the current turn again, and the loop waits under a finger.
+///
+/// [reversed] is the run for a plan that is leaving. The stage opens in
+/// full colour and the grey side grows from the left until it covers the
+/// whole stage, then pulls back to rest on Crit. The colour side's pictures
+/// change to what Free has while the grey covers them, so the frame it
+/// rests on reads as a loss. Crit is drawn once over both sides, yellow,
+/// still and upright, sad and then calm: he is never filtered or clipped.
 class WipeStage extends StatefulWidget {
   const WipeStage({
     required this.player,
@@ -28,11 +37,21 @@ class WipeStage extends StatefulWidget {
     required this.label,
     required this.showing,
     this.lead = 0,
+    this.reversed = false,
+    this.leavingCritical,
     super.key,
   });
 
+  /// How many critical topics the person has, for the topics picture of the
+  /// run for a plan that is leaving: see `wipeLeavingCriticalFor`.
+  final int? leavingCritical;
+
   /// The head start of the sweep after an intro. See `wipeLeadFor`.
   final double lead;
+
+  /// The run for a plan that is leaving: grey covers the colour, and Crit
+  /// is drawn on his own, in his own colour.
+  final bool reversed;
 
   final HeroPlayer player;
   final Size size;
@@ -53,6 +72,9 @@ class WipeStage extends StatefulWidget {
 class _WipeStageState extends State<WipeStage> {
   static const double _tagGap = 10;
   static const double _tagTop = 2;
+
+  /// How far in from the card's right edge its tag stands.
+  static const double _cardTagInset = 14;
 
   /// The least room a tag keeps from the screen's edge.
   static const double _tagEdge = 8;
@@ -76,6 +98,7 @@ class _WipeStageState extends State<WipeStage> {
     grip: _hand,
     isStill: _player.isStill,
     lead: widget.lead,
+    reversed: widget.reversed,
   );
 
   // A finger takes hold of the divider: one tick of the ratchet.
@@ -186,11 +209,43 @@ class _WipeStageState extends State<WipeStage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wash = colors.yellow.withValues(alpha: isDark ? 0.14 : 0);
     final lead = widget.lead;
+    final reversed = widget.reversed;
+
+    // What the colour side draws in place of its pictures once the grey
+    // has covered them: the picture Free has, held on one moment, as the
+    // grey side draws it, with the colour left in.
+    Widget heldPicture(
+      BuildContext context,
+      HeroScene scene,
+      Size box,
+      double? playFrom,
+    ) {
+      final preview = scene.preview;
+      if (preview == null) return SizedBox.fromSize(size: box);
+      return MediaQuery(
+        data: media,
+        child: PaywallStill(
+          isStill: false,
+          child: PaywallLayoutScopeProvider(
+            scope: frozenScope,
+            child: PaywallPreview(
+              preview,
+              sizeClass: PaywallPreviewClass.large,
+              size: box,
+              playFrom: wipeFrozenSecond - wipeFreeOffsetFor(preview),
+              leavingCritical: widget.leavingCritical,
+            ),
+          ),
+        ),
+      );
+    }
 
     return PaywallCueScore(
       clock: _player.clock,
       // A divider the hand has taken does not sweep in.
-      beats: _hand == null ? wipeSweepCues(lead: lead) : const [],
+      beats: _hand == null
+          ? wipeSweepCues(lead: lead, reversed: reversed)
+          : const [],
       child: HeroTouchArea(
         player: _player,
         swipes: false,
@@ -217,7 +272,8 @@ class _WipeStageState extends State<WipeStage> {
                 final isStill = _player.isStill;
                 final home = _at(t);
                 // Home on the mascot, the divider leans with it.
-                final leans = !isStill && (home - _settle).abs() < 1e-6;
+                final leans =
+                    !reversed && !isStill && (home - _settle).abs() < 1e-6;
                 final x =
                     home * size.width +
                     (leans
@@ -229,16 +285,29 @@ class _WipeStageState extends State<WipeStage> {
                 final at = size.width <= 0 ? home : x / size.width;
                 // The line and its grip come in as the sweep starts, the
                 // tags as it ends.
+                final sweepStart = reversed
+                    ? wipeBackSweepStart
+                    : wipeSweepStart;
+                final sweepEnd = reversed ? wipeBackSweepEnd : wipeSweepEnd;
                 final line = isStill || _hand != null
                     ? 1.0
-                    : phase(
-                        t + lead,
-                        wipeSweepStart - 0.1,
-                        wipeSweepStart + 0.1,
-                      );
+                    : phase(t + lead, sweepStart - 0.1, sweepStart + 0.1);
                 final tags = isStill || _hand != null
                     ? 1.0
-                    : phase(t + lead, wipeSweepEnd - 0.3, wipeSweepEnd);
+                    : phase(t + lead, sweepEnd - 0.3, sweepEnd);
+                // The grey has covered the colour side's pictures, or
+                // nothing may move: they show what Free has.
+                final isStruck =
+                    reversed &&
+                    wipeLeavingStruckAt(t, isStill: isStill, lead: lead);
+                final face = wipeLeavingFaceAt(t + lead, atRest: isStill);
+                final cardTag = arrangement.kind == HeroStageKind.pair
+                    ? wipeCardTagFor(
+                        reversed: reversed,
+                        isStruck: isStruck,
+                        date: widget.before,
+                      )
+                    : null;
 
                 return Semantics(
                   container: true,
@@ -283,8 +352,33 @@ class _WipeStageState extends State<WipeStage> {
                             seconds: seconds,
                             bleedTop: bleed,
                             arrange: wipeArrangementFor,
-                            motion: wipeMotion,
+                            hidesMascot: reversed,
+                            sceneBuilder: isStruck ? heldPicture : null,
+                            motion: reversed ? wipeLeavingMotion : wipeMotion,
                           ),
+                          // The card shows the struck frame under "Today":
+                          // a tag with the date of the grey side says it is
+                          // the day after the plan ends. It sits under the
+                          // grey, so it is there when the grey leaves.
+                          if (cardTag != null)
+                            Positioned(
+                              top: arrangement.card.top,
+                              right:
+                                  size.width -
+                                  arrangement.card.right +
+                                  _cardTagInset,
+                              child: IgnorePointer(
+                                child: ExcludeSemantics(
+                                  child: FractionalTranslation(
+                                    translation: const Offset(0, -0.65),
+                                    child: ProofLabelTag(
+                                      text: cardTag,
+                                      isCompact: scope.isCompact,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           Positioned(
                             left: 0,
                             top: -bleed,
@@ -318,10 +412,18 @@ class _WipeStageState extends State<WipeStage> {
                                               seconds: seconds,
                                               bleedTop: bleed,
                                               arrange: wipeArrangementFor,
+                                              // The leaving run draws the
+                                              // same picture on both sides.
+                                              sceneBuilder: reversed
+                                                  ? heldPicture
+                                                  : null,
                                               // The disc alone: nothing
                                               // rises on this side.
                                               showsShapes: false,
-                                              motion: wipeFreeMotion,
+                                              hidesMascot: reversed,
+                                              motion: reversed
+                                                  ? wipeLeavingMotion
+                                                  : wipeFreeMotion,
                                             ),
                                           ),
                                         ),
@@ -332,6 +434,21 @@ class _WipeStageState extends State<WipeStage> {
                               ),
                             ),
                           ),
+                          // Crit on his own over both sides, so the grey
+                          // never reaches his face. Still, upright and
+                          // level: no bob, no lean, no hop.
+                          if (reversed)
+                            Positioned.fromRect(
+                              rect: arrangement.mascot,
+                              child: HeroMascot(
+                                size: arrangement.mascot.width,
+                                face: face.face,
+                                fromFace: face.from,
+                                faceBlend: face.blend,
+                                entranceStyle: wipeMotion.entrance,
+                                entrance: frame.entrance,
+                              ),
+                            ),
                           Positioned(
                             left: x - 1,
                             top: -bleed,
@@ -360,7 +477,16 @@ class _WipeStageState extends State<WipeStage> {
                                   wipeTagShow(
                                     x - _tagEdge,
                                     beforeWidth + _tagGap,
-                                  ),
+                                  ) *
+                                  // With the grey over the whole stage the
+                                  // date would sit under the close cross.
+                                  (reversed
+                                      ? phase(
+                                          size.width - _crossRoom - x + _tagGap,
+                                          0,
+                                          16,
+                                        )
+                                      : 1.0),
                               child: Text(
                                 widget.before,
                                 style: tagStyle,
@@ -388,7 +514,11 @@ class _WipeStageState extends State<WipeStage> {
                             ),
                           ),
                           Positioned(
-                            left: x - _grip / 2,
+                            left: wipeGripLeftFor(
+                              x,
+                              width: size.width,
+                              grip: _grip,
+                            ),
                             top: gripY - _grip / 2,
                             child: Opacity(
                               opacity: line,

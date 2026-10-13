@@ -111,6 +111,8 @@ typedef HeroHeadlineBuilder =
 ///   `prelude` so a beat of the layout's own plays first.
 /// - [arrange], [tone], [sceneBuilder], [beside], [showsShapes]: the
 ///   stage's, see [HeroStage].
+/// - [alsoIncluded], and [showsLeadLine], to group the benefits after a
+///   lead under a label.
 /// - [motion], a [HeroMotion] that names another atmosphere, entrance,
 ///   idle or way for a preview to arrive.
 /// - [player], to read the frame from outside: for a backdrop that
@@ -131,6 +133,8 @@ class HeroComposition extends StatefulWidget {
     required this.scope,
     this.headline,
     this.headlineBuilder,
+    this.headlineAt,
+    this.headlineAlternatives = const [],
     this.lines,
     this.loop,
     this.player,
@@ -142,8 +146,34 @@ class HeroComposition extends StatefulWidget {
     this.motion = const HeroMotion(),
     this.entranceCues,
     this.turnCue = PaywallCue.next,
+    this.alsoIncluded,
+    this.showsLeadLine = true,
+    this.headlineEndRoom = 0,
+    this.showsWholeLinesOnly = false,
     super.key,
   });
+
+  /// How far from the right edge the headline stops, when that is more than
+  /// the side inset: room for a close control the headline would run under.
+  /// Zero keeps the side inset.
+  final double headlineEndRoom;
+
+  /// True draws only the lines that fit whole in the box. A list that does
+  /// not fit loses its last lines, one at a time, and never shows a line cut
+  /// at the foot. A group under a label needs two, so with room for one it
+  /// is left out with its label.
+  final bool showsWholeLinesOnly;
+
+  /// The words of the small label that groups every benefit but the first
+  /// under it, in a lighter weight. Null is the plain list. It only shows
+  /// with two benefits or more, the first being the lead. Pass it with
+  /// `heroShowsAlsoIncluded` so a paywall with no lead keeps its list.
+  final String? alsoIncluded;
+
+  /// False leaves the lead's own line out when [alsoIncluded] shows: the
+  /// words above the list (a tag, the headline) and the stage already say
+  /// it. The lead is still the first turn, and the others are still lines.
+  final bool showsLeadLine;
 
   /// The cues of the entrance, by clock second. Null is
   /// [heroEntranceCues] for [motion].
@@ -157,6 +187,16 @@ class HeroComposition extends StatefulWidget {
   /// Null is the approved headline for the scope's product.
   final String? headline;
   final HeroHeadlineBuilder? headlineBuilder;
+
+  /// The headline for the frame on the stage, for a layout whose headline
+  /// follows the beat. Null keeps [headline] for every frame. It only
+  /// changes the words: no motion goes with the change. The room for the
+  /// headline is the tallest of [headline] and [headlineAlternatives], so
+  /// the stage never moves when the words do.
+  final String Function(HeroFrame frame)? headlineAt;
+
+  /// Every other text [headlineAt] can answer, to measure the room by.
+  final List<String> headlineAlternatives;
 
   /// One short line per benefit. Null is [heroLineFor] each.
   final List<String>? lines;
@@ -206,6 +246,29 @@ class _HeroCompositionState extends State<HeroComposition> {
     super.dispose();
   }
 
+  /// The headline: [fallback] for every frame, or the words
+  /// `headlineAt` gives for the frame on the stage, drawn in a box of the
+  /// measured height.
+  Widget _headlineText(
+    HeroPlayer player,
+    String fallback,
+    TextStyle style,
+    double height,
+  ) {
+    final at = widget.headlineAt;
+    if (at == null) return Text(fallback, style: style);
+    return SizedBox(
+      height: height,
+      child: Align(
+        alignment: AlignmentDirectional.topStart,
+        child: PaywallClockBuilder(
+          clock: scope.clock,
+          builder: (context, t, _) => Text(at(player.frameAt(t)), style: style),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tones = PaywallToneColors.of(context, widget.tone);
@@ -228,15 +291,25 @@ class _HeroCompositionState extends State<HeroComposition> {
       fontSize: sizes.line,
     ).copyWith(height: 1.35);
 
-    final metrics = HeroLinesMetrics.measure(
+    final allLines = widget.lines ?? [for (final b in benefits) heroLineFor(b)];
+    HeroLinesMetrics measure(int shown) => HeroLinesMetrics.measure(
       context,
-      lines: widget.lines ?? [for (final b in benefits) heroLineFor(b)],
+      lines: allLines.take(shown).toList(),
       width: width,
       sizes: sizes,
       tone: widget.tone,
+      alsoIncluded: widget.alsoIncluded,
+      showsLead: widget.showsLeadLine,
     );
-    final lines = metrics.lines;
-    final rowHeights = metrics.rowHeights;
+    final headlineWidth = heroHeadlineWidth(
+      width: width,
+      endRoom: widget.headlineEndRoom,
+    );
+    final headlineHeight = [
+      for (final text in [headline, ...widget.headlineAlternatives])
+        paywallTextHeight(context, text, headlineStyle, headlineWidth),
+    ].reduce(math.max);
+    final sentenceWidth = measure(allLines.length).textWidth;
     final sentence = isOne ? benefits.single.line : null;
     final sentenceHeight = sentence == null
         ? 0.0
@@ -245,20 +318,31 @@ class _HeroCompositionState extends State<HeroComposition> {
                 context,
                 sentence,
                 sentenceStyle,
-                metrics.textWidth,
+                sentenceWidth,
               );
-    final headlineHeight = paywallTextHeight(
-      context,
-      headline,
-      headlineStyle,
-      width,
-    );
+    double leftFor(HeroLinesMetrics m) =>
+        scope.size.height -
+        (headlineHeight +
+            sizes.headlineGap +
+            m.height +
+            sentenceHeight +
+            sizes.stageGap +
+            sizes.bottomGap);
+
+    var metrics = measure(allLines.length);
+    if (widget.showsWholeLinesOnly && leftFor(metrics) < 0) {
+      final grouped = widget.alsoIncluded != null && !widget.showsLeadLine;
+      final shown = heroWholeLinesFor(
+        count: allLines.length,
+        leftFor: (n) => leftFor(measure(n)),
+        // The lead is not drawn, so a group of one line is the lead alone.
+        isAllowed: (n) => !(grouped && n == 1),
+      );
+      metrics = measure(shown);
+    }
+    final lines = metrics.lines;
     final words =
-        headlineHeight +
-        sizes.headlineGap +
-        rowHeights.fold(0, (sum, h) => sum + h) +
-        sizes.rowGap * math.max(0, lines.length - 1) +
-        sentenceHeight;
+        headlineHeight + sizes.headlineGap + metrics.height + sentenceHeight;
 
     // Where the middle of each line is, down the block of words. A tap is
     // matched to a line with these.
@@ -352,13 +436,23 @@ class _HeroCompositionState extends State<HeroComposition> {
                       after: after,
                       child: Semantics(
                         header: true,
-                        child:
-                            widget.headlineBuilder?.call(
-                              context,
-                              headline,
-                              headlineStyle,
-                            ) ??
-                            Text(headline, style: headlineStyle),
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: width - headlineWidth,
+                          ),
+                          child:
+                              widget.headlineBuilder?.call(
+                                context,
+                                headline,
+                                headlineStyle,
+                              ) ??
+                              _headlineText(
+                                player,
+                                headline,
+                                headlineStyle,
+                                headlineHeight,
+                              ),
+                        ),
                       ),
                     ),
                     SizedBox(height: sizes.headlineGap),
@@ -366,7 +460,9 @@ class _HeroCompositionState extends State<HeroComposition> {
                       player: player,
                       metrics: metrics,
                       // What the short line leaves out is still said.
-                      labels: [for (final b in benefits) b.line],
+                      labels: [
+                        for (final b in benefits.take(lines.length)) b.line,
+                      ],
                       isPickable: !isOne,
                       handlesTaps: false,
                     ),

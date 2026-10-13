@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -5,7 +6,9 @@ import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/widgets.dart';
@@ -190,6 +193,9 @@ class PaywallRouteInfo extends InheritedWidget {
     required super.child,
     this.showsUnbuilt = false,
     this.lead,
+    this.headline = PaywallHeadlineVariant.none,
+    this.historyOwn,
+    this.leaving,
     super.key,
   });
 
@@ -200,6 +206,21 @@ class PaywallRouteInfo extends InheritedWidget {
   /// in the product's display order.
   final PaywallLead? lead;
 
+  /// The words for a plan that is ending or ended. Receipt and Wipe read it;
+  /// the other layouts ignore it.
+  final PaywallHeadlineVariant headline;
+
+  /// The person's own alarms for the history picture, when the phone holds
+  /// some older than the Free window. Null draws the made-up rows. Topic
+  /// names in it are drawn on screen and go nowhere else.
+  final HistoryOwn? historyOwn;
+
+  /// What the leaving paywall knows: the day the plan ends, whether the sad
+  /// opening was shown for that day already, and the person's numbers. Null
+  /// on every other paywall. The numbers are drawn on screen and go nowhere
+  /// else.
+  final PaywallLeaving? leaving;
+
   /// A developer view that also lists the benefits this build does not
   /// have yet, to see a layout with the full list.
   final bool showsUnbuilt;
@@ -207,11 +228,22 @@ class PaywallRouteInfo extends InheritedWidget {
   static PaywallRouteInfo? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PaywallRouteInfo>();
 
+  /// The headline variant of the route above [context]: `none` with no route.
+  static PaywallHeadlineVariant headlineOf(BuildContext context) =>
+      maybeOf(context)?.headline ?? PaywallHeadlineVariant.none;
+
+  /// The leaving part of the route above [context], or null.
+  static PaywallLeaving? leavingOf(BuildContext context) =>
+      maybeOf(context)?.leaving;
+
   @override
   bool updateShouldNotify(PaywallRouteInfo oldWidget) =>
       layout != oldWidget.layout ||
       source != oldWidget.source ||
       lead != oldWidget.lead ||
+      headline != oldWidget.headline ||
+      historyOwn != oldWidget.historyOwn ||
+      leaving != oldWidget.leaving ||
       showsUnbuilt != oldWidget.showsUnbuilt;
 }
 

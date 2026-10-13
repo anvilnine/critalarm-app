@@ -8,6 +8,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/lock_tap_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -46,15 +47,20 @@ String planWordFor(Holding holding) => switch (holding) {
 ///
 /// For the one control on a page that sells a locked feature from outside
 /// its [AccessLock], such as the bar under the Personalize preview.
+///
+/// [facts] is what the screen knows of the person's own numbers, for a
+/// paywall that draws them. A paywall that does not use them leaves them
+/// out of its location.
 Future<void> openPaywallForFeature(
   BuildContext context,
   AppFeature feature,
-  LockSource source,
-) async {
+  LockSource source, {
+  PaywallLeadFacts? facts,
+}) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
   if (!context.mounted) return;
-  await openPaywallFor(context, access.decide(feature), source);
+  await openPaywallFor(context, access.decide(feature), source, facts: facts);
 }
 
 /// The plan word to put on an option that [feature] locks, or null when it
@@ -106,13 +112,28 @@ Future<bool> keepOrOpenPaywall(
 /// is not locked. For a caller that closes itself first and is left with
 /// a router and no context, such as a sheet. It waits for the plan to be
 /// read, as [openPaywallForFeature] does.
+///
+/// A Hosted paywall that leads with history carries the person's own rows,
+/// read the way the "Older alarms" line reads them. A read that fails or
+/// takes longer than [ownWait] opens the paywall with sample rows.
 Future<String?> paywallLocationForFeature(
   AppFeature feature,
-  LockSource source,
-) async {
+  LockSource source, {
+  Duration ownWait = const Duration(seconds: 3),
+}) async {
   final access = getIt<FeatureAccess>();
   await access.ready;
-  return paywallLocationFor(access.decide(feature), source);
+  final decision = access.decide(feature);
+  if (decision is! FeatureLocked || decision.offer != Holding.hosted) {
+    return paywallLocationFor(decision, source);
+  }
+  try {
+    return await hostedPaywallLocationWithOwn(
+      source.hosted,
+    ).timeout(ownWait);
+  } on Object catch (_) {
+    return paywallLocationFor(decision, source);
+  }
 }
 
 /// [FeatureLock], fed from `FeatureAccess` for one [feature].
