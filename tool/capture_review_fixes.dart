@@ -256,6 +256,18 @@ final _scenes = <_Scene>[
     times: [2.5, 5.5, 8.5, 11.5, 14.5],
   ),
   _Scene(
+    'wipe_ended',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.wipe,
+      PaywallProduct.hosted,
+      source: PaywallSource.planSheetEnded,
+      lead: PaywallBenefitId.history,
+      headline: PaywallHeadlineVariant.ended,
+      own: _ownRows,
+    ),
+    times: [3.0],
+  ),
+  _Scene(
     'wipe_forward',
     () => paywallLayoutLocation(
       PaywallLayoutId.wipe,
@@ -455,6 +467,14 @@ String _headlineOn(WidgetTester tester) {
         if (seconds >= 5.5 && found == lead) {
           problems.add('"$lead" stays up on another beat.');
         }
+      }
+    case 'wipe_ended':
+      if (find.text(LocaleKeys.paywall_also_label.tr()).evaluate().isEmpty &&
+          find
+              .text(LocaleKeys.paywall_also_label.tr().toUpperCase())
+              .evaluate()
+              .isEmpty) {
+        problems.add('The ended Wipe has no Also included label.');
       }
     case 'proof_sample_rows':
       final found = _headlineOn(tester);

@@ -342,4 +342,54 @@ void main() {
       expect(wipeGripLeftFor(10, width: 20, grip: grip), 0);
     });
   });
+
+  group('the ended Wipe lists its benefits', () {
+    test('keeps the lead line and groups the rest under Also included', () {
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: true,
+          benefitCount: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('needs a lead and a second benefit', () {
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: false,
+          benefitCount: 5,
+        ),
+        isFalse,
+      );
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: true,
+          benefitCount: 1,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no other Wipe changes its list', () {
+      for (final headline in [
+        WipeHeadline.hosted,
+        WipeHeadline.pro,
+        WipeHeadline.leaving,
+      ]) {
+        expect(
+          wipeShowsAlsoIncluded(
+            headline: headline,
+            hasLead: true,
+            benefitCount: 5,
+          ),
+          isFalse,
+          reason: '$headline',
+        );
+      }
+    });
+  });
 }

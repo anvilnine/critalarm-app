@@ -10,6 +10,7 @@ import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -54,6 +55,18 @@ WipeHeadline wipeHeadlineFor({
     PaywallHeadlineVariant.none => WipeHeadline.hosted,
   };
 }
+
+/// Whether the Wipe groups its benefits under "Also included": the lead
+/// keeps its line and the others sit under the label, as the Sheet and Proof
+/// list them. Only the Wipe for a plan that ended does, when the route has a
+/// lead and a second benefit. Every other Wipe keeps the plain list.
+bool wipeShowsAlsoIncluded({
+  required WipeHeadline headline,
+  required bool hasLead,
+  required int benefitCount,
+}) =>
+    headline == WipeHeadline.ended &&
+    heroShowsAlsoIncluded(hasLead: hasLead, benefitCount: benefitCount);
 
 /// Whether the Wipe runs backwards: a Hosted plan that is ending, with what
 /// the leaving paywall knows in the route and at least two rows to list
