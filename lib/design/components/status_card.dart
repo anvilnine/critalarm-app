@@ -61,6 +61,22 @@ enum AppStatusVariant {
     ? (fill: colors.surfaceElevated, line: colors.panelLine)
     : (fill: colors.panel, line: null);
 
+/// How the label and the foot swap when their words change.
+///
+/// The old words fade out over the first half of the swap and the new ones
+/// fade in over the second half, so two texts are never on screen at the
+/// same time. The switcher runs one controller per text: forward for the
+/// words coming in, backward for the words going out, so the outgoing curve
+/// is read from 1 down to 0.
+const Curve statusCardSwapIn = Interval(0.5, 1, curve: AppCurves.easeOut);
+
+/// The curve of the words going out, read backward. See [statusCardSwapIn].
+const Curve statusCardSwapOut = Interval(
+  0.5,
+  1,
+  curve: FlippedCurve(AppCurves.easeOut),
+);
+
 /// The dark card that answers one question on a screen.
 ///
 /// A mono label, a big numeral, optional pips, a mono foot and an optional
@@ -316,8 +332,8 @@ class _AppStatusCardState extends State<AppStatusCard>
   Widget _cross(Widget child, Object key) => ExcludeSemantics(
     child: AnimatedSwitcher(
       duration: context.motion(AppDurations.base),
-      switchInCurve: AppCurves.easeOut,
-      switchOutCurve: AppCurves.easeOut,
+      switchInCurve: statusCardSwapIn,
+      switchOutCurve: statusCardSwapOut,
       layoutBuilder: (current, previous) => Stack(
         alignment: Alignment.centerLeft,
         children: [...previous, ?current],

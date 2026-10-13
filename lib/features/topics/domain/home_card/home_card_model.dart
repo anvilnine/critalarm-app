@@ -383,10 +383,14 @@ final class ContinueSetup extends HomeCardAction {
 }
 
 /// Open the token and curl line of [topic].
+///
+/// [topic] is null on the first frames, before Home's list has named the
+/// topic it watches. The screen's cubit fills it in when the button is
+/// pressed.
 final class GetFirstLine extends HomeCardAction {
   const GetFirstLine(this.topic);
 
-  final String topic;
+  final String? topic;
 
   @override
   bool operator ==(Object other) =>

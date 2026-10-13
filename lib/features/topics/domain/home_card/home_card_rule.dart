@@ -90,9 +90,13 @@ bool _isSetup(HomeCardInput i) {
       !_onlyFirstMessageOpen(setup);
 }
 
+/// Setup waits on the first message. Before the checklist has an answer
+/// (it is hidden), the phone's own records may already say so
+/// ([HomeCardInput.expectsFirstMessage]).
 bool _isWaiting(HomeCardInput i) {
   final setup = i.setup;
-  return setup != null && setup.isVisible && _onlyFirstMessageOpen(setup);
+  if (setup == null || !setup.isVisible) return i.expectsFirstMessage;
+  return _onlyFirstMessageOpen(setup);
 }
 
 bool _onlyFirstMessageOpen(SetupChecklist setup) =>
@@ -106,7 +110,10 @@ bool _isQuiet(HomeCardInput i) {
 }
 
 HomeCardModel _build(HomeCardKind kind, HomeCardInput i) => switch (kind) {
-  HomeCardKind.loading => _loading(),
+  // The waiting card is drawn from the first frame when the phone's own
+  // records say that is where setup stands. The list answering later then
+  // changes nothing on the card.
+  HomeCardKind.loading => i.expectsFirstMessage ? _waiting(i) : _loading(),
   HomeCardKind.ringing => _ringing(i.ringing!),
   HomeCardKind.acknowledged => _acknowledged(i.acknowledged!),
   HomeCardKind.handled => _handled(i.handled!),
@@ -338,7 +345,11 @@ HomeCardModel _waiting(HomeCardInput i) {
       HomeCardFootSlot.sendTheLine,
       waitingLine: waitingLineFor(use: i.use, savedTool: i.watchedTool),
     ),
-    action: topic == null ? null : GetFirstLine(topic),
+    // Home's list names the topic. Until it has, the button is already there
+    // and finds the topic when it is pressed.
+    action: topic == null && !i.expectsFirstMessage
+        ? null
+        : GetFirstLine(topic),
     face: FaceState.watching,
     severity: SeverityMode.none,
     discTone: HomeCardDiscTone.paleYellow,

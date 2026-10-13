@@ -106,6 +106,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
 - Setup no longer says the test message rings this phone when the topic has Critical delivery off. It says the message lands on the phone.
+- The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

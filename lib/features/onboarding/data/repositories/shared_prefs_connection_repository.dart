@@ -10,8 +10,12 @@ class SharedPrefsConnectionRepository implements ConnectionRepository {
 
   final SharedPreferences _prefs;
 
-  static const _keyServerUrl = 'server_url';
-  static const _keyAdminToken = 'admin_token';
+  static const String _keyServerUrl = serverUrlKey;
+  static const String _keyAdminToken = adminTokenKey;
+
+  /// The preference keys, for a reader that answers from memory.
+  static const serverUrlKey = 'server_url';
+  static const adminTokenKey = 'admin_token';
 
   @override
   Future<AppResult<ServerConnection>> getConnection() async {

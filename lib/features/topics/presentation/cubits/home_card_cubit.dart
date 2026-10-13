@@ -50,10 +50,12 @@ class HomeCardCubit extends Cubit<HomeCardState> {
     required this._toolTemplates,
     required this._testRouteName,
     required this._askPermissionsRouteName,
+    bool Function()? isSetupOpen,
     DateTime Function()? clock,
     HomeCardTimerFactory? timer,
   }) : _now = clock ?? DateTime.now,
        _newTimer = timer ?? Timer.new,
+       _isSetupOpen = isSetupOpen ?? (() => false),
        super(
          HomeCardState(
            model: resolveHomeCard(
@@ -82,6 +84,10 @@ class HomeCardCubit extends Cubit<HomeCardState> {
   final DateTime Function() _now;
   final HomeCardTimerFactory _newTimer;
 
+  /// Whether the phone's own records say setup is open and only the first
+  /// message is missing. Answers from memory, with no read.
+  final bool Function() _isSetupOpen;
+
   late final List<StreamSubscription<Object?>> _subs;
   Timer? _boundary;
 
@@ -107,11 +113,19 @@ class HomeCardCubit extends Cubit<HomeCardState> {
 
   /// What the screen should do for the card's button.
   HomeCardEffect actionFor(HomeCardAction action) => homeCardEffectFor(
-    action,
+    _withTopic(action),
     missed: _missedFact,
     testRouteName: _testRouteName,
     askPermissionsRouteName: _askPermissionsRouteName,
   );
+
+  /// The first-line button can be drawn before Home's list names the topic it
+  /// watches. By the time it is pressed the name is usually known, and
+  /// without one the press does nothing.
+  HomeCardAction _withTopic(HomeCardAction action) {
+    if (action is! GetFirstLine || action.topic != null) return action;
+    return GetFirstLine(_setup.state.watchedTopic);
+  }
 
   void _onHome(HomeState home) {
     if (home.status == HomeStatus.success) {
@@ -173,10 +187,26 @@ class HomeCardCubit extends Cubit<HomeCardState> {
       watchedTopic: setup.watchedTopic,
       watchedTool: _savedTool(setup.watchedTopic),
       use: _savedUse(),
+      expectsFirstMessage: _expectsFirstMessage(home, setup),
       newestMessageAt: facts.newestMessageAt,
       lastAlarmAt: facts.lastAlarmAt,
       hasCriticalTopic: home.topicItems.any((t) => t.ringsThroughSilent),
     );
+  }
+
+  /// The phone's records say setup waits on the first message, and Home has
+  /// no answer of its own yet: the list is loading, or the checklist has not
+  /// looked at this phone. Once the checklist is drawn it decides.
+  bool _expectsFirstMessage(HomeState home, HomeSetupState setup) {
+    final isLoading =
+        home.status == HomeStatus.initial || home.status == HomeStatus.loading;
+    if (!isLoading && setup.phase != HomeSetupPhase.none) return false;
+    try {
+      return _isSetupOpen();
+    } on Object {
+      // A failed read is "no guess", never an error on Home.
+      return false;
+    }
   }
 
   // Both stores answer from memory, so the line is part of the first model
