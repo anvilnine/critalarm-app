@@ -1898,6 +1898,17 @@
     "after_critical_none": "{free_critical_topics} critical topics at most.",
     "after_pushes": "{free_p4_daily} high priority pushes a day"
   },
+  "paywall_leaving_wipe": {
+    "headline": "This is {date} without {name}",
+    "today": "Today",
+    "compare_label": "Compare {before} and {after}",
+    "label_history": "Alarm history",
+    "label_pushes": "High priority pushes a day",
+    "days": "{value} days",
+    "critical": "Your {n} stay critical. No new ones past {free_critical_topics}.",
+    "critical_one": "Your critical topic stays critical. No new ones past {free_critical_topics}.",
+    "critical_none": "{free_critical_topics} critical topics at most."
+  },
   "paywall_sheet": {
     "headline": {
       "topics": "Critical on every topic",
