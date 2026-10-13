@@ -19,6 +19,7 @@ import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/incidents/domain/ack_confetti_rule.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
@@ -961,6 +962,7 @@ class AcknowledgedScreen extends StatelessWidget {
         context,
         isWide,
         bottomBar,
+        exits: exits,
         // Setup going on says what the ring proved, as a short list of
         // ticks. The other exits keep the welcome they always had.
         title: provesSetup
@@ -1154,6 +1156,7 @@ class AcknowledgedScreen extends StatelessWidget {
     BuildContext context,
     bool isWide,
     Widget bottomBar, {
+    required AckedExits exits,
     required String title,
     required Widget detail,
     required List<FaceState> restFaces,
@@ -1240,7 +1243,9 @@ class AcknowledgedScreen extends StatelessWidget {
     return Stack(
       children: [
         scaffold,
-        Positioned.fill(child: _AckConfetti(colors: colors)),
+        Positioned.fill(
+          child: _AckConfettiGate(exits: exits, colors: colors),
+        ),
       ],
     );
   }
@@ -1523,6 +1528,58 @@ String _formatRingDuration(Duration duration) {
   final minutes = duration.inMinutes;
   final seconds = duration.inSeconds % 60;
   return '$minutes min $seconds s';
+}
+
+/// Holds the confetti back until the screen knows it may fly.
+///
+/// The setup test reads `OnboardingOfferGate.isAhead()` once, when the screen
+/// appears, and keeps the answer. While it is out, and when the offer step
+/// follows, nothing is built, so no confetti flies and no haptic plays (the
+/// haptic starts with the confetti). When the answer is no, the confetti
+/// starts then, a few frames after the screen opened. Every other exit builds
+/// it at once. See [ackConfettiMayFly].
+class _AckConfettiGate extends StatefulWidget {
+  const _AckConfettiGate({required this.exits, required this.colors});
+
+  final AckedExits exits;
+  final AppColors colors;
+
+  @override
+  State<_AckConfettiGate> createState() => _AckConfettiGateState();
+}
+
+class _AckConfettiGateState extends State<_AckConfettiGate> {
+  /// Null until the gate has answered. Stays null for an exit that never asks.
+  bool? _isOfferAhead;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.exits == AckedExits.continueSetup) unawaited(_readOffer());
+  }
+
+  Future<void> _readOffer() async {
+    bool isAhead;
+    try {
+      isAhead = await getIt<OnboardingOfferGate>().isAhead();
+    } on Object {
+      // The gate answers false itself when it cannot work it out.
+      isAhead = false;
+    }
+    if (!mounted) return;
+    setState(() => _isOfferAhead = isAhead);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mayFly = ackConfettiMayFly(
+      exits: widget.exits,
+      isOfferAhead: _isOfferAhead,
+      reduceMotion: context.reduceMotion,
+    );
+    if (!mayFly) return const SizedBox.shrink();
+    return _AckConfetti(colors: widget.colors);
+  }
 }
 
 /// Two confetti bursts that fire once when the demo's acknowledged screen
