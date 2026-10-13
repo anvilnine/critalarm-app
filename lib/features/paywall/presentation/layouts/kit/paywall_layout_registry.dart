@@ -109,6 +109,8 @@ class PaywallLayoutView extends StatelessWidget {
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
     this.onThanksDone,
+    this.buttonLabel,
+    this.hint,
     super.key,
   });
 
@@ -122,14 +124,24 @@ class PaywallLayoutView extends StatelessWidget {
   /// Where the one button of [thanks] goes.
   final VoidCallback? onThanksDone;
 
+  /// What the one button of [thanks] says. Null says the paywall's own
+  /// "Continue".
+  final String? buttonLabel;
+
+  /// A short line for the foot of [intro], such as how to skip it. Null
+  /// draws none.
+  final String? hint;
+
   @override
   Widget build(BuildContext context) => PaywallThanksHost(
     thanks: thanks,
     product: product,
     onDone: onThanksDone,
+    buttonLabel: buttonLabel,
     child: PaywallIntroHost(
       intro: intro,
       product: product,
+      hint: hint,
       child: Builder(
         builder: paywallLayoutBuilders[paywallLayoutDrawnFor(layout)]!,
       ),
