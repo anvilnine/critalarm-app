@@ -7,7 +7,8 @@ enum AppDataStatus {
   /// Nothing has been fetched yet.
   initial,
 
-  /// The list came back from the server at least once.
+  /// The list is worth drawing: it came back from the server at least once,
+  /// or the phone kept it from the last answer and it was read at launch.
   ready,
 
   /// The last fetch failed. Anything loaded before it is still in the state.

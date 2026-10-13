@@ -255,7 +255,9 @@ class HomeCubit extends Cubit<HomeState> {
     }
 
     // Half a screen is worse than the one it would replace, so wait for both.
-    if (!incidents.isReady || !topics.isReady) return;
+    // A topic list the phone kept is real, but this build polls every topic,
+    // and the server's list is about to say which topics those are.
+    if (!incidents.isReady || !topics.isReady || topics.isKept) return;
     if (identical(incidents.incidents, _builtFromIncidents) &&
         identical(topics.topics, _builtFromTopics)) {
       return;

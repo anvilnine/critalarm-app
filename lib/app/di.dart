@@ -82,6 +82,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -342,6 +343,7 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/held_topics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
@@ -377,14 +379,18 @@ const _appIconWelcomedKey = 'app_icon.welcomed';
 Future<void> configureDependencies({
   bool useMockApi = buildUsesMockApi,
   http.Client? httpClient,
+  LocalStore? openedStore,
 }) async {
   final prefs = await SharedPreferences.getInstance();
 
   // The phone's own copy of every incident and message (api.md §4.2, where
   // `history_days` became retention). Web has no sqflite, so the dashboard
   // build keeps reading the server live and every store call is skipped.
-  LocalStore? localStore;
-  if (!kIsWeb) {
+  //
+  // [openedStore] is a store the caller already opened, for a test or a
+  // capture that has no documents directory. It is used as it is.
+  var localStore = openedStore;
+  if (!kIsWeb && localStore == null) {
     try {
       localStore = await LocalStore.open();
     } on Object catch (error, stack) {
@@ -1596,6 +1602,19 @@ Future<void> configureDependencies({
           await getIt<ChallengeFlagSync>().check();
           await getIt<AlarmStyleChoices>().forgetTopic(name);
         },
+        // The list is kept on the phone for the server and account it is on
+        // now. Where the store is not open the list stays in memory only.
+        held: localStore?.topics,
+        heldScope: () async {
+          final connection = (await getIt<GetConnectionUsecase>()(
+            const NoParams(),
+          )).getOrNull();
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          return heldScopeFor(
+            serverUrl: connection?.serverUrl,
+            accountId: identity.accountId,
+          );
+        },
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
@@ -1645,6 +1664,7 @@ Future<void> configureDependencies({
         soundLock: getIt<OwnSoundLockFlag>(),
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
+        heldTopics: localStore?.topics,
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {
@@ -1904,6 +1924,8 @@ Future<void> configureDependencies({
           // the first topic.
           await getIt<InAppNoticeRepository>().markFirstTopicOwned();
           unawaited(getIt<LocalReminderPlanTrigger>().run());
+          // The phone's copy of the list gains it before the next answer.
+          getIt<TopicsCubit>().noteCreated(topic);
         },
       ),
     )
@@ -2170,16 +2192,9 @@ Future<void> configureDependencies({
             isFirstMessageReceived: getIt<FirstMessageStore>().isReceived,
           );
         },
-        // The list setup's last steps already loaded. A phone that was
-        // closed and opened again after setup holds none.
-        readHeldTopics: () {
-          final held = getIt<TopicsCubit>().state;
-          if (!held.isReady) return null;
-          return [
-            for (final topic in held.topics)
-              (name: topic.name, isCritical: topic.critical),
-          ];
-        },
+        // The list the app holds: the one setup's last steps loaded, or the
+        // copy the phone kept at the last answer after a cold start.
+        readHeldTopics: () => heldTopicsFrom(getIt<TopicsCubit>().state),
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it
