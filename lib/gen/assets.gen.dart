@@ -42,6 +42,19 @@ class $AssetsAppIconsGen {
   ];
 }
 
+class $AssetsConfigGen {
+  const $AssetsConfigGen();
+
+  /// File path: assets/config/price_book.json
+  String get priceBook => 'assets/config/price_book.json';
+
+  /// Directory path: assets/config
+  String get path => 'assets/config';
+
+  /// List of all assets
+  List<String> get values => [priceBook];
+}
+
 class $AssetsDocsGen {
   const $AssetsDocsGen();
 
@@ -596,6 +609,7 @@ class Assets {
   const Assets._();
 
   static const $AssetsAppIconsGen appIcons = $AssetsAppIconsGen();
+  static const $AssetsConfigGen config = $AssetsConfigGen();
   static const $AssetsDocsGen docs = $AssetsDocsGen();
   static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsReminderFacesGen reminderFaces =

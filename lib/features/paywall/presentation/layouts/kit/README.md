@@ -306,6 +306,10 @@ Which one plays: remote keys `paywall_outro` and `pro_paywall_outro`, developer 
 `dev.paywall_outro` and `dev.pro_paywall_outro`, the route's `?outro=<key>`. The developer value
 outranks the remote one, and the route is what a try-out uses. Empty is none.
 
+## Prices
+
+`assets/config/price_book.json` is `{"hosted": {"offering": null, "plans": {"yearly": P, "monthly": P}}, "pro": {"offering": "pro", "plans": {"once": P}}}` with `P` as `{"amount": <number>, "currency": "<ISO code>", "package": "<id or null>"}`: a null `offering` is the current one and a null `package` is the offering's only package. The buy models show the store's price for each plan it sends and the book's for each it does not, and the demo model shows the book's.
+
 ## The frame
 
 `PaywallFrame(builder: (context, scope) => ...)` never scrolls. It keeps the safe areas, puts
