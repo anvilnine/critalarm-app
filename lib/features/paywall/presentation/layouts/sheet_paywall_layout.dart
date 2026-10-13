@@ -251,9 +251,19 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         fontSize: HeroSizes.of(isCompact: true).headline,
       );
 
-  /// The width the kit gives the headline.
-  static double _headlineWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width - heroSideInset * 2;
+  /// The width the kit gives the headline: the side insets, and where the
+  /// close control would be over it, room for that.
+  static double _headlineWidth(BuildContext context) => heroHeadlineWidth(
+    width: MediaQuery.sizeOf(context).width - heroSideInset * 2,
+    endRoom: _headlineEndRoom(context),
+  );
+
+  /// How far from the right edge the headline stops.
+  static double _headlineEndRoom(BuildContext context) =>
+      sheetHeadlineEndRoomFor(
+        width: MediaQuery.sizeOf(context).width,
+        textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
+      );
 
   /// How much taller [text] set in [style] is than one line, in [width], at
   /// the text size the person chose. Zero for a headline of one line.
@@ -351,6 +361,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // the home indicator's inset.
     final bottomInset = math.max(0, media.viewPadding.bottom - Spacing.s3);
     final plan = sheetPlanFor(
+      screenWidth: media.size.width,
       screenHeight: media.size.height,
       topInset: media.viewPadding.top,
       bottomInset: bottomInset.toDouble(),
@@ -390,7 +401,11 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                       final frame = player.frame;
                       return Transform.translate(
                         offset: Offset(0, drop(t)),
-                        child: plan.standsInFront
+                        child: plan.isFaceStill
+                            // A narrow phone: small, still and wholly above
+                            // the sheet's edge. It has no room to move in.
+                            ? HeroMascot(size: plan.faceSize)
+                            : plan.standsInFront
                             // It rode up with the sheet, so it has no
                             // entrance of its own: only the hop as the
                             // sheet lands.
@@ -644,7 +659,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   player: _playerFor(scope),
                                   arrange: (size) => sheetStageArrangement(
                                     size,
-                                    face: plan.standsInFront
+                                    face: plan.showsFaceBesideCard
                                         ? plan.faceSize
                                         : 0,
                                   ),
@@ -657,6 +672,11 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                       ? LocaleKeys.paywall_also_label.tr()
                                       : null,
                                   showsLeadLine: false,
+                                  // The cross is over the headline when the
+                                  // stage has no room above it.
+                                  headlineEndRoom: _headlineEndRoom(context),
+                                  // A list is never cut at its foot.
+                                  showsWholeLinesOnly: true,
                                 ),
                               ],
                             ),

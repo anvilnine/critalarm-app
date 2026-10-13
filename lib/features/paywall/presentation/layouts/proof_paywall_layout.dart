@@ -11,7 +11,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Which headline the Proof layout shows.
-enum ProofHeadline { hosted, pro, olderAlarms }
+enum ProofHeadline { hosted, pro, olderAlarms, keptLonger }
 
 /// "See older alarms" is true only for rows the phone holds: the lead is
 /// history and [own] has rows past the window. Otherwise the layout keeps
@@ -27,13 +27,34 @@ ProofHeadline proofHeadlineFor({
       : ProofHeadline.hosted;
 }
 
+/// The headline the layout shows for the route. It is [proofHeadlineFor],
+/// except that a Hosted history lead with no rows of the phone's own shows
+/// made-up rows, and "See older alarms" would promise rows the phone does
+/// not hold. It says what the Sheet says for that lead instead.
+ProofHeadline proofHeadlineForRoute({
+  required bool isHosted,
+  required PaywallBenefitId? lead,
+  required HistoryOwn? own,
+}) {
+  final headline = proofHeadlineFor(isHosted: isHosted, lead: lead, own: own);
+  return headline == ProofHeadline.hosted &&
+          lead == PaywallBenefitId.history &&
+          own == null
+      ? ProofHeadline.keptLonger
+      : headline;
+}
+
 /// The headline for beat [beat] of the loop (0 is the lead's). "See older
-/// alarms" speaks for the history lead, so it shows on the lead's own beat
-/// and the layout's normal headline shows on every other.
+/// alarms" and "Every alarm, kept longer" speak for the history lead, so
+/// they show on the lead's own beat and the layout's normal headline shows
+/// on every other.
 ProofHeadline proofHeadlineOnBeat(
   ProofHeadline headline, {
   required int beat,
-}) => headline == ProofHeadline.olderAlarms && beat != 0
+}) =>
+    (headline == ProofHeadline.olderAlarms ||
+            headline == ProofHeadline.keptLonger) &&
+        beat != 0
     ? ProofHeadline.hosted
     : headline;
 
@@ -42,6 +63,7 @@ String proofHeadlineText(ProofHeadline headline) => switch (headline) {
   ProofHeadline.hosted => LocaleKeys.paywall_proof_headline_hosted.tr(),
   ProofHeadline.pro => LocaleKeys.paywall_proof_headline_pro.tr(),
   ProofHeadline.olderAlarms => LocaleKeys.paywall_history_own_headline.tr(),
+  ProofHeadline.keptLonger => LocaleKeys.paywall_sheet_headline_history.tr(),
 };
 
 /// Shows each benefit twice over: as it is on Free, then lifted.
@@ -202,7 +224,7 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
           benefitCount: scope.benefits.length,
         );
 
-        final headline = proofHeadlineFor(
+        final headline = proofHeadlineForRoute(
           isHosted: scope.isHosted,
           lead: scope.lead?.benefit,
           own: PaywallRouteInfo.maybeOf(context)?.historyOwn,
@@ -219,7 +241,8 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
                 ),
                 // The headline the lead's gives way to, to measure by.
                 headlineAlternatives: [
-                  if (headline == ProofHeadline.olderAlarms)
+                  if (headline == ProofHeadline.olderAlarms ||
+                      headline == ProofHeadline.keptLonger)
                     proofHeadlineText(ProofHeadline.hosted),
                 ],
                 loop: player.loop,

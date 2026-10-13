@@ -6,9 +6,11 @@ import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -53,6 +55,18 @@ WipeHeadline wipeHeadlineFor({
     PaywallHeadlineVariant.none => WipeHeadline.hosted,
   };
 }
+
+/// Whether the Wipe groups its benefits under "Also included": the lead
+/// keeps its line and the others sit under the label, as the Sheet and Proof
+/// list them. Only the Wipe for a plan that ended does, when the route has a
+/// lead and a second benefit. Every other Wipe keeps the plain list.
+bool wipeShowsAlsoIncluded({
+  required WipeHeadline headline,
+  required bool hasLead,
+  required int benefitCount,
+}) =>
+    headline == WipeHeadline.ended &&
+    heroShowsAlsoIncluded(hasLead: hasLead, benefitCount: benefitCount);
 
 /// Whether the Wipe runs backwards: a Hosted plan that is ending, with what
 /// the leaving paywall knows in the route and at least two rows to list
@@ -109,6 +123,15 @@ HeroLoop wipeLoopFor(
 }) => HeroLoop([
   for (final b in reversed ? listed.take(1) : listed) b.previewId,
 ], prelude: -lead);
+
+/// How many critical topics the topics picture of the leaving Wipe draws
+/// as on, or null for the plain Wipe, which keeps its looping picture. It is
+/// the count the sentence under the stage says: a count that is not known
+/// reads as none there too. A plan that ends switches no topic off.
+int? wipeLeavingCriticalFor({
+  required bool reversed,
+  required LeavingFacts? facts,
+}) => reversed ? facts?.criticalTopics ?? 0 : null;
 
 /// The words of the small tag on the card, or null for none. On the
 /// leaving Wipe the card rests on the colour side under "Today" with its
@@ -242,6 +265,15 @@ double wipeSettleFor(HeroArrangement arrangement, double width) {
   }
   return (arrangement.mascot.center.dx / width).clamp(0.16, 0.5);
 }
+
+/// Where the grip's left edge is when the divider is [x] points from the
+/// stage's left edge. It stands on the divider, kept far enough in that the
+/// whole circle is on screen: the divider itself runs to either edge.
+double wipeGripLeftFor(
+  double x, {
+  required double width,
+  required double grip,
+}) => math.max(0, math.min(x - grip / 2, width - grip));
 
 /// How far down the stage the grip sits: under the mascot, clear of its
 /// face.
