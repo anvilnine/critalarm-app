@@ -107,6 +107,7 @@ void main() {
         OnboardingStepId.welcome,
         OnboardingStepId.connect,
         OnboardingStepId.permissions,
+        OnboardingStepId.use,
         OnboardingStepId.firstTopic,
         OnboardingStepId.realRing,
         OnboardingStepId.offer,

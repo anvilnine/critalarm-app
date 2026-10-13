@@ -195,6 +195,21 @@
     "part": "{chapter}, part {part} of 3",
     "all_done": "All 3 parts done"
   },
+  "onboarding_use": {
+    "title": "What should wake you?",
+    "skip": "skip",
+    "footer": "One tap. It fills in the next step.",
+    "servers_title": "My servers and apps",
+    "servers_hint": "an API, a database, a client's VPS",
+    "homelab_title": "My homelab",
+    "homelab_hint": "Uptime Kuma, a NAS, backups",
+    "jobs_title": "Builds and scheduled jobs",
+    "jobs_hint": "CI, cron, nightly backups",
+    "home_title": "My home",
+    "home_hint": "Home Assistant, freezer, garage",
+    "other_title": "Something else",
+    "other_hint": "start from a blank topic"
+  },
   "connect_link": {
     "what": "Connect this phone to this server for alarms?",
     "replaces": "Replaces {host}.",

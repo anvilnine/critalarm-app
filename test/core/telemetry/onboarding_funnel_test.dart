@@ -501,6 +501,117 @@ void main() {
     );
   });
 
+  group('the use step', () {
+    test('a pick waits with no answer, and nothing is sent', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'servers', flowId: _flow);
+
+      expect(gate.calls, isEmpty);
+      expect(stored(), [
+        {
+          'k': 'up',
+          'use': 'servers',
+          'flow_id': _flow,
+          'at': clock.now.millisecondsSinceEpoch,
+        },
+      ]);
+    });
+
+    test('goes on an opt-in, in order, with the use and the flow id', () async {
+      final funnel = build();
+      await funnel.stepViewed('welcome', _flow);
+      await funnel.usePicked(use: 'homelab', flowId: _flow);
+      await funnel.usePicked(use: 'skipped', flowId: _flow);
+      await build().answered(isOn: true);
+
+      expect(gate.sent.map((e) => e.$1), [
+        AnalyticsEvents.onboardingStepViewed,
+        AnalyticsEvents.onboardingUsePicked,
+        AnalyticsEvents.onboardingUsePicked,
+      ]);
+      expect(gate.sent[1].$2, {'use': 'homelab', 'flow_id': _flow});
+      expect(gate.sent[2].$2, {'use': 'skipped', 'flow_id': _flow});
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+    });
+
+    test('goes straight through once opted in', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      await funnel.usePicked(use: 'home', flowId: _flow);
+
+      expect(gate.sent.single.$2, {'use': 'home', 'flow_id': _flow});
+    });
+
+    test('an opt-out drops it', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'jobs', flowId: _flow);
+      await funnel.answered(isOn: false);
+      await funnel.usePicked(use: 'other', flowId: _flow);
+
+      expect(gate.sent, isEmpty);
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+    });
+
+    test('a replay records nothing', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'servers', flowId: _flow, isReplay: true);
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+
+      await funnel.answered(isOn: true);
+      await funnel.usePicked(use: 'servers', flowId: _flow, isReplay: true);
+      expect(gate.sent, isEmpty);
+    });
+
+    test('every word of the closed set is accepted', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      const words = ['servers', 'homelab', 'jobs', 'home', 'other', 'skipped'];
+      for (final word in words) {
+        await funnel.usePicked(use: word, flowId: _flow);
+      }
+
+      expect(gate.sent.map((e) => e.$2['use']), words);
+    });
+
+    test('an unknown use or flow id is dropped', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'Servers', flowId: _flow);
+      await funnel.usePicked(use: '', flowId: _flow);
+      await funnel.usePicked(use: 'prod-db', flowId: _flow);
+      await funnel.usePicked(use: 'servers', flowId: 'a b');
+      await funnel.usePicked(use: 'servers', flowId: '');
+
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+      expect(gate.calls, isEmpty);
+    });
+
+    test('it does not move the clock of the step events', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      await funnel.stepViewed('welcome', _flow);
+      clock.advance(const Duration(seconds: 4));
+      await funnel.usePicked(use: 'servers', flowId: _flow);
+      clock.advance(const Duration(seconds: 4));
+      await funnel.stepViewed('connect', _flow);
+
+      expect(gate.sent.last.$2['ms_since_previous'], 8000);
+    });
+
+    test('a stored row that is not as written deletes the list', () async {
+      for (final row in [
+        {'k': 'up', 'use': 'gold', 'flow_id': _flow, 'at': 1},
+        {'k': 'up', 'use': 'home', 'flow_id': _flow, 'at': 1, 'extra': 1},
+        {'k': 'up', 'flow_id': _flow, 'at': 1},
+      ]) {
+        await prefs.setString(OnboardingFunnel.bufferKey, jsonEncode([row]));
+        await build().answered(isOn: true);
+
+        expect(gate.sent, isEmpty, reason: '$row');
+        expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+      }
+    });
+  });
+
   group('the cap', () {
     test('holds at 100 and drops the new event, never an old one', () async {
       final funnel = build();

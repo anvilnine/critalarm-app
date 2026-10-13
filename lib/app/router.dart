@@ -93,6 +93,7 @@ abstract final class AppRoute {
   static const onboardingWelcome = 'onboardingWelcome';
   static const onboardingHowItRings = 'onboardingHowItRings';
   static const onboardingWidgets = 'onboardingWidgets';
+  static const onboardingUse = 'onboardingUse';
   static const onboardingFirstTopic = 'onboardingFirstTopic';
   static const onboardingRealRing = 'onboardingRealRing';
   static const onboardingOffer = 'onboardingOffer';

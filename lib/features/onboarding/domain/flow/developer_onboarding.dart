@@ -19,6 +19,7 @@ const bool buildHasOnboardingDeveloperTools =
 const forceableOnboardingSteps = <String>[
   OnboardingStepId.connect,
   OnboardingStepId.permissions,
+  OnboardingStepId.use,
   OnboardingStepId.firstTopic,
 ];
 
