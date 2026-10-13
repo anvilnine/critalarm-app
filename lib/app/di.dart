@@ -172,6 +172,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
@@ -192,6 +193,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flo
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -1257,6 +1259,13 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ToolTemplateStore>(
       () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
     )
+    // What the user said they send alarms from. A preference: setup ending
+    // and a sign-out leave it. The replay holder keeps a replay's pick in
+    // memory only.
+    ..registerLazySingleton<SetupUseStore>(
+      () => SharedPrefsSetupUseStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<SetupUseReplay>(SetupUseReplay.new)
     // "A first message arrived", set once, and where each topic's watch
     // for it starts from.
     ..registerLazySingleton<FirstMessageStore>(

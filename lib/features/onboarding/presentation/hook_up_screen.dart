@@ -504,6 +504,7 @@ class _ToolSection extends StatelessWidget {
       LocaleKeys.onboarding_hook_up_tool_uptime_kuma.tr(),
     ToolTemplate.healthchecks =>
       LocaleKeys.onboarding_hook_up_tool_healthchecks.tr(),
+    ToolTemplate.curl => '',
     ToolTemplate.other => '',
   };
 
