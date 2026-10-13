@@ -328,6 +328,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
                       closeOnLeft: widget.closeOnLeft,
                       close: _close,
                       intro: intro,
+                      lead: offer.lead,
                     );
                     return PaywallLayoutScopeProvider(
                       scope: scope,

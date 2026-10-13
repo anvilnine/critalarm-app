@@ -1,8 +1,12 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_scene.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 HeroLoop _loop() => HeroLoop(const [
@@ -226,6 +230,134 @@ void main() {
       // After an intro the mascot is there before the clock starts.
       final after = reelCues(prelude: reelPreludeFor(followsIntro: true));
       expect(after.single.at, lessThan(0));
+    });
+  });
+
+  group('the first scene under a lead', () {
+    const servers = PaywallLead(
+      benefit: PaywallBenefitId.topics,
+      headlineKey: 'paywall_lead.servers_headline',
+      lineKey: 'paywall_lead.servers_line',
+      topicName: 'payments-db',
+    );
+    const reaches = PaywallLead(
+      benefit: PaywallBenefitId.reliabilityChecks,
+      headlineKey: 'paywall_lead.reaches_headline',
+      lineKey: 'weekly_check.what_line',
+    );
+    final hosted = paywallBenefitsFor(PaywallProduct.hosted);
+    final pro = paywallBenefitsFor(PaywallProduct.pro);
+
+    PaywallBenefit benefit(List<PaywallBenefit> of, PaywallBenefitId id) =>
+        of.firstWhere((b) => b.id == id);
+
+    test('only the first scene reads the lead', () {
+      expect(reelLeadAt(0, servers), servers);
+      for (var i = 1; i < 6; i++) {
+        expect(reelLeadAt(i, servers), isNull);
+      }
+      expect(reelLeadAt(0, null), isNull);
+    });
+
+    test('the first scene takes its headline, line and eyebrow from the '
+        'lead', () {
+      expect(
+        reelHeadlineFor(
+          benefit(hosted, PaywallBenefitId.topics),
+          lead: reelLeadAt(0, servers),
+        ),
+        'Every server can wake you',
+      );
+      expect(
+        reelHeadlineFor(
+          benefit(hosted, PaywallBenefitId.reliabilityChecks),
+          lead: reelLeadAt(0, reaches),
+        ),
+        'Know it still reaches you',
+      );
+      // The number comes from the one place Hosted numbers are kept.
+      expect(
+        reelLineFor(servers),
+        'Free rings 2 topics. Hosted rings all of them.',
+      );
+      expect(
+        reelLineFor(reaches),
+        'Checks each week whether a push reaches this phone.',
+      );
+      expect(
+        reelEyebrowFor(isHosted: true, lead: reelLeadAt(0, servers)),
+        'With Hosted',
+      );
+      expect(
+        reelEyebrowFor(isHosted: false, lead: reelLeadAt(0, reaches)),
+        'With Pro',
+      );
+    });
+
+    test('a lead with its own eyebrow replaces it', () {
+      const own = PaywallLead(
+        benefit: PaywallBenefitId.topics,
+        eyebrowKey: 'paywall_lead.skip_hint',
+      );
+      expect(reelEyebrowFor(isHosted: true, lead: own), 'tap anywhere to skip');
+      expect(
+        reelEyebrowFor(isHosted: true, lead: reelLeadAt(1, own)),
+        'With Hosted',
+      );
+    });
+
+    test('later scenes read their own benefit, lead or not', () {
+      for (final lead in [servers, reaches, null]) {
+        expect(
+          reelHeadlineFor(
+            benefit(hosted, PaywallBenefitId.pushes),
+            lead: reelLeadAt(1, lead),
+          ),
+          reelHeadlineFor(benefit(hosted, PaywallBenefitId.pushes)),
+        );
+        expect(
+          reelEyebrowFor(isHosted: true, lead: reelLeadAt(2, lead)),
+          'With Hosted',
+        );
+      }
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.pushes)),
+        '1,000 high priority pushes a day',
+      );
+    });
+
+    test("with no lead the words are the benefit's, as before", () {
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.topics)),
+        'Unlimited critical topics',
+      );
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.reliabilityChecks)),
+        'Weekly reliability checks',
+      );
+      expect(reelLineFor(null), isNull);
+      expect(
+        reelHeadlineFor(benefit(pro, PaywallBenefitId.widgets)),
+        'Widgets on your Home screen',
+      );
+    });
+
+    test('a lead with no line leaves no room under the picture', () {
+      expect(
+        reelLineFor(const PaywallLead(benefit: PaywallBenefitId.widgets)),
+        isNull,
+      );
+      final sizes = ReelSizes.of(isCompact: false);
+      final bare = reelStageHeight(height: 700, words: 120, sizes: sizes);
+      expect(
+        reelStageHeight(height: 700, words: 120, sizes: sizes),
+        bare,
+      );
+      // A line takes its height and its gap out of the stage, no more.
+      expect(
+        reelStageHeight(height: 700, words: 120, sizes: sizes, line: 40),
+        bare - 40,
+      );
     });
   });
 }
