@@ -8,6 +8,7 @@ import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -636,6 +637,89 @@ void main() {
       expect(await install.door.readHistoryOwn(), isNotNull);
       install.historyOwnThrows = true;
       expect(await install.door.readHistoryOwn(), isNull);
+    });
+  });
+
+  group('the facts of the critical limit', () {
+    test('a topics lead carries the count and the name', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(
+            used: 2,
+            limit: 2,
+            topicName: 'billing-api',
+          ),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics'
+        '&used=2&limit=2&topic=billing-api',
+      );
+    });
+
+    test('facts on a place with another lead are left out', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.history,
+          facts: const PaywallLeadFacts(used: 2, limit: 2),
+        ),
+        '/plans/proof?product=hosted&source=history&lead=history',
+      );
+    });
+
+    test('with no layout set the shipped paywall opens and ignores them', () {
+      final install = _Install();
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(used: 2, limit: 2),
+        ),
+        '/paywall?source=create_topic_card',
+      );
+    });
+
+    test('empty facts add nothing', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
+      );
+    });
+
+    test('a name the location cannot hold is left out, the paywall opens', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(
+            used: 2,
+            limit: 2,
+            topicName: 'bell \u{1F514}',
+          ),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics'
+        '&used=2&limit=2',
+      );
+    });
+
+    test('the false alarm intro still comes first', () {
+      final install = _Install()..hosted = 'auto';
+      final location = install.door.hostedLocation(
+        PaywallSource.createTopicCard,
+        facts: const PaywallLeadFacts(used: 2, limit: 2, topicName: 'a'),
+      );
+      expect(location, contains('intro=false_alarm'));
+      expect(location, endsWith('&used=2&limit=2&topic=a'));
     });
   });
 }

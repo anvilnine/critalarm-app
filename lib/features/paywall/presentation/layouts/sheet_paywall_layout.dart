@@ -1,10 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_headline_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_page.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_plan.dart';
@@ -174,7 +178,16 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     super.dispose();
   }
 
-  String? _headline(PaywallBenefit? lead) {
+  /// The headline for [lead]. The topics lead may name the topic the person
+  /// was making: see [_topicsHeadline].
+  String? _headline(
+    BuildContext context,
+    PaywallBenefit? lead,
+    PaywallOffer offer,
+  ) {
+    if (lead?.id == PaywallBenefitId.topics) {
+      return _topicsHeadline(context, offer);
+    }
     final key = switch (lead?.id) {
       PaywallBenefitId.topics => LocaleKeys.paywall_sheet_headline_topics,
       PaywallBenefitId.pushes => LocaleKeys.paywall_sheet_headline_pushes,
@@ -192,6 +205,85 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       null => null,
     };
     return key?.tr();
+  }
+
+  /// "Make {name} critical" with the name cut in the middle at 16
+  /// characters, when two lines hold it. Then "Make this topic critical".
+  /// A headline that says what the card the person tapped says is passed
+  /// over. The kit sets the headline at the compact size on every phone.
+  String _topicsHeadline(BuildContext context, PaywallOffer offer) {
+    final name = offer.lead?.topicName;
+    final style = _headlineStyle(context);
+    final width = _headlineWidth(context);
+    final named = name == null || name.isEmpty
+        ? null
+        : LocaleKeys.paywall_own_count_headline_named.tr(
+            namedArgs: {'name': middleEllipsis(name)},
+          );
+    final fits = named != null && _fitsTwoLines(context, named, style, width);
+    // The sentences on the lit row above the sheet.
+    final tapped = [
+      LocaleKeys.paywall_sheet_page_critical_used.tr(
+        namedArgs: HostedBenefit.args,
+      ),
+      LocaleKeys.paywall_sheet_page_critical_lifted.tr(
+        namedArgs: {'name': paywallProductName(offer.product)},
+      ),
+    ];
+    final candidates = [
+      if (sheetTopicHeadlineFor(name: name, fits: fits) ==
+          SheetTopicHeadline.named)
+        named!,
+      LocaleKeys.paywall_own_count_headline_generic.tr(),
+      LocaleKeys.paywall_sheet_headline_topics.tr(),
+    ];
+    return candidates.firstWhere(
+      (text) => !sheetHeadlineRepeats(text, tapped),
+      orElse: () => candidates.last,
+    );
+  }
+
+  /// The headline as the kit sets it in this layout, for measuring.
+  static TextStyle _headlineStyle(BuildContext context) =>
+      AppTypography.headline(
+        Theme.of(context).colorScheme.onSurface,
+        fontSize: HeroSizes.of(isCompact: true).headline,
+      );
+
+  /// The width the kit gives the headline.
+  static double _headlineWidth(BuildContext context) =>
+      MediaQuery.sizeOf(context).width - heroSideInset * 2;
+
+  /// How much taller [text] set in [style] is than one line, in [width], at
+  /// the text size the person chose. Zero for a headline of one line.
+  static double _extraLines(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double width,
+  ) => math.max(
+    0,
+    paywallTextHeight(context, text, style, width) -
+        paywallTextHeight(context, 'Ag', style, width),
+  );
+
+  /// True when [text] set in [style] takes at most two lines in [width], at
+  /// the text size the person chose.
+  static bool _fitsTwoLines(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double width,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 2,
+    )..layout(maxWidth: math.max(0, width));
+    final fits = !painter.didExceedMaxLines;
+    painter.dispose();
+    return fits;
   }
 
   @override
@@ -215,6 +307,34 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       hasLead: offer.lead != null,
       benefitCount: benefits.length,
     );
+    // The critical limit: the person's own count and the topic they were
+    // making, when the route carries any of them. The picture then draws a
+    // tag and puts their topic on the row that switches on.
+    final route = offer.lead;
+    final own =
+        route != null &&
+            route.benefit == PaywallBenefitId.topics &&
+            (route.usedCount != null ||
+                route.limitCount != null ||
+                route.topicName != null)
+        ? TopicsPreviewOwn(
+            topicName: route.topicName,
+            used: route.usedCount,
+            limit: route.limitCount,
+          )
+        : null;
+    final headline = _headline(context, lead, offer);
+    // The topics headline may take two lines. The plan counts the second one
+    // so the picture keeps its room.
+    final headlineExtra =
+        lead?.id == PaywallBenefitId.topics && headline != null
+        ? _extraLines(
+            context,
+            headline,
+            _headlineStyle(context),
+            _headlineWidth(context),
+          )
+        : 0.0;
     // After an intro the preview and the words come up with the sheet.
     final followsIntro =
         !isStill &&
@@ -239,6 +359,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       textScale: media.textScaler.scale(100) / 100,
       hasAlso: showsAlso,
       showsLead: false,
+      headlineExtra: headlineExtra,
     );
     final showsAir = media.textScaler.scale(100) / 100 <= 1.01;
     final travel =
@@ -469,6 +590,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                             benefits.length,
                                             hasAlso: showsAlso,
                                             showsLead: false,
+                                            headlineExtra: headlineExtra,
                                           ) -
                                           _airTop -
                                           _airBottom,
@@ -492,7 +614,31 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                     lead: scope.lead,
                                   ),
                                   tone: PaywallTone.surface,
-                                  headline: _headline(lead),
+                                  headline: headline,
+                                  // The same picture the stage draws, with
+                                  // the person's own numbers in it.
+                                  sceneBuilder: own == null
+                                      ? null
+                                      : (context, scene, size, playFrom) {
+                                          final preview = scene.preview;
+                                          if (preview == null) {
+                                            return SizedBox.fromSize(
+                                              size: size,
+                                            );
+                                          }
+                                          return PaywallPreview(
+                                            preview,
+                                            sizeClass:
+                                                PaywallPreviewClass.large,
+                                            size: size,
+                                            playFrom: playFrom,
+                                            topicsOwn:
+                                                preview ==
+                                                    PaywallPreviewId.topics
+                                                ? own
+                                                : null,
+                                          );
+                                        },
                                   loop: loop,
                                   player: _playerFor(scope),
                                   arrange: (size) => sheetStageArrangement(
