@@ -1138,6 +1138,7 @@ class _HeroBlockState extends State<_HeroBlock> {
         numeral: view.numeral,
         numeralTone: view.numeralTone,
         foot: view.foot,
+        footMaxLines: view.footLines,
         footTone: view.footTone,
         pips: view.pips,
         actionLabel: view.actionLabel,
