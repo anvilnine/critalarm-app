@@ -320,7 +320,7 @@
     "arrived_title": "Your first message arrived",
     "arrived_line": "Your tool can reach this phone.",
     "analytics_title": "Share anonymous setup stats",
-    "analytics_line": "Step names and timings only, never your messages.",
+    "analytics_line": "Step names, timings and your answer to “What should wake you?” Never your messages.",
     "done": "Done",
     "tool_header": "Set up {}",
     "tool_cron": "Add a line like this to your crontab. It sends when the job fails.",
@@ -336,10 +336,10 @@
     "curl": "curl",
     "step_test": "Press Test. This phone rings.",
     "uptime_kuma_1": "Settings, Notifications, Setup Notification",
-    "healthchecks_1": "Project, Integrations, Add",
-    "home_assistant_1": "Add the block to configuration.yaml and restart",
-    "home_assistant_2": "Add the action to an automation",
-    "home_assistant_3": "Run the action in Home Assistant. This phone rings.",
+    "healthchecks_1": "Project, Integrations",
+    "home_assistant_1": "Add this block to configuration.yaml, then restart",
+    "home_assistant_2": "Add the action rest_command.critalarm to an automation",
+    "home_assistant_3": "Run the automation. This phone rings.",
     "jobs_note": "One line for the end of the script, or on failure."
   },
   "onboarding_permissions": {
@@ -1908,7 +1908,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
@@ -1919,9 +1919,9 @@
   },
   "paywall_lead": {
     "servers_headline": "Every server can wake you",
-    "servers_line": "Free rings {free_critical_topics} topics. Hosted rings all of them.",
+    "servers_line": "Free rings {free_critical_topics} critical topics. Hosted rings all of them.",
     "reaches_headline": "Know it still reaches you",
-    "jobs_line": "A weekly delivery check for jobs nobody watches.",
+    "jobs_line": "Each week, see that a push still reaches this phone.",
     "home_headline": "See it from your home screen",
     "skip_hint": "tap anywhere to skip"
   },
@@ -1940,7 +1940,7 @@
       "widgets": "Widgets on your Home screen",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Weekly reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
@@ -1956,7 +1956,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "three more app icons",
       "wake_up_challenges": "challenges that wake you up",
-      "reliability_checks": "weekly reliability checks",
+      "reliability_checks": "a weekly delivery check",
       "custom_sounds": "an alarm you upload or record",
       "custom_alarm_screens": "an alarm screen you customize"
     },
@@ -1987,7 +1987,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
