@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
@@ -32,6 +33,21 @@ import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_
 //
 // The divider's place is a share of the stage's width from the left. Free
 // is left of it, the product right of it.
+
+/// Which headline the Wipe layout shows.
+enum WipeHeadline { hosted, pro, ended }
+
+/// The headline for [variant]. Only a Hosted plan that has ended has words
+/// of its own. Everything else keeps the product's headline.
+WipeHeadline wipeHeadlineFor({
+  required bool isHosted,
+  required PaywallHeadlineVariant variant,
+}) {
+  if (!isHosted) return WipeHeadline.pro;
+  return variant == PaywallHeadlineVariant.ended
+      ? WipeHeadline.ended
+      : WipeHeadline.hosted;
+}
 
 /// When the divider leaves the right edge and when it has settled.
 const double wipeSweepStart = 0.7;

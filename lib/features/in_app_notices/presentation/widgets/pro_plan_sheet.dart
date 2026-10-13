@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -68,11 +70,17 @@ Future<void> showProPlanSheet(
         ].join('\n'),
         actionLabel: LocaleKeys.notices_pro_ended_action.tr(),
         dismissLabel: LocaleKeys.notices_pro_ended_dismiss.tr(),
-        onAction: () => openAppPath(
-          context,
-          hostedPaywallLocation(PaywallSource.planSheetEnded),
-        ),
+        onAction: () => unawaited(_openEnded(context)),
         onDismiss: onDismiss ?? () {},
       );
   }
+}
+
+/// Reads the rows the phone still holds, then opens the ended paywall.
+Future<void> _openEnded(BuildContext context) async {
+  final location = await hostedPaywallLocationWithOwn(
+    PaywallSource.planSheetEnded,
+  );
+  if (!context.mounted) return;
+  openAppPath(context, location);
 }

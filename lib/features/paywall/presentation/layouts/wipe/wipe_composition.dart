@@ -55,9 +55,16 @@ class _WipeCompositionState extends State<WipeComposition> {
         : LocaleKeys.paywall_kit_name_pro.tr();
     // Without either product the app is the free one.
     final before = LocaleKeys.paywall_wipe_tag_free.tr();
-    final headline = scope.isHosted
-        ? LocaleKeys.paywall_wipe_headline_hosted.tr()
-        : LocaleKeys.paywall_wipe_headline_pro.tr();
+    final headline = switch (wipeHeadlineFor(
+      isHosted: scope.isHosted,
+      variant: PaywallRouteInfo.headlineOf(context),
+    )) {
+      WipeHeadline.hosted => LocaleKeys.paywall_wipe_headline_hosted.tr(),
+      WipeHeadline.pro => LocaleKeys.paywall_wipe_headline_pro.tr(),
+      WipeHeadline.ended => LocaleKeys.paywall_wipe_ended_headline.tr(
+        namedArgs: {'name': name},
+      ),
+    };
     final headlineStyle = AppTypography.headline(
       tones.ink,
       fontSize: sizes.headline,

@@ -1,3 +1,4 @@
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -628,6 +629,72 @@ void main() {
         '/plans/proof?product=hosted&source=history&lead=history',
       );
     });
+
+    test('the ended plan carries the rows the phone still holds', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..historyOwn = const HistoryOwn(
+          inside: [HistoryOwnRow('prod-db', 1)],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      final own = await install.door.readHistoryOwn();
+      final location = install.door.hostedLocation(
+        PaywallSource.planSheetEnded,
+        own: own,
+      );
+      expect(
+        location,
+        startsWith(
+          '/plans/wipe?product=hosted&source=plan_sheet_ended'
+          '&lead=history&headline=ended&hin=',
+        ),
+      );
+      // The route reads the same rows back out of the location.
+      final back = HistoryOwn.fromQuery(Uri.parse(location).queryParameters);
+      expect(back, isNotNull);
+      expect(back!.inside.single.topic, 'prod-db');
+      expect(back.beyond.single.topic, 'nas');
+      expect(back.beyond.single.ageDays, 12);
+    });
+
+    test('the ended plan with nothing older on the phone carries no rows', () {
+      final install = _Install()..hosted = 'auto';
+      final location = install.door.hostedLocation(
+        PaywallSource.planSheetEnded,
+      );
+      expect(
+        location,
+        '/plans/wipe?product=hosted&source=plan_sheet_ended'
+        '&lead=history&headline=ended',
+      );
+      // No rows in the location: the Wipe draws its made-up picture.
+      expect(
+        HistoryOwn.fromQuery(Uri.parse(location).queryParameters),
+        isNull,
+      );
+    });
+
+    test(
+      'the helper the ended sheet calls puts the rows in the location',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..historyOwn = const HistoryOwn(
+            inside: [HistoryOwnRow('prod-db', 1)],
+            beyond: [HistoryOwnRow('nas', 12)],
+          );
+        getIt.registerSingleton<PaywallDoor>(install.door);
+        addTearDown(() => getIt.unregister<PaywallDoor>());
+        final location = await hostedPaywallLocationWithOwn(
+          PaywallSource.planSheetEnded,
+        );
+        expect(
+          location,
+          '/plans/wipe?product=hosted&source=plan_sheet_ended'
+          '&lead=history&headline=ended&hin=prod-db%3A1&hbe=nas%3A12',
+        );
+      },
+    );
 
     test('the async helper reads the rows once and never throws', () async {
       final install = _Install()

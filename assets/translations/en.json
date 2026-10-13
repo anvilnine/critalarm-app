@@ -2006,6 +2006,9 @@
     "tag_free": "Free",
     "compare_label": "Compare {before} and {name}"
   },
+  "paywall_wipe_ended": {
+    "headline": "Get {name} back"
+  },
   "paywall_bento": {
     "brand": "Crit Alarm {name}",
     "headline_hosted": "Your limits, lifted.",
