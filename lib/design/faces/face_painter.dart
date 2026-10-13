@@ -365,6 +365,32 @@ class FacePainter extends CustomPainter {
             );
           }
         }
+
+      case PropKind.tear:
+        final s = prop.scale;
+        final drop = Path()
+          ..moveTo(prop.at.dx, prop.at.dy - 12 * s)
+          ..cubicTo(
+            prop.at.dx + 9 * s,
+            prop.at.dy - 2 * s,
+            prop.at.dx + 8 * s,
+            prop.at.dy + 8 * s,
+            prop.at.dx,
+            prop.at.dy + 8 * s,
+          )
+          ..cubicTo(
+            prop.at.dx - 8 * s,
+            prop.at.dy + 8 * s,
+            prop.at.dx - 9 * s,
+            prop.at.dy - 2 * s,
+            prop.at.dx,
+            prop.at.dy - 12 * s,
+          )
+          ..close();
+        canvas.drawPath(
+          drop,
+          Paint()..color = const Color(0xFF4FA8E8).withValues(alpha: alpha),
+        );
     }
   }
 
