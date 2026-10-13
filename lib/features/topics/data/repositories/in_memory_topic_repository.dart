@@ -28,10 +28,15 @@ class InMemoryTopicRepository implements TopicRepository {
   final SharedPreferences? prefs;
 
   /// Key prefix for the mark that a topic's subscription has moved from its
-  /// name to its `relay_name` on one server. Kept in preferences, which live
-  /// and die with this install, so a reinstall repeats the move. The repeat is
-  /// safe: adding a hash the device already holds changes nothing, and the
-  /// plain hash it removes is gone already.
+  /// name to its `relay_name` on one server. The value names the device id
+  /// and the hash the move was made for, so the mark stops counting when
+  /// either changes: a sign-out or a restored phone gets a new device id the
+  /// relay holds nothing for, and a topic deleted and made again gets a new
+  /// `relay_name`. The value holds the hash, never the `relay_name` itself.
+  /// Kept in preferences, which live and die with this install, so a
+  /// reinstall repeats the move. The repeat is safe: adding a hash the device
+  /// already holds changes nothing, and the plain hash it removes is gone
+  /// already.
   static const String movedKeyPrefix = 'relay_hash_moved.';
 
   /// Relay names seen in this run, by topic name, so a delete knows which
@@ -40,7 +45,7 @@ class InMemoryTopicRepository implements TopicRepository {
   final Map<String, String> _relayNames = {};
 
   /// Stands in for [prefs] when there are none (web, some tests).
-  final Set<String> _movedInMemory = {};
+  final Map<String, String> _movedInMemory = {};
 
   /// Moves run one after another, so two refreshes at once cannot both add
   /// and remove the same hash.
@@ -101,15 +106,36 @@ class InMemoryTopicRepository implements TopicRepository {
   String _movedKey(String baseUrl, String name) =>
       '$movedKeyPrefix${ServerInfoValidation.normalizeBaseUrl(baseUrl)}|$name';
 
-  bool _isMoved(String baseUrl, String name) {
-    final key = _movedKey(baseUrl, name);
-    return prefs?.getBool(key) ?? _movedInMemory.contains(key);
+  String _movedMark(
+    ({String deviceId, String deviceToken, String baseUrl}) target,
+    String relayName,
+  ) => '${target.deviceId}|${_hash(target.baseUrl, relayName)}';
+
+  bool _isMoved(
+    ({String deviceId, String deviceToken, String baseUrl}) target,
+    String name,
+    String relayName,
+  ) {
+    final key = _movedKey(target.baseUrl, name);
+    final held = prefs?.get(key) ?? _movedInMemory[key];
+    return held == _movedMark(target, relayName);
   }
 
-  Future<void> _markMoved(String baseUrl, String name) async {
+  Future<void> _markMoved(
+    ({String deviceId, String deviceToken, String baseUrl}) target,
+    String name,
+    String relayName,
+  ) async {
+    final key = _movedKey(target.baseUrl, name);
+    final mark = _movedMark(target, relayName);
+    _movedInMemory[key] = mark;
+    await prefs?.setString(key, mark);
+  }
+
+  Future<void> _forgetMoved(String baseUrl, String name) async {
     final key = _movedKey(baseUrl, name);
-    _movedInMemory.add(key);
-    await prefs?.setBool(key, true);
+    _movedInMemory.remove(key);
+    await prefs?.remove(key);
   }
 
   void _rememberRelayNames(Iterable<Topic> topics) {
@@ -134,11 +160,11 @@ class InMemoryTopicRepository implements TopicRepository {
       if (target == null) return;
       for (final topic in topics) {
         final secret = topic.relayName?.trim() ?? '';
-        if (secret.isEmpty || _isMoved(target.baseUrl, topic.name)) continue;
+        if (secret.isEmpty || _isMoved(target, topic.name, secret)) continue;
         try {
           await _subscribe(target, secret);
           await _unsubscribe(target, topic.name);
-          await _markMoved(target.baseUrl, topic.name);
+          await _markMoved(target, topic.name, secret);
         } on Exception {
           // Keep whatever is subscribed. The next refresh tries again.
         }
@@ -215,8 +241,9 @@ class InMemoryTopicRepository implements TopicRepository {
             ),
           );
           // Nothing was ever subscribed by name, so there is nothing to move.
-          if (topic.relayName?.trim().isNotEmpty ?? false) {
-            await _markMoved(target.baseUrl, topic.name);
+          final secret = topic.relayName?.trim() ?? '';
+          if (secret.isNotEmpty) {
+            await _markMoved(target, topic.name, secret);
           }
         }
       } on Exception {
@@ -298,6 +325,7 @@ class InMemoryTopicRepository implements TopicRepository {
         rethrow;
       }
       _relayNames.remove(name);
+      if (target != null) await _forgetMoved(target.baseUrl, name);
       return unit.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
