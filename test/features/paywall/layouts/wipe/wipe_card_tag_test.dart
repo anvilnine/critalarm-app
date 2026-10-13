@@ -11,7 +11,7 @@ void main() {
       );
     });
 
-    test('no tag while the card shows today\'s rows', () {
+    test('no tag while the card shows the rows of today', () {
       expect(
         wipeCardTagFor(reversed: true, isStruck: false, date: '21 Oct'),
         isNull,
