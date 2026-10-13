@@ -82,10 +82,18 @@ class _WipeCompositionState extends State<WipeComposition> {
       before = LocaleKeys.paywall_wipe_tag_free.tr();
       after = name;
     }
-    final headline = switch (wipeHeadlineFor(
+    final headlineKind = wipeHeadlineFor(
       isHosted: scope.isHosted,
       variant: variant,
-    )) {
+    );
+    // The ended Wipe keeps the lead's line and lists the rest under a label,
+    // as the Sheet and Proof do.
+    final showsAlso = wipeShowsAlsoIncluded(
+      headline: headlineKind,
+      hasLead: scope.lead != null,
+      benefitCount: benefits.length,
+    );
+    final headline = switch (headlineKind) {
       WipeHeadline.hosted => LocaleKeys.paywall_wipe_headline_hosted.tr(),
       WipeHeadline.pro => LocaleKeys.paywall_wipe_headline_pro.tr(),
       WipeHeadline.ended => LocaleKeys.paywall_wipe_ended_headline.tr(
@@ -110,6 +118,7 @@ class _WipeCompositionState extends State<WipeComposition> {
       lines: [for (final b in benefits) heroLineFor(b)],
       width: width,
       sizes: sizes,
+      alsoIncluded: showsAlso ? LocaleKeys.paywall_also_label.tr() : null,
     );
     final lines = metrics.lines;
     final headlineHeight = paywallTextHeight(
