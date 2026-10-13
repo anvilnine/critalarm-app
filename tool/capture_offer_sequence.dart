@@ -25,6 +25,11 @@
 //                 shows "It works" with its confetti, then hook up.
 //   replay        a developer replay on one answer (run with
 //                 --dart-define=PAYWALL_LAB=true so ?use= is read)
+//   redo          Developer options, Redo onboarding, on a build that skips
+//                 the store: the replay from the welcome page through the
+//                 question, the first topic and the ring step to the reel,
+//                 a made-up purchase, the thanks and hook up. Nothing is
+//                 saved, and the run checks it.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
@@ -46,6 +51,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
@@ -240,9 +246,11 @@ Future<void> _configure(
   WidgetTester tester,
   _Scenario scenario, {
   bool isDeveloperSwitch = false,
+  Map<String, Object>? prefs,
+  bool usesDemoStore = false,
 }) async {
   await tester.runAsync(() async {
-    SharedPreferences.setMockInitialValues(_prefsFor());
+    SharedPreferences.setMockInitialValues(prefs ?? _prefsFor());
     await getIt.reset();
     await configureDependencies(useMockApi: true);
     await getIt.unregister<NotificationPermissionRepository>();
@@ -308,6 +316,7 @@ Future<void> _configure(
             getIt<FirstTopicHandoff>().savedTopicName,
         readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
         startSale: (product) => getIt<OfferSaleProbe>().start(product),
+        readUsesDemoStore: () => usesDemoStore,
       ),
     );
     final use = scenario.use;
@@ -321,8 +330,16 @@ Future<_Run> _open(
   _Scenario scenario, {
   required List<String> errors,
   bool isDeveloperSwitch = false,
+  Map<String, Object>? prefs,
+  bool usesDemoStore = false,
 }) async {
-  await _configure(tester, scenario, isDeveloperSwitch: isDeveloperSwitch);
+  await _configure(
+    tester,
+    scenario,
+    isDeveloperSwitch: isDeveloperSwitch,
+    prefs: prefs,
+    usesDemoStore: usesDemoStore,
+  );
   const dpr = 2.0;
   tester.view.physicalSize = config.phone.size * dpr;
   tester.view.devicePixelRatio = dpr;
@@ -867,6 +884,149 @@ Future<void> _replay(
   await _afterClose(tester, run, scenario);
 }
 
+/// Developer options, Redo onboarding, on a build that skips the store.
+Future<void> _redo(
+  WidgetTester tester,
+  _Config config,
+  _Scenario scenario,
+  List<String> errors,
+) async {
+  String name(String scene) =>
+      '${scene}_${config.phone.name}_${config.mode.name}_'
+      '${config.scale.toStringAsFixed(1)}x${config.reduce ? '_reduced' : ''}';
+  final run = await _open(
+    tester,
+    config,
+    scenario,
+    errors: errors,
+    usesDemoStore: true,
+    // A phone that finished setup long ago.
+    prefs: const {
+      'onboarding_completed': true,
+      'server_url': 'https://api.critalarm.app',
+      'admin_token': 'demo',
+    },
+  );
+  var planChanges = 0;
+  void onPlanChange() => planChanges++;
+  appPlanChanges.addListener(onPlanChange);
+  addTearDown(() => appPlanChanges.removeListener(onPlanChange));
+  final before = await _prefsMap(tester);
+  run.router.go('/onboarding/welcome?demo=true');
+  await tester.pump();
+  await _settle(tester, 30);
+  await _save(tester, run, name('redo_00_welcome_${scenario.name}'));
+
+  // The welcome has three pages.
+  for (var page = 0; page < 2; page++) {
+    await tester.tap(find.text('Next').first);
+    await _settle(tester, 40);
+  }
+  await tester.tap(find.text('Get started'));
+  await _settle(tester, 60);
+  expect(run.location.path, '/onboarding/connect');
+  expect(run.location.queryParameters['demo'], 'true');
+
+  // Connect and the permissions move on without asking the phone for
+  // anything.
+  await tester.tap(find.text('Use Crit Alarm Cloud'));
+  await _settle(tester, 60);
+  await tester.tap(find.text('Allow notifications'));
+  await _settle(tester, 60);
+  await tester.tap(find.text('Not now'));
+  await _settle(tester, 60);
+
+  // The question. A tap on a row picks it, in memory.
+  expect(run.location.path, '/onboarding/use');
+  await _save(tester, run, name('redo_01_question_${scenario.name}'));
+  await tester.tap(find.text('My homelab'));
+  await _settle(tester, 60);
+  expect(getIt<SetupUseReplay>().pick, SetupUse.homelab);
+  expect(getIt<SetupUseStore>().read(), isNull, reason: 'nothing saved');
+
+  // The first topic. A replay makes none.
+  expect(run.location.path, '/onboarding/first-topic');
+  await tester.tap(find.text('nas-disk'));
+  await _settle(tester, 10);
+  await _save(tester, run, name('redo_02_first_topic_${scenario.name}'));
+  await tester.tap(find.text('Create topic'));
+  await _settle(tester, 60);
+
+  // The real alarm step. A replay sends nothing: its button moves on.
+  expect(run.location.path, '/onboarding/real-ring');
+  await _save(tester, run, name('redo_03_real_alarm_${scenario.name}'));
+  await tester.tap(find.text('Ring me for real'));
+  await tester.pump();
+
+  // The reel, led by the answer picked above.
+  await _untilLayerUp(tester);
+  expect(run.location.path, _offerPath);
+  var t = await _stepTo(tester, 0, 0.016);
+  t = await _stepTo(tester, t, 0.2);
+  await _save(tester, run, name('redo_04_reel_rising_${scenario.name}'));
+  t = await _stepTo(tester, t, _firstSceneRestAt);
+  await _save(tester, run, name('redo_05_reel_${scenario.name}'));
+  // The homelab answer leads: the weekly delivery check.
+  expect(find.text('Know it still reaches you'), findsWidgets);
+  t = await _stepTo(tester, t, _secondSceneRestAt);
+  await _save(tester, run, name('redo_06_reel_second_${scenario.name}'));
+
+  if (config.mode == ThemeMode.dark) {
+    // Closed with the cross: straight on to hook up.
+    await tester.tap(find.byType(AppDismissCross).first);
+    await tester.pump();
+    await _untilLeft(tester, run, from: _offerPath, name: name);
+  } else {
+    // A made-up purchase: buying, the thanks, then its button.
+    final buy = find.descendant(
+      of: find.byType(PaywallBuyBlock),
+      matching: find.byType(AppButton),
+    );
+    await tester.tap(buy.last);
+    await tester.pump();
+    await _stepTo(tester, 0, 0.3);
+    await _save(tester, run, name('redo_07_buying_${scenario.name}'));
+    await _stepTo(tester, 0, 1.4);
+    await _frame(tester);
+    await _stepTo(tester, 0, 3.4);
+    expect(find.text('Hook up your tool'), findsOneWidget);
+    await _save(tester, run, name('redo_08_thanks_${scenario.name}'));
+    expect(run.location.path, _offerPath, reason: 'the purchase waits');
+    await tester.tap(find.text('Hook up your tool'));
+    await tester.pump();
+    await _untilLeft(tester, run, from: _offerPath, name: name);
+  }
+  expect(run.location.path, _hookUpPath, reason: 'never Home');
+  expect(run.location.queryParameters['demo'], 'true');
+  await _settle(tester, 40);
+  await _save(tester, run, name('redo_09_hook_up_${scenario.name}'));
+
+  // The whole replay saved nothing: not the answer, not a step, not a
+  // funnel event, not the false alarm flag. No screen was told the plan
+  // changed either.
+  expect(await _prefsMap(tester), before, reason: 'a replay saves nothing');
+  expect(planChanges, 0, reason: 'no purchase was recorded');
+}
+
+/// Everything in the prefs, bar the copy of the server's topic timers that
+/// the topic list keeps whenever it loads. The replay does not write it.
+Future<Map<String, Object?>> _prefsMap(WidgetTester tester) async {
+  final prefs = await _prefs(tester);
+  return {
+    for (final key in prefs.getKeys())
+      if (!key.startsWith('topic_timers.') &&
+          !key.startsWith('topic_critical.'))
+        key: prefs.get(key),
+  };
+}
+
+/// [frames] frames of the stepped clock.
+Future<void> _settle(WidgetTester tester, int frames) async {
+  for (var i = 0; i < frames; i++) {
+    await _frame(tester);
+  }
+}
+
 /// A real alarm opens while the layer is up: the router goes to the alarm
 /// screen, and the layer must not stay over it. The step is finished in the
 /// engine, nothing moves, and no purchase or close is recorded.
@@ -948,6 +1108,16 @@ const _sceneOrder = [
   'offer_interrupted_alarm',
   'offer_replay_entry',
   'offer_replay_reel',
+  'redo_00_welcome',
+  'redo_01_question',
+  'redo_02_first_topic',
+  'redo_03_real_alarm',
+  'redo_04_reel_rising',
+  'redo_05_reel',
+  'redo_06_reel_second',
+  'redo_07_buying',
+  'redo_08_thanks',
+  'redo_09_hook_up',
 ];
 
 /// Lays the files of each run side by side, one sheet per run, phone,
@@ -959,7 +1129,7 @@ Future<void> _sheets() async {
   // <scene>_<label>_<phone>_<theme>_<scale>x[_reduced].png
   const labels =
       'servers|homelab|jobs|home|other|own_server|skip_[a-z_]+|replay|'
-      'interrupt';
+      'interrupt|redo';
   final pattern = RegExp(
     '^(.+?)_($labels)_'
     r'(390|320)_(light|dark)_(\d\.\dx(?:_reduced)?)\.png$',
@@ -1069,6 +1239,14 @@ void main() {
     _Config(_phones[0], ThemeMode.light, 1, reduce: true),
   ]) {
     _configuration(config, replay, _replay);
+  }
+
+  // Developer options, Redo onboarding, whole.
+  for (final config in [
+    _Config(_phones[0], ThemeMode.light, 1, reduce: false),
+    _Config(_phones[0], ThemeMode.dark, 1, reduce: false),
+  ]) {
+    _configuration(config, const _Scenario('redo'), _redo);
   }
 
   // Run last (or alone with ONLY=sheets): the contact sheets of every file
