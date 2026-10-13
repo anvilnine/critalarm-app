@@ -1,5 +1,6 @@
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -10,8 +11,9 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 /// A Hosted layout sends the events of the shipped paywall and a Pro layout
 /// those of the Pro sheet, under the same names with the same parameters,
 /// so one funnel reads both. Each also carries `layout`, `intro`, `thanks`
-/// and `product`. The shipped surfaces keep `PaywallAnalytics` and
-/// `ProPackAnalytics` and send exactly what they always have.
+/// and `product`, and `outro` when one is set. The shipped surfaces keep
+/// `PaywallAnalytics` and `ProPackAnalytics` and send exactly what they
+/// always have.
 ///
 /// No event carries a price, a store product or a topic. A layout is not a
 /// paywall variant, so none carries `variant`.
@@ -22,6 +24,7 @@ final class PaywallLayoutAnalytics {
     required this.isHosted,
     this.intro = PaywallIntroId.none,
     this.thanks = PaywallThanksId.none,
+    this.outro = PaywallOutroId.none,
   });
 
   final TelemetryGate _gate;
@@ -35,6 +38,11 @@ final class PaywallLayoutAnalytics {
   /// What plays after a confirmed purchase, `none` when nothing does.
   final PaywallThanksId thanks;
 
+  /// What plays between a confirmed purchase and the thanks, `none` when
+  /// nothing does. Sent only when one is set, so the events of a paywall
+  /// with no outro stay as they were.
+  final PaywallOutroId outro;
+
   /// Hosted, or Pro.
   final bool isHosted;
 
@@ -46,6 +54,7 @@ final class PaywallLayoutAnalytics {
     'layout': layout.key,
     'intro': intro.key,
     'thanks': thanks.key,
+    if (outro != PaywallOutroId.none) 'outro': outro.key,
     'product': isHosted ? hostedProduct : proProduct,
   };
 

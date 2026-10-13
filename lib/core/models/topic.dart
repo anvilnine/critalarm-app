@@ -22,7 +22,18 @@ abstract class Topic with _$Topic {
     String? token,
     @JsonKey(name: 'token_id') String? tokenId,
     @JsonKey(name: 'token_name') String? tokenName,
+
+    /// The secret half of the topic's relay hash. A self-hosted server returns
+    /// it to a management credential, and other servers leave it out. Never
+    /// show it, log it or send it anywhere: [toString] leaves it out for that
+    /// reason.
+    @JsonKey(name: 'relay_name') String? relayName,
   }) = _Topic;
 
   factory Topic.fromJson(Map<String, dynamic> json) => _$TopicFromJson(json);
+
+  /// The generated version prints every field, which would put [relayName]
+  /// and the one-time [token] in any log line that prints a topic.
+  @override
+  String toString() => 'Topic(name: $name, critical: $critical)';
 }

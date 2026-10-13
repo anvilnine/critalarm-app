@@ -75,6 +75,53 @@ void main() {
     });
   });
 
+  group('paywallStepsText', () {
+    String text({
+      String? intro,
+      String? layout,
+      String? thanks,
+      String? outro,
+    }) => paywallStepsText(
+      intro: intro,
+      layout: layout,
+      thanks: thanks,
+      outro: outro,
+      remote: 'remote',
+    );
+
+    test('all left to the remote value reads remote once', () {
+      expect(text(), 'remote');
+    });
+
+    test('a lone outro is not three remotes and the outro', () {
+      expect(text(outro: 'Cloud climb'), 'remote, Cloud climb');
+    });
+
+    test('a set step keeps the others as remote', () {
+      expect(text(thanks: 'Stamp'), 'remote, remote, Stamp');
+      expect(
+        text(layout: 'Hero', thanks: 'Stamp', outro: 'Cloud climb'),
+        'remote, Hero, Cloud climb, Stamp',
+      );
+    });
+
+    test('four set steps read intro, paywall, outro, after purchase', () {
+      expect(
+        text(
+          intro: 'Snooze',
+          layout: 'Hero',
+          outro: 'Cloud climb',
+          thanks: 'Stamp',
+        ),
+        'Snooze, Hero, Cloud climb, Stamp',
+      );
+      expect(
+        text(intro: 'Snooze', layout: 'Hero', thanks: 'Stamp'),
+        'Snooze, Hero, Stamp',
+      );
+    });
+  });
+
   group('developerFlowValueText', () {
     String text({String? bundledId, bool isCustom = false}) =>
         developerFlowValueText(
