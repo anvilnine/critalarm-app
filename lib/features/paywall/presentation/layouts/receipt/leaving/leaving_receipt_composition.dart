@@ -151,32 +151,25 @@ class LeavingReceiptComposition extends StatelessWidget {
         ) +
         sizes.rowGap * (afterLines.length - 1);
 
-    final minStage = leavingReceiptMinHeight(rows, textScale: textScale);
-    HeroStageRoom roomFor(double words) => heroStageRoomFor(
-      height: scope.size.height,
-      words: words,
-      gap: sizes.stageGap,
-      bottomGap: sizes.bottomGap,
-      stageMax:
-          ReceiptPlan.maxHeight(rows, hasTotal: false) +
-          (textScale > leavingReceiptStackedAbove
-              ? ReceiptPlan.mascotMin + 4
-              : 0),
-    );
     const sublineGap = Spacing.s1 + 2;
     // The headline hangs [Spacing.s1] under the top, level with the cross.
-    final withoutSubline =
-        Spacing.s1 + headlineHeight + sizes.headlineGap + afterHeight;
-    var room = roomFor(withoutSubline + sublineGap + sublineHeight);
-    // At a large text size the line under the headline goes before the slip
-    // does.
-    final hasSubline = room.stage >= minStage;
-    if (!hasSubline) room = roomFor(withoutSubline);
-    final stage = Size(scope.size.width, math.max(room.stage, minStage));
+    final fit = leavingReceiptFitFor(
+      height: scope.size.height,
+      top: Spacing.s1 + headlineHeight + sizes.headlineGap,
+      sublineBlock: sublineGap + sublineHeight,
+      afterHeight: afterHeight,
+      stageGap: sizes.stageGap,
+      bottomGap: sizes.bottomGap,
+      rows: rows,
+      textScale: textScale,
+    );
+    final hasSubline = fit.showsSubline;
+    final stage = Size(scope.size.width, fit.stage);
     final layout = leavingReceiptLayoutFor(
       stage,
       rows: rows,
       textScale: textScale,
+      showsFace: fit.showsFace,
     );
 
     final lines = [
@@ -200,65 +193,78 @@ class LeavingReceiptComposition extends StatelessWidget {
       clock: scope.clock,
       // The print is heard a row at a time, then the stamp.
       beats: leavingReceiptCues(rows),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
+      // The three lines under the slip are pinned at the foot of the box. What
+      // is above them scrolls when nothing else is left to give, so the lines
+      // are never cut by the buy block.
+      child: SizedBox(
+        height: scope.size.height,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                left: ReceiptPlan.side,
-                right: scope.size.width - ReceiptPlan.side - headlineWidth,
-                top: Spacing.s1,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  HeroRise(
-                    clock: scope.clock,
-                    index: 0,
-                    child: Semantics(
-                      header: true,
-                      child: Text(headline, style: headlineStyle),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: ReceiptPlan.side,
+                        right:
+                            scope.size.width - ReceiptPlan.side - headlineWidth,
+                        top: Spacing.s1,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          HeroRise(
+                            clock: scope.clock,
+                            index: 0,
+                            child: Semantics(
+                              header: true,
+                              child: Text(headline, style: headlineStyle),
+                            ),
+                          ),
+                          if (hasSubline) ...[
+                            const SizedBox(height: sublineGap),
+                            HeroRise(
+                              clock: scope.clock,
+                              index: 1,
+                              child: Text(subline, style: sublineStyle),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  if (hasSubline) ...[
-                    const SizedBox(height: sublineGap),
-                    HeroRise(
-                      clock: scope.clock,
-                      index: 1,
-                      child: Text(subline, style: sublineStyle),
+                    SizedBox(height: sizes.headlineGap),
+                    RepaintBoundary(
+                      child: PaywallClockBuilder(
+                        clock: scope.clock,
+                        builder: (context, t, _) => _LeavingStage(
+                          layout: layout,
+                          t: t,
+                          isStill: scope.clock.isStill,
+                          atRest: leaving.atRest,
+                          bleedTop: bleedTop,
+                          title: LocaleKeys.app_title.tr(),
+                          lines: lines,
+                          active: active,
+                          stampText: LocaleKeys.paywall_leaving_receipt_stamp
+                              .tr(namedArgs: {'date': endsText.toUpperCase()}),
+                        ),
+                      ),
                     ),
                   ],
-                ],
-              ),
-            ),
-            SizedBox(height: sizes.headlineGap),
-            RepaintBoundary(
-              child: PaywallClockBuilder(
-                clock: scope.clock,
-                builder: (context, t, _) => _LeavingStage(
-                  layout: layout,
-                  t: t,
-                  isStill: scope.clock.isStill,
-                  atRest: leaving.atRest,
-                  bleedTop: bleedTop,
-                  title: LocaleKeys.app_title.tr(),
-                  lines: lines,
-                  active: active,
-                  stampText: LocaleKeys.paywall_leaving_receipt_stamp.tr(
-                    namedArgs: {'date': endsText.toUpperCase()},
-                  ),
                 ),
               ),
             ),
-            SizedBox(height: room.gap),
+            SizedBox(height: fit.scrolls ? sizes.stageGap : fit.room.gap),
             Padding(
               padding: EdgeInsets.only(
                 left: ReceiptPlan.side,
                 right: heroSideInset,
-                bottom: room.under,
+                bottom: fit.scrolls ? sizes.bottomGap : fit.room.under,
               ),
               child: HeroRise(
                 clock: scope.clock,
@@ -321,7 +327,9 @@ class _LeavingStage extends StatelessWidget {
         ? LeavingReceiptTimeline.actor(0, atRest: true)
         : LeavingReceiptTimeline.actor(t, atRest: atRest);
     final parts = plan.stops.length;
-    final focus = layout.mascot.center;
+    final focus = layout.showsFace
+        ? layout.mascot.center
+        : layout.plan.paper.bottomRight;
 
     return SizedBox.fromSize(
       size: stage,
@@ -416,20 +424,21 @@ class _LeavingStage extends StatelessWidget {
           ),
           // Crit in the print-phase form only: the form with the loop's idle
           // would bob and rock.
-          Positioned.fromRect(
-            rect: layout.mascot,
-            child: ExcludeSemantics(
-              child: HeroMascot(
-                size: layout.mascot.width,
-                entranceStyle: receiptMotion.entrance,
-                face: actor.face,
-                fromFace: actor.fromFace,
-                faceBlend: actor.faceBlend,
-                hop: actor.hop,
-                entrance: actor.entrance,
+          if (layout.showsFace)
+            Positioned.fromRect(
+              rect: layout.mascot,
+              child: ExcludeSemantics(
+                child: HeroMascot(
+                  size: layout.mascot.width,
+                  entranceStyle: receiptMotion.entrance,
+                  face: actor.face,
+                  fromFace: actor.fromFace,
+                  faceBlend: actor.faceBlend,
+                  hop: actor.hop,
+                  entrance: actor.entrance,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

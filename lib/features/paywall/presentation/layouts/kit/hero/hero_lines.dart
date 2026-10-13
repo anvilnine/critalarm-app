@@ -15,6 +15,29 @@ import 'package:flutter/material.dart';
 /// The side inset of the words, the same as the buy block's.
 const double heroSideInset = 20;
 
+/// The width the headline is set in: [width] less the extra room kept at its
+/// right for the close control. [endRoom] is measured from the screen's edge,
+/// and the side inset is already there.
+double heroHeadlineWidth({required double width, double endRoom = 0}) =>
+    width - math.max(0, endRoom - heroSideInset);
+
+/// How many of [count] lines to draw so that none is cut at the foot of its
+/// box. [leftFor] is the height left over when `shown` lines are drawn, and
+/// a line is whole when that is not below zero. `isAllowed` rules out a
+/// count that cannot be drawn on its own. Returns the most lines that fit,
+/// or zero when not even the first fits.
+int heroWholeLinesFor({
+  required int count,
+  required double Function(int shown) leftFor,
+  bool Function(int shown)? isAllowed,
+}) {
+  for (var shown = count; shown > 0; shown--) {
+    if (isAllowed != null && !isAllowed(shown)) continue;
+    if (leftFor(shown) >= 0) return shown;
+  }
+  return 0;
+}
+
 /// The short line the list shows for [benefit]: a sentence of its own for
 /// every benefit there is.
 String heroLineFor(PaywallBenefit benefit) {

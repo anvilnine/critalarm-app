@@ -49,13 +49,16 @@ import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_plan_picker.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -83,9 +86,6 @@ class _Phone {
 
 const _tall = _Phone('390x844', Size(390, 844), 47, 34);
 const _narrow = _Phone('320x568', Size(320, 568), 20, 0);
-
-/// The Receipt has always needed this much height at 320 wide.
-const _narrowTall = _Phone('320x640', Size(320, 640), 24, 0);
 
 /// A few rows inside the Free window and a few past it.
 const _ownRows = HistoryOwn(
@@ -127,6 +127,15 @@ const _four = LeavingFacts(
   historyDaysHeld: 95,
 );
 
+/// Thin numbers with [n] critical topics.
+LeavingFacts _thinWith(int n) => LeavingFacts(
+  rang: 4,
+  answered: 2,
+  nights: 0,
+  criticalTopics: n,
+  historyDaysHeld: 40,
+);
+
 final DateTime _ends = DateTime(2026, 10, 20);
 
 /// The sentence the leaving layouts used to print under the button.
@@ -139,7 +148,6 @@ class _Scene {
     this.name,
     this.location, {
     this.times = const [],
-    this.narrow = _narrow,
   });
 
   final String name;
@@ -147,9 +155,6 @@ class _Scene {
 
   /// The seconds captured with motion on.
   final List<double> times;
-
-  /// The 320 wide phone this scene is captured on.
-  final _Phone narrow;
 }
 
 String _leaving(PaywallLayoutId layout, LeavingFacts facts) =>
@@ -163,7 +168,18 @@ String _leaving(PaywallLayoutId layout, LeavingFacts facts) =>
       leaving: PaywallLeaving(endsOn: _ends, facts: facts),
     );
 
-String _proof(HistoryOwn own) => paywallLayoutLocation(
+/// The leaving layout with the critical topics as its lead picture.
+String _leavingOnTopics(PaywallLayoutId layout, LeavingFacts facts) =>
+    paywallLayoutLocation(
+      layout,
+      PaywallProduct.hosted,
+      source: PaywallSource.planSheetEnding,
+      lead: PaywallBenefitId.topics,
+      headline: PaywallHeadlineVariant.leaving,
+      leaving: PaywallLeaving(endsOn: _ends, facts: facts),
+    );
+
+String _proof(HistoryOwn? own) => paywallLayoutLocation(
   PaywallLayoutId.proof,
   PaywallProduct.hosted,
   source: PaywallSource.history,
@@ -171,23 +187,96 @@ String _proof(HistoryOwn own) => paywallLayoutLocation(
   own: own,
 );
 
+/// The Sheet from the critical limit: 2 of 2 used, the topic billing-api.
+String _sheetCritical() =>
+    Uri.parse(
+          paywallLayoutLocation(
+            PaywallLayoutId.sheet,
+            PaywallProduct.hosted,
+            source: PaywallSource.createTopicCard,
+            lead: PaywallBenefitId.topics,
+          ),
+        )
+        .replace(
+          queryParameters: {
+            ...Uri.parse(
+              paywallLayoutLocation(
+                PaywallLayoutId.sheet,
+                PaywallProduct.hosted,
+                source: PaywallSource.createTopicCard,
+                lead: PaywallBenefitId.topics,
+              ),
+            ).queryParameters,
+            'used': '2',
+            'limit': '2',
+            'topic': 'billing-api',
+          },
+        )
+        .toString();
+
 final _scenes = <_Scene>[
+  _Scene(
+    'sheet_no_lead',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.sheet,
+      PaywallProduct.hosted,
+      source: PaywallSource.settingsPlan,
+    ),
+  ),
+  const _Scene('sheet_critical_lifted', _sheetCritical, times: [3.9]),
+  _Scene(
+    'sheet_history',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.sheet,
+      PaywallProduct.hosted,
+      source: PaywallSource.history,
+      lead: PaywallBenefitId.history,
+    ),
+    times: const [3.9],
+  ),
   _Scene(
     'receipt_leaving',
     () => _leaving(PaywallLayoutId.receipt, _four),
     times: [3.5],
-    narrow: _narrowTall,
   ),
   _Scene(
     'wipe_leaving',
     () => _leaving(PaywallLayoutId.wipe, _thin),
     times: [1.0, 3, 9, 14],
   ),
+  for (final n in const [1, 2, 3, 7])
+    _Scene(
+      'wipe_leaving_topics$n',
+      () => _leavingOnTopics(PaywallLayoutId.wipe, _thinWith(n)),
+      times: [1.4, 3],
+    ),
   _Scene(
     'proof_lead_history',
     () => _proof(_ownRows),
     times: [2.5, 5.5, 8.5, 11.5, 14.5],
   ),
+  _Scene(
+    'wipe_ended',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.wipe,
+      PaywallProduct.hosted,
+      source: PaywallSource.planSheetEnded,
+      lead: PaywallBenefitId.history,
+      headline: PaywallHeadlineVariant.ended,
+      own: _ownRows,
+    ),
+    times: [3.0],
+  ),
+  _Scene(
+    'wipe_forward',
+    () => paywallLayoutLocation(
+      PaywallLayoutId.wipe,
+      PaywallProduct.hosted,
+      source: PaywallSource.settingsPlan,
+    ),
+    times: [0.75, 1.0, 3.0],
+  ),
+  _Scene('proof_sample_rows', () => _proof(null), times: [2.0, 3.0, 8.5]),
   _Scene(
     'proof_old_only',
     () => _proof(_oldRows),
@@ -267,6 +356,7 @@ String _headlineOn(WidgetTester tester) {
     LocaleKeys.paywall_proof_headline_hosted.tr(),
     LocaleKeys.paywall_own_count_headline_generic.tr(),
     LocaleKeys.paywall_sheet_headline_topics.tr(),
+    LocaleKeys.paywall_sheet_headline_history.tr(),
   };
   return all.where((text) => find.text(text).evaluate().isNotEmpty).join(' | ');
 }
@@ -292,7 +382,12 @@ String _headlineOn(WidgetTester tester) {
   if (!onScreen(find.byType(AppButton))) {
     problems.add('The button is not on screen.');
   }
-  if (scale == 1.0) {
+  // The leaving Receipt scrolls its slip as the last thing to give, when the
+  // three lines under it and the buy block leave no more room: only at 320
+  // wide and 568 tall.
+  final mayScroll =
+      scene.name == 'receipt_leaving' && screen.width < 340 && scale == 1.0;
+  if (scale == 1.0 && !mayScroll) {
     for (final s in tester.stateList<ScrollableState>(
       find.byType(Scrollable),
     )) {
@@ -319,6 +414,39 @@ String _headlineOn(WidgetTester tester) {
         : scene.name,
   );
 
+  if (scene.name == 'receipt_leaving') {
+    // The three lines about what Free gives are whole and above the buy
+    // block, however little room there is.
+    final after = {
+      'history': find.text(
+        LocaleKeys.paywall_leaving_receipt_after_history.tr(
+          namedArgs: HostedBenefit.args,
+        ),
+      ),
+      'critical': find.textContaining('stay critical'),
+      'pushes': find.text(
+        LocaleKeys.paywall_leaving_receipt_after_pushes.tr(
+          namedArgs: HostedBenefit.args,
+        ),
+      ),
+    };
+    final buyTop = tester.getTopLeft(find.byType(PaywallPlanPicker).first).dy;
+    for (final MapEntry(key: name, value: text) in after.entries) {
+      if (text.evaluate().isEmpty) {
+        problems.add('The $name after line is missing.');
+        continue;
+      }
+      final rect = tester.getRect(text.first);
+      if (rect.bottom > buyTop + 0.5) {
+        problems.add('The $name after line runs behind the buy block.');
+      }
+    }
+    final labelFinder = find.textContaining('AFTER ');
+    if (labelFinder.evaluate().isEmpty) {
+      problems.add('The after label is missing.');
+    }
+  }
+
   switch (scene.name) {
     case 'receipt_leaving' || 'wipe_leaving':
       if (find.textContaining(_removedNote).evaluate().isNotEmpty) {
@@ -340,6 +468,29 @@ String _headlineOn(WidgetTester tester) {
           problems.add('"$lead" stays up on another beat.');
         }
       }
+    case 'wipe_ended':
+      if (find.text(LocaleKeys.paywall_also_label.tr()).evaluate().isEmpty &&
+          find
+              .text(LocaleKeys.paywall_also_label.tr().toUpperCase())
+              .evaluate()
+              .isEmpty) {
+        problems.add('The ended Wipe has no Also included label.');
+      }
+    case 'proof_sample_rows':
+      final found = _headlineOn(tester);
+      final lead = LocaleKeys.paywall_sheet_headline_history.tr();
+      if (seconds != null && seconds <= 3.0 && found != lead) {
+        problems.add('The history beat does not say "$lead": "$found".');
+      }
+      if (seconds != null && seconds >= 8.5 && found == lead) {
+        problems.add('"$lead" stays up on another beat.');
+      }
+      if (find
+          .text(LocaleKeys.paywall_history_own_headline.tr())
+          .evaluate()
+          .isNotEmpty) {
+        problems.add('Sample rows say "See older alarms".');
+      }
     case 'sheet_long_name':
       if (find.textContaining('…').evaluate().isNotEmpty &&
           find.textContaining('Make nightly').evaluate().isNotEmpty) {
@@ -348,6 +499,25 @@ String _headlineOn(WidgetTester tester) {
       if (find.textContaining('Make nightly').evaluate().isNotEmpty) {
         problems.add('The headline names a name over 16 characters.');
       }
+  }
+  if (scene.name.startsWith('wipe_leaving_topics')) {
+    final n = int.parse(scene.name.substring('wipe_leaving_topics'.length));
+    final pictures = tester
+        .widgetList<TopicsPreview>(find.byType(TopicsPreview))
+        .toList();
+    said.write(
+      ': ${pictures.length} topics pictures, counts '
+      '${[for (final p in pictures) p.leavingCritical]}',
+    );
+    // Once the grey has covered the stage, every picture on it is the one
+    // that holds the person's count.
+    if (seconds == null || seconds >= 1.4) {
+      for (final p in pictures) {
+        if (p.leavingCritical != n) {
+          problems.add('A topics picture does not hold the count $n.');
+        }
+      }
+    }
   }
   if (scene.name == 'wipe_leaving') {
     said.write(', date tags on the card: $tags');
@@ -466,7 +636,7 @@ void main() {
   }
 
   for (final scene in _scenes) {
-    for (final phone in [_tall, scene.narrow]) {
+    for (final phone in [_tall, _narrow]) {
       for (final mode in [ThemeMode.light, ThemeMode.dark]) {
         for (final scale in const [1.0, 2.0]) {
           capture(scene, phone: phone, mode: mode, scale: scale, isStill: true);
@@ -477,8 +647,8 @@ void main() {
     for (final (phone, mode, scale) in [
       (_tall, ThemeMode.light, 1.0),
       (_tall, ThemeMode.dark, 1.0),
-      (scene.narrow, ThemeMode.light, 1.0),
-      (scene.narrow, ThemeMode.dark, 2.0),
+      (_narrow, ThemeMode.light, 1.0),
+      (_narrow, ThemeMode.dark, 2.0),
     ]) {
       capture(scene, phone: phone, mode: mode, scale: scale, isStill: false);
     }
