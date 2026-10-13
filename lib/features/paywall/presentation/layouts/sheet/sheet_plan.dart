@@ -129,8 +129,21 @@ const double sheetCardMedium = 120;
 /// headline on one line over [benefitCount] lines, with the gaps around
 /// them. The sheet sets its words at the kit's compact sizes on every
 /// phone.
-double sheetWordsHeight(int benefitCount) =>
-    56 + 24.0 * math.max(1, benefitCount);
+///
+/// With [hasAlso] the first benefit is the lead and the others sit under
+/// the "Also included" label at a smaller size. A group needs a second
+/// benefit. A lead drawn with no line of its own ([showsLead] false) takes
+/// no room, and the label sits right under the headline.
+double sheetWordsHeight(
+  int benefitCount, {
+  bool hasAlso = false,
+  bool showsLead = true,
+}) {
+  final count = math.max(1, benefitCount);
+  if (!hasAlso || count < 2) return 56 + 24.0 * count;
+  final others = 20.0 * (count - 1);
+  return showsLead ? 56 + 24 + 26 + others : 56 + 20 + others;
+}
 
 /// The height the sheet needs at the default text size for a stage
 /// [stage] points tall: the stage, the words, and the buy block as the kit
@@ -140,7 +153,13 @@ double sheetWantedHeight({
   required int benefitCount,
   required double bottomInset,
   double stage = sheetStageFull,
-}) => stage + sheetWordsHeight(benefitCount) + buyBlockHeight + bottomInset;
+  bool hasAlso = false,
+  bool showsLead = true,
+}) =>
+    stage +
+    sheetWordsHeight(benefitCount, hasAlso: hasAlso, showsLead: showsLead) +
+    buyBlockHeight +
+    bottomInset;
 
 /// Lays the screen out for one phone.
 ///
@@ -165,6 +184,8 @@ SheetPlan sheetPlanFor({
   required double? buyBlockHeight,
   required int benefitCount,
   double textScale = 1,
+  bool hasAlso = false,
+  bool showsLead = true,
 }) {
   final isLargeText = textScale > 1.01;
   SheetPlan plan(SheetHeader header, int rows, {bool isMeasured = true}) =>
@@ -186,6 +207,8 @@ SheetPlan sheetPlanFor({
     benefitCount: benefitCount,
     bottomInset: bottomInset,
     stage: stage,
+    hasAlso: hasAlso,
+    showsLead: showsLead,
   );
   bool fits(SheetPlan plan, double stage) =>
       screenHeight - plan.sheetTop >= wanted(stage);
