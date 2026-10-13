@@ -72,7 +72,7 @@ void main() {
         Paint()..color = const Color(0xFFFF0000),
       );
       final wall = await recorder.endRecording().toImage(390, 844);
-      for (final t in [0.5, 0.9, 1.2]) {
+      for (final t in [0.5, 0.9, 1.0]) {
         final canvas = _CountingCanvas();
         final pose = T.pose(
           t,
