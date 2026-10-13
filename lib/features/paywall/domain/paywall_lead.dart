@@ -74,3 +74,10 @@ List<PaywallBenefit> paywallBenefitsLeadFirst(
       if (benefit.id != lead!.benefit) benefit,
   ];
 }
+
+/// The lead a `/plans/:layout` location names in `?lead=`, or null for a
+/// missing or unknown one. The paywall opens either way.
+PaywallLead? paywallLeadFromQuery(Map<String, String> query) {
+  final benefit = PaywallBenefitId.fromKey(query['lead']);
+  return benefit == null ? null : PaywallLead(benefit: benefit);
+}

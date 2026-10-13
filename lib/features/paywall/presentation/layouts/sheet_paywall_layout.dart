@@ -5,7 +5,6 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart'
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_lead_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_page.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_plan.dart';
@@ -204,8 +203,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // The screen behind is drawn outside the frame, from the same offer
     // the frame hands its builder.
     final offer = PaywallOffer.of(context);
-    // The benefit the user was reaching for leads: first line, first turn.
-    final benefits = sheetBenefitsLeadFirst(offer.source, offer.benefits);
+    // The offer lists the route's lead first. With no lead the first
+    // benefit leads, as before.
+    final benefits = offer.benefits;
     final lead = benefits.firstOrNull;
     final kind = sheetPageKindFor(lead?.id);
     // After an intro the preview and the words come up with the sheet.
