@@ -1,4 +1,6 @@
 import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_beats.dart';
@@ -7,6 +9,23 @@ import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+/// Which headline the Proof layout shows.
+enum ProofHeadline { hosted, pro, olderAlarms }
+
+/// "See older alarms" is true only for rows the phone holds: the lead is
+/// history and [own] has rows past the window. Otherwise the layout keeps
+/// the headline it has always had.
+ProofHeadline proofHeadlineFor({
+  required bool isHosted,
+  required PaywallBenefitId? lead,
+  required HistoryOwn? own,
+}) {
+  if (!isHosted) return ProofHeadline.pro;
+  return lead == PaywallBenefitId.history && own != null
+      ? ProofHeadline.olderAlarms
+      : ProofHeadline.hosted;
+}
 
 /// Shows each benefit twice over: as it is on Free, then lifted.
 ///
@@ -165,9 +184,18 @@ class _ProofPaywallLayoutState extends State<ProofPaywallLayout> {
             Positioned.fill(
               child: HeroComposition(
                 scope: scope,
-                headline: scope.isHosted
-                    ? LocaleKeys.paywall_proof_headline_hosted.tr()
-                    : LocaleKeys.paywall_proof_headline_pro.tr(),
+                headline: switch (proofHeadlineFor(
+                  isHosted: scope.isHosted,
+                  lead: scope.lead?.benefit,
+                  own: PaywallRouteInfo.maybeOf(context)?.historyOwn,
+                )) {
+                  ProofHeadline.hosted =>
+                    LocaleKeys.paywall_proof_headline_hosted.tr(),
+                  ProofHeadline.pro =>
+                    LocaleKeys.paywall_proof_headline_pro.tr(),
+                  ProofHeadline.olderAlarms =>
+                    LocaleKeys.paywall_history_own_headline.tr(),
+                },
                 loop: player.loop,
                 player: player,
                 arrange: _arrange,

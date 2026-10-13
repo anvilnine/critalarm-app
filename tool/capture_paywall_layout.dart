@@ -24,6 +24,20 @@
 //   --dart-define=HEADLINE=<key>   the words for a plan that is ending or
 //                                  ended, a PaywallHeadlineVariant key such
 //                                  as ended (default none)
+//   --dart-define=HISTORY=<name:age,...>|<name:age,...>
+//                                  the person's own alarms for the history
+//                                  picture: the ones inside the Free window,
+//                                  then | and the ones past it, as the paywall
+//                                  location carries them (default none, the
+//                                  made-up rows). Needs LEAD=history. Leave
+//                                  the left side empty for a person who has
+//                                  only older alarms.
+//   --dart-define=SCENE=<name>     name the files <name>_<phone>_<theme>_
+//                                  <scale>x[_reduced][_<state>][_t<seconds>]
+//                                  in place of the long name, and add
+//                                  _reduced to a capture with no T, which
+//                                  is the settled frame with motion off
+//   --dart-define=NARROW=true      also capture a 320 by 568 phone
 //   --dart-define=T=<seconds>      let motion run and capture that second,
 //                                  to look at an entrance half way. The clock
 //                                  is stepped a frame at a time, so every
@@ -108,6 +122,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
@@ -138,6 +153,9 @@ const _only = String.fromEnvironment('ONLY');
 const _sourceKey = String.fromEnvironment('SOURCE');
 const _leadKey = String.fromEnvironment('LEAD');
 const _headlineKey = String.fromEnvironment('HEADLINE');
+const _history = String.fromEnvironment('HISTORY');
+const _scene = String.fromEnvironment('SCENE');
+const _narrow = bool.fromEnvironment('NARROW');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
 const _tap = String.fromEnvironment('TAP');
@@ -273,11 +291,32 @@ Future<void> _save(
 /// The largest text size captured.
 const double _largest = 2;
 
-/// The two phones, with the insets each one really has.
+/// The phones, with the insets each one really has. NARROW adds the 320
+/// point wide one.
 const _phones = <(String, Size, double, double)>[
   ('390x844', Size(390, 844), 47, 34),
   ('375x667', Size(375, 667), 20, 0),
+  if (_narrow) ('320x568', Size(320, 568), 20, 0),
 ];
+
+/// The rows HISTORY names, or null when it is empty. Written like the
+/// location writes them, so they pass through its reader.
+HistoryOwn? _historyOwn() {
+  if (_history.isEmpty) return null;
+  List<HistoryOwnRow> rows(String text) => [
+    for (final part in text.split(','))
+      if (part.contains(':'))
+        HistoryOwnRow(
+          part.substring(0, part.lastIndexOf(':')),
+          int.parse(part.substring(part.lastIndexOf(':') + 1)),
+        ),
+  ];
+  final sides = _history.split('|');
+  return HistoryOwn(
+    inside: rows(sides.first),
+    beyond: rows(sides.length > 1 ? sides[1] : ''),
+  );
+}
 
 String _scrolls(ScrollableState s) =>
     'Something scrolls at the default text size, by '
@@ -484,28 +523,40 @@ void main() {
     if (isPicker && sizeName != _phones.first.$1) continue;
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       for (final scale in [1.0, if (!isPicker) _largest]) {
-        final name = [
-          if (isPicker) 'picker_$_picker' else layout.key,
-          if (_picked.isNotEmpty) 'picked-${_picked.replaceAll(',', '-')}',
-          product.key,
-          sizeName,
-          mode.name,
-          '${scale.toStringAsFixed(1)}x',
-          if (_state.isNotEmpty) _state,
-          if (_benefits.isNotEmpty) 'benefits-$_benefits',
-          if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
-          if (_leadKey.isNotEmpty) 'lead-$_leadKey',
-          if (_headlineKey.isNotEmpty) 'headline-$_headlineKey',
-          if (second != null) 't$_t',
-          if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
-          if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
-          if (_held) 'held',
-          if (_then.isNotEmpty) 'then$_then',
-          if (_introKey.isNotEmpty) 'intro-$_introKey',
-          if (_thanksKey.isNotEmpty) 'thanks-$_thanksKey',
-          if (_restore) 'restore',
-          if (_motion.isNotEmpty) 'motion-${_motion.replaceAll(',', '-')}',
-        ].join('_');
+        final name = _scene.isNotEmpty
+            ? [
+                _scene,
+                sizeName,
+                mode.name,
+                '${scale.toStringAsFixed(1)}x',
+                if (second == null) 'reduced',
+                if (_state.isNotEmpty) _state,
+                if (second != null) 't$_t',
+              ].join('_')
+            : [
+                if (isPicker) 'picker_$_picker' else layout.key,
+                if (_picked.isNotEmpty)
+                  'picked-${_picked.replaceAll(',', '-')}',
+                product.key,
+                sizeName,
+                mode.name,
+                '${scale.toStringAsFixed(1)}x',
+                if (_state.isNotEmpty) _state,
+                if (_benefits.isNotEmpty) 'benefits-$_benefits',
+                if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
+                if (_leadKey.isNotEmpty) 'lead-$_leadKey',
+                if (_headlineKey.isNotEmpty) 'headline-$_headlineKey',
+                if (second != null) 't$_t',
+                if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
+                if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
+                if (_held) 'held',
+                if (_then.isNotEmpty) 'then$_then',
+                if (_introKey.isNotEmpty) 'intro-$_introKey',
+                if (_thanksKey.isNotEmpty) 'thanks-$_thanksKey',
+                if (_restore) 'restore',
+                if (_motion.isNotEmpty)
+                  'motion-${_motion.replaceAll(',', '-')}',
+              ].join('_');
 
         if (_only.isNotEmpty && !_only.split(',').any(name.contains)) continue;
         testWidgets('capture $name', (tester) async {
@@ -538,6 +589,7 @@ void main() {
                         if (_sourceKey.isNotEmpty) 'source': source.wire,
                         if (_leadKey.isNotEmpty) 'lead': _leadKey,
                         if (_headlineKey.isNotEmpty) 'headline': _headlineKey,
+                        ...?_historyOwn()?.toQuery(),
                         if (_state.isNotEmpty) 'state': _state,
                         // The route lists what the build has unless asked
                         // for all.

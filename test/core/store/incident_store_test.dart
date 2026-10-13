@@ -244,6 +244,40 @@ void main() {
     },
   );
 
+  test(
+    'newestSince and newestBefore split the rows at a time, newest first',
+    () async {
+      final cut = DateTime.utc(2026, 10, 6, 12);
+      await store.incidents.upsertAll([
+        Incident(
+          id: 'a',
+          topic: 'new-1',
+          openedAt: cut.add(const Duration(days: 2)),
+        ),
+        Incident(id: 'b', topic: 'new-2', openedAt: cut),
+        Incident(
+          id: 'c',
+          topic: 'old-1',
+          openedAt: cut.subtract(const Duration(days: 1)),
+        ),
+        Incident(
+          id: 'd',
+          topic: 'old-2',
+          openedAt: cut.subtract(const Duration(days: 30)),
+        ),
+      ]);
+      final since = await store.incidents.newestSince(cut);
+      expect(since.map((r) => r.topic), ['new-1', 'new-2']);
+      final before = await store.incidents.newestBefore(cut);
+      expect(before.map((r) => r.topic), ['old-1', 'old-2']);
+      expect(
+        (await store.incidents.newestBefore(cut, limit: 1)).single.topic,
+        'old-1',
+      );
+      expect(since.first.openedAt.isUtc, isTrue);
+    },
+  );
+
   test('deleteOlderThan skips P5 rows when asked', () async {
     await store.incidents.upsertAll([
       _incident('inc_p4', daysAgo: 40),
