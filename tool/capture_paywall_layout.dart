@@ -32,6 +32,14 @@
 //                                  made-up rows). Needs LEAD=history. Leave
 //                                  the left side empty for a person who has
 //                                  only older alarms.
+//   --dart-define=FACTS=<used>,<limit>,<name>
+//                                  the person's own critical topic count and
+//                                  the topic they were making, as the
+//                                  paywall location carries them (`used`,
+//                                  `limit`, `topic`). Written as given, so
+//                                  junk goes in as junk. Leave a part empty
+//                                  to leave it out, as in `,,billing-api`.
+//                                  Needs LEAD=topics (default none).
 //   --dart-define=ENDS=<yyyy-MM-dd>
 //                                  the day a cancelled plan ends, for the
 //                                  leaving paywall. Without it the location
@@ -168,6 +176,7 @@ const _sourceKey = String.fromEnvironment('SOURCE');
 const _leadKey = String.fromEnvironment('LEAD');
 const _headlineKey = String.fromEnvironment('HEADLINE');
 const _history = String.fromEnvironment('HISTORY');
+const _facts = String.fromEnvironment('FACTS');
 const _ends = String.fromEnvironment('ENDS');
 const _rest = bool.fromEnvironment('REST');
 const _leavingFacts = String.fromEnvironment('LEAVING');
@@ -333,6 +342,16 @@ HistoryOwn? _historyOwn() {
     inside: rows(sides.first),
     beyond: rows(sides.length > 1 ? sides[1] : ''),
   );
+}
+
+/// The entries FACTS names, written as the location writes them. Nothing is
+/// checked here: the paywall must cope with what arrives.
+Map<String, String> _factsQuery() {
+  if (_facts.isEmpty) return const {};
+  final parts = _facts.split(',');
+  String? at(int i) =>
+      i < parts.length && parts[i].isNotEmpty ? parts[i] : null;
+  return {'used': ?at(0), 'limit': ?at(1), 'topic': ?at(2)};
 }
 
 /// What ENDS, REST and LEAVING name, or null without ENDS. Written like the
@@ -635,6 +654,7 @@ void main() {
                         if (_headlineKey.isNotEmpty) 'headline': _headlineKey,
                         ...?_leavingQuery(),
                         ...?_historyOwn()?.toQuery(),
+                        ..._factsQuery(),
                         if (_state.isNotEmpty) 'state': _state,
                         // The route lists what the build has unless asked
                         // for all.

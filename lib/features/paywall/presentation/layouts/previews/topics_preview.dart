@@ -6,6 +6,10 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_prev
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_beats.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 // Critical topics: a Critical switch is tapped, will not go on, and then
@@ -208,6 +212,29 @@ TopicsPreviewFrame topicsPreviewFrameAt(double t) {
   );
 }
 
+/// The person's own numbers for the topics picture: how many critical topics
+/// they have on, the limit, and the topic they were making.
+///
+/// With both numbers the picture draws a tag that reads "{used} of {limit}
+/// used" and flips to "No limit" as the switch goes on, and the topic is the
+/// row that switches on. The name is the person's own data: it is drawn on
+/// screen and goes nowhere else.
+@immutable
+class TopicsPreviewOwn {
+  const TopicsPreviewOwn({this.topicName, this.used, this.limit});
+
+  final String? topicName;
+  final int? used;
+  final int? limit;
+
+  /// The tag needs both numbers.
+  bool get hasTag => used != null && limit != null;
+}
+
+/// True from the moment the switch goes on until it is reset: the tag then
+/// shows "No limit" and the count is struck.
+bool topicsTagIsLifted(TopicsPreviewFrame frame) => frame.isOn;
+
 /// How the scene is laid out in a box: a short list of topics with the
 /// switch on one of them.
 @immutable
@@ -244,15 +271,29 @@ class TopicsPreviewLayout {
 /// The longest topic name, in characters, with a little air.
 const double _nameChars = 6.7;
 
-TopicsPreviewLayout topicsPreviewLayoutFor(Size size) {
+/// The room a tag takes at the top of the picture.
+const double topicsTagRoom = 32;
+
+/// The smallest picture that draws the tag. Smaller, the tag would shrink
+/// under the smallest type a preview draws, so it is left out and the
+/// picture is the plain one.
+const double topicsTagMinEdge = 150;
+
+/// [headerRoom] is height kept clear at the top, for the tag.
+TopicsPreviewLayout topicsPreviewLayoutFor(
+  Size size, {
+  double headerRoom = 0,
+}) {
   final w = size.width;
-  final h = size.height;
+  final h = size.height - headerRoom;
 
   final padding = size.shortestSide * 0.08;
   final ideal = (w * 0.26).clamp(30.0, 64.0);
   final room = h - 2 * padding;
   final rows = (room / ideal).floor().clamp(1, 4);
-  final rowHeight = math.min(room / rows, ideal * 1.2);
+  // With a tag above, the rows stay at the ideal height: a taller row has a
+  // bigger face and switch and leaves the name no room to be read.
+  final rowHeight = math.min(room / rows, headerRoom > 0 ? ideal : ideal * 1.2);
   final switchHeight = rowHeight * 0.46;
   final nameRoom =
       w -
@@ -276,13 +317,34 @@ TopicsPreviewLayout topicsPreviewLayoutFor(Size size) {
 /// With a [topicName] the first row shows it in place of its own name. A
 /// made-up name the same as it moves to the row that held the first one,
 /// so no name is listed twice.
-List<String> topicsPreviewNames(int rows, {String? topicName}) {
+///
+/// With [namesTappedRow] the name goes on the row whose switch is tapped
+/// instead, the topic the person was making. The made-up name that row held
+/// takes the place of any other row showing the same name as the new one.
+/// The other rows are always the made-up names.
+List<String> topicsPreviewNames(
+  int rows, {
+  String? topicName,
+  bool namesTappedRow = false,
+}) {
   const all = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
   final own = rows >= 3
       ? all.sublist(0, math.min(rows, all.length))
       : all.sublist(3 - rows, 3);
   final name = topicName?.trim();
   if (name == null || name.isEmpty) return own;
+  if (namesTappedRow) {
+    final at = math.min(rows, 3) - 1;
+    final displaced = own[at];
+    return [
+      for (final (i, other) in own.indexed)
+        i == at
+            ? name
+            : other == name
+            ? displaced
+            : other,
+    ];
+  }
   return [
     name,
     for (final other in own.skip(1)) other == name ? own.first : other,
@@ -290,12 +352,19 @@ List<String> topicsPreviewNames(int rows, {String? topicName}) {
 }
 
 /// The Critical topics preview. With a [topicName] its first row shows
-/// that name.
+/// that name. With [own] the topic they were making is the row that
+/// switches on, and a tag shows their count.
 class TopicsPreview extends StatelessWidget {
-  const TopicsPreview({required this.size, this.topicName, super.key});
+  const TopicsPreview({
+    required this.size,
+    this.topicName,
+    this.own,
+    super.key,
+  });
 
   final Size size;
   final String? topicName;
+  final TopicsPreviewOwn? own;
 
   @override
   Widget build(BuildContext context) {
@@ -304,7 +373,11 @@ class TopicsPreview extends StatelessWidget {
     }
 
     final colors = context.appColors;
-    final layout = topicsPreviewLayoutFor(size);
+    final tag = (own?.hasTag ?? false) && size.shortestSide >= topicsTagMinEdge;
+    final layout = topicsPreviewLayoutFor(
+      size,
+      headerRoom: tag ? topicsTagRoom : 0,
+    );
 
     return LimitsPreviewTile(
       size: size,
@@ -317,7 +390,9 @@ class TopicsPreview extends StatelessWidget {
         builder: (context, frame) => _TopicList(
           layout: layout,
           frame: frame,
-          topicName: topicName,
+          topicName: own != null ? own!.topicName : topicName,
+          namesTappedRow: own != null,
+          tag: tag ? own : null,
         ),
       ),
     );
@@ -329,22 +404,60 @@ class _TopicList extends StatelessWidget {
     required this.layout,
     required this.frame,
     required this.topicName,
+    this.namesTappedRow = false,
+    this.tag,
   });
 
   final TopicsPreviewLayout layout;
   final TopicsPreviewFrame frame;
   final String? topicName;
+  final bool namesTappedRow;
+
+  /// The person's count, when the tag is drawn. It sits above the list and
+  /// flips from the count to "No limit" with the switch.
+  final TopicsPreviewOwn? tag;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final names = topicsPreviewNames(layout.rows, topicName: topicName);
+    final names = topicsPreviewNames(
+      layout.rows,
+      topicName: topicName,
+      namesTappedRow: namesTappedRow,
+    );
+    final own = tag;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: layout.padding),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          if (own != null)
+            SizedBox(
+              height: topicsTagRoom,
+              child: Align(
+                alignment: Alignment.centerRight,
+                // A card too narrow for the tag shrinks it, never clips it.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: ProofTag(
+                    free: LocaleKeys.paywall_own_count_used.tr(
+                      namedArgs: {
+                        'used': '${own.used}',
+                        'limit': '${own.limit}',
+                      },
+                    ),
+                    product: LocaleKeys.paywall_own_count_unlimited.tr(),
+                    frame: ProofTagFrame(
+                      isLifted: topicsTagIsLifted(frame),
+                      flat: 1,
+                    ),
+                    isCompact: true,
+                  ),
+                ),
+              ),
+            ),
           for (final (i, name) in names.indexed)
             Container(
               height: layout.rowHeight,
