@@ -22,8 +22,16 @@ enum class CritAlarmFace(val canvasColor: Int) {
     ALARMED(CritAlarmPalette.CRIT),
     ACKED(CritAlarmPalette.COBALT);
 
+    /**
+     * The head is brand yellow in every state. [canvasColor] is for the
+     * surface around the face (the notification accent), never the face.
+     */
+    val headColor: Int
+        get() = CritAlarmPalette.YELLOW
+
+    /** The eyes, brows and mouth are ink on every state. */
     val strokeColor: Int
-        get() = if (this == ACKED) CritAlarmPalette.ON_HIGHLIGHT else CritAlarmPalette.INK
+        get() = CritAlarmPalette.INK
 }
 
 /**
