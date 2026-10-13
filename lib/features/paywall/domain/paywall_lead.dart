@@ -1,4 +1,5 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:flutter/foundation.dart';
 
 /// The benefit a paywall opens on, and the words to say it with.
@@ -18,6 +19,8 @@ class PaywallLead {
     this.headlineKey,
     this.lineKey,
     this.topicName,
+    this.usedCount,
+    this.limitCount,
   });
 
   final PaywallBenefitId benefit;
@@ -35,6 +38,11 @@ class PaywallLead {
   /// place of its own made-up one.
   final String? topicName;
 
+  /// How many critical topics the person has on, and the limit, for the
+  /// topics picture's tag. Both are needed to draw it. Null otherwise.
+  final int? usedCount;
+  final int? limitCount;
+
   @override
   bool operator ==(Object other) =>
       other is PaywallLead &&
@@ -42,11 +50,20 @@ class PaywallLead {
       other.eyebrowKey == eyebrowKey &&
       other.headlineKey == headlineKey &&
       other.lineKey == lineKey &&
-      other.topicName == topicName;
+      other.topicName == topicName &&
+      other.usedCount == usedCount &&
+      other.limitCount == limitCount;
 
   @override
-  int get hashCode =>
-      Object.hash(benefit, eyebrowKey, headlineKey, lineKey, topicName);
+  int get hashCode => Object.hash(
+    benefit,
+    eyebrowKey,
+    headlineKey,
+    lineKey,
+    topicName,
+    usedCount,
+    limitCount,
+  );
 }
 
 /// [lead] when one of [benefits] is the benefit it names, else null: a
@@ -73,4 +90,21 @@ List<PaywallBenefit> paywallBenefitsLeadFirst(
     for (final benefit in benefits)
       if (benefit.id != lead!.benefit) benefit,
   ];
+}
+
+/// The lead a `/plans/:layout` location names in `?lead=`, or null for a
+/// missing or unknown one. The paywall opens either way. A topics lead also
+/// reads the person's own count and topic name (`used`, `limit`, `topic`),
+/// each checked on its own: a value that fails is left out.
+PaywallLead? paywallLeadFromQuery(Map<String, String> query) {
+  final benefit = PaywallBenefitId.fromKey(query['lead']);
+  if (benefit == null) return null;
+  if (benefit != PaywallBenefitId.topics) return PaywallLead(benefit: benefit);
+  final facts = PaywallLeadFacts.fromQuery(query);
+  return PaywallLead(
+    benefit: benefit,
+    usedCount: facts.used,
+    limitCount: facts.limit,
+    topicName: facts.topicName,
+  );
 }

@@ -24,6 +24,7 @@ import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
@@ -737,6 +738,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
             context,
             AppFeature.unlimitedCriticalTopics,
             LockSource.createTopicCard,
+            // The paywall draws these and sends them nowhere. A name it
+            // cannot hold is left out there.
+            facts: PaywallLeadFacts(
+              used: state.criticalUsed,
+              limit: state.criticalLimit,
+              topicName: state.name.trim().isEmpty ? null : state.name.trim(),
+            ),
           ),
         );
       },

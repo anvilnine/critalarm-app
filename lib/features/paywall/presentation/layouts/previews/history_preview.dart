@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
@@ -233,8 +234,67 @@ class HistoryPreviewLayout {
   /// Height of the place the line takes in the list.
   double get lineSlot => rowHeight * 0.62;
 
-  /// Top of the line's place, in the list, under [inside] rows.
-  double lineTop(int inside) => inside * rowHeight;
+  /// Top of the line's place, in the list, under [inside] rows. With none,
+  /// the line is the first thing in the list and would sit at the top edge
+  /// of the card, where a layout may lay a tag across it. It stands
+  /// [historyPreviewTagRoom] below the edge, and a little more for the
+  /// tug, which moves the list up.
+  double lineTop(int inside) => inside == 0
+      ? historyPreviewTagRoom + rowHeight * 0.16
+      : inside * rowHeight;
+
+  /// How far below the card's top edge the list starts when [inside] rows
+  /// are above the line. The tag a layout lays across the card's top edge
+  /// reaches [historyPreviewTagRoom] into it, so the first row starts below
+  /// that. With no rows above, the line's own offset already keeps clear.
+  double listOffset(int inside) => inside == 0 ? 0 : historyPreviewTagRoom;
+
+  /// Where row [i] inside the window starts in the card, not scrolled.
+  double rowTop(int i) => historyPreviewTagRoom + i * rowHeight;
+
+  /// Where row [j] past the line starts in the card, not scrolled, under
+  /// [inside] rows.
+  double beyondRowTop(int j, int inside) =>
+      listOffset(inside) + lineTop(inside) + lineSlot + j * rowHeight;
+
+  /// The scrolls at which a row of the window starts exactly at the tag
+  /// room: the first row, and each other one while the line is still below
+  /// the tag. A list that rests on one of them is cut by nothing but the
+  /// card's bottom edge.
+  List<double> wholeRowScrolls(int inside) => [
+    for (var i = 0; i <= inside; i++) i * rowHeight,
+  ];
+
+  /// How far the list is scrolled when it rests, under [inside] rows: the
+  /// whole row scroll that puts the line nearest to where it rests
+  /// ([restAt] of the way down).
+  double restScrollFor(int inside) {
+    final center = listOffset(inside) + lineTop(inside) + lineSlot / 2;
+    final wanted = math.max(0, center - restAt * size.height).toDouble();
+    var best = 0.0;
+    var away = double.infinity;
+    for (final candidate in wholeRowScrolls(inside)) {
+      final gap = (candidate - wanted).abs();
+      if (gap < away) {
+        away = gap;
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  /// The scroll a card draws for [frame]: [scrollFor], except that where it
+  /// rests it rests on a whole row (see [restScrollFor]). The list is
+  /// clipped under the tag room, so a row on its way past is cut there,
+  /// and none is left cut when the list stops.
+  double shownScrollFor(HistoryPreviewFrame frame, int inside) {
+    final center = listOffset(inside) + lineTop(inside) + lineSlot / 2;
+    final stop = math.max(0, center - stopAt * size.height).toDouble();
+    final rest = restScrollFor(inside);
+    return stop * frame.toLine +
+        (rest - stop) * frame.pastLine +
+        rowHeight * 0.16 * frame.tug;
+  }
 
   /// How far the list is scrolled for [frame], under [inside] rows.
   double scrollFor(HistoryPreviewFrame frame, int inside) {
@@ -268,17 +328,34 @@ HistoryPreviewLayout historyPreviewLayoutFor(Size size) {
   );
 }
 
+/// How far below the card's top edge a tag laid across that edge reaches, in
+/// points, at the largest text size a tag grows to. With no rows above it,
+/// the line starts below this.
+const double historyPreviewTagRoom = 20;
+
 /// An age as the list writes it.
 String historyPreviewAge(int days) => '${days}d'; // l10n-ok: unit letter
 
 const _topics = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
 const _barLengths = [0.62, 0.9, 0.74, 0.54, 0.82];
 
+/// One row of the list: a topic name and an age in days.
+typedef _Entry = ({String name, int age});
+
 /// The history preview.
+///
+/// With [own] it draws the person's real alarms: the few inside the Free
+/// window, and the ones past it as hidden rows, each struck through while
+/// the line is closed. The phone holds those rows and only hides them, so
+/// none is ever left out of the list. Without [own] it draws made-up rows.
 class HistoryPreview extends StatelessWidget {
-  const HistoryPreview({required this.size, super.key});
+  const HistoryPreview({required this.size, this.own, super.key});
 
   final Size size;
+
+  /// The person's own alarms, or null for the made-up ones. Their topic
+  /// names are drawn here and go nowhere else.
+  final HistoryOwn? own;
 
   @override
   Widget build(BuildContext context) {
@@ -290,8 +367,22 @@ class HistoryPreview extends StatelessWidget {
     final free = AccountCaps.free.historyDays ?? 0;
     const hosted = hostedHistoryDays;
     final layout = historyPreviewLayoutFor(size);
-    final inside = historyPreviewAgesInside(free);
-    final beyond = historyPreviewAgesBeyond(free, hosted);
+    final person = own;
+    final isOwn = person != null;
+    final inside = <_Entry>[
+      if (person != null)
+        for (final row in person.inside) (name: row.topic, age: row.ageDays)
+      else
+        for (final (i, age) in historyPreviewAgesInside(free).indexed)
+          (name: _topics[i % _topics.length], age: age),
+    ];
+    final beyond = <_Entry>[
+      if (person != null)
+        for (final row in person.beyond) (name: row.topic, age: row.ageDays)
+      else
+        for (final (j, age) in historyPreviewAgesBeyond(free, hosted).indexed)
+          (name: _topics[(j + 3) % _topics.length], age: age),
+    ];
 
     return LimitsPreviewTile(
       size: size,
@@ -302,68 +393,91 @@ class HistoryPreview extends StatelessWidget {
         turnStart: HistoryPreviewTimes.rewind,
         frameAt: (t) => historyPreviewFrameAt(t, free: free, hosted: hosted),
         builder: (context, frame) {
-          final scroll = layout.scrollFor(frame, inside.length);
-          final lineTop = layout.lineTop(inside.length) - scroll;
+          final scroll = layout.shownScrollFor(frame, inside.length);
+          final offset = layout.listOffset(inside.length);
+          final lineTop = offset + layout.lineTop(inside.length) - scroll;
           final beyondTop = lineTop + layout.lineSlot;
 
           bool inView(double top) =>
               top < size.height && top + layout.rowHeight > 0;
 
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (final (i, age) in inside.indexed)
-                if (inView(i * layout.rowHeight - scroll))
-                  Positioned(
-                    top: i * layout.rowHeight - scroll,
-                    left: 0,
-                    right: 0,
-                    height: layout.rowHeight,
-                    child: _HistoryRow(
-                      layout: layout,
-                      name: _topics[i % _topics.length],
-                      nameLength: _barLengths[i % _barLengths.length],
-                      age: age,
-                      isBeyond: false,
-                      reveal: 1,
-                      hasRule: i > 0,
+          return ClipRect(
+            clipper: const _BelowTagRoom(),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final (i, entry) in inside.indexed)
+                  if (inView(layout.rowTop(i) - scroll))
+                    Positioned(
+                      top: layout.rowTop(i) - scroll,
+                      left: 0,
+                      right: 0,
+                      height: layout.rowHeight,
+                      child: _HistoryRow(
+                        layout: layout,
+                        name: entry.name,
+                        nameLength: _barLengths[i % _barLengths.length],
+                        age: entry.age,
+                        isBeyond: false,
+                        isOwn: isOwn,
+                        reveal: 1,
+                        hasRule: i > 0,
+                      ),
                     ),
-                  ),
-              for (final (j, age) in beyond.indexed)
-                if (inView(beyondTop + j * layout.rowHeight))
-                  Positioned(
-                    top: beyondTop + j * layout.rowHeight,
-                    left: 0,
-                    right: 0,
-                    height: layout.rowHeight,
-                    child: _HistoryRow(
-                      layout: layout,
-                      name: _topics[(j + 3) % _topics.length],
-                      nameLength: _barLengths[(j + 3) % _barLengths.length],
-                      age: age,
-                      isBeyond: true,
-                      reveal: historyPreviewReveal(j, frame.lift),
-                      hasRule: j > 0,
+                for (final (j, entry) in beyond.indexed)
+                  if (inView(beyondTop + j * layout.rowHeight))
+                    Positioned(
+                      top: beyondTop + j * layout.rowHeight,
+                      left: 0,
+                      right: 0,
+                      height: layout.rowHeight,
+                      child: _HistoryRow(
+                        layout: layout,
+                        name: entry.name,
+                        nameLength: _barLengths[(j + 3) % _barLengths.length],
+                        age: entry.age,
+                        isBeyond: true,
+                        isOwn: isOwn,
+                        reveal: historyPreviewReveal(j, frame.lift),
+                        hasRule: j > 0,
+                      ),
                     ),
+                Positioned(
+                  top: lineTop,
+                  left: 0,
+                  right: 0,
+                  height: layout.lineSlot,
+                  child: _FreeLine(
+                    layout: layout,
+                    lift: frame.lift,
+                    days: free,
+                    window: frame.window,
                   ),
-              Positioned(
-                top: lineTop,
-                left: 0,
-                right: 0,
-                height: layout.lineSlot,
-                child: _FreeLine(
-                  layout: layout,
-                  lift: frame.lift,
-                  days: free,
-                  window: frame.window,
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
     );
   }
+}
+
+/// Keeps what is under the room the tag takes at the card's top edge, and
+/// everything to the sides.
+class _BelowTagRoom extends CustomClipper<Rect> {
+  const _BelowTagRoom();
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    -size.width,
+    historyPreviewTagRoom,
+    size.width * 2,
+    size.height,
+  );
+
+  @override
+  bool shouldReclip(_BelowTagRoom oldClipper) => false;
 }
 
 /// One alarm in the list. Under the line it is a faint outline until the
@@ -375,6 +489,7 @@ class _HistoryRow extends StatelessWidget {
     required this.nameLength,
     required this.age,
     required this.isBeyond,
+    required this.isOwn,
     required this.reveal,
     required this.hasRule,
   });
@@ -386,6 +501,10 @@ class _HistoryRow extends StatelessWidget {
   final double nameLength;
   final int age;
   final bool isBeyond;
+
+  /// The row is one of the person's own. Hidden, it is struck through, so
+  /// the picture reads as hidden and never as missing.
+  final bool isOwn;
   final double reveal;
   final bool hasRule;
 
@@ -410,7 +529,7 @@ class _HistoryRow extends StatelessWidget {
 
     Widget row({required bool isGhost}) {
       final faint = colors.ink.withValues(alpha: 0.16);
-      return Row(
+      final cells = Row(
         children: [
           if (isGhost)
             Container(
@@ -447,7 +566,7 @@ class _HistoryRow extends StatelessWidget {
                 name,
                 maxLines: 1,
                 softWrap: false,
-                overflow: TextOverflow.clip,
+                overflow: isOwn ? TextOverflow.ellipsis : TextOverflow.clip,
                 style: AppTypography.monoBold(
                   colors.ink,
                   fontSize: layout.textSize,
@@ -463,6 +582,24 @@ class _HistoryRow extends StatelessWidget {
               ).copyWith(height: 1.2),
             ),
           ],
+        ],
+      );
+      if (!isGhost || !isOwn) return cells;
+      // A hidden row of the person's own, struck through its name. It goes
+      // as the row fills in, with the rest of the outline.
+      final nameWidth = room * 0.7 * nameLength;
+      return Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          cells,
+          Padding(
+            padding: EdgeInsets.only(left: layout.faceSize + layout.gap * 0.5),
+            child: Container(
+              width: nameWidth + layout.gap,
+              height: math.max(1.5, layout.rowHeight * 0.05),
+              color: colors.ink.withValues(alpha: 0.55),
+            ),
+          ),
         ],
       );
     }

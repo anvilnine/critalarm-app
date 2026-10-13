@@ -1,15 +1,24 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
+import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/domain/leaving_seen.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
@@ -43,6 +52,12 @@ class PaywallDoor {
     this._developerOutro = _noDeveloperOutro,
     this._isOutroBuilt = paywallOutroIsBuilt,
     this._widgetsDecision = _widgetsLockedForPro,
+    this._listedBenefits = _builtBenefitIds,
+    this._readHistoryOwn = _noHistoryOwn,
+    this._readLeavingFacts = _noLeavingFacts,
+    this._leavingShownFor = _noLeavingShown,
+    this._markLeavingShown = _noLeavingMark,
+    this._leavingReadTimeout = const Duration(seconds: 3),
   });
 
   /// The prefs key that says the false alarm intro was shown on this
@@ -55,6 +70,19 @@ class PaywallDoor {
   static PaywallThanksId? _noDeveloperThanks(PaywallProduct product) => null;
   static String _noOutroValue(PaywallProduct product) => '';
   static PaywallOutroId? _noDeveloperOutro(PaywallProduct product) => null;
+  static Set<PaywallBenefitId> _builtBenefitIds(PaywallProduct product) => {
+    for (final benefit in paywallBenefitsFor(product)) benefit.id,
+  };
+
+  static Future<HistoryOwn?> _noHistoryOwn() async => null;
+  static Future<LeavingFacts?> _noLeavingFacts() async => null;
+  static String? _noLeavingShown() => null;
+  static Future<void> _noLeavingMark(String endsOn) async {}
+
+  /// The prefs key that holds the end date the sad opening was last shown
+  /// for, as `yyyy-MM-dd`.
+  static const String leavingShownKey = 'paywall.leaving_shown_for';
+
   static FeatureDecision _widgetsLockedForPro() =>
       const FeatureDecision.locked(Holding.pro);
 
@@ -76,6 +104,38 @@ class PaywallDoor {
   /// widget arrives as a link, and this is what picks its paywall.
   final FeatureDecision Function() _widgetsDecision;
 
+  /// The benefit ids this build lists for a product. A lead outside this
+  /// set is dropped by [paywallOpeningFor].
+  final Set<PaywallBenefitId> Function(PaywallProduct product) _listedBenefits;
+
+  /// The person's own history rows, read from the phone. Null when the
+  /// phone holds nothing older than the Free window.
+  final Future<HistoryOwn?> Function() _readHistoryOwn;
+
+  /// The person's numbers for the leaving paywall, counted on the phone.
+  /// Null when they cannot be counted.
+  final Future<LeavingFacts?> Function() _readLeavingFacts;
+
+  /// The end date the sad opening was last shown for, or null.
+  final String? Function() _leavingShownFor;
+
+  /// Writes the end date the sad opening is now being shown for.
+  final Future<void> Function(String endsOn) _markLeavingShown;
+
+  /// How long the door waits for the phone to count. A count that takes
+  /// longer opens the paywall as if it had found nothing.
+  final Duration _leavingReadTimeout;
+
+  /// The person's own history rows, or null when the phone holds nothing
+  /// older than the Free window or the read fails. Never throws.
+  Future<HistoryOwn?> readHistoryOwn() async {
+    try {
+      return await _readHistoryOwn();
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
 
@@ -89,10 +149,14 @@ class PaywallDoor {
     }
   }
 
-  /// What opens for [product] from [entry], or null for the shipped
+  /// What opens for [product] from [place], or null for the shipped
   /// surface. A paywall that opens on the false alarm intro is its one
   /// showing, so this writes that down.
-  PaywallOpening? openingFor(PaywallProduct product, PaywallEntry entry) {
+  PaywallOpening? openingFor(
+    PaywallProduct product,
+    PaywallPlace place, {
+    LeavingChoice? leaving,
+  }) {
     try {
       final remoteValue = _remoteValue(product);
       final developer = _developer(product);
@@ -101,7 +165,8 @@ class PaywallDoor {
       final canDrawFalseAlarm = _isIntroBuilt(PaywallIntroId.falseAlarm);
       final opening = paywallOpeningFor(
         product: product,
-        entry: entry,
+        place: place,
+        listedBenefits: _listedBenefits(product),
         remote: PaywallLayoutSetting.parse(remoteValue),
         developer: developer,
         remoteIntro: PaywallIntroId.parse(_remoteIntroValue(product)),
@@ -112,8 +177,9 @@ class PaywallDoor {
         hasSeenFalseAlarm: !canDrawFalseAlarm || _hasSeenFalseAlarm(),
         remoteThanks: PaywallThanksId.parse(_remoteThanksValue(product)),
         developerThanks: _developerThanks(product),
-        remoteOutro: PaywallOutroId.parse(_remoteOutroValue(product)),
+        remoteOutro: paywallRemoteOutroOf(_remoteOutroValue(product)),
         developerOutro: _developerOutro(product),
+        leaving: leaving,
       );
       if (opening == null) return null;
       if (opening.intro == PaywallIntroId.falseAlarm) {
@@ -135,25 +201,139 @@ class PaywallDoor {
         outro: thanks != PaywallThanksId.none && _isOutroBuilt(opening.outro)
             ? opening.outro
             : PaywallOutroId.none,
+        lead: opening.lead,
+        headline: opening.headline,
       );
     } on Object catch (_) {
       return null;
     }
   }
 
-  /// The location that opens Hosted for [source].
-  String hostedLocation(PaywallSource source) {
-    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
-    return opening == null
-        ? paywallLocation(source)
-        : paywallLayoutLocation(
-            opening.layout,
-            PaywallProduct.hosted,
-            intro: opening.intro,
-            thanks: opening.thanks,
-            outro: opening.outro,
-            source: source,
-          );
+  /// The location that opens Hosted for [source]. [own] is the person's
+  /// own history rows: the location carries them only when the place leads
+  /// with history. [facts] is the person's own critical topic count and
+  /// the topic they were making: the location carries them only when the
+  /// place leads with topics, and the shipped paywall ignores them.
+  String hostedLocation(
+    PaywallSource source, {
+    HistoryOwn? own,
+    PaywallLeadFacts? facts,
+  }) {
+    final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
+    if (opening == null) return paywallLocation(source);
+    final location = paywallLayoutLocation(
+      opening.layout,
+      PaywallProduct.hosted,
+      intro: opening.intro,
+      thanks: opening.thanks,
+      outro: opening.outro,
+      source: source,
+      lead: opening.lead,
+      headline: opening.headline,
+      own: opening.lead == PaywallBenefitId.history ? own : null,
+    );
+    return opening.lead == PaywallBenefitId.topics && facts != null
+        ? _withFacts(location, facts)
+        : location;
+  }
+
+  /// [location] with the entries of [facts] added after its own.
+  static String _withFacts(String location, PaywallLeadFacts facts) {
+    final entries = facts.toQuery();
+    if (entries.isEmpty) return location;
+    final uri = Uri.parse(location);
+    return uri
+        .replace(queryParameters: {...uri.queryParameters, ...entries})
+        .toString();
+  }
+
+  /// The location that opens Hosted for a cancelled plan that ends on
+  /// [endsAt]. It counts the person's numbers first, so it is asynchronous.
+  ///
+  /// With a Receipt or Wipe opening it carries the end date, whether the
+  /// sad opening was shown for that date already (`rest=1`), and the
+  /// numbers. The numbers are the person's own: they ride in this location
+  /// to the screen that draws them and nowhere else.
+  ///
+  /// Anything that goes wrong opens the paywall anyway. A count that fails,
+  /// takes too long or finds nothing is Wipe with no numbers; a failure
+  /// anywhere else opens the shipped paywall for the same source. Never
+  /// throws. Nothing is read or written while no layout is set.
+  Future<String> leavingLocation(DateTime endsAt) async {
+    final shipped = paywallLocation(PaywallSource.planSheetEnding);
+    try {
+      if (!opensLayouts(PaywallProduct.hosted)) return shipped;
+      final endsOn = DateTime(endsAt.year, endsAt.month, endsAt.day);
+      final facts = await _countLeavingFacts();
+      final slip = facts == null ? null : leavingSlipFor(facts);
+      final opening = openingFor(
+        PaywallProduct.hosted,
+        PaywallPlace.planEnding,
+        leaving: LeavingChoice(
+          showsReceipt: slip?.showsReceipt ?? false,
+          historyDaysHeld: facts?.historyDaysHeld,
+        ),
+      );
+      if (opening == null) return shipped;
+      final atRest = _leavingWasShown(endsOn);
+      if (!atRest) _rememberLeavingShown(endsOn);
+      // Only the two layouts that draw the numbers get them.
+      final drawsNumbers =
+          opening.layout == PaywallLayoutId.receipt ||
+          opening.layout == PaywallLayoutId.wipe;
+      final own = opening.lead == PaywallBenefitId.history
+          ? await _guarded(_readHistoryOwn)
+          : null;
+      return paywallLayoutLocation(
+        opening.layout,
+        PaywallProduct.hosted,
+        intro: opening.intro,
+        thanks: opening.thanks,
+        outro: opening.outro,
+        source: PaywallSource.planSheetEnding,
+        lead: opening.lead,
+        headline: opening.headline,
+        own: own,
+        leaving: PaywallLeaving(
+          endsOn: endsOn,
+          atRest: atRest,
+          facts: drawsNumbers ? facts : null,
+        ),
+      );
+    } on Object catch (_) {
+      return shipped;
+    }
+  }
+
+  /// [read], or null when it throws or takes longer than the wait.
+  Future<T?> _guarded<T>(Future<T?> Function() read) async {
+    try {
+      return await read().timeout(_leavingReadTimeout);
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  Future<LeavingFacts?> _countLeavingFacts() => _guarded(_readLeavingFacts);
+
+  bool _leavingWasShown(DateTime endsOn) {
+    try {
+      return leavingWasShown(_leavingShownFor(), endsOn);
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
+  /// Writes down that the sad opening is being shown for [endsOn]. A write
+  /// that fails changes nothing for this open.
+  void _rememberLeavingShown(DateTime endsOn) {
+    try {
+      unawaited(
+        _markLeavingShown(leavingSeenKeyFor(endsOn)).catchError((_) {}),
+      );
+    } on Object catch (_) {
+      // The next open shows the sad opening again. Nothing else is lost.
+    }
   }
 
   /// [location], unless it is the shipped Hosted paywall and that is set
@@ -164,7 +344,7 @@ class PaywallDoor {
     if (uri == null || uri.path != paywallPath) return location;
     final source = PaywallSource.parse(uri.queryParameters['source']);
     if (source == PaywallSource.widgetLocked) return _widgetTapLocation();
-    final opening = openingFor(PaywallProduct.hosted, paywallEntryOf(source));
+    final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
     return opening == null
         ? location
         : paywallLayoutLocation(
@@ -174,6 +354,8 @@ class PaywallDoor {
             thanks: opening.thanks,
             outro: opening.outro,
             source: source,
+            lead: opening.lead,
+            headline: opening.headline,
           );
   }
 
@@ -205,7 +387,7 @@ class PaywallDoor {
   String? proLayoutLocation(ProPackSheetSource source) {
     final opening = openingFor(
       PaywallProduct.pro,
-      paywallEntryOfProSheet(source),
+      paywallPlaceOfPro(source),
     );
     return opening == null
         ? null
@@ -216,6 +398,8 @@ class PaywallDoor {
             thanks: opening.thanks,
             outro: opening.outro,
             sourceWire: source.wire,
+            lead: opening.lead,
+            headline: opening.headline,
           );
   }
 
@@ -245,8 +429,30 @@ PaywallDoor? get _door =>
 
 /// The location that opens the Hosted paywall for [source]. Every place
 /// that opens it asks here.
-String hostedPaywallLocation(PaywallSource source) =>
-    _door?.hostedLocation(source) ?? paywallLocation(source);
+String hostedPaywallLocation(
+  PaywallSource source, {
+  PaywallLeadFacts? facts,
+}) => _door?.hostedLocation(source, facts: facts) ?? paywallLocation(source);
+
+/// The location that opens the leaving paywall: see
+/// [PaywallDoor.leavingLocation]. Never throws.
+Future<String> leavingPaywallLocation(DateTime endsAt) async =>
+    await _door?.leavingLocation(endsAt) ??
+    paywallLocation(PaywallSource.planSheetEnding);
+
+/// [hostedPaywallLocation] for [source], with the person's own history rows
+/// when the place leads with history. For a caller that can wait a moment.
+Future<String> hostedPaywallLocationWithOwn(
+  PaywallSource source, {
+  PaywallLeadFacts? facts,
+}) async {
+  final door = _door;
+  if (door == null) return paywallLocation(source);
+  final leadsWithHistory =
+      paywallRowFor(paywallPlaceOf(source)).lead == PaywallBenefitId.history;
+  final own = leadsWithHistory ? await door.readHistoryOwn() : null;
+  return door.hostedLocation(source, own: own, facts: facts);
+}
 
 /// [location] as the app should open it: see [PaywallDoor.resolve].
 String resolvePaywallLocation(String location) =>
@@ -286,8 +492,9 @@ Future<void> openProPaywall(BuildContext context, ProPackSheetSource source) {
 Future<void> openPaywallFor(
   BuildContext context,
   FeatureDecision decision,
-  LockSource source,
-) async {
+  LockSource source, {
+  PaywallLeadFacts? facts,
+}) async {
   final Holding offer;
   switch (decision) {
     case FeatureLocked():
@@ -300,7 +507,12 @@ Future<void> openPaywallFor(
   }
   switch (offer) {
     case Holding.hosted:
-      await context.push<void>(hostedPaywallLocation(source.hosted));
+      final location = await hostedPaywallLocationWithOwn(
+        source.hosted,
+        facts: facts,
+      );
+      if (!context.mounted) return;
+      await context.push<void>(location);
     case Holding.pro:
       await openProPaywall(context, source.pro);
   }
@@ -309,10 +521,14 @@ Future<void> openPaywallFor(
 /// The location [openPaywallFor] opens, or null when [decision] locks
 /// nothing. For a caller that holds a router and no context, such as a
 /// sheet that closes itself before the paywall opens.
-String? paywallLocationFor(FeatureDecision decision, LockSource source) {
+String? paywallLocationFor(
+  FeatureDecision decision,
+  LockSource source, {
+  PaywallLeadFacts? facts,
+}) {
   if (decision is! FeatureLocked) return null;
   return switch (decision.offer) {
-    Holding.hosted => hostedPaywallLocation(source.hosted),
+    Holding.hosted => hostedPaywallLocation(source.hosted, facts: facts),
     Holding.pro =>
       _door?.proLayoutLocation(source.pro) ?? proPackSheetLocation(source.pro),
   };

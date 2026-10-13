@@ -5,6 +5,7 @@ import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_outro.dart';
@@ -17,6 +18,7 @@ import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
@@ -31,9 +33,14 @@ import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/onboarding_step_frame.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
@@ -857,19 +864,35 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           _isDeveloperPaywallBuild ? null : shippedPaywallInsteadOf(state.uri),
       pageBuilder: (context, state) {
         final query = state.uri.queryParameters;
+        final intro =
+            PaywallIntroId.fromKey(query['intro']) ??
+            paywallIntroInLayoutValue(state.pathParameters['layout']) ??
+            PaywallIntroId.none;
+        // An intro that plays cuts in: no slide, so its first frame is on
+        // screen at once. Going back keeps the slow slide.
+        final cutsIn = paywallRouteCutsIn(
+          intro,
+          isBuilt: paywallIntroIsBuilt(intro),
+        );
         return AmbientPage(
           key: state.pageKey,
           opaque: true,
+          transitionDuration: cutsIn ? Duration.zero : AppDurations.slow,
           child: PaywallLayoutScreen(
             // An unknown key draws the fallback layout. The key the false
             // alarm had as a layout opens that one, with the intro.
             layout:
                 PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
                 paywallFallbackLayout,
-            intro:
-                PaywallIntroId.fromKey(query['intro']) ??
-                paywallIntroInLayoutValue(state.pathParameters['layout']) ??
-                PaywallIntroId.none,
+            intro: intro,
+            lead: paywallLeadFromQuery(query),
+            headline: PaywallHeadlineVariant.parse(query['headline']),
+            leaving: PaywallLeaving.fromQuery(query),
+            // The person's own rows are read only for a history lead.
+            historyOwn:
+                paywallLeadFromQuery(query)?.benefit == PaywallBenefitId.history
+                ? HistoryOwn.fromQuery(query)
+                : null,
             thanks:
                 PaywallThanksId.fromKey(query['thanks']) ??
                 PaywallThanksId.none,

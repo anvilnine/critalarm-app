@@ -12,6 +12,7 @@ import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
+import 'package:critalarm/app/state/critical_topic_count.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
@@ -220,6 +221,8 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
+import 'package:critalarm/features/paywall/data/history_own_reader.dart';
+import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -2774,6 +2777,21 @@ Future<void> configureDependencies({
         markFalseAlarmSeen: () => getIt<SharedPreferences>().setBool(
           PaywallDoor.falseAlarmShownKey,
           true,
+        ),
+        readHistoryOwn: () =>
+            HistoryOwnReader(incidents: localStore?.incidents).read(),
+        readLeavingFacts: () => LeavingFactsReader(
+          incidents: localStore?.incidents,
+          // The app's one topic list: see `readCriticalTopicCount`.
+          readCriticalTopics: () =>
+              readCriticalTopicCount(getIt<TopicsCubit>()),
+          setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        ).read(),
+        leavingShownFor: () =>
+            getIt<SharedPreferences>().getString(PaywallDoor.leavingShownKey),
+        markLeavingShown: (value) => getIt<SharedPreferences>().setString(
+          PaywallDoor.leavingShownKey,
+          value,
         ),
       ),
     )

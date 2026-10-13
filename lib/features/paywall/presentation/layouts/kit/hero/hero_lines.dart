@@ -15,6 +15,29 @@ import 'package:flutter/material.dart';
 /// The side inset of the words, the same as the buy block's.
 const double heroSideInset = 20;
 
+/// The width the headline is set in: [width] less the extra room kept at its
+/// right for the close control. [endRoom] is measured from the screen's edge,
+/// and the side inset is already there.
+double heroHeadlineWidth({required double width, double endRoom = 0}) =>
+    width - math.max(0, endRoom - heroSideInset);
+
+/// How many of [count] lines to draw so that none is cut at the foot of its
+/// box. [leftFor] is the height left over when `shown` lines are drawn, and
+/// a line is whole when that is not below zero. `isAllowed` rules out a
+/// count that cannot be drawn on its own. Returns the most lines that fit,
+/// or zero when not even the first fits.
+int heroWholeLinesFor({
+  required int count,
+  required double Function(int shown) leftFor,
+  bool Function(int shown)? isAllowed,
+}) {
+  for (var shown = count; shown > 0; shown--) {
+    if (isAllowed != null && !isAllowed(shown)) continue;
+    if (leftFor(shown) >= 0) return shown;
+  }
+  return 0;
+}
+
 /// The short line the list shows for [benefit]: a sentence of its own for
 /// every benefit there is.
 String heroLineFor(PaywallBenefit benefit) {
@@ -93,6 +116,53 @@ class HeroSizes {
   static const double checkGap = 10;
 }
 
+/// The sizes of the "Also included" group that sits under a lead.
+abstract final class HeroAlso {
+  static const double labelSize = 10.5;
+
+  /// Between the lead line and the label. A layout that draws no lead line
+  /// has no gap there: the label sits under the headline's own gap.
+  static const double beforeGap = 12;
+
+  /// Between the label and the first other benefit.
+  static const double labelGap = 6;
+
+  /// The other benefits are smaller than the lead line, with a smaller check.
+  static const double itemSize = 13;
+  static const double itemCheck = 14;
+}
+
+/// Whether a paywall draws the "Also included" group: it has a lead and at
+/// least one other benefit.
+bool heroShowsAlsoIncluded({
+  required bool hasLead,
+  required int benefitCount,
+}) => hasLead && benefitCount >= 2;
+
+/// Where the middle of each row is. [top] points down the box a tap is
+/// read in. [alsoBlock] is the height of the label and its gaps. It sits
+/// between the first row and the second and takes the place of [rowGap]
+/// there. Zero means no group.
+List<double> heroRowCentres({
+  required List<double> rowHeights,
+  required double rowGap,
+  required double top,
+  double alsoBlock = 0,
+}) {
+  final centres = <double>[];
+  var y = top;
+  for (final (i, height) in rowHeights.indexed) {
+    if (i == 1 && alsoBlock > 0) {
+      y += alsoBlock;
+    } else if (i > 0) {
+      y += rowGap;
+    }
+    centres.add(y + height / 2);
+    y += height;
+  }
+  return centres;
+}
+
 /// A column of benefit lines, measured before it is drawn: the two styles,
 /// each row's fixed height and where its middle is.
 ///
@@ -101,13 +171,23 @@ class HeroSizes {
 /// result to [HeroBenefitLines]. `width` is the column's full width, check
 /// included.
 class HeroLinesMetrics {
+  /// With [alsoIncluded] (the label's words) and at least two lines, the
+  /// first line is the lead and the others are the quiet group under the
+  /// label. [showsLead] false leaves the lead's line out: the words above
+  /// already say it, so the group starts under the headline. Its row is
+  /// then zero tall and no tap lands on it.
   HeroLinesMetrics.measure(
     BuildContext context, {
     required this.lines,
     required double width,
     required this.sizes,
     PaywallTone tone = PaywallTone.canvas,
+    String? alsoIncluded,
+    bool showsLead = true,
   }) : textWidth = width - sizes.check - HeroSizes.checkGap,
+       itemTextWidth = width - HeroAlso.itemCheck - HeroSizes.checkGap,
+       hasAlso = alsoIncluded != null && lines.length >= 2,
+       alsoLabel = alsoIncluded,
        strong = AppTypography.small(
          PaywallToneColors.of(context, tone).ink,
          fontSize: sizes.line,
@@ -120,15 +200,58 @@ class HeroLinesMetrics {
              fontWeight: FontWeight.w500,
              height: 1.3,
              color: PaywallToneColors.of(context, tone).muted,
+           ),
+       itemStrong = AppTypography.small(
+         PaywallToneColors.of(context, tone).ink,
+         fontSize: HeroAlso.itemSize,
+       ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
+       itemQuiet = AppTypography.small(
+         _itemInk(PaywallToneColors.of(context, tone), tone),
+         fontSize: HeroAlso.itemSize,
+       ).copyWith(fontWeight: FontWeight.w500, height: 1.3),
+       itemCheckFill = _itemInk(PaywallToneColors.of(context, tone), tone),
+       itemCheckMark = PaywallToneColors.of(context, tone).background,
+       labelStyle =
+           AppTypography.small(
+             _itemInk(PaywallToneColors.of(context, tone), tone),
+             fontSize: HeroAlso.labelSize,
+           ).copyWith(
+             fontWeight: FontWeight.w700,
+             letterSpacing: 0.9,
+             height: 1.2,
            ) {
+    leadIsDrawn = !hasAlso || showsLead;
     rowHeights = [
-      for (final line in lines)
-        math.max(
-          sizes.check,
-          paywallTextHeight(context, line, strong, textWidth),
-        ),
+      for (final (i, line) in lines.indexed)
+        if (!leadIsDrawn && i == 0)
+          0.0
+        else if (hasAlso && i > 0)
+          math.max(
+            HeroAlso.itemCheck,
+            paywallTextHeight(context, line, itemStrong, itemTextWidth),
+          )
+        else
+          math.max(
+            sizes.check,
+            paywallTextHeight(context, line, strong, textWidth),
+          ),
     ];
+    alsoBlock = !hasAlso
+        ? 0
+        : (leadIsDrawn ? HeroAlso.beforeGap : 0) +
+              paywallTextHeight(
+                context,
+                alsoIncluded!.toUpperCase(),
+                labelStyle,
+                width,
+              ) +
+              HeroAlso.labelGap;
   }
+
+  /// The ink of the quiet group: muted, except on the yellow canvas where
+  /// muted text is too faint to read at this size.
+  static Color _itemInk(PaywallToneColors colors, PaywallTone tone) =>
+      tone == PaywallTone.canvas ? colors.ink : colors.muted;
 
   final List<String> lines;
   final HeroSizes sizes;
@@ -136,27 +259,75 @@ class HeroLinesMetrics {
   /// The width the words have, beside the check.
   final double textWidth;
 
+  /// The width the group's words have, beside its smaller check.
+  final double itemTextWidth;
+
   /// The line of the turn on the stage, and every other line.
   final TextStyle strong;
   final TextStyle quiet;
+
+  /// The same two for the group under the label.
+  final TextStyle itemStrong;
+  final TextStyle itemQuiet;
+
+  /// The small check of the group: this fill and this mark.
+  final Color itemCheckFill;
+  final Color itemCheckMark;
+
+  /// The label's words, or null when the lines have no group.
+  final String? alsoLabel;
+  final TextStyle labelStyle;
+
+  /// True when the first line is the lead and the rest sit under a label.
+  final bool hasAlso;
+
+  /// False when the lead has no line of its own. Its row is zero tall.
+  late final bool leadIsDrawn;
+
+  /// The height of the label and its gaps, zero with no group.
+  late final double alsoBlock;
   late final List<double> rowHeights;
 
   /// The height of the whole column, gaps included.
-  double get height =>
-      rowHeights.fold<double>(0, (sum, h) => sum + h) +
-      sizes.rowGap * math.max(0, lines.length - 1);
+  double get height {
+    if (!hasAlso) {
+      return rowHeights.fold<double>(0, (sum, h) => sum + h) +
+          sizes.rowGap * math.max(0, lines.length - 1);
+    }
+    // The lead, the label block, then the others with a gap between.
+    return rowHeights.fold<double>(0, (sum, h) => sum + h) +
+        alsoBlock +
+        sizes.rowGap * math.max(0, lines.length - 2);
+  }
 
   /// Where the middle of each line is, when the first line's top is [top]
   /// points down the box a tap is read in. Feed it to [heroLineAt].
+  ///
+  /// A lead with no line has a middle that no tap can reach.
   List<double> centresFrom(double top) {
-    final centres = <double>[];
-    var y = top;
-    for (final (i, height) in rowHeights.indexed) {
-      if (i > 0) y += sizes.rowGap;
-      centres.add(y + height / 2);
-      y += height;
+    if (!hasAlso) {
+      return heroRowCentres(
+        rowHeights: rowHeights,
+        rowGap: sizes.rowGap,
+        top: top,
+      );
     }
-    return centres;
+    if (leadIsDrawn) {
+      return heroRowCentres(
+        rowHeights: rowHeights,
+        rowGap: sizes.rowGap,
+        top: top,
+        alsoBlock: alsoBlock,
+      );
+    }
+    return [
+      double.negativeInfinity,
+      ...heroRowCentres(
+        rowHeights: rowHeights.sublist(1),
+        rowGap: sizes.rowGap,
+        top: top + alsoBlock,
+      ),
+    ];
   }
 }
 
@@ -201,33 +372,63 @@ class HeroBenefitLines extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sizes = metrics.sizes;
     final said = labels;
+    final hasAlso = metrics.hasAlso;
     final column = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (i, line) in metrics.lines.indexed) ...[
-          if (i > 0) SizedBox(height: sizes.rowGap),
-          HeroRise(
-            clock: player.clock,
-            index: i + firstRise,
-            after: player.loop.prelude,
-            child: SizedBox(
-              height: metrics.rowHeights[i],
-              child: HeroBenefitLine(
-                player: player,
-                index: i,
-                text: line,
-                label: isPickable && said != null ? said[i] : null,
-                onTap: isPickable ? () => player.touch(index: i) : null,
-                checkSize: sizes.check,
-                strong: metrics.strong,
-                quiet: metrics.quiet,
+        for (final (i, line) in metrics.lines.indexed)
+          // A lead with no line of its own draws nothing here.
+          if (metrics.leadIsDrawn || i > 0) ...[
+            if (hasAlso && i == 1)
+              // The label takes the place of the gap above the first of the
+              // others. With no lead line it rises in the lead's place.
+              HeroRise(
+                clock: player.clock,
+                index: metrics.leadIsDrawn ? i + firstRise : firstRise,
+                after: player.loop.prelude,
+                child: SizedBox(
+                  height: metrics.alsoBlock,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: HeroAlso.labelGap),
+                      child: Text(
+                        metrics.alsoLabel!.toUpperCase(),
+                        style: metrics.labelStyle,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else if (i > 0)
+              SizedBox(height: metrics.sizes.rowGap),
+            HeroRise(
+              clock: player.clock,
+              index: i + firstRise,
+              after: player.loop.prelude,
+              child: SizedBox(
+                height: metrics.rowHeights[i],
+                child: HeroBenefitLine(
+                  player: player,
+                  index: i,
+                  text: line,
+                  label: isPickable && said != null ? said[i] : null,
+                  onTap: isPickable ? () => player.touch(index: i) : null,
+                  checkSize: hasAlso && i > 0
+                      ? HeroAlso.itemCheck
+                      : metrics.sizes.check,
+                  strong: hasAlso && i > 0
+                      ? metrics.itemStrong
+                      : metrics.strong,
+                  quiet: hasAlso && i > 0 ? metrics.itemQuiet : metrics.quiet,
+                  checkFill: hasAlso && i > 0 ? metrics.itemCheckFill : null,
+                  checkMark: hasAlso && i > 0 ? metrics.itemCheckMark : null,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
       ],
     );
     if (!handlesTaps || !isPickable) return column;
@@ -257,6 +458,8 @@ class HeroBenefitLine extends StatelessWidget {
     this.label,
     this.onTap,
     this.checkSize = 20,
+    this.checkFill,
+    this.checkMark,
     super.key,
   });
 
@@ -270,6 +473,10 @@ class HeroBenefitLine extends StatelessWidget {
   /// Null for a line that picks nothing.
   final VoidCallback? onTap;
   final double checkSize;
+
+  /// The check's fill and the mark inside it. Null is the highlight pair.
+  final Color? checkFill;
+  final Color? checkMark;
 
   @override
   Widget build(BuildContext context) {
@@ -310,13 +517,13 @@ class HeroBenefitLine extends StatelessWidget {
         height: checkSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: colors.highlight,
+          color: checkFill ?? colors.highlight,
         ),
         alignment: Alignment.center,
         child: AppGlyph(
           GlyphType.check,
           size: checkSize * 0.56,
-          color: colors.onHighlight,
+          color: checkMark ?? colors.onHighlight,
           strokeWidth: 3.4,
         ),
       ),

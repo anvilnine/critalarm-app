@@ -3,12 +3,18 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/design_system/screen_clock.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
@@ -75,7 +81,14 @@ const String paywallTryOut = 'buy';
 /// this path is built.
 ///
 /// [sourceWire] replaces [source] for an entry point that is not a
-/// [PaywallSource], which is every Pro one. [showsUnbuilt] asks for the
+/// [PaywallSource], which is every Pro one. [lead] is the benefit the
+/// paywall opens on and [headline] the words for a plan that is ending or
+/// ended; both are left out of the location when they say nothing. [own]
+/// is the person's own history rows for the history picture; its entries
+/// are left out when there are none. [leaving] is what the leaving paywall
+/// knows (the end date, the rest flag, the person's numbers); it is left
+/// out when null.
+/// [showsUnbuilt] asks for the
 /// developer view that lists every benefit, built or not, and [isTryOut]
 /// for the one where a build that skips the store confirms a purchase at
 /// once.
@@ -87,6 +100,10 @@ String paywallLayoutLocation(
   PaywallOutroId outro = PaywallOutroId.none,
   PaywallSource source = PaywallSource.direct,
   String? sourceWire,
+  PaywallBenefitId? lead,
+  PaywallHeadlineVariant headline = PaywallHeadlineVariant.none,
+  HistoryOwn? own,
+  PaywallLeaving? leaving,
   bool showsUnbuilt = false,
   bool isTryOut = false,
 }) => Uri(
@@ -97,6 +114,10 @@ String paywallLayoutLocation(
     if (intro != PaywallIntroId.none) 'intro': intro.key,
     if (thanks != PaywallThanksId.none) 'thanks': thanks.key,
     if (outro != PaywallOutroId.none) 'outro': outro.key,
+    if (lead != null) 'lead': lead.key,
+    if (headline != PaywallHeadlineVariant.none) 'headline': headline.key,
+    ...?leaving?.toQuery(),
+    ...?own?.toQuery(),
     if (showsUnbuilt) 'benefits': paywallAllBenefits,
     if (isTryOut) 'try': paywallTryOut,
   },
@@ -175,6 +196,10 @@ class PaywallLayoutScreen extends StatelessWidget {
     this.sourceWire,
     this.demoStatus,
     this.showsUnbuilt = false,
+    this.lead,
+    this.headline = PaywallHeadlineVariant.none,
+    this.historyOwn,
+    this.leaving,
     super.key,
   });
 
@@ -210,6 +235,22 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   /// Developer builds only: also lists the benefits not in this build.
   final bool showsUnbuilt;
+
+  /// The benefit the paywall opens on, from `?lead=`. Null lists the
+  /// benefits in the product's own order.
+  final PaywallLead? lead;
+
+  /// The words for a plan that is ending or ended, from `?headline=`.
+  final PaywallHeadlineVariant headline;
+
+  /// The person's own alarms for the history picture, from `?hin=` and
+  /// `?hbe=`. Null draws the made-up rows.
+  final HistoryOwn? historyOwn;
+
+  /// What the leaving paywall knows, from `?ends=`, `?rest=` and the
+  /// numbers. Null on every other paywall. A route that is at rest draws
+  /// under [PaywallStill]: no tear, no print.
+  final PaywallLeaving? leaving;
 
   /// What reports this paywall, or null in a build with no telemetry.
   PaywallLayoutReporter? _reporter() {
@@ -276,16 +317,26 @@ class PaywallLayoutScreen extends StatelessWidget {
         child: PaywallRouteInfo(
           layout: layout,
           source: source,
+          lead: lead,
+          headline: headline,
+          historyOwn: historyOwn,
+          leaving: leaving,
           showsUnbuilt: showsUnbuilt,
           child: Builder(
-            builder: (context) => PaywallLayoutView(
-              layout: layout,
-              product: product,
-              intro: intro,
-              thanks: thanks,
-              outro: outro,
-              onThanksDone: () => _afterThanks(context),
-            ),
+            builder: (context) {
+              final view = PaywallLayoutView(
+                layout: layout,
+                product: product,
+                intro: intro,
+                thanks: thanks,
+                outro: outro,
+                onThanksDone: () => _afterThanks(context),
+              );
+              // The sad opening was shown for this end date: open at rest.
+              return leaving?.atRest ?? false
+                  ? PaywallStill(child: view)
+                  : view;
+            },
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -15,6 +17,14 @@ import 'package:flutter/widgets.dart';
 List<String> _ownServerLines(HostedSurface surface) => [
   if (surface.ownServerLine case final line?) ...['', line],
 ];
+
+/// Counts the person's numbers, then opens the leaving paywall. The sheet
+/// has closed by now, so the context is Home's.
+Future<void> _openLeavingPaywall(BuildContext context, DateTime endsAt) async {
+  final location = await leavingPaywallLocation(endsAt);
+  if (!context.mounted) return;
+  openAppPath(context, location);
+}
 
 /// Opens the "Pro ends" or "Pro ended" sheet for [view]. Marks it shown as it
 /// opens, so walking away counts as seen. [onDismiss] runs on "Not now".
@@ -48,10 +58,7 @@ Future<void> showProPlanSheet(
           ..._ownServerLines(HostedSurface.endingNotice),
         ].join('\n'),
         actionLabel: LocaleKeys.notices_pro_ending_action.tr(),
-        onAction: () => openAppPath(
-          context,
-          hostedPaywallLocation(PaywallSource.planSheetEnding),
-        ),
+        onAction: () => unawaited(_openLeavingPaywall(context, endsAt)),
         onDismiss: onDismiss ?? () {},
       );
     case ProPlanSheet.ended:
@@ -68,11 +75,17 @@ Future<void> showProPlanSheet(
         ].join('\n'),
         actionLabel: LocaleKeys.notices_pro_ended_action.tr(),
         dismissLabel: LocaleKeys.notices_pro_ended_dismiss.tr(),
-        onAction: () => openAppPath(
-          context,
-          hostedPaywallLocation(PaywallSource.planSheetEnded),
-        ),
+        onAction: () => unawaited(_openEnded(context)),
         onDismiss: onDismiss ?? () {},
       );
   }
+}
+
+/// Reads the rows the phone still holds, then opens the ended paywall.
+Future<void> _openEnded(BuildContext context) async {
+  final location = await hostedPaywallLocationWithOwn(
+    PaywallSource.planSheetEnded,
+  );
+  if (!context.mounted) return;
+  openAppPath(context, location);
 }

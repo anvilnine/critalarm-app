@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -8,6 +11,9 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +41,15 @@ class _Install {
   bool remoteThrows = false;
   FeatureDecision widgets = const FeatureDecision.locked(Holding.pro);
   bool widgetsThrow = false;
+  HistoryOwn? historyOwn;
+  bool historyOwnThrows = false;
+  bool historyOwnHangs = false;
+  LeavingFacts? leavingFacts;
+  bool leavingThrows = false;
+  bool leavingHangs = false;
+  bool leavingMarkThrows = false;
+  String? leavingShown;
+  int leavingMarks = 0;
 
   late final door = PaywallDoor(
     widgetsDecision: () {
@@ -68,6 +83,23 @@ class _Install {
     developerOutro: (product) =>
         product == PaywallProduct.hosted ? devHostedOutro : null,
     isOutroBuilt: (outro) => outro == PaywallOutroId.none || outrosAreBuilt,
+    readHistoryOwn: () async {
+      if (historyOwnThrows) throw StateError('no store');
+      if (historyOwnHangs) return Completer<HistoryOwn?>().future;
+      return historyOwn;
+    },
+    readLeavingFacts: () async {
+      if (leavingThrows) throw StateError('no store');
+      if (leavingHangs) return Completer<LeavingFacts?>().future;
+      return leavingFacts;
+    },
+    leavingShownFor: () => leavingShown,
+    markLeavingShown: (value) async {
+      leavingMarks++;
+      if (leavingMarkThrows) throw StateError('no prefs');
+      leavingShown = value;
+    },
+    leavingReadTimeout: const Duration(milliseconds: 50),
   );
 }
 
@@ -192,7 +224,7 @@ void main() {
       final install = _Install()..pro = 'auto';
       expect(
         install.door.resolve(tap),
-        '/plans/sheet?product=pro&source=widget_locked',
+        '/plans/sheet?product=pro&source=widget_locked&lead=widgets',
       );
     });
 
@@ -232,7 +264,7 @@ void main() {
       final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history',
+        '/plans/proof?product=hosted&source=history&lead=history',
       );
       expect(
         install.door.resolve('/paywall?source=reminder_pro_later'),
@@ -257,7 +289,7 @@ void main() {
       final install = _Install()..pro = 'auto';
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
-        '/plans/sheet?product=pro&source=reliability',
+        '/plans/proof?product=pro&source=reliability',
       );
       expect(
         install.door.hostedLocation(PaywallSource.history),
@@ -303,36 +335,54 @@ void main() {
   });
 
   group('the false alarm intro', () {
-    test('plays once from the Settings plan row, then hero alone', () {
+    test('plays once at the critical topic limit, then the sheet alone', () {
       final install = _Install()..hosted = 'auto';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card'
+        '&intro=false_alarm&lead=topics',
       );
       expect(install.marks, 1);
+      expect(
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
+      );
+      expect(install.marks, 1);
+    });
+
+    test('a person who saw it from Settings before does not see it again', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
+      );
+      expect(install.marks, 0);
+    });
+
+    test('the Settings plan row plays nothing', () {
+      final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.settingsPlan),
         '/plans/hero?product=hosted&source=settings_plan',
       );
-      expect(install.marks, 1);
+      expect(install.marks, 0);
     });
 
     test('a stored value that names it as a layout opens hero with it', () {
       final install = _Install()..hosted = 'false_alarm';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
-      );
-      expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&intro=false_alarm&lead=history',
       );
+      expect(install.marks, 1);
     });
 
-    test('other entries neither play it nor use up its showing', () {
+    test('other places neither play it nor use up its showing', () {
       final install = _Install()..hosted = 'auto';
       for (final source in PaywallSource.values) {
-        if (source == PaywallSource.settingsPlan) continue;
+        if (source == PaywallSource.createTopicCard) continue;
         expect(
           install.door.hostedLocation(source),
           isNot(contains('false_alarm')),
@@ -341,16 +391,19 @@ void main() {
       expect(install.marks, 0);
     });
 
-    test('a build that cannot play it opens hero and keeps the showing', () {
-      final install = _Install()
-        ..hosted = 'auto'
-        ..falseAlarmIsBuilt = false;
-      expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan',
-      );
-      expect(install.marks, 0);
-    });
+    test(
+      'a build that cannot play it opens the sheet and keeps the showing',
+      () {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..falseAlarmIsBuilt = false;
+        expect(
+          install.door.hostedLocation(PaywallSource.createTopicCard),
+          '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
+        );
+        expect(install.marks, 0);
+      },
+    );
   });
 
   group('the intro value', () {
@@ -362,7 +415,7 @@ void main() {
         ..proIntro = 'false_alarm';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history&intro=false_alarm',
+        '/plans/sheet?product=hosted&source=history&intro=false_alarm&lead=history',
       );
       expect(install.marks, 1);
       // Its one showing is used up, for either product.
@@ -388,7 +441,7 @@ void main() {
         ..devHostedIntro = PaywallIntroId.none;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
       expect(install.marks, 0);
     });
@@ -403,15 +456,18 @@ void main() {
         ..proThanks = ' unlock ';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+        '/plans/sheet?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.resolve('/paywall?source=history'),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+        '/plans/sheet?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
-        '/plans/proof?product=pro&source=direct&thanks=unlock',
+        '/plans/proof?product=pro&source=direct'
+        '&thanks=unlock&outro=break_lift_ring',
       );
     });
 
@@ -420,14 +476,15 @@ void main() {
         ..hosted = 'auto'
         ..hostedThanks = 'unlock';
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan'
-        '&intro=false_alarm&thanks=unlock',
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card'
+        '&intro=false_alarm&thanks=unlock&outro=cloud_climb&lead=topics',
       );
       // The intro has had its one showing. The thanks has no such rule.
       expect(
-        install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/hero?product=hosted&source=settings_plan&thanks=unlock',
+        install.door.hostedLocation(PaywallSource.createTopicCard),
+        '/plans/sheet?product=hosted&source=create_topic_card'
+        '&thanks=unlock&outro=cloud_climb&lead=topics',
       );
     });
 
@@ -439,7 +496,8 @@ void main() {
         ..falseAlarmIsBuilt = false;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=confetti',
+        '/plans/hero?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(install.marks, 0);
     });
@@ -455,7 +513,7 @@ void main() {
       // The intro still plays.
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&intro=false_alarm',
+        '/plans/hero?product=hosted&source=history&intro=false_alarm&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
@@ -469,7 +527,7 @@ void main() {
         ..hostedThanks = 'fireworks';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
     });
 
@@ -499,11 +557,12 @@ void main() {
         ..devProThanks = PaywallThanksId.unlock;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
-        '/plans/hero?product=pro&source=direct&thanks=unlock',
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=unlock&outro=break_lift_ring',
       );
     });
 
@@ -516,7 +575,553 @@ void main() {
       );
       expect(
         door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
+      );
+    });
+  });
+
+  group('the lead and the headline', () {
+    test('a place with a lead puts it in the location', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..pro = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.appIcon),
+        '/plans/sheet?product=hosted&source=app_icon&lead=app_icons',
+      );
+      // Own sounds are a Pro benefit: Hosted does not list it, so only the
+      // Pro location carries the lead.
+      expect(
+        install.door.hostedLocation(PaywallSource.personalizeSound),
+        '/plans/sheet?product=hosted&source=personalize_sound',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.personalizeSound),
+        '/plans/sheet?product=pro&source=personalize_sound'
+        '&lead=custom_sounds',
+      );
+    });
+
+    test('the plan ended carries its headline', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.planSheetEnded),
+        '/plans/wipe?product=hosted&source=plan_sheet_ended'
+        '&lead=history&headline=ended',
+      );
+    });
+
+    test('a lead this build does not list is left out', () {
+      final install = _Install()..hosted = 'auto';
+      final door = PaywallDoor(
+        remoteValue: (_) => 'auto',
+        developer: (_) => null,
+        hasSeenFalseAlarm: () => true,
+        markFalseAlarmSeen: () async {},
+        listedBenefits: (_) => const {},
+      );
+      expect(
+        door.hostedLocation(PaywallSource.history),
+        '/plans/proof?product=hosted&source=history',
+      );
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        contains('lead=history'),
+      );
+    });
+
+    test('Pro puts a lead it lists in the location', () {
+      final install = _Install()..pro = 'auto';
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.personalizeWidgets),
+        '/plans/sheet?product=pro&source=personalize_widgets&lead=widgets',
+      );
+    });
+  });
+
+  group('the history rows', () {
+    const own = HistoryOwn(
+      inside: [HistoryOwnRow('prod-db', 1)],
+      beyond: [HistoryOwnRow('nas', 12), HistoryOwnRow('prod-db', 81)],
+    );
+
+    test('a history place carries the rows the phone holds', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.history, own: own),
+        '/plans/proof?product=hosted&source=history&lead=history'
+        '&hin=prod-db%3A1&hbe=nas%3A12%2Cprod-db%3A81',
+      );
+    });
+
+    test('a place with another lead leaves them out', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.appIcon, own: own),
+        '/plans/sheet?product=hosted&source=app_icon&lead=app_icons',
+      );
+    });
+
+    test('with no rows older than the window nothing is added', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/proof?product=hosted&source=history&lead=history',
+      );
+    });
+
+    test('the ended plan carries the rows the phone still holds', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..historyOwn = const HistoryOwn(
+          inside: [HistoryOwnRow('prod-db', 1)],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      final own = await install.door.readHistoryOwn();
+      final location = install.door.hostedLocation(
+        PaywallSource.planSheetEnded,
+        own: own,
+      );
+      expect(
+        location,
+        startsWith(
+          '/plans/wipe?product=hosted&source=plan_sheet_ended'
+          '&lead=history&headline=ended&hin=',
+        ),
+      );
+      // The route reads the same rows back out of the location.
+      final back = HistoryOwn.fromQuery(Uri.parse(location).queryParameters);
+      expect(back, isNotNull);
+      expect(back!.inside.single.topic, 'prod-db');
+      expect(back.beyond.single.topic, 'nas');
+      expect(back.beyond.single.ageDays, 12);
+    });
+
+    test('the ended plan with nothing older on the phone carries no rows', () {
+      final install = _Install()..hosted = 'auto';
+      final location = install.door.hostedLocation(
+        PaywallSource.planSheetEnded,
+      );
+      expect(
+        location,
+        '/plans/wipe?product=hosted&source=plan_sheet_ended'
+        '&lead=history&headline=ended',
+      );
+      // No rows in the location: the Wipe draws its made-up picture.
+      expect(
+        HistoryOwn.fromQuery(Uri.parse(location).queryParameters),
+        isNull,
+      );
+    });
+
+    test(
+      'the helper the ended sheet calls puts the rows in the location',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..historyOwn = const HistoryOwn(
+            inside: [HistoryOwnRow('prod-db', 1)],
+            beyond: [HistoryOwnRow('nas', 12)],
+          );
+        getIt.registerSingleton<PaywallDoor>(install.door);
+        addTearDown(() => getIt.unregister<PaywallDoor>());
+        final location = await hostedPaywallLocationWithOwn(
+          PaywallSource.planSheetEnded,
+        );
+        expect(
+          location,
+          '/plans/wipe?product=hosted&source=plan_sheet_ended'
+          '&lead=history&headline=ended&hin=prod-db%3A1&hbe=nas%3A12',
+        );
+      },
+    );
+
+    test('the async helper reads the rows once and never throws', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..historyOwn = own;
+      expect(await install.door.readHistoryOwn(), isNotNull);
+      install.historyOwnThrows = true;
+      expect(await install.door.readHistoryOwn(), isNull);
+    });
+  });
+
+  group('the facts of the critical limit', () {
+    test('a topics lead carries the count and the name', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(
+            used: 2,
+            limit: 2,
+            topicName: 'billing-api',
+          ),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics'
+        '&used=2&limit=2&topic=billing-api',
+      );
+    });
+
+    test('facts on a place with another lead are left out', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.history,
+          facts: const PaywallLeadFacts(used: 2, limit: 2),
+        ),
+        '/plans/proof?product=hosted&source=history&lead=history',
+      );
+    });
+
+    test('with no layout set the shipped paywall opens and ignores them', () {
+      final install = _Install();
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(used: 2, limit: 2),
+        ),
+        '/paywall?source=create_topic_card',
+      );
+    });
+
+    test('empty facts add nothing', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics',
+      );
+    });
+
+    test('a name the location cannot hold is left out, the paywall opens', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..seen = true;
+      expect(
+        install.door.hostedLocation(
+          PaywallSource.createTopicCard,
+          facts: const PaywallLeadFacts(
+            used: 2,
+            limit: 2,
+            topicName: 'bell \u{1F514}',
+          ),
+        ),
+        '/plans/sheet?product=hosted&source=create_topic_card&lead=topics'
+        '&used=2&limit=2',
+      );
+    });
+
+    test('the false alarm intro still comes first', () {
+      final install = _Install()..hosted = 'auto';
+      final location = install.door.hostedLocation(
+        PaywallSource.createTopicCard,
+        facts: const PaywallLeadFacts(used: 2, limit: 2, topicName: 'a'),
+      );
+      expect(location, contains('intro=false_alarm'));
+      expect(location, endsWith('&used=2&limit=2&topic=a'));
+    });
+  });
+
+  group('the leaving paywall', () {
+    const good = LeavingFacts(
+      rang: 142,
+      answered: 139,
+      nights: 9,
+      criticalTopics: 4,
+      historyDaysHeld: 61,
+    );
+    const thin = LeavingFacts(
+      rang: 4,
+      answered: 4,
+      nights: 0,
+      criticalTopics: 1,
+      historyDaysHeld: 20,
+    );
+    const young = LeavingFacts(
+      rang: 2,
+      answered: 2,
+      nights: 0,
+      criticalTopics: 1,
+      historyDaysHeld: 3,
+    );
+    final ends = DateTime(2026, 10, 20, 14, 30);
+    const wipeWithoutNumbers =
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20';
+
+    test(
+      'good numbers open the receipt with the date and the numbers',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good;
+        expect(
+          await install.door.leavingLocation(ends),
+          '/plans/receipt?product=hosted&source=plan_sheet_ending'
+          '&headline=leaving&ends=2026-10-20'
+          '&rang=142&ans=139&nights=9&crit=4&days=61',
+        );
+      },
+    );
+
+    test('thin numbers open Wipe on history', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = thin;
+      expect(
+        await install.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20'
+        '&rang=4&ans=4&nights=0&crit=1&days=20',
+      );
+    });
+
+    test('two numbers over their floor are enough, one is not', () async {
+      // Alarms that rang and critical topics clear. Answered, nights do not.
+      final two = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = const LeavingFacts(
+          rang: 12,
+          answered: 2,
+          nights: 1,
+          criticalTopics: 3,
+          historyDaysHeld: 30,
+        );
+      expect(await two.door.leavingLocation(ends), contains('/plans/receipt?'));
+      final one = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = const LeavingFacts(
+          rang: 12,
+          answered: 2,
+          nights: 1,
+          criticalTopics: 2,
+          historyDaysHeld: 30,
+        );
+      expect(await one.door.leavingLocation(ends), contains('/plans/wipe?'));
+    });
+
+    test('under 7 days of history open Wipe on critical topics', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = young;
+      expect(
+        await install.door.leavingLocation(ends),
+        contains(
+          '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=topics',
+        ),
+      );
+    });
+
+    test('the rows the phone holds ride along for a Wipe on history', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = thin
+        ..historyOwn = const HistoryOwn(
+          inside: [HistoryOwnRow('prod-db', 1)],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      final location = await install.door.leavingLocation(ends);
+      expect(location, contains('/plans/wipe?'));
+      expect(location, contains('&hbe='));
+    });
+
+    test(
+      'a receipt carries no history rows: it shows no history picture',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good
+          ..historyOwn = const HistoryOwn(
+            inside: [],
+            beyond: [HistoryOwnRow('nas', 12)],
+          );
+        expect(
+          await install.door.leavingLocation(ends),
+          isNot(contains('hbe=')),
+        );
+      },
+    );
+
+    test('a Wipe on critical topics carries no history rows', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = young
+        ..historyOwn = const HistoryOwn(
+          inside: [],
+          beyond: [HistoryOwnRow('nas', 12)],
+        );
+      expect(
+        await install.door.leavingLocation(ends),
+        isNot(contains('hbe=')),
+      );
+    });
+
+    group('numbers that cannot be read', () {
+      test('none were found: Wipe on history with the date', () async {
+        final install = _Install()..hosted = 'auto';
+        expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+      });
+
+      test('a read that throws opens Wipe and never throws', () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good
+          ..leavingThrows = true;
+        expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+      });
+
+      test(
+        'a read that never answers opens Wipe once the wait is up',
+        () async {
+          final install = _Install()
+            ..hosted = 'auto'
+            ..leavingFacts = good
+            ..leavingHangs = true;
+          expect(await install.door.leavingLocation(ends), wipeWithoutNumbers);
+        },
+      );
+
+      test('rows that cannot be read leave the numbers in place', () async {
+        for (final fail in [
+          (_Install install) => install.historyOwnThrows = true,
+          (_Install install) => install.historyOwnHangs = true,
+        ]) {
+          final install = _Install()
+            ..hosted = 'auto'
+            ..leavingFacts = thin;
+          fail(install);
+          final location = await install.door.leavingLocation(ends);
+          expect(location, contains('/plans/wipe?'));
+          expect(location, contains('&rang=4&'));
+          expect(location, isNot(contains('hbe=')));
+        }
+      });
+
+      test('nothing is read when no layout is set', () async {
+        var reads = 0;
+        final door = PaywallDoor(
+          remoteValue: (_) => '',
+          developer: (_) => null,
+          hasSeenFalseAlarm: () => true,
+          markFalseAlarmSeen: () async {},
+          readLeavingFacts: () async {
+            reads++;
+            return good;
+          },
+        );
+        expect(
+          await door.leavingLocation(ends),
+          '/paywall?source=plan_sheet_ending',
+        );
+        expect(reads, 0);
+      });
+    });
+
+    test(
+      'a pinned layout or a Developer options choice outranks the table',
+      () async {
+        final remote = _Install()
+          ..hosted = 'hero'
+          ..leavingFacts = good;
+        final remoteLocation = await remote.door.leavingLocation(ends);
+        expect(remoteLocation, startsWith('/plans/hero?'));
+        expect(remoteLocation, contains('&headline=leaving'));
+        // The numbers go only to the two layouts that draw them.
+        expect(remoteLocation, isNot(contains('rang=')));
+        expect(remoteLocation, contains('&ends=2026-10-20'));
+
+        final developer = _Install()
+          ..hosted = 'auto'
+          ..devHosted = PaywallLayoutSetting.parse('wipe')
+          ..leavingFacts = good;
+        expect(
+          await developer.door.leavingLocation(ends),
+          contains('/plans/wipe?'),
+        );
+      },
+    );
+
+    test(
+      'the second open before that date is at rest, a new date is not',
+      () async {
+        final install = _Install()
+          ..hosted = 'auto'
+          ..leavingFacts = good;
+        final first = await install.door.leavingLocation(ends);
+        expect(first, isNot(contains('rest=1')));
+        expect(install.leavingShown, '2026-10-20');
+        final second = await install.door.leavingLocation(ends);
+        expect(second, contains('&ends=2026-10-20&rest=1&'));
+        expect(install.leavingMarks, 1, reason: 'the rest open writes nothing');
+        final later = await install.door.leavingLocation(
+          DateTime(2026, 11, 20),
+        );
+        expect(later, isNot(contains('rest=1')));
+        expect(install.leavingShown, '2026-11-20');
+      },
+    );
+
+    test('a flag that cannot be saved still opens the paywall', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = good
+        ..leavingMarkThrows = true;
+      expect(
+        await install.door.leavingLocation(ends),
+        contains('/plans/receipt?'),
+      );
+    });
+
+    test(
+      'with no layout set the shipped paywall opens and nothing is written',
+      () async {
+        final install = _Install()..leavingFacts = good;
+        expect(
+          await install.door.leavingLocation(ends),
+          '/paywall?source=plan_sheet_ending',
+        );
+        expect(install.leavingMarks, 0);
+      },
+    );
+
+    test('the door never throws', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..remoteThrows = true;
+      expect(
+        await install.door.leavingLocation(ends),
+        '/paywall?source=plan_sheet_ending',
+      );
+    });
+
+    test('the receipt opens from this place and no other', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..leavingFacts = good;
+      for (final source in PaywallSource.values) {
+        if (source == PaywallSource.planSheetEnding) continue;
+        expect(
+          install.door.hostedLocation(source),
+          isNot(contains('/plans/receipt')),
+          reason: source.wire,
+        );
+        expect(
+          install.door.resolve(paywallLocation(source)),
+          isNot(contains('/plans/receipt')),
+          reason: source.wire,
+        );
+      }
+      // The same sheet's other way in, with no numbers counted, is Wipe.
+      expect(
+        install.door.hostedLocation(PaywallSource.planSheetEnding),
+        contains('/plans/wipe?'),
       );
     });
   });
@@ -533,12 +1138,12 @@ void main() {
       expect(
         install.door.hostedLocation(PaywallSource.history),
         '/plans/hero?product=hosted&source=history'
-        '&thanks=stamp&outro=cloud_climb',
+        '&thanks=stamp&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.resolve(paywallLocation(PaywallSource.history)),
         '/plans/hero?product=hosted&source=history'
-        '&thanks=stamp&outro=cloud_climb',
+        '&thanks=stamp&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
@@ -556,7 +1161,8 @@ void main() {
       // The thanks still plays.
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=stamp',
+        '/plans/hero?product=hosted&source=history&thanks=stamp'
+        '&lead=history',
       );
     });
 
@@ -567,7 +1173,8 @@ void main() {
         ..hostedOutro = 'fireworks';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=stamp',
+        '/plans/hero?product=hosted&source=history&thanks=stamp'
+        '&lead=history',
       );
     });
 
@@ -579,7 +1186,7 @@ void main() {
         ..thanksAreBuilt = false;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
       );
     });
 
@@ -592,12 +1199,13 @@ void main() {
       expect(
         install.door.hostedLocation(PaywallSource.history),
         '/plans/hero?product=hosted&source=history'
-        '&thanks=stamp&outro=break_lift_ring',
+        '&thanks=stamp&outro=break_lift_ring&lead=history',
       );
       install.devHostedOutro = PaywallOutroId.none;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=stamp',
+        '/plans/hero?product=hosted&source=history&thanks=stamp'
+        '&lead=history',
       );
     });
 
@@ -620,7 +1228,126 @@ void main() {
       );
       expect(
         door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history',
+        '/plans/hero?product=hosted&source=history&lead=history',
+      );
+    });
+  });
+
+  group('the outro per product', () {
+    test('with a thanks and no outro value, each product plays its own', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..hostedThanks = 'stamp'
+        ..pro = 'auto'
+        ..proThanks = 'confetti';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=break_lift_ring',
+      );
+      // An empty remote value is no value.
+      install
+        ..hostedOutro = '  '
+        ..proOutro = '';
+      expect(
+        install.door.resolve(paywallLocation(PaywallSource.settingsPlan)),
+        '/plans/hero?product=hosted&source=settings_plan'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=break_lift_ring',
+      );
+    });
+
+    test('a remote value outranks it, none included', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'none'
+        ..pro = 'hero'
+        ..proThanks = 'confetti'
+        ..proOutro = 'cloud_climb';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=cloud_climb',
+      );
+    });
+
+    test('a Developer options none outranks it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..devHostedOutro = PaywallOutroId.none;
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+    });
+
+    test('with no thanks it plays nothing', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..pro = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct',
+      );
+    });
+
+    test('an outro this build cannot draw is still no outro', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..outrosAreBuilt = false;
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+    });
+
+    test('the shipped surface is unchanged', () {
+      final install = _Install()
+        ..hostedThanks = 'stamp'
+        ..proThanks = 'confetti';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/paywall?source=settings_plan',
+      );
+      expect(install.door.proLayoutLocation(ProPackSheetSource.direct), isNull);
+    });
+
+    test('the leaving paywall takes the Hosted one, with a thanks', () async {
+      final ends = DateTime(2026, 10, 20, 14, 30);
+      final install = _Install()..hosted = 'auto';
+      expect(
+        await install.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20',
+      );
+      final withThanks = _Install()
+        ..hosted = 'auto'
+        ..hostedThanks = 'stamp';
+      expect(
+        await withThanks.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending'
+        '&thanks=stamp&outro=cloud_climb&lead=history'
+        '&headline=leaving&ends=2026-10-20',
       );
     });
   });

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
@@ -285,6 +286,109 @@ void main() {
       final m = wipeMutedMatrix(wipeFreeSaturation);
       for (var row = 0; row < 3; row++) {
         expect(m[row * 5] + m[row * 5 + 1] + m[row * 5 + 2], closeTo(1, 1e-9));
+      }
+    });
+  });
+
+  group('the topics picture of a plan that is ending', () {
+    LeavingFacts facts(int critical) => LeavingFacts(
+      rang: 4,
+      answered: 2,
+      nights: 0,
+      criticalTopics: critical,
+      historyDaysHeld: 40,
+    );
+
+    test("holds the person's own count, the one the sentence says", () {
+      for (final n in [1, 2, 3, 7]) {
+        expect(wipeLeavingCriticalFor(reversed: true, facts: facts(n)), n);
+      }
+    });
+
+    test('a count that is not known is none, as the sentence reads it', () {
+      expect(wipeLeavingCriticalFor(reversed: true, facts: null), 0);
+    });
+
+    test('the plain Wipe keeps the picture it has', () {
+      expect(wipeLeavingCriticalFor(reversed: false, facts: facts(3)), isNull);
+    });
+  });
+
+  group('the grip', () {
+    const width = 390.0;
+    const grip = 36.0;
+
+    test('stands on the divider while the whole circle is on screen', () {
+      expect(wipeGripLeftFor(200, width: width, grip: grip), 200 - grip / 2);
+    });
+
+    test('stays whole on screen at either edge', () {
+      expect(wipeGripLeftFor(width, width: width, grip: grip), width - grip);
+      expect(wipeGripLeftFor(0, width: width, grip: grip), 0);
+    });
+
+    test('is whole on screen at every frame of both runs', () {
+      for (final reversed in [true, false]) {
+        for (var t = 0.0; t < 6; t += 0.02) {
+          final at = wipeDividerAt(t, settle: 0.27, reversed: reversed);
+          final left = wipeGripLeftFor(at * width, width: width, grip: grip);
+          expect(left, greaterThanOrEqualTo(0), reason: '$reversed $t');
+          expect(left + grip, lessThanOrEqualTo(width), reason: '$reversed $t');
+        }
+      }
+    });
+
+    test('is whole on a stage narrower than itself', () {
+      expect(wipeGripLeftFor(10, width: 20, grip: grip), 0);
+    });
+  });
+
+  group('the ended Wipe lists its benefits', () {
+    test('keeps the lead line and groups the rest under Also included', () {
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: true,
+          benefitCount: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('needs a lead and a second benefit', () {
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: false,
+          benefitCount: 5,
+        ),
+        isFalse,
+      );
+      expect(
+        wipeShowsAlsoIncluded(
+          headline: WipeHeadline.ended,
+          hasLead: true,
+          benefitCount: 1,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no other Wipe changes its list', () {
+      for (final headline in [
+        WipeHeadline.hosted,
+        WipeHeadline.pro,
+        WipeHeadline.leaving,
+      ]) {
+        expect(
+          wipeShowsAlsoIncluded(
+            headline: headline,
+            hasLead: true,
+            benefitCount: 5,
+          ),
+          isFalse,
+          reason: '$headline',
+        );
       }
     });
   });
