@@ -1,7 +1,7 @@
 /// The paywall layouts the app can draw. Each one sells either product.
 ///
-/// The keys go in the route (`/plans/<key>`) and, later, in remote values
-/// and analytics, so a shipped key never changes.
+/// The keys go in the route (`/plans/<key>`), in saved values and in
+/// analytics, so a shipped key never changes.
 enum PaywallLayoutId {
   /// The mascot on a stage with one benefit playing beside it. It is also
   /// what an id with no layout registered falls back to, and it is listed

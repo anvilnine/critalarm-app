@@ -56,11 +56,9 @@ import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
-import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
-import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
@@ -252,11 +250,9 @@ import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
-import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart';
 import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
@@ -438,8 +434,8 @@ Future<void> configureDependencies({
 
     // The two older toggles are "force held" on that same store. The older
     // override classes hear it too, for the three readers that are not
-    // Holdings: the shipped Hosted paywall, the Settings plan row and the
-    // Pro sheet. In a store build both are compiled as the No variant.
+    // Holdings, the Settings plan row among them. In a store build both are
+    // compiled as the No variant.
     if (!getIt.isRegistered<DevProSwitch>()) {
       getIt.registerSingleton<DevProSwitch>(DevProSwitch(accessSwitches));
     }
@@ -452,22 +448,10 @@ Future<void> configureDependencies({
     appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
 
-  if (buildHasPaywallLab) {
-    if (!getIt.isRegistered<DevPaywallVariantSwitch>()) {
-      getIt.registerSingleton<DevPaywallVariantSwitch>(
-        DevPaywallVariantSwitch(prefs),
-      );
-    }
-    // Same shape as the Force Pro switch. A store build compiles
-    // appPaywallVariantOverride as a NoPaywallVariantOverride, so this call
-    // does nothing and Remote Config stays in charge.
-    appPaywallVariantOverride.watch(getIt<DevPaywallVariantSwitch>());
-  }
-
   if (buildHasPaywallLayoutSwitch) {
     // What each product's paywall opens, set in Developer options. A store
     // build compiles appPaywallLayoutOverride as a NoPaywallLayoutOverride,
-    // registers nothing here and follows the remote values.
+    // registers nothing here and opens the coded defaults.
     if (!getIt.isRegistered<DevPaywallLayoutSwitches>()) {
       getIt.registerSingleton<DevPaywallLayoutSwitches>(
         DevPaywallLayoutSwitches(
@@ -783,15 +767,6 @@ Future<void> configureDependencies({
       () => buildSkipsPaywall
           ? const ClosedProPackShop()
           : RevenueCatProPackShop(getIt<RevenueCatService>()),
-    )
-    ..registerFactory(
-      () => ProPackSheetCubit(
-        access: getIt<ProPackAccess>(),
-        shop: getIt<ProPackShop>(),
-        analytics: getIt.isRegistered<TelemetryGate>()
-            ? ProPackAnalytics(getIt<TelemetryGate>())
-            : null,
-      ),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
@@ -2705,9 +2680,6 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => PaywallCubit(
         identityStore: getIt<DeviceIdentityStore>(),
-        telemetryGate: getIt.isRegistered<TelemetryGate>()
-            ? getIt<TelemetryGate>()
-            : null,
         getOfferingsUsecase: getIt<GetOfferingsUsecase>(),
         purchasePackageUsecase: getIt<PurchasePackageUsecase>(),
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
@@ -2725,53 +2697,21 @@ Future<void> configureDependencies({
         },
       ),
     )
-    // The one way into either paywall. With both remote values empty and
-    // nothing set in Developer options it answers with the shipped routes.
+    // The one way into either paywall. It always answers with a layout:
+    // the coded defaults, or what Developer options set in their place.
     ..registerLazySingleton<PaywallDoor>(
       () => PaywallDoor(
-        remoteValue: (product) {
-          if (!getIt.isRegistered<TelemetryGate>()) return '';
-          final gate = getIt<TelemetryGate>();
-          return switch (product) {
-            PaywallProduct.hosted => gate.paywallLayoutKey,
-            PaywallProduct.pro => gate.proPaywallLayoutKey,
-          };
-        },
         developer: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hosted,
           PaywallProduct.pro => appPaywallLayoutOverride.pro,
-        },
-        remoteIntroValue: (product) {
-          if (!getIt.isRegistered<TelemetryGate>()) return '';
-          final gate = getIt<TelemetryGate>();
-          return switch (product) {
-            PaywallProduct.hosted => gate.paywallIntroKey,
-            PaywallProduct.pro => gate.proPaywallIntroKey,
-          };
         },
         developerIntro: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedIntro,
           PaywallProduct.pro => appPaywallLayoutOverride.proIntro,
         },
-        remoteThanksValue: (product) {
-          if (!getIt.isRegistered<TelemetryGate>()) return '';
-          final gate = getIt<TelemetryGate>();
-          return switch (product) {
-            PaywallProduct.hosted => gate.paywallThanksKey,
-            PaywallProduct.pro => gate.proPaywallThanksKey,
-          };
-        },
         developerThanks: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedThanks,
           PaywallProduct.pro => appPaywallLayoutOverride.proThanks,
-        },
-        remoteOutroValue: (product) {
-          if (!getIt.isRegistered<TelemetryGate>()) return '';
-          final gate = getIt<TelemetryGate>();
-          return switch (product) {
-            PaywallProduct.hosted => gate.paywallOutroKey,
-            PaywallProduct.pro => gate.proPaywallOutroKey,
-          };
         },
         developerOutro: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hostedOutro,

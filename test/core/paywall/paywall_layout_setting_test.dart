@@ -1,67 +1,62 @@
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
-import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  group('the remote value', () {
-    test('empty and missing mean the shipped paywall', () {
-      expect(PaywallLayoutSetting.parse(null), PaywallLayoutSetting.shipped);
-      expect(PaywallLayoutSetting.parse(''), PaywallLayoutSetting.shipped);
-      expect(PaywallLayoutSetting.parse('  '), PaywallLayoutSetting.shipped);
-    });
-
-    test('a value this build does not know counts as empty', () {
-      for (final typo in ['heroo', 'Hero', 'AUTO', 'shipped', 'none', '0']) {
-        expect(
-          PaywallLayoutSetting.parse(typo),
-          PaywallLayoutSetting.shipped,
-          reason: typo,
-        );
-      }
-    });
-
-    test('auto picks by entry point', () {
-      expect(PaywallLayoutSetting.parse('auto'), PaywallLayoutSetting.auto);
-      expect(PaywallLayoutSetting.parse(' auto '), PaywallLayoutSetting.auto);
+  group('the setting', () {
+    test('auto pins nothing, so the place table decides', () {
       expect(PaywallLayoutSetting.auto.isAuto, isTrue);
-      expect(PaywallLayoutSetting.auto.isShipped, isFalse);
       expect(PaywallLayoutSetting.auto.layout, isNull);
     });
 
-    test('every layout key pins that layout', () {
+    test('every layout pins that layout', () {
       for (final layout in PaywallLayoutId.values) {
-        final setting = PaywallLayoutSetting.parse(layout.key);
+        final setting = PaywallLayoutSetting.pinned(layout);
         expect(setting.layout, layout);
-        expect(setting.isShipped, isFalse);
         expect(setting.isAuto, isFalse);
       }
-    });
-
-    test('a build with no telemetry reads both values as empty', () {
-      const gate = NoopTelemetryGate();
-      expect(gate.paywallLayoutKey, '');
-      expect(gate.proPaywallLayoutKey, '');
     });
   });
 
   group('the developer control', () {
-    test('nothing saved, or a word it does not know, follows remote', () {
+    test('nothing saved, or a word it does not know, is Auto', () {
       expect(PaywallLayoutSetting.fromStored(null), isNull);
       expect(PaywallLayoutSetting.fromStored(''), isNull);
+      expect(PaywallLayoutSetting.fromStored('  '), isNull);
       expect(PaywallLayoutSetting.fromStored('gone_layout'), isNull);
+      for (final typo in ['heroo', 'Hero', 'AUTO', 'none', '0']) {
+        expect(PaywallLayoutSetting.fromStored(typo), isNull, reason: typo);
+      }
     });
 
-    test('every choice reads back as it was saved', () {
-      final choices = [
-        PaywallLayoutSetting.shipped,
-        PaywallLayoutSetting.auto,
-        for (final layout in PaywallLayoutId.values)
-          PaywallLayoutSetting.pinned(layout),
-      ];
-      for (final choice in choices) {
+    test('the words an older build saved read as Auto', () async {
+      // An install that picked "What ships today" or "Auto, by entry point"
+      // before the old surfaces went still has the word saved.
+      for (final word in ['shipped', 'auto']) {
+        expect(PaywallLayoutSetting.fromStored(word), isNull, reason: word);
+        SharedPreferences.setMockInitialValues({
+          'dev.paywall_layout': word,
+          'dev.pro_paywall_layout': word,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.hostedKey).value,
+          isNull,
+          reason: word,
+        );
+        expect(
+          DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.proKey).value,
+          isNull,
+          reason: word,
+        );
+      }
+    });
+
+    test('every pinned layout reads back as it was saved', () {
+      for (final layout in PaywallLayoutId.values) {
+        final choice = PaywallLayoutSetting.pinned(layout);
         expect(PaywallLayoutSetting.fromStored(choice.storedKey), choice);
       }
     });
@@ -77,21 +72,26 @@ void main() {
       expect(hosted.value, isNull);
       expect(pro.value, isNull);
 
-      await hosted.setSetting(PaywallLayoutSetting.auto);
+      await hosted.setSetting(
+        const PaywallLayoutSetting.pinned(PaywallLayoutId.proof),
+      );
       await pro.setSetting(
         const PaywallLayoutSetting.pinned(PaywallLayoutId.sheet),
       );
-      expect(prefs.getString('dev.paywall_layout'), 'auto');
+      expect(prefs.getString('dev.paywall_layout'), 'proof');
       expect(prefs.getString('dev.pro_paywall_layout'), 'sheet');
       expect(
         DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.hostedKey).value,
-        PaywallLayoutSetting.auto,
+        const PaywallLayoutSetting.pinned(PaywallLayoutId.proof),
       );
 
-      await hosted.setSetting(PaywallLayoutSetting.shipped);
-      expect(
-        DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.hostedKey).value,
-        PaywallLayoutSetting.shipped,
+      // Auto saves nothing: it is the same as no choice.
+      await hosted.setSetting(PaywallLayoutSetting.auto);
+      expect(hosted.value, isNull);
+      expect(prefs.containsKey('dev.paywall_layout'), isFalse);
+
+      await hosted.setSetting(
+        const PaywallLayoutSetting.pinned(PaywallLayoutId.proof),
       );
 
       await hosted.setSetting(null);
@@ -118,11 +118,14 @@ void main() {
       expect(override.hosted, isNull);
       override.watch(
         hosted: ValueNotifier<PaywallLayoutSetting?>(
-          PaywallLayoutSetting.shipped,
+          const PaywallLayoutSetting.pinned(PaywallLayoutId.wipe),
         ),
         pro: ValueNotifier<PaywallLayoutSetting?>(null),
       );
-      expect(override.hosted, PaywallLayoutSetting.shipped);
+      expect(
+        override.hosted,
+        const PaywallLayoutSetting.pinned(PaywallLayoutId.wipe),
+      );
       expect(override.pro, isNull);
     });
   });

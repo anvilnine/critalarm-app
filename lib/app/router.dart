@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
@@ -38,17 +40,13 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
-import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
@@ -148,7 +146,6 @@ abstract final class AppRoute {
   static const paywall = 'paywall';
   static const paywallLayout = 'paywallLayout';
   static const paywallLayoutsDev = 'paywallLayoutsDev';
-  static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -173,6 +170,22 @@ PassOrigin? _passOriginOf(GoRouterState state) {
 /// route draws only what the remote values send a user to.
 const bool _isDeveloperPaywallBuild =
     kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
+
+/// Whether the page on top of [router] is a paywall. Every paywall is a
+/// layout, so this is the layout route and no other.
+bool paywallIsOnTop(GoRouter router) {
+  final matches = router.routerDelegate.currentConfiguration;
+  if (matches.isEmpty) return false;
+  return matches.last.route.name == AppRoute.paywallLayout;
+}
+
+/// Pushes the paywall at [location], unless a paywall is already up: a
+/// second one never stacks on the first. Answers whether it pushed.
+bool openPaywallOnce(GoRouter router, String location) {
+  if (paywallIsOnTop(router)) return false;
+  unawaited(router.push<void>(location));
+  return true;
+}
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
@@ -834,34 +847,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: paywallPath,
       name: AppRoute.paywall,
-      // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
-      // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
-      // is never configured and so has nothing to show.
-      pageBuilder: (context, state) {
-        // `?source=` names what opened it, for the paywall_viewed event.
-        // A missing or unknown one reads as direct.
-        final source = PaywallSource.parse(
-          state.uri.queryParameters['source'],
-        ).wire;
-        return AmbientPage(
-          key: state.pageKey,
-          child: buildSkipsPaywall
-              ? PaywallScreen(source: source)
-              : HostedPaywallScreen(source: source),
-        );
-      },
+      // The path reminders, the settings search index and a locked home
+      // screen widget build raw. It draws nothing of its own: it always
+      // opens the layout for its `?source=`. A missing or unknown source
+      // reads as direct.
+      redirect: (context, state) =>
+          resolvePaywallLocation(state.uri.toString()),
     ),
     // One paywall layout, selling Hosted or Pro. Every opener asks the
-    // paywall door, which sends a user here only when the product's remote
-    // value says so. In a store build the route checks that again: with the
-    // value at its default it opens the shipped surface in its place.
-    // Developer options and the capture tool open any layout.
+    // paywall door for its location. Developer options and the capture tool
+    // open any layout.
     GoRoute(
       path: paywallLayoutPath,
       name: AppRoute.paywallLayout,
       parentNavigatorKey: _rootKey,
-      redirect: (context, state) =>
-          _isDeveloperPaywallBuild ? null : shippedPaywallInsteadOf(state.uri),
       pageBuilder: (context, state) {
         final query = state.uri.queryParameters;
         final intro =
@@ -915,18 +914,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           ),
         );
       },
-    ),
-    // The Pro pack's sheet. It is a bottom sheet with its own route, over
-    // whatever opened it, and has nothing to do with the paywall above.
-    GoRoute(
-      path: proPackSheetPath,
-      name: AppRoute.proPack,
-      parentNavigatorKey: _rootKey,
-      pageBuilder: (context, state) => ProPackSheetPage(
-        key: state.pageKey,
-        // `?source=` names what opened it, for the analytics event.
-        source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
-      ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
     // it.

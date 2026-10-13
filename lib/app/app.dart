@@ -125,8 +125,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void _openPath(String tapped) => unawaited(_openResolvedPath(tapped));
 
   Future<void> _openResolvedPath(String tapped) async {
-    // A reminder or a widget tap names the shipped paywall. This is where
-    // it learns which paywall that is and what it is set to open.
+    // A reminder or a widget tap names the raw paywall path. This is where
+    // it learns which paywall that is and which layout it opens.
     final path = await resolvePaywallLocationWhenReady(tapped);
     if (!mounted) return;
     final from = _router.routerDelegate.currentConfiguration.uri.toString();
@@ -202,9 +202,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     if (getIt<AlarmFocus>().on) return;
     final location = paywallLocationFor(decision, LockSource.sounds);
     if (location == null) return;
-    final top = _router.routerDelegate.currentConfiguration.last.route;
-    if (top.name == AppRoute.proPack) return;
-    unawaited(_router.push<void>(location));
+    openPaywallOnce(_router, location);
   }
 
   StreamSubscription<FeatureGuideState>? _guideSub;
