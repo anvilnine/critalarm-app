@@ -32,6 +32,7 @@ class PaywallBuyBlockStyle {
     this.horizontalPadding = 20,
     this.buttonLabel,
     this.note,
+    this.showsNote = true,
   });
 
   final PaywallPlanPickerStyle pickerStyle;
@@ -54,6 +55,10 @@ class PaywallBuyBlockStyle {
   /// The small print under the button, in place of the own-server promise.
   /// Null keeps the promise.
   final String? note;
+
+  /// False leaves the small print out altogether, [note] or the promise,
+  /// and the renewal lines follow the button.
+  final bool showsNote;
 }
 
 /// The product's name as copy says it.
@@ -288,7 +293,7 @@ class _Offer extends StatelessWidget {
         const SizedBox(height: Spacing.s2),
         // After the action it reads as a promise: nothing is lost by not
         // buying.
-        if (state.product == PaywallProduct.hosted) ...[
+        if (state.product == PaywallProduct.hosted && style.showsNote) ...[
           Text(
             style.note ?? LocaleKeys.paywall_self_hosted_note.tr(),
             textAlign: TextAlign.center,
