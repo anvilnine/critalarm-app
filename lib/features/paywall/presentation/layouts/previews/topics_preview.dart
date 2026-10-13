@@ -272,17 +272,30 @@ TopicsPreviewLayout topicsPreviewLayoutFor(Size size) {
 }
 
 /// The topics a list of [rows] shows, ending on the ones being switched.
-List<String> topicsPreviewNames(int rows) {
+///
+/// With a [topicName] the first row shows it in place of its own name. A
+/// made-up name the same as it moves to the row that held the first one,
+/// so no name is listed twice.
+List<String> topicsPreviewNames(int rows, {String? topicName}) {
   const all = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
-  if (rows >= 3) return all.sublist(0, math.min(rows, all.length));
-  return all.sublist(3 - rows, 3);
+  final own = rows >= 3
+      ? all.sublist(0, math.min(rows, all.length))
+      : all.sublist(3 - rows, 3);
+  final name = topicName?.trim();
+  if (name == null || name.isEmpty) return own;
+  return [
+    name,
+    for (final other in own.skip(1)) other == name ? own.first : other,
+  ];
 }
 
-/// The Critical topics preview.
+/// The Critical topics preview. With a [topicName] its first row shows
+/// that name.
 class TopicsPreview extends StatelessWidget {
-  const TopicsPreview({required this.size, super.key});
+  const TopicsPreview({required this.size, this.topicName, super.key});
 
   final Size size;
+  final String? topicName;
 
   @override
   Widget build(BuildContext context) {
@@ -301,22 +314,31 @@ class TopicsPreview extends StatelessWidget {
         // Told when to play, it starts on its own turn of the shared loop.
         turnStart: TopicsPreviewTimes.reset,
         frameAt: topicsPreviewFrameAt,
-        builder: (context, frame) => _TopicList(layout: layout, frame: frame),
+        builder: (context, frame) => _TopicList(
+          layout: layout,
+          frame: frame,
+          topicName: topicName,
+        ),
       ),
     );
   }
 }
 
 class _TopicList extends StatelessWidget {
-  const _TopicList({required this.layout, required this.frame});
+  const _TopicList({
+    required this.layout,
+    required this.frame,
+    required this.topicName,
+  });
 
   final TopicsPreviewLayout layout;
   final TopicsPreviewFrame frame;
+  final String? topicName;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final names = topicsPreviewNames(layout.rows);
+    final names = topicsPreviewNames(layout.rows, topicName: topicName);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: layout.padding),
@@ -396,7 +418,7 @@ class _TopicRow extends StatelessWidget {
                   name,
                   maxLines: 1,
                   softWrap: false,
-                  overflow: TextOverflow.clip,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.monoBold(
                     colors.ink,
                     fontSize: layout.nameSize,

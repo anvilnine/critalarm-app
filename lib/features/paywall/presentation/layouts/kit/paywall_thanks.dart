@@ -179,7 +179,8 @@ double paywallThanksSkip(double seconds, double t) => t < seconds ? seconds : t;
 ///   a short quiet frame. A product that was already held gets the resting
 ///   frame with no show.
 /// - A tap anywhere skips the show to its resting frame. The one button
-///   calls [onDone].
+///   calls [onDone] and says [buttonLabel], or "Continue" when that is
+///   null.
 /// - With reduce motion on, or under a `PaywallStill`, the resting frame
 ///   is there at once and nothing moves.
 class PaywallThanksHost extends StatefulWidget {
@@ -188,6 +189,7 @@ class PaywallThanksHost extends StatefulWidget {
     required this.product,
     required this.child,
     this.onDone,
+    this.buttonLabel,
     super.key,
   });
 
@@ -196,6 +198,9 @@ class PaywallThanksHost extends StatefulWidget {
 
   /// Where the one button goes. Null in a thumbnail, which has no touch.
   final VoidCallback? onDone;
+
+  /// What the one button says. Null says `paywall_thanks.button`.
+  final String? buttonLabel;
   final Widget child;
 
   @override
@@ -471,6 +476,7 @@ class _PaywallThanksHostState extends State<PaywallThanksHost>
                   product: widget.product,
                   origin: _origin,
                   mascot: _mascot,
+                  buttonLabel: widget.buttonLabel,
                   onSkip: _skip,
                   onGoOn: _goOn,
                 ),
@@ -492,6 +498,7 @@ class _ThanksLayer extends StatelessWidget {
     required this.product,
     required this.origin,
     required this.mascot,
+    required this.buttonLabel,
     required this.onSkip,
     required this.onGoOn,
   });
@@ -505,6 +512,9 @@ class _ThanksLayer extends StatelessWidget {
   final PaywallProduct product;
   final Rect? origin;
   final Rect? mascot;
+
+  /// What the button says, or null for the step's own word.
+  final String? buttonLabel;
   final VoidCallback onSkip;
   final VoidCallback onGoOn;
 
@@ -595,7 +605,7 @@ class _ThanksLayer extends StatelessWidget {
                   );
                 },
                 child: AppButton(
-                  label: LocaleKeys.paywall_thanks_button.tr(),
+                  label: buttonLabel ?? LocaleKeys.paywall_thanks_button.tr(),
                   variant: paywallButtonVariantFor(thanks.tone),
                   isFullWidth: true,
                   onPressed: onGoOn,

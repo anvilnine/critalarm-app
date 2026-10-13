@@ -1889,6 +1889,14 @@
     "word": "ALARM",
     "admission": "Just kidding."
   },
+  "paywall_lead": {
+    "servers_headline": "Every server can wake you",
+    "servers_line": "Free rings {free_critical_topics} topics. Hosted rings all of them.",
+    "reaches_headline": "Know it still reaches you",
+    "jobs_line": "A weekly delivery check for jobs nobody watches.",
+    "home_headline": "See it from your home screen",
+    "skip_hint": "tap anywhere to skip"
+  },
   "paywall_reel": {
     "eyebrow": "With {name}",
     "position": "{current} of {total}",

@@ -163,6 +163,55 @@ void main() {
         );
       }
     });
+
+    test('a given topic name takes the first row, and nothing else '
+        'changes', () {
+      for (var rows = 1; rows <= 4; rows++) {
+        final own = topicsPreviewNames(rows);
+        final named = topicsPreviewNames(rows, topicName: 'payments-db');
+        expect(named, hasLength(own.length), reason: '$rows rows');
+        expect(named.first, 'payments-db');
+        expect(named.skip(1), own.skip(1), reason: '$rows rows');
+      }
+      // Four rows start on prod-db: it is the name replaced.
+      expect(topicsPreviewNames(3, topicName: 'payments-db'), [
+        'payments-db',
+        'uptime-kuma',
+        'nas-backup',
+      ]);
+    });
+
+    test('with no name, or a blank one, the names are its own', () {
+      for (var rows = 1; rows <= 4; rows++) {
+        final own = topicsPreviewNames(rows);
+        expect(topicsPreviewNames(rows, topicName: ''), own);
+        expect(topicsPreviewNames(rows, topicName: '   '), own);
+      }
+      expect(topicsPreviewNames(3), ['prod-db', 'uptime-kuma', 'nas-backup']);
+    });
+
+    test('a name is trimmed, and a made-up name it matches is not listed '
+        'twice', () {
+      expect(topicsPreviewNames(3, topicName: ' api ').first, 'api');
+      // The user's topic is one of the made-up ones: that one moves to
+      // the row the first held.
+      expect(topicsPreviewNames(3, topicName: 'nas-backup'), [
+        'nas-backup',
+        'uptime-kuma',
+        'prod-db',
+      ]);
+      for (var rows = 1; rows <= 4; rows++) {
+        for (final name in [
+          'prod-db',
+          'uptime-kuma',
+          'nas-backup',
+          'home-ha',
+        ]) {
+          final names = topicsPreviewNames(rows, topicName: name);
+          expect(names.toSet(), hasLength(names.length), reason: '$name $rows');
+        }
+      }
+    });
   });
 
   group('pushes', () {
