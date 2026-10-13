@@ -187,6 +187,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup has a use step between permissions and the first topic (What should wake you?), on a new flow 2026-10-c that is now the default. One tap saves the answer on the phone, a skip saves Something else, and a pick event (onboarding\_use\_picked) goes through the same consent buffer as the other setup events. Phones pinned to 2026-10-b keep running it.
 - The hook-up step leads with numbered steps, Copy URL, Copy token and a curl chip when the saved tool is Uptime Kuma, Healthchecks or Home Assistant (toolStepsFor, maskToken, HookUpStepsLayout). Any other tool keeps the curl screen, and the replay reads ?use=<wire id> in a developer build.
 - The Home card that waits for the first message names the step for the saved answer and tool, and its line can wrap to three lines.
+- The first topic in setup arrives filled from the answer to the question step, with other names and the tools as one-line chips that scroll sideways, and the Terms and Privacy links sit at the end of the page so rows no longer run under them.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
