@@ -1879,8 +1879,7 @@
     "headline": "See older alarms"
   },
   "paywall_leaving": {
-    "button": "Keep {name}",
-    "note": "Critical topics already on keep ringing either way."
+    "button": "Keep {name}"
   },
   "paywall_leaving_receipt": {
     "headline": "Leaving soon?",
