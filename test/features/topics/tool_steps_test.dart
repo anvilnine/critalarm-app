@@ -87,7 +87,12 @@ void main() {
         ToolTemplate.healthchecks,
       ]) {
         final keys = toolStepsFor(template, isCritical: true)!.keys;
-        expect(keys.last, 'onboarding_hook_up_steps.step_test');
+        expect(
+          keys.last,
+          template == ToolTemplate.uptimeKuma
+              ? 'onboarding_hook_up_steps.step_test_lands'
+              : 'onboarding_hook_up_steps.step_test',
+        );
         // The middle step is the sentence the fields already had.
         expect(keys[1], 'onboarding_hook_up.tool_${template.id}');
       }
@@ -123,9 +128,11 @@ void main() {
         _lookup(toolStepsFor(template, isCritical: isCritical)!.keys.last)!;
 
     test('on, the step says this phone rings', () {
+      // Uptime Kuma is the exception: its Test button posts at the plain
+      // Priority field (3), so it lands even on a critical topic.
       expect(
         lastStep(ToolTemplate.uptimeKuma, isCritical: true),
-        'Press Test. This phone rings.',
+        'Press Test. It lands on this phone.',
       );
       expect(
         lastStep(ToolTemplate.healthchecks, isCritical: true),
@@ -172,7 +179,9 @@ void main() {
           on.keys.sublist(0, on.keys.length - 1),
           reason: template.id,
         );
-        expect(off.keys.last, isNot(on.keys.last), reason: template.id);
+        if (template != ToolTemplate.uptimeKuma) {
+          expect(off.keys.last, isNot(on.keys.last), reason: template.id);
+        }
         expect(off.blockAfter, on.blockAfter, reason: template.id);
       }
     });
