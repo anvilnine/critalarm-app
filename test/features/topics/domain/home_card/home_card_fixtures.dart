@@ -4,13 +4,16 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 
 final DateTime now = DateTime(2026, 10, 9, 12);
 
@@ -76,6 +79,23 @@ const setupAfterServer = SetupChecklist(
   hasFirstMessage: false,
 );
 
+/// What the phone expects with no topic list: the waiting card.
+const expectedWaitingBlind = ExpectedSetup(checklist: setupFirstMessageOpen);
+
+/// What the phone expects with the topic list held and no topic Critical.
+const expectedSetupHeld = ExpectedSetup(
+  checklist: setupAfterServer,
+  firstTopic: 'prod-db',
+  watchedTopic: 'prod-db',
+);
+
+/// What the phone expects with the topic list held and one Critical.
+const expectedWaitingHeld = ExpectedSetup(
+  checklist: setupFirstMessageOpen,
+  firstTopic: 'prod-db',
+  watchedTopic: 'prod-db',
+);
+
 const setupFirstMessageOpen = SetupChecklist(
   isVisible: true,
   hasServer: true,
@@ -118,9 +138,12 @@ class Draft {
   SetupChecklist? setup;
   String? firstTopic = 'prod-db';
   String? watchedTopic = 'prod-db';
+  ToolTemplate? watchedTool;
+  SetupUse? use;
   DateTime? newestMessageAt;
   DateTime? lastAlarmAt;
   bool hasCriticalTopic = true;
+  ExpectedSetup? expectedSetup;
 
   HomeCardInput build() => HomeCardInput(
     now: at,
@@ -143,9 +166,12 @@ class Draft {
     setup: setup,
     firstTopic: firstTopic,
     watchedTopic: watchedTopic,
+    watchedTool: watchedTool,
+    use: use,
     newestMessageAt: newestMessageAt,
     lastAlarmAt: lastAlarmAt,
     hasCriticalTopic: hasCriticalTopic,
+    expectedSetup: expectedSetup,
   );
 }
 

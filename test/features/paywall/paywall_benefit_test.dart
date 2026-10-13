@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
@@ -78,18 +79,36 @@ void main() {
       PaywallBenefitId.pushes,
       PaywallBenefitId.history,
       PaywallBenefitId.appIcons,
+      PaywallBenefitId.reliabilityChecks,
     ]);
-    // The weekly delivery check is a Hosted benefit with no line and
-    // preview for a layout yet. Every other one is listed, in order.
+    // The weekly delivery check closes the list, as it does
+    // `HostedBenefit.all`. Every Hosted benefit is listed, in order.
     expect(HostedBenefit.all.last.id, HostedBenefitId.weeklyCheck);
+    // The weekly check's layout benefit id is the one Pro had for it.
     expect(
-      hosted.map((b) => b.id.name),
-      HostedBenefit.all
-          .where((b) => b.id != HostedBenefitId.weeklyCheck)
-          .map((b) => b.id.name),
+      hosted.map((b) => b.feature),
+      HostedBenefit.all.map((b) => b.feature),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
-    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));
+    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(5));
+  });
+
+  test("the Hosted weekly check has the weekly check screen's line and its "
+      'own preview, and Pro does not list it', () {
+    final weekly = allPaywallBenefits.singleWhere(
+      (b) => b.id == PaywallBenefitId.reliabilityChecks,
+    );
+    expect(weekly.product, PaywallProduct.hosted);
+    expect(weekly.feature, AppFeature.weeklyCheck);
+    expect(weekly.lineKey, 'weekly_check.what_line');
+    expect(weekly.line, strings['weekly_check.what_line']);
+    expect(weekly.previewId, PaywallPreviewId.weeklyCheck);
+    expect(weekly.inThisBuild, isTrue);
+    expect(weekly.title, strings['hosted_benefits.weekly_check.compare_label']);
+    expect(
+      paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id),
+      isNot(contains(PaywallBenefitId.reliabilityChecks)),
+    );
   });
 
   test('Hosted lines read their numbers from the one place', () {
@@ -144,12 +163,9 @@ void main() {
   test('no benefit is listed under both products', () {
     final ids = allPaywallBenefits.map((b) => b.id).toList();
     expect(ids.toSet(), hasLength(ids.length));
-    // The weekly check has no entry on either layout list today: Pro does
-    // not unlock it, and Hosted has no line and preview for it yet.
-    expect(
-      ids.toSet(),
-      {...PaywallBenefitId.values}..remove(PaywallBenefitId.reliabilityChecks),
-    );
+    // Every id is listed once: the weekly check under Hosted only, since
+    // Pro does not unlock it.
+    expect(ids.toSet(), PaywallBenefitId.values.toSet());
   });
 
   test('widgets are drawn with the widgets preview', () {
@@ -165,10 +181,10 @@ void main() {
     final all = allPaywallBenefits;
     expect(all.map((b) => b.id).toSet(), hasLength(all.length));
     expect(all.map((b) => b.previewId).toSet(), hasLength(all.length));
-    // Every preview but the weekly check one is drawn by some benefit.
+    // Every preview is drawn by some benefit.
     expect(
       all.map((b) => b.previewId).toSet(),
-      {...PaywallPreviewId.values}..remove(PaywallPreviewId.weeklyCheck),
+      PaywallPreviewId.values.toSet(),
     );
   });
 

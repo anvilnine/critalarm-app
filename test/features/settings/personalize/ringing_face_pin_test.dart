@@ -19,8 +19,6 @@ void main() {
     expect(got.tilt, want.tilt);
     expect(got.nudge, want.nudge);
     expect(got.scale, want.scale);
-    expect(got.flush, want.flush);
-    expect(got.flash, want.flash);
     expect(got.spin, want.spin);
     expect(
       [for (final fx in got.fx) fx.kind],
@@ -28,7 +26,7 @@ void main() {
     );
   }
 
-  Widget faces({RingingStyle? pin, bool keepsFill = false}) {
+  Widget faces({RingingStyle? pin}) {
     const row = Row(
       children: [
         ShufflingRingingFace(size: 60, isLive: false),
@@ -41,10 +39,7 @@ void main() {
     );
     return MaterialApp(
       theme: buildLightTheme(),
-      home: RingingFaceFill(
-        keepsFill: keepsFill,
-        child: pin == null ? row : RingingFacePin(style: pin, child: row),
-      ),
+      home: pin == null ? row : RingingFacePin(style: pin, child: row),
     );
   }
 
@@ -85,12 +80,12 @@ void main() {
     );
   });
 
-  testWidgets('a face told to keep its fill hands that to its painter', (
-    tester,
-  ) async {
-    await tester.pumpWidget(faces(pin: RingingStyle.rage, keepsFill: true));
-    for (final painter in painters(tester)) {
-      expect(painter.keepsFill, isTrue);
+  testWidgets('every shuffled style keeps the yellow head', (tester) async {
+    for (final style in RingingStyle.values) {
+      await tester.pumpWidget(faces(pin: style));
+      for (final painter in painters(tester)) {
+        expect(painter.fillColor, AppColors.light.faceFill);
+      }
     }
   });
 }

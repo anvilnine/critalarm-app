@@ -195,6 +195,21 @@
     "part": "{chapter}, part {part} of 3",
     "all_done": "All 3 parts done"
   },
+  "onboarding_use": {
+    "title": "What should wake you?",
+    "skip": "skip",
+    "footer": "One tap. It fills in the next step.",
+    "servers_title": "My servers and apps",
+    "servers_hint": "an API, a database, a client's VPS",
+    "homelab_title": "My homelab",
+    "homelab_hint": "Uptime Kuma, a NAS, backups",
+    "jobs_title": "Builds and scheduled jobs",
+    "jobs_hint": "CI, cron, nightly backups",
+    "home_title": "My home",
+    "home_hint": "Home Assistant, freezer, garage",
+    "other_title": "Something else",
+    "other_hint": "start from a blank topic"
+  },
   "connect_link": {
     "what": "Connect this phone to this server for alarms?",
     "replaces": "Replaces {host}.",
@@ -305,7 +320,7 @@
     "arrived_title": "Your first message arrived",
     "arrived_line": "Your tool can reach this phone.",
     "analytics_title": "Share anonymous setup stats",
-    "analytics_line": "Step names and timings only, never your messages.",
+    "analytics_line": "Step names, timings and your answer to “What should wake you?” Never your messages.",
     "done": "Done",
     "tool_header": "Set up {}",
     "tool_cron": "Add a line like this to your crontab. It sends when the job fails.",
@@ -313,6 +328,21 @@
     "tool_home_assistant": "Add this to configuration.yaml and restart. Then call the action rest_command.critalarm with a message.",
     "tool_uptime_kuma": "Add a notification, pick the type Ntfy and fill in these fields.",
     "tool_healthchecks": "Add an ntfy integration and fill in these fields."
+  },
+  "onboarding_hook_up_steps": {
+    "label": "Hook up",
+    "copy_url": "Copy URL",
+    "copy_token": "Copy token",
+    "curl": "curl",
+    "step_test": "Press Test. This phone rings.",
+    "step_test_lands": "Press Test. It lands on this phone.",
+    "uptime_kuma_1": "Settings, Notifications, Setup Notification",
+    "healthchecks_1": "Project, Integrations",
+    "home_assistant_1": "Add this block to configuration.yaml, then restart",
+    "home_assistant_2": "Add the action rest_command.critalarm to an automation",
+    "home_assistant_3": "Run the automation. This phone rings.",
+    "home_assistant_3_lands": "Run the automation. It lands on this phone.",
+    "jobs_note": "One line for the end of the script, or on failure."
   },
   "onboarding_permissions": {
     "denied_title": "Crit Alarm can't reach you yet",
@@ -404,7 +434,7 @@
     "create_name_title": "Give it a name",
     "create_name_body": "Name it after what it watches, like prod-db or backups. The name is also its address: your server posts to /prod-db.",
     "create_critical_title": "Wake me up?",
-    "create_critical_body": "Turn critical delivery on for pages that must wake you. Leave it off for everything else. You can change it later.",
+    "create_critical_body": "Turn critical delivery on for alarms that must wake you. Leave it off for everything else. You can change it later.",
     "create_button_title": "Save the token",
     "create_button_body": "Tap Create and Crit Alarm shows the topic's address and token. The token shows once, so copy it into your script straight away.",
     "search_title": "Search finds everything",
@@ -638,7 +668,7 @@
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
-    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again.",
+    "ack_failed": "The server did not confirm. This phone is quiet, but the alarm is still open. Tap Stop the alarm again.",
     "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority.",
     "delete_button": "Delete topic",
     "delete_dialog_title": "Delete {topic}?",
@@ -797,8 +827,8 @@
     "announcement": "{topic}. {ring_time}.",
     "announcement_several": "{topic}. {ring_time}. {count} alarms open.",
     "acknowledged_message": "Acknowledged at {time}",
-    "fallback_title": "Page from {topic}",
-    "fallback_body": "This page arrived with no message.",
+    "fallback_title": "Alarm from {topic}",
+    "fallback_body": "This alarm arrived with no message.",
     "acked_title": "Acknowledged",
     "acked_sub": "Rang for {duration}.",
     "started_label": "Started",
@@ -812,14 +842,14 @@
     "screen_title": "Alarm",
     "loading_title": "Loading the alarm",
     "no_alarm_title": "Nothing is ringing",
-    "no_alarm_body": "There is no open page on this device right now.",
+    "no_alarm_body": "There is no open alarm on this device right now.",
     "load_failed_title": "Could not load the alarm",
     "close_queued_title": "Closing when your server answers",
     "close_queued_body": "The close is sent as soon as this phone can reach your server. Until then the alarm can ring again.",
-    "load_failed_body": "The page is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
+    "load_failed_body": "The alarm is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
     "retry_button": "Try again",
     "silence_button": "Stop the noise on this phone",
-    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again."
+    "ack_failed": "The server did not confirm. This phone is quiet, but the alarm is still open. Tap Stop the alarm again."
   },
   "lock_screen": {
     "back_aria_label": "Back",
@@ -831,7 +861,7 @@
   "settings": {
     "title": "Settings",
     "disconnect_dialog_title": "Disconnect server?",
-    "disconnect_dialog_content": "You will stop receiving pages until you connect again.",
+    "disconnect_dialog_content": "You will stop receiving alarms until you connect again.",
     "disconnect_dialog_confirm": "Disconnect",
     "edit_server_title": "Edit server connection",
     "server_url_label": "SERVER URL",
@@ -845,9 +875,9 @@
     "server_disconnect_button": "Disconnect",
     "server_status_disconnected": "Disconnected",
     "server_disconnect_hint": "Every topic stops ringing on this phone until you connect again.",
-    "server_stage_connected": "This phone gets its pages from here.",
-    "server_stage_disconnected": "No server, so no pages reach this phone.",
-    "server_disconnected_description": "Connect a server to start receiving pages.",
+    "server_stage_connected": "This phone gets its alarms from here.",
+    "server_stage_disconnected": "No server, so no alarms reach this phone.",
+    "server_disconnected_description": "Connect a server to start receiving alarms.",
     "server_connect_button": "Connect server",
     "server_connection_header": "Server connection",
     "feature_guides_row_title": "Feature Guides",
@@ -860,7 +890,7 @@
     "theme_dark": "Dark",
     "privacy_header": "Privacy",
     "analytics_title": "Share anonymous usage analytics",
-    "analytics_subtitle": "Which screens you open. No topic names, no message content.",
+    "analytics_subtitle": "Which screens you open and your setup answer. No topic names, no message content.",
     "crash_reports_title": "Send crash reports",
     "crash_reports_subtitle": "What the app was doing when it crashed, plus your device model.",
     "about_header": "About",
@@ -947,7 +977,7 @@
     "storage_row_title": "Storage",
     "storage_row_subtitle": "How long old alarms stay on this phone",
     "server_row_title": "Server",
-    "server_row_subtitle": "Which server pages this phone",
+    "server_row_subtitle": "Which server rings this phone",
     "appearance_row_title": "Appearance",
     "appearance_row_subtitle": "Theme, motion and haptics",
     "appearance_header": "Appearance",
@@ -1026,21 +1056,21 @@
     "title": "Permissions",
     "back_aria_label": "Back",
     "stage_sub_all_granted": "All set. Ready to wake you at 3am.",
-    "stage_sub_required": "Some pages will not reach you until these are on.",
+    "stage_sub_required": "Some alarms will not reach you until these are on.",
     "item_notifications_title": "Notifications",
-    "item_notifications_description": "Off means no page reaches you.",
+    "item_notifications_description": "Off means no alarm reaches you.",
     "item_full_screen_intent_title": "Full screen alarms",
-    "item_full_screen_intent_description": "Off means a critical page will not wake the screen.",
+    "item_full_screen_intent_description": "Off means a critical alarm will not wake the screen.",
     "item_battery_optimization_title": "Run in the background",
-    "item_battery_optimization_description": "Off means pages can arrive late.",
+    "item_battery_optimization_description": "Off means alarms can arrive late.",
     "battery_explain_title": "Let Crit Alarm run in the background",
-    "battery_explain_body": "Your phone can put Crit Alarm to sleep to save battery. A sleeping app can miss a page.",
+    "battery_explain_body": "Your phone can put Crit Alarm to sleep to save battery. A sleeping app can miss an alarm.",
     "battery_explain_confirm": "Open battery settings",
     "battery_explain_cancel": "Not now",
     "item_time_sensitive_title": "Time Sensitive alerts",
-    "item_time_sensitive_description": "Off means iOS holds a page for your next summary instead of showing it now.",
+    "item_time_sensitive_description": "Off means iOS holds an alarm for your next summary instead of showing it now.",
     "item_alarms_title": "Alarms and timers",
-    "item_alarms_description": "Off means a page cannot ring through silent mode or Do Not Disturb.",
+    "item_alarms_description": "Off means an alarm cannot ring through silent mode or Do Not Disturb.",
     "permissions_header": "Device permissions",
     "stage_sub_full_screen_off": "Full screen alarms are disabled. Alarms will vibrate only.",
     "badge_allowed": "allowed",
@@ -1880,7 +1910,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
@@ -1888,6 +1918,19 @@
   "paywall_false_alarm": {
     "word": "ALARM",
     "admission": "Just kidding."
+  },
+  "paywall_lead": {
+    "servers_headline": "Every server can wake you",
+    "servers_line": "Free rings {free_critical_topics} critical topics. Hosted rings all of them.",
+    "reaches_headline": "Know it still reaches you",
+    "jobs_line": "Each week, see that a push still reaches this phone.",
+    "home_headline": "See it from your home screen",
+    "skip_hint": "tap anywhere to skip"
+  },
+  "onboarding_offer": {
+    "thanks_button": "Hook up your tool",
+    "developer_title": "Offer sequence",
+    "developer_note": "Set the offer switches in the group above first. This opens the step on one answer, as a replay."
   },
   "paywall_reel": {
     "eyebrow": "With {name}",
@@ -1899,7 +1942,7 @@
       "widgets": "Widgets on your Home screen",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Weekly reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
@@ -1915,7 +1958,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "three more app icons",
       "wake_up_challenges": "challenges that wake you up",
-      "reliability_checks": "weekly reliability checks",
+      "reliability_checks": "a weekly delivery check",
       "custom_sounds": "an alarm you upload or record",
       "custom_alarm_screens": "an alarm screen you customize"
     },
@@ -1946,7 +1989,7 @@
       "widgets": "Home screen widgets",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
-      "reliability_checks": "Reliability checks",
+      "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
@@ -2323,5 +2366,25 @@
     "empty_tools": "Start from a tool",
     "example_message_ringing": "Disk is 94% full",
     "example_message_quiet": "Backup finished"
+  },
+  "setup_use": {
+    "sample": {
+      "servers": "Replication lag 14 min",
+      "homelab": "Nextcloud is down",
+      "jobs": "Nightly backup missed its check-in",
+      "home": "Freezer is above -10 C"
+    },
+    "sample_body": "This is what a real one looks like.",
+    "waiting": {
+      "from_your_server": "send the first line from your server",
+      "run_the_job": "run the job once",
+      "uptime_kuma": "press Test in Uptime Kuma",
+      "home_assistant": "run the action in Home Assistant",
+      "healthchecks": "press Test in Healthchecks"
+    }
+  },
+  "first_topic_answer": {
+    "or": "or",
+    "what_sends_it": "What sends it"
   }
 }

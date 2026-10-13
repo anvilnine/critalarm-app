@@ -172,6 +172,20 @@ class AppScreenScaffold extends StatefulWidget {
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
 
+  /// How tall the backing at the top is, from the edge of the display, or
+  /// null when nothing there is backed. A screen with a top bar backs that
+  /// bar. One without backs the bar its host draws over it, [barOverTop]
+  /// tall below the status bar, and none when the host draws none.
+  static double? backedTopHeight({
+    required bool hasTopBar,
+    required double safeTop,
+    double? barOverTop,
+  }) {
+    if (hasTopBar) return safeTop + topBarHeight;
+    if (barOverTop == null || barOverTop <= 0) return null;
+    return safeTop + barOverTop;
+  }
+
   /// The gap under the pinned bottom bar, inside the safe area.
   static const double bottomBarGap = 12;
 
@@ -325,6 +339,17 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         padding.top +
         (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
+    // A screen with no top bar of its own can sit under a bar the host draws
+    // over it. The list keeps its own top padding, and the backing covers
+    // the bar's height like a top bar's.
+    final backedTopOrNull = AppScreenScaffold.backedTopHeight(
+      hasTopBar: widget.topBar != null,
+      safeTop: padding.top,
+      barOverTop: isScoped ? scope?.barOverTop : null,
+    );
+    final hasTopBacking = backedTopOrNull != null;
+    final backedTop = backedTopOrNull ?? topInset;
+
     // The tab bar leaves room for itself, and so does a pinned bar.
     final tabBarRoom = widget.hasTabBar && !size.hasRail
         ? AppFloatingTabBar.contentGap
@@ -436,18 +461,29 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               top: 0,
               left: 0,
               right: 0,
-              child: isScoped && widget.topBar != null
+              child: isScoped && hasTopBacking
                   // At rest this is the quiet edge blur every screen has.
                   // Once a row is under the bar the same blur reaches a
                   // little further and gets stronger at the screen edge.
                   ? ValueListenableBuilder<double>(
                       valueListenable: _scrolledUnderTop,
-                      builder: (context, amount, _) => _BarBlur(
-                        style: backingConfig.top,
-                        amount: amount,
-                        bar: topInset,
-                        isTop: true,
-                      ),
+                      builder: (context, amount, _) =>
+                          widget.topBar == null && amount <= 0
+                          // The bar is the host's, so at rest the screen
+                          // keeps the edge it always had.
+                          ? SizedBox(
+                              height: topInset + 16,
+                              child: ProgressiveBlurEdge(
+                                height: topInset + 16,
+                                isTop: true,
+                              ),
+                            )
+                          : _BarBlur(
+                              style: backingConfig.top,
+                              amount: amount,
+                              bar: backedTop,
+                              isTop: true,
+                            ),
                     )
                   : SizedBox(
                       height: topInset + 16,
@@ -509,7 +545,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 color: canvas,
               ),
             ),
-          if (backing != null && widget.topBar != null)
+          if (backing != null && hasTopBacking)
             Positioned(
               top: 0,
               left: 0,
@@ -523,7 +559,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   style: isScoped ? backingConfig.top : null,
                   color: backing,
                   amount: amount,
-                  bar: topInset,
+                  bar: backedTop,
                   isTop: true,
                 ),
               ),
@@ -701,6 +737,7 @@ class AppBarBackingScope extends InheritedWidget {
     required this.color,
     required super.child,
     this.topBarMaxTextScale,
+    this.barOverTop,
     super.key,
   });
 
@@ -711,13 +748,20 @@ class AppBarBackingScope extends InheritedWidget {
   /// leaves the top bar the full scale.
   final double? topBarMaxTextScale;
 
+  /// How tall a bar is that the host draws over the top of a screen that
+  /// passes no [AppScreenScaffold.topBar], measured below the status bar.
+  /// Such a screen backs that height the way one with a top bar backs its
+  /// own. Null when the host draws no bar there.
+  final double? barOverTop;
+
   static AppBarBackingScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppBarBackingScope>();
 
   @override
   bool updateShouldNotify(AppBarBackingScope oldWidget) =>
       color != oldWidget.color ||
-      topBarMaxTextScale != oldWidget.topBarMaxTextScale;
+      topBarMaxTextScale != oldWidget.topBarMaxTextScale ||
+      barOverTop != oldWidget.barOverTop;
 }
 
 /// Hands over how tall its child came out, once per change.

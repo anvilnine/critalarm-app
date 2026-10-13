@@ -9,7 +9,6 @@ void main() {
     tilt: 0.2,
     nudge: const Offset(4, -2),
     scale: 1.1,
-    flush: 1,
     spin: 1,
     fx: const [RingFx(RingFxKind.sweat, alpha: 0.8)],
   );
@@ -18,7 +17,6 @@ void main() {
     tilt: -0.4,
     nudge: const Offset(-6, 8),
     scale: 0.9,
-    flash: 1,
     spin: 3,
     fx: const [RingFx(RingFxKind.star)],
   );
@@ -29,8 +27,6 @@ void main() {
       expect(f.tilt, 0.2);
       expect(f.nudge, const Offset(4, -2));
       expect(f.scale, 1.1);
-      expect(f.flush, 1);
-      expect(f.flash, 0);
       expect(f.spin, 1);
     });
 
@@ -39,8 +35,6 @@ void main() {
       expect(f.tilt, closeTo(-0.4, 1e-9));
       expect(f.nudge, const Offset(-6, 8));
       expect(f.scale, closeTo(0.9, 1e-9));
-      expect(f.flush, 0);
-      expect(f.flash, 1);
       expect(f.spin, 3);
     });
 
@@ -49,8 +43,6 @@ void main() {
       expect(f.tilt, closeTo(-0.1, 1e-9));
       expect(f.nudge, const Offset(-1, 3));
       expect(f.scale, closeTo(1, 1e-9));
-      expect(f.flush, 0.5);
-      expect(f.flash, 0.5);
       expect(f.spin, 2);
     });
 

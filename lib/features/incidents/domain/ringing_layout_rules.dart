@@ -4,7 +4,8 @@
 // with the message, over three pinned buttons. Someone woken by it needs the
 // message, so the message wins: the face shrinks first and can go away, and
 // when the title still does not fit, the lines above the card drop to a
-// smaller text size. A message longer than all of that scrolls.
+// smaller text size. A message longer than all of that scrolls, inside the
+// room above the buttons, so the card never ends under them.
 //
 // The numbers are the screen's own: its spacing and the line heights of its
 // text styles at the default text size.
@@ -34,6 +35,10 @@ const double ringingFaceGap = 16;
 /// The room the page keeps between the card and the pinned buttons, the
 /// same the list leaves at the end of its scroll.
 const double ringingBarClearance = 16;
+
+/// The least height the message card gets once it has to scroll. On a screen
+/// too small to give it that, the whole page scrolls instead.
+const double ringingCardMinRoom = 120;
 
 const double _wordLine = 53;
 const double _topicLine = 27;
@@ -134,4 +139,32 @@ bool ringingHeaderIsCompact({
       ringingHeaderHeightFor(textScale: textScale, openAlarms: openAlarms) -
       titleBottom;
   return room < 0;
+}
+
+/// How tall the message card may be when it has to scroll, or null when the
+/// whole card fits above the pinned buttons.
+///
+/// The face is already gone by then, so the card has what is left under the
+/// header. [isCompact] is the answer of [ringingHeaderIsCompact]. Short of
+/// [ringingCardMinRoom] the card still gets that much, and the page scrolls
+/// for the rest.
+double? ringingCardScrollRoomFor({
+  required double viewportHeight,
+  required double textScale,
+  required int openAlarms,
+  required double cardHeight,
+  bool isCompact = false,
+  int pinnedButtons = 3,
+}) {
+  final room =
+      viewportHeight -
+      ringingBarHeightFor(textScale: textScale, pinnedButtons: pinnedButtons) -
+      ringingBarClearance -
+      ringingHeaderHeightFor(
+        textScale: textScale,
+        openAlarms: openAlarms,
+        isCompact: isCompact,
+      );
+  if (cardHeight <= room) return null;
+  return math.max(room, ringingCardMinRoom);
 }

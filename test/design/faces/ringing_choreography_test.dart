@@ -12,8 +12,6 @@ List<double> _numbers(RingingFrame f) {
     f.nudge.dx,
     f.nudge.dy,
     f.scale,
-    f.flush,
-    f.flash,
     face.head.squashX,
     face.head.squashY,
     face.head.strokeWidth,
@@ -67,8 +65,6 @@ void main() {
             expect(n.isFinite, isTrue, reason: 't=${i / 200}');
           }
           expect(frame.scale, greaterThan(0));
-          expect(frame.flush, inInclusiveRange(0, 1));
-          expect(frame.flash, inInclusiveRange(0, 1));
         }
       });
 

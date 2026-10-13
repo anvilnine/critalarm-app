@@ -4,6 +4,8 @@
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -14,6 +16,7 @@ import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_rule.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'home_card_fixtures.dart';
@@ -360,6 +363,252 @@ void main() {
       });
       expect(m.kind, HomeCardKind.waiting);
       expect(m.action, isNull);
+    });
+
+    group('what the phone itself expects', () {
+      test('no topic list held: the waiting card, not the dots', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectedSetup = expectedWaitingBlind;
+          d.watchedTopic = null;
+          d.use = SetupUse.homelab;
+        });
+        expect(m.kind, HomeCardKind.waiting);
+        expect(m.label, HomeCardLabel.firstMessage);
+        expect(m.numeral, const NotYet());
+        expect(m.foot.slot, HomeCardFootSlot.sendTheLine);
+        expect(m.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+        expect(m.face, FaceState.watching);
+      });
+
+      test('the button is there before the topic is named', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectedSetup = expectedWaitingBlind;
+        });
+        expect(m.action, const GetFirstLine(null));
+      });
+
+      test('a held list with a Critical topic starts on waiting', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectedSetup = expectedWaitingHeld;
+          d.watchedTopic = null;
+        });
+        expect(m.kind, HomeCardKind.waiting);
+        expect(m.action, const GetFirstLine('prod-db'));
+      });
+
+      test('a held list with no Critical topic starts on the setup card', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectedSetup = expectedSetupHeld;
+          d.setup = null;
+          d.firstTopic = null;
+          d.watchedTopic = null;
+        });
+        expect(m.kind, HomeCardKind.setup);
+        expect(m.label, HomeCardLabel.setup);
+        expect(m.numeral, const Count(1, 3));
+        expect(m.pips, [PipTone.fine, PipTone.open, PipTone.open]);
+        expect(m.foot.setupRow, SetupChecklistRow.criticalTopic);
+        expect(m.action, const ContinueSetup('/topics/prod-db'));
+      });
+
+      test(
+        'the setup card on the first frames is the one the checklist draws',
+        () {
+          final guessed = resolve((d) {
+            d.isLoading = true;
+            d.expectedSetup = expectedSetupHeld;
+            d.setup = null;
+          });
+          final settled = resolve((d) {
+            d.setup = setupAfterServer;
+          });
+          expect(guessed, settled);
+        },
+      );
+
+      test('a loading list with nothing expected still shows the dots', () {
+        final m = resolve((d) {
+          d.isLoading = true;
+          d.expectedSetup = null;
+        });
+        expect(m.kind, HomeCardKind.loading);
+        expect(m.numeral, const Dots());
+      });
+
+      test('a loaded list the checklist has not looked at keeps the guess', () {
+        final waiting = resolve((d) {
+          d.expectedSetup = expectedWaitingBlind;
+          d.setup = SetupChecklist.hidden;
+          d.watchedTopic = null;
+        });
+        expect(waiting.kind, HomeCardKind.waiting);
+        expect(waiting.action, const GetFirstLine(null));
+
+        final setupCard = resolve((d) {
+          d.expectedSetup = expectedSetupHeld;
+          d.setup = SetupChecklist.hidden;
+        });
+        expect(setupCard.kind, HomeCardKind.setup);
+      });
+
+      test(
+        'a checklist that is visible decides, whatever the phone expects',
+        () {
+          // A wrong guess either way is corrected.
+          final setupCard = resolve((d) {
+            d.expectedSetup = expectedWaitingBlind;
+            d.setup = setupAfterServer;
+          });
+          expect(setupCard.kind, HomeCardKind.setup);
+
+          final waiting = resolve((d) {
+            d.expectedSetup = expectedSetupHeld;
+            d.setup = setupFirstMessageOpen;
+          });
+          expect(waiting.kind, HomeCardKind.waiting);
+
+          final retired = resolve((d) {
+            d.expectedSetup = expectedWaitingBlind;
+            d.setup = const SetupChecklist(
+              isVisible: true,
+              hasServer: true,
+              hasTopics: true,
+              hasCriticalTopic: true,
+              hasFirstMessage: true,
+            );
+          });
+          expect(retired.kind, HomeCardKind.idle);
+        },
+      );
+
+      test('what the list says outranks the guess', () {
+        for (final expected in [expectedWaitingBlind, expectedSetupHeld]) {
+          for (final (edit, kind) in <(void Function(Draft), HomeCardKind)>[
+            ((d) => d.topicCount = 0, HomeCardKind.noTopics),
+            ((d) => d.hasServer = false, HomeCardKind.noServer),
+            ((d) => d.isStale = true, HomeCardKind.stale),
+            ((d) => d.loadFailed = true, HomeCardKind.loadFailed),
+            ((d) => d.warningCount = 1, HomeCardKind.warning),
+          ]) {
+            final m = resolve((d) {
+              d.expectedSetup = expected;
+              d.setup = SetupChecklist.hidden;
+              edit(d);
+            });
+            expect(m.kind, kind, reason: kind.name);
+          }
+        }
+      });
+
+      test('the guess changes nothing on a settled card', () {
+        final settled = resolve(satisfy[HomeCardKind.waiting]);
+        final guessed = resolve((d) {
+          satisfy[HomeCardKind.waiting]!(d);
+          d.expectedSetup = expectedWaitingBlind;
+        });
+        expect(guessed, settled);
+      });
+    });
+
+    test('waiting with no answer and no tool keeps the plain line', () {
+      final m = resolve(satisfy[HomeCardKind.waiting]);
+      expect(
+        m.foot,
+        const HomeCardFoot(
+          HomeCardFootSlot.sendTheLine,
+          waitingLine: SetupWaitingLine.sendFirstLine,
+        ),
+      );
+    });
+
+    test('waiting with the answer Something else keeps the plain line', () {
+      final m = resolve((d) {
+        satisfy[HomeCardKind.waiting]!(d);
+        d.use = SetupUse.other;
+      });
+      expect(m.foot.waitingLine, SetupWaitingLine.sendFirstLine);
+    });
+
+    test('waiting with each answer and no saved tool', () {
+      expect(
+        {
+          for (final use in SetupUse.values)
+            use.wire: resolve((d) {
+              satisfy[HomeCardKind.waiting]!(d);
+              d.use = use;
+            }).foot.waitingLine,
+        },
+        {
+          'servers': SetupWaitingLine.fromYourServer,
+          'homelab': SetupWaitingLine.uptimeKuma,
+          'jobs': SetupWaitingLine.runTheJob,
+          'home': SetupWaitingLine.homeAssistant,
+          'other': SetupWaitingLine.sendFirstLine,
+        },
+      );
+    });
+
+    test('waiting with a saved tool of each kind, for every answer', () {
+      for (final use in [...SetupUse.values, null]) {
+        for (final tool in [...ToolTemplate.values, null]) {
+          final m = resolve((d) {
+            satisfy[HomeCardKind.waiting]!(d);
+            d.use = use;
+            d.watchedTool = tool;
+          });
+          expect(m.kind, HomeCardKind.waiting);
+          expect(
+            m.foot.waitingLine,
+            waitingLineFor(use: use, savedTool: tool),
+            reason: '${use?.wire} ${tool?.id}',
+          );
+        }
+      }
+    });
+
+    test('a saved Uptime Kuma tool wins over the servers answer', () {
+      final m = resolve((d) {
+        satisfy[HomeCardKind.waiting]!(d);
+        d.use = SetupUse.servers;
+        d.watchedTool = ToolTemplate.uptimeKuma;
+      });
+      expect(m.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+    });
+
+    test('the waiting card changes nothing but the line', () {
+      final plain = resolve(satisfy[HomeCardKind.waiting]);
+      final asked = resolve((d) {
+        satisfy[HomeCardKind.waiting]!(d);
+        d.use = SetupUse.homelab;
+        d.watchedTool = ToolTemplate.healthchecks;
+      });
+      expect(asked.kind, plain.kind);
+      expect(asked.label, plain.label);
+      expect(asked.numeral, plain.numeral);
+      expect(asked.action, plain.action);
+      expect(asked.face, plain.face);
+      expect(asked.severity, plain.severity);
+      expect(asked.discTone, plain.discTone);
+      expect(asked.numeralTone, plain.numeralTone);
+      expect(asked.foot.slot, plain.foot.slot);
+    });
+
+    test('every other kind ignores the answer and the saved tool', () {
+      for (final kind in HomeCardKind.values) {
+        if (kind == HomeCardKind.waiting) continue;
+        final plain = resolve(satisfy[kind]);
+        final asked = resolve((d) {
+          satisfy[kind]!(d);
+          d.use = SetupUse.homelab;
+          d.watchedTool = ToolTemplate.uptimeKuma;
+        });
+        expect(asked, plain, reason: kind.name);
+        expect(asked.foot.waitingLine, isNull, reason: kind.name);
+      }
     });
 
     test('quiet', () {

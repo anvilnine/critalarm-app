@@ -373,23 +373,31 @@ void main() {
     const offer = <String, Object?>{
       'product': 'pro',
       'layout': 'hero',
+      'use': 'servers',
       'flow_id': _flow,
     };
 
     test(
-      'shown, closed and bought carry product, layout and flow id',
+      'shown, closed and bought carry product, layout, use and flow id',
       () async {
         final funnel = build();
         await funnel.answered(isOn: true);
-        await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
+        await funnel.offerShown(
+          product: 'pro',
+          layout: 'hero',
+          use: 'servers',
+          flowId: _flow,
+        );
         await funnel.offerClosed(
           product: 'pro',
           layout: 'hero',
+          use: 'servers',
           flowId: _flow,
         );
         await funnel.offerBought(
           product: 'pro',
           layout: 'hero',
+          use: 'servers',
           flowId: _flow,
         );
 
@@ -402,17 +410,35 @@ void main() {
       },
     );
 
+    test('every answer of the closed set is accepted', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      const words = ['servers', 'homelab', 'jobs', 'home', 'other'];
+      for (final word in words) {
+        await funnel.offerShown(
+          product: 'hosted',
+          layout: 'reel',
+          use: word,
+          flowId: _flow,
+        );
+      }
+
+      expect(gate.sent.map((e) => e.$2['use']), words);
+    });
+
     test('they wait with the step events and go in order', () async {
       final funnel = build();
       await funnel.stepViewed('welcome', _flow);
       await funnel.offerShown(
         product: 'hosted',
         layout: 'sheet',
+        use: 'homelab',
         flowId: _flow,
       );
       await funnel.offerBought(
         product: 'hosted',
         layout: 'sheet',
+        use: 'homelab',
         flowId: _flow,
       );
       expect(gate.calls, isEmpty);
@@ -428,6 +454,7 @@ void main() {
       expect(gate.sent[1].$2, {
         'product': 'hosted',
         'layout': 'sheet',
+        'use': 'homelab',
         'flow_id': _flow,
       });
       expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
@@ -435,9 +462,19 @@ void main() {
 
     test('an opt-out drops them', () async {
       final funnel = build();
-      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
+      await funnel.offerShown(
+        product: 'pro',
+        layout: 'hero',
+        use: 'jobs',
+        flowId: _flow,
+      );
       await funnel.answered(isOn: false);
-      await funnel.offerClosed(product: 'pro', layout: 'hero', flowId: _flow);
+      await funnel.offerClosed(
+        product: 'pro',
+        layout: 'hero',
+        use: 'jobs',
+        flowId: _flow,
+      );
 
       expect(gate.sent, isEmpty);
       expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
@@ -450,55 +487,283 @@ void main() {
       await funnel.offerShown(
         product: 'pro',
         layout: 'hero',
+        use: 'home',
+        flowId: _flow,
+        isReplay: true,
+      );
+      await funnel.offerBought(
+        product: 'pro',
+        layout: 'hero',
+        use: 'home',
         flowId: _flow,
         isReplay: true,
       );
       expect(gate.sent, isEmpty);
     });
 
-    test('an unknown product, layout or flow id drops the event', () async {
-      final funnel = build();
-      await funnel.offerShown(product: 'gold', layout: 'hero', flowId: _flow);
-      await funnel.offerShown(product: 'pro', layout: 'nope', flowId: _flow);
-      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: 'a b');
+    test(
+      'an unknown product, layout, use or flow id drops the event',
+      () async {
+        final funnel = build();
+        Future<void> shown({
+          String product = 'pro',
+          String layout = 'hero',
+          String use = 'servers',
+          String flowId = _flow,
+        }) => funnel.offerShown(
+          product: product,
+          layout: layout,
+          use: use,
+          flowId: flowId,
+        );
+        await shown(product: 'gold');
+        await shown(layout: 'nope');
+        await shown(use: 'Servers');
+        await shown(use: '');
+        await shown(use: 'prod-db');
+        // Skipped is a word of the pick event, not of an answer.
+        await shown(use: 'skipped');
+        await shown(flowId: 'a b');
 
-      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
-      expect(gate.calls, isEmpty);
-    });
+        expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+        expect(gate.calls, isEmpty);
+      },
+    );
 
     test('they do not move the clock of the step events', () async {
       final funnel = build();
       await funnel.answered(isOn: true);
       await funnel.stepViewed('welcome', _flow);
       clock.advance(const Duration(seconds: 4));
-      await funnel.offerShown(product: 'pro', layout: 'hero', flowId: _flow);
+      await funnel.offerShown(
+        product: 'pro',
+        layout: 'hero',
+        use: 'servers',
+        flowId: _flow,
+      );
       clock.advance(const Duration(seconds: 4));
       await funnel.stepViewed('connect', _flow);
 
       expect(gate.sent.last.$2['ms_since_previous'], 8000);
     });
 
+    test('a row buffered before the answer was added still reads', () async {
+      await prefs.setString(
+        OnboardingFunnel.bufferKey,
+        jsonEncode([
+          {
+            'k': 'os',
+            'product': 'pro',
+            'layout': 'hero',
+            'flow_id': _flow,
+            'at': clock.now.millisecondsSinceEpoch,
+          },
+          {
+            'k': 'ob',
+            'product': 'hosted',
+            'layout': 'reel',
+            'use': 'jobs',
+            'flow_id': _flow,
+            'at': clock.now.millisecondsSinceEpoch,
+          },
+        ]),
+      );
+      await build().answered(isOn: true);
+
+      expect(gate.sent.map((e) => e.$1), [
+        AnalyticsEvents.onboardingOfferShown,
+        AnalyticsEvents.onboardingOfferBought,
+      ]);
+      // The old row has no answer behind it, so it goes as other.
+      expect(gate.sent[0].$2, {
+        'product': 'pro',
+        'layout': 'hero',
+        'use': 'other',
+        'flow_id': _flow,
+      });
+      expect(gate.sent[1].$2['use'], 'jobs');
+    });
+
+    test('a buffered row waits as written, with its answer', () async {
+      final funnel = build();
+      await funnel.offerClosed(
+        product: 'hosted',
+        layout: 'reel',
+        use: 'home',
+        flowId: _flow,
+      );
+
+      expect(stored(), [
+        {
+          'k': 'oc',
+          'product': 'hosted',
+          'layout': 'reel',
+          'use': 'home',
+          'flow_id': _flow,
+          'at': clock.now.millisecondsSinceEpoch,
+        },
+      ]);
+    });
+
     test(
       'a stored offer row that is not as written deletes the list',
       () async {
-        await prefs.setString(
-          OnboardingFunnel.bufferKey,
-          jsonEncode([
-            {
-              'k': 'os',
-              'product': 'gold',
-              'layout': 'hero',
-              'flow_id': _flow,
-              'at': 1,
-            },
-          ]),
-        );
-        await build().answered(isOn: true);
+        for (final row in [
+          {
+            'k': 'os',
+            'product': 'gold',
+            'layout': 'hero',
+            'use': 'servers',
+            'flow_id': _flow,
+            'at': 1,
+          },
+          // An answer outside the closed set.
+          {
+            'k': 'os',
+            'product': 'pro',
+            'layout': 'hero',
+            'use': 'skipped',
+            'flow_id': _flow,
+            'at': 1,
+          },
+          {
+            'k': 'os',
+            'product': 'pro',
+            'layout': 'hero',
+            'use': 7,
+            'flow_id': _flow,
+            'at': 1,
+          },
+          // A field that is not part of the event.
+          {
+            'k': 'os',
+            'product': 'pro',
+            'layout': 'hero',
+            'use': 'home',
+            'extra': 1,
+            'flow_id': _flow,
+            'at': 1,
+          },
+        ]) {
+          await prefs.setString(OnboardingFunnel.bufferKey, jsonEncode([row]));
+          await build().answered(isOn: true);
 
-        expect(gate.sent, isEmpty);
-        expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+          expect(gate.sent, isEmpty, reason: '$row');
+          expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+        }
       },
     );
+  });
+
+  group('the use step', () {
+    test('a pick waits with no answer, and nothing is sent', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'servers', flowId: _flow);
+
+      expect(gate.calls, isEmpty);
+      expect(stored(), [
+        {
+          'k': 'up',
+          'use': 'servers',
+          'flow_id': _flow,
+          'at': clock.now.millisecondsSinceEpoch,
+        },
+      ]);
+    });
+
+    test('goes on an opt-in, in order, with the use and the flow id', () async {
+      final funnel = build();
+      await funnel.stepViewed('welcome', _flow);
+      await funnel.usePicked(use: 'homelab', flowId: _flow);
+      await funnel.usePicked(use: 'skipped', flowId: _flow);
+      await build().answered(isOn: true);
+
+      expect(gate.sent.map((e) => e.$1), [
+        AnalyticsEvents.onboardingStepViewed,
+        AnalyticsEvents.onboardingUsePicked,
+        AnalyticsEvents.onboardingUsePicked,
+      ]);
+      expect(gate.sent[1].$2, {'use': 'homelab', 'flow_id': _flow});
+      expect(gate.sent[2].$2, {'use': 'skipped', 'flow_id': _flow});
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+    });
+
+    test('goes straight through once opted in', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      await funnel.usePicked(use: 'home', flowId: _flow);
+
+      expect(gate.sent.single.$2, {'use': 'home', 'flow_id': _flow});
+    });
+
+    test('an opt-out drops it', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'jobs', flowId: _flow);
+      await funnel.answered(isOn: false);
+      await funnel.usePicked(use: 'other', flowId: _flow);
+
+      expect(gate.sent, isEmpty);
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+    });
+
+    test('a replay records nothing', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'servers', flowId: _flow, isReplay: true);
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+
+      await funnel.answered(isOn: true);
+      await funnel.usePicked(use: 'servers', flowId: _flow, isReplay: true);
+      expect(gate.sent, isEmpty);
+    });
+
+    test('every word of the closed set is accepted', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      const words = ['servers', 'homelab', 'jobs', 'home', 'other', 'skipped'];
+      for (final word in words) {
+        await funnel.usePicked(use: word, flowId: _flow);
+      }
+
+      expect(gate.sent.map((e) => e.$2['use']), words);
+    });
+
+    test('an unknown use or flow id is dropped', () async {
+      final funnel = build();
+      await funnel.usePicked(use: 'Servers', flowId: _flow);
+      await funnel.usePicked(use: '', flowId: _flow);
+      await funnel.usePicked(use: 'prod-db', flowId: _flow);
+      await funnel.usePicked(use: 'servers', flowId: 'a b');
+      await funnel.usePicked(use: 'servers', flowId: '');
+
+      expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+      expect(gate.calls, isEmpty);
+    });
+
+    test('it does not move the clock of the step events', () async {
+      final funnel = build();
+      await funnel.answered(isOn: true);
+      await funnel.stepViewed('welcome', _flow);
+      clock.advance(const Duration(seconds: 4));
+      await funnel.usePicked(use: 'servers', flowId: _flow);
+      clock.advance(const Duration(seconds: 4));
+      await funnel.stepViewed('connect', _flow);
+
+      expect(gate.sent.last.$2['ms_since_previous'], 8000);
+    });
+
+    test('a stored row that is not as written deletes the list', () async {
+      for (final row in [
+        {'k': 'up', 'use': 'gold', 'flow_id': _flow, 'at': 1},
+        {'k': 'up', 'use': 'home', 'flow_id': _flow, 'at': 1, 'extra': 1},
+        {'k': 'up', 'flow_id': _flow, 'at': 1},
+      ]) {
+        await prefs.setString(OnboardingFunnel.bufferKey, jsonEncode([row]));
+        await build().answered(isOn: true);
+
+        expect(gate.sent, isEmpty, reason: '$row');
+        expect(prefs.containsKey(OnboardingFunnel.bufferKey), isFalse);
+      }
+    });
   });
 
   group('the cap', () {

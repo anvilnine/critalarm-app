@@ -216,7 +216,7 @@ void main() {
       expect(find.text('Disconnect server?'), findsOneWidget);
       expect(
         find.text(
-          'You will stop receiving pages until you connect again.',
+          'You will stop receiving alarms until you connect again.',
         ),
         findsOneWidget,
       );
@@ -262,7 +262,8 @@ void main() {
       expect(find.text('Share anonymous usage analytics'), findsOneWidget);
       expect(
         find.text(
-          'Which screens you open. No topic names, no message content.',
+          'Which screens you open and your setup answer. '
+          'No topic names, no message content.',
         ),
         findsOneWidget,
       );

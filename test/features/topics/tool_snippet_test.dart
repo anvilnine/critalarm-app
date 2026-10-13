@@ -22,14 +22,15 @@ void main() {
       fields.map((field) => '${field.label}: ${field.value}').join('\n'),
   };
 
-  test('other and no template have no snippet', () {
+  test('other, curl and no template have no snippet', () {
     expect(build(ToolTemplate.other), isNull);
+    expect(build(ToolTemplate.curl), isNull);
     expect(build(null), isNull);
   });
 
   test('every tool with a snippet names the server and the topic', () {
     for (final template in ToolTemplate.values) {
-      if (template == ToolTemplate.other) continue;
+      if (build(template) == null) continue;
       final text = textOf(build(template)!);
       expect(text, contains(url), reason: template.id);
       expect(text, contains(topic), reason: template.id);
@@ -38,7 +39,7 @@ void main() {
 
   test('the server address loses its trailing slash', () {
     for (final template in ToolTemplate.values) {
-      if (template == ToolTemplate.other) continue;
+      if (build(template) == null) continue;
       final text = textOf(build(template, serverUrl: '$url/ ')!);
       expect(text.contains('$url//'), isFalse, reason: template.id);
       expect(text.contains('$url/ '), isFalse, reason: template.id);

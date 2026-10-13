@@ -393,7 +393,6 @@ RingingFrame _rage(double t) {
     ),
     nudge: Offset(_wave(t, 14) * 2.2, _wave(t, 11, 0.2) * 0.8),
     scale: 1 + 0.025 * throb,
-    flush: 0.45 + 0.4 * throb,
     fx: [
       _teeth(mouthAt, 60, 20, bend: 6),
       RingFx(
@@ -962,7 +961,6 @@ RingingFrame _hyperventilating(double t) {
 
 RingingFrame _zapped(double t) {
   final zap = _seg(t, 0, 0.04) * (1 - _seg(t, 0.52, 0.6));
-  final flicker = _wave(t, 18) > 0 ? 1.0 : 0.0;
   final jolt = Offset(_wave(t, 23) * 3, _wave(t, 19, 0.3) * 3) * zap;
   const mouthAt = Offset(100, 146);
 
@@ -1032,7 +1030,6 @@ RingingFrame _zapped(double t) {
     face: FaceShape.lerp(dazed, shocked, zap),
     nudge: jolt,
     tilt: _deg(3) * _wave(t, 13) * zap,
-    flash: 0.9 * flicker * zap,
     fx: [
       _teeth(mouthAt, 66, 22, bend: -5).faded(zap),
       for (var i = 0; i < bolts.length; i++)
@@ -1200,7 +1197,6 @@ RingingFrame _siren(double t) {
       head: const HeadShape(strokeWidth: 12),
     ),
     scale: 1 + 0.04 * wee,
-    flush: 0.35 * wee,
     fx: [
       RingFx(
         RingFxKind.pulseRing,
@@ -1279,7 +1275,6 @@ RingingFrame _meltdown(double t) {
     ),
     nudge: Offset(0, 88 * (1 - squashY)),
     tilt: _deg(2) * _wave(t, 6) * m,
-    flush: 0.5 * m.clamp(0, 1),
     fx: [
       ...drips,
       RingFx(

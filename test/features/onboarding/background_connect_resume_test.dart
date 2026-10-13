@@ -64,6 +64,8 @@ void main() {
         OnboardingStepId.welcome,
         OnboardingStepId.howItRings,
         OnboardingStepId.connect,
+        // Answered already, so the run waits at the first topic.
+        OnboardingStepId.use,
       },
     );
     facts = FakeOnboardingStepFacts(permissions: true);

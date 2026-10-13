@@ -44,8 +44,22 @@ void main() {
       expect(backFrom('permissions'), 'connect');
     });
 
-    test('the first topic goes back to the permissions', () {
-      expect(backFrom('first_topic'), 'permissions');
+    test('the use step goes back to the permissions', () {
+      expect(backFrom('use'), 'permissions');
+    });
+
+    test('the first topic goes back to the use step', () {
+      expect(backFrom('first_topic'), 'use');
+    });
+
+    test('the first topic goes back past a use step that was not shown', () {
+      const shown = ['welcome', 'connect', 'permissions', 'first_topic'];
+      expect(backFrom('first_topic', shown: shown), 'permissions');
+    });
+
+    test('a flow with no use step goes straight back to the permissions', () {
+      final b = BundledOnboardingFlows.october2026B.steps;
+      expect(backFrom('first_topic', inFlow: b), 'permissions');
     });
 
     test('the real ring, the offer and hook up never go back', () {
@@ -153,12 +167,17 @@ void main() {
 
       final back = await h.engine.goBack('first_topic');
 
-      expect(back?.stepId, 'permissions');
-      expect(back?.route, '/onboarding');
+      expect(back?.stepId, 'use');
+      expect(back?.route, '/onboarding/use');
       // The step gone back to keeps what it had.
-      expect(h.repository.completed, {'welcome', 'connect', 'permissions'});
+      expect(h.repository.completed, {
+        'welcome',
+        'connect',
+        'permissions',
+        'use',
+      });
       expect(h.events.last.kind, OnboardingStepEventKind.entered);
-      expect(h.events.last.stepId, 'permissions');
+      expect(h.events.last.stepId, 'use');
       // Going back takes nothing out of the steps that were shown.
       expect(h.engine.shownSteps, contains('first_topic'));
     });
@@ -194,7 +213,8 @@ void main() {
       );
 
       expect(h.engine.shownSteps, isNot(contains('permissions')));
-      expect(await h.engine.backStepFrom('first_topic'), 'connect');
+      expect(await h.engine.backStepFrom('first_topic'), 'use');
+      expect(await h.engine.backStepFrom('use'), 'connect');
     });
 
     test('a server saved before setup is never gone back to', () async {
@@ -217,8 +237,8 @@ void main() {
           skippedItself: true,
         );
 
-        expect(next.stepId, 'first_topic');
-        expect(await h.engine.backStepFrom('first_topic'), 'connect');
+        expect(next.stepId, 'use');
+        expect(await h.engine.backStepFrom('use'), 'connect');
       },
     );
 
@@ -235,8 +255,8 @@ void main() {
       expect((await h.engine.resume()).stepId, 'permissions');
       expect(await h.engine.backStepFrom('permissions'), isNull);
 
-      expect((await h.engine.finishStep('permissions')).stepId, 'first_topic');
-      expect(await h.engine.backStepFrom('first_topic'), 'permissions');
+      expect((await h.engine.finishStep('permissions')).stepId, 'use');
+      expect(await h.engine.backStepFrom('use'), 'permissions');
     });
 
     test('a pinned run that lists how it rings goes back by rule', () async {
@@ -301,10 +321,11 @@ void main() {
       expect(await h.engine.goBack('connect'), isNull);
     });
 
-    test('on the web the first topic goes back to connect', () async {
+    test('on the web the use step goes back to connect', () async {
       final h = await runUpTo('first_topic', on: web);
 
-      expect(await h.engine.backStepFrom('first_topic'), 'connect');
+      expect(await h.engine.backStepFrom('first_topic'), 'use');
+      expect(await h.engine.backStepFrom('use'), 'connect');
     });
 
     test('no step counts as shown once setup ends', () async {
@@ -337,7 +358,7 @@ void main() {
 
       final back = await h.engine.goBack('first_topic', isReplay: true);
 
-      expect(back?.stepId, 'permissions');
+      expect(back?.stepId, 'use');
       expect(h.repository.writes, 0);
       expect(h.repository.pinned, isNull);
       expect(h.events.every((event) => event.isReplay), isTrue);

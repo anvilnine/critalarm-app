@@ -10,12 +10,14 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_tag_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show BoxParentData;
+import 'package:flutter/rendering.dart' show BoxParentData, RenderParagraph;
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
@@ -311,17 +313,25 @@ class PaywallIntroPlay extends InheritedWidget {
 ///   all and the layout opens as it does alone.
 /// - It plays once for as long as this widget lives. A rebuild does not
 ///   start it again.
+/// - With a [hint], that line is drawn at the foot of the intro while the
+///   intro covers the screen, and is gone by the hand over. Off by
+///   default.
 class PaywallIntroHost extends StatefulWidget {
   const PaywallIntroHost({
     required this.intro,
     required this.product,
     required this.child,
+    this.hint,
     super.key,
   });
 
   final PaywallIntroId intro;
   final PaywallProduct product;
   final Widget child;
+
+  /// A short line for the foot of the intro, such as how to skip it. Null
+  /// draws none.
+  final String? hint;
 
   @override
   State<PaywallIntroHost> createState() => _PaywallIntroHostState();
@@ -359,6 +369,10 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
 
   /// The layout's mascot, once found.
   RenderBox? _mascot;
+
+  /// What the tag keeps clear of, as of the second it was last looked for.
+  List<Rect> _keepOut = const [];
+  double _keptAt = -1;
 
   @override
   void initState() {
@@ -460,6 +474,38 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
       Offset.zero & box.size,
     );
     return now.width < box.size.width * 0.7 ? null : now;
+  }
+
+  /// The words and pictures of the layout as painted now, in the host's
+  /// coordinates: every paragraph, every preview and every button. The tag
+  /// stands in none of them. A few times a second is often enough.
+  List<Rect> _keepOutNow(double t) {
+    if (t >= _keptAt && t - _keptAt < 0.1) return _keepOut;
+    _keptAt = t;
+    final host = context.findRenderObject();
+    final root = _layoutKey.currentContext;
+    if (host is! RenderBox || root is! Element) return _keepOut = const [];
+    final found = <Rect>[];
+    void visit(Element element) {
+      final widget = element.widget;
+      final box = element.renderObject;
+      final isKept =
+          (element is RenderObjectElement && box is RenderParagraph) ||
+          widget is PaywallPreview ||
+          widget is AppButton;
+      if (isKept && box is RenderBox && box.attached && box.hasSize) {
+        found.add(
+          MatrixUtils.transformRect(
+            box.getTransformTo(host),
+            Offset.zero & box.size,
+          ),
+        );
+      }
+      element.visitChildren(visit);
+    }
+
+    root.visitChildren(visit);
+    return _keepOut = found;
   }
 
   void _skip() {
@@ -565,6 +611,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
                   clock: _clock,
                   product: widget.product,
                   handle: _handle,
+                  hint: widget.hint,
                   takesTaps: !_hasHandedOver,
                   onSkip: _skip,
                   onClose: _close,
@@ -579,7 +626,9 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
                       builder: (context, t, _) => _IntroTagLayer(
                         text: tag(),
                         landing: _mascotNow(),
+                        keepOut: _keepOutNow(t),
                         presence: paywallIntroTagPresence(t - handover),
+                        isBelow: paywallIntroTagBelowLayouts.contains(layout),
                       ),
                     ),
                   ),
@@ -599,6 +648,7 @@ class _IntroLayer extends StatelessWidget {
     required this.clock,
     required this.product,
     required this.handle,
+    required this.hint,
     required this.takesTaps,
     required this.onSkip,
     required this.onClose,
@@ -608,14 +658,22 @@ class _IntroLayer extends StatelessWidget {
   final PaywallClock clock;
   final PaywallProduct product;
   final PaywallIntroHandle handle;
+  final String? hint;
   final bool takesTaps;
+
+  /// How far above the bottom edge the hint's last line stands, and the
+  /// text size it stops growing at.
+  static const double _hintFoot = 58;
+  static const double _hintMaxTextScale = 1.3;
   final VoidCallback onSkip;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.viewPaddingOf(context);
-    final ink = PaywallToneColors.of(context, intro.tone).ink;
+    final tone = PaywallToneColors.of(context, intro.tone);
+    final ink = tone.ink;
+    final hint = this.hint;
 
     // The cross is an ink well, and the layout's own scaffold is not above
     // this layer.
@@ -650,6 +708,33 @@ class _IntroLayer extends StatelessWidget {
               ),
             ),
           ),
+          // Until the hand over, and fading as the red gives way to the
+          // layout. It takes no touch: a tap is the intro's.
+          if (hint != null && takesTaps)
+            Positioned(
+              left: Spacing.s5,
+              right: Spacing.s5,
+              bottom: math.max(_hintFoot, padding.bottom + Spacing.s4),
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: PaywallClockBuilder(
+                    clock: clock,
+                    builder: (context, t, child) => Opacity(
+                      opacity: 1 - phase(t, intro.skipTo, intro.handover),
+                      child: child,
+                    ),
+                    child: Text(
+                      hint,
+                      textAlign: TextAlign.center,
+                      textScaler: MediaQuery.textScalerOf(
+                        context,
+                      ).clamp(maxScaleFactor: _hintMaxTextScale),
+                      style: AppTypography.mono(tone.muted, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           // The way out, in the corner the layout keeps its own cross. By
           // the hand over that corner is uncovered and the layout's own
           // cross, in its own colour, takes over without a move.
@@ -681,21 +766,30 @@ class _IntroLayer extends StatelessWidget {
 /// What the mascot is left saying, as a small tag by the layout's own
 /// mascot with a tail pointing at it. It takes no room in the layout
 /// and no touch, and it goes after a few seconds.
+///
+/// It stands where `paywallIntroTagPlace` finds room that is clear of the
+/// layout's words, pictures and buttons, and is not shown where there is
+/// none.
 class _IntroTagLayer extends StatelessWidget {
   const _IntroTagLayer({
     required this.text,
     required this.landing,
+    required this.keepOut,
     required this.presence,
+    required this.isBelow,
   });
 
   final String text;
   final Rect? landing;
+
+  /// What the tag keeps clear of, in the same coordinates as [landing].
+  final List<Rect> keepOut;
   final double presence;
 
-  static const double _tail = 6;
-  static const double _gap = 4;
-  static const double _height = 28;
-  static const double _maxWidth = 180;
+  /// Try under the mascot's foot first: its layout has words over its
+  /// head. Otherwise over its head first.
+  final bool isBelow;
+
   static const double _largestTextScale = 1.3;
 
   @override
@@ -709,20 +803,44 @@ class _IntroTagLayer extends StatelessWidget {
     }
     final colors = context.appColors;
     final screen = MediaQuery.sizeOf(context);
-    const room = _gap + _tail + _height;
-    // Over the mascot's head when there is air there, under its foot when
-    // there is not. It never covers the status bar.
-    final isAbove = at.top - room >= MediaQuery.viewPaddingOf(context).top + 2;
-    final top = isAbove ? at.top - room : at.bottom + _gap;
-    final left = (at.center.dx - _maxWidth / 2)
-        .clamp(
-          Spacing.s2,
-          math.max(Spacing.s2, screen.width - _maxWidth - Spacing.s2),
-        )
-        .toDouble();
+    final style = AppTypography.small(
+      colors.canvas,
+    ).copyWith(fontWeight: FontWeight.w700, height: 1.2);
+    // The words the tag's own Text takes from the theme are measured too.
+    final measure = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+            .merge(style),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    final width = measure.width + Spacing.s3 * 2;
+    measure.dispose();
+    // It never covers the status bar.
+    final bounds = Rect.fromLTRB(
+      0,
+      MediaQuery.viewPaddingOf(context).top + 2,
+      screen.width,
+      screen.height,
+    );
+    final place = paywallIntroTagPlace(
+      mascot: at,
+      width: width,
+      bounds: bounds,
+      keepOut: keepOut,
+      order: isBelow
+          ? const [PaywallIntroTagSide.below, PaywallIntroTagSide.above]
+          : const [PaywallIntroTagSide.above, PaywallIntroTagSide.below],
+    );
+    if (place == null) return const SizedBox.shrink();
+    final isAbove = place.side == PaywallIntroTagSide.above;
     final pop = AppCurves.easeBack.transform(presence);
     final pill = Container(
-      height: _height,
+      width: place.width,
+      height: paywallIntroTagHeight,
       padding: const EdgeInsets.symmetric(horizontal: Spacing.s3),
       decoration: BoxDecoration(
         color: colors.onCanvas,
@@ -734,15 +852,18 @@ class _IntroTagLayer extends StatelessWidget {
           text,
           maxLines: 1,
           textScaler: TextScaler.noScaling,
-          style: AppTypography.small(
-            colors.canvas,
-          ).copyWith(fontWeight: FontWeight.w700, height: 1.2),
+          style: style,
         ),
       ),
     );
     final tail = CustomPaint(
-      size: const Size(12, _tail),
+      size: const Size(paywallIntroTagTailWidth, paywallIntroTagTail),
       painter: _TagTailPainter(colors.onCanvas, pointsDown: isAbove),
+    );
+    // The tail's tip is where the tag grows from.
+    final grows = Alignment(
+      (place.tailX - place.left) / place.width * 2 - 1,
+      isAbove ? 1 : -1,
     );
 
     // The layout's own scaffold is not above this layer.
@@ -751,20 +872,23 @@ class _IntroTagLayer extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: left,
-            top: top,
-            width: _maxWidth,
-            height: _height + _tail,
+            left: place.left,
+            top: place.top,
+            width: place.width,
+            height: paywallIntroTagHeight + paywallIntroTagTail,
             child: Opacity(
               opacity: (presence * 2).clamp(0, 1),
               child: Transform.scale(
                 scale: 0.6 + 0.4 * pop,
-                alignment: isAbove
-                    ? Alignment.bottomCenter
-                    : Alignment.topCenter,
+                alignment: grows,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: isAbove ? [pill, tail] : [tail, pill],
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isAbove) _tailAt(place, tail),
+                    pill,
+                    if (isAbove) _tailAt(place, tail),
+                  ],
                 ),
               ),
             ),
@@ -773,6 +897,14 @@ class _IntroTagLayer extends StatelessWidget {
       ),
     );
   }
+
+  /// [tail] under or over the tag, its middle at the place's tail.
+  static Widget _tailAt(PaywallIntroTagPlace place, Widget tail) => Padding(
+    padding: EdgeInsets.only(
+      left: place.tailX - place.left - paywallIntroTagTailWidth / 2,
+    ),
+    child: tail,
+  );
 }
 
 class _TagTailPainter extends CustomPainter {

@@ -1,11 +1,16 @@
 import 'dart:async';
 
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
+import 'package:critalarm/features/topics/domain/home_card/expected_setup.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_rule.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_effect.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
@@ -23,8 +28,9 @@ typedef HomeCardTimerFactory =
 /// checklist and the missed alarm feed, builds a [HomeCardInput] and calls
 /// `resolveHomeCard`. It emits only when the card changes.
 ///
-/// It reads the shared cubits and the phone's own stores. It never calls the
-/// server, never navigates and never touches a topic, so Critical delivery
+/// It reads the shared cubits and the phone's own stores (the setup answer and
+/// the tool saved on the watched topic, for the waiting line). It never calls
+/// the server, never navigates and never touches a topic, so Critical delivery
 /// stays the user's own switch. [actionFor] says what the screen should do for
 /// the card's button and the screen does it.
 ///
@@ -41,12 +47,18 @@ class HomeCardCubit extends Cubit<HomeCardState> {
     required this._reliability,
     required this._setup,
     required this._missed,
+    required this._setupUse,
+    required this._toolTemplates,
     required this._testRouteName,
     required this._askPermissionsRouteName,
+    bool Function()? isSetupOpen,
+    List<HeldTopic>? Function()? readHeldTopics,
     DateTime Function()? clock,
     HomeCardTimerFactory? timer,
   }) : _now = clock ?? DateTime.now,
        _newTimer = timer ?? Timer.new,
+       _isSetupOpen = isSetupOpen ?? (() => false),
+       _readHeldTopics = readHeldTopics ?? (() => null),
        super(
          HomeCardState(
            model: resolveHomeCard(
@@ -68,10 +80,20 @@ class HomeCardCubit extends Cubit<HomeCardState> {
   final ReliabilityCubit _reliability;
   final StateStreamable<HomeSetupState> _setup;
   final MissedAlarmFeed _missed;
+  final SetupUseStore _setupUse;
+  final ToolTemplateStore _toolTemplates;
   final String _testRouteName;
   final String _askPermissionsRouteName;
   final DateTime Function() _now;
   final HomeCardTimerFactory _newTimer;
+
+  /// Whether the phone's own records say setup is open and only the first
+  /// message is missing. Answers from memory, with no read.
+  final bool Function() _isSetupOpen;
+
+  /// The topics the app already holds in memory, or null when it holds no
+  /// list. Answers from memory, with no request.
+  final List<HeldTopic>? Function() _readHeldTopics;
 
   late final List<StreamSubscription<Object?>> _subs;
   Timer? _boundary;
@@ -98,11 +120,19 @@ class HomeCardCubit extends Cubit<HomeCardState> {
 
   /// What the screen should do for the card's button.
   HomeCardEffect actionFor(HomeCardAction action) => homeCardEffectFor(
-    action,
+    _withTopic(action),
     missed: _missedFact,
     testRouteName: _testRouteName,
     askPermissionsRouteName: _askPermissionsRouteName,
   );
+
+  /// The first-line button can be drawn before Home's list names the topic it
+  /// watches. By the time it is pressed the name is usually known, and
+  /// without one the press does nothing.
+  HomeCardAction _withTopic(HomeCardAction action) {
+    if (action is! GetFirstLine || action.topic != null) return action;
+    return GetFirstLine(_setup.state.watchedTopic);
+  }
 
   void _onHome(HomeState home) {
     if (home.status == HomeStatus.success) {
@@ -137,6 +167,7 @@ class HomeCardCubit extends Cubit<HomeCardState> {
     final facts = home.facts;
     final setup = _setup.state;
     final snapshot = _reliability.state;
+    final expected = _expectedSetup(home, setup);
     return HomeCardInput(
       now: now,
       isLoading:
@@ -162,10 +193,51 @@ class HomeCardCubit extends Cubit<HomeCardState> {
       setup: setup.checklist,
       firstTopic: setup.firstTopic,
       watchedTopic: setup.watchedTopic,
+      watchedTool: _savedTool(setup.watchedTopic ?? expected?.watchedTopic),
+      use: _savedUse(),
+      expectedSetup: expected,
       newestMessageAt: facts.newestMessageAt,
       lastAlarmAt: facts.lastAlarmAt,
       hasCriticalTopic: home.topicItems.any((t) => t.ringsThroughSilent),
     );
+  }
+
+  /// What the phone's own records say about setup, while Home has no answer
+  /// of its own yet: the list is loading, or the checklist has not looked at
+  /// this phone. Once the checklist is drawn it decides.
+  ExpectedSetup? _expectedSetup(HomeState home, HomeSetupState setup) {
+    final isLoading =
+        home.status == HomeStatus.initial || home.status == HomeStatus.loading;
+    if (!isLoading && setup.phase != HomeSetupPhase.none) return null;
+    try {
+      return expectedSetupFor(
+        isOpen: _isSetupOpen(),
+        topics: _readHeldTopics(),
+      );
+    } on Object {
+      // A failed read is "no guess", never an error on Home.
+      return null;
+    }
+  }
+
+  // Both stores answer from memory, so the line is part of the first model
+  // the card emits and never swaps in after a read. A failed read is null,
+  // which shows the plain line.
+  SetupUse? _savedUse() {
+    try {
+      return _setupUse.read();
+    } on Object {
+      return null;
+    }
+  }
+
+  ToolTemplate? _savedTool(String? topic) {
+    if (topic == null) return null;
+    try {
+      return _toolTemplates.read(topic);
+    } on Object {
+      return null;
+    }
   }
 
   void _recompute() {

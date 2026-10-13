@@ -6,7 +6,8 @@ enum OnboardingChapter {
   /// What the app is: the welcome and how it rings.
   meet,
 
-  /// Getting the phone ready: the server, the permissions, the first topic.
+  /// Getting the phone ready: the server, the permissions, the use step, the
+  /// first topic.
   setUp,
 
   /// The first real alarm.
@@ -21,6 +22,7 @@ const Map<String, OnboardingChapter> _chapterByStep = {
   OnboardingStepId.howItRings: OnboardingChapter.meet,
   OnboardingStepId.connect: OnboardingChapter.setUp,
   OnboardingStepId.permissions: OnboardingChapter.setUp,
+  OnboardingStepId.use: OnboardingChapter.setUp,
   OnboardingStepId.firstTopic: OnboardingChapter.setUp,
   OnboardingStepId.realRing: OnboardingChapter.hearIt,
 };
