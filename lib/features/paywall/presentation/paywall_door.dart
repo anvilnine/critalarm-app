@@ -177,7 +177,7 @@ class PaywallDoor {
         hasSeenFalseAlarm: !canDrawFalseAlarm || _hasSeenFalseAlarm(),
         remoteThanks: PaywallThanksId.parse(_remoteThanksValue(product)),
         developerThanks: _developerThanks(product),
-        remoteOutro: PaywallOutroId.parse(_remoteOutroValue(product)),
+        remoteOutro: paywallRemoteOutroOf(_remoteOutroValue(product)),
         developerOutro: _developerOutro(product),
         leaving: leaving,
       );

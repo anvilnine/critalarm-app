@@ -456,15 +456,18 @@ void main() {
         ..proThanks = ' unlock ';
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti&lead=history',
+        '/plans/sheet?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.resolve('/paywall?source=history'),
-        '/plans/sheet?product=hosted&source=history&thanks=confetti&lead=history',
+        '/plans/sheet?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
-        '/plans/proof?product=pro&source=direct&thanks=unlock',
+        '/plans/proof?product=pro&source=direct'
+        '&thanks=unlock&outro=break_lift_ring',
       );
     });
 
@@ -475,12 +478,13 @@ void main() {
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
         '/plans/sheet?product=hosted&source=create_topic_card'
-        '&intro=false_alarm&thanks=unlock&lead=topics',
+        '&intro=false_alarm&thanks=unlock&outro=cloud_climb&lead=topics',
       );
       // The intro has had its one showing. The thanks has no such rule.
       expect(
         install.door.hostedLocation(PaywallSource.createTopicCard),
-        '/plans/sheet?product=hosted&source=create_topic_card&thanks=unlock&lead=topics',
+        '/plans/sheet?product=hosted&source=create_topic_card'
+        '&thanks=unlock&outro=cloud_climb&lead=topics',
       );
     });
 
@@ -492,7 +496,8 @@ void main() {
         ..falseAlarmIsBuilt = false;
       expect(
         install.door.hostedLocation(PaywallSource.history),
-        '/plans/hero?product=hosted&source=history&thanks=confetti&lead=history',
+        '/plans/hero?product=hosted&source=history'
+        '&thanks=confetti&outro=cloud_climb&lead=history',
       );
       expect(install.marks, 0);
     });
@@ -556,7 +561,8 @@ void main() {
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.direct),
-        '/plans/hero?product=pro&source=direct&thanks=unlock',
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=unlock&outro=break_lift_ring',
       );
     });
 
@@ -1223,6 +1229,125 @@ void main() {
       expect(
         door.hostedLocation(PaywallSource.history),
         '/plans/hero?product=hosted&source=history&lead=history',
+      );
+    });
+  });
+
+  group('the outro per product', () {
+    test('with a thanks and no outro value, each product plays its own', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..hostedThanks = 'stamp'
+        ..pro = 'auto'
+        ..proThanks = 'confetti';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=break_lift_ring',
+      );
+      // An empty remote value is no value.
+      install
+        ..hostedOutro = '  '
+        ..proOutro = '';
+      expect(
+        install.door.resolve(paywallLocation(PaywallSource.settingsPlan)),
+        '/plans/hero?product=hosted&source=settings_plan'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=break_lift_ring',
+      );
+    });
+
+    test('a remote value outranks it, none included', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'none'
+        ..pro = 'hero'
+        ..proThanks = 'confetti'
+        ..proOutro = 'cloud_climb';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct'
+        '&thanks=confetti&outro=cloud_climb',
+      );
+    });
+
+    test('a Developer options none outranks it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..devHostedOutro = PaywallOutroId.none;
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+    });
+
+    test('with no thanks it plays nothing', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..pro = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct',
+      );
+    });
+
+    test('an outro this build cannot draw is still no outro', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..outrosAreBuilt = false;
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=stamp',
+      );
+    });
+
+    test('the shipped surface is unchanged', () {
+      final install = _Install()
+        ..hostedThanks = 'stamp'
+        ..proThanks = 'confetti';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/paywall?source=settings_plan',
+      );
+      expect(install.door.proLayoutLocation(ProPackSheetSource.direct), isNull);
+    });
+
+    test('the leaving paywall takes the Hosted one, with a thanks', () async {
+      final ends = DateTime(2026, 10, 20, 14, 30);
+      final install = _Install()..hosted = 'auto';
+      expect(
+        await install.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending&lead=history'
+        '&headline=leaving&ends=2026-10-20',
+      );
+      final withThanks = _Install()
+        ..hosted = 'auto'
+        ..hostedThanks = 'stamp';
+      expect(
+        await withThanks.door.leavingLocation(ends),
+        '/plans/wipe?product=hosted&source=plan_sheet_ending'
+        '&thanks=stamp&outro=cloud_climb&lead=history'
+        '&headline=leaving&ends=2026-10-20',
       );
     });
   });
