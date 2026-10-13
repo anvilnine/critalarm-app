@@ -3,6 +3,7 @@ import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
@@ -175,6 +176,19 @@ Future<void> main() async {
   final alarms = getIt<IncidentAlarmController>();
   unawaited(alarms.start());
   unawaited(alarms.reconcile());
+
+  // The topic list the phone kept at the last answer, read before the first
+  // frame so Home and the Topic screen open with the topics they already
+  // know. It is a read from the local store; a store that is slow or will not
+  // open costs the first frame at most this wait, and then the list loads
+  // from the server as it always did.
+  try {
+    await getIt<TopicsCubit>().loadHeld().timeout(
+      const Duration(milliseconds: 800),
+    );
+  } on Object catch (_) {
+    // Never stops the app from opening.
+  }
 
   runApp(
     EasyLocalization(
