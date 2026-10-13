@@ -6,6 +6,7 @@ import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
@@ -109,6 +110,15 @@ HeroLoop wipeLoopFor(
 }) => HeroLoop([
   for (final b in reversed ? listed.take(1) : listed) b.previewId,
 ], prelude: -lead);
+
+/// How many critical topics the topics picture of the leaving Wipe draws
+/// as on, or null for the plain Wipe, which keeps its looping picture. It is
+/// the count the sentence under the stage says: a count that is not known
+/// reads as none there too. A plan that ends switches no topic off.
+int? wipeLeavingCriticalFor({
+  required bool reversed,
+  required LeavingFacts? facts,
+}) => reversed ? facts?.criticalTopics ?? 0 : null;
 
 /// The words of the small tag on the card, or null for none. On the
 /// leaving Wipe the card rests on the colour side under "Today" with its

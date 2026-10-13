@@ -268,6 +268,9 @@ class TopicsPreviewLayout {
   int get tappedRow => math.min(rows, 3) - 1;
 }
 
+/// How much of its colour the new topic's name and switch keep.
+const double _greyedOpacity = 0.45;
+
 /// The longest topic name, in characters, with a little air.
 const double _nameChars = 6.7;
 
@@ -279,10 +282,13 @@ const double topicsTagRoom = 32;
 /// picture is the plain one.
 const double topicsTagMinEdge = 150;
 
-/// [headerRoom] is height kept clear at the top, for the tag.
+/// [headerRoom] is height kept clear at the top, for the tag. [fixedRows]
+/// asks for that many rows (1 to 4) in place of the count that fits at the
+/// ideal height.
 TopicsPreviewLayout topicsPreviewLayoutFor(
   Size size, {
   double headerRoom = 0,
+  int? fixedRows,
 }) {
   final w = size.width;
   final h = size.height - headerRoom;
@@ -290,10 +296,12 @@ TopicsPreviewLayout topicsPreviewLayoutFor(
   final padding = size.shortestSide * 0.08;
   final ideal = (w * 0.26).clamp(30.0, 64.0);
   final room = h - 2 * padding;
-  final rows = (room / ideal).floor().clamp(1, 4);
-  // With a tag above, the rows stay at the ideal height: a taller row has a
-  // bigger face and switch and leaves the name no room to be read.
-  final rowHeight = math.min(room / rows, headerRoom > 0 ? ideal : ideal * 1.2);
+  final rows = (fixedRows ?? (room / ideal).floor()).clamp(1, 4);
+  // With a tag above, or a count asked for, the rows stay at the ideal
+  // height: a taller row has a bigger face and switch and leaves the name no
+  // room to be read.
+  final keepsIdeal = headerRoom > 0 || fixedRows != null;
+  final rowHeight = math.min(room / rows, keepsIdeal ? ideal : ideal * 1.2);
   final switchHeight = rowHeight * 0.46;
   final nameRoom =
       w -
@@ -351,20 +359,75 @@ List<String> topicsPreviewNames(
   ];
 }
 
+/// One row of the picture drawn for a plan that is ending.
+enum TopicsLeavingRow {
+  /// A topic the person has, still critical.
+  on,
+
+  /// The room for a new topic: its switch is off and greyed.
+  fresh,
+}
+
+/// The name on the last row of the leaving picture. Made up, like the rest.
+const String topicsLeavingNewName = 'new-topic';
+
+/// The rows of the picture for a plan that is ending, [fit] rows at most.
+///
+/// A plan that ends switches no topic off, so every row but the last is a
+/// topic that is on. The last is always the new topic. The rows that are on
+/// are the person's [critical] count, or as many as fit above the new topic.
+List<TopicsLeavingRow> topicsLeavingRowsFor({
+  required int critical,
+  required int fit,
+}) {
+  final shown = math.min(math.max(critical, 0), math.max(fit, 1) - 1);
+  return [
+    for (var i = 0; i < shown; i++) TopicsLeavingRow.on,
+    TopicsLeavingRow.fresh,
+  ];
+}
+
+/// The names the leaving picture lists, one per row of [rows].
+List<String> topicsLeavingNames(List<TopicsLeavingRow> rows) {
+  const own = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
+  var next = 0;
+  return [
+    for (final row in rows)
+      row == TopicsLeavingRow.on ? own[next++] : topicsLeavingNewName,
+  ];
+}
+
+/// The layout of the leaving picture in a box: a row for each topic the
+/// person has and one for the new topic, four rows at most. The count the
+/// sentence says wins over the names: a box too small to read four names
+/// draws bars in their place, as the other pictures do.
+TopicsPreviewLayout topicsLeavingLayoutFor(
+  Size size, {
+  required int critical,
+}) => topicsPreviewLayoutFor(
+  size,
+  fixedRows: (math.max(critical, 0) + 1).clamp(1, 4),
+);
+
 /// The Critical topics preview. With a [topicName] its first row shows
 /// that name. With [own] the topic they were making is the row that
 /// switches on, and a tag shows their count.
+///
+/// With [leavingCritical] it is the picture for a plan that is ending, held
+/// still: that many topics on and a last row for a new topic, off.
 class TopicsPreview extends StatelessWidget {
   const TopicsPreview({
     required this.size,
     this.topicName,
     this.own,
+    this.leavingCritical,
     super.key,
   });
 
   final Size size;
   final String? topicName;
   final TopicsPreviewOwn? own;
+  final int? leavingCritical;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +436,18 @@ class TopicsPreview extends StatelessWidget {
     }
 
     final colors = context.appColors;
+    final critical = leavingCritical;
+    if (critical != null) {
+      final layout = topicsLeavingLayoutFor(size, critical: critical);
+      return LimitsPreviewTile(
+        size: size,
+        color: colors.surface,
+        child: _LeavingList(
+          layout: layout,
+          rows: topicsLeavingRowsFor(critical: critical, fit: layout.rows),
+        ),
+      );
+    }
     final tag = (own?.hasTag ?? false) && size.shortestSide >= topicsTagMinEdge;
     final layout = topicsPreviewLayoutFor(
       size,
@@ -394,6 +469,47 @@ class TopicsPreview extends StatelessWidget {
           namesTappedRow: own != null,
           tag: tag ? own : null,
         ),
+      ),
+    );
+  }
+}
+
+/// The topics of a plan that is ending: the ones the person has, on, and
+/// the room for a new one, off. Nothing moves.
+class _LeavingList extends StatelessWidget {
+  const _LeavingList({required this.layout, required this.rows});
+
+  final TopicsPreviewLayout layout;
+  final List<TopicsLeavingRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final names = topicsLeavingNames(rows);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: layout.padding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final (i, row) in rows.indexed)
+            Container(
+              height: layout.rowHeight,
+              decoration: BoxDecoration(
+                border: i == 0
+                    ? null
+                    : Border(top: BorderSide(color: colors.hairline)),
+              ),
+              child: _TopicRow(
+                layout: layout,
+                name: names[i],
+                barLength: const [0.55, 0.9, 0.7, 0.6][i % 4],
+                frame: null,
+                value: row == TopicsLeavingRow.on ? 1 : 0,
+                track: row == TopicsLeavingRow.on ? 1 : 0,
+                isGreyed: row == TopicsLeavingRow.fresh,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -498,11 +614,16 @@ class _TopicRow extends StatelessWidget {
     required this.frame,
     required this.value,
     required this.track,
+    this.isGreyed = false,
   });
 
   final TopicsPreviewLayout layout;
   final String name;
   final double barLength;
+
+  /// The row for a topic that is not made yet: its name and switch are
+  /// drawn quiet. The face is Crit's and stays as it is.
+  final bool isGreyed;
 
   /// The loop, on the row whose switch is tapped. Null on the others.
   final TopicsPreviewFrame? frame;
@@ -526,31 +647,42 @@ class _TopicRow extends StatelessWidget {
         FaceWidget(state: face, size: layout.faceSize),
         SizedBox(width: layout.gap),
         Expanded(
-          child: layout.showsNames
-              ? Text(
-                  name,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.monoBold(
-                    colors.ink,
-                    fontSize: layout.nameSize,
-                  ).copyWith(height: 1.2),
-                )
-              : FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: barLength,
-                  child: Container(
-                    height: layout.rowHeight * 0.16,
-                    decoration: BoxDecoration(
-                      color: colors.canvasGhostStrong,
-                      borderRadius: Radii.fullAll,
+          child: Opacity(
+            opacity: isGreyed ? _greyedOpacity : 1,
+            child: layout.showsNames
+                ? Text(
+                    name,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.monoBold(
+                      colors.ink,
+                      fontSize: layout.nameSize,
+                    ).copyWith(height: 1.2),
+                  )
+                : FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: barLength,
+                    child: Container(
+                      height: layout.rowHeight * 0.16,
+                      decoration: BoxDecoration(
+                        color: colors.canvasGhostStrong,
+                        borderRadius: Radii.fullAll,
+                      ),
                     ),
                   ),
-                ),
+          ),
         ),
         SizedBox(width: layout.gap),
-        _Switch(layout: layout, knob: value, track: track, frame: tapped),
+        Opacity(
+          opacity: isGreyed ? _greyedOpacity : 1,
+          child: _Switch(
+            layout: layout,
+            knob: value,
+            track: track,
+            frame: tapped,
+          ),
+        ),
       ],
     );
   }

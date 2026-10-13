@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
@@ -286,6 +287,30 @@ void main() {
       for (var row = 0; row < 3; row++) {
         expect(m[row * 5] + m[row * 5 + 1] + m[row * 5 + 2], closeTo(1, 1e-9));
       }
+    });
+  });
+
+  group('the topics picture of a plan that is ending', () {
+    LeavingFacts facts(int critical) => LeavingFacts(
+      rang: 4,
+      answered: 2,
+      nights: 0,
+      criticalTopics: critical,
+      historyDaysHeld: 40,
+    );
+
+    test("holds the person's own count, the one the sentence says", () {
+      for (final n in [1, 2, 3, 7]) {
+        expect(wipeLeavingCriticalFor(reversed: true, facts: facts(n)), n);
+      }
+    });
+
+    test('a count that is not known is none, as the sentence reads it', () {
+      expect(wipeLeavingCriticalFor(reversed: true, facts: null), 0);
+    });
+
+    test('the plain Wipe keeps the picture it has', () {
+      expect(wipeLeavingCriticalFor(reversed: false, facts: facts(3)), isNull);
     });
   });
 }
