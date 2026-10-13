@@ -109,6 +109,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - At the largest text sizes on a small phone, the alarm's message card stays above I'm up and Silence and scrolls when the message is long.
 - An alarm sent without tags no longer shows a stray slash after the time.
 - The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
+- A long topic name no longer gets cut off in the name field during setup at a large text size.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
