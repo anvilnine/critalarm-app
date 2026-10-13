@@ -30,6 +30,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A new token is named in a sheet first, and its value and curl line are shown once when it is made.
 - A topic's tokens have their own page with a New token button.
 - Will it wake me shows the last eight weeks of tests and weekly checks as dots.
+- Setup asks what you want to be woken for and fills in your first topic to match.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.

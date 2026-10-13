@@ -140,7 +140,8 @@ void main() {
       );
       expect(
         LocaleKeys.onboarding_hook_up_analytics_line.tr(),
-        'Step names and timings only, never your messages.',
+        'Step names, timings and your answer to “What should wake you?” '
+        'Never your messages.',
       );
     });
 
