@@ -207,18 +207,19 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     return key?.tr();
   }
 
-  /// "Make {name} critical" with the name cut in the middle at 16
-  /// characters, when two lines hold it. Then "Make this topic critical".
+  /// "Make {name} critical" when the name is at most 16 characters and two
+  /// lines hold it. Then "Make this topic critical". A longer name is
+  /// never cut: the headline has no name.
   /// A headline that says what the card the person tapped says is passed
   /// over. The kit sets the headline at the compact size on every phone.
   String _topicsHeadline(BuildContext context, PaywallOffer offer) {
-    final name = offer.lead?.topicName;
+    final name = sheetHeadlineName(offer.lead?.topicName);
     final style = _headlineStyle(context);
     final width = _headlineWidth(context);
-    final named = name == null || name.isEmpty
+    final named = name == null
         ? null
         : LocaleKeys.paywall_own_count_headline_named.tr(
-            namedArgs: {'name': middleEllipsis(name)},
+            namedArgs: {'name': name},
           );
     final fits = named != null && _fitsTwoLines(context, named, style, width);
     // The sentences on the lit row above the sheet.

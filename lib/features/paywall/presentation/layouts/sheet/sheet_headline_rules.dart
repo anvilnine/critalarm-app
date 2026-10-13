@@ -9,18 +9,19 @@ String _norm(String text) => text
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
 
-/// [name] cut to at most [max] characters by taking out its middle, which
-/// is replaced by one ellipsis. Both ends stay, so a name that begins or
-/// ends alike with another still tells them apart. An emoji or an accent
-/// is never split.
-String middleEllipsis(String name, {int max = 16}) {
-  final chars = name.characters;
-  if (chars.length <= max) return name;
-  final keep = max - 1;
-  final head = (keep / 2).ceil();
-  final tail = keep - head;
-  return '${chars.take(head)}…${chars.takeLast(tail)}';
-}
+/// The longest topic name, in characters, the headline will say. A longer
+/// one reads as noise in a headline, so the headline has no name.
+const int sheetHeadlineNameMax = 16;
+
+/// [name] as the headline says it, or null when the headline has no name:
+/// there is none, or it is longer than [sheetHeadlineNameMax] characters.
+/// An emoji or an accent counts as one.
+String? sheetHeadlineName(String? name) =>
+    name == null ||
+        name.isEmpty ||
+        name.characters.length > sheetHeadlineNameMax
+    ? null
+    : name;
 
 /// The two headlines the topics lead can have.
 enum SheetTopicHeadline {
@@ -32,12 +33,12 @@ enum SheetTopicHeadline {
 }
 
 /// Which headline the topics lead gets. [fits] is whether the named
-/// headline, with the name cut by [middleEllipsis], fits in two lines. The
-/// layout measures it. No name, or no fit, is the generic one.
+/// headline fits in two lines. The layout measures it. No name, a name
+/// over [sheetHeadlineNameMax] characters, or no fit, is the generic one.
 SheetTopicHeadline sheetTopicHeadlineFor({
   required String? name,
   required bool fits,
-}) => name == null || name.isEmpty || !fits
+}) => sheetHeadlineName(name) == null || !fits
     ? SheetTopicHeadline.generic
     : SheetTopicHeadline.named;
 
