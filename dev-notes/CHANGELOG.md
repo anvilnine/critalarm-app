@@ -205,6 +205,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The offer setup step no longer plays the false alarm intro, its tag or its skip hint, and no longer writes paywall.false\_alarm\_shown, so the Settings plan row keeps its false alarm. The reel rises over the setup step, opaque, from the bottom edge in 400 ms (buildOfferLayerTransition). The kit keeps the intro, the tag rule and the hint parameter for other triggers. Removed offerIntro, offerUsesUpFalseAlarm and OnboardingOfferGate.markFalseAlarmShown.
 - Older strings that used page for an alarm say alarm, ring or wake instead (create\_critical\_body, critical\_alarm fallback title and body, no\_alarm\_body, the disconnect and server stage lines, the permission descriptions and the battery explanation).
 - tool/capture\_offer\_sequence.dart captures the new sequence (It works, Continue, the rise in four frames, thanks, hook up) and no longer captures the intro or tag. tool/capture\_works\_screen.dart has a works\_store\_unsure scene.
+- Redo onboarding in a build that skips the store plays on through the offer, on the answer picked in that replay, with the made-up buy model, and saves nothing. A build with the real store skips the offer in a replay as before.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

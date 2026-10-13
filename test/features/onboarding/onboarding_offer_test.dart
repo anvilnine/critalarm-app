@@ -218,6 +218,7 @@ void main() {
       bool holdsPro = false,
       bool holdsHosted = false,
       bool isReplay = false,
+      bool isDemoReplay = false,
       SetupUse? use,
     }) => decideOnboardingOffer(
       config: config,
@@ -227,6 +228,7 @@ void main() {
       holdsPro: holdsPro,
       holdsHosted: holdsHosted,
       isReplay: isReplay,
+      isDemoReplay: isDemoReplay,
       use: use,
     );
 
@@ -339,6 +341,79 @@ void main() {
         );
         expect(offerCountsAsReplay(isReplay: false, origin: origin), isFalse);
       }
+    });
+
+    test('a replay on the made-up store is not skipped as a replay', () {
+      for (final origin in OnboardingOfferOrigin.values) {
+        expect(
+          offerCountsAsReplay(
+            isReplay: true,
+            origin: origin,
+            usesDemoStore: true,
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('only a replay on the made-up store ignores the holdings', () {
+      expect(offerIgnoresHoldings(isReplay: true, usesDemoStore: true), isTrue);
+      expect(
+        offerIgnoresHoldings(isReplay: true, usesDemoStore: false),
+        isFalse,
+      );
+      // A real run never does, whatever store it has.
+      expect(
+        offerIgnoresHoldings(isReplay: false, usesDemoStore: true),
+        isFalse,
+      );
+    });
+
+    test('a demo replay shows with no account and a product held', () {
+      final shown = decide(
+        hasAccountId: false,
+        holdsPro: true,
+        holdsHosted: true,
+        isDemoReplay: true,
+        use: SetupUse.servers,
+      );
+      expect(shown.isShown, isTrue);
+      expect(shown.product, PaywallProduct.hosted);
+      // The same user in a real run skips.
+      expect(
+        decide(hasAccountId: false, holdsHosted: true).skipReason,
+        OfferSkipReason.noAccount,
+      );
+      expect(
+        decide(holdsHosted: true).skipReason,
+        OfferSkipReason.alreadyHeld,
+      );
+    });
+
+    test('a demo replay still follows the switches', () {
+      expect(
+        decide(
+          config: config(enabled: false),
+          isDemoReplay: true,
+        ).skipReason,
+        OfferSkipReason.notEnabled,
+      );
+      expect(
+        decide(
+          config: config(selfHosted: null),
+          isSelfHosted: true,
+          isDemoReplay: true,
+        ).skipReason,
+        OfferSkipReason.noProduct,
+      );
+      expect(
+        decide(
+          config: config(layout: 'sheet'),
+          builtLayoutKeys: const {'reel'},
+          isDemoReplay: true,
+        ).skipReason,
+        OfferSkipReason.unknownLayout,
+      );
     });
   });
 
@@ -584,6 +659,139 @@ void main() {
         developerJson: _onJson,
       ).decide(isReplay: true);
       expect(developer.isShown, isTrue);
+    });
+
+    group('a replay on the made-up store', () {
+      Future<OfferDecision> replay({
+        String? developerJson,
+        String? remoteJson,
+        bool usesDemoStore = true,
+        ServerMode? serverMode = ServerMode.hosted,
+        String? accountId = 'acct_1',
+        bool holdsPro = false,
+        bool holdsHosted = false,
+        SetupUse? use,
+      }) => offerGateFor(
+        developerJson: developerJson,
+        remoteJson: remoteJson,
+        usesDemoStore: usesDemoStore,
+        serverMode: serverMode,
+        accountId: accountId,
+        holdsPro: holdsPro,
+        holdsHosted: holdsHosted,
+        use: use,
+      ).decide(isReplay: true);
+
+      test('shows the offer with no developer value', () async {
+        final decision = await replay(use: SetupUse.servers);
+        expect(decision.isShown, isTrue);
+        expect(decision.product, PaywallProduct.hosted);
+        expect(decision.layoutKey, 'reel');
+        expect(decision.lead?.benefit, PaywallBenefitId.topics);
+      });
+
+      test('is led by the answer the replay picked', () async {
+        expect(
+          (await replay(use: SetupUse.home)).product,
+          PaywallProduct.pro,
+        );
+        expect(
+          (await replay(use: SetupUse.homelab)).lead?.benefit,
+          PaywallBenefitId.reliabilityChecks,
+        );
+      });
+
+      test('skips when the developer value is off', () async {
+        for (final raw in [_offJson, '{"enabled": false, "layout": "reel"}']) {
+          expect(
+            (await replay(developerJson: raw)).skipReason,
+            OfferSkipReason.notEnabled,
+            reason: raw,
+          );
+        }
+        // The remote value is a switch too.
+        expect(
+          (await replay(remoteJson: _offJson)).skipReason,
+          OfferSkipReason.notEnabled,
+        );
+      });
+
+      test('shows with no account and with the product held', () async {
+        expect((await replay(accountId: null)).isShown, isTrue);
+        expect((await replay(accountId: '')).isShown, isTrue);
+        expect((await replay(holdsHosted: true)).isShown, isTrue);
+        expect(
+          (await replay(holdsPro: true, use: SetupUse.home)).isShown,
+          isTrue,
+        );
+      });
+
+      test('reads no account and no holdings at all', () async {
+        Never fail() => throw StateError('not asked');
+        final gate = OnboardingOfferGate(
+          readDeveloperJson: () => null,
+          readRemoteJson: () => null,
+          readServerMode: () async => ServerMode.hosted,
+          builtLayoutKeys: () => const {'reel'},
+          readAccountId: () async => fail(),
+          holdsPro: fail,
+          readHoldsHosted: () async => fail(),
+          isSetupComplete: () async => false,
+          readFlowSteps: () => const [],
+          readCompletedSteps: () => const {},
+          readUsesDemoStore: () => true,
+        );
+        expect((await gate.decide(isReplay: true)).isShown, isTrue);
+      });
+
+      test('on an own server follows self_hosted_product', () async {
+        final pro = await replay(serverMode: ServerMode.selfhosted);
+        expect(pro.product, PaywallProduct.pro);
+        final none = await replay(
+          developerJson: '{"enabled": true, "self_hosted_product": "none"}',
+          serverMode: ServerMode.selfhosted,
+        );
+        expect(none.skipReason, OfferSkipReason.noProduct);
+      });
+
+      test('the real run beside it is unchanged', () async {
+        // The same phone, in a real run: the made-up store changes nothing.
+        Future<OfferSkipReason?> real({
+          String? accountId = 'acct_1',
+          bool holdsHosted = false,
+        }) async => (await offerGateFor(
+          usesDemoStore: true,
+          accountId: accountId,
+          holdsHosted: holdsHosted,
+        ).decide(isReplay: false)).skipReason;
+
+        expect(await real(), isNull);
+        expect(await real(accountId: null), OfferSkipReason.noAccount);
+        expect(await real(holdsHosted: true), OfferSkipReason.alreadyHeld);
+      });
+    });
+
+    group('a replay on a real store', () {
+      test('skips with no developer value', () async {
+        for (final remote in [null, _onJson]) {
+          final decision = await offerGateFor(
+            remoteJson: remote,
+          ).decide(isReplay: true);
+          expect(decision.skipReason, OfferSkipReason.replay);
+        }
+      });
+
+      test('shows only for a developer value, and asks the phone', () async {
+        final shown = await offerGateFor(
+          developerJson: _onJson,
+        ).decide(isReplay: true);
+        expect(shown.isShown, isTrue);
+        final held = await offerGateFor(
+          developerJson: _onJson,
+          holdsHosted: true,
+        ).decide(isReplay: true);
+        expect(held.skipReason, OfferSkipReason.alreadyHeld);
+      });
     });
 
     test('a read that throws ends in a skip, never in an error', () async {
