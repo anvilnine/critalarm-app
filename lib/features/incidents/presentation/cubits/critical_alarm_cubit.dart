@@ -30,6 +30,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+/// The line under an alarm's message: the time it arrived, then the tags
+/// when it has any ("13:30 / critical, db"). A message with no tags gets the
+/// time alone.
+@visibleForTesting
+String alarmMetaLine({required String time, required List<String> tags}) =>
+    tags.isEmpty ? time : '$time / ${tags.join(', ')}';
+
 /// Cubit managing CriticalAlarmScreen state.
 class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   CriticalAlarmCubit(
@@ -930,7 +937,14 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         clearFirstTool: firstToolId == null,
         meta: firstMsg == null
             ? ''
-            : '${_formatTime(DateTime.fromMillisecondsSinceEpoch(firstMsg.time * 1000).toLocal())} / ${firstMsg.tags.join(', ')}',
+            : alarmMetaLine(
+                time: _formatTime(
+                  DateTime.fromMillisecondsSinceEpoch(
+                    firstMsg.time * 1000,
+                  ).toLocal(),
+                ),
+                tags: firstMsg.tags,
+              ),
       ),
     );
 

@@ -17,6 +17,8 @@
 //   ringing_other          the setup test, answer "Something else": the
 //                          server's own words
 //   ringing_real_incident  a real incident with an answer saved: unchanged
+//   ringing_real_tagged    the same, with two tags: the time line reads
+//                          "<time> / critical, db"
 //   acked_servers          the setup test after "I'm up"
 //   first_frame_servers    the first frame that draws the alarm, before the
 //                          ring has settled
@@ -90,6 +92,9 @@ enum _Opens {
 
   /// A real incident.
   real,
+
+  /// A real incident whose message has tags.
+  realTagged,
 }
 
 class _Scene {
@@ -126,6 +131,11 @@ const _scenes = <_Scene>[
   _Scene('ringing_home', use: SetupUse.home),
   _Scene('ringing_other', use: SetupUse.other),
   _Scene('ringing_real_incident', use: SetupUse.servers, opens: _Opens.real),
+  _Scene(
+    'ringing_real_tagged',
+    use: SetupUse.servers,
+    opens: _Opens.realTagged,
+  ),
   _Scene('acked_servers', use: SetupUse.servers, isAcked: true),
   _Scene('first_frame_servers', use: SetupUse.servers, stopsAtFirstFrame: true),
   _Scene(
@@ -185,6 +195,7 @@ void main() {
         case _Opens.setupTest:
           incidentId = server.triggerTest(topic: 'prod-db');
         case _Opens.real:
+        case _Opens.realTagged:
           incidentId =
               server
                   .publishMessage(
@@ -192,6 +203,9 @@ void main() {
                     title: 'Primary database down',
                     message: 'Connection pool exhausted',
                     priority: 5,
+                    tags: scene.opens == _Opens.realTagged
+                        ? const ['critical', 'db']
+                        : null,
                   )
                   .incidentId ??
               '';
@@ -317,7 +331,8 @@ void main() {
                 'the server title was drawn in $framesWithServerTitle of '
                 '$frames frames',
           );
-        } else if (scene.opens == _Opens.real) {
+        } else if (scene.opens == _Opens.real ||
+            scene.opens == _Opens.realTagged) {
           expect(find.text('Primary database down'), findsOneWidget);
           expect(find.text('Connection pool exhausted'), findsOneWidget);
         } else {
