@@ -152,6 +152,7 @@ class HookUpCubit extends Cubit<HookUpState> {
               serverUrl: saved,
               token: held.token,
               templateId: held.templateId,
+              isCritical: held.isCritical,
             );
       if (held != null) await handoff.hold(held);
       if (isClosed) return;
@@ -166,6 +167,9 @@ class HookUpCubit extends Cubit<HookUpState> {
             ? null
             : ToolTemplate.fromId(held.templateId) ??
                   templates.read(held.topicName),
+        // What the topic was made with, so the words about ringing are
+        // right in the first frame. The list read below has the last word.
+        isCritical: held?.isCritical,
         isFirstMessageReceived: watcher.isReceived,
       ),
     );
@@ -326,6 +330,7 @@ class HookUpCubit extends Cubit<HookUpState> {
               serverUrl: serverUrl,
               token: made.token,
               templateId: state.template?.id,
+              isCritical: state.isCritical,
             ),
           );
           if (isClosed) return;

@@ -335,11 +335,13 @@
     "copy_token": "Copy token",
     "curl": "curl",
     "step_test": "Press Test. This phone rings.",
+    "step_test_lands": "Press Test. It lands on this phone.",
     "uptime_kuma_1": "Settings, Notifications, Setup Notification",
     "healthchecks_1": "Project, Integrations",
     "home_assistant_1": "Add this block to configuration.yaml, then restart",
     "home_assistant_2": "Add the action rest_command.critalarm to an automation",
     "home_assistant_3": "Run the automation. This phone rings.",
+    "home_assistant_3_lands": "Run the automation. It lands on this phone.",
     "jobs_note": "One line for the end of the script, or on failure."
   },
   "onboarding_permissions": {

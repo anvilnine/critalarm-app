@@ -321,7 +321,10 @@ and the thanks screen own those. `2026-10-b` and `2026-10-c` list it between
   servers (naming the user's topic), the weekly delivery check for homelab
   and jobs, widgets for home and for any answer on an own server. An answer
   of `other` keeps the paywall's own order. A lead never names a benefit the
-  product does not list.
+  product does not list. A scene whose picture has less room than
+  `reelStageMinHeight` (the smallest mascot and the room above it) draws no
+  picture and no placeholder, and the lead's line stands under the headline.
+  It happens at 320 wide and text scale 2.0 with a lead line.
 - The thanks screen has one button, "Hook up your tool". It pops the layer
   and the step finishes, so setup goes on to `hook_up` and never to Home.
   Closing the layer with the cross does the same with no purchase.
@@ -832,6 +835,12 @@ because no step is left.
   tool, keeps the curl screen: the face, the curl block with the tool's
   snippet after it. For the `jobs` answer that screen carries one line under
   the curl block about where a job sends it.
+- The last step follows the topic's Critical switch. `toolStepsFor` takes
+  `isCritical`: on keeps "This phone rings.", off or not known says "It lands
+  on this phone." A topic with Critical off does not ring. The switch is
+  `HookUpState.isCritical`, the one the `critical_off` note reads. It is
+  in the first frame because `FirstTopicHandoffEntry.isCritical` carries what
+  the topic was made with, and the topic list read has the last word.
 - The waiting card's line follows the saved tool when it has documented
   steps, and the answer's line otherwise (`waitingLineFor`).
 - `FirstMessageWatcher` (`lib/features/topics/domain/first_message/`) polls

@@ -361,6 +361,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             serverUrl: await _serverUrlToHandOn(),
             token: token,
             templateId: template?.id,
+            isCritical: topic.critical,
           ),
         );
         // Setup never shows this token on this screen. Should the app be

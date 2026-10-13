@@ -166,6 +166,32 @@ void main() {
     });
 
     test(
+      'the topic made with Critical on or off is handed on as made',
+      () async {
+        for (final isCritical in [true, false]) {
+          when(() => create(any())).thenAnswer(
+            (_) async => Topic(
+              name: 'setup-test',
+              token: 'tk_secret',
+              tokenId: 'tok_1',
+              critical: isCritical,
+            ).toSuccess(),
+          );
+          final cubit = CreateTopicCubit(create)
+            ..handoff = handoff
+            ..holdsHandoff = true
+            ..isOneStep = true
+            ..nameChanged('setup-test');
+          addTearDown(cubit.close);
+
+          await cubit.createTopic();
+
+          expect(handoff.entry!.isCritical, isCritical);
+        }
+      },
+    );
+
+    test(
       'the address is in the state as soon as the connection is read',
       () async {
         final connections = _Connections(

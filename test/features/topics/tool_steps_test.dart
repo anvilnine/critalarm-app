@@ -28,7 +28,7 @@ void main() {
   group('toolStepsFor', () {
     test('the three documented tools return three steps', () {
       for (final template in documented) {
-        final steps = toolStepsFor(template);
+        final steps = toolStepsFor(template, isCritical: true);
         expect(steps, isNotNull, reason: template.id);
         expect(steps!.keys, hasLength(3), reason: template.id);
         expect(steps.keys.toSet(), hasLength(3), reason: template.id);
@@ -38,20 +38,36 @@ void main() {
     test('every other tool, and no tool, returns null', () {
       for (final template in ToolTemplate.values) {
         if (documented.contains(template)) continue;
-        expect(toolStepsFor(template), isNull, reason: template.id);
+        expect(
+          toolStepsFor(template, isCritical: true),
+          isNull,
+          reason: template.id,
+        );
       }
-      expect(toolStepsFor(null), isNull);
+      expect(toolStepsFor(null, isCritical: true), isNull);
     });
 
     test('the answer never decides it: only the saved tool does', () {
       // toolStepsFor takes a tool and nothing else, so a servers user on
       // Uptime Kuma gets steps and a homelab user on cron does not.
       for (final use in SetupUse.values) {
-        expect(toolStepsFor(ToolTemplate.cron), isNull, reason: use.wire);
-        expect(toolStepsFor(ToolTemplate.curl), isNull, reason: use.wire);
-        expect(toolStepsFor(ToolTemplate.other), isNull, reason: use.wire);
         expect(
-          toolStepsFor(ToolTemplate.uptimeKuma),
+          toolStepsFor(ToolTemplate.cron, isCritical: true),
+          isNull,
+          reason: use.wire,
+        );
+        expect(
+          toolStepsFor(ToolTemplate.curl, isCritical: true),
+          isNull,
+          reason: use.wire,
+        );
+        expect(
+          toolStepsFor(ToolTemplate.other, isCritical: true),
+          isNull,
+          reason: use.wire,
+        );
+        expect(
+          toolStepsFor(ToolTemplate.uptimeKuma, isCritical: true),
           isNotNull,
           reason: use.wire,
         );
@@ -60,7 +76,7 @@ void main() {
 
     test('the block sits inside the steps', () {
       for (final template in documented) {
-        final steps = toolStepsFor(template)!;
+        final steps = toolStepsFor(template, isCritical: true)!;
         expect(steps.blockAfter, inInclusiveRange(1, steps.keys.length - 1));
       }
     });
@@ -70,7 +86,7 @@ void main() {
         ToolTemplate.uptimeKuma,
         ToolTemplate.healthchecks,
       ]) {
-        final keys = toolStepsFor(template)!.keys;
+        final keys = toolStepsFor(template, isCritical: true)!.keys;
         expect(keys.last, 'onboarding_hook_up_steps.step_test');
         // The middle step is the sentence the fields already had.
         expect(keys[1], 'onboarding_hook_up.tool_${template.id}');
@@ -79,18 +95,92 @@ void main() {
 
     test('every step key has words, with no dash and no banned word', () {
       for (final template in documented) {
-        for (final key in toolStepsFor(template)!.keys) {
-          final text = _lookup(key);
-          expect(text, isNotNull, reason: key);
-          expect(text, isNotEmpty, reason: key);
-          expect(text, isNot(contains('—')), reason: key);
-          expect(text, isNot(contains('–')), reason: key);
-          // The two sentences that name the tool's own provider are older
-          // than this block, and use its label.
-          if (key.startsWith('onboarding_hook_up_steps.')) {
-            expect(text!.toLowerCase(), isNot(contains('ntfy')), reason: key);
+        for (final isCritical in [true, false, null]) {
+          final keys = toolStepsFor(template, isCritical: isCritical)!.keys;
+          for (final key in keys) {
+            final text = _lookup(key);
+            expect(text, isNotNull, reason: key);
+            expect(text, isNotEmpty, reason: key);
+            expect(text, isNot(contains('—')), reason: key);
+            expect(text, isNot(contains('–')), reason: key);
+            // The two sentences that name the tool's own provider are older
+            // than this block, and use its label.
+            if (key.startsWith('onboarding_hook_up_steps.')) {
+              expect(
+                text!.toLowerCase(),
+                isNot(contains('ntfy')),
+                reason: key,
+              );
+            }
           }
         }
+      }
+    });
+  });
+
+  group('the last step follows the Critical switch', () {
+    String lastStep(ToolTemplate template, {required bool? isCritical}) =>
+        _lookup(toolStepsFor(template, isCritical: isCritical)!.keys.last)!;
+
+    test('on, the step says this phone rings', () {
+      expect(
+        lastStep(ToolTemplate.uptimeKuma, isCritical: true),
+        'Press Test. This phone rings.',
+      );
+      expect(
+        lastStep(ToolTemplate.healthchecks, isCritical: true),
+        'Press Test. This phone rings.',
+      );
+      expect(
+        lastStep(ToolTemplate.homeAssistant, isCritical: true),
+        'Run the automation. This phone rings.',
+      );
+    });
+
+    test('off, the first sentence stays and the second says it lands', () {
+      expect(
+        lastStep(ToolTemplate.uptimeKuma, isCritical: false),
+        'Press Test. It lands on this phone.',
+      );
+      expect(
+        lastStep(ToolTemplate.healthchecks, isCritical: false),
+        'Press Test. It lands on this phone.',
+      );
+      expect(
+        lastStep(ToolTemplate.homeAssistant, isCritical: false),
+        'Run the automation. It lands on this phone.',
+      );
+    });
+
+    test('not known yet, the step does not promise a ring', () {
+      for (final template in documented) {
+        expect(
+          lastStep(template, isCritical: null),
+          lastStep(template, isCritical: false),
+          reason: template.id,
+        );
+      }
+    });
+
+    test('only the last step changes, and the block stays where it was', () {
+      for (final template in documented) {
+        final on = toolStepsFor(template, isCritical: true)!;
+        final off = toolStepsFor(template, isCritical: false)!;
+        expect(off.keys, hasLength(on.keys.length), reason: template.id);
+        expect(
+          off.keys.sublist(0, off.keys.length - 1),
+          on.keys.sublist(0, on.keys.length - 1),
+          reason: template.id,
+        );
+        expect(off.keys.last, isNot(on.keys.last), reason: template.id);
+        expect(off.blockAfter, on.blockAfter, reason: template.id);
+      }
+    });
+
+    test('a tool with no steps has none in either state', () {
+      for (final isCritical in [true, false, null]) {
+        expect(toolStepsFor(ToolTemplate.cron, isCritical: isCritical), isNull);
+        expect(toolStepsFor(null, isCritical: isCritical), isNull);
       }
     });
   });
