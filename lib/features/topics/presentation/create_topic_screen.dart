@@ -587,6 +587,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
               errorText: state.errorMessage ?? duplicateError,
               enabled: !isSubmitting,
               maxLength: 100,
+              // In setup the name stays whole at a large text size: the type
+              // steps down to its default size before the line scrolls.
+              fitText: _isSetup,
               scrollPadding: _fieldScrollPadding,
               textInputAction: TextInputAction.done,
               inputFormatters: const [

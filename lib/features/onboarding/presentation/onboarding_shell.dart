@@ -320,10 +320,6 @@ class _OnboardingShellState extends State<OnboardingShell>
 
   bool _isGoingBack = false;
 
-  /// True while a step with no top bar of its own is scrolled, so its rows
-  /// run under the tracker.
-  bool _isScrolledUnder = false;
-
   Uri get _uri => widget.state.uri;
   bool get _isReplay => isOnboardingReplayUri(_uri);
   OnboardingStepEntry? get _entry =>
@@ -460,7 +456,6 @@ class _OnboardingShellState extends State<OnboardingShell>
     final after = _readFill();
     _fill = after;
     _opensOnItsOwn = _readOpensOnItsOwn();
-    _isScrolledUnder = false;
 
     final reduceMotion = context.reduceMotion;
     // A tick as a bar gains a step. An animation cue, so there is none
@@ -547,29 +542,6 @@ class _OnboardingShellState extends State<OnboardingShell>
     }
   }
 
-  bool _handleScroll(ScrollNotification notification) {
-    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
-      return false;
-    }
-    final isUnder = notification.metrics.pixels > 0;
-    if (isUnder == _isScrolledUnder) return false;
-    void show() {
-      if (mounted && isUnder != _isScrolledUnder) {
-        setState(() => _isScrolledUnder = isUnder);
-      }
-    }
-
-    // A list can move while the frame is being laid out, and nothing may be
-    // rebuilt then, so that one waits for the frame to finish.
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => show());
-    } else {
-      show();
-    }
-    return false;
-  }
-
   @override
   void dispose() {
     detachOnboardingStepLeave(_leave);
@@ -610,8 +582,6 @@ class _OnboardingShellState extends State<OnboardingShell>
     final onBack = showsTracker && _backStep != null && !_controller.isBackHeld
         ? () => unawaited(_goBack())
         : null;
-    final barHeight =
-        MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight;
 
     return Stack(
       children: [
@@ -648,88 +618,60 @@ class _OnboardingShellState extends State<OnboardingShell>
           ),
         ),
         Positioned.fill(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleScroll,
-            // The step slides and fades out, and the next one in. The canvas
-            // behind and the tracker above hold still. The widgets here stay
-            // the same at rest, so a step keeps its state through a change.
-            child: AnimatedBuilder(
-              animation: _motion,
-              builder: (context, child) {
-                final towards = _movesBack ? -1.0 : 1.0;
-                final (opacity, shift) = switch (_phase) {
-                  _StepMotionPhase.rest => (1.0, 0.0),
-                  _StepMotionPhase.leaving => () {
-                    final gone = Curves.easeIn.transform(_motion.value);
-                    return (1 - gone, -towards * _leaveSlide * gone);
-                  }(),
-                  _StepMotionPhase.entering => () {
-                    final here = AppCurves.easeOut.transform(_motion.value);
-                    return (here, towards * _enterSlide * (1 - here));
-                  }(),
-                };
-                return IgnorePointer(
-                  // A step on its way out takes no more taps.
-                  ignoring: _phase == _StepMotionPhase.leaving,
-                  child: Opacity(
-                    opacity: opacity.clamp(0.0, 1.0),
-                    child: FractionalTranslation(
-                      translation: Offset(shift, 0),
-                      child: child,
-                    ),
+          // The step slides and fades out, and the next one in. The canvas
+          // behind and the tracker above hold still. The widgets here stay
+          // the same at rest, so a step keeps its state through a change.
+          child: AnimatedBuilder(
+            animation: _motion,
+            builder: (context, child) {
+              final towards = _movesBack ? -1.0 : 1.0;
+              final (opacity, shift) = switch (_phase) {
+                _StepMotionPhase.rest => (1.0, 0.0),
+                _StepMotionPhase.leaving => () {
+                  final gone = Curves.easeIn.transform(_motion.value);
+                  return (1 - gone, -towards * _leaveSlide * gone);
+                }(),
+                _StepMotionPhase.entering => () {
+                  final here = AppCurves.easeOut.transform(_motion.value);
+                  return (here, towards * _enterSlide * (1 - here));
+                }(),
+              };
+              return IgnorePointer(
+                // A step on its way out takes no more taps.
+                ignoring: _phase == _StepMotionPhase.leaving,
+                child: Opacity(
+                  opacity: opacity.clamp(0.0, 1.0),
+                  child: FractionalTranslation(
+                    translation: Offset(shift, 0),
+                    child: child,
                   ),
-                );
-              },
-              child: AmbientScope(
-                // Every step sits on this canvas with a clear background, so
-                // each one backs its bars with the canvas colour while a row
-                // is scrolled under them, and at rest when the text is too
-                // large for the step to fit. The app name keeps to the top
-                // bar's height.
-                child: AppBarBackingScope(
-                  color: currentProfile.canvas,
-                  topBarMaxTextScale: setupTopBarMaxTextScale,
-                  child: OnboardingAmbientScope(
-                    controller: _controller,
-                    hasQuietLine: quietLine != null,
-                    showsTracker: showsTracker,
-                    onBack: onBack,
-                    child: widget.child,
-                  ),
+                ),
+              );
+            },
+            child: AmbientScope(
+              // Every step sits on this canvas with a clear background, so
+              // each one backs its bars with the canvas colour while a row
+              // is scrolled under them, and at rest when the text is too
+              // large for the step to fit. The app name keeps to the top
+              // bar's height. A step with no top bar of its own is backed
+              // the same way over the tracker the shell draws there.
+              child: AppBarBackingScope(
+                color: currentProfile.canvas,
+                topBarMaxTextScale: setupTopBarMaxTextScale,
+                barOverTop: showsTracker && !(_entry?.hasTopBar ?? true)
+                    ? AppScreenScaffold.topBarHeight
+                    : null,
+                child: OnboardingAmbientScope(
+                  controller: _controller,
+                  hasQuietLine: quietLine != null,
+                  showsTracker: showsTracker,
+                  onBack: onBack,
+                  child: widget.child,
                 ),
               ),
             ),
           ),
         ),
-        // A step with no top bar of its own has nothing behind the tracker
-        // once its rows scroll under it, so the shell backs it here.
-        if (showsTracker && !(_entry?.hasTopBar ?? true))
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: barHeight + 16,
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: _isScrolledUnder ? 1 : 0,
-                duration: context.motion(AppDurations.quick),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        currentProfile.canvas,
-                        currentProfile.canvas,
-                        currentProfile.canvas.withValues(alpha: 0),
-                      ],
-                      stops: [0, barHeight / (barHeight + 16), 1],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
         // Where a step's top bar has its title: Back when it is offered,
         // the small face and the three bars. Beside them, in the empty
         // corner, the word or three about the connect. Only Back takes

@@ -99,6 +99,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
 - tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
+- AppTextField.fitText steps the typed text down to the default size before the line scrolls, and keeps the box height; setup's topic name field uses it.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -195,6 +196,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The alarm screen's three error strings (acknowledge failed on a topic and on the alarm, and the alarm failing to load) say the alarm is still open, not the page.
 - Settings analytics line also names the setup answer, which the same switch sends.
 - capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
+- Setup steps with no top bar of their own now back the tracker with the app's default bar backing (AppBarBackingScope.barOverTop), and the shell no longer paints its own gradient.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
