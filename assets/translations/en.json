@@ -1327,18 +1327,18 @@
       },
       "wake_up_challenges": {
         "title": "Wake-up challenges",
-        "line": "Scan a QR code or type the topic's name to stop the alarm."
+        "line": "Type a name, solve a sum or scratch a card."
       },
       "reliability_checks": {
         "title": "Reliability checks",
         "line": "The app checks itself: a weekly delivery check, and fire drills."
       },
       "custom_sounds": {
-        "title": "Upload/Record your alarm",
+        "title": "Your own alarm sound",
         "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Customize the Alarm Screen",
+        "title": "Your own alarm screen look",
         "line": "Pick the look of the screen that rings."
       }
     },
@@ -1826,7 +1826,7 @@
     "widget_quiet": "Quiet",
     "widget_im_up": "I'm up",
     "widget_done": "Done",
-    "challenge_locked": "Scan to stop",
+    "challenge_locked": "At my desk",
     "challenge_stopped": "Stopped",
     "sound_name": "My rooster",
     "screen_wake_up": "Wake up"
@@ -1885,12 +1885,12 @@
       "topics": "Critical on every topic",
       "pushes": "Room for every push",
       "history": "Every alarm, kept longer",
-      "widgets": "Alarms on your home screen",
+      "widgets": "Home screen alarms",
       "app_icons": "Pick your own app icon",
       "wake_up_challenges": "Prove you are awake",
       "reliability_checks": "A delivery check every week",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm look"
     },
     "page": {
       "back_topics": "Topics",
@@ -1925,8 +1925,8 @@
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_false_alarm": {
@@ -1953,12 +1953,12 @@
       "topics": "Unlimited critical topics",
       "pushes": "{hosted_p4_daily} high priority pushes a day",
       "history": "{hosted_history_days} days of alarm history",
-      "widgets": "Widgets on your Home screen",
+      "widgets": "Widgets on your home screen",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_sentence": {
@@ -1969,7 +1969,7 @@
       "topics": "unlimited critical topics",
       "pushes": "{hosted_p4_daily} pushes a day",
       "history": "{hosted_history_days} days of history",
-      "widgets": "Home screen widgets",
+      "widgets": "home screen widgets",
       "app_icons": "three more app icons",
       "wake_up_challenges": "challenges that wake you up",
       "reliability_checks": "a weekly delivery check",
@@ -2004,8 +2004,8 @@
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_wipe": {
