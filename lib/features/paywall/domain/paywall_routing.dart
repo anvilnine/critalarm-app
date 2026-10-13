@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
@@ -168,6 +169,19 @@ PaywallPlaceRow paywallRowFor(PaywallPlace place) => switch (place) {
   ),
 };
 
+/// What the door worked out about a plan that is ending: which of the two
+/// layouts the person's numbers earn, and how many days of history the
+/// phone holds.
+@immutable
+class LeavingChoice {
+  const LeavingChoice({required this.showsReceipt, this.historyDaysHeld});
+
+  final bool showsReceipt;
+
+  /// Null when it is not known. That reads as enough history.
+  final int? historyDaysHeld;
+}
+
 /// What opens: a layout, the intro that plays before it, the thanks that
 /// plays after a confirmed purchase, the benefit it opens on and the
 /// headline variant.
@@ -237,6 +251,14 @@ class PaywallOpening {
 /// The thanks is a third value with no rule of its own: [developerThanks]
 /// outranks [remoteThanks]. It never opens a layout, so the shipped
 /// surface is still null whatever the thanks says.
+///
+/// [leaving] is the one input for a Hosted plan that is ending
+/// ([PaywallPlace.planEnding]), and no other place reads it. With good
+/// numbers the layout is the receipt and no lead. With thin ones it is Wipe,
+/// on history when the phone holds a week of it or more (or does not know),
+/// and on critical topics when it holds less. With no choice the table's
+/// row stands. A pinned layout still outranks all of it, and the headline
+/// is `leaving` either way. The receipt opens from no other place.
 PaywallOpening? paywallOpeningFor({
   required PaywallProduct product,
   required PaywallPlace place,
@@ -249,10 +271,27 @@ PaywallOpening? paywallOpeningFor({
   PaywallIntroId? legacyIntro,
   PaywallThanksId remoteThanks = PaywallThanksId.none,
   PaywallThanksId? developerThanks,
+  LeavingChoice? leaving,
 }) {
   final setting = developer ?? remote;
   if (setting.isShipped) return null;
-  final row = paywallRowFor(place);
+  var row = paywallRowFor(place);
+  if (product == PaywallProduct.hosted &&
+      place == PaywallPlace.planEnding &&
+      leaving != null) {
+    final held = leaving.historyDaysHeld;
+    final hasWeek = held == null || held >= (AccountCaps.free.historyDays ?? 7);
+    row = leaving.showsReceipt
+        ? const PaywallPlaceRow(
+            PaywallLayoutId.receipt,
+            headline: PaywallHeadlineVariant.leaving,
+          )
+        : PaywallPlaceRow(
+            PaywallLayoutId.wipe,
+            lead: hasWeek ? PaywallBenefitId.history : PaywallBenefitId.topics,
+            headline: PaywallHeadlineVariant.leaving,
+          );
+  }
 
   var layout = setting.layout ?? row.layout;
   // Doors left the table. A value that still names it opens hero.

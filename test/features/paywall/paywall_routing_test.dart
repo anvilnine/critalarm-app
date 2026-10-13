@@ -29,6 +29,7 @@ PaywallOpening? _open(
   PaywallThanksId? developerThanks,
   bool hasSeenFalseAlarm = false,
   Set<PaywallBenefitId>? listed,
+  LeavingChoice? leaving,
 }) => paywallOpeningFor(
   product: product,
   place: place,
@@ -41,6 +42,7 @@ PaywallOpening? _open(
   developerThanks: developerThanks,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
   listedBenefits: listed ?? _all,
+  leaving: leaving,
 );
 
 PaywallLayoutId? paywallLayoutFor({
@@ -850,6 +852,140 @@ void main() {
         'PaywallOpening(hero, intro: none, thanks: confetti, '
         'lead: null, headline: none)',
       );
+    });
+  });
+
+  group('the plan ending', () {
+    PaywallOpening open(LeavingChoice? leaving, {String remote = 'auto'}) =>
+        _open(
+          _hosted,
+          PaywallPlace.planEnding,
+          remote: remote,
+          hasSeenFalseAlarm: true,
+          leaving: leaving,
+        )!;
+
+    test('good numbers open the receipt, with no lead', () {
+      final opening = open(
+        const LeavingChoice(showsReceipt: true, historyDaysHeld: 60),
+      );
+      expect(opening.layout, PaywallLayoutId.receipt);
+      expect(opening.lead, isNull);
+      expect(opening.headline, PaywallHeadlineVariant.leaving);
+    });
+
+    test('thin numbers open Wipe on history when 7 days or more are held', () {
+      for (final days in [7, 8, 90, null]) {
+        final opening = open(
+          LeavingChoice(showsReceipt: false, historyDaysHeld: days),
+        );
+        expect(opening.layout, PaywallLayoutId.wipe, reason: '$days');
+        expect(opening.lead, PaywallBenefitId.history, reason: '$days');
+        expect(opening.headline, PaywallHeadlineVariant.leaving);
+      }
+    });
+
+    test('thin numbers and under 7 days held open Wipe on critical topics', () {
+      for (final days in [0, 3, 6]) {
+        final opening = open(
+          LeavingChoice(showsReceipt: false, historyDaysHeld: days),
+        );
+        expect(opening.layout, PaywallLayoutId.wipe, reason: '$days');
+        expect(opening.lead, PaywallBenefitId.topics, reason: '$days');
+      }
+    });
+
+    test('no choice is the table row: Wipe on history', () {
+      final opening = open(null);
+      expect(opening.layout, PaywallLayoutId.wipe);
+      expect(opening.lead, PaywallBenefitId.history);
+    });
+
+    test('a pinned layout outranks the choice and keeps the headline', () {
+      for (final remote in ['hero', 'wipe', 'receipt']) {
+        final opening = open(
+          const LeavingChoice(showsReceipt: false, historyDaysHeld: 60),
+          remote: remote,
+        );
+        expect(opening.layout.key, remote);
+        expect(opening.headline, PaywallHeadlineVariant.leaving);
+      }
+      final pinned = open(
+        const LeavingChoice(showsReceipt: true, historyDaysHeld: 60),
+        remote: 'hero',
+      );
+      expect(pinned.layout, PaywallLayoutId.hero);
+      expect(pinned.headline, PaywallHeadlineVariant.leaving);
+    });
+
+    test('a Developer options choice outranks the choice and the remote', () {
+      final opening = _open(
+        _hosted,
+        PaywallPlace.planEnding,
+        remote: 'wipe',
+        developer: PaywallLayoutSetting.parse('bento'),
+        hasSeenFalseAlarm: true,
+        leaving: const LeavingChoice(showsReceipt: true, historyDaysHeld: 60),
+      )!;
+      expect(opening.layout, PaywallLayoutId.bento);
+      expect(opening.headline, PaywallHeadlineVariant.leaving);
+    });
+
+    test('at the defaults the choice opens nothing: the shipped paywall', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.planEnding,
+          hasSeenFalseAlarm: true,
+          leaving: const LeavingChoice(showsReceipt: true),
+        ),
+        isNull,
+      );
+    });
+
+    test('the choice means nothing at any other place', () {
+      final opening = _open(
+        _hosted,
+        PaywallPlace.planEnded,
+        remote: 'auto',
+        hasSeenFalseAlarm: true,
+        leaving: const LeavingChoice(showsReceipt: true),
+      )!;
+      expect(opening.layout, PaywallLayoutId.wipe);
+      expect(opening.headline, PaywallHeadlineVariant.ended);
+    });
+
+    test('the receipt opens from the plan ending and from no other place', () {
+      const choices = [
+        null,
+        LeavingChoice(showsReceipt: true),
+        LeavingChoice(showsReceipt: true, historyDaysHeld: 0),
+        LeavingChoice(showsReceipt: false, historyDaysHeld: 3),
+        LeavingChoice(showsReceipt: false, historyDaysHeld: 60),
+      ];
+      for (final product in PaywallProduct.values) {
+        for (final place in PaywallPlace.values) {
+          for (final choice in choices) {
+            final layout = _open(
+              product,
+              place,
+              remote: 'auto',
+              hasSeenFalseAlarm: true,
+              leaving: choice,
+            )?.layout;
+            final opensReceipt = layout == PaywallLayoutId.receipt;
+            final isEndingWithGoodNumbers =
+                product == PaywallProduct.hosted &&
+                place == PaywallPlace.planEnding &&
+                (choice?.showsReceipt ?? false);
+            expect(
+              opensReceipt,
+              isEndingWithGoodNumbers,
+              reason: '${product.key} $place ${choice?.showsReceipt}',
+            );
+          }
+        }
+      }
     });
   });
 }

@@ -1878,6 +1878,10 @@
   "paywall_history_own": {
     "headline": "See older alarms"
   },
+  "paywall_leaving": {
+    "button": "Keep {name}",
+    "note": "Critical topics already on keep ringing either way."
+  },
   "paywall_sheet": {
     "headline": {
       "topics": "Critical on every topic",
@@ -2011,6 +2015,9 @@
     "headline_pro": "See what Pro adds",
     "tag_free": "Free",
     "compare_label": "Compare {before} and {name}"
+  },
+  "paywall_wipe_ended": {
+    "headline": "Get {name} back"
   },
   "paywall_bento": {
     "brand": "Crit Alarm {name}",
