@@ -309,6 +309,7 @@ void main() {
     test('each is one file, sound only, with no flavours', () {
       for (final cue in [
         PaywallCue.scoreBreakLiftRing,
+        PaywallCue.scoreBreakLift,
         PaywallCue.scoreCloudClimb,
       ]) {
         expect(cue.haptic, HapticPattern.none, reason: cue.name);

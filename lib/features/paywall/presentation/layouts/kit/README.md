@@ -279,6 +279,7 @@ timeline's seconds, the Crit call, and the end.
   swap leaves the tail to ring out.
 - **Skip.** A tap before the swap stops the score (`PaywallCues.stop`), and the end state plays as
   it does with no outro. So does motion turned off half way and the route going away.
+- **Break and lift** has the calm score: `ui_score_break_lift.m4a`, 3.698 s, two light taps under it, ringing 0.9 s past the swap.
 - **A new score** is a new file, a new cue, and a `score` and `scoreSeconds` on the outro. The
   file should end on a plain D major chord, ring out inside 1.2 s past the swap, and sit 12 dB or
   more under its peak at the swap.
