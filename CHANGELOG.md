@@ -5,9 +5,13 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Added
 - Setup asks what you want to be woken for and fills in your first topic to match.
 - After your first test alarm, setup shows what Hosted adds, or the Pro pack if you use Crit Alarm for your home, before it moves on to hooking up your tool. Close it at any time, and nothing rings falsely.
+- Settings shows whether you have Pro, and has a See Pro button if you do not.
+- Wake-up challenges are on the Pro page, and a locked challenge opens a page about challenges.
 
 ### Changed
 - The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
+- Every locked feature now opens the same full-screen plans page, for Hosted and for Pro. The small Pro sheet is gone.
+- After you buy Hosted or Pro, the app plays a short thank-you before it takes you back.
 
 ### Fixed
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
