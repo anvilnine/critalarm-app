@@ -16,6 +16,7 @@ import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/domain/leaving_seen.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
@@ -192,21 +193,39 @@ class PaywallDoor {
 
   /// The location that opens Hosted for [source]. [own] is the person's
   /// own history rows: the location carries them only when the place leads
-  /// with history.
-  String hostedLocation(PaywallSource source, {HistoryOwn? own}) {
+  /// with history. [facts] is the person's own critical topic count and
+  /// the topic they were making: the location carries them only when the
+  /// place leads with topics, and the shipped paywall ignores them.
+  String hostedLocation(
+    PaywallSource source, {
+    HistoryOwn? own,
+    PaywallLeadFacts? facts,
+  }) {
     final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
-    return opening == null
-        ? paywallLocation(source)
-        : paywallLayoutLocation(
-            opening.layout,
-            PaywallProduct.hosted,
-            intro: opening.intro,
-            thanks: opening.thanks,
-            source: source,
-            lead: opening.lead,
-            headline: opening.headline,
-            own: opening.lead == PaywallBenefitId.history ? own : null,
-          );
+    if (opening == null) return paywallLocation(source);
+    final location = paywallLayoutLocation(
+      opening.layout,
+      PaywallProduct.hosted,
+      intro: opening.intro,
+      thanks: opening.thanks,
+      source: source,
+      lead: opening.lead,
+      headline: opening.headline,
+      own: opening.lead == PaywallBenefitId.history ? own : null,
+    );
+    return opening.lead == PaywallBenefitId.topics && facts != null
+        ? _withFacts(location, facts)
+        : location;
+  }
+
+  /// [location] with the entries of [facts] added after its own.
+  static String _withFacts(String location, PaywallLeadFacts facts) {
+    final entries = facts.toQuery();
+    if (entries.isEmpty) return location;
+    final uri = Uri.parse(location);
+    return uri
+        .replace(queryParameters: {...uri.queryParameters, ...entries})
+        .toString();
   }
 
   /// The location that opens Hosted for a cancelled plan that ends on
@@ -388,8 +407,10 @@ PaywallDoor? get _door =>
 
 /// The location that opens the Hosted paywall for [source]. Every place
 /// that opens it asks here.
-String hostedPaywallLocation(PaywallSource source) =>
-    _door?.hostedLocation(source) ?? paywallLocation(source);
+String hostedPaywallLocation(
+  PaywallSource source, {
+  PaywallLeadFacts? facts,
+}) => _door?.hostedLocation(source, facts: facts) ?? paywallLocation(source);
 
 /// The location that opens the leaving paywall: see
 /// [PaywallDoor.leavingLocation]. Never throws.
@@ -399,13 +420,16 @@ Future<String> leavingPaywallLocation(DateTime endsAt) async =>
 
 /// [hostedPaywallLocation] for [source], with the person's own history rows
 /// when the place leads with history. For a caller that can wait a moment.
-Future<String> hostedPaywallLocationWithOwn(PaywallSource source) async {
+Future<String> hostedPaywallLocationWithOwn(
+  PaywallSource source, {
+  PaywallLeadFacts? facts,
+}) async {
   final door = _door;
   if (door == null) return paywallLocation(source);
   final leadsWithHistory =
       paywallRowFor(paywallPlaceOf(source)).lead == PaywallBenefitId.history;
   final own = leadsWithHistory ? await door.readHistoryOwn() : null;
-  return door.hostedLocation(source, own: own);
+  return door.hostedLocation(source, own: own, facts: facts);
 }
 
 /// [location] as the app should open it: see [PaywallDoor.resolve].
@@ -446,8 +470,9 @@ Future<void> openProPaywall(BuildContext context, ProPackSheetSource source) {
 Future<void> openPaywallFor(
   BuildContext context,
   FeatureDecision decision,
-  LockSource source,
-) async {
+  LockSource source, {
+  PaywallLeadFacts? facts,
+}) async {
   final Holding offer;
   switch (decision) {
     case FeatureLocked():
@@ -460,7 +485,10 @@ Future<void> openPaywallFor(
   }
   switch (offer) {
     case Holding.hosted:
-      final location = await hostedPaywallLocationWithOwn(source.hosted);
+      final location = await hostedPaywallLocationWithOwn(
+        source.hosted,
+        facts: facts,
+      );
       if (!context.mounted) return;
       await context.push<void>(location);
     case Holding.pro:
@@ -471,10 +499,14 @@ Future<void> openPaywallFor(
 /// The location [openPaywallFor] opens, or null when [decision] locks
 /// nothing. For a caller that holds a router and no context, such as a
 /// sheet that closes itself before the paywall opens.
-String? paywallLocationFor(FeatureDecision decision, LockSource source) {
+String? paywallLocationFor(
+  FeatureDecision decision,
+  LockSource source, {
+  PaywallLeadFacts? facts,
+}) {
   if (decision is! FeatureLocked) return null;
   return switch (decision.offer) {
-    Holding.hosted => hostedPaywallLocation(source.hosted),
+    Holding.hosted => hostedPaywallLocation(source.hosted, facts: facts),
     Holding.pro =>
       _door?.proLayoutLocation(source.pro) ?? proPackSheetLocation(source.pro),
   };

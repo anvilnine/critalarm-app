@@ -61,6 +61,61 @@ void main() {
     });
   });
 
+  group('a headline of two lines', () {
+    test('adds its height to the words and to what the sheet wants', () {
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false, headlineExtra: 32),
+        sheetWordsHeight(4, hasAlso: true, showsLead: false) + 32,
+      );
+      expect(sheetWordsHeight(1, headlineExtra: 32), sheetWordsHeight(1) + 32);
+      expect(
+        sheetWantedHeight(
+          buyBlockHeight: 200,
+          benefitCount: 4,
+          bottomInset: 0,
+          headlineExtra: 32,
+        ),
+        sheetWantedHeight(
+              buyBlockHeight: 200,
+              benefitCount: 4,
+              bottomInset: 0,
+            ) +
+            32,
+      );
+    });
+
+    test('moves the sheet up when the screen has the room', () {
+      SheetPlan plan(double extra) => sheetPlanFor(
+        screenHeight: 844,
+        topInset: 47,
+        bottomInset: 22,
+        isCompact: false,
+        buyBlockHeight: 98,
+        benefitCount: 5,
+        hasAlso: true,
+        showsLead: false,
+        headlineExtra: extra,
+      );
+      expect(plan(32).sheetTop, lessThanOrEqualTo(plan(0).sheetTop));
+      expect(plan(32).rowsAbove, lessThanOrEqualTo(plan(0).rowsAbove));
+    });
+
+    test('changes nothing at a large text size', () {
+      final plain = planFor(textScale: 2);
+      final extra = sheetPlanFor(
+        screenHeight: 844,
+        topInset: 47,
+        bottomInset: 22,
+        isCompact: false,
+        buyBlockHeight: 200,
+        benefitCount: 4,
+        textScale: 2,
+        headlineExtra: 64,
+      );
+      expect(extra.sheetTop, plain.sheetTop);
+    });
+  });
+
   group('sheetPlanFor', () {
     test('the lit row is above the sheet with room for the mascot', () {
       for (final compact in [false, true]) {

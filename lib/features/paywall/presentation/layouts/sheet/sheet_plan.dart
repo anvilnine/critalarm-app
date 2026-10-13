@@ -134,15 +134,19 @@ const double sheetCardMedium = 120;
 /// the "Also included" label at a smaller size. A group needs a second
 /// benefit. A lead drawn with no line of its own ([showsLead] false) takes
 /// no room, and the label sits right under the headline.
+///
+/// [headlineExtra] is the height a headline of more than one line adds
+/// (zero for one line).
 double sheetWordsHeight(
   int benefitCount, {
   bool hasAlso = false,
   bool showsLead = true,
+  double headlineExtra = 0,
 }) {
   final count = math.max(1, benefitCount);
-  if (!hasAlso || count < 2) return 56 + 24.0 * count;
+  if (!hasAlso || count < 2) return 56 + 24.0 * count + headlineExtra;
   final others = 20.0 * (count - 1);
-  return showsLead ? 56 + 24 + 26 + others : 56 + 20 + others;
+  return (showsLead ? 56 + 24 + 26 + others : 56 + 20 + others) + headlineExtra;
 }
 
 /// The height the sheet needs at the default text size for a stage
@@ -155,9 +159,15 @@ double sheetWantedHeight({
   double stage = sheetStageFull,
   bool hasAlso = false,
   bool showsLead = true,
+  double headlineExtra = 0,
 }) =>
     stage +
-    sheetWordsHeight(benefitCount, hasAlso: hasAlso, showsLead: showsLead) +
+    sheetWordsHeight(
+      benefitCount,
+      hasAlso: hasAlso,
+      showsLead: showsLead,
+      headlineExtra: headlineExtra,
+    ) +
     buyBlockHeight +
     bottomInset;
 
@@ -186,6 +196,7 @@ SheetPlan sheetPlanFor({
   double textScale = 1,
   bool hasAlso = false,
   bool showsLead = true,
+  double headlineExtra = 0,
 }) {
   final isLargeText = textScale > 1.01;
   SheetPlan plan(SheetHeader header, int rows, {bool isMeasured = true}) =>
@@ -209,6 +220,7 @@ SheetPlan sheetPlanFor({
     stage: stage,
     hasAlso: hasAlso,
     showsLead: showsLead,
+    headlineExtra: headlineExtra,
   );
   bool fits(SheetPlan plan, double stage) =>
       screenHeight - plan.sheetTop >= wanted(stage);
