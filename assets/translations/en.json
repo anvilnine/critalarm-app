@@ -1883,7 +1883,7 @@
   },
   "paywall_leaving_receipt": {
     "headline": "Leaving soon?",
-    "subline": "Here is your last {days} days.",
+    "subline": "Here are your last {days} days.",
     "subline_one": "Here is your last day.",
     "row_rang": "Alarms that rang",
     "row_answered": "You answered",
