@@ -120,9 +120,11 @@ class PaywallPlaceRow {
   final PaywallHeadlineVariant headline;
 }
 
-/// The table. The same for both products: Pro has no entry point in the
-/// rows that are Hosted only. The one place a place is mapped to a lead
-/// benefit.
+/// The table. The one place a place is mapped to a lead benefit.
+///
+/// It is the same for both products, and a product opens a row only when
+/// it has the row's lead as a benefit of its own. A product that has none
+/// opens the plan row instead: see [paywallOpeningFor].
 PaywallPlaceRow paywallRowFor(PaywallPlace place) => switch (place) {
   PaywallPlace.criticalLimit => const PaywallPlaceRow(
     PaywallLayoutId.sheet,
@@ -264,6 +266,12 @@ class PaywallOpening {
 /// always come from the place. A lead that is not in [listedBenefits] (what
 /// this build lists for [product]) is dropped and the layout stays.
 ///
+/// A place whose lead [product] has no benefit of its own for (Pro at the
+/// critical limit, History, the weekly check and the app icons, Hosted at
+/// widgets and own sounds) is not that place for [product]. It opens the
+/// product's plan place, a Hero with no lead, and never the Sheet or the
+/// Proof of a place that sells something else.
+///
 /// The intro is a second value. [developerIntro] outranks the table's
 /// intro, which only Hosted plays. The false alarm plays once on an install:
 /// while [hasSeenFalseAlarm] is true no setting plays it again.
@@ -295,6 +303,10 @@ PaywallOpening paywallOpeningFor({
   LeavingChoice? leaving,
 }) {
   var row = paywallRowFor(place);
+  final ownLead = row.lead;
+  if (ownLead != null && !paywallProductHasBenefit(product, ownLead)) {
+    row = paywallRowFor(PaywallPlace.plan);
+  }
   if (product == PaywallProduct.hosted &&
       place == PaywallPlace.planEnding &&
       leaving != null) {

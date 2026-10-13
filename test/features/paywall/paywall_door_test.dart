@@ -10,6 +10,7 @@ import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
@@ -112,6 +113,15 @@ class _Install {
 PaywallLayoutSetting _pin(PaywallLayoutId layout) =>
     PaywallLayoutSetting.pinned(layout);
 
+/// The place a pair opens: [place], or the plan place when [product] has no
+/// benefit of its own for the lead [place] names.
+PaywallPlace _opened(PaywallProduct product, PaywallPlace place) {
+  final lead = paywallRowFor(place).lead;
+  return lead == null || paywallProductHasBenefit(product, lead)
+      ? place
+      : PaywallPlace.plan;
+}
+
 void main() {
   group('with no setting of any kind', () {
     test('every Hosted source opens the layout of its place', () {
@@ -119,9 +129,10 @@ void main() {
       for (final source in PaywallSource.values) {
         final location = install.door.hostedLocation(source);
         final uri = Uri.parse(location);
+        final opened = _opened(PaywallProduct.hosted, paywallPlaceOf(source));
         expect(
           uri.path,
-          '/plans/${paywallRowFor(paywallPlaceOf(source)).layout.key}',
+          '/plans/${paywallRowFor(opened).layout.key}',
           reason: source.wire,
         );
         expect(uri.queryParameters['product'], 'hosted', reason: source.wire);
@@ -135,9 +146,10 @@ void main() {
       final install = _Install();
       for (final source in ProPackSheetSource.values) {
         final uri = Uri.parse(install.door.proLayoutLocation(source));
+        final opened = _opened(PaywallProduct.pro, paywallPlaceOfPro(source));
         expect(
           uri.path,
-          '/plans/${paywallRowFor(paywallPlaceOfPro(source)).layout.key}',
+          '/plans/${paywallRowFor(opened).layout.key}',
           reason: source.wire,
         );
         expect(uri.queryParameters['product'], 'pro', reason: source.wire);
@@ -340,8 +352,9 @@ void main() {
         ..widgets = const FeatureDecision.locked(Holding.hosted);
       expect(
         install.door.resolve(tap),
-        // Hosted does not list widgets, so the location names no lead.
-        '/plans/sheet?product=hosted&source=widget_locked$_hostedEnd',
+        // Hosted has no widgets benefit, so this is its plan layout, with
+        // no lead.
+        '/plans/hero?product=hosted&source=widget_locked$_hostedEnd',
       );
     });
 
@@ -391,7 +404,8 @@ void main() {
       final install = _Install.plain();
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
-        '/plans/proof?product=pro&source=reliability',
+        // Hosted unlocks the weekly check, so Pro opens its plan layout.
+        '/plans/hero?product=pro&source=reliability',
       );
     });
 
@@ -479,7 +493,7 @@ void main() {
       final install = _Install.plain();
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.createTopicCard),
-        '/plans/sheet?product=pro&source=create_topic_card',
+        '/plans/hero?product=pro&source=create_topic_card',
       );
       expect(install.marks, 0);
     });
@@ -599,7 +613,8 @@ void main() {
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.reliability),
-        '/plans/proof?product=pro&source=reliability',
+        // Hosted unlocks the weekly check, so Pro opens its plan layout.
+        '/plans/hero?product=pro&source=reliability',
       );
     });
 
@@ -636,11 +651,11 @@ void main() {
         install.door.hostedLocation(PaywallSource.appIcon),
         '/plans/sheet?product=hosted&source=app_icon&lead=app_icons',
       );
-      // Own sounds are a Pro benefit: Hosted does not list it, so only the
-      // Pro location carries the lead.
+      // Own sounds are a Pro benefit: Hosted has none, so its location is
+      // the plan layout with no lead, and only the Pro location carries it.
       expect(
         install.door.hostedLocation(PaywallSource.personalizeSound),
-        '/plans/sheet?product=hosted&source=personalize_sound',
+        '/plans/hero?product=hosted&source=personalize_sound',
       );
       expect(
         install.door.proLayoutLocation(ProPackSheetSource.personalizeSound),
