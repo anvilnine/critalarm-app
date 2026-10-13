@@ -25,6 +25,9 @@ enum ProPackSheetSource {
 
   // An own alarm sound, from any of the ways in.
   sounds('sounds'),
+
+  // The Pro row in the Settings plan section.
+  settingsPlan('settings_plan'),
   direct('direct');
 
   const ProPackSheetSource(this.wire);

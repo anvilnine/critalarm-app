@@ -272,6 +272,23 @@ abstract final class SettingsSearchIndex {
       ],
       hiddenWhenSelfHosted: true,
     ),
+    // The Pro row sits under the plan card on the Settings tab. Pro is bought
+    // in the app, so an own server finds it too.
+    const SettingsDestination(
+      id: 'pro',
+      routePath: '/settings',
+      titleKey: LocaleKeys.settings_pro_title,
+      parentTitleKey: LocaleKeys.settings_plan_header,
+      keywords: <String>[
+        'pro',
+        'looks',
+        'own sound',
+        'widgets',
+        'one time',
+        'purchase',
+        'buy',
+      ],
+    ),
     const SettingsDestination(
       id: 'version',
       routePath: '/settings/about',
