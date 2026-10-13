@@ -278,7 +278,7 @@ void main() {
       // The number comes from the one place Hosted numbers are kept.
       expect(
         reelLineFor(servers),
-        'Free rings 2 topics. Hosted rings all of them.',
+        'Free rings 2 critical topics. Hosted rings all of them.',
       );
       expect(
         reelLineFor(reaches),
@@ -333,7 +333,7 @@ void main() {
       );
       expect(
         reelHeadlineFor(benefit(hosted, PaywallBenefitId.reliabilityChecks)),
-        'Weekly reliability checks',
+        'Weekly delivery check',
       );
       expect(reelLineFor(null), isNull);
       expect(

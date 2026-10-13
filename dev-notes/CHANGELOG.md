@@ -189,6 +189,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Home card that waits for the first message names the step for the saved answer and tool, and its line can wrap to three lines.
 - The first topic in setup arrives filled from the answer to the question step, with other names and the tools as one-line chips that scroll sideways, and the Terms and Privacy links sit at the end of the page so rows no longer run under them.
 - The offer setup step plays the false alarm, a reel that opens on the answer from the use step and the confetti thanks, and its thanks button opens hook up. It asks the store what is on sale first and skips with no intro when nothing is. cloud\_product takes auto, the bundled layout is reel, the three offer funnel events carry use, and Developer options replay the step on one answer.
+- Setup stats line on the hook-up step now names the answer to the question step. The hero, receipt, reel and sentence paywall layouts and the thanks tick call the Hosted weekly check Weekly delivery check, the name Settings uses.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
