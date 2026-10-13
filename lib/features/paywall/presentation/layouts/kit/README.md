@@ -160,7 +160,8 @@ const PaywallThanks confettiThanks = PaywallThanks(
 **Second zero is the confirmed purchase.** `PaywallThanksHost` starts the clock on the frame the
 buy model says the product is held after a trip to the store (`paywallThanksKindFor`), and never
 before. A cancel, a failure, a restore that found nothing and a held payment start nothing.
-The buy block plays `PaywallCue.bought` on that same frame, so a version never plays it. The cue
+The buy block plays `PaywallCue.bought` on that same frame, so a version never plays it. When an
+outro plays and has a score, the score takes its place (see "Outro scores" under "Add an outro"). The cue
 is a click, a short pick up, one swell that starts at 0.4 and peaks at 0.6, and a tail that is
 over by `paywallBoughtCueSeconds` (2.2). Time the show to that.
 
@@ -257,9 +258,31 @@ share of the height, and stretch), and the host lands the outro's mascot on the 
 applied (`thanksCritSeen`), so the swap is exact even when the version is mid jump. A version
 whose mascot also leans at the swap needs a `pickUp` where the lean is zero.
 
-**Beats.** The purchase cue owns the first `paywallBoughtCueSeconds` (2.2), so every beat of an
-outro is `PaywallThanksBeat.tap`. `PaywallOutro.isSound` checks it and a test asks it of every
+**Beats.** The purchase sound owns the first `paywallBoughtCueSeconds` (2.2) with no outro, and
+the whole score with one (see "Outro scores"), so every beat of an outro is
+`PaywallThanksBeat.tap`. `PaywallOutro.isSound` checks it and a test asks it of every
 outro. Nothing may ring or buzz like an alarm.
+
+**Outro scores.** An outro may name a `score`, one composed piece of music in one m4a file under
+`assets/ui_sounds/`, with a `PaywallCue` for it (sound only, no flavours, no haptic) and its file
+length in `scoreSeconds`. It starts on the purchase frame and is timed to the picture, in D major.
+It takes the place of `PaywallCue.bought`: `paywallPurchaseCue` picks the score when an outro plays
+and has one, and `bought` for everything else (no outro, an outro with no score, a thanks of
+`none`, a restore). `isSound` asks that a named score is a cue with a sound and that its length
+reaches the swap. `OUTRO-SCORES.md` is where the composition rules live: the tempo from the
+timeline's seconds, the Crit call, and the end.
+
+- **The tail.** The file rings on after the swap, under the end state, and the player has one
+  voice: any other sound that starts stops it dead. So no heard beat of an end state may start
+  before `scoreSeconds` (`paywallThanksBeatsAfterOutro` drops one that would). Today the first
+  heard beat of every end state falls after the file ends. For the same reason a skip after the
+  swap leaves the tail to ring out.
+- **Skip.** A tap before the swap stops the score (`PaywallCues.stop`), and the end state plays as
+  it does with no outro. So does motion turned off half way and the route going away.
+- **A new score** is a new file, a new cue, and a `score` and `scoreSeconds` on the outro. The
+  file should end on a plain D major chord, ring out inside 1.2 s past the swap, and sit 12 dB or
+  more under its peak at the swap.
+- Interface sounds off plays no score, as for every cue.
 
 What the host does, so an outro does not:
 
