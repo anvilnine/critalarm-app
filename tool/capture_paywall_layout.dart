@@ -40,6 +40,18 @@
 //                                  junk goes in as junk. Leave a part empty
 //                                  to leave it out, as in `,,billing-api`.
 //                                  Needs LEAD=topics (default none).
+//   --dart-define=ENDS=<yyyy-MM-dd>
+//                                  the day a cancelled plan ends, for the
+//                                  leaving paywall. Without it the location
+//                                  carries nothing about leaving
+//   --dart-define=REST=true        with ENDS: the sad opening was shown for
+//                                  that day already, so the layout opens at
+//                                  rest (no tear, no print)
+//   --dart-define=LEAVING=<rang>,<ans>,<nights>,<crit>,<days>
+//                                  with ENDS: the person's numbers, as the
+//                                  location carries them: alarms that rang,
+//                                  answered, nights, critical topics on and
+//                                  days of history held (default none)
 //   --dart-define=SCENE=<name>     name the files <name>_<phone>_<theme>_
 //                                  <scale>x[_reduced][_<state>][_t<seconds>]
 //                                  in place of the long name, and add
@@ -131,6 +143,8 @@ import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
@@ -163,6 +177,9 @@ const _leadKey = String.fromEnvironment('LEAD');
 const _headlineKey = String.fromEnvironment('HEADLINE');
 const _history = String.fromEnvironment('HISTORY');
 const _facts = String.fromEnvironment('FACTS');
+const _ends = String.fromEnvironment('ENDS');
+const _rest = bool.fromEnvironment('REST');
+const _leavingFacts = String.fromEnvironment('LEAVING');
 const _scene = String.fromEnvironment('SCENE');
 const _narrow = bool.fromEnvironment('NARROW');
 const _previews = String.fromEnvironment('PREVIEWS');
@@ -335,6 +352,31 @@ Map<String, String> _factsQuery() {
   String? at(int i) =>
       i < parts.length && parts[i].isNotEmpty ? parts[i] : null;
   return {'used': ?at(0), 'limit': ?at(1), 'topic': ?at(2)};
+}
+
+/// What ENDS, REST and LEAVING name, or null without ENDS. Written like the
+/// location writes it, so it passes through its reader.
+Map<String, String>? _leavingQuery() {
+  if (_ends.isEmpty) return null;
+  final numbers = _leavingFacts.isEmpty
+      ? const <int>[]
+      : [for (final part in _leavingFacts.split(',')) int.parse(part.trim())];
+  final date = DateTime.parse(_ends);
+  return PaywallLeaving(
+    endsOn: DateTime(date.year, date.month, date.day),
+    // REST is a define, so the analyzer reads it as its default.
+    // ignore: avoid_redundant_argument_values
+    atRest: _rest,
+    facts: numbers.length == 5
+        ? LeavingFacts(
+            rang: numbers[0],
+            answered: numbers[1],
+            nights: numbers[2],
+            criticalTopics: numbers[3],
+            historyDaysHeld: numbers[4],
+          )
+        : null,
+  ).toQuery();
 }
 
 String _scrolls(ScrollableState s) =>
@@ -565,6 +607,8 @@ void main() {
                 if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
                 if (_leadKey.isNotEmpty) 'lead-$_leadKey',
                 if (_headlineKey.isNotEmpty) 'headline-$_headlineKey',
+                if (_ends.isNotEmpty) 'ends-$_ends',
+                if (_rest) 'rest',
                 if (second != null) 't$_t',
                 if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
                 if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
@@ -608,6 +652,7 @@ void main() {
                         if (_sourceKey.isNotEmpty) 'source': source.wire,
                         if (_leadKey.isNotEmpty) 'lead': _leadKey,
                         if (_headlineKey.isNotEmpty) 'headline': _headlineKey,
+                        ...?_leavingQuery(),
                         ...?_historyOwn()?.toQuery(),
                         ..._factsQuery(),
                         if (_state.isNotEmpty) 'state': _state,
