@@ -78,6 +78,15 @@ abstract interface class TelemetryGate {
 
   /// The same for Pro, under `pro_paywall_thanks`.
   String get proPaywallThanksKey;
+
+  /// What Remote Config holds under `paywall_outro`: what plays between a
+  /// confirmed purchase and the thanks on a Hosted layout. Empty, the
+  /// default, is none. `PaywallOutroId.parse` reads it, and an unknown
+  /// value counts as empty.
+  String get paywallOutroKey;
+
+  /// The same for Pro, under `pro_paywall_outro`.
+  String get proPaywallOutroKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
@@ -93,6 +102,8 @@ class NoopTelemetryGate implements TelemetryGate {
     this.proPaywallIntroKey = '',
     this.paywallThanksKey = '',
     this.proPaywallThanksKey = '',
+    this.paywallOutroKey = '',
+    this.proPaywallOutroKey = '',
   });
 
   @override
@@ -124,6 +135,12 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   final String proPaywallThanksKey;
+
+  @override
+  final String paywallOutroKey;
+
+  @override
+  final String proPaywallOutroKey;
 
   @override
   bool get isPaywallEnabled => paywallEnabled;

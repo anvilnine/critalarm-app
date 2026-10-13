@@ -7,6 +7,7 @@ import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -872,6 +873,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             thanks:
                 PaywallThanksId.fromKey(query['thanks']) ??
                 PaywallThanksId.none,
+            outro:
+                PaywallOutroId.fromKey(query['outro']) ?? PaywallOutroId.none,
             // The developer picker's "Open it". A store build never reads it.
             isTryOut: _isDeveloperPaywallBuild && query['try'] == paywallTryOut,
             product: PaywallProduct.parse(query['product']),
