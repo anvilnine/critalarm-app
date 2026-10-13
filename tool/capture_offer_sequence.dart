@@ -1,7 +1,8 @@
-// Captures the offer sequence of setup off the device: the false alarm
-// intro, the reel that opens on the user's answer, the confetti thanks and
-// the hook-up step that follows, through the real router and the real setup
-// shell, on the mock server with a made-up store and no network.
+// Captures the offer sequence of setup off the device: "It works", the step
+// after Continue, the reel rising over it, the confetti thanks and the
+// hook-up step that follows, through the real router and the real setup
+// shell, on the mock server with a made-up store and no network. There is no
+// intro: the reel opens straight after Continue.
 //
 //   fvm flutter test tool/capture_offer_sequence.dart
 //
@@ -12,19 +13,18 @@
 //
 // Runs (each one is a whole sequence, stepped a frame at a time):
 //   <answer>      the Cloud sequence for servers, homelab, jobs, home and
-//                 other: intro at 0.3, 0.9 and 1.25 s, the tag, the reel's
-//                 first scene (first frame, settled) and its second, then a
+//                 other: "It works" (calm, the store said on sale), the step
+//                 as Continue leaves it, the reel's first frame, the frames
+//                 of the rise, the first scene settled and the second, then a
 //                 purchase: buying, the thanks part way and at rest with its
 //                 button, the button tapped and the first frame of hook up.
 //                 A second pass closes with the cross instead.
 //   own_server    an own server, answer servers: the Pro pack
 //   skip_*        the step skips: not on sale, the store failing, the store
-//                 not answering in time, a held product, the switch off
+//                 not answering in time, a held product, the switch off. Each
+//                 shows "It works" with its confetti, then hook up.
 //   replay        a developer replay on one answer (run with
 //                 --dart-define=PAYWALL_LAB=true so ?use= is read)
-//   tag_<answer>  only the frame with the tag, for every answer and the own
-//                 server at every text size (ONLY=tag_). At 2.0 the frame
-//                 shows no tag.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
@@ -65,11 +65,11 @@ import 'package:critalarm/features/onboarding/domain/repositories/notification_p
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
+import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -129,7 +129,6 @@ class _Scenario {
     this.sale = _Sale.ready,
     this.held = _Held.none,
     this.isOn = true,
-    this.isFull = true,
   });
 
   final String name;
@@ -141,16 +140,22 @@ class _Scenario {
   /// The `onboarding_offer` switch.
   final bool isOn;
 
-  /// Every frame of the sequence, or only the reel and the way out.
-  final bool isFull;
+  /// Whether the engine already knows the offer skips when the real alarm
+  /// step ends, so Continue goes straight to hook up: the switch is off, a
+  /// product is held, or the store has already said nothing is on sale.
+  bool get skipsBeforeTheStep =>
+      !isOn ||
+      held != _Held.none ||
+      sale == _Sale.notOnSale ||
+      sale == _Sale.failed;
 }
 
 const _scenarios = [
   _Scenario('servers', use: SetupUse.servers),
-  _Scenario('homelab', use: SetupUse.homelab, isFull: false),
-  _Scenario('jobs', use: SetupUse.jobs, isFull: false),
+  _Scenario('homelab', use: SetupUse.homelab),
+  _Scenario('jobs', use: SetupUse.jobs),
   _Scenario('home', use: SetupUse.home),
-  _Scenario('other', use: SetupUse.other, isFull: false),
+  _Scenario('other', use: SetupUse.other),
   _Scenario('own_server', use: SetupUse.servers, isOwnServer: true),
 ];
 
@@ -274,10 +279,13 @@ Future<void> _configure(
     // the gate reads what the app holds, as it does on a phone.
     await getIt.unregister<OnboardingOfferGate>();
     const on = '{"enabled": true}';
+    const off = '{"enabled": false}';
     getIt.registerSingleton<OnboardingOfferGate>(
       OnboardingOfferGate(
         readDeveloperJson: () => isDeveloperSwitch ? on : null,
-        readRemoteJson: () => scenario.isOn && !isDeveloperSwitch ? on : null,
+        // With no remote value the bundled switch, on, is in use.
+        readRemoteJson: () =>
+            isDeveloperSwitch ? null : (scenario.isOn ? null : off),
         readServerMode: () async =>
             scenario.isOwnServer ? ServerMode.selfhosted : ServerMode.hosted,
         builtLayoutKeys: () => {
@@ -298,8 +306,8 @@ Future<void> _configure(
         readTopicName: () =>
             getIt<FirstTopicHandoff>().entry?.topicName ??
             getIt<FirstTopicHandoff>().savedTopicName,
-        markFalseAlarmShown: () async => (await SharedPreferences.getInstance())
-            .setBool(PaywallDoor.falseAlarmShownKey, true),
+        readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
+        startSale: (product) => getIt<OfferSaleProbe>().start(product),
       ),
     );
     final use = scenario.use;
@@ -437,16 +445,23 @@ String _prefsString(SharedPreferences prefs, String key) =>
 Future<SharedPreferences> _prefs(WidgetTester tester) async =>
     (await tester.runAsync(SharedPreferences.getInstance))!;
 
-/// Seconds since the layer opened, read off the reel's own loop on a run
-/// with the intro: the first scene has settled, the push to the second is
-/// part way, and the second has settled.
-const _firstSceneRestAt = 3.2;
-const _secondScenePushAt = 4.5;
-const _secondSceneRestAt = 5.8;
+/// Seconds since the layer opened, read off the reel's own loop: the first
+/// scene has settled, the push to the second is part way, and the second has
+/// settled.
+const _firstSceneRestAt = 1.8;
+const _secondScenePushAt = 3.0;
+const _secondSceneRestAt = 4.3;
+
+/// Seconds since the layer opened for the frames across its rise. The rise
+/// takes 0.4 s, so these sit near the start, the middle and the end of it.
+const _riseFrames = [0.08, 0.16, 0.26, 0.36];
 
 /// The path the engine opens after the offer: hook up.
 const _hookUpPath = '/onboarding/hook-up';
 const _offerPath = '/onboarding/offer';
+
+/// The layer: one paywall layout over the setup step.
+Finder get _layer => find.byType(PaywallLayoutView);
 
 /// Waits for the route to leave [from], then saves the first frame of the
 /// new route when [firstFrame] is named.
@@ -465,6 +480,25 @@ Future<void> _untilLeft(
   if (firstFrame != null) await _save(tester, run, name(firstFrame));
 }
 
+/// The real alarm step starting: the gate asks the store about the product
+/// this user would be offered and keeps the answer, as the step does when it
+/// opens. Real time passes so the made-up store can answer.
+Future<void> _startSaleCheck(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    await getIt<OnboardingOfferGate>().startSaleCheck();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+  });
+}
+
+/// Pumps frames until the layer is built. The frame it is found in is the
+/// layer's first, still below the screen.
+Future<void> _untilLayerUp(WidgetTester tester) async {
+  for (var i = 0; i < 400 && _layer.evaluate().isEmpty; i++) {
+    await _frame(tester);
+  }
+  expect(_layer, findsOneWidget, reason: 'layer up');
+}
+
 /// The whole sequence for one scenario in one configuration.
 Future<void> _sequence(
   WidgetTester tester,
@@ -478,80 +512,80 @@ Future<void> _sequence(
   final label = scenario.name;
 
   for (final closeWith in ['purchase', 'cross']) {
+    if (closeWith == 'purchase') {
+      // "It works", calm: the store said the product is on sale.
+      await _itWorks(tester, config, scenario, name('offer_it_works_$label'));
+    }
     final run = await _open(tester, config, scenario, errors: errors);
     await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
-    // The offer step, as "It works" leaves it: a frame of the shell with
-    // nothing on it while the store answers.
-    run.router.go(_offerPath);
-    await tester.pump();
-    if (closeWith == 'purchase' && scenario.isFull) {
-      await _save(tester, run, name('offer_step_first_frame_$label'));
-    }
-
-    // Until the layer is up. The intro's clock starts as it is built.
-    for (
-      var i = 0;
-      i < 400 && find.byType(PaywallIntroHost).evaluate().isEmpty;
-      i++
-    ) {
-      await _frame(tester);
-    }
-    expect(find.byType(PaywallIntroHost), findsOneWidget, reason: 'layer up');
-    final prefs = await _prefs(tester);
-    final usedUp = prefs.getBool(PaywallDoor.falseAlarmShownKey) ?? false;
+    // The real alarm step starts: the store is asked once and the answer is
+    // kept, for "It works" and for the step.
+    await _startSaleCheck(tester);
+    final decision = await tester.runAsync(
+      () => getIt<OnboardingOfferGate>().decide(isReplay: false),
+    );
+    expect(decision!.isShown, isTrue, reason: 'the offer shows here');
     expect(
-      usedUp,
-      !config.reduce,
-      reason: 'the false alarm showing is used up unless nothing may move',
+      getIt<OfferSaleProbe>().answerFor(decision.product!),
+      OfferSaleAnswer.onSale,
+      reason: 'the cached answer is in before Continue',
     );
 
+    // Continue on "It works": the engine finishes the real alarm step and
+    // opens the offer step, a frame of the shell with nothing on it.
+    final next = await tester.runAsync(
+      () => getIt<OnboardingFlowEngine>().finishStep('real_ring'),
+    );
+    expect(next!.route, _offerPath);
+    run.router.go(_offerPath);
+    await tester.pump();
+    if (closeWith == 'purchase') {
+      await _save(tester, run, name('offer_continue_tapped_$label'));
+    }
+
+    // Until the layer is built. Its clock starts as it is.
+    await _untilLayerUp(tester);
     var t = 0.0;
     if (!config.reduce) {
-      if (closeWith == 'purchase' && scenario.isFull) {
-        // The first frame is the one after the first pump.
-        await tester.pump(const Duration(milliseconds: 16));
-        t = 0.016;
-        await _save(tester, run, name('offer_intro_first_frame_$label'));
-        t = await _stepTo(tester, t, 0.3);
-        await _save(tester, run, name('offer_intro_0_3_$label'));
-        t = await _stepTo(tester, t, 0.9);
-        await _save(tester, run, name('offer_intro_0_9_$label'));
-        t = await _stepTo(tester, t, 1.25);
-        await _save(tester, run, name('offer_intro_1_25_reveal_$label'));
-        t = await _stepTo(tester, t, 1.52);
-        await _save(tester, run, name('offer_handover_$label'));
-        t = await _stepTo(tester, t, 2.2);
-        // The tag is detail, so it goes at the largest text size, and where
-        // it has no clear room it is not shown.
-        if (config.scale <= 1.3) {
-          expect(find.text('Just kidding.').evaluate().length, lessThan(2));
-          await _save(tester, run, name('offer_tag_just_kidding_$label'));
-        }
-      } else {
-        t = await _stepTo(tester, t, 1.52);
-      }
-      // The reel: first scene as it comes in, settled, then the second.
-      const base = 1.5;
+      // The first frame that shows the reel: one frame after it was built.
+      await tester.pump(const Duration(milliseconds: 16));
+      t = 0.016;
       if (closeWith == 'purchase') {
-        t = await _stepTo(tester, t, base + 0.03);
         await _save(tester, run, name('offer_reel_first_frame_$label'));
-        t = await _stepTo(tester, t, _firstSceneRestAt);
+        for (var i = 0; i < _riseFrames.length; i++) {
+          t = await _stepTo(tester, t, _riseFrames[i]);
+          await _save(tester, run, name('offer_reel_entry_${i + 1}_$label'));
+        }
+      }
+      t = await _stepTo(tester, t, _firstSceneRestAt);
+      if (closeWith == 'purchase') {
         await _save(tester, run, name('offer_reel_rest_$label'));
         t = await _stepTo(tester, t, _secondScenePushAt);
         await _save(tester, run, name('offer_reel_second_mid_$label'));
         t = await _stepTo(tester, t, _secondSceneRestAt);
         await _save(tester, run, name('offer_reel_second_rest_$label'));
-      } else {
-        t = await _stepTo(tester, t, _firstSceneRestAt);
       }
     } else {
-      // Nothing moves: the reel is at rest from the first frame.
+      // Nothing moves: the reel is at rest from its first frame.
+      await tester.pump(const Duration(milliseconds: 16));
+      if (closeWith == 'purchase') {
+        await _save(tester, run, name('offer_reel_first_frame_$label'));
+      }
       await _real(tester, 50);
       await tester.pump(const Duration(milliseconds: 600));
       if (closeWith == 'purchase') {
         await _save(tester, run, name('offer_reel_rest_$label'));
       }
     }
+    // The false alarm is not part of setup: its once-per-install showing is
+    // left for the Settings plan row.
+    expect(
+      (await _prefs(tester)).getBool(PaywallDoor.falseAlarmShownKey),
+      isNull,
+      reason: 'setup never writes the false alarm flag',
+    );
+    expect(find.text('Just kidding.'), findsNothing);
+    expect(find.text('tap anywhere to skip'), findsNothing);
 
     if (closeWith == 'cross') {
       // Close at once: the cross is a bare x and goes to hook up.
@@ -582,16 +616,14 @@ Future<void> _sequence(
     await tester.tap(buy.last);
     await tester.pump();
     await _stepTo(tester, 0, 0.3);
-    if (scenario.isFull) await _save(tester, run, name('offer_buying_$label'));
+    await _save(tester, run, name('offer_buying_$label'));
     // The demo store confirms after two steps.
     await _stepTo(tester, 0, 1.4);
     // The thanks takes over: its first frame, part way, at rest.
     await _frame(tester);
-    if (scenario.isFull) {
-      await _save(tester, run, name('offer_thanks_first_frame_$label'));
-      await _stepTo(tester, 0, 0.6);
-      await _save(tester, run, name('offer_thanks_mid_$label'));
-    }
+    await _save(tester, run, name('offer_thanks_first_frame_$label'));
+    await _stepTo(tester, 0, 0.6);
+    await _save(tester, run, name('offer_thanks_mid_$label'));
     await _stepTo(tester, 0, config.reduce ? 0.1 : 3.4);
     expect(find.text('Hook up your tool'), findsOneWidget);
     await _save(tester, run, name('offer_thanks_rest_$label'));
@@ -623,49 +655,6 @@ Future<void> _sequence(
   }
 }
 
-/// Only the frame of the intro's tag, for every text size: the tag is there
-/// at 1.0 and 1.3 when it has room and never at 2.0.
-Future<void> _tag(
-  WidgetTester tester,
-  _Config config,
-  _Scenario scenario,
-  List<String> errors,
-) async {
-  final file =
-      'offer_tag_just_kidding_${scenario.name}_${config.phone.name}_'
-      '${config.mode.name}_${config.scale.toStringAsFixed(1)}x';
-  final run = await _open(tester, config, scenario, errors: errors);
-  await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
-  run.router.go(_offerPath);
-  await tester.pump();
-  for (
-    var i = 0;
-    i < 400 && find.byType(PaywallIntroHost).evaluate().isEmpty;
-    i++
-  ) {
-    await _frame(tester);
-  }
-  expect(find.byType(PaywallIntroHost), findsOneWidget, reason: 'layer up');
-  await tester.pump(const Duration(milliseconds: 16));
-  await _stepTo(tester, 0.016, 2.2);
-  if (config.scale > 1.3) {
-    expect(find.text('Just kidding.'), findsNothing, reason: 'detail goes');
-  }
-  final isShown = find.text('Just kidding.').evaluate().isNotEmpty;
-  print('  tag ${isShown ? 'shown' : 'hidden'} $file');
-  await _save(tester, run, file);
-  await tester.tap(find.byType(AppDismissCross).first);
-  await tester.pump();
-  await _stepTo(tester, 0, 0.12);
-  await _untilLeft(
-    tester,
-    run,
-    from: _offerPath,
-    name: (scene) => scene,
-  );
-  await _afterClose(tester, run, scenario);
-}
-
 Future<void> _afterClose(
   WidgetTester tester,
   _Run run,
@@ -678,9 +667,11 @@ Future<void> _afterClose(
   expect(run.location.path, _hookUpPath);
 }
 
-/// "It works" as the setup test leaves it, 2.5 seconds in, with the offer
-/// gate the scenario sets up: calm when the offer is ahead, with the
-/// confetti when nothing follows.
+/// "It works" as the setup test leaves it, 1 second in, with the offer gate
+/// the scenario sets up. The real alarm step has started the store check
+/// first, so the screen reads the cached answer: calm when the offer follows
+/// and sells, the confetti when nothing follows or the store has not
+/// answered.
 Future<void> _itWorks(
   WidgetTester tester,
   _Config config,
@@ -688,6 +679,8 @@ Future<void> _itWorks(
   String file,
 ) async {
   await _configure(tester, scenario);
+  await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
+  await _startSaleCheck(tester);
   // The screen's own column overflows on a 320 by 640 phone at the largest
   // text size. That is how the screen is today and this tool does not
   // change it, so the overflow is printed and the run goes on.
@@ -749,7 +742,7 @@ Future<void> _itWorks(
     ),
   );
   await _real(tester, 100);
-  for (var i = 0; i < 160; i++) {
+  for (var i = 0; i < 60; i++) {
     await _frame(tester);
   }
   await tester.runAsync(() async {
@@ -767,8 +760,11 @@ Future<void> _itWorks(
   FlutterError.onError = oldHandler;
 }
 
-/// A step that skips: no intro, no layer. The offer step opens as a blank
-/// shell and hook up follows.
+/// A step that skips: no layer. "It works" shows its confetti, and hook up
+/// follows. When the engine already knows (a held product, the switch off,
+/// the store said nothing is on sale) Continue opens hook up at once. When it
+/// cannot know (the store never answered) the offer step opens as a blank
+/// shell, waits out the store check and finishes.
 Future<void> _skip(
   WidgetTester tester,
   _Config config,
@@ -787,6 +783,8 @@ Future<void> _skip(
   );
   final run = await _open(tester, config, scenario, errors: errors);
   await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
+  // The real alarm step started the store check before "It works".
+  await _startSaleCheck(tester);
 
   // What "Continue" on "It works" does: finish the real ring step and go
   // where the engine says.
@@ -797,15 +795,17 @@ Future<void> _skip(
   print('  $label: after real_ring the engine opens ${next.route}');
   expect(
     straightOn,
-    scenario.isOn && scenario.held == _Held.none ? isFalse : isTrue,
-    reason: 'a held product or a switch that is off skips before the step',
+    scenario.skipsBeforeTheStep,
+    reason:
+        'a held product, a switch that is off and a store that said no skip '
+        'before the step',
   );
 
   run.router.go(straightOn ? _hookUpPath : _offerPath);
   await tester.pump();
   if (!straightOn) {
     await _save(tester, run, name('offer_skipped_step_first_frame_$label'));
-    expect(find.byType(PaywallIntroHost), findsNothing, reason: 'no intro');
+    expect(_layer, findsNothing, reason: 'nothing opens over the step');
     await _untilLeft(
       tester,
       run,
@@ -817,12 +817,12 @@ Future<void> _skip(
     await _save(tester, run, name('offer_skipped_hook_up_first_frame_$label'));
   }
   expect(run.location.path, _hookUpPath);
-  expect(find.byType(PaywallIntroHost), findsNothing);
+  expect(_layer, findsNothing);
   final prefs = await _prefs(tester);
   expect(
     prefs.getBool(PaywallDoor.falseAlarmShownKey),
     isNull,
-    reason: 'nothing played, so the showing is kept',
+    reason: 'setup never writes the false alarm flag',
   );
   expect(
     prefs.getString(OnboardingFunnel.bufferKey) ?? '',
@@ -852,17 +852,10 @@ Future<void> _replay(
   await tester.runAsync(() => getIt<SetupUseStore>().clear());
   run.router.go('$_offerPath?demo=true&use=${scenario.use!.wire}');
   await tester.pump();
-  for (
-    var i = 0;
-    i < 400 && find.byType(PaywallIntroHost).evaluate().isEmpty;
-    i++
-  ) {
-    await _frame(tester);
-  }
-  expect(find.byType(PaywallIntroHost), findsOneWidget, reason: 'layer up');
+  await _untilLayerUp(tester);
   expect(getIt<SetupUseReplay>().pick, scenario.use);
-  await _stepTo(tester, 0, config.reduce ? 0.1 : 0.9);
-  await _save(tester, run, name('offer_replay_intro_${scenario.name}'));
+  await _stepTo(tester, 0, config.reduce ? 0.1 : 0.12);
+  await _save(tester, run, name('offer_replay_entry_${scenario.name}'));
   await _stepTo(tester, 0, config.reduce ? 0.1 : _firstSceneRestAt);
   await _save(tester, run, name('offer_replay_reel_${scenario.name}'));
   final prefs = await _prefs(tester);
@@ -890,14 +883,7 @@ Future<void> _interrupt(
   await tester.runAsync(() => getIt<OnboardingFlowEngine>().resume());
   run.router.go(_offerPath);
   await tester.pump();
-  for (
-    var i = 0;
-    i < 400 && find.byType(PaywallIntroHost).evaluate().isEmpty;
-    i++
-  ) {
-    await _frame(tester);
-  }
-  expect(find.byType(PaywallIntroHost), findsOneWidget, reason: 'layer up');
+  await _untilLayerUp(tester);
   await _stepTo(tester, 0, config.reduce ? 0.1 : 0.5);
   // What a tapped alarm notification does.
   run.router.go('/incidents/inc_made_up');
@@ -905,7 +891,7 @@ Future<void> _interrupt(
   await _stepTo(tester, 0, 0.1);
   await _save(tester, run, name('offer_interrupted_alarm_${scenario.name}'));
   await _stepTo(tester, 0, 0.5);
-  expect(find.byType(PaywallIntroHost), findsNothing, reason: 'layer is gone');
+  expect(_layer, findsNothing, reason: 'layer is gone');
   expect(run.location.path, startsWith('/incidents/'));
   final completed = getIt<OnboardingFlowRepository>().read().completed;
   expect(completed, contains('offer'), reason: 'the step is finished');
@@ -937,31 +923,30 @@ void _configuration(
 /// The scenes of a run in the order they are written, so a contact sheet
 /// reads left to right and top to bottom as the sequence plays.
 const _sceneOrder = [
-  'offer_step_first_frame',
-  'offer_intro_first_frame',
-  'offer_intro_0_3',
-  'offer_intro_0_9',
-  'offer_intro_1_25_reveal',
-  'offer_handover',
-  'offer_tag_just_kidding',
+  'offer_it_works',
+  'offer_continue_tapped',
   'offer_reel_first_frame',
+  'offer_reel_entry_1',
+  'offer_reel_entry_2',
+  'offer_reel_entry_3',
+  'offer_reel_entry_4',
   'offer_reel_rest',
   'offer_reel_second_mid',
   'offer_reel_second_rest',
+  'offer_close_tapped',
+  'hook_up_first_frame_after_close',
+  'hook_up_plus16_after_close',
   'offer_buying',
   'offer_thanks_first_frame',
   'offer_thanks_mid',
   'offer_thanks_rest',
   'hook_up_first_frame_after_thanks',
   'hook_up_plus16_after_thanks',
-  'offer_close_tapped',
-  'hook_up_first_frame_after_close',
-  'hook_up_plus16_after_close',
   'offer_skipped_it_works',
   'offer_skipped_step_first_frame',
   'offer_skipped_hook_up_first_frame',
   'offer_interrupted_alarm',
-  'offer_replay_intro',
+  'offer_replay_entry',
   'offer_replay_reel',
 ];
 
@@ -1060,33 +1045,6 @@ void main() {
             // would show the same frames.
             if (reduce) continue;
             _configuration(config, scenario, _skip);
-          }
-        }
-      }
-    }
-  }
-
-  // The tag frame alone, for every answer (ONLY=tag_).
-  if (_only.split(',').contains('tag_')) {
-    for (final phone in _phones) {
-      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-        for (final scale in _scales) {
-          final config = _Config(phone, mode, scale, reduce: false);
-          for (final scenario in _scenarios) {
-            _configuration(
-              config,
-              _Scenario(
-                'tag_${scenario.name}',
-                use: scenario.use,
-                isOwnServer: scenario.isOwnServer,
-              ),
-              (tester, config, tagged, errors) => _tag(
-                tester,
-                config,
-                scenario,
-                errors,
-              ),
-            );
           }
         }
       }

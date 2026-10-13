@@ -7,6 +7,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/real_ring_rules.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
@@ -115,6 +116,11 @@ class _RealRingViewState extends State<_RealRingView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Asks the store now whether the offer's product is on sale, so the
+    // answer is in when "It works" appears. A replay never reaches the offer.
+    if (!widget.isReplay && getIt.isRegistered<OnboardingOfferGate>()) {
+      unawaited(getIt<OnboardingOfferGate>().startSaleCheck());
+    }
   }
 
   @override

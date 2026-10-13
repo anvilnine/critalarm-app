@@ -31,6 +31,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A topic's tokens have their own page with a New token button.
 - Will it wake me shows the last eight weeks of tests and weekly checks as dots.
 - Setup asks what you want to be woken for and fills in your first topic to match.
+- After your first test alarm, setup shows what Hosted adds, or the Pro pack if you use Crit Alarm for your home, before it moves on to hooking up your tool. Close it at any time, and nothing rings falsely.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
