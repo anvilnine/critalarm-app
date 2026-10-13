@@ -1363,6 +1363,9 @@ Future<void> configureDependencies({
         // alarm step starts and read by "It works" and by the offer step.
         readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
         startSale: (product) => getIt<OfferSaleProbe>().start(product),
+        // Only a build that skips the store has the made-up buy model, the
+        // one a replay may play the offer on.
+        readUsesDemoStore: () => buildSkipsPaywall,
       ),
     )
     // The one store check of the offer, shared by the gate and the step. It

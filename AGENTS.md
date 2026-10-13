@@ -307,11 +307,11 @@ it has no chapter, and it ships switched on.
   home answer, Hosted for the rest. `pro`, `hosted` and `none` force one
   answer for everyone. On a server of the user's own only
   `self_hosted_product` counts, and Hosted is never offered there.
-- `decideOnboardingOffer` is the rule. The step skips itself on a replay,
-  when it is off, when the product is `none` for this kind of server, when
-  the layout is not built in this version, when no account id is known, and
-  when the user already holds the product. `OnboardingOfferGate` reads the
-  phone for it, and a read that fails is a skip. It reads no store.
+- `decideOnboardingOffer` is the rule. The step skips itself on a replay
+  (see below), when it is off, when the product is `none` for this kind of
+  server, when the layout is not built in this version, when no account id is
+  known, and when the user already holds the product. `OnboardingOfferGate`
+  reads the phone for it, and a read that fails is a skip. It reads no store.
 - The store check starts early. When the real alarm step opens,
   `OnboardingOfferGate.startSaleCheck()` has `OfferSaleProbe` make the buy
   model and load it, so the store answer is cached before "It works" appears.
@@ -347,9 +347,29 @@ it has no chapter, and it ships switched on.
   the engine with no navigation and no purchase is recorded.
 - A step that skips counts as already done (`hasNoOfferToShow`), so a run
   never opens it and the funnel never counts it.
-- A replay skips the step. The one exception is a developer value: with the
+- A replay plays the step in a build that skips the store (`SKIP_PAYWALL`,
+  `OnboardingOfferGate.readUsesDemoStore`), and nowhere else. Redo onboarding
+  there goes on from the ring step into the reel, led by the answer picked in
+  that replay (`SetupUseReplay`), then the made-up purchase or the cross, the
+  thanks and hook up. On that made-up buy model a replay ignores the account
+  and the products held (`offerIgnoresHoldings`), so a tester sees the paywall
+  with no account, with Hosted already held and with Pro already held. It
+  still follows the switches: the offer switched off (by the developer value
+  or the remote one), no product for an own server, and an unbuilt layout all
+  skip it. An own server gets the `self_hosted_product` offer, as a real run
+  would. The replay writes nothing: no answer, no step marked done, no funnel
+  event (`isReplay` goes to `OnboardingFunnel`), no false alarm flag, and no
+  `appPlanChanges` or `appAccountIdentityChanges` bump after the made-up
+  purchase. The replayed real alarm step sends nothing and its button moves
+  on, so a replay has no "It works" screen and no confetti rule to follow.
+- A replay with a real store skips the step, because the buy button would
+  start a real purchase. The one exception is a developer value: with the
   Offer step switches set in Developer options, "Open a step" shows it, and
-  the Offer sequence row there opens it on one answer (`?use=<wire id>`).
+  the Offer sequence row there opens it on one answer (`?use=<wire id>`). That
+  replay asks the phone as a real run does (account, products held), reads
+  the real store, and is the tester's own choice.
+  `tool/capture_offer_sequence.dart` (`ONLY=redo`) walks the whole Redo
+  onboarding and checks that the prefs end as they began.
 - The buy model comes from the same `PaywallBuyCubit` factory the paywall
   route uses, so only a `SKIP_PAYWALL` build gets the stand-in.
 - Three funnel events go through `OnboardingFunnel`: `onboarding_offer_shown`,
@@ -528,7 +548,8 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
   `dev.onboarding_flow`. It fills the `developerOnboardingFlowSource` slot, so
   it outranks the remote value and still passes the validator.
 - Redo onboarding: replays the flow that would run now (`?demo=true`) and
-  names its id.
+  names its id. In a `SKIP_PAYWALL` build it plays on through the offer
+  (see the `offer` step).
 - Open a step: every registered step, opened as a replay. A step that is not
   on this phone, or has no screen yet, is listed greyed with the reason. A
   replay of the permissions step takes `?skip=<n>` to open on a later step
