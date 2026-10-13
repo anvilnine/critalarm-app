@@ -40,9 +40,17 @@ Map<String, double Function(double t, Size size)> _series() => {
   'crit angle': (t, s) => _pose(t, s).angle * 100,
   'night': (t, s) => T.night(t) * 100,
   'words': (t, s) => T.wordsAlpha(t) * 100,
-  'trail alpha': (t, s) => T.trailAlpha(t) * 100,
-  'trail width': T.trailWidth,
-  'trail length': T.trailLength,
+  'plume alpha': (t, s) => T.plumeAlpha(t) * 100,
+  'plume width': T.plumeWidth,
+  'plume length': T.plumeLength,
+  'plume sway': T.plumeSway,
+  'crit squash x': (t, s) => _pose(t, s).squashX * 100,
+  'crit squash y': (t, s) => _pose(t, s).squashY * 100,
+  for (final layer in BreakLiftLayer.values)
+    for (var i = 0; i < T.clouds(layer).length; i++) ...{
+      '${layer.name} cloud $i y': (t, s) => T.cloudAt(layer, i, t, s).dy,
+      '${layer.name} cloud $i x': (t, s) => T.cloudAt(layer, i, t, s).dx,
+    },
   for (var i = 0; i < T.stars.length; i++)
     'star $i y': (t, s) => T.starAt(i, t, s).dy,
   for (final i in [0, 7, 21, 40, 55])
@@ -61,11 +69,37 @@ Map<String, double Function(double t, Size size)> _series() => {
     }(),
 };
 
+double _unit(Size size) => math.min(size.width / 390, size.height / 844);
+
 void _expectBox(Rect a, Rect b) {
   expect(a.left, closeTo(b.left, 1e-9));
   expect(a.top, closeTo(b.top, 1e-9));
   expect(a.right, closeTo(b.right, 1e-9));
   expect(a.bottom, closeTo(b.bottom, 1e-9));
+}
+
+/// The most one number may move in a frame, and change its pace by. A layer
+/// of cloud rides the lift's one ease over its whole reach, so its limits
+/// follow its reach. The plume is longer than the rest, and so quicker.
+(double step, double pace) _limits(String name) {
+  for (final layer in BreakLiftLayer.values) {
+    if (name.startsWith(layer.name)) {
+      final reach = T.reach(layer);
+      return (
+        1.15 * math.pi / 2 * reach / (T.liftTo - T.liftFrom) * _frame,
+        1.15 *
+            reach *
+            math.pi *
+            math.pi /
+            2 /
+            math.pow(T.liftTo - T.liftFrom, 2) *
+            _frame *
+            _frame,
+      );
+    }
+  }
+  if (name.startsWith('plume')) return (5.5, 0.4);
+  return (3, 0.25);
 }
 
 void main() {
@@ -92,9 +126,10 @@ void main() {
               final t = T.liftFrom + i * _frame;
               final now = value(t, size);
               final step = now - previous;
+              final limits = _limits(name);
               expect(
                 step.abs(),
-                lessThan(3),
+                lessThan(limits.$1),
                 reason: '$name moves $step at $t',
               );
               // An eased number changes its pace a little from one frame to
@@ -102,7 +137,7 @@ void main() {
               if (!first) {
                 expect(
                   (step - lastStep).abs(),
-                  lessThan(0.25),
+                  lessThan(limits.$2),
                   reason: '$name changes pace by ${step - lastStep} at $t',
                 );
               }
@@ -242,6 +277,84 @@ void main() {
       }
     });
 
+    test('the layers travel by fixed multiples of one rise: near more than '
+        'mid more than far more than the stars', () {
+      final starMost =
+          T.stars.map((s) => s.slide).reduce(math.max) * T.starReach;
+      expect(
+        T.reach(BreakLiftLayer.near),
+        greaterThan(T.reach(BreakLiftLayer.mid)),
+      );
+      expect(
+        T.reach(BreakLiftLayer.mid),
+        greaterThan(T.reach(BreakLiftLayer.far)),
+      );
+      expect(T.reach(BreakLiftLayer.far), greaterThan(starMost));
+      for (final size in _screens) {
+        // The near layer crosses more than a screen, the far a fraction.
+        expect(
+          T.reach(BreakLiftLayer.near) * _unit(size),
+          greaterThan(size.height),
+        );
+        expect(
+          T.reach(BreakLiftLayer.far) * _unit(size),
+          lessThan(size.height),
+        );
+        // Each cloud moves by exactly its layer's reach over the lift.
+        for (final layer in BreakLiftLayer.values) {
+          for (var i = 0; i < T.clouds(layer).length; i++) {
+            final travel =
+                T.cloudAt(layer, i, T.liftTo, size).dy -
+                T.cloudAt(layer, i, T.liftFrom, size).dy;
+            expect(travel, closeTo(T.reach(layer) * _unit(size), 1e-6));
+          }
+        }
+      }
+    });
+
+    test('every cloud is above the screen when the lift starts and none '
+        'moves up', () {
+      for (final size in _screens) {
+        for (final layer in BreakLiftLayer.values) {
+          for (var i = 0; i < T.clouds(layer).length; i++) {
+            expect(
+              T.cloudBox(layer, i, T.liftFrom, size).bottom,
+              lessThan(0),
+              reason: '${layer.name} $i is on screen when the lift starts',
+            );
+            var last = -1e9;
+            for (var t = T.hit; t <= T.end; t += _frame) {
+              final y = T.cloudAt(layer, i, t, size).dy;
+              expect(y, greaterThanOrEqualTo(last));
+              last = y;
+            }
+          }
+        }
+      }
+    });
+
+    test('the near clouds never touch his box', () {
+      for (final size in _screens) {
+        for (final mascot in <Rect?>[_mascotFor(size), null]) {
+          for (var t = 0.0; t <= T.end + 1e-9; t += 0.05) {
+            final box = _pose(t, size, mascot: mascot).turnedBox;
+            for (var i = 0; i < T.clouds(BreakLiftLayer.near).length; i++) {
+              expect(
+                T.cloudBox(BreakLiftLayer.near, i, t, size).overlaps(box),
+                isFalse,
+                reason: 'near $i meets him at $t on $size',
+              );
+            }
+          }
+        }
+      }
+    });
+
+    test('the clouds have the night to show on: none before it comes', () {
+      expect(T.cloudAlpha(T.hit), 0);
+      expect(T.cloudAlpha(T.liftTo), 1);
+    });
+
     test('the stars do not twinkle and slide at their own rate', () {
       const size = Size(390, 844);
       for (var i = 0; i < T.stars.length; i++) {
@@ -283,14 +396,51 @@ void main() {
       );
     });
 
-    test('the glow is gone at rest and follows the lift speed', () {
+    test('the plume is gone at rest and follows the lift speed', () {
       const size = Size(390, 844);
-      expect(T.trailAlpha(T.liftFrom), 0);
-      expect(T.trailAlpha(T.liftTo), closeTo(0, 1e-9));
-      expect(T.trailLength(T.liftTo, size), closeTo(0, 1e-9));
-      expect(T.trailAlpha(1.65), greaterThan(T.trailAlpha(1.2)));
-      expect(T.trailAlpha(1.65), lessThanOrEqualTo(0.3));
-      expect(T.trailLength(1.65, size), lessThanOrEqualTo(110));
+      expect(T.plumeAlpha(T.liftFrom), 0);
+      expect(T.plumeAlpha(T.liftTo), closeTo(0, 1e-9));
+      expect(T.plumeLength(T.liftTo, size), closeTo(0, 1e-9));
+      expect(T.plumeLength(0.5, size), 0);
+      expect(T.plumeSway(T.liftTo, size), closeTo(0, 1e-9));
+      expect(T.plumeAlpha(1.65), greaterThan(T.plumeAlpha(1.2)));
+      expect(T.plumeLength(1.65, size), greaterThan(T.plumeLength(1.2, size)));
+      // It sways on the clock and never jumps: a sine, bounded by the lift.
+      for (var t = T.liftFrom; t <= T.liftTo; t += _frame) {
+        expect(T.plumeSway(t, size).abs(), lessThanOrEqualTo(12));
+      }
+    });
+
+    test('he leans into the flight, stretches a little, and is upright and '
+        'unstretched from the end of the lift', () {
+      for (final size in _screens) {
+        final land = _landFor(size);
+        var leaned = false;
+        var stretched = false;
+        for (var t = T.hit; t <= T.end; t += 0.01) {
+          final pose = _pose(t, size);
+          if (pose.angle.abs() > 0.03) leaned = true;
+          if (pose.squashY > land.height / land.width * 1.04) stretched = true;
+          if (t >= T.liftTo) {
+            expect(pose.angle, 0, reason: 'at $t');
+            expect(pose.squashX, 1, reason: 'at $t');
+            expect(pose.squashY, land.height / land.width, reason: 'at $t');
+          }
+        }
+        expect(leaned, isTrue);
+        expect(stretched, isTrue);
+      }
+    });
+
+    test('he sinks and squashes before he goes, eased from rest', () {
+      const size = Size(390, 844);
+      final before = _pose(0.7, size);
+      final at = _pose(T.liftFrom, size);
+      expect(at.centre.dy, greaterThan(before.centre.dy));
+      expect(at.squashY, lessThan(1));
+      expect(T.crouch(0.62), 0);
+      expect(T.crouch(T.liftFrom), closeTo(1, 1e-9));
+      expect(T.crouch(1.3), closeTo(0, 1e-9));
     });
 
     test('the night is on before Crit has arrived and is gone at the swap', () {

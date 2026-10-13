@@ -39,6 +39,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - tool/capture\_offer\_sequence.dart captures the new sequence (It works, Continue, the rise in four frames, thanks, hook up) and no longer captures the intro or tag. tool/capture\_works\_screen.dart has a works\_store\_unsure scene.
 - Redo onboarding in a build that skips the store plays on through the offer, on the answer picked in that replay, with the made-up buy model, and saves nothing. A build with the real store skips the offer in a replay as before.
 - The face in the iOS Live Activity, the iOS widgets and the Android widgets is brand yellow with ink features in every state. The surface around it keeps the state colour.
+- Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
