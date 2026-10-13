@@ -221,12 +221,14 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
+import 'package:critalarm/features/paywall/data/asset_price_book.dart';
 import 'package:critalarm/features/paywall/data/history_own_reader.dart';
 import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
@@ -366,6 +368,7 @@ import 'package:critalarm/firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -561,6 +564,13 @@ Future<void> configureDependencies({
       // Ignored for tests or unsupported environments
     }
     getIt.registerSingleton<RevenueCatService>(revenueCatService);
+  }
+
+  // The prices a paywall shows when the store sends none, read once.
+  if (!getIt.isRegistered<PriceBook>()) {
+    final priceBook = await AssetPriceBook.load(rootBundle);
+    PriceBookInUse.current = priceBook;
+    getIt.registerSingleton<PriceBook>(priceBook);
   }
 
   final deviceForm = await DeviceForm.read();
@@ -2830,14 +2840,20 @@ Future<void> configureDependencies({
     ..registerFactoryParam<PaywallBuyCubit, PaywallProduct, PaywallBuyStatus?>(
       (product, demoStatus) {
         if (buildSkipsPaywall) {
-          return DemoPaywallBuyCubit(product, startAs: demoStatus);
+          return DemoPaywallBuyCubit(
+            product,
+            startAs: demoStatus,
+            priceBook: getIt<PriceBook>(),
+          );
         }
         return switch (product) {
           PaywallProduct.pro => ProPaywallBuyCubit(
             access: getIt<ProPackAccess>(),
             shop: getIt<ProPackShop>(),
+            priceBook: getIt<PriceBook>(),
           ),
           PaywallProduct.hosted => HostedPaywallBuyCubit(
+            priceBook: getIt<PriceBook>(),
             getOfferings: getIt<GetOfferingsUsecase>(),
             purchasePackage: getIt<PurchasePackageUsecase>(),
             restorePurchases: getIt<RestorePurchasesUsecase>(),

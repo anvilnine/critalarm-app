@@ -2,6 +2,7 @@ import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/plan_saving.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
+import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
@@ -27,6 +28,16 @@ class HostedPlanQuote {
 
   /// The store's own per month figure, where it gives one.
   final String? pricePerMonthString;
+
+  /// The quote the price book gives for [price], or null when the book has
+  /// none.
+  static HostedPlanQuote? fromBook(BookPrice? price) => price == null
+      ? null
+      : HostedPlanQuote(
+          priceString: price.priceString,
+          price: price.amount,
+          pricePerMonthString: price.pricePerMonthString,
+        );
 }
 
 /// "Save 33%", or null when either price is missing or yearly is not
@@ -76,6 +87,45 @@ List<PaywallPlanOption> hostedPlanOptions({
       ),
   ];
 }
+
+/// The Hosted quotes for one pair of plans: the store's own for each plan
+/// it sent, the book's for each plan it did not.
+({HostedPlanQuote? yearly, HostedPlanQuote? monthly}) hostedQuotesWithBook({
+  required HostedPlanQuote? yearly,
+  required HostedPlanQuote? monthly,
+  required PriceBook book,
+}) => (
+  yearly:
+      yearly ??
+      HostedPlanQuote.fromBook(book.priceOf(PriceBookPlan.hostedYearly)),
+  monthly:
+      monthly ??
+      HostedPlanQuote.fromBook(book.priceOf(PriceBookPlan.hostedMonthly)),
+);
+
+/// The options the price book alone gives for [product]. Empty when the
+/// book holds none.
+List<PaywallPlanOption> bookPlanOptions(
+  PaywallProduct product,
+  PriceBook book,
+) => switch (product) {
+  PaywallProduct.hosted => () {
+    final quotes = hostedQuotesWithBook(
+      yearly: null,
+      monthly: null,
+      book: book,
+    );
+    return hostedPlanOptions(yearly: quotes.yearly, monthly: quotes.monthly);
+  }(),
+  PaywallProduct.pro => [
+    if (book.priceOf(PriceBookPlan.proOnce) case final price?)
+      PaywallPlanOption(
+        id: PaywallPlanOption.proOnceId,
+        title: LocaleKeys.paywall_kit_name_pro.tr(),
+        price: price.priceString,
+      ),
+  ],
+};
 
 /// The Pro options: the store's own title and price for each offer, in the
 /// store's order, and nothing else.
@@ -202,6 +252,10 @@ enum PaywallStoreResult {
 
   /// The store reported a problem of its own.
   problem,
+
+  /// The plan was never sent by the store and the store still has no
+  /// product for it.
+  notReady,
 }
 
 /// How a Hosted purchase that came back as a failure ended.
@@ -246,19 +300,19 @@ PaywallBuyState afterStore(PaywallBuyState state, PaywallStoreResult result) {
         isPaused: true,
       );
     case PaywallStoreResult.problem:
-      final rest = restingState(
-        state,
-        messageKey: LocaleKeys.paywall_kit_failed,
-      );
-      return rest.status == PaywallBuyStatus.ready
-          ? rest.copyWith(
-              status: PaywallBuyStatus.failed,
-              messageKey: rest.messageKey,
-            )
-          : rest;
+      return _failed(state, LocaleKeys.paywall_kit_failed);
+    case PaywallStoreResult.notReady:
+      return _failed(state, LocaleKeys.paywall_kit_store_not_ready);
     case PaywallStoreResult.done:
       return state.copyWith(status: PaywallBuyStatus.checking);
   }
+}
+
+PaywallBuyState _failed(PaywallBuyState state, String messageKey) {
+  final rest = restingState(state, messageKey: messageKey);
+  return rest.status == PaywallBuyStatus.ready
+      ? rest.copyWith(status: PaywallBuyStatus.failed, messageKey: messageKey)
+      : rest;
 }
 
 /// What a change of the buy state sounds like, or null for nothing.
@@ -291,7 +345,8 @@ PaywallCue? paywallBuyCue(
   }
   if (!wasAtStore || after.isBusy) return null;
   return switch (after.messageKey) {
-    LocaleKeys.paywall_kit_failed => PaywallCue.error,
+    LocaleKeys.paywall_kit_failed ||
+    LocaleKeys.paywall_kit_store_not_ready => PaywallCue.error,
     LocaleKeys.paywall_kit_nothing_to_restore ||
     LocaleKeys.purchase_errors_payment_pending => PaywallCue.refuse,
     _ => null,

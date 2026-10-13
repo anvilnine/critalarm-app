@@ -1333,6 +1333,7 @@
     "checking": "Confirming your purchase",
     "paused": "The store is done. Crit Alarm is still confirming it.",
     "failed": "The store did not finish that. Try again.",
+    "store_not_ready": "The store is not ready yet. Try again later.",
     "nothing_to_restore": "Nothing to restore for this account.",
     "done_hosted": "Crit Alarm Hosted is on.",
     "done_pro": "Pro is on.",
