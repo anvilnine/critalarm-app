@@ -33,30 +33,22 @@ List<DeveloperSection> developerSectionsFor({
   DeveloperSection.tools,
 ];
 
-/// What one product's paywall opens, as a few words: the intro, then the
-/// layout. A null is a choice left to the remote value and reads [remote].
-/// With both left to it the answer is [remote] once.
-String paywallPairText({
-  required String? intro,
-  required String? layout,
-  required String remote,
-}) {
-  if (intro == null && layout == null) return remote;
-  return '${intro ?? remote}, ${layout ?? remote}';
-}
-
 /// What one product's paywall opens, as a few words: the intro, the
-/// layout, then what plays after a purchase. A null is a choice left to
-/// the remote value and reads [remote]. With all three left to it the
-/// answer is [remote] once.
+/// layout, what plays after a purchase, and the outro when one is set. A
+/// null is a choice left to the remote value and reads [remote]. With the
+/// first three left to it the answer is [remote] once, so a lone outro
+/// reads "remote, <outro>" and not one "remote" a step.
 String paywallStepsText({
   required String? intro,
   required String? layout,
   required String? thanks,
   required String remote,
+  String? outro,
 }) {
-  if (intro == null && layout == null && thanks == null) return remote;
-  return '${intro ?? remote}, ${layout ?? remote}, ${thanks ?? remote}';
+  final steps = intro == null && layout == null && thanks == null
+      ? remote
+      : '${intro ?? remote}, ${layout ?? remote}, ${thanks ?? remote}';
+  return outro == null ? steps : '$steps, $outro';
 }
 
 /// The value of the flow row: [none] with no override, [custom] for a typed

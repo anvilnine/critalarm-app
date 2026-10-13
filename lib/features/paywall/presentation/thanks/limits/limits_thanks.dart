@@ -24,6 +24,7 @@ const PaywallThanks limitsThanks = PaywallThanks(
   buttonAt: LimitsTimeline.goOn,
   beats: limitsBeats,
   mascotAt: limitsMascotAt,
+  mascotPoseAt: limitsMascotPoseAt,
   builder: _build,
 );
 
@@ -107,6 +108,15 @@ Rect limitsMascotAt(PaywallThanksScope scope, double t) {
     textScale: scope.textScale,
   );
   return _critBox(scope, plan, t);
+}
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose limitsMascotPoseAt(PaywallThanksScope scope, double t) {
+  final count = scope.benefits.length;
+  return (
+    lift: LimitsTimeline.lift(t, count: count),
+    stretch: LimitsTimeline.stretch(t),
+  );
 }
 
 /// Draws the limits version for the second its scope's clock reads.

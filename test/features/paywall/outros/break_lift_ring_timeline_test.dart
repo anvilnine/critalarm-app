@@ -49,10 +49,12 @@ void main() {
       ]) {
         for (var i = 0; i <= 80; i++) {
           final t = i * 0.05;
-          final box = T.pose(t, size: size, land: land, mascot: mascot).box;
+          final box = T
+              .pose(t, size: size, land: land, mascot: mascot)
+              .turnedBox;
           expect(
-            screen.inflate(0.01).contains(box.topLeft) &&
-                screen.inflate(0.01).contains(box.bottomRight),
+            screen.deflate(6).contains(box.topLeft) &&
+                screen.deflate(6).contains(box.bottomRight),
             isTrue,
             reason: 't=$t box=$box',
           );

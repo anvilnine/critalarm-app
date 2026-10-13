@@ -214,6 +214,22 @@ class ThanksDisc extends StatelessWidget {
   }
 }
 
+/// The rectangle a mascot [ThanksCrit] draws in [box] fills with [pose]
+/// applied: lifted off the floor, and stretched about its bottom middle
+/// (its width gives what its height takes). Lean is not in it.
+Rect thanksCritSeen(Rect box, PaywallThanksPose? pose) {
+  if (pose == null) return box;
+  final edge = box.width;
+  final width = edge * (1 + (1 - pose.stretch) * 0.6);
+  final bottom = box.top + edge - pose.lift * edge;
+  return Rect.fromLTRB(
+    box.center.dx - width / 2,
+    bottom - edge * pose.stretch,
+    box.center.dx + width / 2,
+    bottom,
+  );
+}
+
 /// The mascot, in [box], with the moves a version gives it. A direct child
 /// of the version's `Stack`.
 ///

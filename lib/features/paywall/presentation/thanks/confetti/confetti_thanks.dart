@@ -18,8 +18,9 @@ const PaywallThanks confettiThanks = PaywallThanks(
   cover: ConfettiTimeline.cover,
   buttonAt: ConfettiTimeline.goOn,
   beats: confettiBeats,
-  pickUp: 0.3,
+  pickUp: 0.2,
   mascotAt: confettiMascotAt,
+  mascotPoseAt: confettiMascotPoseAt,
   builder: _build,
 );
 
@@ -65,6 +66,15 @@ List<PaywallThanksBeat> confettiBeats(int lines) => [
 
 Widget _build(BuildContext context, PaywallThanksScope scope) =>
     ConfettiThanks(scope: scope);
+
+/// How high the mascot is lifted and how tall it is at second [t].
+PaywallThanksPose confettiMascotPoseAt(PaywallThanksScope scope, double t) {
+  final lines = scope.benefits.length;
+  return (
+    lift: ConfettiTimeline.lift(t, lines: lines),
+    stretch: ConfettiTimeline.stretch(t),
+  );
+}
 
 /// Draws the confetti version for the second its scope's clock reads.
 class ConfettiThanks extends StatelessWidget {
