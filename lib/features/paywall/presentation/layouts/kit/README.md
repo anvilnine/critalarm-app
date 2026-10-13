@@ -203,6 +203,79 @@ Which one plays: remote keys `paywall_thanks` and `pro_paywall_thanks`, develope
 `dev.paywall_thanks` and `dev.pro_paywall_thanks`, the route's `?thanks=<key>`. Empty is none. An
 empty layout value still means the shipped surface, whatever this says.
 
+## Add an outro
+
+What plays between a confirmed purchase and the step after it is a fourth value beside the
+layout, the intro and the thanks, a `PaywallOutroId`. Any one goes with any layout and any
+thanks, for either product. It needs a thanks: with `PaywallThanksId.none` there is nothing to
+hand over to, and the outro is none too. `none` is a purchase going straight to the thanks.
+
+1. Add an id to `PaywallOutroId` (`lib/core/paywall/paywall_outro.dart`). The key ships in remote
+   values and analytics, so it never changes.
+2. Add one folder, `presentation/outros/<name>/`, with a pure timeline (a class of static
+   functions of `t`) and one file that holds a `const PaywallOutro` and the widget its `builder`
+   returns. Unit test the timeline: the order of the beats, the first frame (the picture whole,
+   the mascot on `scope.mascot`), the mascot inside the screen at every 0.05 s, and the frame at
+   `seconds` with the mascot upright on `scope.land`.
+3. Register it in `kit/paywall_outro_registry.dart`: `PaywallOutroId.cloudClimb: cloudClimb`.
+
+```dart
+const PaywallOutro cloudClimb = PaywallOutro(
+  seconds: CloudClimbTimeline.end, // the swap: the outro is taken away, its mascot is on scope.land
+  uncover: CloudClimbTimeline.uncover, // from here the thanks is built and playing under it
+  beats: cloudClimbBeats, // haptics alone, in order
+  builder: _build, // (context, PaywallOutroScope scope) => CloudClimb(scope: scope)
+);
+```
+
+**One clock, two timelines.** `PaywallThanksHost` has one clock `t`, seconds since the purchase
+was confirmed. The outro reads `t`. The thanks reads `paywallThanksSecondAfterOutro(t, ...)`: it
+is not built before `uncover`, then it runs from its own `pickUp` second (0.5, or 0.3 for
+Confetti). So `t` and the thanks' second differ by a constant after `uncover`.
+
+**The scope.** A `PaywallOutroScope` has `clock`, `size`, `padding`, `product`, `wall`, `mascot`,
+`land`, `ground` and `words`.
+
+- `wall` is one picture of the layout as it was painted on the purchase frame, with the layout's
+  own mascot patched out of it (`paywallOutroPatch`, in the colour of a pixel beside him). It is
+  null when the picture could not be taken: the outro still plays, so draw something under it.
+  The host owns the picture and disposes it. Never dispose it, and never keep it past `seconds`.
+- `mascot` is where the layout's mascot stood, or null when it had none on screen (mid entrance,
+  a layout without one). Start the outro's mascot at the stage when it is null.
+- `land` is where the thanks stands its mascot at the swap (`PaywallThanks.mascotAt`). The
+  outro's mascot ends exactly there and upright, and the two swap on one frame.
+- `ground` is the thanks' background colour. End the outro on it.
+- `words` is the line the outro writes.
+
+**The swap.** Until `seconds` the thanks draws no mascot and no hands
+(`PaywallThanksScope.mascotFrom`). At `seconds` the outro is gone and the thanks draws its own,
+in the box `mascotAt` gave. Two mascots never show at once and the thanks' one never jumps.
+A version of the thanks that gets an outro needs `pickUp` and `mascotAt`. `mascotAt` returns the
+box the version stands its mascot in at that second, taken from the version's own timeline. The
+version's lift and squash move that box and are not in it, so choose the outro's `seconds` so
+that the version is at rest at the swap, or the mascot pops by that much.
+
+**Beats.** The purchase cue owns the first `paywallBoughtCueSeconds` (2.2), so every beat of an
+outro is `PaywallThanksBeat.tap`. `PaywallOutro.isSound` checks it and a test asks it of every
+outro. Nothing may ring or buzz like an alarm.
+
+What the host does, so an outro does not:
+
+- Takes the picture on the purchase frame (`RepaintBoundary.toImage`, at most 2 times). It is
+  async, so the layout stays on screen until it returns and the clock starts then. A tap in that
+  gap goes to the thanks' resting frame with no outro. If the picture fails, the outro plays
+  with `wall` null.
+- A tap during the outro skips to the thanks' resting frame with its button on. Skipped beats
+  are not played.
+- A restore, a product already held, reduce motion and a `PaywallStill` play no outro
+  (`paywallOutroPlays`) and do what they did before.
+- The picture is disposed at `seconds`, on a skip and when the route goes away mid outro.
+- Analytics: every layout event carries `outro` when one is set.
+
+Which one plays: remote keys `paywall_outro` and `pro_paywall_outro`, developer prefs
+`dev.paywall_outro` and `dev.pro_paywall_outro`, the route's `?outro=<key>`. The developer value
+outranks the remote one, and the route is what a try-out uses. Empty is none.
+
 ## The frame
 
 `PaywallFrame(builder: (context, scope) => ...)` never scrolls. It keeps the safe areas, puts
@@ -450,6 +523,8 @@ size, or a cross or button off screen. The top of the tool lists the options: `O
 frame at a time and captures that second (with `TAP=x,y`, `DRAG=x,y,x,y` and `THEN=<seconds>`).
 `INTRO=<key>` plays that intro first (with `T`, which then counts from the intro's first frame).
 `THANKS=<key>` buys on the demo model and captures what plays after (with `T`, which then counts
-from the confirmed purchase, and `RESTORE=true` for the quiet frame).
+from the confirmed purchase, and `RESTORE=true` for the quiet frame). `OUTRO=<key>` plays that
+success outro between the purchase and the thanks, and `OUTRO=plain` is a debug outro of the tool
+that proves the host.
 `MOTION=rays,drop` draws the Hero composition with those variants.
 `PICKER=page|intro|paywall|thanks` captures the developer picker.

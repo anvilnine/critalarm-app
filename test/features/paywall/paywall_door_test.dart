@@ -3,6 +3,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
@@ -22,6 +23,10 @@ class _Install {
   PaywallThanksId? devHostedThanks;
   PaywallThanksId? devProThanks;
   bool thanksAreBuilt = true;
+  String hostedOutro = '';
+  String proOutro = '';
+  PaywallOutroId? devHostedOutro;
+  bool outrosAreBuilt = true;
   PaywallLayoutSetting? devHosted;
   PaywallLayoutSetting? devPro;
   bool seen = false;
@@ -58,6 +63,11 @@ class _Install {
     developerThanks: (product) =>
         product == PaywallProduct.hosted ? devHostedThanks : devProThanks,
     isThanksBuilt: (thanks) => thanks == PaywallThanksId.none || thanksAreBuilt,
+    remoteOutroValue: (product) =>
+        product == PaywallProduct.hosted ? hostedOutro : proOutro,
+    developerOutro: (product) =>
+        product == PaywallProduct.hosted ? devHostedOutro : null,
+    isOutroBuilt: (outro) => outro == PaywallOutroId.none || outrosAreBuilt,
   );
 }
 
@@ -498,6 +508,110 @@ void main() {
     });
 
     test('with nothing injected a door has no thanks', () {
+      final door = PaywallDoor(
+        remoteValue: (_) => 'hero',
+        developer: (_) => null,
+        hasSeenFalseAlarm: () => false,
+        markFalseAlarmSeen: () async {},
+      );
+      expect(
+        door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+    });
+  });
+
+  group('the outro value', () {
+    test('rides in the location, after the thanks', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = ' cloud_climb '
+        ..pro = 'sheet'
+        ..proThanks = 'confetti'
+        ..proOutro = 'break_lift_ring';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.resolve(paywallLocation(PaywallSource.history)),
+        '/plans/hero?product=hosted&source=history'
+        '&thanks=stamp&outro=cloud_climb',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.reliability),
+        '/plans/sheet?product=pro&source=reliability'
+        '&thanks=confetti&outro=break_lift_ring',
+      );
+    });
+
+    test('an outro this build cannot draw is no outro', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'cloud_climb'
+        ..outrosAreBuilt = false;
+      // The thanks still plays.
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history&thanks=stamp',
+      );
+    });
+
+    test('a value this build does not know is no outro', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'fireworks';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history&thanks=stamp',
+      );
+    });
+
+    test('a thanks this build cannot play takes the outro with it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'cloud_climb'
+        ..thanksAreBuilt = false;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+    });
+
+    test('the developer value outranks the remote one, none included', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'stamp'
+        ..hostedOutro = 'cloud_climb'
+        ..devHostedOutro = PaywallOutroId.breakLiftRing;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history'
+        '&thanks=stamp&outro=break_lift_ring',
+      );
+      install.devHostedOutro = PaywallOutroId.none;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history&thanks=stamp',
+      );
+    });
+
+    test('alone it changes nothing: empty layout is the shipped surface', () {
+      final install = _Install()
+        ..hostedOutro = 'cloud_climb'
+        ..devHostedOutro = PaywallOutroId.breakLiftRing;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/paywall?source=history',
+      );
+    });
+
+    test('with nothing injected a door has no outro', () {
       final door = PaywallDoor(
         remoteValue: (_) => 'hero',
         developer: (_) => null,

@@ -37,6 +37,8 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const String proPaywallIntroKeyName = 'pro_paywall_intro';
   static const String paywallThanksKeyName = 'paywall_thanks';
   static const String proPaywallThanksKeyName = 'pro_paywall_thanks';
+  static const String paywallOutroKeyName = 'paywall_outro';
+  static const String proPaywallOutroKeyName = 'pro_paywall_outro';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
     paywallEnabledKey: false,
@@ -249,6 +251,12 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   String get proPaywallThanksKey => _layoutValue(proPaywallThanksKeyName);
+
+  @override
+  String get paywallOutroKey => _layoutValue(paywallOutroKeyName);
+
+  @override
+  String get proPaywallOutroKey => _layoutValue(proPaywallOutroKeyName);
 
   /// Empty when Firebase is missing or the read fails: the shipped paywall.
   String _layoutValue(String key) {
