@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_outro.dart';
 import 'package:critalarm/features/paywall/presentation/outros/cloud_climb/cloud_climb_timeline.dart';
 import 'package:flutter/painting.dart';
@@ -9,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 typedef T = CloudClimbTimeline;
 
 const _phones = [Size(390, 844), Size(375, 667)];
-const _frame = 1 / 120;
+const double _frame = 1 / 120;
 
 Rect _landFor(Size size) => Rect.fromCenter(
   center: Offset(size.width / 2, 230),
@@ -37,7 +36,7 @@ Map<String, double Function(double t, Size size)> _series() => {
   'crit width': (t, s) => _crit(t, s, mascot: _mascotFor(s)).width,
   'moon x': (t, s) => T.moonCentre(t, s).dx,
   'moon y': (t, s) => T.moonCentre(t, s).dy,
-  'moon radius': (t, s) => T.moonRadius(t, s),
+  'moon radius': T.moonRadius,
   'ground': (t, s) => T.rise(t),
   'night edge': (t, s) => T.nightEdge(t),
   for (var i = 0; i < T.stars.length; i++)
@@ -259,8 +258,8 @@ void main() {
       expect(T.wordsAlpha(1.25), 0);
       expect(T.wordsAlpha(1.75), closeTo(1, 1e-9));
       expect(T.wordsAlpha(2.6), closeTo(1, 1e-9));
-      expect(T.wordsAlpha(3.0), 0);
-      expect(math.max(T.wordsAlpha(2.0), 0), 1);
+      expect(T.wordsAlpha(3), 0);
+      expect(math.max(T.wordsAlpha(2), 0), 1);
     });
 
     test('split at the last space', () {

@@ -1,3 +1,6 @@
+// Canvas calls read better as separate statements than as cascades.
+// ignore_for_file: cascade_invocations
+
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -213,7 +216,7 @@ class CloudClimbCloudPainter extends _SecondPainter {
     );
     canvas.saveLayer(
       box.outerRect.inflate(8),
-      Paint()..color = const Color(0xFF000000).withValues(alpha: alpha),
+      Paint()..color = ink.withValues(alpha: alpha),
     );
     canvas.drawRRect(box, Paint()..color = cloud);
     final stroke = Paint()
