@@ -311,17 +311,25 @@ class PaywallIntroPlay extends InheritedWidget {
 ///   all and the layout opens as it does alone.
 /// - It plays once for as long as this widget lives. A rebuild does not
 ///   start it again.
+/// - With a [hint], that line is drawn at the foot of the intro while the
+///   intro covers the screen, and is gone by the hand over. Off by
+///   default.
 class PaywallIntroHost extends StatefulWidget {
   const PaywallIntroHost({
     required this.intro,
     required this.product,
     required this.child,
+    this.hint,
     super.key,
   });
 
   final PaywallIntroId intro;
   final PaywallProduct product;
   final Widget child;
+
+  /// A short line for the foot of the intro, such as how to skip it. Null
+  /// draws none.
+  final String? hint;
 
   @override
   State<PaywallIntroHost> createState() => _PaywallIntroHostState();
@@ -565,6 +573,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
                   clock: _clock,
                   product: widget.product,
                   handle: _handle,
+                  hint: widget.hint,
                   takesTaps: !_hasHandedOver,
                   onSkip: _skip,
                   onClose: _close,
@@ -599,6 +608,7 @@ class _IntroLayer extends StatelessWidget {
     required this.clock,
     required this.product,
     required this.handle,
+    required this.hint,
     required this.takesTaps,
     required this.onSkip,
     required this.onClose,
@@ -608,14 +618,22 @@ class _IntroLayer extends StatelessWidget {
   final PaywallClock clock;
   final PaywallProduct product;
   final PaywallIntroHandle handle;
+  final String? hint;
   final bool takesTaps;
+
+  /// How far above the bottom edge the hint's last line stands, and the
+  /// text size it stops growing at.
+  static const double _hintFoot = 58;
+  static const double _hintMaxTextScale = 1.3;
   final VoidCallback onSkip;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.viewPaddingOf(context);
-    final ink = PaywallToneColors.of(context, intro.tone).ink;
+    final tone = PaywallToneColors.of(context, intro.tone);
+    final ink = tone.ink;
+    final hint = this.hint;
 
     // The cross is an ink well, and the layout's own scaffold is not above
     // this layer.
@@ -650,6 +668,33 @@ class _IntroLayer extends StatelessWidget {
               ),
             ),
           ),
+          // Until the hand over, and fading as the red gives way to the
+          // layout. It takes no touch: a tap is the intro's.
+          if (hint != null && takesTaps)
+            Positioned(
+              left: Spacing.s5,
+              right: Spacing.s5,
+              bottom: math.max(_hintFoot, padding.bottom + Spacing.s4),
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: PaywallClockBuilder(
+                    clock: clock,
+                    builder: (context, t, child) => Opacity(
+                      opacity: 1 - phase(t, intro.skipTo, intro.handover),
+                      child: child,
+                    ),
+                    child: Text(
+                      hint,
+                      textAlign: TextAlign.center,
+                      textScaler: MediaQuery.textScalerOf(
+                        context,
+                      ).clamp(maxScaleFactor: _hintMaxTextScale),
+                      style: AppTypography.mono(tone.muted, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           // The way out, in the corner the layout keeps its own cross. By
           // the hand over that corner is uncovered and the layout's own
           // cross, in its own colour, takes over without a move.

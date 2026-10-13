@@ -183,6 +183,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Added the setup answer data: a SetupUse enum, its per-answer table, a prefs store with an in-memory replay holder, and curl as a tool template with no snippet.
 - The setup test's It works screen throws no confetti and plays no success haptic when the offer step follows.
 - The alarm screen of the setup test shows a sample message for the answer picked on the use step. The title and body the server sent stay in the history, the notification and the extension cache.
+- Paywall pieces for a lead benefit: a route lead on the reel, the Hosted weekly check as a fifth benefit, a topic name on the topics picture, a thanks button label and an intro hint line.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

@@ -64,12 +64,12 @@ class PaywallBenefit {
 /// listed. A benefit taken out of `HostedBenefit.all` drops off every
 /// layout too.
 ///
-/// The weekly delivery check is such a benefit today: it is in
-/// `HostedBenefit.all`, so the shipped Hosted paywall, the ask sheet and
-/// the notices name it, and it has no entry here yet. A layout lists it
-/// once it has one, and once the step after a purchase has plan facts for
-/// it (`limitsHostedFor`), which needs a row for every Hosted benefit a
-/// layout lists.
+/// Every benefit of `HostedBenefit.all` has an entry, the weekly delivery
+/// check included. It is listed under Hosted because Hosted unlocks it
+/// (`featureTable`), and its line is the one the Weekly check screen
+/// reads. The step after a purchase reads each Hosted benefit's plan facts
+/// by id (`limitsHostedFor`); the weekly check has no number on either
+/// plan, so it has no limits row there.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -92,6 +92,11 @@ const _hostedParts =
         LocaleKeys.paywall_kit_benefits_app_icons_line,
         PaywallPreviewId.appIcons,
       ),
+      HostedBenefitId.weeklyCheck: (
+        PaywallBenefitId.reliabilityChecks,
+        LocaleKeys.weekly_check_what_line,
+        PaywallPreviewId.weeklyCheck,
+      ),
     };
 
 /// Every benefit Pro has a title, a line and a preview for, in display
@@ -110,7 +115,8 @@ const _hostedParts =
 /// the ring. The switch goes on once the line and the preview show those.
 ///
 /// The weekly delivery check keeps its entry here and the table leaves it
-/// out, because Hosted is what unlocks it now.
+/// out, because Hosted is what unlocks it now. Hosted lists it from
+/// `_hostedParts` under the same benefit id, so no layout lists it twice.
 ///
 /// The app icons have no entry here yet, though Pro unlocks them too. A
 /// layout lists them under Hosted only. An entry for them needs the step

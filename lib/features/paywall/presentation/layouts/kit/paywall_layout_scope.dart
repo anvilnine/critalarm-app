@@ -4,6 +4,7 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/widgets.dart';
@@ -21,31 +22,59 @@ class PaywallOffer {
     required this.product,
     required this.benefits,
     required this.source,
+    this.lead,
   });
 
   /// The offer of the paywall route above [context].
   factory PaywallOffer.of(BuildContext context) {
     final info = PaywallRouteInfo.maybeOf(context);
-    final product = BlocProvider.of<PaywallBuyCubit>(context).state.product;
+    return PaywallOffer.from(
+      product: BlocProvider.of<PaywallBuyCubit>(context).state.product,
+      source: info?.source ?? PaywallSource.direct,
+      showsUnbuilt: info?.showsUnbuilt ?? false,
+      lead: info?.lead,
+    );
+  }
+
+  /// The offer for [product]: what this build lists for it, or every
+  /// benefit of it when [showsUnbuilt].
+  ///
+  /// With a [lead], the benefit it names comes first and the rest keep
+  /// their order. A lead for a benefit the product does not list is
+  /// ignored, so a Hosted lead on a Pro paywall changes nothing.
+  factory PaywallOffer.from({
+    required PaywallProduct product,
+    PaywallSource source = PaywallSource.direct,
+    bool showsUnbuilt = false,
+    PaywallLead? lead,
+  }) {
+    final listed = showsUnbuilt
+        ? [
+            for (final b in allPaywallBenefits)
+              if (b.product == product) b,
+          ]
+        : paywallBenefitsFor(product);
+    final applied = paywallLeadIn(listed, lead);
     return PaywallOffer(
       product: product,
-      benefits: info?.showsUnbuilt ?? false
-          ? [
-              for (final b in allPaywallBenefits)
-                if (b.product == product) b,
-            ]
-          : paywallBenefitsFor(product),
-      source: info?.source ?? PaywallSource.direct,
+      benefits: paywallBenefitsLeadFirst(listed, applied),
+      source: source,
+      lead: applied,
     );
   }
 
   final PaywallProduct product;
 
-  /// What to list, in display order. Only benefits this build has.
+  /// What to list, in display order, the lead's benefit first. Only
+  /// benefits this build has.
   final List<PaywallBenefit> benefits;
 
   /// What opened the paywall.
   final PaywallSource source;
+
+  /// The route's lead, when it names a benefit in [benefits]. That
+  /// benefit is the first one. Null otherwise.
+  final PaywallLead? lead;
 
   bool get isHosted => product == PaywallProduct.hosted;
   bool get isPro => product == PaywallProduct.pro;
@@ -64,6 +93,7 @@ class PaywallLayoutScope {
     required this.closeOnLeft,
     required this.close,
     this.intro = PaywallIntroId.none,
+    this.lead,
   });
 
   /// Edge of the square the close cross takes in a top corner of the
@@ -106,6 +136,11 @@ class PaywallLayoutScope {
   /// skipped. The layout's clock starts at zero as the intro hands over.
   final PaywallIntroId intro;
 
+  /// The route's lead, when it names one of [benefits]. That benefit is
+  /// the first one. Most layouts only list it first. The reel also reads
+  /// its words.
+  final PaywallLead? lead;
+
   /// True when the layout comes in under the end of an intro, which ends
   /// on the mascot. A layout may then shorten or skip its own entrance pop.
   bool get followsIntro => intro != PaywallIntroId.none;
@@ -141,6 +176,7 @@ class PaywallLayoutScopeProvider extends InheritedWidget {
       scope.source != oldWidget.scope.source ||
       scope.closeOnLeft != oldWidget.scope.closeOnLeft ||
       scope.intro != oldWidget.scope.intro ||
+      scope.lead != oldWidget.scope.lead ||
       scope.benefits.length != oldWidget.scope.benefits.length;
 }
 
@@ -152,11 +188,16 @@ class PaywallRouteInfo extends InheritedWidget {
     required this.source,
     required super.child,
     this.showsUnbuilt = false,
+    this.lead,
     super.key,
   });
 
   final PaywallLayoutId layout;
   final PaywallSource source;
+
+  /// The benefit to open on, and the words for it. Null lists the benefits
+  /// in the product's display order.
+  final PaywallLead? lead;
 
   /// A developer view that also lists the benefits this build does not
   /// have yet, to see a layout with the full list.
@@ -169,6 +210,7 @@ class PaywallRouteInfo extends InheritedWidget {
   bool updateShouldNotify(PaywallRouteInfo oldWidget) =>
       layout != oldWidget.layout ||
       source != oldWidget.source ||
+      lead != oldWidget.lead ||
       showsUnbuilt != oldWidget.showsUnbuilt;
 }
 
