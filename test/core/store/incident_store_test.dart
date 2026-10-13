@@ -191,6 +191,59 @@ void main() {
     expect(await store.incidents.countOlderThan(null), 0);
   });
 
+  test(
+    'openedSince returns id, opened time and whether it was answered',
+    () async {
+      final base = DateTime.utc(2026, 9, 20, 12);
+      await store.incidents.upsertAll([
+        Incident(
+          id: 'old',
+          topic: 'p',
+          openedAt: base.subtract(const Duration(days: 100)),
+        ),
+        Incident(
+          id: 'acked',
+          topic: 'p',
+          state: IncidentStates.acked,
+          openedAt: base,
+          ackedAt: base,
+        ),
+        Incident(
+          id: 'plain',
+          topic: 'p',
+          openedAt: base.add(const Duration(days: 1)),
+        ),
+      ]);
+      final rows = await store.incidents.openedSince(
+        base.subtract(const Duration(days: 90)),
+      );
+      expect(rows.map((r) => r.id), ['plain', 'acked']);
+      expect(rows.map((r) => r.isAcked), [false, true]);
+      expect(rows.last.openedAt, base);
+      expect(rows.last.openedAt.isUtc, isTrue);
+    },
+  );
+
+  test(
+    'oldestOpenedAt is null when empty and the oldest row otherwise',
+    () async {
+      expect(await store.incidents.oldestOpenedAt(), isNull);
+      final base = DateTime.utc(2026, 9, 20, 12);
+      await store.incidents.upsertAll([
+        Incident(id: 'b', topic: 'p', openedAt: base),
+        Incident(
+          id: 'a',
+          topic: 'p',
+          openedAt: base.subtract(const Duration(days: 5)),
+        ),
+      ]);
+      expect(
+        await store.incidents.oldestOpenedAt(),
+        base.subtract(const Duration(days: 5)),
+      );
+    },
+  );
+
   test('deleteOlderThan skips P5 rows when asked', () async {
     await store.incidents.upsertAll([
       _incident('inc_p4', daysAgo: 40),
