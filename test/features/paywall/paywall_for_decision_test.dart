@@ -14,7 +14,6 @@ import '../../core/access/access_fakes.dart';
 /// Places that sell Pro only. `PaywallSource` has no value for them, so
 /// their Hosted side reads as `direct`.
 const Set<LockSource> _noHostedSource = {
-  LockSource.reliability,
   LockSource.sounds,
   // Wake-up challenges, on Personalize and on a topic's page.
   LockSource.personalizeChallenge,
@@ -107,7 +106,7 @@ void main() {
             access.features.decide(AppFeature.weeklyCheck),
             LockSource.reliability,
           ),
-          '/paywall?source=direct',
+          '/paywall?source=reliability',
         );
       }
       // On a server of the user's own the same row opens nothing.
@@ -140,6 +139,7 @@ void main() {
       expect(LockSource.historyOlder.hosted, PaywallSource.historyOlder);
       expect(LockSource.homeWidgets.hosted, PaywallSource.homeWidgets);
       expect(LockSource.appIcon.hosted, PaywallSource.appIcon);
+      expect(LockSource.reliability.hosted, PaywallSource.reliability);
       expect(LockSource.reliability.pro, ProPackSheetSource.reliability);
       expect(LockSource.sounds.pro, ProPackSheetSource.sounds);
       expect(
@@ -158,44 +158,49 @@ void main() {
       }
     });
 
-    // `PaywallSource` has no value of its own for these yet: the paywall
-    // layouts switch over every value, so a new one is added there first.
-    const personalize = {
-      LockSource.personalizeSound,
-      LockSource.personalizeWidgets,
-      LockSource.personalizeAppIcon,
-    };
-
     test('a place has the same wire name on both paywalls', () {
       for (final source in LockSource.values) {
         if (_noHostedSource.contains(source)) continue;
-        if (personalize.contains(source)) continue;
         expect(source.pro.wire, source.hosted.wire, reason: source.name);
       }
     });
 
-    test('the Personalize places have a Pro source of their own, and on '
-        'the Hosted side read as the older place that sells the same', () {
+    test('the Personalize places have a source of their own on both '
+        'paywalls', () {
       expect(
         LockSource.personalizeSound.pro,
         ProPackSheetSource.personalizeSound,
       );
-      expect(LockSource.personalizeSound.hosted, PaywallSource.direct);
+      expect(
+        LockSource.personalizeSound.hosted,
+        PaywallSource.personalizeSound,
+      );
       expect(
         LockSource.personalizeWidgets.pro,
         ProPackSheetSource.personalizeWidgets,
       );
-      expect(LockSource.personalizeWidgets.hosted, PaywallSource.homeWidgets);
+      expect(
+        LockSource.personalizeWidgets.hosted,
+        PaywallSource.personalizeWidgets,
+      );
       expect(
         LockSource.personalizeAppIcon.pro,
         ProPackSheetSource.personalizeAppIcon,
       );
-      expect(LockSource.personalizeAppIcon.hosted, PaywallSource.appIcon);
-      for (final source in personalize) {
+      expect(
+        LockSource.personalizeAppIcon.hosted,
+        PaywallSource.personalizeAppIcon,
+      );
+      const expectedPlace = {
+        LockSource.personalizeSound: PaywallPlace.ownSounds,
+        LockSource.personalizeWidgets: PaywallPlace.widgets,
+        LockSource.personalizeAppIcon: PaywallPlace.appIcons,
+      };
+      for (final entry in expectedPlace.entries) {
         expect(
-          paywallEntryOfProSheet(source.pro),
-          PaywallEntry.lockedRow,
-          reason: source.name,
+          paywallPlaceOfPro(entry.key.pro),
+          entry.value,
+          reason: entry.key.name,
         );
       }
     });
@@ -203,11 +208,9 @@ void main() {
     test('a place opens the same kind of layout on both paywalls', () {
       for (final source in LockSource.values) {
         if (_noHostedSource.contains(source)) continue;
-        // Nothing sells own sounds on Hosted, so it has no Hosted place.
-        if (source == LockSource.personalizeSound) continue;
         expect(
-          paywallEntryOfProSheet(source.pro),
-          paywallEntryOf(source.hosted),
+          paywallPlaceOfPro(source.pro),
+          paywallPlaceOf(source.hosted),
           reason: source.name,
         );
       }
