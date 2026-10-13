@@ -80,14 +80,19 @@ void main() {
       expect(offer.lead, isNull);
     });
 
-    test('a benefit that is not in this build is not listed, so a lead for '
-        'it is ignored', () {
+    test('wake-up challenges are in this build, so a lead for them is kept '
+        'and first', () {
       final offer = PaywallOffer.from(
         product: PaywallProduct.pro,
         lead: const PaywallLead(benefit: PaywallBenefitId.wakeUpChallenges),
       );
-      expect(_ids(offer), _listed(PaywallProduct.pro));
-      expect(offer.lead, isNull);
+      expect(_ids(offer), [
+        PaywallBenefitId.wakeUpChallenges,
+        PaywallBenefitId.widgets,
+        PaywallBenefitId.customSounds,
+        PaywallBenefitId.customAlarmScreens,
+      ]);
+      expect(offer.lead?.benefit, PaywallBenefitId.wakeUpChallenges);
     });
 
     test('Pro with a Hosted lead is ignored', () {
@@ -108,6 +113,7 @@ void main() {
       );
       expect(_ids(offer), [
         PaywallBenefitId.customSounds,
+        PaywallBenefitId.wakeUpChallenges,
         PaywallBenefitId.widgets,
         PaywallBenefitId.customAlarmScreens,
       ]);

@@ -113,14 +113,11 @@ const _hostedParts =
 ///
 /// [PaywallBenefit.inThisBuild] is true only for what the app has today,
 /// as its line and its preview show it: the widgets, the person's own
-/// alarm sounds (a file picked or a recording) and the alarm screen looks
-/// (four fixed ones and the person's own photo).
-///
-/// Wake-up challenges are built too, and stay switched off here. Their
-/// line and their preview show a QR code scan that holds the stop button,
-/// and the four challenges the app has are typing a topic name, typing an
-/// alert title, a sum and a scratch card, with "I'm up" always stopping
-/// the ring. The switch goes on once the line and the preview show those.
+/// alarm sounds (a file picked or a recording), the alarm screen looks
+/// (four fixed ones and the person's own photo) and the wake-up
+/// challenges (type the topic name, type the alert title, a sum, a
+/// scratch card and a shake, each one asked before "At my desk", with
+/// "I'm up" always stopping the ring).
 ///
 /// The weekly delivery check keeps its entry here and the table leaves it
 /// out, because Hosted is what unlocks it now. Hosted lists it from
@@ -139,7 +136,7 @@ const _proDisplayOrder = <PaywallBenefit>[
     titleKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_title,
     lineKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_line,
     previewId: PaywallPreviewId.wakeUpChallenges,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
   PaywallBenefit(
     id: PaywallBenefitId.widgets,
@@ -207,6 +204,22 @@ List<PaywallBenefit> allPaywallBenefitsIn(
 /// developer pages read this: a layout reads [paywallBenefitsFor].
 List<PaywallBenefit> get allPaywallBenefits =>
     allPaywallBenefitsIn(featureTable);
+
+/// Whether [product] has a benefit of its own named [id] under [table]: a
+/// benefit it lists, in this build or not. A place whose lead [product]
+/// has no benefit for opens the product's plan place, never the Sheet or
+/// the layout of a place that sells something else.
+bool paywallProductHasBenefitIn(
+  Map<AppFeature, FeatureRule> table,
+  PaywallProduct product,
+  PaywallBenefitId id,
+) => allPaywallBenefitsIn(
+  table,
+).any((benefit) => benefit.product == product && benefit.id == id);
+
+/// [paywallProductHasBenefitIn] for the app's own table.
+bool paywallProductHasBenefit(PaywallProduct product, PaywallBenefitId id) =>
+    paywallProductHasBenefitIn(featureTable, product, id);
 
 /// What a layout lists for [product]: the benefits this build really has,
 /// in display order.

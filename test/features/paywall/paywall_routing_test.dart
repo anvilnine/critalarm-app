@@ -45,6 +45,36 @@ PaywallOpening _open(
   leaving: leaving,
 );
 
+/// The places a product has no benefit of its own for the lead of. Such a
+/// pair opens the product's plan place: a Hero with no lead.
+///
+/// Written out here and not worked out from the table, so a lead that goes
+/// missing from a product's list fails a test.
+const Map<PaywallProduct, Set<PaywallPlace>> _noOwnBenefit = {
+  PaywallProduct.pro: {
+    PaywallPlace.criticalLimit,
+    PaywallPlace.history,
+    PaywallPlace.appIcons,
+    PaywallPlace.weeklyCheck,
+    PaywallPlace.planEnding,
+    PaywallPlace.planEnded,
+  },
+  PaywallProduct.hosted: {
+    PaywallPlace.widgets,
+    PaywallPlace.ownSounds,
+    PaywallPlace.alarmLook,
+    PaywallPlace.challenge,
+  },
+};
+
+/// The place [place] opens for [product]: itself, or the plan place.
+PaywallPlace _opens(PaywallProduct product, PaywallPlace place) =>
+    _noOwnBenefit[product]!.contains(place) ? PaywallPlace.plan : place;
+
+Set<PaywallBenefitId> _built(PaywallProduct product) => {
+  for (final b in paywallBenefitsFor(product)) b.id,
+};
+
 void main() {
   group('places', () {
     test('every Hosted source has its place', () {
@@ -113,7 +143,7 @@ void main() {
         final opening = _open(_hosted, paywallPlaceOf(source));
         expect(
           opening.layout,
-          paywallRowFor(paywallPlaceOf(source)).layout,
+          paywallRowFor(_opens(_hosted, paywallPlaceOf(source))).layout,
           reason: '$source',
         );
         expect(PaywallLayoutId.values, contains(opening.layout));
@@ -126,7 +156,7 @@ void main() {
         final opening = _open(_pro, paywallPlaceOfPro(source));
         expect(
           opening.layout,
-          paywallRowFor(paywallPlaceOfPro(source)).layout,
+          paywallRowFor(_opens(_pro, paywallPlaceOfPro(source))).layout,
           reason: '$source',
         );
         expect(opening.layout, isNot(PaywallLayoutId.doors), reason: '$source');
@@ -243,23 +273,127 @@ void main() {
       for (final place in PaywallPlace.values) {
         final row = expected[place];
         expect(row, isNotNull, reason: '$place has no expected row');
+        expect(paywallRowFor(place).layout, row!.$1, reason: '$place row');
+        expect(paywallRowFor(place).lead, row.$2, reason: '$place row lead');
+        // Hosted opens the row itself wherever it has the row's lead.
+        if (_noOwnBenefit[_hosted]!.contains(place)) continue;
         final opening = _open(_hosted, place);
-        expect(opening.layout, row!.$1, reason: '$place layout');
+        expect(opening.layout, row.$1, reason: '$place layout');
         expect(opening.lead, row.$2, reason: '$place lead');
         expect(opening.intro, row.$3, reason: '$place intro');
         expect(opening.headline, row.$4, reason: '$place headline');
-        expect(paywallRowFor(place).layout, row.$1, reason: '$place row');
       }
       expect(expected.length, PaywallPlace.values.length);
     });
 
-    test('Pro reads the same table', () {
+    test('Pro reads the same table, where it has the lead', () {
       for (final place in PaywallPlace.values) {
-        final hosted = _open(_hosted, place);
+        final row = paywallRowFor(_opens(_pro, place));
         final pro = _open(_pro, place);
+        expect(pro.layout, row.layout, reason: '$place');
+        expect(pro.lead, row.lead, reason: '$place');
+        expect(pro.headline, row.headline, reason: '$place');
+        // Where both have the lead the two products open the same thing.
+        if (_noOwnBenefit[_pro]!.contains(place) ||
+            _noOwnBenefit[_hosted]!.contains(place)) {
+          continue;
+        }
+        final hosted = _open(_hosted, place);
         expect(pro.layout, hosted.layout, reason: '$place');
         expect(pro.lead, hosted.lead, reason: '$place');
         expect(pro.headline, hosted.headline, reason: '$place');
+      }
+    });
+
+    test('a pair with no benefit of its own opens the plan place, and '
+        'no other', () {
+      for (final product in PaywallProduct.values) {
+        final plan = paywallRowFor(PaywallPlace.plan);
+        for (final place in _noOwnBenefit[product]!) {
+          final opening = _open(product, place, listed: _built(product));
+          expect(opening.layout, plan.layout, reason: '$product $place');
+          expect(opening.lead, isNull, reason: '$product $place');
+          expect(opening.intro, plan.intro, reason: '$product $place');
+          expect(opening.headline, plan.headline, reason: '$product $place');
+        }
+      }
+    });
+  });
+
+  group('every place a source reaches', () {
+    // What this build lists is what the door passes in. Where the table
+    // names a lead the product lists, it is kept. Where it names one the
+    // product has no benefit for, the pair is in `_noOwnBenefit` and opens
+    // the plan place. Nothing else is dropped.
+    void check(PaywallProduct product, Iterable<PaywallPlace> places) {
+      final built = _built(product);
+      for (final place in places) {
+        final row = paywallRowFor(place);
+        final opening = _open(product, place, listed: built);
+        final reason = '${product.key} $place';
+        final lead = row.lead;
+        if (lead == null) {
+          expect(opening.lead, isNull, reason: reason);
+        } else if (_noOwnBenefit[product]!.contains(place)) {
+          expect(built, isNot(contains(lead)), reason: reason);
+          expect(opening.layout, PaywallLayoutId.hero, reason: reason);
+          expect(opening.lead, isNull, reason: reason);
+        } else {
+          expect(built, contains(lead), reason: '$reason names $lead');
+          expect(opening.layout, row.layout, reason: reason);
+          expect(opening.lead, lead, reason: reason);
+        }
+      }
+    }
+
+    test('every Pro source: the lead is in the Pro list or the plan opens', () {
+      check(_pro, {
+        for (final s in ProPackSheetSource.values) paywallPlaceOfPro(s),
+      });
+    });
+
+    test('every Hosted source: the lead is in the Hosted list or the plan '
+        'opens', () {
+      check(_hosted, {for (final s in PaywallSource.values) paywallPlaceOf(s)});
+    });
+
+    test('every place, for both products', () {
+      for (final product in PaywallProduct.values) {
+        check(product, PaywallPlace.values);
+      }
+    });
+
+    test('a Sheet or a Proof always has a lead the product lists', () {
+      for (final product in PaywallProduct.values) {
+        final built = _built(product);
+        for (final place in PaywallPlace.values) {
+          final opening = _open(product, place, listed: built);
+          if (opening.layout != PaywallLayoutId.sheet &&
+              opening.layout != PaywallLayoutId.proof) {
+            continue;
+          }
+          expect(opening.lead, isNotNull, reason: '${product.key} $place');
+          expect(
+            built,
+            contains(opening.lead),
+            reason: '${product.key} $place',
+          );
+        }
+      }
+    });
+
+    test('the pairs with no benefit of their own are the ones the table '
+        'says', () {
+      for (final product in PaywallProduct.values) {
+        final expected = {
+          for (final place in PaywallPlace.values)
+            if (paywallRowFor(place).lead case final lead?)
+              if (!paywallBenefitsFor(
+                product,
+              ).any((b) => b.id == lead))
+                place,
+        };
+        expect(_noOwnBenefit[product], expected, reason: product.key);
       }
     });
   });
@@ -278,35 +412,35 @@ void main() {
       expect(opening.lead, PaywallBenefitId.widgets);
     });
 
-    test('a weekly check lead on Pro is dropped: Hosted unlocks it', () {
+    test('a weekly check on Pro opens the plan place: Hosted unlocks it', () {
       final listed = {for (final b in paywallBenefitsFor(_pro)) b.id};
       expect(listed, isNot(contains(PaywallBenefitId.reliabilityChecks)));
       final opening = _open(_pro, PaywallPlace.weeklyCheck, listed: listed);
-      expect(opening.layout, PaywallLayoutId.proof);
+      expect(opening.layout, PaywallLayoutId.hero);
       expect(opening.lead, isNull);
     });
 
-    test(
-      'wake-up challenges lead nothing while they are not in this build',
-      () {
-        // Flips when the challenge line and preview are fixed and
-        // `inThisBuild` goes to true. Then change the expectation.
-        for (final product in PaywallProduct.values) {
-          final listed = {for (final b in paywallBenefitsFor(product)) b.id};
-          final opening = _open(
-            product,
-            PaywallPlace.challenge,
-            listed: listed,
-          );
-          expect(opening.layout, PaywallLayoutId.sheet, reason: '$product');
-          expect(opening.lead, isNull, reason: '$product');
-        }
-      },
-    );
+    test('wake-up challenges are Pro: the Sheet leads with them there, and '
+        'Hosted opens its plan place', () {
+      final pro = _open(
+        _pro,
+        PaywallPlace.challenge,
+        listed: _built(_pro),
+      );
+      expect(pro.layout, PaywallLayoutId.sheet);
+      expect(pro.lead, PaywallBenefitId.wakeUpChallenges);
+      final hosted = _open(
+        _hosted,
+        PaywallPlace.challenge,
+        listed: _built(_hosted),
+      );
+      expect(hosted.layout, PaywallLayoutId.hero);
+      expect(hosted.lead, isNull);
+    });
 
     test('a pinned layout keeps the place lead', () {
       final opening = _open(
-        _hosted,
+        _pro,
         PaywallPlace.widgets,
         developer: _pin(PaywallLayoutId.proof),
       );
