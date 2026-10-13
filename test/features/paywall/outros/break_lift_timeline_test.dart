@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:critalarm/core/paywall/paywall_outro.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
@@ -40,6 +41,7 @@ Map<String, double Function(double t, Size size)> _series() => {
   'night': (t, s) => T.night(t) * 100,
   'words': (t, s) => T.wordsAlpha(t) * 100,
   'trail alpha': (t, s) => T.trailAlpha(t) * 100,
+  'trail width': T.trailWidth,
   'trail length': T.trailLength,
   for (var i = 0; i < T.stars.length; i++)
     'star $i y': (t, s) => T.starAt(i, t, s).dy,
@@ -207,6 +209,26 @@ void main() {
       );
     });
 
+    test('the backdrop never gets lighter than it is at the hit', () {
+      // The colours the host draws under the outro: the paywall's own
+      // ground, then the night. A paper or any light step is a flash.
+      for (final (ground, night) in [
+        (const Color(0xFFFFC83A), const Color(0xFF1A1613)),
+        (const Color(0xFF14110F), const Color(0xFF0E0C0A)),
+        (const Color(0xFFF5F0E6), const Color(0xFF1A1613)),
+      ]) {
+        double light(Color c) => c.computeLuminance();
+        final atHit = light(T.backdrop(T.hit, ground: ground, night: night));
+        for (var t = T.hit; t <= T.uncover; t += 1 / 60) {
+          expect(
+            light(T.backdrop(t, ground: ground, night: night)),
+            lessThanOrEqualTo(atHit + 1e-9),
+            reason: 'lighter than at the hit at $t on $ground',
+          );
+        }
+      }
+    });
+
     test('nothing blinks: every piece fades out and stays out', () {
       final pieces = T.pieces(const Size(390, 844));
       for (final piece in pieces) {
@@ -261,6 +283,16 @@ void main() {
       );
     });
 
+    test('the glow is gone at rest and follows the lift speed', () {
+      const size = Size(390, 844);
+      expect(T.trailAlpha(T.liftFrom), 0);
+      expect(T.trailAlpha(T.liftTo), closeTo(0, 1e-9));
+      expect(T.trailLength(T.liftTo, size), closeTo(0, 1e-9));
+      expect(T.trailAlpha(1.65), greaterThan(T.trailAlpha(1.2)));
+      expect(T.trailAlpha(1.65), lessThanOrEqualTo(0.3));
+      expect(T.trailLength(1.65, size), lessThanOrEqualTo(110));
+    });
+
     test('the night is on before Crit has arrived and is gone at the swap', () {
       expect(T.night(T.hit), 0);
       expect(T.night(T.liftTo), 1);
@@ -270,12 +302,12 @@ void main() {
   });
 
   group('the outro', () {
-    test('is sound, with the two taps and no score', () {
+    test('is sound, with the two taps and its score', () {
       expect(breakLift.isSound, isTrue);
       expect(breakLift.seconds, T.end);
       expect(breakLift.uncover, T.uncover);
-      expect(breakLift.score, isNull);
-      expect(breakLift.scoreSeconds, 0);
+      expect(breakLift.score, PaywallCue.scoreBreakLift);
+      expect(breakLift.scoreSeconds, 3.698);
       expect(breakLift.beats.map((b) => b.at), [T.hit, 2.4]);
       expect(
         breakLift.beats.map((b) => b.haptic),

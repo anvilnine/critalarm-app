@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
@@ -17,14 +18,20 @@ typedef _T = BreakLiftTimeline;
 /// paywall, the pieces drift off and the night comes through, and he rises
 /// in one eased move to where the end state stands him, which then opens
 /// from him. No flash, no ring, no cobalt and no word that pops. Two light
-/// taps and no score of its own: the purchase cue plays as it does with
-/// none.
+/// taps, felt and not heard, and a score of its own that rings 0.9 s past
+/// the swap.
 const PaywallOutro breakLift = PaywallOutro(
   seconds: BreakLiftTimeline.end,
   uncover: BreakLiftTimeline.uncover,
   beats: BreakLiftTimeline.beats,
+  score: PaywallCue.scoreBreakLift,
+  scoreSeconds: breakLiftScoreSeconds,
   builder: _build,
 );
+
+/// How long the score file is. It starts with the outro's clock and rings
+/// 0.9 s past the swap.
+const double breakLiftScoreSeconds = 3.698;
 
 Widget _build(BuildContext context, PaywallOutroScope scope) =>
     BreakLift(scope: scope);

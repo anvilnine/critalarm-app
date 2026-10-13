@@ -10,9 +10,9 @@ export 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/b
 
 typedef _T = BreakLiftTimeline;
 
-/// What is drawn under Crit once the wall has broken: the paper the wall
-/// breaks into, the night coming through it, the stars sliding by, one soft
-/// trail under him while he rises, and the pieces drifting off and fading.
+/// What is drawn under Crit once the wall has broken: the night the wall
+/// breaks into, coming through it, the stars sliding by, one soft
+/// glow under him while he rises, and the pieces drifting off and fading.
 /// Nothing here flashes or steps.
 class BreakLiftPainter extends CustomPainter {
   const BreakLiftPainter({
@@ -35,14 +35,13 @@ class BreakLiftPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final night = _T.night(t);
-    canvas
-      ..drawRect(rect, Paint()..color = colors.paper)
-      ..drawRect(
-        rect,
-        Paint()..color = colors.night.withValues(alpha: night),
-      );
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..color = _T.backdrop(t, ground: colors.ground, night: colors.night),
+    );
     _stars(canvas, size, night);
-    _trail(canvas, size);
+    _glow(canvas, size);
     final k = size.shortestSide / _T.reference.width;
     for (final piece in pieces) {
       final f = _T.flightOf(piece, t, k: k);
@@ -72,29 +71,35 @@ class BreakLiftPainter extends CustomPainter {
     }
   }
 
-  void _trail(Canvas canvas, Size size) {
+  /// One soft glow of his yellow under him, fading to nothing on every
+  /// side. It is a round gradient stretched to the glow's width and height.
+  void _glow(Canvas canvas, Size size) {
     final alpha = _T.trailAlpha(t);
-    final length = _T.trailLength(t, size);
-    if (alpha <= 0.002 || length <= 1) return;
-    final top = crit.bottom - crit.height * 0.08;
-    final half = crit.width * 0.2;
-    canvas.drawPath(
-      Path()
-        ..moveTo(crit.center.dx - half, top)
-        ..lineTo(crit.center.dx + half, top)
-        ..lineTo(crit.center.dx + half * 0.3, top + length)
-        ..lineTo(crit.center.dx - half * 0.3, top + length)
-        ..close(),
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(0, top),
-          Offset(0, top + length),
-          [
-            colors.cream.withValues(alpha: alpha),
-            colors.cream.withValues(alpha: 0),
-          ],
-        ),
+    final w = _T.trailWidth(t, size);
+    final h = _T.trailLength(t, size);
+    if (alpha <= 0.002 || w <= 1 || h <= 1) return;
+    final centre = Offset(
+      crit.center.dx,
+      crit.bottom - crit.height * 0.1 + h * 0.4,
     );
+    canvas
+      ..save()
+      ..translate(centre.dx, centre.dy)
+      ..scale(w / 2, h / 2)
+      ..drawCircle(
+        Offset.zero,
+        1,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset.zero,
+            1,
+            [
+              colors.yellow.withValues(alpha: alpha),
+              colors.yellow.withValues(alpha: 0),
+            ],
+          ),
+      )
+      ..restore();
   }
 
   @override

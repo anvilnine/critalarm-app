@@ -83,7 +83,7 @@ abstract final class BreakLiftTimeline {
 
   /// How much night shows where the wall was, 0 to 1. It eases in from
   /// the hit, never at once.
-  static double night(double t) => sine(phase(t, hit, nightTo));
+  static double night(double t) => _night(t);
 
   /// How far the outro has faded off the end state, 0 at [uncover] and 1
   /// at [end].
@@ -118,18 +118,37 @@ abstract final class BreakLiftTimeline {
     );
   }
 
-  /// How solid the trail under him is: one soft column that comes with the
-  /// speed of the lift and goes with it.
-  static double trailAlpha(double t) => 0.38 * speed(t);
-
-  /// How long the trail is, in points.
-  static double trailLength(double t, Size size) {
-    final k = math.min(
-      size.width / reference.width,
-      size.height / reference.height,
-    );
-    return 150 * k * speed(t);
+  /// What shows behind and between the pieces: [ground], the colour the
+  /// screen is at the hit, easing into [night] and never lighter than
+  /// [ground] on the way. There is no paper step and no flash.
+  static Color backdrop(
+    double t, {
+    required Color ground,
+    required Color night,
+  }) {
+    final target = night.computeLuminance() <= ground.computeLuminance()
+        ? night
+        : ground;
+    return Color.lerp(ground, target, _night(t))!;
   }
+
+  static double _night(double t) => sine(phase(t, hit, nightTo));
+
+  /// How solid the glow under him is: his yellow, soft, coming with the
+  /// speed of the lift and gone when he is at rest.
+  static double trailAlpha(double t) => 0.28 * speed(t);
+
+  static double _unit(Size size) => math.min(
+    size.width / reference.width,
+    size.height / reference.height,
+  );
+
+  /// How tall the glow is, in points.
+  static double trailLength(double t, Size size) =>
+      110 * _unit(size) * speed(t);
+
+  /// How wide the glow is, in points.
+  static double trailWidth(double t, Size size) => 150 * _unit(size) * speed(t);
 
   // ---- the wall
 
