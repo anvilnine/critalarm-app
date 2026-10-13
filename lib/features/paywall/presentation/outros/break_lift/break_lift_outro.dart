@@ -112,6 +112,7 @@ class _BreakLiftState extends State<BreakLift> {
                           colors: palette,
                           wall: scope.wall,
                           crit: pose.box,
+                          lean: pose.angle,
                         ),
                 ),
               ),

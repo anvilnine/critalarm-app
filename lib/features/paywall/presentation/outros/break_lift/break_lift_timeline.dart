@@ -25,6 +25,13 @@ typedef BreakLiftStar = ({
   double alpha,
 });
 
+/// A cloud: where it is centred across and down before the lift, in
+/// reference points, and how wide it is.
+typedef BreakLiftCloud = ({double x, double y, double width});
+
+/// The three depths of cloud, slowest first.
+enum BreakLiftLayer { far, mid, near }
+
 abstract final class BreakLiftTimeline {
   /// The reference screen the numbers are worked out on.
   static const Size reference = BreakLiftRingTimeline.reference;
@@ -52,7 +59,14 @@ abstract final class BreakLiftTimeline {
 
   /// How far the stars slide down the screen in the whole lift, in
   /// reference points, for a star that slides by one.
-  static const double starReach = 320;
+  static const double starReach = 300;
+
+  /// How far each layer of cloud falls in the whole lift, in reference
+  /// points. Every layer rides the one eased [lift], so the speed of all of
+  /// them follows the same sine and none starts or stops on its own.
+  static const double farReach = 520;
+  static const double midReach = 860;
+  static const double nearReach = 1300;
 
   /// The sine ease: 0 at 0, 1 at 1, slow at both ends.
   static double sine(double x) =>
@@ -99,7 +113,7 @@ abstract final class BreakLiftTimeline {
           x: 0.04 + BreakLiftRingTimeline.rnd(i + 90) * 0.92,
           y: -0.38 + BreakLiftRingTimeline.rnd(i + 91) * 1.34,
           edge: [1.6, 2.4, 3.4][depth] + BreakLiftRingTimeline.rnd(i + 92),
-          slide: [0.25, 0.5, 0.85][depth],
+          slide: [0.2, 0.35, 0.55][depth],
           alpha: 0.35 + depth * 0.2 + BreakLiftRingTimeline.rnd(i + 93) * 0.15,
         );
       }(),
@@ -134,21 +148,103 @@ abstract final class BreakLiftTimeline {
 
   static double _night(double t) => sine(phase(t, hit, nightTo));
 
-  /// How solid the glow under him is: his yellow, soft, coming with the
-  /// speed of the lift and gone when he is at rest.
-  static double trailAlpha(double t) => 0.28 * speed(t);
-
   static double _unit(Size size) => math.min(
     size.width / reference.width,
     size.height / reference.height,
   );
 
-  /// How tall the glow is, in points.
-  static double trailLength(double t, Size size) =>
-      110 * _unit(size) * speed(t);
+  // ---- the clouds
 
-  /// How wide the glow is, in points.
-  static double trailWidth(double t, Size size) => 150 * _unit(size) * speed(t);
+  /// How far layer [layer] falls in the lift, in reference points.
+  static double reach(BreakLiftLayer layer) => switch (layer) {
+    BreakLiftLayer.far => farReach,
+    BreakLiftLayer.mid => midReach,
+    BreakLiftLayer.near => nearReach,
+  };
+
+  /// How tall a cloud is against its width.
+  static const double cloudRatio = 0.36;
+
+  static const List<BreakLiftCloud> _far = [
+    (x: 70, y: -60, width: 84),
+    (x: 330, y: -170, width: 70),
+    (x: 150, y: -280, width: 96),
+    (x: 350, y: -390, width: 76),
+    (x: 60, y: -480, width: 88),
+  ];
+  static const List<BreakLiftCloud> _mid = [
+    (x: 340, y: -80, width: 150),
+    (x: 50, y: -260, width: 130),
+    (x: 300, y: -440, width: 150),
+    (x: 60, y: -620, width: 160),
+    (x: 330, y: -800, width: 140),
+  ];
+
+  /// Near clouds hang off the sides so that a part shows, and fall faster
+  /// than everything else. They pass beside him and never touch him.
+  static const List<BreakLiftCloud> _near = [
+    (x: 500, y: -160, width: 300),
+    (x: -112, y: -540, width: 320),
+    (x: 506, y: -920, width: 320),
+    (x: -106, y: -1260, width: 300),
+  ];
+
+  /// The clouds of [layer], as they sit before the lift: every one above
+  /// the screen, so each comes in from the top already on its way.
+  static List<BreakLiftCloud> clouds(BreakLiftLayer layer) => switch (layer) {
+    BreakLiftLayer.far => _far,
+    BreakLiftLayer.mid => _mid,
+    BreakLiftLayer.near => _near,
+  };
+
+  /// Where cloud [i] of [layer] is centred at [t]. It only falls, by
+  /// [reach] times the one eased lift.
+  static Offset cloudAt(BreakLiftLayer layer, int i, double t, Size size) {
+    final cloud = clouds(layer)[i];
+    final k = _unit(size);
+    return Offset(
+      cloud.x * size.width / reference.width,
+      (cloud.y + reach(layer) * lift(t)) * k,
+    );
+  }
+
+  /// The whole of cloud [i]: the pill and its bumps.
+  static Rect cloudBox(BreakLiftLayer layer, int i, double t, Size size) {
+    final width = clouds(layer)[i].width * _unit(size);
+    final height = width * cloudRatio;
+    final c = cloudAt(layer, i, t, size);
+    return Rect.fromLTRB(
+      c.dx - width / 2,
+      c.dy - height * 0.56,
+      c.dx + width / 2,
+      c.dy + height * 0.5,
+    );
+  }
+
+  /// How much of the clouds shows: they come with the night they sit on.
+  static double cloudAlpha(double t) => _night(t);
+
+  // ---- the plume
+
+  /// How solid the plume under him is, 0 at rest.
+  static double plumeAlpha(double t) => 0.85 * speed(t);
+
+  /// How long the plume is, in points. It breathes a little on the clock.
+  static double plumeLength(double t, Size size) =>
+      150 * _unit(size) * speed(t) * (1 + 0.05 * math.sin(t * 6.5));
+
+  /// How wide the plume is where it leaves him, in points.
+  static double plumeWidth(double t, Size size) => 110 * _unit(size) * speed(t);
+
+  /// How far the tip of the plume sways to one side, in points: a slow
+  /// sine on the clock that comes and goes with the speed.
+  static double plumeSway(double t, Size size) =>
+      10 * _unit(size) * speed(t) * math.sin(t * 5);
+
+  /// How far down he has sunk to go, 0 to 1 and back: eased in from
+  /// 0.62, at its deepest as the lift starts and eased out as he rises.
+  static double crouch(double t) =>
+      sine(phase(t, 0.62, liftFrom)) * (1 - sine(phase(t, liftFrom, 1.3)));
 
   // ---- the wall
 
@@ -218,18 +314,34 @@ abstract final class BreakLiftTimeline {
     final sx = size.width / reference.width;
     final sy = size.height / reference.height;
     final k = math.min(sx, sy);
-    final hang = sine(phase(t, hit, liftFrom));
-    final hangSize = _lerp(300, 308, hang) * k;
-    final hangCentre = Offset(195 * sx, _lerp(350, 362, hang) * sy);
-    final rise = lift(t);
     final aspect = land.width == 0 ? 1.0 : land.height / land.width;
+    if (t >= liftTo) {
+      return BreakLiftRingPose(
+        centre: land.center,
+        size: land.width,
+        squashY: aspect,
+        face: face(t),
+      );
+    }
+    final hang = sine(phase(t, hit, liftFrom));
+    final hangSize = _lerp(300, 252, hang) * k;
+    final hangCentre = Offset(195 * sx, _lerp(350, 388, hang) * sy);
+    final rise = lift(t);
+    final fly = speed(t);
+    final sunk = crouch(t);
+    final bend = math.sin(math.pi * rise);
     return BreakLiftRingPose(
+      // He sinks, goes, and arcs a little to one side on the way up.
       centre: Offset(
-        _lerp(hangCentre.dx, land.center.dx, rise),
-        _lerp(hangCentre.dy, land.center.dy, rise),
+        _lerp(hangCentre.dx, land.center.dx, rise) + 24 * k * bend,
+        _lerp(hangCentre.dy, land.center.dy, rise) + 16 * k * sunk,
       ),
       size: _lerp(hangSize, land.width, rise),
-      squashY: _lerp(1, aspect, rise),
+      // Squashed in the crouch, a little long in the flight.
+      squashX: (1 - 0.05 * fly) * (1 + 0.05 * sunk),
+      squashY: _lerp(1, aspect, rise) * (1 + 0.1 * fly) * (1 - 0.08 * sunk),
+      // He leans into the arc: one way going out, the other coming back.
+      angle: 0.06 * math.sin(2 * math.pi * rise),
       face: face(t),
     );
   }
