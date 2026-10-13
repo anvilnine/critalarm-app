@@ -27,6 +27,25 @@ final FaceShape heroWatchingFace = FaceShape(
   ),
 );
 
+EyeShape _wetEye(EyeShape base) => EyeShape(
+  centre: base.centre,
+  ballRadius: 19,
+  pupilOffset: const Offset(0, 4),
+  shineRadius: 4,
+  shineOffset: const Offset(-4, -4),
+  lidPoints: restingLid(base.centre),
+);
+
+/// The rig's sad face with wet eyes and one tear on the left cheek.
+final FaceShape heroSadFace = FaceShape(
+  leftEye: _wetEye(sadFace.leftEye),
+  rightEye: _wetEye(sadFace.rightEye),
+  leftBrow: sadFace.leftBrow,
+  rightBrow: sadFace.rightBrow,
+  mouth: sadFace.mouth,
+  props: const [PropShape(PropKind.tear, at: Offset(50, 136), scale: 1.15)],
+);
+
 /// The shape of [face].
 FaceShape heroFaceShape(HeroFace face) => switch (face) {
   HeroFace.arriving => faceFor(FaceState.surprised),
@@ -43,6 +62,8 @@ FaceShape heroFaceShape(HeroFace face) => switch (face) {
   HeroFace.relieved => faceFor(FaceState.breatheOut),
   HeroFace.listening => faceFor(FaceState.content),
   HeroFace.loving => faceFor(FaceState.love),
+  HeroFace.sad => heroSadFace,
+  HeroFace.calm => faceFor(FaceState.calm),
 };
 
 /// The shape on the mascot at [frame]: one face on its way to the next,
