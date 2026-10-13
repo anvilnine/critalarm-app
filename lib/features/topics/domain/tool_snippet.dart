@@ -32,7 +32,8 @@ sealed class ToolSnippet {
   const ToolSnippet();
 
   /// The snippet for [template], or null when there is none: no tool was
-  /// picked, or the tool is "something else".
+  /// picked, the tool is "something else", or the tool is curl, whose line
+  /// is always shown.
   ///
   /// Every snippet sends at the priority that rings a critical topic.
   /// [message] is the sample text for the tools that take one.
@@ -45,7 +46,7 @@ sealed class ToolSnippet {
   }) {
     final base = CurlLine.baseUrl(serverUrl);
     switch (template) {
-      case null || ToolTemplate.other:
+      case null || ToolTemplate.other || ToolTemplate.curl:
         return null;
       case ToolTemplate.cron:
         final curl = CurlLine.build(
