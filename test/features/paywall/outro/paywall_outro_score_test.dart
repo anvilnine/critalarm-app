@@ -183,6 +183,8 @@ void main() {
   });
 
   group('the tail', () {
+    // An outro with no score has no file to wait for: the purchase cue is
+    // over long before the end state starts.
     test('no heard beat of an end state starts before the score has ended', () {
       for (final entry in paywallOutroBuilders.entries) {
         final outro = entry.value;
@@ -200,7 +202,7 @@ void main() {
             for (final at in heard) {
               expect(
                 at,
-                greaterThanOrEqualTo(_fileSeconds[entry.key]!),
+                greaterThanOrEqualTo(_fileSeconds[entry.key] ?? 0),
                 reason: '${entry.key.name} then ${id.name}, $lines lines',
               );
             }

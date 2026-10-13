@@ -77,9 +77,13 @@ abstract final class BreakLiftTimeline {
 
   // ---- the night
 
-  /// How much night shows where the wall was, 0 to 1. It comes in
-  /// together with the lift's whole length, never at once.
-  static double night(double t) => sine(phase(t, hit, liftTo));
+  /// The night is all the way in. It is on before the welcome line shows,
+  /// so the line reads on it.
+  static const double nightTo = 1.7;
+
+  /// How much night shows where the wall was, 0 to 1. It eases in from
+  /// the hit, never at once.
+  static double night(double t) => sine(phase(t, hit, nightTo));
 
   /// How far the outro has faded off the end state, 0 at [uncover] and 1
   /// at [end].

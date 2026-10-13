@@ -40,7 +40,7 @@ Map<String, double Function(double t, Size size)> _series() => {
   'night': (t, s) => T.night(t) * 100,
   'words': (t, s) => T.wordsAlpha(t) * 100,
   'trail alpha': (t, s) => T.trailAlpha(t) * 100,
-  'trail length': (t, s) => T.trailLength(t, s),
+  'trail length': T.trailLength,
   for (var i = 0; i < T.stars.length; i++)
     'star $i y': (t, s) => T.starAt(i, t, s).dy,
   for (final i in [0, 7, 21, 40, 55])
