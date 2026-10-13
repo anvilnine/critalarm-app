@@ -8,6 +8,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
@@ -123,13 +124,15 @@ OnboardingOfferGate offerGateFor({
   String? developerJson,
   String? remoteJson,
   ServerMode? serverMode = ServerMode.hosted,
-  Set<String> builtLayoutKeys = const {'hero'},
+  Set<String> builtLayoutKeys = const {'hero', 'reel'},
   String? accountId = 'acct_1',
   bool holdsPro = false,
   bool holdsHosted = false,
   bool isSetupComplete = false,
   List<String> flowSteps = const [],
   Set<String> completedSteps = const {},
+  SetupUse? use,
+  String? topicName,
 }) => OnboardingOfferGate(
   readDeveloperJson: () => developerJson,
   readRemoteJson: () => remoteJson,
@@ -141,6 +144,8 @@ OnboardingOfferGate offerGateFor({
   isSetupComplete: () async => isSetupComplete,
   readFlowSteps: () => flowSteps,
   readCompletedSteps: () => completedSteps,
+  readUse: ({required isReplay}) => use,
+  readTopicName: () => topicName,
 );
 
 /// A source whose flow can be swapped while a test runs.

@@ -2,6 +2,8 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_config.dart';
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,21 +11,21 @@ import 'support/onboarding_flow_fakes.dart';
 
 const _on = OnboardingOfferConfig(
   enabled: true,
-  cloudProduct: PaywallProduct.pro,
+  cloudProduct: OfferCloudChoice.auto,
   selfHostedProduct: PaywallProduct.pro,
-  layoutKey: 'hero',
+  layoutKey: 'reel',
 );
 
 const _onJson = '{"enabled": true}';
 
 void main() {
   group('the bundled switches', () {
-    test('are off, Pro on both kinds of server, the hero layout', () {
+    test('are off, by the answer on Cloud, Pro on a server, the reel', () {
       const bundled = OnboardingOfferConfig.bundled;
       expect(bundled.enabled, isFalse);
-      expect(bundled.cloudProduct, PaywallProduct.pro);
+      expect(bundled.cloudProduct, OfferCloudChoice.auto);
       expect(bundled.selfHostedProduct, PaywallProduct.pro);
-      expect(bundled.layoutKey, 'hero');
+      expect(bundled.layoutKey, 'reel');
     });
 
     test('the default flow lists the step between real ring and hook up', () {
@@ -43,10 +45,40 @@ void main() {
         ),
         const OnboardingOfferConfig(
           enabled: true,
-          cloudProduct: PaywallProduct.hosted,
+          cloudProduct: OfferCloudChoice.hosted,
           selfHostedProduct: null,
           layoutKey: 'sheet',
         ),
+      );
+    });
+
+    test('every value of cloud_product, old and new', () {
+      for (final choice in OfferCloudChoice.values) {
+        expect(
+          OnboardingOfferConfig.tryParse(
+            '{"cloud_product": "${choice.key}"}',
+          )?.cloudProduct,
+          choice,
+        );
+      }
+      // The three values stored before `auto` existed read as they did.
+      expect(
+        OnboardingOfferConfig.tryParse(
+          '{"cloud_product": "pro"}',
+        )?.cloudProduct,
+        OfferCloudChoice.pro,
+      );
+      expect(
+        OnboardingOfferConfig.tryParse(
+          '{"cloud_product": "hosted"}',
+        )?.cloudProduct,
+        OfferCloudChoice.hosted,
+      );
+      expect(
+        OnboardingOfferConfig.tryParse(
+          '{"cloud_product": "none"}',
+        )?.cloudProduct,
+        OfferCloudChoice.none,
       );
     });
 
@@ -60,9 +92,9 @@ void main() {
         OnboardingOfferConfig.tryParse('{"cloud_product": "none"}'),
         const OnboardingOfferConfig(
           enabled: false,
-          cloudProduct: null,
+          cloudProduct: OfferCloudChoice.none,
           selfHostedProduct: PaywallProduct.pro,
-          layoutKey: 'hero',
+          layoutKey: 'reel',
         ),
       );
     });
@@ -80,10 +112,17 @@ void main() {
         _on,
         const OnboardingOfferConfig(
           enabled: true,
-          cloudProduct: null,
+          cloudProduct: OfferCloudChoice.none,
           selfHostedProduct: null,
           layoutKey: 'false_alarm',
         ),
+        for (final choice in OfferCloudChoice.values)
+          OnboardingOfferConfig(
+            enabled: true,
+            cloudProduct: choice,
+            selfHostedProduct: PaywallProduct.pro,
+            layoutKey: 'reel',
+          ),
       ]) {
         expect(OnboardingOfferConfig.tryParse(config.encode()), config);
       }
@@ -108,6 +147,8 @@ void main() {
         '{"enabled": "true"}',
         '{"enabled": 1}',
         '{"enabled": true, "cloud_product": "gold"}',
+        '{"enabled": true, "cloud_product": "Auto"}',
+        '{"enabled": true, "cloud_product": ""}',
         '{"enabled": true, "cloud_product": 3}',
         // Hosted is the cloud plan. A self-hosted server is never sold it.
         '{"enabled": true, "self_hosted_product": "hosted"}',
@@ -164,11 +205,12 @@ void main() {
     OfferDecision decide({
       OnboardingOfferConfig config = _on,
       bool isSelfHosted = false,
-      Set<String> builtLayoutKeys = const {'hero', 'sheet'},
+      Set<String> builtLayoutKeys = const {'hero', 'reel', 'sheet'},
       bool hasAccountId = true,
       bool holdsPro = false,
       bool holdsHosted = false,
       bool isReplay = false,
+      SetupUse? use,
     }) => decideOnboardingOffer(
       config: config,
       isSelfHosted: isSelfHosted,
@@ -177,11 +219,12 @@ void main() {
       holdsPro: holdsPro,
       holdsHosted: holdsHosted,
       isReplay: isReplay,
+      use: use,
     );
 
     OnboardingOfferConfig config({
       bool enabled = true,
-      PaywallProduct? cloud = PaywallProduct.pro,
+      OfferCloudChoice cloud = OfferCloudChoice.pro,
       PaywallProduct? selfHosted = PaywallProduct.pro,
       String layout = 'hero',
     }) => OnboardingOfferConfig(
@@ -194,23 +237,19 @@ void main() {
     test('shows the product for this kind of server in the layout named', () {
       expect(
         decide(
-          config: config(cloud: PaywallProduct.hosted, layout: 'sheet'),
+          config: config(cloud: OfferCloudChoice.hosted, layout: 'sheet'),
         ),
         const OfferDecision.show(
           product: PaywallProduct.hosted,
           layoutKey: 'sheet',
         ),
       );
-      expect(
-        decide(
-          config: config(cloud: PaywallProduct.hosted),
-          isSelfHosted: true,
-        ),
-        const OfferDecision.show(
-          product: PaywallProduct.pro,
-          layoutKey: 'hero',
-        ),
+      final ownServer = decide(
+        config: config(cloud: OfferCloudChoice.hosted),
+        isSelfHosted: true,
       );
+      expect(ownServer.product, PaywallProduct.pro);
+      expect(ownServer.layoutKey, 'hero');
     });
 
     test('skips when not enabled', () {
@@ -226,7 +265,7 @@ void main() {
 
     test('skips when the product is none for this kind of server', () {
       expect(
-        decide(config: config(cloud: null)).skipReason,
+        decide(config: config(cloud: OfferCloudChoice.none)).skipReason,
         OfferSkipReason.noProduct,
       );
       expect(
@@ -236,7 +275,10 @@ void main() {
       // None on the other kind of server changes nothing here.
       expect(decide(config: config(selfHosted: null)).isShown, isTrue);
       expect(
-        decide(config: config(cloud: null), isSelfHosted: true).isShown,
+        decide(
+          config: config(cloud: OfferCloudChoice.none),
+          isSelfHosted: true,
+        ).isShown,
         isTrue,
       );
     });
@@ -253,19 +295,22 @@ void main() {
     });
 
     test('skips when the user already holds the product', () {
-      expect(decide(holdsPro: true).skipReason, OfferSkipReason.alreadyHeld);
+      expect(
+        decide(config: config(), holdsPro: true).skipReason,
+        OfferSkipReason.alreadyHeld,
+      );
       expect(
         decide(
-          config: config(cloud: PaywallProduct.hosted),
+          config: config(cloud: OfferCloudChoice.hosted),
           holdsHosted: true,
         ).skipReason,
         OfferSkipReason.alreadyHeld,
       );
       // Holding the other product is no reason to skip.
-      expect(decide(holdsHosted: true).isShown, isTrue);
+      expect(decide(config: config(), holdsHosted: true).isShown, isTrue);
       expect(
         decide(
-          config: config(cloud: PaywallProduct.hosted),
+          config: config(cloud: OfferCloudChoice.hosted),
           holdsPro: true,
         ).isShown,
         isTrue,
@@ -291,6 +336,103 @@ void main() {
     });
   });
 
+  group('the answer in the skip rule', () {
+    OfferDecision decide(
+      SetupUse? use, {
+      bool isSelfHosted = false,
+      bool holdsPro = false,
+      bool holdsHosted = false,
+      String? topicName,
+    }) => decideOnboardingOffer(
+      config: _on,
+      isSelfHosted: isSelfHosted,
+      builtLayoutKeys: const {'reel'},
+      hasAccountId: true,
+      holdsPro: holdsPro,
+      holdsHosted: holdsHosted,
+      isReplay: false,
+      use: use,
+      topicName: topicName,
+    );
+
+    test('auto picks Hosted for most answers and Pro for home', () {
+      expect(decide(SetupUse.servers).product, PaywallProduct.hosted);
+      expect(decide(SetupUse.homelab).product, PaywallProduct.hosted);
+      expect(decide(SetupUse.jobs).product, PaywallProduct.hosted);
+      expect(decide(SetupUse.other).product, PaywallProduct.hosted);
+      expect(decide(null).product, PaywallProduct.hosted);
+      expect(decide(SetupUse.home).product, PaywallProduct.pro);
+    });
+
+    test('the lead carries the benefit and the topic name', () {
+      final servers = decide(SetupUse.servers, topicName: 'payments-db');
+      expect(servers.lead?.benefit, PaywallBenefitId.topics);
+      expect(servers.lead?.topicName, 'payments-db');
+      expect(decide(SetupUse.servers).lead?.topicName, isNull);
+      expect(decide(SetupUse.other).lead, isNull);
+      expect(decide(null).lead, isNull);
+    });
+
+    test('holding the product the answer picks skips, the other does not', () {
+      expect(
+        decide(SetupUse.home, holdsPro: true).skipReason,
+        OfferSkipReason.alreadyHeld,
+      );
+      expect(decide(SetupUse.home, holdsHosted: true).isShown, isTrue);
+      expect(
+        decide(SetupUse.servers, holdsHosted: true).skipReason,
+        OfferSkipReason.alreadyHeld,
+      );
+      // Pro is held and the answer asks for Hosted: Hosted is still sold.
+      expect(decide(SetupUse.servers, holdsPro: true).isShown, isTrue);
+    });
+
+    test('the reasons keep their order', () {
+      OfferDecision all({
+        bool enabled = true,
+        String layout = 'reel',
+        bool hasAccountId = true,
+        bool holdsHosted = false,
+        OfferCloudChoice cloud = OfferCloudChoice.auto,
+      }) => decideOnboardingOffer(
+        config: OnboardingOfferConfig(
+          enabled: enabled,
+          cloudProduct: cloud,
+          selfHostedProduct: PaywallProduct.pro,
+          layoutKey: layout,
+        ),
+        isSelfHosted: false,
+        builtLayoutKeys: const {'reel'},
+        hasAccountId: hasAccountId,
+        holdsPro: false,
+        holdsHosted: holdsHosted,
+        isReplay: false,
+        use: SetupUse.servers,
+      );
+      // No product beats an unknown layout, which beats no account, which
+      // beats a held product.
+      expect(
+        all(
+          cloud: OfferCloudChoice.none,
+          layout: 'x',
+          hasAccountId: false,
+          holdsHosted: true,
+        ).skipReason,
+        OfferSkipReason.noProduct,
+      );
+      expect(
+        all(layout: 'x', hasAccountId: false, holdsHosted: true).skipReason,
+        OfferSkipReason.unknownLayout,
+      );
+      expect(
+        all(hasAccountId: false, holdsHosted: true).skipReason,
+        OfferSkipReason.noAccount,
+      );
+      expect(all(holdsHosted: true).skipReason, OfferSkipReason.alreadyHeld);
+      expect(all(enabled: false).skipReason, OfferSkipReason.notEnabled);
+    });
+  });
+
   group('the gate', () {
     test('with no value anywhere the step is off', () async {
       final decision = await offerGateFor().decide(isReplay: false);
@@ -304,10 +446,64 @@ void main() {
       expect(
         decision,
         const OfferDecision.show(
-          product: PaywallProduct.pro,
-          layoutKey: 'hero',
+          product: PaywallProduct.hosted,
+          layoutKey: 'reel',
         ),
       );
+    });
+
+    test('reads the answer and the topic name for the lead', () async {
+      final servers = await offerGateFor(
+        remoteJson: _onJson,
+        use: SetupUse.servers,
+        topicName: ' payments-db ',
+      ).decide(isReplay: false);
+      expect(servers.product, PaywallProduct.hosted);
+      expect(servers.lead?.benefit, PaywallBenefitId.topics);
+      expect(servers.lead?.topicName, 'payments-db');
+
+      final home = await offerGateFor(
+        remoteJson: _onJson,
+        use: SetupUse.home,
+      ).decide(isReplay: false);
+      expect(home.product, PaywallProduct.pro);
+
+      // A name that is empty is no name.
+      final blank = await offerGateFor(
+        remoteJson: _onJson,
+        use: SetupUse.servers,
+        topicName: '  ',
+      ).decide(isReplay: false);
+      expect(blank.lead?.topicName, isNull);
+    });
+
+    test('a replay reads the replay answer', () async {
+      final seen = <bool>[];
+      final gate = OnboardingOfferGate(
+        readDeveloperJson: () => _onJson,
+        readRemoteJson: () => null,
+        readServerMode: () async => ServerMode.hosted,
+        builtLayoutKeys: () => const {'reel'},
+        readAccountId: () async => 'acct_1',
+        holdsPro: () => false,
+        readHoldsHosted: () async => false,
+        isSetupComplete: () async => false,
+        readFlowSteps: () => const [],
+        readCompletedSteps: () => const {},
+        readUse: ({required isReplay}) {
+          seen.add(isReplay);
+          return isReplay ? SetupUse.home : SetupUse.servers;
+        },
+      );
+      expect(
+        (await gate.decide(isReplay: true)).product,
+        PaywallProduct.pro,
+      );
+      expect(
+        (await gate.decide(isReplay: false)).product,
+        PaywallProduct.hosted,
+      );
+      expect(seen, [true, false]);
     });
 
     test('a bad remote value leaves the step off', () async {
@@ -348,7 +544,7 @@ void main() {
         OfferSkipReason.noAccount,
       );
       expect(
-        await reason(offerGateFor(remoteJson: _onJson, holdsPro: true)),
+        await reason(offerGateFor(remoteJson: _onJson, holdsHosted: true)),
         OfferSkipReason.alreadyHeld,
       );
     });
@@ -371,7 +567,7 @@ void main() {
         readDeveloperJson: fail,
         readRemoteJson: fail,
         readServerMode: () async => ServerMode.hosted,
-        builtLayoutKeys: () => const {'hero'},
+        builtLayoutKeys: () => const {'reel'},
         readAccountId: () async => 'acct_1',
         holdsPro: () => false,
         readHoldsHosted: () async => false,
@@ -388,7 +584,7 @@ void main() {
         readDeveloperJson: () => null,
         readRemoteJson: () => _onJson,
         readServerMode: () async => fail(),
-        builtLayoutKeys: () => const {'hero'},
+        builtLayoutKeys: () => const {'reel'},
         readAccountId: () async => fail(),
         holdsPro: () => false,
         readHoldsHosted: () async => false,
@@ -406,8 +602,8 @@ void main() {
 
   group('the offer step is still ahead', () {
     const show = OfferDecision.show(
-      product: PaywallProduct.pro,
-      layoutKey: 'hero',
+      product: PaywallProduct.hosted,
+      layoutKey: 'reel',
     );
     final steps = BundledOnboardingFlows.defaultFlow.steps;
 
