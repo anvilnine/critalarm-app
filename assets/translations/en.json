@@ -1925,6 +1925,11 @@
     "home_headline": "See it from your home screen",
     "skip_hint": "tap anywhere to skip"
   },
+  "onboarding_offer": {
+    "thanks_button": "Hook up your tool",
+    "developer_title": "Offer sequence",
+    "developer_note": "Set the offer switches in the group above first. This opens the step on one answer, as a replay."
+  },
   "paywall_reel": {
     "eyebrow": "With {name}",
     "position": "{current} of {total}",

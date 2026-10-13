@@ -589,6 +589,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
                         text: tag(),
                         landing: _mascotNow(),
                         presence: paywallIntroTagPresence(t - handover),
+                        isBelow: paywallIntroTagBelowLayouts.contains(layout),
                       ),
                     ),
                   ),
@@ -731,11 +732,16 @@ class _IntroTagLayer extends StatelessWidget {
     required this.text,
     required this.landing,
     required this.presence,
+    required this.isBelow,
   });
 
   final String text;
   final Rect? landing;
   final double presence;
+
+  /// Stand under the mascot's foot, where there is air over its head or
+  /// not: its layout has words there.
+  final bool isBelow;
 
   static const double _tail = 6;
   static const double _gap = 4;
@@ -757,7 +763,8 @@ class _IntroTagLayer extends StatelessWidget {
     const room = _gap + _tail + _height;
     // Over the mascot's head when there is air there, under its foot when
     // there is not. It never covers the status bar.
-    final isAbove = at.top - room >= MediaQuery.viewPaddingOf(context).top + 2;
+    final isAbove =
+        !isBelow && at.top - room >= MediaQuery.viewPaddingOf(context).top + 2;
     final top = isAbove ? at.top - room : at.bottom + _gap;
     final left = (at.center.dx - _maxWidth / 2)
         .clamp(

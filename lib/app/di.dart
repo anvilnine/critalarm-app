@@ -1341,6 +1341,22 @@ Future<void> configureDependencies({
         readFlowSteps: () => getIt<OnboardingFlowEngine>().runningFlow().steps,
         readCompletedSteps: () =>
             getIt<OnboardingFlowRepository>().read().completed,
+        readUse: ({required isReplay}) => setupUseFor(
+          isReplay: isReplay,
+          store: getIt<SetupUseStore>(),
+          replay: getIt<SetupUseReplay>(),
+        ),
+        // The topic setup made: in memory while the run lasts, else the
+        // name the phone kept.
+        readTopicName: () =>
+            getIt<FirstTopicHandoff>().entry?.topicName ??
+            getIt<FirstTopicHandoff>().savedTopicName,
+        // The offer plays the false alarm, so the Settings plan row does
+        // not play it again.
+        markFalseAlarmShown: () => getIt<SharedPreferences>().setBool(
+          PaywallDoor.falseAlarmShownKey,
+          true,
+        ),
       ),
     )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the
