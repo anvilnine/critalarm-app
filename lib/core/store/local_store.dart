@@ -242,6 +242,40 @@ class IncidentStore {
     return _time(rows.first['newest']);
   }
 
+  /// The oldest `opened_at` held, or null when the store is empty.
+  Future<DateTime?> oldestOpenedAt() async {
+    final rows = await _db.rawQuery(
+      'SELECT MIN(opened_at) AS oldest FROM incidents',
+    );
+    return _time(rows.first['oldest']);
+  }
+
+  /// Every incident that opened at or after [since], newest first, with
+  /// only what a count needs. Times are UTC, as the store holds them.
+  ///
+  /// Reads the whole table, like [page] and [newestOpenedAt]: the table
+  /// holds the rows of one server (`LocalStore.clearServerData` empties it
+  /// on a change of server) and has no scope column to filter on.
+  Future<List<({String id, DateTime openedAt, bool isAcked})>> openedSince(
+    DateTime since,
+  ) async {
+    final rows = await _db.query(
+      'incidents',
+      columns: const ['id', 'opened_at', 'acked_at'],
+      where: 'opened_at >= ?',
+      whereArgs: [_epoch(since)],
+      orderBy: 'opened_at DESC, id DESC',
+    );
+    return [
+      for (final row in rows)
+        (
+          id: row['id']! as String,
+          openedAt: _time(row['opened_at'])!,
+          isAcked: row['acked_at'] != null,
+        ),
+    ];
+  }
+
   /// The newest `updated_at` held, or null when the store is empty.
   ///
   /// This is what goes on the wire as `since` (api.md §3.2), which is
