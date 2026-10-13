@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -18,8 +19,14 @@ const PaywallOutro cloudClimb = PaywallOutro(
   seconds: CloudClimbTimeline.end,
   uncover: CloudClimbTimeline.uncover,
   beats: cloudClimbBeats,
+  score: PaywallCue.scoreCloudClimb,
+  scoreSeconds: cloudClimbScoreSeconds,
   builder: _build,
 );
+
+/// How long the score file is. It starts with the outro's clock and rings
+/// 0.97 s past the swap, 14 dB under its peak at the swap.
+const double cloudClimbScoreSeconds = 5.065;
 
 /// Four light taps, felt and not heard.
 const List<PaywallThanksBeat> cloudClimbBeats = [
