@@ -33,9 +33,6 @@ class AppBadge extends StatelessWidget {
           FaceWidget(
             state: faceState,
             size: 24,
-            overrideFillColor: colors.yellow,
-            overrideStrokeColor: colors.yellow,
-            overrideInkColor: colors.inkFixed,
           ),
           const SizedBox(width: 8),
           Flexible(

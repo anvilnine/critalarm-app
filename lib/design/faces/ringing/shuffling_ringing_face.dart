@@ -11,32 +11,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-/// Whether the ringing faces under it keep the head's fill through a flush
-/// and a flash (`ringingFaceColors`). With none above it a face tints its
-/// head as it always has.
-///
-/// An alarm look whose face is always yellow sets this, so no style that
-/// is shuffled in turns the head another colour.
-class RingingFaceFill extends InheritedWidget {
-  const RingingFaceFill({
-    required this.keepsFill,
-    required super.child,
-    super.key,
-  });
-
-  final bool keepsFill;
-
-  static bool keepsFillOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<RingingFaceFill>()
-          ?.keepsFill ??
-      false;
-
-  @override
-  bool updateShouldNotify(RingingFaceFill oldWidget) =>
-      oldWidget.keepsFill != keepsFill;
-}
-
 /// Holds every shuffling face under it on one [style], with no shuffle.
 ///
 /// For a row of small pictures of the alarm screen: with one expression
@@ -216,12 +190,11 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
         size: Size.square(widget.size),
         painter: RingingFacePainter(
           frame: _frame,
-          fillColor: colors.faceFill,
+          fillColor: AppColors.light.faceFill,
           strokeColor: widget.strokeColor ?? colors.crit,
-          inkColor: colors.faceInk,
+          inkColor: AppColors.light.faceInk,
           accentColor: colors.crit,
           canvasInkColor: widget.canvasInkColor,
-          keepsFill: RingingFaceFill.keepsFillOf(context),
         ),
       ),
     );

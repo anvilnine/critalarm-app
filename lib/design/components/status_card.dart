@@ -415,9 +415,6 @@ class _AppStatusCardState extends State<AppStatusCard>
         child: FaceWidget(
           state: widget.face!,
           size: 40,
-          overrideFillColor: colors.yellow,
-          overrideStrokeColor: colors.inkFixed,
-          overrideInkColor: colors.inkFixed,
         ),
       );
       Widget title({required int maxLines}) => ExcludeSemantics(

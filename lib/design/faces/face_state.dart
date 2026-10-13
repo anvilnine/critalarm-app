@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' show Color;
 
 /// Expressive states of the Crit Alarm face character.
 enum FaceState {
@@ -194,15 +193,6 @@ extension FaceStatePresentation on FaceState {
     FaceState.cheeky => 'One eye winked shut, the other open, smirking.',
     FaceState.confident => 'Brows level and low, eyes to one side, smirk.',
     FaceState.love => 'Soft eyes, warm smile, a heart above the head.',
-  };
-
-  /// Authentic sample screenshot accent color (e.g. Cyan Blue for laughing,
-  /// Warm Orange for surprised, Fresh Green for dizzy, Yellow for others).
-  Color get characteristicColor => switch (this) {
-    FaceState.laughing => const Color(0xFF4EAAD8),
-    FaceState.surprised => const Color(0xFFE2673D),
-    FaceState.dizzy => const Color(0xFF3FA652),
-    _ => const Color(0xFFFFC93C),
   };
 
   /// Natural expression head tilt angle in radians.

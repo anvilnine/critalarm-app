@@ -135,11 +135,6 @@ class _Passed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    // The face keeps its own outline and features on the look's canvas,
-    // from the palette the acknowledged screen takes them from.
-    final facePalette = AlarmStyleScope.of(
-      context,
-    ).facePaletteFor(Theme.of(context).brightness);
     return AppScreenScaffold(
       hasTabBar: false,
       barBacking: colors.canvas,
@@ -157,11 +152,9 @@ class _Passed extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FaceWidget(
+                const FaceWidget(
                   state: FaceState.content,
                   size: 160,
-                  overrideStrokeColor: facePalette.faceStroke,
-                  overrideInkColor: facePalette.faceInk,
                 ),
                 const SizedBox(height: Spacing.s4),
                 Semantics(

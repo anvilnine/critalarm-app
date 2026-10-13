@@ -198,6 +198,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Settings analytics line also names the setup answer, which the same switch sends.
 - capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
 - Setup steps with no top bar of their own now back the tracker with the app's default bar backing (AppBarBackingScope.barOverTop), and the shell no longer paints its own gradient.
+- The Crit face is yellow with a dark outline and dark features in every theme and on every canvas. AppColors.dark has the light face tokens, withSeverity leaves them alone, and FaceWidget and RingingFaceWidget no longer take a fill, stroke or ink colour.
+- FaceRipple draws only yellow heads and tells them apart with rippleCellLook (size, tilt and a ring), so the It works wall of faces is not one flat block.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -238,6 +240,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppScreenScaffold.topBackingPlateau. Settings and History use the default bar backing like every other screen.
 - Unused strings personalize.challenge\_chips.\*, personalize.sound\_yours, personalize.sound\_more, settings.app\_icon\_title, settings.app\_icon\_header and settings.app\_icon\_in\_use\_tag. App icon body sizing lives in app\_icon\_fit.dart.
 - Removed the old ring story hero, the old weekly check rows and the Reliability group list, which nothing draws any more
+- Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
