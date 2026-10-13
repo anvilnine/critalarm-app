@@ -179,7 +179,7 @@ String _leavingOnTopics(PaywallLayoutId layout, LeavingFacts facts) =>
       leaving: PaywallLeaving(endsOn: _ends, facts: facts),
     );
 
-String _proof(HistoryOwn own) => paywallLayoutLocation(
+String _proof(HistoryOwn? own) => paywallLayoutLocation(
   PaywallLayoutId.proof,
   PaywallProduct.hosted,
   source: PaywallSource.history,
@@ -255,6 +255,7 @@ final _scenes = <_Scene>[
     () => _proof(_ownRows),
     times: [2.5, 5.5, 8.5, 11.5, 14.5],
   ),
+  _Scene('proof_sample_rows', () => _proof(null), times: [2.0, 3.0, 8.5]),
   _Scene(
     'proof_old_only',
     () => _proof(_oldRows),
@@ -334,6 +335,7 @@ String _headlineOn(WidgetTester tester) {
     LocaleKeys.paywall_proof_headline_hosted.tr(),
     LocaleKeys.paywall_own_count_headline_generic.tr(),
     LocaleKeys.paywall_sheet_headline_topics.tr(),
+    LocaleKeys.paywall_sheet_headline_history.tr(),
   };
   return all.where((text) => find.text(text).evaluate().isNotEmpty).join(' | ');
 }
@@ -444,6 +446,21 @@ String _headlineOn(WidgetTester tester) {
         if (seconds >= 5.5 && found == lead) {
           problems.add('"$lead" stays up on another beat.');
         }
+      }
+    case 'proof_sample_rows':
+      final found = _headlineOn(tester);
+      final lead = LocaleKeys.paywall_sheet_headline_history.tr();
+      if (seconds != null && seconds <= 3.0 && found != lead) {
+        problems.add('The history beat does not say "$lead": "$found".');
+      }
+      if (seconds != null && seconds >= 8.5 && found == lead) {
+        problems.add('"$lead" stays up on another beat.');
+      }
+      if (find
+          .text(LocaleKeys.paywall_history_own_headline.tr())
+          .evaluate()
+          .isNotEmpty) {
+        problems.add('Sample rows say "See older alarms".');
       }
     case 'sheet_long_name':
       if (find.textContaining('…').evaluate().isNotEmpty &&
