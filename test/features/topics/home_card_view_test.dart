@@ -4,6 +4,8 @@ import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
@@ -12,6 +14,7 @@ import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart'
 import 'package:critalarm/features/topics/domain/home_card/home_card_rule.dart';
 import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/home_card/setup_finish_card.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/home_card_view.dart';
 import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
 import 'package:flutter/widgets.dart';
@@ -133,6 +136,91 @@ void main() {
       expect(view.pips, everyElement(AppPipTone.fine));
       expect(view.actionLabel, isNull);
       expect(view.foot, 'all set');
+    });
+
+    test('the waiting card says the line the rule picked', () {
+      String footFor({SetupUse? use, ToolTemplate? tool}) => homeCardViewFor(
+        resolveHomeCard(
+          HomeCardInput(
+            now: now,
+            topicCount: 1,
+            setup: fx.setupFirstMessageOpen,
+            watchedTopic: 'prod-db',
+            use: use,
+            watchedTool: tool,
+          ),
+        ),
+        now: now,
+      ).foot!;
+
+      expect(footFor(), 'send the first line');
+      expect(footFor(use: SetupUse.other), 'send the first line');
+      expect(
+        footFor(use: SetupUse.servers),
+        'send the first line from your server',
+      );
+      expect(footFor(use: SetupUse.jobs), 'run the job once');
+      expect(footFor(use: SetupUse.homelab), 'press Test in Uptime Kuma');
+      expect(
+        footFor(use: SetupUse.home),
+        'run the action in Home Assistant',
+      );
+      expect(
+        footFor(use: SetupUse.servers, tool: ToolTemplate.healthchecks),
+        'press Test in Healthchecks',
+      );
+    });
+
+    test('a foot with no waiting line reads as the plain line', () {
+      final model = resolveHomeCard(
+        HomeCardInput(
+          now: now,
+          topicCount: 1,
+          setup: fx.setupFirstMessageOpen,
+          watchedTopic: 'prod-db',
+        ),
+      );
+      const bare = HomeCardFoot(HomeCardFootSlot.sendTheLine);
+      expect(bare.waitingLine, isNull);
+      expect(
+        homeCardViewFor(
+          HomeCardModel(
+            kind: model.kind,
+            label: model.label,
+            numeral: model.numeral,
+            foot: bare,
+            face: model.face,
+            severity: model.severity,
+            discTone: model.discTone,
+            numeralTone: model.numeralTone,
+          ),
+          now: now,
+        ).foot,
+        'send the first line',
+      );
+    });
+
+    test('only the waiting card lets its foot take more than one line', () {
+      for (final kind in HomeCardKind.values) {
+        final draft = fx.Draft();
+        fx.satisfy[kind]!(draft);
+        draft.use = SetupUse.servers;
+        final model = resolveHomeCard(draft.build());
+        expect(model.kind, kind, reason: kind.name);
+        expect(
+          homeCardViewFor(model, now: now).footLines,
+          kind == HomeCardKind.waiting ? 3 : 1,
+          reason: kind.name,
+        );
+      }
+    });
+
+    test('every waiting line maps to its own key', () {
+      final keys = {
+        for (final line in SetupWaitingLine.values)
+          homeCardWaitingLineKey(line),
+      };
+      expect(keys, hasLength(SetupWaitingLine.values.length));
     });
 
     test('idle with no Critical topic says so', () {
