@@ -1,8 +1,10 @@
+import 'package:critalarm/core/paywall/paywall_headline.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -11,11 +13,14 @@ import 'package:flutter_test/flutter_test.dart';
 const PaywallProduct _hosted = PaywallProduct.hosted;
 const PaywallProduct _pro = PaywallProduct.pro;
 
-/// What opens, as the door asks: the remote layout value is read for the
-/// layout and for the intro it may still carry.
+final Set<PaywallBenefitId> _all = PaywallBenefitId.values.toSet();
+
+/// What opens, as the door asks. The remote layout value is read for the
+/// layout and for the intro it may still carry. By default every benefit
+/// is listed, so a lead is never dropped.
 PaywallOpening? _open(
   PaywallProduct product,
-  PaywallEntry entry, {
+  PaywallPlace place, {
   String remote = '',
   String remoteIntro = '',
   PaywallLayoutSetting? developer,
@@ -23,9 +28,10 @@ PaywallOpening? _open(
   String remoteThanks = '',
   PaywallThanksId? developerThanks,
   bool hasSeenFalseAlarm = false,
+  Set<PaywallBenefitId>? listed,
 }) => paywallOpeningFor(
   product: product,
-  entry: entry,
+  place: place,
   remote: PaywallLayoutSetting.parse(remote),
   developer: developer,
   remoteIntro: PaywallIntroId.parse(remoteIntro),
@@ -34,41 +40,67 @@ PaywallOpening? _open(
   remoteThanks: PaywallThanksId.parse(remoteThanks),
   developerThanks: developerThanks,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
+  listedBenefits: listed ?? _all,
 );
 
 PaywallLayoutId? paywallLayoutFor({
   required PaywallProduct product,
-  required PaywallEntry entry,
+  required PaywallPlace place,
   required PaywallLayoutSetting remote,
   required bool hasSeenFalseAlarm,
 }) => paywallOpeningFor(
   product: product,
-  entry: entry,
+  place: place,
   remote: remote,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
+  listedBenefits: _all,
 )?.layout;
 
-PaywallLayoutId? _hostedFrom(
+PaywallOpening? _hostedFrom(
   PaywallSource source, {
   String remote = '',
   PaywallLayoutSetting? developer,
   bool hasSeenFalseAlarm = false,
 }) => _open(
   _hosted,
-  paywallEntryOf(source),
+  paywallPlaceOf(source),
   remote: remote,
   developer: developer,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
-)?.layout;
+);
 
-PaywallLayoutId? _proFrom(
+PaywallOpening? _proFrom(
   ProPackSheetSource source, {
   String remote = '',
   PaywallLayoutSetting? developer,
   bool hasSeenFalseAlarm = false,
 }) => _open(
   _pro,
-  paywallEntryOfProSheet(source),
+  paywallPlaceOfPro(source),
+  remote: remote,
+  developer: developer,
+  hasSeenFalseAlarm: hasSeenFalseAlarm,
+);
+
+PaywallLayoutId? _hostedLayout(
+  PaywallSource source, {
+  String remote = '',
+  PaywallLayoutSetting? developer,
+  bool hasSeenFalseAlarm = false,
+}) => _hostedFrom(
+  source,
+  remote: remote,
+  developer: developer,
+  hasSeenFalseAlarm: hasSeenFalseAlarm,
+)?.layout;
+
+PaywallLayoutId? _proLayout(
+  ProPackSheetSource source, {
+  String remote = '',
+  PaywallLayoutSetting? developer,
+  bool hasSeenFalseAlarm = false,
+}) => _proFrom(
+  source,
   remote: remote,
   developer: developer,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
@@ -83,7 +115,7 @@ PaywallIntroId? _hostedIntroFrom(
   bool hasSeenFalseAlarm = false,
 }) => _open(
   _hosted,
-  paywallEntryOf(source),
+  paywallPlaceOf(source),
   remote: remote,
   remoteIntro: remoteIntro,
   developer: developer,
@@ -92,71 +124,408 @@ PaywallIntroId? _hostedIntroFrom(
 )?.intro;
 
 void main() {
-  group('entry points', () {
-    test('every Hosted source has its row', () {
-      const expected = <PaywallSource, PaywallEntry>{
-        PaywallSource.createTopicCard: PaywallEntry.capHit,
-        PaywallSource.historyOlder: PaywallEntry.capHit,
-        PaywallSource.history: PaywallEntry.capHit,
-        PaywallSource.widgetLocked: PaywallEntry.lockedRow,
-        PaywallSource.homeWidgets: PaywallEntry.lockedRow,
-        PaywallSource.appIcon: PaywallEntry.lockedRow,
-        PaywallSource.settingsPlan: PaywallEntry.settingsPlan,
-        PaywallSource.settingsSearch: PaywallEntry.settingsSearch,
-        PaywallSource.askSheet: PaywallEntry.nudge,
-        PaywallSource.homeDay0Card: PaywallEntry.nudge,
-        PaywallSource.onboardingOffer: PaywallEntry.nudge,
-        PaywallSource.reminderMorningAfter: PaywallEntry.nudge,
-        PaywallSource.reminderProLater: PaywallEntry.nudge,
-        PaywallSource.planSheetEnding: PaywallEntry.lapse,
-        PaywallSource.planSheetEnded: PaywallEntry.lapse,
-        PaywallSource.direct: PaywallEntry.other,
+  group('places', () {
+    test('every Hosted source has its place', () {
+      const expected = <PaywallSource, PaywallPlace>{
+        PaywallSource.createTopicCard: PaywallPlace.criticalLimit,
+        PaywallSource.historyOlder: PaywallPlace.history,
+        PaywallSource.history: PaywallPlace.history,
+        PaywallSource.widgetLocked: PaywallPlace.widgets,
+        PaywallSource.homeWidgets: PaywallPlace.widgets,
+        PaywallSource.personalizeWidgets: PaywallPlace.widgets,
+        PaywallSource.appIcon: PaywallPlace.appIcons,
+        PaywallSource.personalizeAppIcon: PaywallPlace.appIcons,
+        PaywallSource.personalizeSound: PaywallPlace.ownSounds,
+        PaywallSource.reliability: PaywallPlace.weeklyCheck,
+        PaywallSource.settingsPlan: PaywallPlace.plan,
+        PaywallSource.settingsSearch: PaywallPlace.plan,
+        PaywallSource.direct: PaywallPlace.plan,
+        PaywallSource.askSheet: PaywallPlace.nudge,
+        PaywallSource.homeDay0Card: PaywallPlace.nudge,
+        PaywallSource.onboardingOffer: PaywallPlace.nudge,
+        PaywallSource.reminderMorningAfter: PaywallPlace.nudge,
+        PaywallSource.reminderProLater: PaywallPlace.nudge,
+        PaywallSource.planSheetEnding: PaywallPlace.planEnding,
+        PaywallSource.planSheetEnded: PaywallPlace.planEnded,
       };
       for (final source in PaywallSource.values) {
-        expect(paywallEntryOf(source), expected[source], reason: '$source');
+        expect(expected[source], isNotNull, reason: '$source has no row');
+        expect(paywallPlaceOf(source), expected[source], reason: '$source');
+      }
+      expect(expected.length, PaywallSource.values.length);
+    });
+
+    test('every Pro source has its place', () {
+      const expected = <ProPackSheetSource, PaywallPlace>{
+        ProPackSheetSource.createTopicCard: PaywallPlace.criticalLimit,
+        ProPackSheetSource.history: PaywallPlace.history,
+        ProPackSheetSource.historyOlder: PaywallPlace.history,
+        ProPackSheetSource.homeWidgets: PaywallPlace.widgets,
+        ProPackSheetSource.widgetLocked: PaywallPlace.widgets,
+        ProPackSheetSource.personalizeWidgets: PaywallPlace.widgets,
+        ProPackSheetSource.appIcon: PaywallPlace.appIcons,
+        ProPackSheetSource.personalizeAppIcon: PaywallPlace.appIcons,
+        ProPackSheetSource.personalizeSound: PaywallPlace.ownSounds,
+        ProPackSheetSource.sounds: PaywallPlace.ownSounds,
+        ProPackSheetSource.personalizeLook: PaywallPlace.alarmLook,
+        ProPackSheetSource.topicLook: PaywallPlace.alarmLook,
+        ProPackSheetSource.personalizeChallenge: PaywallPlace.challenge,
+        ProPackSheetSource.topicChallenge: PaywallPlace.challenge,
+        ProPackSheetSource.reliability: PaywallPlace.weeklyCheck,
+        ProPackSheetSource.direct: PaywallPlace.plan,
+      };
+      for (final source in ProPackSheetSource.values) {
+        expect(expected[source], isNotNull, reason: '$source has no row');
+        expect(paywallPlaceOfPro(source), expected[source], reason: '$source');
+      }
+      expect(expected.length, ProPackSheetSource.values.length);
+    });
+  });
+
+  group('the table', () {
+    test('auto gives each place its row, with every benefit listed', () {
+      const expected =
+          <
+            PaywallPlace,
+            (
+              PaywallLayoutId,
+              PaywallBenefitId?,
+              PaywallIntroId,
+              PaywallHeadlineVariant,
+            )
+          >{
+            PaywallPlace.criticalLimit: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.topics,
+              PaywallIntroId.falseAlarm,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.history: (
+              PaywallLayoutId.proof,
+              PaywallBenefitId.history,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.widgets: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.widgets,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.appIcons: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.appIcons,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.ownSounds: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.customSounds,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.alarmLook: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.customAlarmScreens,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.challenge: (
+              PaywallLayoutId.sheet,
+              PaywallBenefitId.wakeUpChallenges,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.weeklyCheck: (
+              PaywallLayoutId.proof,
+              PaywallBenefitId.reliabilityChecks,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.plan: (
+              PaywallLayoutId.hero,
+              null,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            PaywallPlace.nudge: (
+              PaywallLayoutId.reel,
+              null,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.none,
+            ),
+            // Until the leaving paywall is built this opens Wipe, as the
+            // ended plan does. Part 2 swaps it for Receipt or Wipe by the
+            // person's numbers.
+            PaywallPlace.planEnding: (
+              PaywallLayoutId.wipe,
+              PaywallBenefitId.history,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.leaving,
+            ),
+            PaywallPlace.planEnded: (
+              PaywallLayoutId.wipe,
+              PaywallBenefitId.history,
+              PaywallIntroId.none,
+              PaywallHeadlineVariant.ended,
+            ),
+          };
+      for (final place in PaywallPlace.values) {
+        final row = expected[place];
+        expect(row, isNotNull, reason: '$place has no expected row');
+        final opening = _open(_hosted, place, remote: 'auto')!;
+        expect(opening.layout, row!.$1, reason: '$place layout');
+        expect(opening.lead, row.$2, reason: '$place lead');
+        expect(opening.intro, row.$3, reason: '$place intro');
+        expect(opening.headline, row.$4, reason: '$place headline');
+        expect(paywallRowFor(place).layout, row.$1, reason: '$place row');
+      }
+      expect(expected.length, PaywallPlace.values.length);
+    });
+
+    test('Pro reads the same table', () {
+      for (final place in PaywallPlace.values) {
+        final hosted = _open(_hosted, place, remote: 'auto')!;
+        final pro = _open(_pro, place, remote: 'auto')!;
+        expect(pro.layout, hosted.layout, reason: '$place');
+        expect(pro.lead, hosted.lead, reason: '$place');
       }
     });
 
-    test('every Pro source has its row', () {
+    test('one product on auto leaves the other alone', () {
+      expect(_open(_hosted, PaywallPlace.history, remote: 'auto'), isNotNull);
+      expect(_open(_pro, PaywallPlace.history), isNull);
+    });
+  });
+
+  group('lead falls back', () {
+    test('a lead the product does not list is dropped, the layout stays', () {
+      final listed = _all.difference({PaywallBenefitId.history});
+      final opening = _open(
+        _hosted,
+        PaywallPlace.history,
+        remote: 'auto',
+        listed: listed,
+      )!;
+      expect(opening.layout, PaywallLayoutId.proof);
+      expect(opening.lead, isNull);
+    });
+
+    test('widgets lead on Pro is kept when Pro lists it', () {
+      final listed = {for (final b in paywallBenefitsFor(_pro)) b.id};
+      final opening = _open(
+        _pro,
+        PaywallPlace.widgets,
+        remote: 'auto',
+        listed: listed,
+      )!;
+      expect(opening.lead, PaywallBenefitId.widgets);
+    });
+
+    test('a weekly check lead on Pro is dropped: Hosted unlocks it', () {
+      final listed = {for (final b in paywallBenefitsFor(_pro)) b.id};
+      expect(listed, isNot(contains(PaywallBenefitId.reliabilityChecks)));
+      final opening = _open(
+        _pro,
+        PaywallPlace.weeklyCheck,
+        remote: 'auto',
+        listed: listed,
+      )!;
+      expect(opening.layout, PaywallLayoutId.proof);
+      expect(opening.lead, isNull);
+    });
+
+    test(
+      'wake-up challenges lead nothing while they are not in this build',
+      () {
+        // Flips when the challenge line and preview are fixed and
+        // `inThisBuild` goes to true. Then change the expectation.
+        for (final product in PaywallProduct.values) {
+          final listed = {for (final b in paywallBenefitsFor(product)) b.id};
+          final opening = _open(
+            product,
+            PaywallPlace.challenge,
+            remote: 'auto',
+            listed: listed,
+          )!;
+          expect(opening.layout, PaywallLayoutId.sheet, reason: '$product');
+          expect(opening.lead, isNull, reason: '$product');
+        }
+      },
+    );
+
+    test('a pinned layout keeps the place lead', () {
+      final opening = _open(
+        _hosted,
+        PaywallPlace.widgets,
+        remote: 'proof',
+      )!;
+      expect(opening.layout, PaywallLayoutId.proof);
+      expect(opening.lead, PaywallBenefitId.widgets);
+    });
+  });
+
+  group('stale layout values', () {
+    test('doors, pinned remote or developer, opens hero', () {
+      for (final place in PaywallPlace.values) {
+        expect(
+          _open(_hosted, place, remote: 'doors')!.layout,
+          PaywallLayoutId.hero,
+        );
+        expect(
+          _open(
+            _hosted,
+            place,
+            developer: const PaywallLayoutSetting.pinned(PaywallLayoutId.doors),
+          )!.layout,
+          PaywallLayoutId.hero,
+        );
+      }
+    });
+
+    test('receipt pinned keeps working', () {
       expect(
-        paywallEntryOfProSheet(ProPackSheetSource.reliability),
-        PaywallEntry.lockedRow,
+        _open(_hosted, PaywallPlace.history, remote: 'receipt')!.layout,
+        PaywallLayoutId.receipt,
+      );
+    });
+
+    test('nothing in the table opens doors', () {
+      for (final place in PaywallPlace.values) {
+        expect(paywallRowFor(place).layout, isNot(PaywallLayoutId.doors));
+      }
+    });
+  });
+
+  group('the false alarm intro', () {
+    test('plays at the critical limit and nowhere else', () {
+      for (final place in PaywallPlace.values) {
+        final intro = _open(_hosted, place, remote: 'auto')!.intro;
+        expect(
+          intro,
+          place == PaywallPlace.criticalLimit
+              ? PaywallIntroId.falseAlarm
+              : PaywallIntroId.none,
+          reason: '$place',
+        );
+      }
+    });
+
+    test('plays once on an install', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.criticalLimit,
+          remote: 'auto',
+          hasSeenFalseAlarm: true,
+        )!.intro,
+        PaywallIntroId.none,
+      );
+    });
+
+    test('the Settings plan row no longer plays it', () {
+      expect(
+        _hostedFrom(PaywallSource.settingsPlan, remote: 'auto')!.intro,
+        PaywallIntroId.none,
+      );
+    });
+
+    test('a remote intro value outranks the table', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.criticalLimit,
+          remote: 'auto',
+          remoteIntro: 'curtain',
+        )!.intro,
+        PaywallIntroId.curtain,
       );
       expect(
-        paywallEntryOfProSheet(ProPackSheetSource.direct),
-        PaywallEntry.other,
+        _open(
+          _hosted,
+          PaywallPlace.history,
+          remote: 'auto',
+          remoteIntro: 'curtain',
+        )!.intro,
+        PaywallIntroId.curtain,
       );
+    });
+
+    test('a developer intro, none included, outranks everything', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallPlace.criticalLimit,
+          remote: 'auto',
+          developerIntro: PaywallIntroId.none,
+        )!.intro,
+        PaywallIntroId.none,
+      );
+    });
+
+    test('the old layout key reads as hero with the intro, once', () {
+      final first = _open(
+        _hosted,
+        PaywallPlace.history,
+        remote: 'false_alarm',
+      )!;
+      expect(first.layout, PaywallLayoutId.hero);
+      expect(first.intro, PaywallIntroId.falseAlarm);
+      final again = _open(
+        _hosted,
+        PaywallPlace.history,
+        remote: 'false_alarm',
+        hasSeenFalseAlarm: true,
+      )!;
+      expect(again.intro, PaywallIntroId.none);
+    });
+
+    test('never plays at the defaults', () {
+      for (final place in PaywallPlace.values) {
+        expect(_open(_hosted, place), isNull, reason: '$place');
+      }
+    });
+
+    test('with no intro set it never plays for Pro', () {
+      for (final remote in ['auto', 'false_alarm']) {
+        for (final place in PaywallPlace.values) {
+          expect(
+            _open(_pro, place, remote: remote)?.intro,
+            PaywallIntroId.none,
+          );
+        }
+      }
     });
   });
 
   group('at the defaults nothing changes', () {
-    test('an empty value opens the shipped surface from every entry', () {
+    test('an empty value opens the shipped surface from every place', () {
       for (final seen in [false, true]) {
         for (final source in PaywallSource.values) {
           expect(
-            _hostedFrom(source, hasSeenFalseAlarm: seen),
+            _hostedLayout(source, hasSeenFalseAlarm: seen),
             isNull,
             reason: '$source',
           );
         }
         for (final source in ProPackSheetSource.values) {
           expect(
-            _proFrom(source, hasSeenFalseAlarm: seen),
+            _proLayout(source, hasSeenFalseAlarm: seen),
             isNull,
             reason: '$source',
           );
         }
         for (final product in PaywallProduct.values) {
-          for (final entry in PaywallEntry.values) {
+          for (final place in PaywallPlace.values) {
             expect(
               paywallLayoutFor(
                 product: product,
-                entry: entry,
+                place: place,
                 remote: PaywallLayoutSetting.shipped,
                 hasSeenFalseAlarm: seen,
               ),
               isNull,
-              reason: '$product $entry',
+              reason: '$product $place',
             );
           }
         }
@@ -166,87 +535,34 @@ void main() {
     test('a value this build does not know opens the shipped surface', () {
       for (final typo in ['heroo', 'AUTO', 'yes', 'true', 'shipped']) {
         for (final source in PaywallSource.values) {
-          expect(_hostedFrom(source, remote: typo), isNull, reason: typo);
+          expect(_hostedLayout(source, remote: typo), isNull, reason: typo);
         }
         for (final source in ProPackSheetSource.values) {
-          expect(_proFrom(source, remote: typo), isNull, reason: typo);
+          expect(_proLayout(source, remote: typo), isNull, reason: typo);
         }
       }
-    });
-  });
-
-  group('auto', () {
-    test('Hosted picks by entry point', () {
-      const expected = <PaywallSource, PaywallLayoutId>{
-        PaywallSource.createTopicCard: PaywallLayoutId.sheet,
-        PaywallSource.historyOlder: PaywallLayoutId.sheet,
-        PaywallSource.history: PaywallLayoutId.sheet,
-        PaywallSource.widgetLocked: PaywallLayoutId.sheet,
-        PaywallSource.homeWidgets: PaywallLayoutId.sheet,
-        PaywallSource.appIcon: PaywallLayoutId.sheet,
-        PaywallSource.settingsPlan: PaywallLayoutId.hero,
-        PaywallSource.settingsSearch: PaywallLayoutId.hero,
-        PaywallSource.askSheet: PaywallLayoutId.reel,
-        PaywallSource.homeDay0Card: PaywallLayoutId.reel,
-        PaywallSource.onboardingOffer: PaywallLayoutId.reel,
-        PaywallSource.reminderMorningAfter: PaywallLayoutId.reel,
-        PaywallSource.reminderProLater: PaywallLayoutId.reel,
-        PaywallSource.planSheetEnding: PaywallLayoutId.doors,
-        PaywallSource.planSheetEnded: PaywallLayoutId.doors,
-        PaywallSource.direct: PaywallLayoutId.hero,
-      };
-      for (final source in PaywallSource.values) {
-        expect(
-          _hostedFrom(source, remote: 'auto', hasSeenFalseAlarm: true),
-          expected[source],
-          reason: '$source',
-        );
-      }
-    });
-
-    test('Pro picks by entry point', () {
-      PaywallLayoutId? from(PaywallEntry entry) => paywallLayoutFor(
-        product: _pro,
-        entry: entry,
-        remote: PaywallLayoutSetting.auto,
-        hasSeenFalseAlarm: false,
-      );
-      expect(
-        _proFrom(ProPackSheetSource.reliability, remote: 'auto'),
-        PaywallLayoutId.sheet,
-      );
-      expect(
-        _proFrom(ProPackSheetSource.direct, remote: 'auto'),
-        PaywallLayoutId.hero,
-      );
-      expect(from(PaywallEntry.lockedRow), PaywallLayoutId.sheet);
-      expect(from(PaywallEntry.settingsPlan), PaywallLayoutId.hero);
-      expect(from(PaywallEntry.settingsSearch), PaywallLayoutId.hero);
-      expect(from(PaywallEntry.nudge), PaywallLayoutId.reel);
-      expect(from(PaywallEntry.other), PaywallLayoutId.hero);
-    });
-
-    test('one product on auto leaves the other alone', () {
-      expect(_hostedFrom(PaywallSource.direct, remote: 'auto'), isNotNull);
-      expect(_proFrom(ProPackSheetSource.direct), isNull);
     });
   });
 
   group('a named layout', () {
-    test('opens from every entry point, for both products', () {
+    test('opens from every source, for both products', () {
       for (final layout in PaywallLayoutId.values) {
+        // Doors left the table: a value that names it opens hero.
+        final expected = layout == PaywallLayoutId.doors
+            ? PaywallLayoutId.hero
+            : layout;
         for (final source in PaywallSource.values) {
-          expect(_hostedFrom(source, remote: layout.key), layout);
+          expect(_hostedLayout(source, remote: layout.key), expected);
         }
         for (final source in ProPackSheetSource.values) {
-          expect(_proFrom(source, remote: layout.key), layout);
+          expect(_proLayout(source, remote: layout.key), expected);
         }
       }
     });
 
     test('hero by name stays hero on the Settings plan row', () {
       expect(
-        _hostedFrom(PaywallSource.settingsPlan, remote: 'hero'),
+        _hostedLayout(PaywallSource.settingsPlan, remote: 'hero'),
         PaywallLayoutId.hero,
       );
     });
@@ -255,15 +571,15 @@ void main() {
   group('the developer control', () {
     test('outranks the remote value', () {
       expect(
-        _hostedFrom(
+        _hostedLayout(
           PaywallSource.history,
           remote: 'hero',
           developer: PaywallLayoutSetting.auto,
         ),
-        PaywallLayoutId.sheet,
+        PaywallLayoutId.proof,
       );
       expect(
-        _proFrom(
+        _proLayout(
           ProPackSheetSource.reliability,
           developer: const PaywallLayoutSetting.pinned(PaywallLayoutId.proof),
         ),
@@ -274,7 +590,7 @@ void main() {
     test('shipped opens the shipped surface whatever remote says', () {
       for (final remote in ['auto', 'hero', 'sheet']) {
         expect(
-          _hostedFrom(
+          _hostedLayout(
             PaywallSource.settingsPlan,
             remote: remote,
             developer: PaywallLayoutSetting.shipped,
@@ -282,7 +598,7 @@ void main() {
           isNull,
         );
         expect(
-          _proFrom(
+          _proLayout(
             ProPackSheetSource.reliability,
             remote: remote,
             developer: PaywallLayoutSetting.shipped,
@@ -293,89 +609,10 @@ void main() {
     });
 
     test('following remote is the remote value', () {
-      expect(_hostedFrom(PaywallSource.askSheet), isNull);
+      expect(_hostedLayout(PaywallSource.askSheet), isNull);
       expect(
-        _hostedFrom(PaywallSource.askSheet, remote: 'auto'),
+        _hostedLayout(PaywallSource.askSheet, remote: 'auto'),
         PaywallLayoutId.reel,
-      );
-    });
-  });
-
-  group('the false alarm intro', () {
-    test('on auto it plays before hero on the Settings plan row, once', () {
-      expect(
-        _open(_hosted, PaywallEntry.settingsPlan, remote: 'auto'),
-        const PaywallOpening(
-          PaywallLayoutId.hero,
-          intro: PaywallIntroId.falseAlarm,
-        ),
-      );
-      expect(
-        _open(
-          _hosted,
-          PaywallEntry.settingsPlan,
-          remote: 'auto',
-          hasSeenFalseAlarm: true,
-        ),
-        const PaywallOpening(PaywallLayoutId.hero),
-      );
-    });
-
-    test('with no intro set it plays from no other entry point', () {
-      for (final remote in ['auto', 'false_alarm']) {
-        for (final source in PaywallSource.values) {
-          if (source == PaywallSource.settingsPlan) continue;
-          expect(
-            _hostedIntroFrom(source, remote: remote),
-            PaywallIntroId.none,
-            reason: '$remote from $source',
-          );
-        }
-      }
-    });
-
-    test('its old layout key reads as hero with the intro, same rule', () {
-      expect(
-        _open(_hosted, PaywallEntry.settingsPlan, remote: 'false_alarm'),
-        const PaywallOpening(
-          PaywallLayoutId.hero,
-          intro: PaywallIntroId.falseAlarm,
-        ),
-      );
-      expect(
-        _open(
-          _hosted,
-          PaywallEntry.settingsPlan,
-          remote: 'false_alarm',
-          hasSeenFalseAlarm: true,
-        ),
-        const PaywallOpening(PaywallLayoutId.hero),
-      );
-      for (final source in PaywallSource.values) {
-        expect(
-          _hostedFrom(source, remote: 'false_alarm'),
-          PaywallLayoutId.hero,
-          reason: '$source',
-        );
-      }
-    });
-
-    test('with no intro set it never plays for Pro', () {
-      for (final remote in ['auto', 'false_alarm']) {
-        for (final entry in PaywallEntry.values) {
-          expect(
-            _open(_pro, entry, remote: remote)?.intro,
-            PaywallIntroId.none,
-          );
-        }
-      }
-    });
-
-    test('never plays at the defaults', () {
-      expect(_hostedFrom(PaywallSource.settingsPlan), isNull);
-      expect(
-        _open(_hosted, PaywallEntry.settingsPlan, remoteIntro: 'false_alarm'),
-        isNull,
       );
     });
   });
@@ -383,17 +620,17 @@ void main() {
   group('the intro value', () {
     test('plays before any layout, from any entry, for both products', () {
       for (final product in PaywallProduct.values) {
-        for (final entry in PaywallEntry.values) {
+        for (final place in PaywallPlace.values) {
           for (final layout in ['hero', 'sheet', 'doors', 'auto']) {
             expect(
               _open(
                 product,
-                entry,
+                place,
                 remote: layout,
                 remoteIntro: 'false_alarm',
               )?.intro,
               PaywallIntroId.falseAlarm,
-              reason: '$product $entry $layout',
+              reason: '$product $place $layout',
             );
           }
         }
@@ -462,17 +699,17 @@ void main() {
   group('the thanks value', () {
     test('goes with any layout, from any entry, for both products', () {
       for (final product in PaywallProduct.values) {
-        for (final entry in PaywallEntry.values) {
+        for (final place in PaywallPlace.values) {
           for (final layout in ['hero', 'sheet', 'doors', 'auto']) {
             expect(
               _open(
                 product,
-                entry,
+                place,
                 remote: layout,
                 remoteThanks: 'confetti',
               )?.thanks,
               PaywallThanksId.confetti,
-              reason: '$product $entry $layout',
+              reason: '$product $place $layout',
             );
           }
         }
@@ -484,7 +721,7 @@ void main() {
         expect(
           _open(
             _hosted,
-            PaywallEntry.capHit,
+            PaywallPlace.criticalLimit,
             remote: 'hero',
             remoteThanks: value,
           )?.thanks,
@@ -498,7 +735,7 @@ void main() {
       expect(
         _open(
           _hosted,
-          PaywallEntry.capHit,
+          PaywallPlace.criticalLimit,
           remote: 'hero',
           remoteThanks: 'confetti',
           developerThanks: PaywallThanksId.unlock,
@@ -509,7 +746,7 @@ void main() {
       expect(
         _open(
           _pro,
-          PaywallEntry.lockedRow,
+          PaywallPlace.widgets,
           remote: 'sheet',
           remoteThanks: 'confetti',
           developerThanks: PaywallThanksId.none,
@@ -519,7 +756,7 @@ void main() {
       expect(
         _open(
           _hosted,
-          PaywallEntry.capHit,
+          PaywallPlace.criticalLimit,
           remote: 'hero',
           developerThanks: PaywallThanksId.unlock,
         )?.thanks,
@@ -529,27 +766,27 @@ void main() {
 
     test('alone it opens nothing: the shipped surface is still null', () {
       for (final product in PaywallProduct.values) {
-        for (final entry in PaywallEntry.values) {
+        for (final place in PaywallPlace.values) {
           expect(
             _open(
               product,
-              entry,
+              place,
               remoteThanks: 'confetti',
               developerThanks: PaywallThanksId.unlock,
             ),
             isNull,
-            reason: '$product $entry',
+            reason: '$product $place',
           );
           expect(
             _open(
               product,
-              entry,
+              place,
               remote: 'hero',
               developer: PaywallLayoutSetting.shipped,
               remoteThanks: 'confetti',
             ),
             isNull,
-            reason: '$product $entry',
+            reason: '$product $place',
           );
         }
       }
@@ -559,27 +796,29 @@ void main() {
       expect(
         _open(
           _hosted,
-          PaywallEntry.settingsPlan,
+          PaywallPlace.criticalLimit,
           remote: 'auto',
           remoteThanks: 'unlock',
         ),
         const PaywallOpening(
-          PaywallLayoutId.hero,
+          PaywallLayoutId.sheet,
           intro: PaywallIntroId.falseAlarm,
           thanks: PaywallThanksId.unlock,
+          lead: PaywallBenefitId.topics,
         ),
       );
       expect(
         _open(
           _hosted,
-          PaywallEntry.settingsPlan,
+          PaywallPlace.criticalLimit,
           remote: 'auto',
           remoteThanks: 'unlock',
           hasSeenFalseAlarm: true,
         ),
         const PaywallOpening(
-          PaywallLayoutId.hero,
+          PaywallLayoutId.sheet,
           thanks: PaywallThanksId.unlock,
+          lead: PaywallBenefitId.topics,
         ),
       );
     });
@@ -608,7 +847,8 @@ void main() {
       expect(plain.thanks, PaywallThanksId.none);
       expect(
         confetti.toString(),
-        'PaywallOpening(hero, intro: none, thanks: confetti)',
+        'PaywallOpening(hero, intro: none, thanks: confetti, '
+        'lead: null, headline: none)',
       );
     });
   });
