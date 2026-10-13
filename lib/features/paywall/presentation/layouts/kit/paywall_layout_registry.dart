@@ -10,6 +10,7 @@ import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors_paywall_layout.dart';
@@ -77,7 +78,9 @@ const String paywallTryOut = 'buy';
 /// [sourceWire] replaces [source] for an entry point that is not a
 /// [PaywallSource], which is every Pro one. [lead] is the benefit the
 /// paywall opens on and [headline] the words for a plan that is ending or
-/// ended; both are left out of the location when they say nothing.
+/// ended; both are left out of the location when they say nothing. [own]
+/// is the person's own history rows for the history picture; its entries
+/// are left out when there are none.
 /// [showsUnbuilt] asks for the
 /// developer view that lists every benefit, built or not, and [isTryOut]
 /// for the one where a build that skips the store confirms a purchase at
@@ -91,6 +94,7 @@ String paywallLayoutLocation(
   String? sourceWire,
   PaywallBenefitId? lead,
   PaywallHeadlineVariant headline = PaywallHeadlineVariant.none,
+  HistoryOwn? own,
   bool showsUnbuilt = false,
   bool isTryOut = false,
 }) => Uri(
@@ -102,6 +106,7 @@ String paywallLayoutLocation(
     if (thanks != PaywallThanksId.none) 'thanks': thanks.key,
     if (lead != null) 'lead': lead.key,
     if (headline != PaywallHeadlineVariant.none) 'headline': headline.key,
+    ...?own?.toQuery(),
     if (showsUnbuilt) 'benefits': paywallAllBenefits,
     if (isTryOut) 'try': paywallTryOut,
   },
@@ -175,6 +180,7 @@ class PaywallLayoutScreen extends StatelessWidget {
     this.showsUnbuilt = false,
     this.lead,
     this.headline = PaywallHeadlineVariant.none,
+    this.historyOwn,
     super.key,
   });
 
@@ -213,6 +219,10 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   /// The words for a plan that is ending or ended, from `?headline=`.
   final PaywallHeadlineVariant headline;
+
+  /// The person's own alarms for the history picture, from `?hin=` and
+  /// `?hbe=`. Null draws the made-up rows.
+  final HistoryOwn? historyOwn;
 
   /// What reports this paywall, or null in a build with no telemetry.
   PaywallLayoutReporter? _reporter() {
@@ -280,6 +290,7 @@ class PaywallLayoutScreen extends StatelessWidget {
           source: source,
           lead: lead,
           headline: headline,
+          historyOwn: historyOwn,
           showsUnbuilt: showsUnbuilt,
           child: Builder(
             builder: (context) => PaywallLayoutView(

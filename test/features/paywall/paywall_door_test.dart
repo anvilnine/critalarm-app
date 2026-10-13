@@ -7,6 +7,7 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,8 @@ class _Install {
   bool remoteThrows = false;
   FeatureDecision widgets = const FeatureDecision.locked(Holding.pro);
   bool widgetsThrow = false;
+  HistoryOwn? historyOwn;
+  bool historyOwnThrows = false;
 
   late final door = PaywallDoor(
     widgetsDecision: () {
@@ -58,6 +61,10 @@ class _Install {
     developerThanks: (product) =>
         product == PaywallProduct.hosted ? devHostedThanks : devProThanks,
     isThanksBuilt: (thanks) => thanks == PaywallThanksId.none || thanksAreBuilt,
+    readHistoryOwn: () async {
+      if (historyOwnThrows) throw StateError('no store');
+      return historyOwn;
+    },
   );
 }
 
@@ -588,6 +595,47 @@ void main() {
         install.door.proLayoutLocation(ProPackSheetSource.personalizeWidgets),
         '/plans/sheet?product=pro&source=personalize_widgets&lead=widgets',
       );
+    });
+  });
+
+  group('the history rows', () {
+    const own = HistoryOwn(
+      inside: [HistoryOwnRow('prod-db', 1)],
+      beyond: [HistoryOwnRow('nas', 12), HistoryOwnRow('prod-db', 81)],
+    );
+
+    test('a history place carries the rows the phone holds', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.history, own: own),
+        '/plans/proof?product=hosted&source=history&lead=history'
+        '&hin=prod-db%3A1&hbe=nas%3A12%2Cprod-db%3A81',
+      );
+    });
+
+    test('a place with another lead leaves them out', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.appIcon, own: own),
+        '/plans/sheet?product=hosted&source=app_icon&lead=app_icons',
+      );
+    });
+
+    test('with no rows older than the window nothing is added', () {
+      final install = _Install()..hosted = 'auto';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/proof?product=hosted&source=history&lead=history',
+      );
+    });
+
+    test('the async helper reads the rows once and never throws', () async {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..historyOwn = own;
+      expect(await install.door.readHistoryOwn(), isNotNull);
+      install.historyOwnThrows = true;
+      expect(await install.door.readHistoryOwn(), isNull);
     });
   });
 }

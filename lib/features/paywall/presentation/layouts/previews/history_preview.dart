@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
@@ -274,11 +275,23 @@ String historyPreviewAge(int days) => '${days}d'; // l10n-ok: unit letter
 const _topics = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
 const _barLengths = [0.62, 0.9, 0.74, 0.54, 0.82];
 
+/// One row of the list: a topic name and an age in days.
+typedef _Entry = ({String name, int age});
+
 /// The history preview.
+///
+/// With [own] it draws the person's real alarms: the few inside the Free
+/// window, and the ones past it as hidden rows, each struck through while
+/// the line is closed. The phone holds those rows and only hides them, so
+/// none is ever left out of the list. Without [own] it draws made-up rows.
 class HistoryPreview extends StatelessWidget {
-  const HistoryPreview({required this.size, super.key});
+  const HistoryPreview({required this.size, this.own, super.key});
 
   final Size size;
+
+  /// The person's own alarms, or null for the made-up ones. Their topic
+  /// names are drawn here and go nowhere else.
+  final HistoryOwn? own;
 
   @override
   Widget build(BuildContext context) {
@@ -290,8 +303,22 @@ class HistoryPreview extends StatelessWidget {
     final free = AccountCaps.free.historyDays ?? 0;
     const hosted = hostedHistoryDays;
     final layout = historyPreviewLayoutFor(size);
-    final inside = historyPreviewAgesInside(free);
-    final beyond = historyPreviewAgesBeyond(free, hosted);
+    final person = own;
+    final isOwn = person != null;
+    final inside = <_Entry>[
+      if (person != null)
+        for (final row in person.inside) (name: row.topic, age: row.ageDays)
+      else
+        for (final (i, age) in historyPreviewAgesInside(free).indexed)
+          (name: _topics[i % _topics.length], age: age),
+    ];
+    final beyond = <_Entry>[
+      if (person != null)
+        for (final row in person.beyond) (name: row.topic, age: row.ageDays)
+      else
+        for (final (j, age) in historyPreviewAgesBeyond(free, hosted).indexed)
+          (name: _topics[(j + 3) % _topics.length], age: age),
+    ];
 
     return LimitsPreviewTile(
       size: size,
@@ -312,7 +339,7 @@ class HistoryPreview extends StatelessWidget {
           return Stack(
             clipBehavior: Clip.none,
             children: [
-              for (final (i, age) in inside.indexed)
+              for (final (i, entry) in inside.indexed)
                 if (inView(i * layout.rowHeight - scroll))
                   Positioned(
                     top: i * layout.rowHeight - scroll,
@@ -321,15 +348,16 @@ class HistoryPreview extends StatelessWidget {
                     height: layout.rowHeight,
                     child: _HistoryRow(
                       layout: layout,
-                      name: _topics[i % _topics.length],
+                      name: entry.name,
                       nameLength: _barLengths[i % _barLengths.length],
-                      age: age,
+                      age: entry.age,
                       isBeyond: false,
+                      isOwn: isOwn,
                       reveal: 1,
                       hasRule: i > 0,
                     ),
                   ),
-              for (final (j, age) in beyond.indexed)
+              for (final (j, entry) in beyond.indexed)
                 if (inView(beyondTop + j * layout.rowHeight))
                   Positioned(
                     top: beyondTop + j * layout.rowHeight,
@@ -338,10 +366,11 @@ class HistoryPreview extends StatelessWidget {
                     height: layout.rowHeight,
                     child: _HistoryRow(
                       layout: layout,
-                      name: _topics[(j + 3) % _topics.length],
+                      name: entry.name,
                       nameLength: _barLengths[(j + 3) % _barLengths.length],
-                      age: age,
+                      age: entry.age,
                       isBeyond: true,
+                      isOwn: isOwn,
                       reveal: historyPreviewReveal(j, frame.lift),
                       hasRule: j > 0,
                     ),
@@ -375,6 +404,7 @@ class _HistoryRow extends StatelessWidget {
     required this.nameLength,
     required this.age,
     required this.isBeyond,
+    required this.isOwn,
     required this.reveal,
     required this.hasRule,
   });
@@ -386,6 +416,10 @@ class _HistoryRow extends StatelessWidget {
   final double nameLength;
   final int age;
   final bool isBeyond;
+
+  /// The row is one of the person's own. Hidden, it is struck through, so
+  /// the picture reads as hidden and never as missing.
+  final bool isOwn;
   final double reveal;
   final bool hasRule;
 
@@ -410,7 +444,7 @@ class _HistoryRow extends StatelessWidget {
 
     Widget row({required bool isGhost}) {
       final faint = colors.ink.withValues(alpha: 0.16);
-      return Row(
+      final cells = Row(
         children: [
           if (isGhost)
             Container(
@@ -447,7 +481,7 @@ class _HistoryRow extends StatelessWidget {
                 name,
                 maxLines: 1,
                 softWrap: false,
-                overflow: TextOverflow.clip,
+                overflow: isOwn ? TextOverflow.ellipsis : TextOverflow.clip,
                 style: AppTypography.monoBold(
                   colors.ink,
                   fontSize: layout.textSize,
@@ -463,6 +497,24 @@ class _HistoryRow extends StatelessWidget {
               ).copyWith(height: 1.2),
             ),
           ],
+        ],
+      );
+      if (!isGhost || !isOwn) return cells;
+      // A hidden row of the person's own, struck through its name. It goes
+      // as the row fills in, with the rest of the outline.
+      final nameWidth = room * 0.7 * nameLength;
+      return Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          cells,
+          Padding(
+            padding: EdgeInsets.only(left: layout.faceSize + layout.gap * 0.5),
+            child: Container(
+              width: nameWidth + layout.gap,
+              height: math.max(1.5, layout.rowHeight * 0.05),
+              color: colors.ink.withValues(alpha: 0.55),
+            ),
+          ),
         ],
       );
     }

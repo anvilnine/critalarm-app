@@ -9,6 +9,7 @@ import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
@@ -40,6 +41,7 @@ class PaywallDoor {
     this._isThanksBuilt = paywallThanksIsBuilt,
     this._widgetsDecision = _widgetsLockedForPro,
     this._listedBenefits = _builtBenefitIds,
+    this._readHistoryOwn = _noHistoryOwn,
   });
 
   /// The prefs key that says the false alarm intro was shown on this
@@ -53,6 +55,8 @@ class PaywallDoor {
   static Set<PaywallBenefitId> _builtBenefitIds(PaywallProduct product) => {
     for (final benefit in paywallBenefitsFor(product)) benefit.id,
   };
+
+  static Future<HistoryOwn?> _noHistoryOwn() async => null;
 
   static FeatureDecision _widgetsLockedForPro() =>
       const FeatureDecision.locked(Holding.pro);
@@ -75,6 +79,20 @@ class PaywallDoor {
   /// The benefit ids this build lists for a product. A lead outside this
   /// set is dropped by [paywallOpeningFor].
   final Set<PaywallBenefitId> Function(PaywallProduct product) _listedBenefits;
+
+  /// The person's own history rows, read from the phone. Null when the
+  /// phone holds nothing older than the Free window.
+  final Future<HistoryOwn?> Function() _readHistoryOwn;
+
+  /// The person's own history rows, or null when the phone holds nothing
+  /// older than the Free window or the read fails. Never throws.
+  Future<HistoryOwn?> readHistoryOwn() async {
+    try {
+      return await _readHistoryOwn();
+    } on Object catch (_) {
+      return null;
+    }
+  }
 
   PaywallLayoutSetting _setting(PaywallProduct product) =>
       _developer(product) ?? PaywallLayoutSetting.parse(_remoteValue(product));
@@ -136,8 +154,10 @@ class PaywallDoor {
     }
   }
 
-  /// The location that opens Hosted for [source].
-  String hostedLocation(PaywallSource source) {
+  /// The location that opens Hosted for [source]. [own] is the person's
+  /// own history rows: the location carries them only when the place leads
+  /// with history.
+  String hostedLocation(PaywallSource source, {HistoryOwn? own}) {
     final opening = openingFor(PaywallProduct.hosted, paywallPlaceOf(source));
     return opening == null
         ? paywallLocation(source)
@@ -149,6 +169,7 @@ class PaywallDoor {
             source: source,
             lead: opening.lead,
             headline: opening.headline,
+            own: opening.lead == PaywallBenefitId.history ? own : null,
           );
   }
 
@@ -246,6 +267,17 @@ PaywallDoor? get _door =>
 String hostedPaywallLocation(PaywallSource source) =>
     _door?.hostedLocation(source) ?? paywallLocation(source);
 
+/// [hostedPaywallLocation] for [source], with the person's own history rows
+/// when the place leads with history. For a caller that can wait a moment.
+Future<String> hostedPaywallLocationWithOwn(PaywallSource source) async {
+  final door = _door;
+  if (door == null) return paywallLocation(source);
+  final leadsWithHistory =
+      paywallRowFor(paywallPlaceOf(source)).lead == PaywallBenefitId.history;
+  final own = leadsWithHistory ? await door.readHistoryOwn() : null;
+  return door.hostedLocation(source, own: own);
+}
+
 /// [location] as the app should open it: see [PaywallDoor.resolve].
 String resolvePaywallLocation(String location) =>
     _door?.resolve(location) ?? location;
@@ -298,7 +330,9 @@ Future<void> openPaywallFor(
   }
   switch (offer) {
     case Holding.hosted:
-      await context.push<void>(hostedPaywallLocation(source.hosted));
+      final location = await hostedPaywallLocationWithOwn(source.hosted);
+      if (!context.mounted) return;
+      await context.push<void>(location);
     case Holding.pro:
       await openProPaywall(context, source.pro);
   }
