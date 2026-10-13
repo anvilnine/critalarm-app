@@ -276,6 +276,45 @@ class IncidentStore {
     ];
   }
 
+  /// The incidents that opened at or after [from], newest first, as a topic
+  /// and a time, at most [limit]. Times are UTC. For the history picture on
+  /// a paywall.
+  ///
+  /// Reads the whole table, like [openedSince]: it holds the rows of one
+  /// server and has no scope column. Scoping by account would apply here,
+  /// once the table gains one.
+  Future<List<({String topic, DateTime openedAt})>> newestSince(
+    DateTime from, {
+    int limit = 200,
+  }) => _topicRows('opened_at >= ?', from, limit);
+
+  /// The incidents that opened before [before], newest first, as a topic
+  /// and a time, at most [limit]. The same table and the same scope note as
+  /// [newestSince].
+  Future<List<({String topic, DateTime openedAt})>> newestBefore(
+    DateTime before, {
+    int limit = 200,
+  }) => _topicRows('opened_at < ?', before, limit);
+
+  Future<List<({String topic, DateTime openedAt})>> _topicRows(
+    String where,
+    DateTime at,
+    int limit,
+  ) async {
+    final rows = await _db.query(
+      'incidents',
+      columns: const ['topic', 'opened_at'],
+      where: where,
+      whereArgs: [_epoch(at)],
+      orderBy: 'opened_at DESC, id DESC',
+      limit: limit,
+    );
+    return [
+      for (final row in rows)
+        (topic: row['topic']! as String, openedAt: _time(row['opened_at'])!),
+    ];
+  }
+
   /// The newest `updated_at` held, or null when the store is empty.
   ///
   /// This is what goes on the wire as `since` (api.md §3.2), which is

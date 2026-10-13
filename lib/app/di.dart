@@ -220,6 +220,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
+import 'package:critalarm/features/paywall/data/history_own_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -2756,6 +2757,8 @@ Future<void> configureDependencies({
           PaywallDoor.falseAlarmShownKey,
           true,
         ),
+        readHistoryOwn: () =>
+            HistoryOwnReader(incidents: localStore?.incidents).read(),
       ),
     )
     // The Interface sounds switch in Settings. On until the user turns it off.

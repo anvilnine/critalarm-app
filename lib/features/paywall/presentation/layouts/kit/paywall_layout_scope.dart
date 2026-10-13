@@ -5,6 +5,7 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -191,6 +192,7 @@ class PaywallRouteInfo extends InheritedWidget {
     this.showsUnbuilt = false,
     this.lead,
     this.headline = PaywallHeadlineVariant.none,
+    this.historyOwn,
     super.key,
   });
 
@@ -204,6 +206,11 @@ class PaywallRouteInfo extends InheritedWidget {
   /// The words for a plan that is ending or ended. Receipt and Wipe read it;
   /// the other layouts ignore it.
   final PaywallHeadlineVariant headline;
+
+  /// The person's own alarms for the history picture, when the phone holds
+  /// some older than the Free window. Null draws the made-up rows. Topic
+  /// names in it are drawn on screen and go nowhere else.
+  final HistoryOwn? historyOwn;
 
   /// A developer view that also lists the benefits this build does not
   /// have yet, to see a layout with the full list.
@@ -222,6 +229,7 @@ class PaywallRouteInfo extends InheritedWidget {
       source != oldWidget.source ||
       lead != oldWidget.lead ||
       headline != oldWidget.headline ||
+      historyOwn != oldWidget.historyOwn ||
       showsUnbuilt != oldWidget.showsUnbuilt;
 }
 
