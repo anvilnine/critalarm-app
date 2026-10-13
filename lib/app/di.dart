@@ -2134,6 +2134,8 @@ Future<void> configureDependencies({
         reliability: getIt<ReliabilityCubit>(),
         setup: setup,
         missed: getIt<MissedAlarmFeed>(),
+        setupUse: getIt<SetupUseStore>(),
+        toolTemplates: getIt<ToolTemplateStore>(),
         testRouteName: AppRoute.testRing,
         askPermissionsRouteName: AppRoute.askPermissions,
       ),

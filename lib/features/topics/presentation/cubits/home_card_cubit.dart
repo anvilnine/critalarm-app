@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_rule.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_effect.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
@@ -23,8 +27,9 @@ typedef HomeCardTimerFactory =
 /// checklist and the missed alarm feed, builds a [HomeCardInput] and calls
 /// `resolveHomeCard`. It emits only when the card changes.
 ///
-/// It reads the shared cubits and the phone's own stores. It never calls the
-/// server, never navigates and never touches a topic, so Critical delivery
+/// It reads the shared cubits and the phone's own stores (the setup answer and
+/// the tool saved on the watched topic, for the waiting line). It never calls
+/// the server, never navigates and never touches a topic, so Critical delivery
 /// stays the user's own switch. [actionFor] says what the screen should do for
 /// the card's button and the screen does it.
 ///
@@ -41,6 +46,8 @@ class HomeCardCubit extends Cubit<HomeCardState> {
     required this._reliability,
     required this._setup,
     required this._missed,
+    required this._setupUse,
+    required this._toolTemplates,
     required this._testRouteName,
     required this._askPermissionsRouteName,
     DateTime Function()? clock,
@@ -68,6 +75,8 @@ class HomeCardCubit extends Cubit<HomeCardState> {
   final ReliabilityCubit _reliability;
   final StateStreamable<HomeSetupState> _setup;
   final MissedAlarmFeed _missed;
+  final SetupUseStore _setupUse;
+  final ToolTemplateStore _toolTemplates;
   final String _testRouteName;
   final String _askPermissionsRouteName;
   final DateTime Function() _now;
@@ -162,10 +171,32 @@ class HomeCardCubit extends Cubit<HomeCardState> {
       setup: setup.checklist,
       firstTopic: setup.firstTopic,
       watchedTopic: setup.watchedTopic,
+      watchedTool: _savedTool(setup.watchedTopic),
+      use: _savedUse(),
       newestMessageAt: facts.newestMessageAt,
       lastAlarmAt: facts.lastAlarmAt,
       hasCriticalTopic: home.topicItems.any((t) => t.ringsThroughSilent),
     );
+  }
+
+  // Both stores answer from memory, so the line is part of the first model
+  // the card emits and never swaps in after a read. A failed read is null,
+  // which shows the plain line.
+  SetupUse? _savedUse() {
+    try {
+      return _setupUse.read();
+    } on Object {
+      return null;
+    }
+  }
+
+  ToolTemplate? _savedTool(String? topic) {
+    if (topic == null) return null;
+    try {
+      return _toolTemplates.read(topic);
+    } on Object {
+      return null;
+    }
   }
 
   void _recompute() {

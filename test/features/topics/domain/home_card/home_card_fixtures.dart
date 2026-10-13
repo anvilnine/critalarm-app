@@ -4,6 +4,7 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -11,6 +12,7 @@ import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 
 final DateTime now = DateTime(2026, 10, 9, 12);
 
@@ -118,6 +120,8 @@ class Draft {
   SetupChecklist? setup;
   String? firstTopic = 'prod-db';
   String? watchedTopic = 'prod-db';
+  ToolTemplate? watchedTool;
+  SetupUse? use;
   DateTime? newestMessageAt;
   DateTime? lastAlarmAt;
   bool hasCriticalTopic = true;
@@ -143,6 +147,8 @@ class Draft {
     setup: setup,
     firstTopic: firstTopic,
     watchedTopic: watchedTopic,
+    watchedTool: watchedTool,
+    use: use,
     newestMessageAt: newestMessageAt,
     lastAlarmAt: lastAlarmAt,
     hasCriticalTopic: hasCriticalTopic,

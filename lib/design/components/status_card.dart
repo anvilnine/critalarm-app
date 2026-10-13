@@ -89,6 +89,7 @@ class AppStatusCard extends StatefulWidget {
     this.numeralTone = AppStatusTone.yellow,
     this.foot,
     this.footTone = AppStatusTone.muted,
+    this.footMaxLines = 1,
     this.pips,
     this.actionLabel,
     this.onAction,
@@ -116,6 +117,7 @@ class AppStatusCard extends StatefulWidget {
     this.numeralTone = AppStatusTone.yellow,
     this.foot,
     this.footTone = AppStatusTone.muted,
+    this.footMaxLines = 1,
     this.pips,
     this.actionLabel,
     this.onAction,
@@ -142,8 +144,13 @@ class AppStatusCard extends StatefulWidget {
   /// The numeral's colour.
   final AppStatusTone numeralTone;
 
-  /// The mono line under the numeral. One line, cut with an ellipsis.
+  /// The mono line under the numeral. [footMaxLines] lines, the last one cut
+  /// with an ellipsis.
   final String? foot;
+
+  /// How many lines [foot] may take. One unless a screen has a foot that
+  /// is a sentence.
+  final int footMaxLines;
 
   /// The foot's colour.
   final AppStatusTone footTone;
@@ -373,7 +380,7 @@ class _AppStatusCardState extends State<AppStatusCard>
             _cross(
               Text(
                 widget.foot!,
-                maxLines: 1,
+                maxLines: widget.footMaxLines,
                 overflow: TextOverflow.ellipsis,
                 style: _foot(widget.footTone.color(colors)),
               ),

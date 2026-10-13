@@ -7,6 +7,9 @@ import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
@@ -23,6 +26,8 @@ import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_effect.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_card_state.dart';
@@ -50,6 +55,38 @@ class _FakeSetup extends Cubit<HomeSetupState> {
   _FakeSetup() : super(const HomeSetupState());
 
   void set(HomeSetupState next) => emit(next);
+}
+
+class _FakeUse implements SetupUseStore {
+  SetupUse? answer;
+  bool throws = false;
+
+  @override
+  SetupUse? read() {
+    if (throws) throw StateError('prefs are gone');
+    return answer;
+  }
+
+  @override
+  Future<void> save(SetupUse use) async => answer = use;
+
+  @override
+  Future<void> clear() async => answer = null;
+}
+
+class _FakeTools implements ToolTemplateStore {
+  final Map<String, ToolTemplate> saved = {};
+  bool throws = false;
+
+  @override
+  ToolTemplate? read(String topicName) {
+    if (throws) throw StateError('prefs are gone');
+    return saved[topicName];
+  }
+
+  @override
+  Future<void> save(String topicName, ToolTemplate template) async =>
+      saved[topicName] = template;
 }
 
 class _FakeFeed implements MissedAlarmFeed {
@@ -142,6 +179,8 @@ class _Rig {
   final _FakeHome home = _FakeHome();
   final _FakeSetup setup = _FakeSetup();
   final _FakeFeed feed = _FakeFeed();
+  final _FakeUse use = _FakeUse();
+  final _FakeTools tools = _FakeTools();
   final _Source source;
   late final ReliabilityCubit reliability;
   final List<_FakeTimer> timers = [];
@@ -155,6 +194,8 @@ class _Rig {
     reliability: reliability,
     setup: setup,
     missed: feed,
+    setupUse: use,
+    toolTemplates: tools,
     testRouteName: 'testRing',
     askPermissionsRouteName: 'askPermissions',
     clock: () => clock,
@@ -452,6 +493,8 @@ void main() {
         reliability: failing,
         setup: rig.setup,
         missed: rig.feed,
+        setupUse: rig.use,
+        toolTemplates: rig.tools,
         testRouteName: 'testRing',
         askPermissionsRouteName: 'askPermissions',
         clock: () => now,
@@ -627,6 +670,122 @@ void main() {
       expect(rig.kind, HomeCardKind.idle);
     });
 
+    test('the waiting card names the line on its first frame', () async {
+      final rig = _Rig();
+      addTearDown(rig.dispose);
+      rig.use.answer = SetupUse.servers;
+      rig.tools.saved['prod-db'] = ToolTemplate.uptimeKuma;
+      rig.home.set(_loaded());
+      rig.setup.set(
+        const HomeSetupState(
+          phase: HomeSetupPhase.checklist,
+          checklist: setupFirstMessageOpen,
+          firstTopic: 'prod-db',
+          watchedTopic: 'prod-db',
+        ),
+      );
+      // The cubit starts here. Its state right after the constructor, before
+      // any await, is the first frame Home would draw.
+      final first = rig.cubit.state.model;
+      expect(first.kind, HomeCardKind.waiting);
+      expect(first.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+
+      await rig.settle();
+      expect(rig.model.foot.waitingLine, SetupWaitingLine.uptimeKuma);
+    });
+
+    test(
+      'the waiting line follows the tool saved on the watched topic',
+      () async {
+        final rig = await _open();
+        rig.use.answer = SetupUse.servers;
+        rig.tools.saved['nas-backup'] = ToolTemplate.healthchecks;
+        rig.home.set(_loaded());
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'prod-db',
+          ),
+        );
+        await rig.settle();
+        // The tool is saved on another topic, so the answer's line stands.
+        expect(rig.model.foot.waitingLine, SetupWaitingLine.fromYourServer);
+
+        rig.setup.set(
+          const HomeSetupState(
+            phase: HomeSetupPhase.checklist,
+            checklist: setupFirstMessageOpen,
+            firstTopic: 'prod-db',
+            watchedTopic: 'nas-backup',
+          ),
+        );
+        await rig.settle();
+        expect(rig.model.foot.waitingLine, SetupWaitingLine.healthchecks);
+      },
+    );
+
+    test('no saved answer and no saved tool keep the plain line', () async {
+      final rig = await _open();
+      rig.home.set(_loaded());
+      rig.setup.set(
+        const HomeSetupState(
+          phase: HomeSetupPhase.checklist,
+          checklist: setupFirstMessageOpen,
+          firstTopic: 'prod-db',
+          watchedTopic: 'prod-db',
+        ),
+      );
+      await rig.settle();
+      expect(rig.kind, HomeCardKind.waiting);
+      expect(
+        rig.model.foot,
+        const HomeCardFoot(
+          HomeCardFootSlot.sendTheLine,
+          waitingLine: SetupWaitingLine.sendFirstLine,
+        ),
+      );
+    });
+
+    test('the answer Something else keeps the plain line', () async {
+      final rig = await _open();
+      rig.use.answer = SetupUse.other;
+      rig.home.set(_loaded());
+      rig.setup.set(
+        const HomeSetupState(
+          phase: HomeSetupPhase.checklist,
+          checklist: setupFirstMessageOpen,
+          firstTopic: 'prod-db',
+          watchedTopic: 'prod-db',
+        ),
+      );
+      await rig.settle();
+      expect(rig.model.foot.waitingLine, SetupWaitingLine.sendFirstLine);
+    });
+
+    test('a failed read of either store keeps the plain line', () async {
+      final rig = await _open();
+      rig.use
+        ..answer = SetupUse.homelab
+        ..throws = true;
+      rig.tools
+        ..saved['prod-db'] = ToolTemplate.uptimeKuma
+        ..throws = true;
+      rig.home.set(_loaded());
+      rig.setup.set(
+        const HomeSetupState(
+          phase: HomeSetupPhase.checklist,
+          checklist: setupFirstMessageOpen,
+          firstTopic: 'prod-db',
+          watchedTopic: 'prod-db',
+        ),
+      );
+      await rig.settle();
+      expect(rig.kind, HomeCardKind.waiting);
+      expect(rig.model.foot.waitingLine, SetupWaitingLine.sendFirstLine);
+    });
+
     test('a health issue outranks setup progress', () async {
       final rig = await _open(
         checks: withCheckAt(
@@ -707,6 +866,8 @@ void main() {
         reliability: rig.reliability,
         setup: rig.setup,
         missed: _ThrowingFeed(),
+        setupUse: rig.use,
+        toolTemplates: rig.tools,
         testRouteName: 'testRing',
         askPermissionsRouteName: 'askPermissions',
         clock: () => now,
@@ -754,6 +915,8 @@ void main() {
           reliability: rig.reliability,
           setup: rig.setup,
           missed: feed,
+          setupUse: rig.use,
+          toolTemplates: rig.tools,
           testRouteName: 'testRing',
           askPermissionsRouteName: 'askPermissions',
           clock: () => now,

@@ -1,6 +1,7 @@
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_profile.dart';
 import 'package:critalarm/features/reliability/domain/attention_order.dart';
 import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
@@ -333,7 +334,10 @@ HomeCardModel _waiting(HomeCardInput i) {
     kind: HomeCardKind.waiting,
     label: HomeCardLabel.firstMessage,
     numeral: const NotYet(),
-    foot: const HomeCardFoot(HomeCardFootSlot.sendTheLine),
+    foot: HomeCardFoot(
+      HomeCardFootSlot.sendTheLine,
+      waitingLine: waitingLineFor(use: i.use, savedTool: i.watchedTool),
+    ),
     action: topic == null ? null : GetFirstLine(topic),
     face: FaceState.watching,
     severity: SeverityMode.none,
