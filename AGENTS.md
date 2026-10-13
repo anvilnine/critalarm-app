@@ -288,18 +288,20 @@ who already owns a topic, and flow `2026-10-c` lists it between
 `permissions` and `first_topic`.
 
 `offer` is a frame around the offer sequence (`offer_step_screen.dart`). It
-holds no words, prices or benefit lists: the layout, the false alarm intro
-and the thanks screen own those. `2026-10-b` and `2026-10-c` list it between
-`real_ring` and `hook_up`, it has no chapter, and it ships switched off.
+holds no words, prices or benefit lists: the layout and the thanks screen own
+those. `2026-10-b` and `2026-10-c` list it between `real_ring` and `hook_up`,
+it has no chapter, and it ships switched on.
 
-- Four switches (`OnboardingOfferConfig`): `enabled` (false), `cloud_product`
+- Four switches (`OnboardingOfferConfig`): `enabled` (true), `cloud_product`
   (`auto`, `pro`, `hosted` or `none`; `auto`), `self_hosted_product` (`pro` or
   `none`; `pro`) and `layout` (a `PaywallLayoutId.key`; `reel`). The bundled
   value is in brackets. They are one JSON object, read from Developer options
   (`dev.onboarding_offer`), then the Remote Config key `onboarding_offer`
   (`TelemetryGate.onboardingOfferJson`), then the bundled value. A field left
-  out takes its bundled value. A field with a value it cannot have sets the
-  whole object aside and the next source is asked. A build older than `auto`
+  out takes its bundled value, so a remote value that leaves `enabled` out
+  keeps the step on and only `{"enabled": false}` switches it off. A field
+  with a value it cannot have sets the whole object aside and the next
+  source is asked. A build older than `auto`
   sets a value holding it aside the same way.
 - `auto` picks the product from the answer on Cloud: the Pro pack for the
   home answer, Hosted for the rest. `pro`, `hosted` and `none` force one
@@ -310,13 +312,25 @@ and the thanks screen own those. `2026-10-b` and `2026-10-c` list it between
   the layout is not built in this version, when no account id is known, and
   when the user already holds the product. `OnboardingOfferGate` reads the
   phone for it, and a read that fails is a skip. It reads no store.
-- The store check comes next. The step makes the buy model, loads it and
-  waits up to 2 seconds (`offerSaleWait`) on the plain setup canvas. Only a
-  product that is on sale goes on. Not on sale, a failed load and a timeout
-  all skip the step with no intro.
-- The sequence is a layer over the step: the false alarm intro (a red
-  screen, no alarm sound, a hint at the foot that a tap skips it), then the
-  reel, then on a purchase the confetti thanks. The reel opens on the
+- The store check starts early. When the real alarm step opens,
+  `OnboardingOfferGate.startSaleCheck()` has `OfferSaleProbe` make the buy
+  model and load it, so the store answer is cached before "It works" appears.
+  It is the one store read the paywall already makes and no request goes to
+  the app's own server. The step takes the loaded model (`takeOnSale`): a
+  cached answer costs no wait, and with no answer yet it waits up to 2
+  seconds (`offerSaleWait`) on the plain setup canvas. Only a product that is
+  on sale goes on. Not on sale, a failed load and a timeout all skip the step.
+  A cached "not on sale" also makes the engine skip the step
+  (`hasNoOfferToShow`), so Continue goes straight to `hook_up`.
+- There is no intro. After Continue the reel rises over the setup step from
+  the bottom edge, fully opaque (`buildOfferLayerTransition`, 400 ms), so the
+  setup canvas and its tracker are covered by the moving edge and never show
+  through a half-faded reel. With reduced motion it opens at once. The setup
+  offer plays no false alarm, shows no tag and no skip hint, and never writes
+  `paywall.false_alarm_shown`: the Settings plan row keeps its false alarm.
+  The false alarm intro, its tag rule and the paywall kit's `hint` parameter
+  stay in the kit for other triggers.
+- Then the reel, and on a purchase the confetti thanks. The reel opens on the
   benefit the answer leads with (`offerLeadFor`): the critical topics for
   servers (naming the user's topic), the weekly delivery check for homelab
   and jobs, widgets for home and for any answer on an own server. An answer
@@ -328,9 +342,6 @@ and the thanks screen own those. `2026-10-b` and `2026-10-c` list it between
 - The thanks screen has one button, "Hook up your tool". It pops the layer
   and the step finishes, so setup goes on to `hook_up` and never to Home.
   Closing the layer with the cross does the same with no purchase.
-- The false alarm plays once per install: the step writes
-  `paywall.false_alarm_shown` when it starts the intro, so the Settings plan
-  row never replays it.
 - A real alarm wins. When one starts while the layer is open, or the step
   goes away under it, the layer is taken off at once, the step finishes in
   the engine with no navigation and no purchase is recorded.
@@ -345,9 +356,12 @@ and the thanks screen own those. `2026-10-b` and `2026-10-c` list it between
   `onboarding_offer_closed` and `onboarding_offer_bought`, each with
   `product`, `layout`, `use` and `flow_id`. They wait for the analytics answer
   with the step events.
-- While the step is still to come (`offerStepIsAhead`), `AfterAckDecider`
-  gives an acknowledged alarm no follow-up, and the setup test's "It works"
-  screen throws no confetti.
+- While the step is still to come (`offerStepIsAhead`) and the store has not
+  said no, `AfterAckDecider` gives an acknowledged alarm no follow-up.
+  `OnboardingOfferGate.outlook()` is the one answer: `coming` (step ahead,
+  store said on sale), `none` (not ahead, or the store said nothing is on
+  sale) and `unsure` (step ahead, no store answer yet). `ackConfettiMayFly`
+  is the pure rule on it.
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
@@ -754,11 +768,16 @@ completes setup itself: the engine does, when no step is left. `legacy-1`
 keeps its two buttons and completes setup from them. A test run again after
 setup ends on one Finish button.
 
-The setup test's acknowledged screen ("It works") throws its confetti and
-plays its success haptic only when no offer follows. It asks the offer gate
-(`isAhead`) once, builds nothing while the answer is unknown, and fires a few
-frames late when the answer is no. The face ripple stays either way. The first
-tool alarm keeps its confetti.
+The setup test's acknowledged screen ("It works") stays calm only when the
+offer follows and the store said the product is on sale (`OfferOutlook.coming`).
+It asks the offer gate (`outlook`) once, reads the cached store answer without
+waiting, builds nothing until that answer is in, and throws its confetti and
+plays its success haptic a few frames late for every other answer: no offer,
+the store said nothing is on sale, or the store has not answered yet. So a
+session is never left with no celebration. The one case where the two differ:
+the store answers after "It works" opened, so the confetti flies and the offer
+still shows. The face ripple stays either way. The first tool alarm keeps its
+confetti.
 
 Setup never closes, silences or walks away from a real alarm. Continue on a
 server-sent test calls `CriticalAlarmCubit.closeSetupTests(id)`, which does

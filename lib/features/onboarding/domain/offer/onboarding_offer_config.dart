@@ -46,9 +46,11 @@ class OnboardingOfferConfig {
     required this.layoutKey,
   });
 
-  /// What ships inside the app: the step is off.
+  /// What ships inside the app: the step is on. Remote Config and the
+  /// developer value still override it, and a user it has nothing to show
+  /// skips it.
   static const bundled = OnboardingOfferConfig(
-    enabled: false,
+    enabled: true,
     cloudProduct: OfferCloudChoice.auto,
     selfHostedProduct: PaywallProduct.pro,
     layoutKey: 'reel',
@@ -174,7 +176,8 @@ class ChosenOnboardingOffer {
 /// Picks the offer switches the same way a flow is picked: the developer
 /// value, then the remote value, then what ships inside the app. A value
 /// that does not read is passed over, so the bundled one, with the step
-/// off, is where a bad value ends.
+/// on, is where a bad value ends. Switching the step off takes a value that
+/// says `enabled: false`.
 ChosenOnboardingOffer chooseOnboardingOffer({
   required String? developerJson,
   required String? remoteJson,

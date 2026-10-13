@@ -10,6 +10,7 @@ import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/design/ambient/ambient_page.dart';
 import 'package:critalarm/design/motion.dart';
+import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -17,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
+import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sequence_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -41,11 +43,12 @@ const String _replayUseParam = 'use';
 /// The `offer` setup step: a frame around the offer sequence.
 ///
 /// It draws nothing itself while it decides. It asks `OnboardingOfferGate`
-/// what to do, then asks the store whether the product can be bought, and
-/// either finishes at once, with no intro, or puts the sequence over the
-/// whole screen: the false alarm intro, the reel that opens on the user's
-/// answer, and on a purchase the confetti thanks. The words, the prices and
-/// the buying all belong to the layout and its buy block.
+/// what to do, then takes the store's answer about the product (cached since
+/// the real alarm step started, so it rarely waits), and either finishes at
+/// once or puts the sequence over the whole screen: the reel that opens on
+/// the user's answer, and on a purchase the confetti thanks. There is no
+/// intro: the user's first real alarm has only just stopped. The words, the
+/// prices and the buying all belong to the layout and its buy block.
 ///
 /// Closing the layer finishes the step, and so does a purchase, so nothing
 /// here can hold the rest of setup back. Neither ends on Home: the next
@@ -133,6 +136,7 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
     final layout = PaywallLayoutId.fromKey(decision.layoutKey);
     final builder = paywallLayoutBuilders[layout];
     if (product == null || layout == null || builder == null) {
+      getIt<OfferSaleProbe>().discard();
       return _finish();
     }
     // A real alarm is already under way: nothing plays over it.
@@ -140,12 +144,15 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
       stepIsHere: true,
       alarmIsUnderWay: getIt<AlarmFocus>().on,
     )) {
+      getIt<OfferSaleProbe>().discard();
       return _finish();
     }
 
-    // Before anything plays: is the product on sale? The screen stays as
-    // it is, the shell's canvas, while the store answers.
-    final buy = await _buyModelOnSale(product);
+    // Before anything opens: is the product on sale? The store was asked
+    // when the real alarm step started, so the answer is usually in. If it
+    // is not, the screen stays as it is, the shell's canvas, while it
+    // answers.
+    final buy = await getIt<OfferSaleProbe>().takeOnSale(product);
     if (!mounted || !_isHere) {
       unawaited(buy?.close());
       return _finishQuietly(isReplay: isReplay);
@@ -159,13 +166,6 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
     final useWord = (use ?? SetupUse.other).wire;
     final funnel = getIt<OnboardingFunnel>();
     final flowId = getIt<OnboardingFlowEngine>().runningFlow().id;
-    if (offerUsesUpFalseAlarm(
-      intro: offerIntro,
-      isReplay: isReplay,
-      reduceMotion: context.reduceMotion,
-    )) {
-      unawaited(gate.markFalseAlarmShown());
-    }
     unawaited(
       funnel.offerShown(
         product: product.key,
@@ -195,8 +195,8 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
         .where((isOn) => isOn)
         .listen((_) => _takeLayerOff());
     // The router moving off this step takes the layer off at once. Left to
-    // the navigator, the layer would slide out with its page and the
-    // false alarm would show through the screen that opens.
+    // the navigator, the layer would slide out with its page and show
+    // through the screen that opens.
     _router.routerDelegate.addListener(_onRouteChanged);
     final result = await navigator.push<bool>(layer);
     _router.routerDelegate.removeListener(_onRouteChanged);
@@ -247,50 +247,6 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
     await _finish();
   }
 
-  /// The buy model for [product] once the store says it is on sale, or
-  /// null, with the model closed, when it cannot be sold or the store does
-  /// not answer in [offerSaleWait].
-  Future<PaywallBuyCubit?> _buyModelOnSale(PaywallProduct product) async {
-    PaywallBuyCubit? buy;
-    try {
-      // The same factory the paywall route uses: the store's buy path, and
-      // the stand-in only in a build compiled to skip the store.
-      final model = buy = getIt<PaywallBuyCubit>(param1: product);
-      final answer = Completer<bool>();
-      void check({required bool timedOut}) {
-        if (answer.isCompleted) return;
-        final status = model.state.status;
-        final decision = offerSaleDecision(
-          status == PaywallBuyStatus.loading ? null : status,
-          timedOut: timedOut,
-        );
-        if (decision == OfferSaleDecision.keepWaiting) return;
-        answer.complete(decision == OfferSaleDecision.goOn);
-      }
-
-      final changes = model.stream.listen((_) => check(timedOut: false));
-      final timer = Timer(offerSaleWait, () => check(timedOut: true));
-      unawaited(
-        model.load().then(
-          (_) => check(timedOut: false),
-          onError: (Object _) {
-            if (!answer.isCompleted) answer.complete(false);
-          },
-        ),
-      );
-      check(timedOut: false);
-      final canSell = await answer.future;
-      timer.cancel();
-      await changes.cancel();
-      if (canSell) return model;
-    } on Object {
-      // A buy model that cannot be made or read is a store that cannot
-      // sell.
-    }
-    unawaited(buy?.close());
-    return null;
-  }
-
   /// A confirmed purchase changes the plan: screens look again, and Hosted
   /// is a new account state too. Once only, whichever way the layer ends.
   void _afterPurchase(PaywallProduct product) {
@@ -325,26 +281,69 @@ class _OfferStepScreenState extends State<OfferStepScreen> {
   Widget build(BuildContext context) => const SizedBox.expand();
 }
 
-/// The layer's route. It opens with no slide or fade: the false alarm is a
-/// hard cut to red, and the setup canvas and its tracker never show
-/// through it. It leaves with a short fade, with reduced motion at once.
+/// The layer's route. The reel rises over the setup step from the bottom
+/// edge, fully opaque, so the setup canvas and its tracker are covered by
+/// the moving edge and never show through a half-faded reel. Nothing blank
+/// is drawn: the first frame is the setup step as it was, and the next
+/// already shows the rising reel. With reduced motion it opens at once.
+/// It leaves with the short slide and fade every ambient route leaves with,
+/// with reduced motion at once.
 class _OfferLayerRoute extends AmbientPageRoute<bool> {
   _OfferLayerRoute({required super.builder}) : super(fullscreenDialog: true);
 
   @override
-  Duration get transitionDuration => Duration.zero;
+  Duration get transitionDuration => _isReduced ? Duration.zero : _riseTime;
 
   @override
   Duration get reverseTransitionDuration =>
-      navigator?.context.reduceMotion ?? false
-      ? Duration.zero
-      : AppDurations.quick;
+      _isReduced ? Duration.zero : AppDurations.quick;
+
+  bool get _isReduced => navigator?.context.reduceMotion ?? false;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => buildOfferLayerTransition(animation: animation, child: child);
 }
 
+/// How long the reel takes to rise over the setup step.
+const Duration _riseTime = AppDurations.slow;
+
+/// The offer layer's way in and out, driven by the route's [animation].
+///
+/// Coming in, the layer rises from the bottom edge and is opaque the whole
+/// way. Leaving, it slides a little to the right and fades, as an ambient
+/// route does. The widget tree is the same both ways, so the reel keeps its
+/// state when the direction turns.
+@visibleForTesting
+Widget buildOfferLayerTransition({
+  required Animation<double> animation,
+  required Widget child,
+}) => AnimatedBuilder(
+  animation: animation,
+  child: child,
+  builder: (context, child) {
+    final isLeaving = animation.status == AnimationStatus.reverse;
+    final value = animation.value;
+    return Opacity(
+      opacity: isLeaving ? Curves.easeOut.transform(value) : 1,
+      child: FractionalTranslation(
+        translation: isLeaving
+            ? Offset(0.12 * (1 - AppCurves.easeOut.transform(value)), 0)
+            : Offset(0, 1 - Curves.easeOutCubic.transform(value)),
+        child: child,
+      ),
+    );
+  },
+);
+
 /// The sequence over the setup: one registered paywall layout with the
-/// false alarm intro before it and the confetti thanks after a purchase,
-/// on the buy model the step made. The layout's own close pops the layer
-/// with nothing. The thanks button pops it with true.
+/// confetti thanks after a purchase, on the buy model the step made. The
+/// layout's own close pops the layer with nothing. The thanks button pops it
+/// with true.
 class _OfferLayer extends StatelessWidget {
   const _OfferLayer({
     required this.buy,
@@ -391,10 +390,8 @@ class _OfferLayer extends StatelessWidget {
             builder: (context) => PaywallLayoutView(
               layout: layout,
               product: product,
-              intro: offerIntro,
               thanks: thanks,
               buttonLabel: LocaleKeys.onboarding_offer_thanks_button.tr(),
-              hint: LocaleKeys.paywall_lead_skip_hint.tr(),
               onThanksDone: () {
                 onBought();
                 Navigator.of(context).pop(true);

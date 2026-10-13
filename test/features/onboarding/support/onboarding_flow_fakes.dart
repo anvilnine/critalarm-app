@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:flutter/foundation.dart';
 
 /// Holds what the prefs would, and counts the writes.
@@ -94,7 +95,7 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
     this.offerSkips = true,
   });
 
-  /// The offer step is switched off unless a test turns it on.
+  /// The offer step shows nothing unless a test turns it on.
   bool offerSkips;
   bool connected;
   bool permissions;
@@ -118,8 +119,9 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
 }
 
 /// An offer gate over plain values. With nothing passed in, no source has a
-/// value and the step is off. The defaults below describe a user who would
-/// be shown the offer once it is switched on.
+/// value and the bundled one, on, is in use. The defaults below describe a
+/// user who would be shown the offer. The store has said nothing unless a
+/// test passes [sale]; [started] collects the products a check started for.
 OnboardingOfferGate offerGateFor({
   String? developerJson,
   String? remoteJson,
@@ -133,6 +135,8 @@ OnboardingOfferGate offerGateFor({
   Set<String> completedSteps = const {},
   SetupUse? use,
   String? topicName,
+  OfferSaleAnswer sale = OfferSaleAnswer.unknown,
+  List<PaywallProduct>? started,
 }) => OnboardingOfferGate(
   readDeveloperJson: () => developerJson,
   readRemoteJson: () => remoteJson,
@@ -146,6 +150,8 @@ OnboardingOfferGate offerGateFor({
   readCompletedSteps: () => completedSteps,
   readUse: ({required isReplay}) => use,
   readTopicName: () => topicName,
+  readSale: (_) => sale,
+  startSale: (product) => started?.add(product),
 );
 
 /// A source whose flow can be swapped while a test runs.

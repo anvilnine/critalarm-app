@@ -216,7 +216,7 @@ void main() {
       expect(find.text('Disconnect server?'), findsOneWidget);
       expect(
         find.text(
-          'You will stop receiving pages until you connect again.',
+          'You will stop receiving alarms until you connect again.',
         ),
         findsOneWidget,
       );

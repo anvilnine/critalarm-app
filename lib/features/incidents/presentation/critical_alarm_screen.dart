@@ -1670,12 +1670,15 @@ String _formatRingDuration(Duration duration) {
 
 /// Holds the confetti back until the screen knows it may fly.
 ///
-/// The setup test reads `OnboardingOfferGate.isAhead()` once, when the screen
-/// appears, and keeps the answer. While it is out, and when the offer step
-/// follows, nothing is built, so no confetti flies and no haptic plays (the
-/// haptic starts with the confetti). When the answer is no, the confetti
-/// starts then, a few frames after the screen opened. Every other exit builds
-/// it at once. See [ackConfettiMayFly].
+/// The setup test reads `OnboardingOfferGate.outlook()` once, when the screen
+/// appears, and keeps the answer. The read is local and cached: the store
+/// check started with the real alarm step, and the answer is never waited
+/// for. While the read is out, nothing is built, so no confetti flies and no
+/// haptic plays (the haptic starts with the confetti). When an offer follows
+/// and the store said it is on sale, the screen stays calm. When no offer
+/// follows, and when the store had not answered, the confetti starts a few
+/// frames after the screen opened. Every other exit builds it at once. See
+/// [ackConfettiMayFly].
 class _AckConfettiGate extends StatefulWidget {
   const _AckConfettiGate({required this.exits, required this.colors});
 
@@ -1688,7 +1691,7 @@ class _AckConfettiGate extends StatefulWidget {
 
 class _AckConfettiGateState extends State<_AckConfettiGate> {
   /// Null until the gate has answered. Stays null for an exit that never asks.
-  bool? _isOfferAhead;
+  OfferOutlook? _offer;
 
   @override
   void initState() {
@@ -1697,22 +1700,22 @@ class _AckConfettiGateState extends State<_AckConfettiGate> {
   }
 
   Future<void> _readOffer() async {
-    bool isAhead;
+    OfferOutlook offer;
     try {
-      isAhead = await getIt<OnboardingOfferGate>().isAhead();
+      offer = await getIt<OnboardingOfferGate>().outlook();
     } on Object {
-      // The gate answers false itself when it cannot work it out.
-      isAhead = false;
+      // The gate answers none itself when it cannot work it out.
+      offer = OfferOutlook.none;
     }
     if (!mounted) return;
-    setState(() => _isOfferAhead = isAhead);
+    setState(() => _offer = offer);
   }
 
   @override
   Widget build(BuildContext context) {
     final mayFly = ackConfettiMayFly(
       exits: widget.exits,
-      isOfferAhead: _isOfferAhead,
+      offer: _offer,
       reduceMotion: context.reduceMotion,
     );
     if (!mayFly) return const SizedBox.shrink();
