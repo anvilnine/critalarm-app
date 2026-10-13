@@ -385,7 +385,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
   bool _usesSteps(HookUpState state) =>
       state.phase == HookUpPhase.ready &&
       state.hasLine &&
-      toolStepsFor(state.template) != null;
+      toolStepsFor(state.template, isCritical: state.isCritical) != null;
 
   /// A wait: the face, waiting, over the one line that says what for.
   Widget _wait(String message) => Center(
@@ -480,7 +480,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       ],
     );
 
-    final steps = toolStepsFor(state.template);
+    final steps = toolStepsFor(state.template, isCritical: state.isCritical);
     if (_usesSteps(state) && steps != null && snippet != null) {
       return HookUpStepsLayout(
         template: state.template!,
