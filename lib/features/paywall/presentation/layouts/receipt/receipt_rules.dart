@@ -263,6 +263,7 @@ class ReceiptPlan {
     required this.count,
     required this.mascot,
     required this.card,
+    required this.hasTotal,
   });
 
   /// Places the slot, the paper, the mascot and the card in [stage] for a
@@ -275,13 +276,32 @@ class ReceiptPlan {
   /// the paper does. The card is whole beside the paper, never under it.
   /// The mascot is as large as the column lets it be and leans [lean]
   /// points over the paper's edge, in front of it.
-  factory ReceiptPlan.of(Size stage, {required int count}) {
-    final paperWidth = (stage.width * 0.56).clamp(196.0, 226.0);
-    final free = stage.height - margin * 2 - slotLap - _fixed;
+  ///
+  /// Four options serve a slip with no card beside it. With [hasCard] false
+  /// the column holds the mascot alone. With [hasTotal] false the slip has
+  /// no second rule and no total, and the stamp sits under the last line.
+  /// [fullWidth] makes the paper as wide as the stage less the side inset
+  /// each side. [reserveBelow] keeps that many points at the foot of the
+  /// stage free, for something drawn under the slip. The defaults are the
+  /// shipped receipt.
+  factory ReceiptPlan.of(
+    Size stage, {
+    required int count,
+    bool hasCard = true,
+    bool hasTotal = true,
+    bool fullWidth = false,
+    double reserveBelow = 0,
+  }) {
+    final paperWidth = fullWidth
+        ? stage.width - side * 2
+        : (stage.width * 0.56).clamp(196.0, 226.0);
+    final fixed = _fixedFor(hasTotal: hasTotal);
+    final height = stage.height - reserveBelow;
+    final free = height - margin * 2 - slotLap - fixed;
     final row = count == 0 ? rowMin : (free / count).clamp(rowMin, rowMax);
-    final paperHeight = _fixed + row * count;
+    final paperHeight = fixed + row * count;
     final group = slotLap + paperHeight;
-    final top = math.max(margin, (stage.height - group) / 2);
+    final top = math.max(margin, (height - group) / 2);
 
     final paper = Rect.fromLTWH(side, top + slotLap, paperWidth, paperHeight);
     final slot = Rect.fromLTWH(
@@ -297,15 +317,16 @@ class ReceiptPlan {
     final width = right - left;
     final columnTop = math.max(top, crossRoom);
     final room = paper.bottom - columnTop;
-    var cardEdge = math.min(cardMax, width);
+    var cardEdge = hasCard ? math.min(cardMax, width) : 0.0;
+    final gap = hasCard ? columnGap : 0.0;
     var mascot = math.min(right - paper.right + lean, mascotMax);
-    if (mascot + columnGap + cardEdge > room) {
-      mascot = math.max(mascotMin, room - columnGap - cardEdge);
+    if (mascot + gap + cardEdge > room) {
+      mascot = math.max(mascotMin, room - gap - cardEdge);
     }
-    if (mascot + columnGap + cardEdge > room) {
-      cardEdge = math.max(cardMin, room - columnGap - mascot);
+    if (hasCard && mascot + gap + cardEdge > room) {
+      cardEdge = math.max(cardMin, room - gap - mascot);
     }
-    final block = mascot + columnGap + cardEdge;
+    final block = mascot + gap + cardEdge;
     final blockTop = columnTop + math.max(0, (room - block) / 2);
 
     return ReceiptPlan._(
@@ -322,12 +343,15 @@ class ReceiptPlan {
         mascot,
         mascot,
       ),
-      card: Rect.fromLTWH(
-        left + (width - cardEdge) / 2,
-        blockTop + mascot + columnGap,
-        cardEdge,
-        cardEdge,
-      ),
+      card: hasCard
+          ? Rect.fromLTWH(
+              left + (width - cardEdge) / 2,
+              blockTop + mascot + columnGap,
+              cardEdge,
+              cardEdge,
+            )
+          : Rect.zero,
+      hasTotal: hasTotal,
     );
   }
 
@@ -358,6 +382,11 @@ class ReceiptPlan {
   static const double tear = 9;
   static const double _fixed =
       lead + header + rule + rule + total + stampRoom + tear;
+
+  /// The parts of the paper that are not lines. Without a total the second
+  /// rule and the total are not there.
+  static double _fixedFor({required bool hasTotal}) =>
+      hasTotal ? _fixed : _fixed - rule - total;
 
   /// The words on the paper start this far in from its edges.
   static const double pad = 14;
@@ -391,12 +420,12 @@ class ReceiptPlan {
   static const double cardGap = 4;
 
   /// The shortest stage a slip of [count] lines fits on.
-  static double minHeight(int count) =>
-      margin * 2 + slotLap + _fixed + rowMin * count;
+  static double minHeight(int count, {bool hasTotal = true}) =>
+      margin * 2 + slotLap + _fixedFor(hasTotal: hasTotal) + rowMin * count;
 
   /// The tallest stage a slip of [count] lines has a use for.
-  static double maxHeight(int count) =>
-      margin * 2 + slotLap + _fixed + rowMax * count;
+  static double maxHeight(int count, {bool hasTotal = true}) =>
+      margin * 2 + slotLap + _fixedFor(hasTotal: hasTotal) + rowMax * count;
 
   final Size stage;
   final Rect slot;
@@ -406,7 +435,12 @@ class ReceiptPlan {
   final double row;
   final int count;
   final Rect mascot;
+
+  /// Empty for a slip with no card beside it.
   final Rect card;
+
+  /// False for a slip with no second rule and no total.
+  final bool hasTotal;
 
   /// How far the card moves left to be wholly behind the paper.
   double get cardTravel => card.right - paper.right;
@@ -414,10 +448,13 @@ class ReceiptPlan {
   /// The size of the type every line is set in, for a slip whose longest
   /// line has [longest] letters: the largest at which that line fits the
   /// paper, so all the lines are one size. A tight slip caps it lower.
-  double lineFont(int longest) {
+  ///
+  /// A line set with a tick has the tick's room taken out. A line set as
+  /// figures ([hasTick] false) has none.
+  double lineFont(int longest, {bool hasTick = true}) {
     final cap = row < 30 ? fontMax - 1 : (row < 40 ? fontMax - 0.5 : fontMax);
     if (longest <= 0) return cap;
-    final room = paper.width - pad * 2 - tick - tickGap;
+    final room = paper.width - pad * 2 - (hasTick ? tick + tickGap : 0);
     return (room / (longest * monoAdvance)).clamp(fontMin, cap);
   }
 
@@ -425,16 +462,16 @@ class ReceiptPlan {
   double get rowsTop => lead + header + rule;
 
   /// How far down the paper the total starts, and the stamp's room.
-  double get totalTop => rowsTop + row * count + rule;
-  double get stampTop => totalTop + total;
+  double get totalTop => rowsTop + row * count + (hasTotal ? rule : 0);
+  double get stampTop => hasTotal ? totalTop + total : totalTop;
 
   /// Where each part of the print ends, in points down the paper: the
-  /// header, each line, the total, the foot. Feed it to
+  /// header, each line, the total (when there is one), the foot. Feed it to
   /// [ReceiptTimeline.feed].
   List<double> get stops => [
     rowsTop,
     for (var i = 1; i <= count; i++) rowsTop + row * i,
-    stampTop,
+    if (hasTotal) stampTop,
     paper.height,
   ];
 
@@ -462,5 +499,5 @@ class ReceiptPlan {
 
   /// The box the air behind the stage is centred on: the mascot and the
   /// card.
-  Rect get column => mascot.expandToInclude(card);
+  Rect get column => card.isEmpty ? mascot : mascot.expandToInclude(card);
 }

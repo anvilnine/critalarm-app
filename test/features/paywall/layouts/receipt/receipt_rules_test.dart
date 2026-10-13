@@ -314,4 +314,92 @@ void main() {
       );
     });
   });
+
+  group('ReceiptPlan without a card or a total', () {
+    const roomy = Size(390, 900);
+
+    test('no card: the card is empty and the mascot takes the room', () {
+      const stage = Size(390, 520);
+      final withCard = ReceiptPlan.of(stage, count: 4);
+      final without = ReceiptPlan.of(stage, count: 4, hasCard: false);
+      expect(without.card, Rect.zero);
+      expect(without.mascot.width, greaterThanOrEqualTo(withCard.mascot.width));
+    });
+
+    test('no total: the paper is shorter by the rule and the total', () {
+      final withTotal = ReceiptPlan.of(roomy, count: 3, hasCard: false);
+      final without = ReceiptPlan.of(
+        roomy,
+        count: 3,
+        hasCard: false,
+        hasTotal: false,
+      );
+      expect(
+        withTotal.paper.height - without.paper.height,
+        ReceiptPlan.rule + ReceiptPlan.total,
+      );
+      expect(without.stampTop, without.rowsTop + without.row * 3);
+    });
+
+    test('no total: the print has a part less', () {
+      final withTotal = ReceiptPlan.of(roomy, count: 3, hasCard: false);
+      final without = ReceiptPlan.of(
+        roomy,
+        count: 3,
+        hasCard: false,
+        hasTotal: false,
+      );
+      expect(without.stops.length, withTotal.stops.length - 1);
+      expect(without.stops.length, 3 + 2);
+    });
+
+    test('no total: the shortest and tallest stage are lower by the same', () {
+      expect(
+        ReceiptPlan.minHeight(3) - ReceiptPlan.minHeight(3, hasTotal: false),
+        ReceiptPlan.rule + ReceiptPlan.total,
+      );
+      expect(
+        ReceiptPlan.maxHeight(3) - ReceiptPlan.maxHeight(3, hasTotal: false),
+        ReceiptPlan.rule + ReceiptPlan.total,
+      );
+    });
+
+    test('full width takes the stage less the side inset each side', () {
+      final plan = ReceiptPlan.of(
+        roomy,
+        count: 3,
+        hasCard: false,
+        fullWidth: true,
+      );
+      expect(plan.paper.width, roomy.width - ReceiptPlan.side * 2);
+    });
+
+    test('room reserved below shrinks the rows, not the stage', () {
+      final plain = ReceiptPlan.of(
+        const Size(390, 420),
+        count: 4,
+        hasCard: false,
+      );
+      final reserved = ReceiptPlan.of(
+        const Size(390, 420),
+        count: 4,
+        hasCard: false,
+        reserveBelow: 80,
+      );
+      expect(reserved.row, lessThanOrEqualTo(plain.row));
+      expect(reserved.paper.bottom, lessThanOrEqualTo(420 - 80));
+    });
+
+    test('with a card nothing changes', () {
+      const stage = Size(390, 520);
+      final a = ReceiptPlan.of(stage, count: 4);
+      // Saying the defaults out loud is the point of this test.
+      // ignore: avoid_redundant_argument_values
+      final b = ReceiptPlan.of(stage, count: 4, hasCard: true, hasTotal: true);
+      expect(b.mascot, a.mascot);
+      expect(b.card, a.card);
+      expect(b.paper, a.paper);
+      expect(b.stops, a.stops);
+    });
+  });
 }

@@ -1,5 +1,10 @@
+import 'package:critalarm/core/paywall/paywall_headline.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_leaving_style.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/receipt/leaving/leaving_receipt_composition.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/receipt/leaving/leaving_receipt_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_stage.dart';
 import 'package:flutter/material.dart';
@@ -25,11 +30,40 @@ import 'package:flutter/material.dart';
 /// The mascot, the loop, the hand, the pips and the air are the kit's
 /// (`kit/paywall_hero.dart`). A product with one benefit has no list to
 /// print and draws the kit's own composition.
+///
+/// For a plan that is ending (the leaving headline, with the person's
+/// numbers in the route) it prints those numbers instead, and Crit is sad
+/// and then calm. See [LeavingReceiptComposition]. Every other route draws
+/// the slip above.
 class ReceiptPaywallLayout extends StatelessWidget {
   const ReceiptPaywallLayout({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final leaving = PaywallRouteInfo.leavingOf(context);
+    final facts = leaving?.facts;
+    if (PaywallRouteInfo.headlineOf(context) ==
+            PaywallHeadlineVariant.leaving &&
+        leaving != null &&
+        facts != null) {
+      final slip = leavingSlipFor(facts);
+      if (slip.rows.isNotEmpty) {
+        return PaywallFrame(
+          // The cross takes the right, as on the slip above.
+          closeOnLeft: false,
+          // The print is heard from the stage's own timeline.
+          entranceCue: PaywallEntranceCue.none,
+          restAt: LeavingReceiptTimeline.restAt + heroFaceBlend,
+          buyStyle: leavingBuyStyle(context),
+          builder: (context, scope) => LeavingReceiptComposition(
+            scope: scope,
+            slip: slip,
+            leaving: leaving,
+            facts: facts,
+          ),
+        );
+      }
+    }
     final hasSlip = PaywallOffer.of(context).benefits.length >= 2;
     return PaywallFrame(
       // The slot and the paper hang on the left, so the cross takes the

@@ -1876,6 +1876,22 @@
     "button": "Keep {name}",
     "note": "Critical topics already on keep ringing either way."
   },
+  "paywall_leaving_receipt": {
+    "headline": "Leaving soon?",
+    "subline": "Here is your last {days} days.",
+    "subline_one": "Here is your last day.",
+    "row_rang": "Alarms that rang",
+    "row_answered": "You answered",
+    "row_nights": "Nights an alarm rang",
+    "row_critical": "Critical topics on",
+    "stamp": "ENDS {date}",
+    "after_label": "After {date}",
+    "after_history": "History shows {free_history_days} days",
+    "after_critical": "Your {n} stay critical. No new ones past {free_critical_topics}.",
+    "after_critical_one": "Your critical topic stays critical. No new ones past {free_critical_topics}.",
+    "after_critical_none": "{free_critical_topics} critical topics at most.",
+    "after_pushes": "{free_p4_daily} high priority pushes a day"
+  },
   "paywall_sheet": {
     "headline": {
       "topics": "Critical on every topic",
