@@ -32,6 +32,10 @@ class MockServer {
              relayUrl: 'https://relay.critalarm.app',
            );
 
+  /// A self-hosted server gives every topic it creates a `relay_name`
+  /// (api.md §3.1). Off by default, which is what hosted and older servers do.
+  bool issueRelayNames = false;
+
   /// Server metadata returned by /v1/info.
   ServerInfo serverInfo;
   final Map<String, Topic> _topics = {};
@@ -650,6 +654,7 @@ class MockServer {
       token: token,
       tokenId: tokenId,
       tokenName: heldName,
+      relayName: issueRelayNames ? _relayNameFor(name) : null,
     );
 
     _topics[name] = topic.copyWith(
@@ -664,6 +669,11 @@ class MockServer {
 
     return topic;
   }
+
+  /// A stand-in for 32 random bytes as base64url: 43 characters.
+  String _relayNameFor(String name) => base64Url
+      .encode(utf8.encode('relay:$name:${_topics.length}'.padRight(32, '.')))
+      .replaceAll('=', '');
 
   /// The name a token ends up with, the way the real server works it out.
   ///
