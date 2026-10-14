@@ -93,15 +93,15 @@
     "admin_token_label": "ADMIN TOKEN",
     "paste_button": "Paste",
     "admin_token_placeholder": "ad_...",
-    "cloud_title": "Crit Alarm Cloud",
+    "cloud_title": "Our server",
     "cloud_description": "We run the server. Nothing to set up.",
-    "cloud_button": "Use Crit Alarm Cloud",
+    "cloud_button": "Use our server",
     "self_host_toggle": "I run my own server",
     "self_host_title": "Your server",
-    "self_host_hide": "Use Crit Alarm Cloud instead",
+    "self_host_hide": "Use our server instead",
     "routes_tool": "Your tool",
     "routes_phone": "Your phone",
-    "routes_label_cloud": "Your tool sends to Crit Alarm Cloud, and it sends the alert on to your phone.",
+    "routes_label_cloud": "Your tool sends to our server. Our server sends the alert to your phone.",
     "routes_label_own": "Your tool sends to your own server, and it sends the alert on to your phone.",
     "routes_label_connecting": "Connecting.",
     "routes_label_connected": "Connected.",
@@ -148,18 +148,18 @@
     "hook_failed_title": "The test alarm could not be set",
     "hook_failed_body": "Your phone did not let Crit Alarm set an alarm. Allow alarms and reminders for Crit Alarm in Settings, then try again.",
     "hook_ok": "OK",
-    "privacy_cloud_none": "Crit Alarm Cloud stores your messages. The push relay sees ids and the priority, never the text.",
+    "privacy_cloud_none": "Our server stores your messages. The push relay sees ids and the priority, never the text.",
     "privacy_own_none": "Your server keeps your messages. Pushes pass through the Crit Alarm relay, which sees ids and the priority, never the text.",
-    "privacy_cloud_full": "Crit Alarm Cloud stores your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
+    "privacy_cloud_full": "Our server stores your messages. Pushes pass through our relay and carry the message text.",
     "privacy_own_full": "Your server keeps your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
-    "background_connecting": "Connecting to Crit Alarm Cloud.",
+    "background_connecting": "Connecting to our server.",
     "background_waiting_network": "No internet yet. Crit Alarm connects when you're back online.",
     "background_waiting_push": "Getting this phone's push address.",
-    "background_connected": "Connected to Crit Alarm Cloud.",
+    "background_connected": "Connected to our server.",
     "background_quiet_connecting": "Connecting",
     "background_quiet_waiting_network": "Offline, will retry",
     "background_quiet_connected": "Connected",
-    "background_failed_version": "Crit Alarm Cloud is on version {version}, which this app cannot use. Update the app, then connect again.",
+    "background_failed_version": "Our server is on version {version}, which this app cannot use. Update the app, then try again.",
     "background_failed_admin_token": "This server needs its admin token. Go back and connect to it as your own server.",
     "background_failed_device_cap": "This account is at its device limit. Sign out of Crit Alarm on a phone you no longer use, then connect again.",
     "background_no_server_title": "No server yet",
@@ -172,7 +172,7 @@
     "self_host_continue": "Continue",
     "change_server": "Use a different server",
     "change_server_failed": "Could not change the server. Try again.",
-    "came_back_connected_cloud": "Connected to Crit Alarm Cloud",
+    "came_back_connected_cloud": "Connected to our server",
     "came_back_connected_own": "Connected to your server"
   },
   "onboarding_tracker": {
@@ -200,7 +200,7 @@
   "connect_link": {
     "what": "Connect this phone to this server for alarms?",
     "replaces": "Replaces {host}.",
-    "replaces_cloud": "Replaces Crit Alarm Cloud.",
+    "replaces_cloud": "Replaces our server.",
     "not_encrypted": "This address is not encrypted.",
     "address_differs": "This server says its address is {host}. Not connected.",
     "downgrade": "This server answered with an unencrypted address. Not connected.",
@@ -494,7 +494,7 @@
   "home_day0": {
     "title": "Your first alarm worked",
     "free_line": "On Free, alarms ring until you acknowledge them. That does not change.",
-    "plans_button": "See Hosted plans",
+    "plans_button": "See Cloud plans",
     "dismiss_button": "Close card"
   },
   "home_widgets": {
@@ -548,21 +548,21 @@
     "missed_alarm_button_test": "Ring a test",
     "missed_alarm_button_incident": "See the alarm",
     "missed_alarm_latest": "Latest: {topic}, {time}",
-    "pro_ending_title": "Hosted ends {weekday}, {date}",
-    "pro_ending_pill": "Hosted ends {weekday}",
+    "pro_ending_title": "Cloud ends {weekday}, {date}",
+    "pro_ending_pill": "Cloud ends {weekday}",
     "pro_ending_intro": "After that:",
     "pro_ending_outro": "Your alarms keep ringing.",
-    "pro_ending_action": "Keep Hosted",
-    "pro_ended_title": "Your Hosted plan ended",
+    "pro_ending_action": "Keep Cloud",
+    "pro_ended_title": "Your Cloud plan ended",
     "pro_ended_intro": "Your alarms keep ringing.\n\nWhat changed:",
     "pro_ended_action": "See plans",
     "pro_ended_dismiss": "OK"
   },
   "asks": {
-    "pro_title": "Hosted adds:",
+    "pro_title": "Cloud adds:",
     "pro_cap_refused": "Free allows {free_critical_topics} critical topics. This one was not created. What you typed is still there.",
     "pro_free_keeps": "Alarms keep ringing on Free, with no limit.",
-    "pro_button": "See Hosted plans",
+    "pro_button": "See Cloud plans",
     "consent_title": "Help find bugs faster?",
     "consent_crash": "Crash reports",
     "consent_analytics": "Usage analytics",
@@ -605,15 +605,15 @@
     "filter_window_7": "7 days",
     "filter_window_30": "30 days",
     "filter_window_90": "90 days",
-    "filter_window_locked_aria_label": "{window}, needs Hosted",
+    "filter_window_locked_aria_label": "{window}, needs Cloud",
     "filter_reset": "Reset",
     "filter_apply": "Apply",
     "empty_filtered_title": "Nothing matches those filters",
     "empty_filtered_body": "Loosen the state, or widen the window.",
     "filter_window_24h": "24 hours",
     "older_notice": {
-      "one": "1 older alarm. Hosted shows it.",
-      "other": "{} older alarms. Hosted shows them."
+      "one": "1 older alarm. Cloud shows it.",
+      "other": "{} older alarms. Cloud shows them."
     }
   },
   "history_hero": {
@@ -778,7 +778,7 @@
     "token_recap_label": "Token for",
     "toast_created": "Topic created",
     "made_title": "Your topic lives here",
-    "toast_pro_pending": "Hosted is still turning on. Try again in a moment.",
+    "toast_pro_pending": "Cloud is still turning on. Try again in a moment.",
     "name_error_empty": "Give the topic a name.",
     "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
     "cancel_aria_label": "Cancel",
@@ -862,7 +862,7 @@
     "server_status_connected": "Connected",
     "server_self_hosted": "Self-hosted",
     "server_relay": "Relay",
-    "server_hosted": "Crit Alarm Cloud",
+    "server_hosted": "Our server",
     "server_edit_button": "Edit",
     "server_disconnect_button": "Disconnect",
     "server_status_disconnected": "Disconnected",
@@ -910,18 +910,18 @@
     "storage_keep_critical_subtitle": "Priority 5 alarms skip auto-delete.",
     "plan_header": "Plan",
     "plan_free": "Free",
-    "plan_pro": "Hosted",
+    "plan_pro": "Cloud",
     "plan_manage_button": "Manage",
     "plan_selfhosted_title": "This phone uses your own server",
     "plan_selfhosted_subtitle": "No limits, no charge.",
-    "plan_selfhosted_cloud_note": "Crit Alarm Cloud is the server we run, if you would rather not run one.",
+    "plan_selfhosted_cloud_note": "If you would rather not run a server, we run one.",
     "pro_title": "Pro",
-    "pro_line": "Alarm looks, own sounds, widgets.",
+    "pro_line": "Challenges, own sounds, widgets.",
     "pro_button": "See Pro",
     "pro_owned_label": "You have Pro",
     "pro_checking_label": "Checking your Pro purchase",
     "developer_header": "Developer options",
-    "developer_pro_title": "Hosted plan",
+    "developer_pro_title": "Cloud plan",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
     "developer_faces_title": "Face expressions",
     "developer_ringing_faces_title": "Ringing faces",
@@ -983,7 +983,7 @@
     "app_icon_action_unlock": "Unlock",
     "app_icon_welcome": "Your extra icons",
     "app_icon_page_in_use": "{name}, in use",
-    "app_icon_page_locked": "{name}, locked. Needs Hosted or Pro.",
+    "app_icon_page_locked": "{name}, locked. Needs Cloud or Pro.",
     "app_icon_page_ready": "{name}",
     "app_icon_page_position": "Icon {index} of {count}",
     "reduce_motion_title": "Reduce motion",
@@ -996,7 +996,7 @@
     "about_row_title": "About",
     "about_row_subtitle": "Version, license and links",
     "developer_row_title": "Developer options",
-    "developer_row_subtitle": "Switch between Free and Hosted",
+    "developer_row_subtitle": "Switch between Free and Cloud",
     "developer_pro_pack_title": "Pro pack",
     "setup_header": "Setup",
     "help_header": "Help",
@@ -1218,7 +1218,7 @@
     "line_token_refused": "The push relay refused this phone.",
     "line_no_token": "Not registered with the push relay yet.",
     "switch_failed": "Could not reach the push relay. Try again.",
-    "switch_needs_hosted": "The weekly check needs Hosted.",
+    "switch_needs_hosted": "The weekly check needs Cloud.",
     "switch_refused": "The push relay did not accept that.",
     "rounds_link": "Past checks",
     "rounds_title": "Past checks",
@@ -1250,11 +1250,11 @@
   },
   "paywall": {
     "welcome": {
-      "title": "You're on Hosted",
-      "body": "Thanks for backing Crit Alarm. Every Hosted feature is switched on.",
+      "title": "You're on Cloud",
+      "body": "Thanks for backing Crit Alarm. Every Cloud feature is switched on.",
       "button": "Let's go"
     },
-    "pro_badge": "Hosted",
+    "pro_badge": "Cloud",
     "self_hosted_note": "Running your own server? No limits, no charge.",
     "tier_yearly": "Yearly",
     "tier_monthly": "Monthly",
@@ -1267,16 +1267,16 @@
     "store_google": "Google Play account",
     "terms_link": "Terms of Use",
     "privacy_link": "Privacy Policy",
-    "feedback_upgraded": "Crit Alarm Hosted is on.",
+    "feedback_upgraded": "Crit Alarm Cloud is on.",
     "feedback_purchase_completed": "Payment went through. Your plan has not switched over yet. Try Restore purchases in a minute.",
-    "feedback_restored": "Crit Alarm Hosted restored.",
+    "feedback_restored": "Crit Alarm Cloud restored.",
     "feedback_no_active_restored": "Nothing to restore on this account.",
     "feedback_purchases_restored": "Purchases restored.",
     "error_subscription_failed": "That did not go through. Try again."
   },
   "paywall_kit": {
     "close": "Close",
-    "name_hosted": "Hosted",
+    "name_hosted": "Cloud",
     "name_pro": "Pro",
     "button_get": "Get {name}",
     "button_get_price": "Get {name} · {price}",
@@ -1298,7 +1298,7 @@
     "failed": "The store did not finish that. Try again.",
     "store_not_ready": "The store is not ready yet. Try again later.",
     "nothing_to_restore": "Nothing to restore for this account.",
-    "done_hosted": "Crit Alarm Hosted is on.",
+    "done_hosted": "Crit Alarm Cloud is on.",
     "done_pro": "Pro is on.",
     "benefits": {
       "topics": {
@@ -1330,7 +1330,7 @@
         "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Your own alarm screen look",
+        "title": "Your own alarm look",
         "line": "Pick the look of the screen that rings."
       }
     },
@@ -1564,7 +1564,7 @@
   "account": {
     "plan_unavailable": "Plan unavailable",
     "plan_limits_unavailable": "Plan limits unavailable",
-    "plan_confirming": "Hosted, confirming your purchase",
+    "plan_confirming": "Cloud, confirming your purchase",
     "cap_generic_label": "Plan",
     "critical_usage_unlimited": {
       "one": "1 critical topic used · Unlimited",
@@ -1659,7 +1659,7 @@
     "switch_reminders_title": "Reminders",
     "switch_reminders_subtitle": "Test alarm checks, silent new topics and backups",
     "switch_offers_title": "Offers",
-    "switch_offers_subtitle": "News about Hosted. At most once a month.",
+    "switch_offers_subtitle": "News about Cloud. At most once a month.",
     "rules_note": "Never between 22:00 and 08:00, or inside your quiet hours. Most reminders come at most once a week. Alarms are not affected by these switches.",
     "os_off_title": "Notifications are off",
     "os_off_body": "Turn them on in system settings to get reminders.",
@@ -1668,7 +1668,7 @@
     "sheet_bullet_silent": "A heads-up if a new topic stays silent",
     "sheet_bullet_backup": "A reminder to back up your topics",
     "sheet_bullet_asks": "Now and then, a quick ask for a rating or feedback",
-    "sheet_offers_checkbox": "Also tell me about Hosted offers",
+    "sheet_offers_checkbox": "Also tell me about Cloud offers",
     "sheet_turn_on": "Turn on reminders",
     "sheet_no_thanks": "No thanks",
     "sheet_hint": "Alarms ring either way. Change this any time in Settings › Local reminders.",
@@ -1677,7 +1677,7 @@
     "action_curl": "Get curl line",
     "action_sign_in": "Sign in",
     "action_update_payment": "Update payment",
-    "action_see_pro": "See Hosted",
+    "action_see_pro": "See Cloud",
     "drill_title_1": {
       "one": "Last test alarm: 1 day ago",
       "other": "Last test alarm: {} days ago"
@@ -1720,19 +1720,19 @@
       "other": "{} topics aren't backed up to an account"
     },
     "backup_body": "Sign in so they come with you to your next phone.",
-    "plan_billing_title": "Your Hosted payment didn't go through",
-    "plan_billing_body": "Update your payment to keep Hosted.",
-    "plan_renew_title": "Hosted renews on {date} for {price}",
+    "plan_billing_title": "Your Cloud payment didn't go through",
+    "plan_billing_body": "Update your payment to keep Cloud.",
+    "plan_renew_title": "Cloud renews on {date} for {price}",
     "plan_renew_body": "Nothing to do if you're staying.",
-    "plan_ends_title": "Hosted ends {weekday}",
-    "plan_ends_body": "Your alarms keep ringing. New critical topics past {free_critical_topics} need Hosted.",
+    "plan_ends_title": "Cloud ends {weekday}",
+    "plan_ends_body": "Your alarms keep ringing. New critical topics past {free_critical_topics} need Cloud.",
     "morning_title": "Crit Alarm woke you at {time}",
     "morning_body": {
-      "one": "{topic} rang and you were up in 1 s. Hosted gives you {benefits}.",
-      "other": "{topic} rang and you were up in {} s. Hosted gives you {benefits}."
+      "one": "{topic} rang and you were up in 1 s. Cloud gives you {benefits}.",
+      "other": "{topic} rang and you were up in {} s. Cloud gives you {benefits}."
     },
-    "pro_later_title": "Still thinking about Hosted?",
-    "pro_later_body": "Hosted gives you {benefits}.",
+    "pro_later_title": "Still thinking about Cloud?",
+    "pro_later_body": "Cloud gives you {benefits}.",
     "review_title_1": "Is Crit Alarm doing its job?",
     "review_body_1": "If it is, a short review on {store} helps other on-call people find it.",
     "review_title_2": "Got a minute for a rating?",
@@ -1785,7 +1785,7 @@
     "lab_budget": "Weekly slot",
     "lab_budget_free": "Free",
     "lab_budget_used": "Used {used} · free again {free}",
-    "lab_pro": "Hosted prompt",
+    "lab_pro": "Cloud prompt",
     "lab_pro_value": "Asked {asked} · {count} of 2 dismissals",
     "lab_review": "Review ask",
     "lab_review_value": "Asked {asked} · {count} of 3",
@@ -1799,7 +1799,7 @@
     "lab_in_ten": "In 10 s",
     "lab_now": "Now",
     "lab_skip_rules": "Skip all rules",
-    "lab_skip_rules_subtitle": "Ignores quiet hours, the weekly slot and the Hosted rules",
+    "lab_skip_rules_subtitle": "Ignores quiet hours, the weekly slot and the Cloud rules",
     "lab_show_sheet": "Show Local reminders sheet again",
     "lab_reset": "Reset reminder counters",
     "lab_pool_header": "Fire drill pool",
@@ -1808,7 +1808,7 @@
     "kind_backup": "Backup",
     "kind_plan_heads_up": "Plan heads-up",
     "kind_morning_after": "Morning after",
-    "kind_pro_later": "Hosted later",
+    "kind_pro_later": "Cloud later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
   },
@@ -1836,7 +1836,7 @@
     "headline_hosted": "Hit the limit. Lift it.",
     "headline_pro": "From default to yours",
     "tag_free": "Free",
-    "tag_hosted": "Hosted",
+    "tag_hosted": "Cloud",
     "tag_pro": "Pro"
   },
   "paywall_history_own": {
@@ -1906,7 +1906,7 @@
     }
   },
   "paywall_hero": {
-    "headline_hosted": "Hosted lifts every limit",
+    "headline_hosted": "Cloud lifts every limit",
     "headline_pro": "Pro makes the alarm yours",
     "stage_label": "Showing: {benefit}",
     "lines": {
@@ -1918,7 +1918,7 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_false_alarm": {
@@ -1927,7 +1927,7 @@
   },
   "paywall_lead": {
     "servers_headline": "Every server can wake you",
-    "servers_line": "Free rings {free_critical_topics} critical topics. Hosted rings all of them.",
+    "servers_line": "Free rings {free_critical_topics} critical topics. Cloud rings all of them.",
     "reaches_headline": "Know it still reaches you",
     "jobs_line": "Each week, see that a push still reaches this phone.",
     "home_headline": "See it from your home screen",
@@ -1950,11 +1950,11 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_sentence": {
-    "stem_hosted": "Hosted gives you",
+    "stem_hosted": "Cloud gives you",
     "stem_pro": "Pro gives you",
     "sentence_label": "{stem} {tail}.",
     "tails": {
@@ -1981,7 +1981,7 @@
     }
   },
   "paywall_doors": {
-    "headline_hosted": "Step into Hosted",
+    "headline_hosted": "Step into Cloud",
     "headline_pro": "Step into Pro",
     "headline_ending": "Keep the door open",
     "headline_ended": "Open the door again"
@@ -1997,11 +1997,11 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_wipe": {
-    "headline_hosted": "See what Hosted changes",
+    "headline_hosted": "See what Cloud changes",
     "headline_pro": "See what Pro adds",
     "tag_free": "Free",
     "compare_label": "Compare {before} and {name}"
@@ -2088,9 +2088,9 @@
     "by_key_unbuilt": "Not built"
   },
   "paywall_thanks": {
-    "headline_hosted": "Hosted is on.",
+    "headline_hosted": "Cloud is on.",
     "headline_pro": "Pro is on.",
-    "restored_hosted": "Hosted is back on this phone.",
+    "restored_hosted": "Cloud is back on this phone.",
     "restored_pro": "Pro is back on this phone.",
     "button": "Continue",
     "picker_row": "After purchase",
@@ -2124,7 +2124,7 @@
   },
   "settings_card": {
     "numeral_label": "{fine} of {total} checks fine",
-    "plan_upgrade": "See Hosted",
+    "plan_upgrade": "See Cloud",
     "value_keep_all": "Keep all"
   },
   "personalize": {
