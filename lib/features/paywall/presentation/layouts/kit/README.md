@@ -343,6 +343,10 @@ the close cross on screen from the first frame, and pins the buy block at the bo
 - `tone`: `PaywallTone.canvas`, `surface`, `panel`, `cobalt` or `crit`: the background and the
   text colours of the cross and the buy block. `PaywallToneColors.of` gives them to your text.
   `backdrop`: a widget drawn edge to edge behind everything. `closeOnLeft`: the cross's corner.
+- The close cross is always the same `PaywallCloseCross`: the bare house cross, a 48 point tap
+  area, the same spoken label, in a top corner. A layout never draws a cross, a disc behind it or
+  a second close control. Where the ground under it changes (the reel's scenes), set
+  `PaywallFrameController.closeInk` to the colour that reads on that ground. The cross stays bare.
 - `buyBlockVisible`: false hides the buy block during an entrance. It keeps its room, so
   nothing moves when it comes in. Draw a full-screen entrance in `backdrop`.
 - `buyStyle`: a `PaywallBuyBlockStyle` with `tone`, `buttonVariant`, `pickerStyle` (`segments`,
@@ -354,7 +358,8 @@ A sheet-style layout puts `PaywallFrameBody` (same options, no full screen) in i
 What it draws outside that body reads `PaywallOffer.of(context)` (`product`, `benefits`,
 `source`) and a `PaywallFrameController`, made and disposed in your `State` and passed as
 `controller`: `close()` does what the cross does, `buyBlockHeight` is the buy block's height as
-a listenable (null for the first frame). `PaywallLayoutScope.closeCrossInset` places the cross.
+a listenable (null for the first frame), `closeInk` is the cross's colour. The frame places the
+cross, so a layout only keeps words out of its corner (`PaywallLayoutScope.closeCrossSize`).
 
 ## The buy block
 
@@ -450,7 +455,7 @@ class ReceiptPaywallLayout extends StatelessWidget {
 
 `product` (`isHosted`, `isPro`), `benefits` (only what this build has, in order), `size`
 (the room you have), `isCompact` (667 points tall or under), `source`, `clock`, `closeOnLeft`,
-`close` (what the cross does), `intro` and `followsIntro` (see "Add an intro"). The cross covers a 44 point square in a top corner of your room:
+`close` (what the cross does), `intro` and `followsIntro` (see "Add an intro"). The cross stands in a 44 point square in a top corner of your room (its tap area is 48):
 keep words out of it. Deeper in your tree, `PaywallLayoutScope.of(context)` is the same scope.
 
 ## Previews
