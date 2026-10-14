@@ -93,7 +93,7 @@
     "admin_token_label": "ADMIN TOKEN",
     "paste_button": "Paste",
     "admin_token_placeholder": "ad_...",
-    "cloud_title": "Crit Alarm's server",
+    "cloud_title": "Our server",
     "cloud_description": "We run the server. Nothing to set up.",
     "cloud_button": "Use our server",
     "self_host_toggle": "I run my own server",
@@ -101,7 +101,7 @@
     "self_host_hide": "Use our server instead",
     "routes_tool": "Your tool",
     "routes_phone": "Your phone",
-    "routes_label_cloud": "Your tool sends to our server, and it sends the alert on to your phone.",
+    "routes_label_cloud": "Your tool sends to our server. Our server sends the alert to your phone.",
     "routes_label_own": "Your tool sends to your own server, and it sends the alert on to your phone.",
     "routes_label_connecting": "Connecting.",
     "routes_label_connected": "Connected.",
@@ -150,7 +150,7 @@
     "hook_ok": "OK",
     "privacy_cloud_none": "Our server stores your messages. The push relay sees ids and the priority, never the text.",
     "privacy_own_none": "Your server keeps your messages. Pushes pass through the Crit Alarm relay, which sees ids and the priority, never the text.",
-    "privacy_cloud_full": "Our server stores your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
+    "privacy_cloud_full": "Our server stores your messages. Pushes pass through our relay and carry the message text.",
     "privacy_own_full": "Your server keeps your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
     "background_connecting": "Connecting to our server.",
     "background_waiting_network": "No internet yet. Crit Alarm connects when you're back online.",
@@ -159,7 +159,7 @@
     "background_quiet_connecting": "Connecting",
     "background_quiet_waiting_network": "Offline, will retry",
     "background_quiet_connected": "Connected",
-    "background_failed_version": "Our server is on version {version}, which this app cannot use. Update the app, then connect again.",
+    "background_failed_version": "Our server is on version {version}, which this app cannot use. Update the app, then try again.",
     "background_failed_admin_token": "This server needs its admin token. Go back and connect to it as your own server.",
     "background_failed_device_cap": "This account is at its device limit. Sign out of Crit Alarm on a phone you no longer use, then connect again.",
     "background_no_server_title": "No server yet",
@@ -862,7 +862,7 @@
     "server_status_connected": "Connected",
     "server_self_hosted": "Self-hosted",
     "server_relay": "Relay",
-    "server_hosted": "Crit Alarm's server",
+    "server_hosted": "Our server",
     "server_edit_button": "Edit",
     "server_disconnect_button": "Disconnect",
     "server_status_disconnected": "Disconnected",
@@ -916,7 +916,7 @@
     "plan_selfhosted_subtitle": "No limits, no charge.",
     "plan_selfhosted_cloud_note": "If you would rather not run a server, we run one.",
     "pro_title": "Pro",
-    "pro_line": "Alarm looks, own sounds, widgets.",
+    "pro_line": "Challenges, own sounds, widgets.",
     "pro_button": "See Pro",
     "pro_owned_label": "You have Pro",
     "pro_checking_label": "Checking your Pro purchase",
@@ -1330,7 +1330,7 @@
         "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Your own alarm screen look",
+        "title": "Your own alarm look",
         "line": "Pick the look of the screen that rings."
       }
     },
@@ -1918,7 +1918,7 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_false_alarm": {
@@ -1950,7 +1950,7 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_sentence": {
@@ -1997,7 +1997,7 @@
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
       "custom_sounds": "Your own alarm sound",
-      "custom_alarm_screens": "Your own alarm screen look"
+      "custom_alarm_screens": "Your own alarm look"
     }
   },
   "paywall_wipe": {

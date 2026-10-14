@@ -21,7 +21,7 @@ class PaywallExtrasPreviewsSection extends StatelessWidget {
     ('Weekly delivery check', PaywallPreviewId.weeklyCheck),
     ('Wake-up challenges', PaywallPreviewId.wakeUpChallenges),
     ('Your own alarm sound', PaywallPreviewId.customSounds),
-    ('Your own alarm screen look', PaywallPreviewId.customAlarmScreens),
+    ('Your own alarm look', PaywallPreviewId.customAlarmScreens),
   ];
 
   @override

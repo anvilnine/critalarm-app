@@ -50,8 +50,8 @@ void main() {
       expect(line, ConnectPrivacyLine.cloudFull);
       expect(
         english(line!.translationKey),
-        'Our server stores your messages. Pushes pass through the Crit '
-        'Alarm relay and carry the message text.',
+        'Our server stores your messages. Pushes pass through our relay '
+        'and carry the message text.',
       );
     });
 
