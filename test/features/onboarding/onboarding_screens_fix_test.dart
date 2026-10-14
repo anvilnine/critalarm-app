@@ -140,9 +140,9 @@ void main() {
         expect(find.byType(ConnectRoutesPicture), findsOneWidget);
         expect(find.bySemanticsLabel('Back'), findsOneWidget);
 
-        // 4. Check Crit Alarm Cloud card is present
+        // 4. Check our server card is present
         // Its name is there twice: on the card and in the picture.
-        expect(find.text("Crit Alarm's server"), findsNWidgets(2));
+        expect(find.text('Our server'), findsNWidgets(2));
         expect(find.text('EASIEST'), findsOneWidget);
         expect(
           find.text('We run the server. Nothing to set up.'),
