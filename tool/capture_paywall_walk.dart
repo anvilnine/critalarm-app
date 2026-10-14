@@ -4,6 +4,11 @@
 //
 //   fvm flutter test tool/capture_paywall_walk.dart --dart-define=OUT=<folder>
 //
+// Optional defines: ONLY=<name part, comma separated>, SETTLE=<tenths of a
+// second to rest, 12 by default; the Sheet needs 40 to finish its entrance>,
+// TEXT_SCALE=<tenths, 20 for double text>, NARROW=true to also walk every
+// pair on the 320x568 phone, in light only.
+//
 // The opening comes from a real PaywallDoor with nothing pinned. Its
 // location is read back the way the router reads it. The layout is mounted
 // with the lead, headline and facts that location carries, rests about a
@@ -48,6 +53,14 @@ import 'capture_fonts.dart';
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/walk');
 const _only = String.fromEnvironment('ONLY');
 const double _settle = int.fromEnvironment('SETTLE', defaultValue: 12) / 10;
+
+/// The text scale in tenths, 10 for the default size, 20 for double. A
+/// scale other than 10 is added to the file name.
+/// True walks every pair on the narrow phone too, in light.
+const bool _allNarrow = bool.fromEnvironment('NARROW');
+
+const double _textScale =
+    int.fromEnvironment('TEXT_SCALE', defaultValue: 10) / 10;
 
 class _Phone {
   const _Phone(this.name, this.size, this.top, this.bottom);
@@ -215,7 +228,10 @@ void main() {
             (_normal, ThemeMode.dark),
             (_narrow, ThemeMode.light),
           ]
-        : [(_normal, ThemeMode.light)];
+        : [
+            (_normal, ThemeMode.light),
+            if (_allNarrow) (_narrow, ThemeMode.light),
+          ];
     for (final (phone, mode) in sizes) {
       testWidgets(
         'walk ${pair.product.key} ${pair.place.name} '
@@ -234,9 +250,12 @@ void main() {
               ? HistoryOwn.fromQuery(query)
               : null;
           final source = PaywallSource.parse(query['source']);
+          final scaleSuffix = _textScale == 1
+              ? ''
+              : '_x${_textScale.toStringAsFixed(1)}';
           final name =
               '${pair.product.key}__${pair.place.name}__${layout.key}__'
-              '${phone.name}_${mode.name}';
+              '${phone.name}_${mode.name}$scaleSuffix';
           if (_only.isNotEmpty && !_only.split(',').any(name.contains)) return;
           print(
             'WALK $name | source=${query['source']} | lead=${query['lead']} '
@@ -261,6 +280,8 @@ void main() {
           );
           tester.view.viewPadding = tester.view.padding;
           addTearDown(tester.view.reset);
+          tester.platformDispatcher.textScaleFactorTestValue = _textScale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
           final boundaryKey = GlobalKey();
           try {

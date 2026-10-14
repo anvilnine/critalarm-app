@@ -8,14 +8,13 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_close_cross.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_tag_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show BoxParentData, RenderParagraph;
 import 'package:flutter/scheduler.dart';
@@ -747,13 +746,9 @@ class _IntroLayer extends StatelessWidget {
                     : Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: PaywallLayoutScope.closeCrossInset,
+                    horizontal: PaywallCloseCross.edgeInset,
                   ),
-                  child: AppDismissCross(
-                    label: LocaleKeys.paywall_kit_close.tr(),
-                    color: ink,
-                    onPressed: onClose,
-                  ),
+                  child: PaywallCloseCross(color: ink, onPressed: onClose),
                 ),
               ),
             ),

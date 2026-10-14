@@ -536,26 +536,6 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                   ),
                 ),
               ),
-              // A seat for the close cross. The cross is on screen before the
-              // sheet is, and this keeps it readable over the screen behind.
-              Positioned(
-                top:
-                    plan.sheetTop +
-                    (PaywallLayoutScope.closeCrossSize - 32) / 2,
-                right:
-                    PaywallLayoutScope.closeCrossInset +
-                    (PaywallLayoutScope.closeCrossSize - 32) / 2,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: colors.ash,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
               Positioned(
                 top: plan.sheetTop,
                 left: 0,
@@ -675,8 +655,6 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   // The cross is over the headline when the
                                   // stage has no room above it.
                                   headlineEndRoom: _headlineEndRoom(context),
-                                  // A list is never cut at its foot.
-                                  showsWholeLinesOnly: true,
                                 ),
                               ],
                             ),

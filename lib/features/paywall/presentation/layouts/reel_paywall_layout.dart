@@ -18,18 +18,33 @@ import 'package:flutter/material.dart';
 /// The stage, the mascot, the loop and the hand are the kit's
 /// (`kit/paywall_hero.dart`). A product with one benefit has nothing to
 /// page through and draws the kit's own composition.
-class ReelPaywallLayout extends StatelessWidget {
+class ReelPaywallLayout extends StatefulWidget {
   const ReelPaywallLayout({super.key});
+
+  @override
+  State<ReelPaywallLayout> createState() => _ReelPaywallLayoutState();
+}
+
+class _ReelPaywallLayoutState extends State<ReelPaywallLayout> {
+  // The scenes change ground, and the frame's cross changes ink with them.
+  final PaywallFrameController _frame = PaywallFrameController();
+
+  @override
+  void dispose() {
+    _frame.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return PaywallFrame(
+      controller: _frame,
       // The story bars start at the left, so the cross takes the right.
       closeOnLeft: false,
       restAt: heroEntranceSeconds,
       builder: (context, scope) => scope.benefits.length < 2
           ? HeroComposition(scope: scope)
-          : ReelComposition(scope: scope),
+          : ReelComposition(scope: scope, closeInk: _frame.closeInk),
     );
   }
 }

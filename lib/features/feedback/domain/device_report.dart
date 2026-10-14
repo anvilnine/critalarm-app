@@ -11,6 +11,7 @@ class DeviceReport {
     required this.os,
     required this.server,
     required this.plan,
+    required this.pro,
     required this.locale,
   });
 
@@ -29,8 +30,12 @@ class DeviceReport {
   /// `hosted`, `selfhosted` or `none`.
   final String server;
 
-  /// `free` or `pro`.
+  /// The subscription: `cloud` or `free`.
   final String plan;
+
+  /// The Pro pack, separate from the subscription: `yes`, `no`, or `unknown`
+  /// when the phone could not read it.
+  final String pro;
 
   /// `en-PH`
   final String locale;
@@ -40,6 +45,6 @@ class DeviceReport {
       '--\n'
       'App: $appVersion ($buildNumber)\n'
       'Phone: $device · $os\n'
-      'Server: $server · Plan: $plan\n'
+      'Server: $server · Plan: $plan · Pro: $pro\n'
       'Language: $locale';
 }
