@@ -21,6 +21,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - StoreCatalog and RevenueCatStoreCatalog: read plans, buy and restore over the RevenueCat API in app types. Tested, not registered.
 - Settings plan section has a Pro row (SettingsProRow) that follows Holdings. ProPackSheetSource.settingsPlan maps to the plan place.
 - tool/capture\_paywall\_walk.dart captures what each paywall place opens with no settings.
+- tool/capture\_search\_panel.dart draws the search panel with every result kind, light and dark, into build/search\_shots.
 
 ### Changed
 - The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.

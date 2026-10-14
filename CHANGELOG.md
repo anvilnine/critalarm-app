@@ -15,6 +15,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Android back button during a Feature Guide now asks whether to leave it, with a switch to stop guides showing by themselves
 - The paid plan is now called Cloud everywhere in the app.
 - The server Crit Alarm runs is now called our server, so Cloud only ever means the paid plan.
+- Search results look like the screen they come from: topics as face cards, past alarms as History rows, settings as Settings rows, and documentation on its own sheet with an arrow that shows it opens in your browser.
 
 ### Fixed
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
@@ -25,6 +26,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A long topic name no longer gets cut off in the name field during setup at a large text size.
 - The keyboard no longer opens over a Feature Guide on Search and on the new topic screen
 - On small phones the plans sheet no longer drops what Cloud or Pro includes. The list scrolls above the button instead.
+- Search section titles sit above their results again, with the best section still nearest the search bar.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added
