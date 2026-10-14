@@ -44,7 +44,7 @@ void main() {
       expect(find.bySemanticsLabel('You have Pro'), findsOneWidget);
       expect(find.text('See Pro'), findsNothing);
       expect(
-        find.text('Alarm looks, own sounds, widgets.'),
+        find.text('Challenges, own sounds, widgets.'),
         findsNothing,
       );
     });
@@ -70,7 +70,7 @@ void main() {
 
       expect(find.text('Pro'), findsOneWidget);
       expect(
-        find.text('Alarm looks, own sounds, widgets.'),
+        find.text('Challenges, own sounds, widgets.'),
         findsOneWidget,
       );
       expect(find.text('See Pro'), findsOneWidget);

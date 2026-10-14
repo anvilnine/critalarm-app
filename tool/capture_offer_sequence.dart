@@ -929,7 +929,7 @@ Future<void> _redo(
 
   // Connect and the permissions move on without asking the phone for
   // anything.
-  await tester.tap(find.text('Use Crit Alarm Cloud'));
+  await tester.tap(find.text('Use our server'));
   await _settle(tester, 60);
   await tester.tap(find.text('Allow notifications'));
   await _settle(tester, 60);

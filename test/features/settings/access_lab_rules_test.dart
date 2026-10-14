@@ -123,7 +123,7 @@ void main() {
         'Unlimited critical topics',
       );
       expect(accessLabFeatureName(AppFeature.widgets), 'Widgets');
-      expect(accessLabHoldingName(Holding.hosted), 'Hosted');
+      expect(accessLabHoldingName(Holding.hosted), 'Cloud');
       expect(accessLabHoldingName(Holding.pro), 'Pro');
     });
 
@@ -139,7 +139,7 @@ void main() {
       expect(accessLabDecisionText(const FeatureDecision.open()), 'Open');
       expect(
         accessLabDecisionText(const FeatureDecision.locked(Holding.hosted)),
-        'Locked, sells Hosted',
+        'Locked, sells Cloud',
       );
       expect(
         accessLabDecisionText(const FeatureDecision.confirming(Holding.pro)),
@@ -166,7 +166,7 @@ void main() {
       addTearDown(own.dispose);
       expect(
         accessLabDecisionText(cloud.features.decide(AppFeature.weeklyCheck)),
-        'Locked, sells Hosted',
+        'Locked, sells Cloud',
       );
       expect(
         accessLabDecisionText(own.features.decide(AppFeature.weeklyCheck)),
@@ -174,11 +174,11 @@ void main() {
       );
       expect(
         accessLabRuleText(featureTable[AppFeature.weeklyCheck]),
-        'Needs Hosted, not offered on own server',
+        'Needs Cloud, not offered on own server',
       );
       expect(
         accessLabRuleText(featureTable[AppFeature.appIcons]),
-        'Needs Hosted or Pro, or own server, sells Hosted',
+        'Needs Cloud or Pro, or own server, sells Cloud',
       );
       expect(accessLabJumpText(AppFeature.weeklyCheck), 'Goes to Reliability');
     });
@@ -191,7 +191,7 @@ void main() {
             onOwnServer: OwnServerRule.open,
           ),
         ),
-        'Needs Hosted, or own server',
+        'Needs Cloud, or own server',
       );
       expect(
         accessLabRuleText(
@@ -200,7 +200,7 @@ void main() {
             onOwnServer: OwnServerRule.sameAsCloud,
           ),
         ),
-        'Needs Pro or Hosted, own server too, sells Pro',
+        'Needs Pro or Cloud, own server too, sells Pro',
       );
       expect(accessLabRuleText(null), 'No row: open to all');
     });
@@ -262,7 +262,7 @@ void main() {
           },
           serverMode: ServerModeChoice.ownServer,
         ),
-        'Forced, not real: Hosted not held, Pro purchase confirming, '
+        'Forced, not real: Cloud not held, Pro purchase confirming, '
         'server own',
       );
       expect(
@@ -291,7 +291,7 @@ void main() {
           serverMode: ServerModeChoice.real,
           holdsPlanRead: true,
         ),
-        'Forced, not real: Hosted not held, Pro not held, '
+        'Forced, not real: Cloud not held, Pro not held, '
         'plan read held open',
       );
       expect(

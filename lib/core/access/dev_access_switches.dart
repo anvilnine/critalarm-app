@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// One tap in the Plans and features lab: a state for every holding.
 ///
 /// A preset only sets holdings. The server mode is its own control, so
-/// "Free" can be looked at on Crit Alarm Cloud and on a server of the
+/// "Free" can be looked at on our server and on a server of the
 /// user's own. [real] is the exception: it releases every override, the
 /// server mode with them.
 enum AccessPreset {
@@ -14,7 +14,7 @@ enum AccessPreset {
     Holding.hosted: HoldingState.notHeld,
     Holding.pro: HoldingState.notHeld,
   }),
-  hosted('Hosted', {
+  hosted('Cloud', {
     Holding.hosted: HoldingState.held,
     Holding.pro: HoldingState.notHeld,
   }),
@@ -22,7 +22,7 @@ enum AccessPreset {
     Holding.hosted: HoldingState.notHeld,
     Holding.pro: HoldingState.held,
   }),
-  hostedAndPro('Hosted and Pro', {
+  hostedAndPro('Cloud and Pro', {
     Holding.hosted: HoldingState.held,
     Holding.pro: HoldingState.held,
   }),

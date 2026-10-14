@@ -129,7 +129,7 @@ const List<PassDemo> kPassDemos = [
     pass: PassId.appIcon,
     label: 'App icon',
     value: 'Default',
-    tag: 'Hosted',
+    tag: 'Cloud',
   ),
 ];
 
@@ -822,7 +822,7 @@ class PassPageDemo extends StatelessWidget {
         tone: passToneFor(PassId.appIcon, colors),
         label: 'App icon',
         value: 'Default',
-        tag: 'Hosted',
+        tag: 'Cloud',
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

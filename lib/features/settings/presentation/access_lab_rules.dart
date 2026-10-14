@@ -81,7 +81,10 @@ const Map<AppFeature, String> accessLabAppNames = {
 String accessLabFeatureName(AppFeature feature) =>
     accessLabAppNames[feature] ?? _words(feature.name);
 
-String accessLabHoldingName(Holding holding) => _words(holding.name);
+/// The plan's word in copy for the hosted holding, else words made from the
+/// enum name.
+String accessLabHoldingName(Holding holding) =>
+    holding == Holding.hosted ? 'Cloud' : _words(holding.name);
 
 String _words(String camel) {
   final spaced = camel.replaceAllMapped(
@@ -111,7 +114,7 @@ String accessLabStateChoiceText(HoldingState? state) => switch (state) {
 
 String accessLabServerChoiceText(ServerModeChoice choice) => switch (choice) {
   ServerModeChoice.real => 'Real',
-  ServerModeChoice.cloud => 'Cloud',
+  ServerModeChoice.cloud => 'Ours',
   ServerModeChoice.ownServer => 'Own',
   ServerModeChoice.unknown => 'Unknown',
 };
