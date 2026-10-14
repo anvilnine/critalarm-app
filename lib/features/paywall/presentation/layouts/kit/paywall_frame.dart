@@ -6,12 +6,11 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_close_cross.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -24,6 +23,7 @@ export 'package:critalarm/core/ui_sound/paywall_cues.dart'
     show PaywallEntranceCue;
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_close_cross.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
@@ -55,11 +55,19 @@ class PaywallFrameController {
   /// and the width, and tells its listeners when it changes.
   ValueListenable<double?> get buyBlockHeight => _buyBlockHeight;
 
+  /// The colour of the close cross, for a layout whose ground changes under
+  /// it (the reel's scenes). Null is the frame's tone. The cross stays the
+  /// bare cross every paywall draws: only its colour changes.
+  final ValueNotifier<Color?> closeInk = ValueNotifier<Color?>(null);
+
   /// Closes the paywall, as a tap on the cross does: the close cue plays
   /// once and the route goes. Nothing happens while no frame holds this.
   void close() => _body?._close();
 
-  void dispose() => _buyBlockHeight.dispose();
+  void dispose() {
+    _buyBlockHeight.dispose();
+    closeInk.dispose();
+  }
 }
 
 /// The one-screen scaffold of every paywall layout. It never scrolls.
@@ -346,16 +354,16 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
               // whatever the layout is doing.
               Positioned(
                 top: 0,
-                left: widget.closeOnLeft
-                    ? PaywallLayoutScope.closeCrossInset
-                    : null,
-                right: widget.closeOnLeft
-                    ? null
-                    : PaywallLayoutScope.closeCrossInset,
-                child: AppDismissCross(
-                  label: LocaleKeys.paywall_kit_close.tr(),
-                  color: tone.ink,
-                  onPressed: _close,
+                left: widget.closeOnLeft ? PaywallCloseCross.edgeInset : null,
+                right: widget.closeOnLeft ? null : PaywallCloseCross.edgeInset,
+                child: ValueListenableBuilder<Color?>(
+                  valueListenable:
+                      widget.controller?.closeInk ??
+                      const AlwaysStoppedAnimation<Color?>(null),
+                  builder: (context, ink, _) => PaywallCloseCross(
+                    color: ink ?? tone.ink,
+                    onPressed: _close,
+                  ),
                 ),
               ),
             ],

@@ -68,8 +68,8 @@ void main() {
       expect(find.text('Pro'), findsOneWidget);
       expect(find.text('See Pro'), findsOneWidget);
       // The Hosted card keeps its own button.
-      expect(find.text('See Hosted'), findsOneWidget);
-      final plan = tester.getTopLeft(find.text('See Hosted')).dy;
+      expect(find.text('See Cloud'), findsOneWidget);
+      final plan = tester.getTopLeft(find.text('See Cloud')).dy;
       final pro = tester.getTopLeft(find.text('Pro')).dy;
       final setup = tester.getTopLeft(find.text('Setup')).dy;
       expect(pro, greaterThan(plan));
@@ -83,14 +83,14 @@ void main() {
       expect(find.text('This phone uses your own server'), findsOneWidget);
       expect(find.text('Pro'), findsOneWidget);
       expect(find.text('See Pro'), findsOneWidget);
-      expect(find.text('See Hosted'), findsNothing);
+      expect(find.text('See Cloud'), findsNothing);
     });
 
     testWidgets('holding Hosted does not hide it', (tester) async {
       await openSettings(tester, held: {Holding.hosted});
 
       expect(find.text('See Pro'), findsOneWidget);
-      expect(find.text('See Hosted'), findsNothing);
+      expect(find.text('See Cloud'), findsNothing);
     });
 
     testWidgets('changes to owned on the same screen when Pro lands', (

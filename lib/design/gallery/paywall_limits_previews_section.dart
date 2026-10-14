@@ -73,7 +73,7 @@ class PaywallLimitsPreviewsSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Each one plays a Hosted limit lifting, in turn, and rests on its '
+          'Each one plays a Cloud limit lifting, in turn, and rests on its '
           'finished picture. A preview has three sizes, 56, 120 and 200, and '
           'never grows past the one it was given.',
           style: AppTypography.body(colors.onCanvasMuted),

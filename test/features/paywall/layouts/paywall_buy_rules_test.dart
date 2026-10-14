@@ -464,7 +464,7 @@ void main() {
 
     test('the button names the product, and carries the price only where '
         'no card shows it', () {
-      expect(buyButtonLabel(hostedReady, name: 'Hosted'), 'Get Hosted');
+      expect(buyButtonLabel(hostedReady, name: 'Cloud'), 'Get Cloud');
       expect(buyButtonLabel(proReady, name: 'Pro'), 'Get Pro · P-PRICE');
       expect(buyButtonLabel(proTwo, name: 'Pro'), 'Get Pro');
       expect(buyButtonLabel(_pro, name: 'Pro'), 'Get Pro');
@@ -487,7 +487,7 @@ void main() {
     test('a check that is still running keeps the product label', () {
       final checking = afterStore(hostedReady, PaywallStoreResult.done);
       expect(checking.isPaused, isFalse);
-      expect(buyButtonLabel(checking, name: 'Hosted'), 'Get Hosted');
+      expect(buyButtonLabel(checking, name: 'Cloud'), 'Get Cloud');
     });
 
     test('the second line of a card is the per month figure, or when the '

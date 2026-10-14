@@ -8,9 +8,9 @@ void main() {
     final style = leavingBuyStyleFor(
       isLeaving: true,
       tone: PaywallTone.canvas,
-      keepLabel: 'Keep Hosted',
+      keepLabel: 'Keep Cloud',
     );
-    expect(style.buttonLabel, 'Keep Hosted');
+    expect(style.buttonLabel, 'Keep Cloud');
     expect(style.showsNote, isFalse);
     expect(style.note, isNull);
   });
@@ -19,7 +19,7 @@ void main() {
     final style = leavingBuyStyleFor(
       isLeaving: false,
       tone: PaywallTone.panel,
-      keepLabel: 'Keep Hosted',
+      keepLabel: 'Keep Cloud',
     );
     expect(style.tone, PaywallTone.panel);
     expect(style.buttonLabel, isNull);

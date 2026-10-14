@@ -55,6 +55,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Pro lists four benefits with wake-up challenges first. A place whose lead the product has no benefit for opens the product's plan place.
 - FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
 - The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
+- Display word for the paid plan is Cloud (paywall\_kit.name\_hosted and every plan string). Code names, keys, routes, analytics and store ids keep hosted. plan\_name\_copy\_test fails on a visible Hosted or a server called Crit Alarm Cloud.
+- Every paywall draws PaywallCloseCross: the bare cross with a 48 point tap area. The Sheet and Reel lost the disc behind it. The Reel passes its ink through PaywallFrameController.closeInk.
+- Problem reports send plan as cloud or free, and a separate pro field as yes, no or unknown.
+- tool/capture\_paywall\_walk.dart takes TEXT\_SCALE and NARROW. Sheets need SETTLE=40 to capture after their entrance.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
@@ -72,6 +76,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Route /pro, ProPackSheet, HostedPaywallScreen, PaywallScreen, PaywallVariant and PaywallCubit.presentNativePaywall. /paywall?source= redirects to /plans/<layout>.
 - The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
 - The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
+- HeroComposition no longer drops whole lines (showsWholeLinesOnly, heroWholeLinesFor). Words that do not fit scroll above the buy block.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added

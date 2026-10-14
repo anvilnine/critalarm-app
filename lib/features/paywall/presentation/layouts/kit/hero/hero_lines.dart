@@ -21,23 +21,6 @@ const double heroSideInset = 20;
 double heroHeadlineWidth({required double width, double endRoom = 0}) =>
     width - math.max(0, endRoom - heroSideInset);
 
-/// How many of [count] lines to draw so that none is cut at the foot of its
-/// box. [leftFor] is the height left over when `shown` lines are drawn, and
-/// a line is whole when that is not below zero. `isAllowed` rules out a
-/// count that cannot be drawn on its own. Returns the most lines that fit,
-/// or zero when not even the first fits.
-int heroWholeLinesFor({
-  required int count,
-  required double Function(int shown) leftFor,
-  bool Function(int shown)? isAllowed,
-}) {
-  for (var shown = count; shown > 0; shown--) {
-    if (isAllowed != null && !isAllowed(shown)) continue;
-    if (leftFor(shown) >= 0) return shown;
-  }
-  return 0;
-}
-
 /// The short line the list shows for [benefit]: a sentence of its own for
 /// every benefit there is.
 String heroLineFor(PaywallBenefit benefit) {

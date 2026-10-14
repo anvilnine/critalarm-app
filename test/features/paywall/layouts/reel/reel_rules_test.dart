@@ -347,7 +347,7 @@ void main() {
       // The number comes from the one place Hosted numbers are kept.
       expect(
         reelLineFor(servers),
-        'Free rings 2 critical topics. Hosted rings all of them.',
+        'Free rings 2 critical topics. Cloud rings all of them.',
       );
       expect(
         reelLineFor(reaches),
@@ -355,7 +355,7 @@ void main() {
       );
       expect(
         reelEyebrowFor(isHosted: true, lead: reelLeadAt(0, servers)),
-        'With Hosted',
+        'With Cloud',
       );
       expect(
         reelEyebrowFor(isHosted: false, lead: reelLeadAt(0, reaches)),
@@ -371,7 +371,7 @@ void main() {
       expect(reelEyebrowFor(isHosted: true, lead: own), 'tap anywhere to skip');
       expect(
         reelEyebrowFor(isHosted: true, lead: reelLeadAt(1, own)),
-        'With Hosted',
+        'With Cloud',
       );
     });
 
@@ -386,7 +386,7 @@ void main() {
         );
         expect(
           reelEyebrowFor(isHosted: true, lead: reelLeadAt(2, lead)),
-          'With Hosted',
+          'With Cloud',
         );
       }
       expect(
