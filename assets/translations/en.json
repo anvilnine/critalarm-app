@@ -87,19 +87,6 @@
     "feature_history": "Every alarm logged",
     "feature_search": "Search everything"
   },
-  "welcome_first_pages": {
-    "night_clock_day": "17:40",
-    "night_clock_evening": "22:05",
-    "night_clock_silent": "03:12 · silent",
-    "night_clock_ringing": "03:12 · ringing",
-    "silent_status": "3:12 · silent · do not disturb",
-    "silent_row_chat": "Chat",
-    "silent_row_mail": "Mail",
-    "silent_row_monitoring": "Monitoring email",
-    "stays_silent_label": "It is 3:12 at night and the phone is silent. Chat, mail and monitoring email stay muted, and one critical alarm rings.",
-    "dev_night_falls": "Welcome: night falls",
-    "dev_stays_silent": "Welcome: stays silent"
-  },
   "onboarding_connect": {
     "title": "Pick a server",
     "url_label": "SERVER URL",
@@ -421,6 +408,11 @@
   "feature_guides": {
     "progress": "{step} of {count}",
     "skip": "Skip guide",
+    "leave_title": "Leave the guide?",
+    "leave_body": "Settings has every guide if you want one later.",
+    "leave_stop_all": "Do not show guides again",
+    "leave_stay": "Keep going",
+    "leave_confirm": "Leave",
     "back": "Back",
     "next": "Next",
     "done": "Got it",
@@ -2056,8 +2048,7 @@
       "false_alarm": "False Alarm",
       "snooze": "Snooze Snack",
       "wake_up": "Rude Awakening",
-      "curtain": "Curtain Call",
-      "alarm_snack": "Alarm Snack"
+      "curtain": "Curtain Call"
     },
     "layout_names": {
       "hero": "Hero",
@@ -2083,9 +2074,6 @@
   "paywall_intro_curtain": {
     "line": "Oh, hi.",
     "tag": "Ta-da."
-  },
-  "paywall_intro_alarm_snack": {
-    "line": "Just snacking."
   },
   "developer_options": {
     "section_plans": "Purchases and plans",

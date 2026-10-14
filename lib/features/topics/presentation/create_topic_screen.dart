@@ -284,10 +284,20 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       }
     }
     if (!mounted) return;
-    if (getIt<FeatureGuideCubit>().state.isActive || _isFirstTopicNow()) {
-      return;
-    }
+    if (_guideHoldsKeyboard() || _isFirstTopicNow()) return;
     _focusNameField();
+  }
+
+  /// Whether a guide is up or this screen's own guide is about to start.
+  ///
+  /// The guide is asked for a frame after this screen is built, so a guide
+  /// that is not up yet still counts. Setup's copy of this screen is not on
+  /// the create-topic route and never starts one.
+  bool _guideHoldsKeyboard() {
+    final guides = getIt<FeatureGuideCubit>();
+    return _isSetup
+        ? guides.state.isActive
+        : guides.takesScreenFor(FeatureGuide.createTopic);
   }
 
   /// Whether the screen is drawing the first-topic card right now.
@@ -326,6 +336,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   void _focusAfterBuild(FocusNode node) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || node.context == null) return;
+      // A guide can start between the ask and this frame.
+      if (getIt<FeatureGuideCubit>().state.isActive) return;
       node.requestFocus();
     });
   }

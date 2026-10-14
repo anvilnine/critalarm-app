@@ -56,9 +56,9 @@ any layout, and it never draws a benefit, a price or a button.
 
 ```dart
 const PaywallIntro falseAlarmIntro = PaywallIntro(
-  seconds: FalseAlarmTimeline.end, // 1.75: the intro is taken away
-  handover: FalseAlarmTimeline.handover, // 1.5: the layout's clock starts at zero
-  skipTo: FalseAlarmTimeline.reveal, // 1.25: where a tap jumps to
+  seconds: FalseAlarmTimeline.end, // 2.3: the intro is taken away
+  handover: FalseAlarmTimeline.handover, // 2.05: the layout's clock starts at zero
+  skipTo: FalseAlarmTimeline.reveal, // 1.8: where a tap jumps to
   tone: PaywallTone.crit, // colours the close cross while it covers the screen
   score: PaywallCue.scoreFalseAlarm, // its music, started on the first frame
   beats: [PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.tripleRise)], // felt on the way
@@ -76,7 +76,7 @@ from `scope.clock` alone and hold no timer.
 
 `intros/intro_parts.dart` has the parts the intros share: `IntroCrit` (the mascot, with its way
 out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`, and the props two jokes
-use: `IntroAlarmRedPainter` (the red of a ringing screen, which opens in a circle),
+use: `IntroAlarmRedPainter` (the red of a ringing screen, which floods in and opens in a circle),
 `IntroPillButton` (a button drawn as a picture) and `IntroTouchMark` (a finger).
 
 **The hand over is one move.** Two faces never show together. The intro's mascot is whole until
@@ -513,11 +513,10 @@ arrival, which is also `introArrive`:
 
 | Cue | Intro | Set up | The turn |
 |---|---|---|---|
-| `scoreFalseAlarm` | False alarm | The soft ringing figure, in two bursts as the picture rings | The tap as the ringing stops |
+| `scoreFalseAlarm` | False alarm | Air that rises as the red floods in, then the soft ringing figure in two bursts as the picture rings | A soft tap as the ringing stops. The figure dies away and two small notes fall for the admission |
 | `scoreSnooze` | Snooze snack | The figure growing, a new bar on each hop of the button | The tap on the gulp |
 | `scoreWakeUp` | Rude awakening | One bar, soft and slow | The tap as the message lands, then one bright note |
 | `scoreCurtain` | Curtain call | A hush, a note for each look | The tap as it sees you |
-| `scoreAlarmSnack` | Alarm snack | The soft ringing figure three times, a nudge on each hop of the button | The tap on the gulp |
 
 | Flavour | Set up voice | Arrival | Lead of the arrival |
 |---|---|---|---|
