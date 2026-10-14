@@ -235,9 +235,11 @@ class IntroTouchMark extends StatelessWidget {
 }
 
 /// The alarm red and the pulse rings around the mascot, for an intro that
-/// is a picture of a ringing screen. As the red gives way it opens in a
-/// circle from the mascot outwards, and nothing is painted inside that
-/// circle: the layout under the intro shows through.
+/// is a picture of a ringing screen. The red comes in as a circle that
+/// grows from the mascot until it has the screen ([flood]), over [cover],
+/// which hides the layout under the intro until then. As the red gives way
+/// it opens in a circle from the mascot outwards, and nothing is painted
+/// inside that circle: the layout under the intro shows through.
 class IntroAlarmRedPainter extends CustomPainter {
   const IntroAlarmRedPainter({
     required this.centre,
@@ -246,10 +248,19 @@ class IntroAlarmRedPainter extends CustomPainter {
     required this.rings,
     required this.red,
     required this.ring,
+    this.flood = 1,
+    this.cover,
   });
 
   final Offset centre;
   final double face;
+
+  /// How much of the screen the red has taken on its way in, 0 to 1.
+  final double flood;
+
+  /// What is painted where the red has not got to yet. Null paints
+  /// nothing there.
+  final Color? cover;
   final double wipe;
   final List<double?> rings;
   final Color red;
@@ -258,13 +269,19 @@ class IntroAlarmRedPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final screen = Offset.zero & size;
+    final reach = [
+      screen.topLeft,
+      screen.topRight,
+      screen.bottomLeft,
+      screen.bottomRight,
+    ].map((corner) => (corner - centre).distance).reduce(math.max);
+    if (flood < 1) {
+      final cover = this.cover;
+      if (cover != null) canvas.drawRect(screen, Paint()..color = cover);
+      canvas.drawCircle(centre, reach * flood, Paint()..color = red);
+      return;
+    }
     if (wipe > 0) {
-      final reach = [
-        screen.topLeft,
-        screen.topRight,
-        screen.bottomLeft,
-        screen.bottomRight,
-      ].map((corner) => (corner - centre).distance).reduce(math.max);
       canvas
         ..save()
         ..clipPath(
@@ -297,6 +314,8 @@ class IntroAlarmRedPainter extends CustomPainter {
   @override
   bool shouldRepaint(IntroAlarmRedPainter old) =>
       wipe != old.wipe ||
+      flood != old.flood ||
+      cover != old.cover ||
       centre != old.centre ||
       face != old.face ||
       red != old.red ||

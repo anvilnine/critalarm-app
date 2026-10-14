@@ -1,6 +1,4 @@
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/presentation/intros/alarm_snack/alarm_snack_intro.dart';
-import 'package:critalarm/features/paywall/presentation/intros/alarm_snack/alarm_snack_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_intro.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/snooze/snooze_intro.dart';
@@ -11,7 +9,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intr
 import 'package:flutter_test/flutter_test.dart';
 
 /// What every intro's timeline has in common, so one set of checks reads
-/// all four.
+/// all of them.
 typedef _Times = ({
   PaywallIntro intro,
   double reveal,
@@ -87,15 +85,6 @@ void main() {
     leave: CurtainTimeline.leave,
     words: CurtainTimeline.words,
     isOver: CurtainTimeline.isOver,
-  ));
-  _keepsTheContract('the alarm snack', (
-    intro: alarmSnackIntro,
-    reveal: AlarmSnackTimeline.reveal,
-    handover: AlarmSnackTimeline.handover,
-    end: AlarmSnackTimeline.end,
-    leave: AlarmSnackTimeline.leave,
-    words: AlarmSnackTimeline.words,
-    isOver: AlarmSnackTimeline.isOver,
   ));
 
   group('the snooze snack', () {
@@ -244,156 +233,6 @@ void main() {
         expect(CurtainTimeline.gap(t), greaterThanOrEqualTo(last - 1e-9));
         last = CurtainTimeline.gap(t);
       }
-    });
-  });
-
-  group('the alarm snack', () {
-    const tl = AlarmSnackTimeline.end + 1;
-
-    test('dodge left, dodge right, jump, gulp, reveal, hand over', () {
-      expect(
-        AlarmSnackTimeline.dodgeLeft,
-        lessThan(AlarmSnackTimeline.dodgeRight),
-      );
-      expect(AlarmSnackTimeline.dodgeRight, lessThan(AlarmSnackTimeline.jump));
-      expect(AlarmSnackTimeline.jump, lessThan(AlarmSnackTimeline.gulp));
-      expect(AlarmSnackTimeline.gulp, lessThan(AlarmSnackTimeline.reveal));
-      expect(AlarmSnackTimeline.reveal, lessThan(AlarmSnackTimeline.handover));
-      // One joke, not two end to end: it hands over sooner than the two
-      // it is made of would together.
-      expect(AlarmSnackTimeline.handover, lessThan(2.6));
-      // The red has opened past the mascot before the layout starts.
-      expect(
-        AlarmSnackTimeline.wipe(AlarmSnackTimeline.handover),
-        greaterThan(0.5),
-      );
-      expect(AlarmSnackTimeline.wipe(AlarmSnackTimeline.end), 1);
-    });
-
-    test('the first frame is the whole alarm with its button at home', () {
-      expect(AlarmSnackTimeline.wipe(0), 0);
-      expect(AlarmSnackTimeline.leave(0), 0);
-      expect(AlarmSnackTimeline.saysAlarm(0), isTrue);
-      expect(AlarmSnackTimeline.face(0).from, FaceState.alarmed);
-      expect(AlarmSnackTimeline.face(0).blend, 0);
-      expect(AlarmSnackTimeline.pulse(0, 0), 0);
-      expect(AlarmSnackTimeline.pulse(1, 0), isNull);
-      expect(AlarmSnackTimeline.buttonSide(0), 0);
-      expect(AlarmSnackTimeline.buttonHop(0), 0);
-      expect(AlarmSnackTimeline.swallowed(0), 0);
-      expect(AlarmSnackTimeline.fingerPresence(0), 1);
-      expect(AlarmSnackTimeline.finger(0).below, greaterThan(1));
-    });
-
-    test('it rings three times and the button hops as a new ring starts', () {
-      expect(
-        3 * AlarmSnackTimeline.ringPeriod,
-        closeTo(AlarmSnackTimeline.gulp, 1e-9),
-      );
-      expect(AlarmSnackTimeline.dodgeLeft, AlarmSnackTimeline.ringPeriod);
-      expect(
-        AlarmSnackTimeline.dodgeRight,
-        closeTo(2 * AlarmSnackTimeline.ringPeriod, 1e-9),
-      );
-      for (final ring in [0, 1, 2]) {
-        final middle = (ring + 0.5) * AlarmSnackTimeline.ringPeriod;
-        expect(AlarmSnackTimeline.ringing(middle), closeTo(1, 1e-6));
-      }
-    });
-
-    test('the lean stays inside five degrees', () {
-      for (var t = 0.0; t <= AlarmSnackTimeline.end; t += 0.004) {
-        expect(
-          AlarmSnackTimeline.shake(t).abs(),
-          lessThanOrEqualTo(AlarmSnackTimeline.shakeReach + 1e-9),
-        );
-      }
-    });
-
-    test('the gulp stops the ringing dead: no lean, no ring, no word', () {
-      for (final t in [
-        AlarmSnackTimeline.gulp,
-        AlarmSnackTimeline.gulp + 0.01,
-        AlarmSnackTimeline.reveal,
-        AlarmSnackTimeline.handover,
-        tl,
-      ]) {
-        expect(AlarmSnackTimeline.ringing(t), 0, reason: '$t');
-        expect(AlarmSnackTimeline.shake(t), 0, reason: '$t');
-        expect(AlarmSnackTimeline.pulse(0, t), isNull, reason: '$t');
-        expect(AlarmSnackTimeline.pulse(1, t), isNull, reason: '$t');
-        expect(AlarmSnackTimeline.saysAlarm(t), isFalse, reason: '$t');
-      }
-      expect(
-        AlarmSnackTimeline.saysAlarm(AlarmSnackTimeline.gulp - 0.01),
-        isTrue,
-      );
-    });
-
-    test('the finger always gets to where the button just was', () {
-      final first = AlarmSnackTimeline.finger(AlarmSnackTimeline.dodgeLeft);
-      expect(first.side, closeTo(0, 1e-9));
-      expect(first.below, closeTo(0, 1e-9));
-      expect(
-        AlarmSnackTimeline.finger(AlarmSnackTimeline.dodgeRight).side,
-        closeTo(-1, 1e-9),
-      );
-      expect(
-        AlarmSnackTimeline.finger(AlarmSnackTimeline.jump).side,
-        closeTo(1, 1e-9),
-      );
-      // And the button is there when it does, then leaves.
-      expect(
-        AlarmSnackTimeline.buttonSide(AlarmSnackTimeline.dodgeRight),
-        closeTo(-1, 1e-9),
-      );
-      expect(
-        AlarmSnackTimeline.buttonSide(AlarmSnackTimeline.jump),
-        closeTo(1, 1e-9),
-      );
-      expect(
-        AlarmSnackTimeline.buttonHop(AlarmSnackTimeline.dodgeRight),
-        closeTo(0, 1e-9),
-      );
-      expect(
-        AlarmSnackTimeline.buttonHop(AlarmSnackTimeline.jump),
-        closeTo(0, 1e-9),
-      );
-    });
-
-    test('the button is eaten, the finger gives up, the line is said', () {
-      expect(AlarmSnackTimeline.swallowed(AlarmSnackTimeline.jump), 0);
-      expect(AlarmSnackTimeline.swallowed(AlarmSnackTimeline.gulp), 1);
-      expect(AlarmSnackTimeline.buttonScale(AlarmSnackTimeline.jump), 1);
-      expect(AlarmSnackTimeline.buttonScale(AlarmSnackTimeline.gulp), 0);
-      expect(
-        AlarmSnackTimeline.buttonSide(AlarmSnackTimeline.gulp),
-        closeTo(0, 1e-9),
-      );
-      expect(AlarmSnackTimeline.fingerPresence(AlarmSnackTimeline.reveal), 0);
-      expect(AlarmSnackTimeline.line(AlarmSnackTimeline.gulp), 0);
-      expect(AlarmSnackTimeline.line(AlarmSnackTimeline.reveal), 1);
-      expect(
-        AlarmSnackTimeline.swell(AlarmSnackTimeline.gulp),
-        closeTo(0, 1e-9),
-      );
-      expect(
-        AlarmSnackTimeline.swell(AlarmSnackTimeline.reveal),
-        closeTo(0, 1e-9),
-      );
-    });
-
-    test('the face goes alarmed, wide for the button, cheeky, glad', () {
-      expect(
-        AlarmSnackTimeline.face(AlarmSnackTimeline.gulp - 0.01).to,
-        FaceState.yawn,
-      );
-      final grin = AlarmSnackTimeline.face(AlarmSnackTimeline.reveal - 0.01);
-      expect(grin.to, FaceState.cheeky);
-      expect(grin.blend, 1);
-      final glad = AlarmSnackTimeline.face(tl);
-      expect(glad.to, FaceState.happy);
-      expect(glad.blend, 1);
     });
   });
 }

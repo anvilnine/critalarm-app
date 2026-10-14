@@ -48,6 +48,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
 - The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
 - FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
+- The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
@@ -61,6 +62,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ### Removed
 - Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
+- The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
+- The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added
