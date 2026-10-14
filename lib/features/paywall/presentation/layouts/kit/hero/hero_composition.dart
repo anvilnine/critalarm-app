@@ -125,9 +125,10 @@ typedef HeroHeadlineBuilder =
 /// Give the frame `restAt: loop.entranceEnd` ([heroEntranceSeconds] for
 /// the approved loop) and a `tone` that matches [tone].
 ///
-/// At the default text size it fits exactly. Where a large text size
-/// leaves the stage no room, the words scroll in their own box and the
-/// frame still does not.
+/// At the default text size it fits exactly. Where a large text size or a
+/// short phone leaves the stage no room, the words scroll in their own box
+/// and the frame still does not. Every benefit is drawn, whole: a list that
+/// does not fit is never cut or faded, it scrolls.
 class HeroComposition extends StatefulWidget {
   const HeroComposition({
     required this.scope,
@@ -149,7 +150,6 @@ class HeroComposition extends StatefulWidget {
     this.alsoIncluded,
     this.showsLeadLine = true,
     this.headlineEndRoom = 0,
-    this.showsWholeLinesOnly = false,
     super.key,
   });
 
@@ -157,12 +157,6 @@ class HeroComposition extends StatefulWidget {
   /// the side inset: room for a close control the headline would run under.
   /// Zero keeps the side inset.
   final double headlineEndRoom;
-
-  /// True draws only the lines that fit whole in the box. A list that does
-  /// not fit loses its last lines, one at a time, and never shows a line cut
-  /// at the foot. A group under a label needs two, so with room for one it
-  /// is left out with its label.
-  final bool showsWholeLinesOnly;
 
   /// The words of the small label that groups every benefit but the first
   /// under it, in a lighter weight. Null is the plain list. It only shows
@@ -320,26 +314,7 @@ class _HeroCompositionState extends State<HeroComposition> {
                 sentenceStyle,
                 sentenceWidth,
               );
-    double leftFor(HeroLinesMetrics m) =>
-        scope.size.height -
-        (headlineHeight +
-            sizes.headlineGap +
-            m.height +
-            sentenceHeight +
-            sizes.stageGap +
-            sizes.bottomGap);
-
-    var metrics = measure(allLines.length);
-    if (widget.showsWholeLinesOnly && leftFor(metrics) < 0) {
-      final grouped = widget.alsoIncluded != null && !widget.showsLeadLine;
-      final shown = heroWholeLinesFor(
-        count: allLines.length,
-        leftFor: (n) => leftFor(measure(n)),
-        // The lead is not drawn, so a group of one line is the lead alone.
-        isAllowed: (n) => !(grouped && n == 1),
-      );
-      metrics = measure(shown);
-    }
+    final metrics = measure(allLines.length);
     final lines = metrics.lines;
     final words =
         headlineHeight + sizes.headlineGap + metrics.height + sentenceHeight;
@@ -424,7 +399,9 @@ class _HeroCompositionState extends State<HeroComposition> {
                 padding: EdgeInsets.only(
                   left: heroSideInset,
                   right: heroSideInset,
-                  bottom: room.under,
+                  // The last line ends clear of the buy block when the list
+                  // is scrolled to its foot.
+                  bottom: math.max(room.under, sizes.bottomGap),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
