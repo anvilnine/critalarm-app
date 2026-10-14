@@ -11,7 +11,6 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -114,9 +113,13 @@ class ReelToneColors {
 /// half to the previous one, a sideways swipe does the same, and a finger
 /// held down pauses the reel until it lifts.
 class ReelComposition extends StatefulWidget {
-  const ReelComposition({required this.scope, super.key});
+  const ReelComposition({required this.scope, this.closeInk, super.key});
 
   final PaywallLayoutScope scope;
+
+  /// Told the colour of the story bars as they change, so the frame's close
+  /// cross can wear it: a bare cross in the ink of the scene under it.
+  final ValueNotifier<Color?>? closeInk;
 
   @override
   State<ReelComposition> createState() => _ReelCompositionState();
@@ -148,6 +151,17 @@ class _ReelCompositionState extends State<ReelComposition> {
     _holdTimer?.cancel();
     _player.dispose();
     super.dispose();
+  }
+
+  // The cross is the frame's, bare, and it takes the ink of the bars so it
+  // reads on every scene. It is told after the frame is built, since the
+  // cross sits above this build in the tree.
+  void _passInkOn(Color ink) {
+    final target = widget.closeInk;
+    if (target == null || target.value == ink) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) target.value = ink;
+    });
   }
 
   void _down(PointerDownEvent event) {
@@ -245,7 +259,6 @@ class _ReelCompositionState extends State<ReelComposition> {
     // query, so its height is read from the view: the scene runs under it.
     final view = View.of(context);
     final bleedTop = view.viewPadding.top / view.devicePixelRatio;
-    final chip = PaywallToneColors.of(context, PaywallTone.canvas).background;
 
     final player = _player
       ..clock = scope.clock
@@ -404,6 +417,7 @@ class _ReelCompositionState extends State<ReelComposition> {
                               ink,
                               eased,
                             )!;
+                      _passInkOn(barInk);
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -475,24 +489,6 @@ class _ReelCompositionState extends State<ReelComposition> {
                               ),
                             ),
                           ),
-                          // The cross is the frame's, in the frame's ink. A
-                          // disc of the frame's own ground keeps it readable
-                          // on every scene.
-                          Positioned(
-                            top: (reelBarsHeight - _chip) / 2,
-                            right:
-                                PaywallLayoutScope.closeCrossInset +
-                                (AppDismissCross.hitSize - _chip) / 2,
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: chip,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const SizedBox.square(dimension: _chip),
-                              ),
-                            ),
-                          ),
                         ],
                       );
                     },
@@ -506,8 +502,6 @@ class _ReelCompositionState extends State<ReelComposition> {
     );
   }
 }
-
-const double _chip = 30;
 
 /// One scene: its ground, its words, and the stage under them.
 class _ReelPanel extends StatelessWidget {

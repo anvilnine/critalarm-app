@@ -222,8 +222,7 @@ String _name(
 Finder get _toggle => find.byWidgetPredicate(
   (w) =>
       w is Text &&
-      (w.data == 'I run my own server' ||
-          w.data == 'Use Crit Alarm Cloud instead'),
+      (w.data == 'I run my own server' || w.data == 'Use our server instead'),
 );
 
 Future<void> _tapToggle(WidgetTester tester) async {

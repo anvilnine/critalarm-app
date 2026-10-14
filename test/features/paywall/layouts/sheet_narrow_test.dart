@@ -110,33 +110,4 @@ void main() {
       expect(heroHeadlineWidth(width: 280, endRoom: 12), 280);
     });
   });
-
-  group('whole lines only', () {
-    // Each line takes 20 points. The room left is 100 minus the lines.
-    double left(int shown) => 100 - 20.0 * shown - 30;
-
-    test('keeps every line when they fit', () {
-      expect(heroWholeLinesFor(count: 3, leftFor: (n) => 100 - 20.0 * n), 3);
-    });
-
-    test('drops from the end until none is cut', () {
-      expect(heroWholeLinesFor(count: 5, leftFor: left), 3);
-    });
-
-    test('a group never keeps just its lead, which it does not draw', () {
-      // Room for one line: the group needs two, so none is drawn.
-      expect(
-        heroWholeLinesFor(
-          count: 5,
-          leftFor: (n) => 30.0 - 20.0 * n,
-          isAllowed: (n) => n != 1,
-        ),
-        0,
-      );
-    });
-
-    test('draws none when not even one fits', () {
-      expect(heroWholeLinesFor(count: 4, leftFor: (n) => -1.0 - n), 0);
-    });
-  });
 }

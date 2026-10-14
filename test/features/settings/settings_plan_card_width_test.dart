@@ -37,7 +37,7 @@ void main() {
       await pump(tester, width, [
         const SettingsPlanCard(
           key: Key('hosted'),
-          title: 'Hosted',
+          title: 'Cloud',
           usage: '2 critical topics used',
         ),
         SettingsProRow(

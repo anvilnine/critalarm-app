@@ -11,7 +11,7 @@ void main() {
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
     const note =
-        'Needs Hosted, not offered on own server. Goes to Reliability.';
+        'Needs Cloud, not offered on own server. Goes to Reliability.';
 
     await tester.pumpWidget(
       MaterialApp(
@@ -26,7 +26,7 @@ void main() {
           body: SingleChildScrollView(
             child: AccessLabFeatureRow(
               title: 'Weekly check',
-              value: 'Locked, sells Hosted',
+              value: 'Locked, sells Cloud',
               note: note,
               glyph: GlyphType.arrow,
               onTap: () {},
@@ -37,7 +37,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    for (final text in [note, 'Locked, sells Hosted', 'Weekly check']) {
+    for (final text in [note, 'Locked, sells Cloud', 'Weekly check']) {
       final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
       expect(paragraph.didExceedMaxLines, isFalse, reason: '"$text" is cut');
       expect(tester.widget<Text>(find.text(text)).maxLines, isNull);

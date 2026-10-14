@@ -152,8 +152,8 @@ void main() {
       await toCrowned(tester);
 
       expect(find.widgetWithText(AppButton, 'Unlock'), findsOneWidget);
-      expect(find.text('Go Hosted'), findsNothing);
-      expect(find.text('Comes with Hosted or Pro'), findsNothing);
+      expect(find.text('Go Cloud'), findsNothing);
+      expect(find.text('Comes with Cloud or Pro'), findsNothing);
       expect(bodyBadges(), findsOneWidget);
 
       await tester.tap(find.widgetWithText(AppButton, 'Unlock'));
