@@ -60,6 +60,7 @@ abstract final class FeedbackLinks {
         'version': '${report.appVersion}+${report.buildNumber}',
         'locale': report.locale,
         'plan': report.plan,
+        'pro': report.pro,
         'os': report.os,
         'device': report.device,
       },
