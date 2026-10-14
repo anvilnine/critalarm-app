@@ -1074,6 +1074,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DeviceReportRepository>(
       () => PlatformDeviceReportRepository(
         accountRepository: getIt<AccountRepository>(),
+        holdings: getIt<Holdings>(),
       ),
     )
     ..registerLazySingleton<LaunchCallLog>(LaunchCallLog.new)
