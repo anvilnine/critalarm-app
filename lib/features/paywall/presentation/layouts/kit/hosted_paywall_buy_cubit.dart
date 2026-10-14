@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
+import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
@@ -26,6 +27,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     required this._readIsPaid,
     required this._readIsRegisteredPaid,
     required this._refreshRegistration,
+    this._priceBook = const EmptyPriceBook(),
     List<Duration>? confirmWaits,
     Future<void> Function(Duration)? wait,
   }) : _confirmWaits = confirmWaits ?? defaultConfirmWaits,
@@ -53,6 +55,9 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   /// What the server alone says.
   final Future<bool> Function() _readIsRegisteredPaid;
   final Future<void> Function() _refreshRegistration;
+
+  /// The prices drawn for a plan the store did not send.
+  final PriceBook _priceBook;
   final List<Duration> _confirmWaits;
   final Future<void> Function(Duration) _wait;
 
@@ -65,10 +70,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     if (await _readIsPaid()) {
       return show(state.copyWith(status: PaywallBuyStatus.done));
     }
-    final offering = (await _getOfferings(const NoParams())).fold(
-      (offerings) => offerings.current,
-      (_) => null,
-    );
+    final offering = await _readOffering();
     final yearly = _packageFor(offering, SubscriptionTier.yearly);
     final monthly = _packageFor(offering, SubscriptionTier.monthly);
     _packages
@@ -77,15 +79,43 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
         PaywallPlanOption.yearlyId: ?yearly,
         PaywallPlanOption.monthlyId: ?monthly,
       });
+    // The store's price wins for each plan it sent. The book fills the rest.
+    final quotes = hostedQuotesWithBook(
+      yearly: _quote(yearly),
+      monthly: _quote(monthly),
+      book: _priceBook,
+    );
     show(
       restingState(
         state,
         options: hostedPlanOptions(
-          yearly: _quote(yearly),
-          monthly: _quote(monthly),
+          yearly: quotes.yearly,
+          monthly: quotes.monthly,
         ),
       ),
     );
+  }
+
+  Future<Offering?> _readOffering() async {
+    try {
+      return (await _getOfferings(const NoParams())).fold(
+        (offerings) => offerings.current,
+        (_) => null,
+      );
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  /// Asks the store once more for the package behind the plan [id] names.
+  Future<Package?> _readPackage(String? id) async {
+    final tier = switch (id) {
+      PaywallPlanOption.yearlyId => SubscriptionTier.yearly,
+      PaywallPlanOption.monthlyId => SubscriptionTier.monthly,
+      _ => null,
+    };
+    if (tier == null) return null;
+    return _packageFor(await _readOffering(), tier);
   }
 
   static Package? _packageFor(Offering? offering, SubscriptionTier tier) {
@@ -112,11 +142,22 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
 
   @override
   Future<void> buy() async {
-    final package = _packages[state.selectedId];
-    if (!state.canBuy || package == null) return;
+    if (!state.canBuy) return;
+    final id = state.selectedId;
     began(PaywallBuyAction.purchase);
     _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
+    var package = _packages[id];
+    if (package == null) {
+      // A plan the book drew. The store may have it by now, and if it still
+      // does not, the buyer is told so and nothing is bought.
+      package = await _readPackage(id);
+      if (isClosed) return;
+      if (package == null) {
+        return _afterStore(PaywallStoreResult.notReady, afterPurchase: true);
+      }
+      _packages[id!] = package;
+    }
     final result = await _purchasePackage(package);
     await result.fold(
       (_) => _afterStore(PaywallStoreResult.done, afterPurchase: true),

@@ -1075,14 +1075,31 @@ offer whose screen went away under it is not counted as declined.
   (`pro_pack_grant.dart`) is the one function that could grant the pack from
   another source, and it returns false.
 - `proPackRefreshOutcome` is the refresh table. `confirmed: false` with no
-  pack listed is `unknown`: what was showing stays, the sheet says it is still
-  checking and asks again. It is never "no pack" and never a failed purchase.
-- The sheet is `ProPackSheet`, a bottom sheet at its own route (`/pro`,
-  `AppRoute.proPack`). It lists the packages of the RevenueCat offering
-  `proPackOfferingId` with the store's own title and price strings. With no
-  such offering, or in a build that skips the store, it says Pro is not on
-  sale yet and offers nothing to buy. Restore is there whenever the sheet
-  rests, on sale or not.
+  pack listed is `unknown`: what was showing stays, the paywall says it is
+  still checking and asks again. It is never "no pack" and never a failed
+  purchase.
+- Pro is sold on a paywall layout (`/plans/<layout>?product=pro`), the same
+  route that sells Hosted. There is no Pro sheet and no `/pro` route.
+  `ProPaywallBuyCubit` lists the packages of the RevenueCat offering
+  `proPackOfferingId`. With no such offering the layout still draws, and
+  its buy block says Pro is not on sale yet and offers nothing to buy.
+  Restore is there either way.
+- **Paywalls are coded, never remote.** Every locked place asks
+  `PaywallDoor` (`lib/features/paywall/presentation/paywall_door.dart`), and
+  the door always answers with a layout location. `paywallOpeningFor`
+  (`lib/features/paywall/domain/paywall_routing.dart`) holds the defaults:
+  the place table picks the layout and the intro, Hosted ends on Receipt
+  party after Cloud climb, Pro on Stamp after Break, lift, ring. Remote
+  Config holds no paywall key, RevenueCat's dashboard draws no paywall
+  (`RevenueCatUI.presentPaywall` is never called), and only the customer
+  centre still comes from `purchases_ui_flutter`. Developer options can
+  set each of the four steps in a `SKIP_PAYWALL` or `PAYWALL_LAB` build,
+  with "Auto" (the coded default) first. `/paywall?source=...` is kept as a
+  path for reminders, the settings search result and a locked home screen
+  widget. It draws nothing and redirects to the layout for its source. If
+  the door fails, or none is registered, the plan layout for that product
+  opens. Details: `lib/features/paywall/presentation/layouts/kit/README.md`,
+  "What opens".
 - The pack unlocks features built into the app (`featureTable`). It has
   no row on the Reliability screen: the weekly delivery check there needs
   Hosted (see "Weekly check").

@@ -915,6 +915,11 @@
     "plan_selfhosted_title": "This phone uses your own server",
     "plan_selfhosted_subtitle": "No limits, no charge.",
     "plan_selfhosted_cloud_note": "Crit Alarm Cloud is the server we run, if you would rather not run one.",
+    "pro_title": "Pro",
+    "pro_line": "Alarm looks, own sounds, widgets.",
+    "pro_button": "See Pro",
+    "pro_owned_label": "You have Pro",
+    "pro_checking_label": "Checking your Pro purchase",
     "developer_header": "Developer options",
     "developer_pro_title": "Hosted plan",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
@@ -922,14 +927,6 @@
     "developer_ringing_faces_title": "Ringing faces",
     "developer_welcome_title": "Welcome screen",
     "developer_alarm_debug_title": "Alarm debug",
-    "developer_paywall_variant_subtitle": "Pick which layout this build shows",
-    "developer_paywall_variant_auto": "Remote Config decides",
-    "developer_paywall_variant_straight": "Bullets",
-    "developer_paywall_variant_compare": "Free and Hosted",
-    "developer_paywall_variant_one_job": "Topic limit",
-    "developer_paywall_variant_hosted_template": "RevenueCat dashboard",
-    "developer_paywall_route_follow": "Follow the remote value",
-    "developer_paywall_route_shipped": "What ships today",
     "developer_paywall_route_auto": "Auto, by entry point",
     "alarm_debug_header": "Alarm debug",
     "alarm_debug_now": "Now",
@@ -1205,22 +1202,9 @@
   },
   "pro_pack": {
     "badge": "Pro",
-    "sheet_title": "Pro",
-    "sheet_what": "Widgets, your own sounds, alarm looks, wake-up challenges and extra app icons.",
-    "sheet_why": "Pro is separate from Hosted.",
-    "sheet_loading": "Asking the store",
-    "sheet_not_on_sale": "Pro is not on sale yet.",
-    "sheet_restore": "Restore",
-    "sheet_at_store": "Waiting for the store",
     "sheet_checking": "Checking Pro access",
     "sheet_paused_title": "Checking Pro access",
-    "sheet_paused_line": "The store is done. Crit Alarm is still confirming it.",
-    "sheet_check_again": "Check again",
-    "sheet_held_title": "Pro is on",
-    "sheet_held_line": "Pro is unlocked.",
-    "sheet_done": "Done",
-    "sheet_store_problem": "The store did not finish that. Try again.",
-    "sheet_nothing_to_restore": "Nothing to restore for this account."
+    "sheet_paused_line": "The store is done. Crit Alarm is still confirming it."
   },
   "weekly_check": {
     "title": "Weekly delivery check",
@@ -1271,27 +1255,14 @@
       "button": "Let's go"
     },
     "pro_badge": "Hosted",
-    "back_aria_label": "Back",
-    "stage_word": "Crit Alarm Hosted",
-    "stage_sub_active": "Unlimited critical topics.",
-    "stage_sub_one_job": "Add as many critical topics as you need.",
     "self_hosted_note": "Running your own server? No limits, no charge.",
-    "compare_header": "Free and Hosted",
-    "compare_col_free": "Free",
-    "compare_col_hosted": "Hosted",
-    "active_title": "Crit Alarm Hosted is active",
-    "active_subtitle": "Thanks for paying for this.",
-    "manage_subscription_button": "Manage subscription",
-    "select_plan_header": "Pick a plan",
     "tier_yearly": "Yearly",
     "tier_monthly": "Monthly",
     "duration_yearly": "12 months, renews yearly",
     "duration_monthly": "1 month, renews monthly",
     "badge_save": "Save {percent}%",
     "price_per_month": "{price} / month",
-    "upgrade_button": "Get Hosted",
     "restore_purchases_button": "Restore purchases",
-    "renewal_disclosure": "Payment is charged to your {store} at confirmation of purchase. The subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage or cancel in Settings.",
     "store_apple": "Apple Account",
     "store_google": "Google Play account",
     "terms_link": "Terms of Use",
@@ -1325,6 +1296,7 @@
     "checking": "Confirming your purchase",
     "paused": "The store is done. Crit Alarm is still confirming it.",
     "failed": "The store did not finish that. Try again.",
+    "store_not_ready": "The store is not ready yet. Try again later.",
     "nothing_to_restore": "Nothing to restore for this account.",
     "done_hosted": "Crit Alarm Hosted is on.",
     "done_pro": "Pro is on.",
@@ -1347,18 +1319,18 @@
       },
       "wake_up_challenges": {
         "title": "Wake-up challenges",
-        "line": "Scan a QR code or type the topic's name to stop the alarm."
+        "line": "Type a name, solve a sum or scratch a card."
       },
       "reliability_checks": {
         "title": "Reliability checks",
         "line": "The app checks itself: a weekly delivery check, and fire drills."
       },
       "custom_sounds": {
-        "title": "Upload/Record your alarm",
+        "title": "Your own alarm sound",
         "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Customize the Alarm Screen",
+        "title": "Your own alarm screen look",
         "line": "Pick the look of the screen that rings."
       }
     },
@@ -1846,7 +1818,7 @@
     "widget_quiet": "Quiet",
     "widget_im_up": "I'm up",
     "widget_done": "Done",
-    "challenge_locked": "Scan to stop",
+    "challenge_locked": "At my desk",
     "challenge_stopped": "Stopped",
     "sound_name": "My rooster",
     "screen_wake_up": "Wake up"
@@ -1905,12 +1877,12 @@
       "topics": "Critical on every topic",
       "pushes": "Room for every push",
       "history": "Every alarm, kept longer",
-      "widgets": "Alarms on your home screen",
+      "widgets": "Home screen alarms",
       "app_icons": "Pick your own app icon",
       "wake_up_challenges": "Prove you are awake",
       "reliability_checks": "A delivery check every week",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm look"
     },
     "page": {
       "back_topics": "Topics",
@@ -1945,8 +1917,8 @@
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_false_alarm": {
@@ -1973,12 +1945,12 @@
       "topics": "Unlimited critical topics",
       "pushes": "{hosted_p4_daily} high priority pushes a day",
       "history": "{hosted_history_days} days of alarm history",
-      "widgets": "Widgets on your Home screen",
+      "widgets": "Widgets on your home screen",
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_sentence": {
@@ -1989,7 +1961,7 @@
       "topics": "unlimited critical topics",
       "pushes": "{hosted_p4_daily} pushes a day",
       "history": "{hosted_history_days} days of history",
-      "widgets": "Home screen widgets",
+      "widgets": "home screen widgets",
       "app_icons": "three more app icons",
       "wake_up_challenges": "challenges that wake you up",
       "reliability_checks": "a weekly delivery check",
@@ -2024,8 +1996,8 @@
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Weekly delivery check",
-      "custom_sounds": "Upload/Record your alarm",
-      "custom_alarm_screens": "Customize the Alarm Screen"
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen look"
     }
   },
   "paywall_wipe": {
@@ -2068,7 +2040,7 @@
     "paywall_sheet_title": "Pick a paywall",
     "sheet_note": "Each one plays as it does on a phone.",
     "intro_none": "No intro",
-    "follows_remote": "Follows the remote value",
+    "auto": "Auto",
     "open": "Open it",
     "routing_header": "What the app opens",
     "selected": "{name}, selected",
@@ -2107,8 +2079,7 @@
     "section_plans": "Purchases and plans",
     "section_paywalls": "Paywalls",
     "section_tools": "Tools and galleries",
-    "variant_title": "Paywall variant",
-    "remote": "remote",
+    "auto": "auto",
     "layouts_value": "{hosted_name}: {hosted} · {pro_name}: {pro}",
     "offer_in_use": "In use",
     "offer_clear": "Clear",

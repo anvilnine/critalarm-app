@@ -17,6 +17,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Sheet and Proof draw the lead on its own and the other benefits under paywall\_also.label. The Sheet shows the person's own critical topic count, and Proof and Wipe show their own older alarms, hidden on Free.
 - A Hosted plan that is ending opens a leaving Receipt or a Wipe run backwards, picked on the phone by LeavingNumbers and leaving\_floors.dart. HeroFace gains sad and calm.
 - A paywall with no outro set takes its product's own: cloudClimb for Hosted, breakLiftRing for Pro. It still plays only when a thanks is set.
+- Display prices come from assets/config/price\_book.json through PriceBook. The store's price wins when the store returns the plan. Buying a plan the store did not return fails with a plain message.
+- StoreCatalog and RevenueCatStoreCatalog: read plans, buy and restore over the RevenueCat API in app types. Tested, not registered.
+- Settings plan section has a Pro row (SettingsProRow) that follows Holdings. ProPackSheetSource.settingsPlan maps to the plan place.
+- tool/capture\_paywall\_walk.dart captures what each paywall place opens with no settings.
 
 ### Changed
 - The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.
@@ -47,6 +51,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
 - Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
 - The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
+- Paywall defaults: Hosted ends on Cloud climb then Receipt party, Pro on Break, lift, ring then Stamp. Developer options pickers start at Auto. paywall\_\* events no longer carry variant.
+- Pro lists four benefits with wake-up challenges first. A place whose lead the product has no benefit for opens the product's plan place.
 - FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
 - The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
 
@@ -62,6 +68,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ### Removed
 - Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
+- Paywalls are coded. Removed Remote Config keys paywall\_layout, pro\_paywall\_layout, paywall\_intro, pro\_paywall\_intro, paywall\_thanks, pro\_paywall\_thanks, paywall\_outro, pro\_paywall\_outro, paywall\_variant, paywall\_enabled. onboarding\_flow and onboarding\_offer stay.
+- Route /pro, ProPackSheet, HostedPaywallScreen, PaywallScreen, PaywallVariant and PaywallCubit.presentNativePaywall. /paywall?source= redirects to /plans/<layout>.
 - The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
 - The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
 

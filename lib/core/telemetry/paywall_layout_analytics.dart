@@ -8,15 +8,12 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 /// The events a paywall layout sends. Nothing is sent unless the user
 /// turned analytics on in Settings, which [TelemetryGate.logEvent] checks.
 ///
-/// A Hosted layout sends the events of the shipped paywall and a Pro layout
-/// those of the Pro sheet, under the same names with the same parameters,
-/// so one funnel reads both. Each also carries `layout`, `intro`, `thanks`
-/// and `product`, and `outro` when one is set. The shipped surfaces keep
-/// `PaywallAnalytics` and `ProPackAnalytics` and send exactly what they
-/// always have.
+/// A Hosted layout sends the `paywall_*` events and a Pro layout the
+/// `pro_pack_*` ones, the names the surfaces before the layouts used, so a
+/// funnel reads on across the change. Each also carries `layout`, `intro`,
+/// `thanks` and `product`, and `outro` when one is set.
 ///
-/// No event carries a price, a store product or a topic. A layout is not a
-/// paywall variant, so none carries `variant`.
+/// No event carries a price, a store product or a topic.
 final class PaywallLayoutAnalytics {
   const PaywallLayoutAnalytics(
     this._gate, {

@@ -94,6 +94,7 @@ PaywallPlace paywallPlaceOfPro(ProPackSheetSource source) => switch (source) {
   ProPackSheetSource.personalizeChallenge ||
   ProPackSheetSource.topicChallenge => PaywallPlace.challenge,
   ProPackSheetSource.reliability => PaywallPlace.weeklyCheck,
+  ProPackSheetSource.settingsPlan ||
   ProPackSheetSource.direct => PaywallPlace.plan,
 };
 
@@ -112,16 +113,18 @@ class PaywallPlaceRow {
   /// The benefit the paywall opens on, or null for a place that names none.
   final PaywallBenefitId? lead;
 
-  /// The intro that plays first, before any remote or developer value.
+  /// The intro that plays first, unless Developer options set another.
   final PaywallIntroId intro;
 
   /// The words for a plan that is ending or ended.
   final PaywallHeadlineVariant headline;
 }
 
-/// The table. The same for both products: Pro has no entry point in the
-/// rows that are Hosted only. The one place a place is mapped to a lead
-/// benefit.
+/// The table. The one place a place is mapped to a lead benefit.
+///
+/// It is the same for both products, and a product opens a row only when
+/// it has the row's lead as a benefit of its own. A product that has none
+/// opens the plan row instead: see [paywallOpeningFor].
 PaywallPlaceRow paywallRowFor(PaywallPlace place) => switch (place) {
   PaywallPlace.criticalLimit => const PaywallPlaceRow(
     PaywallLayoutId.sheet,
@@ -170,19 +173,21 @@ PaywallPlaceRow paywallRowFor(PaywallPlace place) => switch (place) {
   ),
 };
 
-/// The success outro a product's paywall plays when nothing else is set:
-/// Cloud climb for Hosted, Break, lift, ring for Pro.
+/// What plays after a confirmed purchase when Developer options set nothing:
+/// Receipt party for Hosted, Stamp for Pro.
+PaywallThanksId paywallDefaultThanksFor(PaywallProduct product) =>
+    switch (product) {
+      PaywallProduct.hosted => PaywallThanksId.receiptParty,
+      PaywallProduct.pro => PaywallThanksId.stamp,
+    };
+
+/// The success outro a product's paywall plays when Developer options set
+/// nothing: Cloud climb for Hosted, Break, lift, ring for Pro.
 PaywallOutroId paywallDefaultOutroFor(PaywallProduct product) =>
     switch (product) {
       PaywallProduct.hosted => PaywallOutroId.cloudClimb,
       PaywallProduct.pro => PaywallOutroId.breakLiftRing,
     };
-
-/// Reads a product's remote outro value. Empty is null: no value is set, so
-/// the product's own outro stands. `none` is a value and switches the outro
-/// off, and so does a value this build does not know.
-PaywallOutroId? paywallRemoteOutroOf(String? value) =>
-    (value ?? '').trim().isEmpty ? null : PaywallOutroId.parse(value);
 
 /// What the door worked out about a plan that is ending: which of the two
 /// layouts the person's numbers earn, and how many days of history the
@@ -252,33 +257,32 @@ class PaywallOpening {
 }
 
 /// What opens for [product] from [place]: a layout with its intro, thanks,
-/// lead and headline, or null for the surface that ships today (the Hosted
-/// paywall, the Pro sheet).
+/// outro, lead and headline. There is always an answer. No remote value has
+/// a say: every default is written here and in the table.
 ///
-/// [remote] is the product's remote layout value and [developer] what
-/// Developer options set in its place, null in a store build. With [remote]
-/// at its default and no [developer] value the answer is always null.
+/// [developer] is what Developer options pinned, null in a store build and
+/// whenever nothing is pinned. A pinned layout outranks the table for the
+/// layout. A pinned `doors` reads as `hero`. The lead and the headline
+/// always come from the place. A lead that is not in [listedBenefits] (what
+/// this build lists for [product]) is dropped and the layout stays.
 ///
-/// A pinned layout, remote or developer, outranks the table for the layout.
-/// A pinned `doors` reads as `hero`. The lead and the headline always come
-/// from the place. A lead that is not in [listedBenefits] (what this build
-/// lists for [product]) is dropped and the layout stays.
+/// A place whose lead [product] has no benefit of its own for (Pro at the
+/// critical limit, History, the weekly check and the app icons, Hosted at
+/// widgets and own sounds) is not that place for [product]. It opens the
+/// product's plan place, a Hero with no lead, and never the Sheet or the
+/// Proof of a place that sells something else.
 ///
-/// The intro is a second value. [developerIntro] outranks [remoteIntro],
-/// which outranks [legacyIntro] (the false alarm a stored layout value
-/// carried from when it was a layout), which outranks the table's intro.
-/// The false alarm plays once on an install: while [hasSeenFalseAlarm] is
-/// true no setting plays it again.
+/// The intro is a second value. [developerIntro] outranks the table's
+/// intro, which only Hosted plays. The false alarm plays once on an install:
+/// while [hasSeenFalseAlarm] is true no setting plays it again.
 ///
-/// The thanks is a third value with no rule of its own: [developerThanks]
-/// outranks [remoteThanks]. It never opens a layout, so the shipped
-/// surface is still null whatever the thanks says.
+/// The thanks is a third value. [developerThanks] outranks the product's
+/// own thanks ([paywallDefaultThanksFor]), `none` included.
 ///
-/// The outro is a fourth value. [developerOutro] outranks [remoteOutro],
-/// `none` included, and [remoteOutro] outranks the product's own outro
-/// ([paywallDefaultOutroFor]), which stands when [remoteOutro] is null. The
-/// place never changes it. It plays between a purchase and the thanks, so
-/// it is `none` whenever the thanks is.
+/// The outro is a fourth value. [developerOutro] outranks the product's own
+/// outro ([paywallDefaultOutroFor]), `none` included. The place never
+/// changes it. It plays between a purchase and the thanks, so it is `none`
+/// whenever the thanks is.
 ///
 /// [leaving] is the one input for a Hosted plan that is ending
 /// ([PaywallPlace.planEnding]), and no other place reads it. With good
@@ -287,25 +291,22 @@ class PaywallOpening {
 /// and on critical topics when it holds less. With no choice the table's
 /// row stands. A pinned layout still outranks all of it, and the headline
 /// is `leaving` either way. The receipt opens from no other place.
-PaywallOpening? paywallOpeningFor({
+PaywallOpening paywallOpeningFor({
   required PaywallProduct product,
   required PaywallPlace place,
-  required PaywallLayoutSetting remote,
   required bool hasSeenFalseAlarm,
   required Set<PaywallBenefitId> listedBenefits,
   PaywallLayoutSetting? developer,
-  PaywallIntroId remoteIntro = PaywallIntroId.none,
   PaywallIntroId? developerIntro,
-  PaywallIntroId? legacyIntro,
-  PaywallThanksId remoteThanks = PaywallThanksId.none,
   PaywallThanksId? developerThanks,
-  PaywallOutroId? remoteOutro,
   PaywallOutroId? developerOutro,
   LeavingChoice? leaving,
 }) {
-  final setting = developer ?? remote;
-  if (setting.isShipped) return null;
   var row = paywallRowFor(place);
+  final ownLead = row.lead;
+  if (ownLead != null && !paywallProductHasBenefit(product, ownLead)) {
+    row = paywallRowFor(PaywallPlace.plan);
+  }
   if (product == PaywallProduct.hosted &&
       place == PaywallPlace.planEnding &&
       leaving != null) {
@@ -323,7 +324,7 @@ PaywallOpening? paywallOpeningFor({
           );
   }
 
-  var layout = setting.layout ?? row.layout;
+  var layout = developer?.layout ?? row.layout;
   // Doors left the table. A value that still names it opens hero.
   if (layout == PaywallLayoutId.doors) layout = PaywallLayoutId.hero;
 
@@ -332,27 +333,22 @@ PaywallOpening? paywallOpeningFor({
       ? wanted
       : null;
 
-  // The false alarm joke is Hosted's: Pro never plays it from the table or
-  // from the layout value that used to carry it. A remote or developer
-  // intro value still plays for either product.
+  // The false alarm joke is Hosted's: Pro never plays it from the table.
+  // A developer intro value still plays for either product.
   final isHosted = product == PaywallProduct.hosted;
-  var intro =
-      developerIntro ??
-      (remoteIntro != PaywallIntroId.none ? remoteIntro : null) ??
-      (isHosted ? legacyIntro : null) ??
-      (isHosted ? row.intro : PaywallIntroId.none);
+  var intro = developerIntro ?? (isHosted ? row.intro : PaywallIntroId.none);
   if (intro == PaywallIntroId.falseAlarm && hasSeenFalseAlarm) {
     intro = PaywallIntroId.none;
   }
 
-  final thanks = developerThanks ?? remoteThanks;
+  final thanks = developerThanks ?? paywallDefaultThanksFor(product);
   return PaywallOpening(
     layout,
     intro: intro,
     thanks: thanks,
     outro: thanks == PaywallThanksId.none
         ? PaywallOutroId.none
-        : developerOutro ?? remoteOutro ?? paywallDefaultOutroFor(product),
+        : developerOutro ?? paywallDefaultOutroFor(product),
     lead: lead,
     headline: row.headline,
   );

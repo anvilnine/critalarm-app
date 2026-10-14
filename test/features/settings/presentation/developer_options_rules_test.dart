@@ -49,28 +49,28 @@ void main() {
   });
 
   group('paywallPairText', () {
-    test('both left to the remote value read as it once', () {
+    test('both left to the coded default read as it once', () {
       expect(
-        paywallPairText(intro: null, layout: null, remote: 'remote'),
-        'remote',
+        paywallPairText(intro: null, layout: null, auto: 'auto'),
+        'auto',
       );
     });
 
     test('an intro and a layout read intro first', () {
       expect(
-        paywallPairText(intro: 'Snooze', layout: 'Hero', remote: 'remote'),
+        paywallPairText(intro: 'Snooze', layout: 'Hero', auto: 'auto'),
         'Snooze, Hero',
       );
     });
 
-    test('one side left to the remote value says so in its place', () {
+    test('one side left to the coded default says so in its place', () {
       expect(
-        paywallPairText(intro: null, layout: 'Hero', remote: 'remote'),
-        'remote, Hero',
+        paywallPairText(intro: null, layout: 'Hero', auto: 'auto'),
+        'auto, Hero',
       );
       expect(
-        paywallPairText(intro: 'Snooze', layout: null, remote: 'remote'),
-        'Snooze, remote',
+        paywallPairText(intro: 'Snooze', layout: null, auto: 'auto'),
+        'Snooze, auto',
       );
     });
   });
@@ -86,22 +86,22 @@ void main() {
       layout: layout,
       thanks: thanks,
       outro: outro,
-      remote: 'remote',
+      auto: 'auto',
     );
 
-    test('all left to the remote value reads remote once', () {
-      expect(text(), 'remote');
+    test('all left to the coded default reads auto once', () {
+      expect(text(), 'auto');
     });
 
-    test('a lone outro is not three remotes and the outro', () {
-      expect(text(outro: 'Cloud climb'), 'remote, Cloud climb');
+    test('a lone outro is not three autos and the outro', () {
+      expect(text(outro: 'Cloud climb'), 'auto, Cloud climb');
     });
 
-    test('a set step keeps the others as remote', () {
-      expect(text(thanks: 'Stamp'), 'remote, remote, Stamp');
+    test('a set step keeps the others as auto', () {
+      expect(text(thanks: 'Stamp'), 'auto, auto, Stamp');
       expect(
         text(layout: 'Hero', thanks: 'Stamp', outro: 'Cloud climb'),
-        'remote, Hero, Cloud climb, Stamp',
+        'auto, Hero, Cloud climb, Stamp',
       );
     });
 

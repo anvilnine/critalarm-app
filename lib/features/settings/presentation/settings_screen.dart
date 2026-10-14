@@ -14,11 +14,13 @@ import 'package:critalarm/features/feature_guides/presentation/widgets/feature_g
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/settings_plan_card.dart';
+import 'package:critalarm/features/settings/presentation/settings_pro_row.dart';
 import 'package:critalarm/features/settings/presentation/settings_readiness_card.dart';
 import 'package:critalarm/features/settings/presentation/settings_row_values.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -318,6 +320,27 @@ class _SettingsScreenContent extends StatelessWidget {
                         padding: _kLabelPadding,
                       ),
                       _buildPlanRow(context, state),
+                      // Pro is bought in the app, so every server mode gets
+                      // the row. Not drawn until the phone has been asked.
+                      if (state.proState case final pro?) ...[
+                        // The own-server plan card has a note under it, so
+                        // the row sits a little further down.
+                        SizedBox(
+                          height: isOwnServerMode(state.serverMode) ? 12 : 8,
+                        ),
+                        SettingsProRow(
+                          state: pro,
+                          onSee: () {
+                            AppHaptics.capture();
+                            unawaited(
+                              openProPaywall(
+                                context,
+                                ProPackSheetSource.settingsPlan,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),

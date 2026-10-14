@@ -33,17 +33,6 @@ abstract interface class TelemetryGate {
   /// Records one analytics event. Dropped unless the user opted in.
   Future<void> logEvent(String name, [Map<String, Object?>? parameters]);
 
-  /// Whether the paywall feature is enabled via Remote Config.
-  bool get paywallEnabled;
-
-  /// Alias for [paywallEnabled].
-  bool get isPaywallEnabled;
-
-  /// Which paywall layout Remote Config picked for this device, as the raw
-  /// string under `paywall_variant`. `PaywallVariant.fromKey` turns an
-  /// unknown value into the default, so this getter never has to validate.
-  String get paywallVariantKey;
-
   /// The setup flow Remote Config holds under `onboarding_flow`, as the raw
   /// JSON text. Empty when none has been set or fetched yet. Answers at once
   /// with what is already activated and never waits for the network.
@@ -53,97 +42,20 @@ abstract interface class TelemetryGate {
   /// `onboarding_offer`, as the raw JSON text. Empty when none has been set
   /// or fetched yet. Answers at once and never waits for the network.
   String get onboardingOfferJson;
-
-  /// What Remote Config holds under `paywall_layout`: what the Hosted
-  /// paywall opens. Empty, the default, is the paywall that ships today.
-  /// `PaywallLayoutSetting.parse` reads it, and an unknown value counts as
-  /// empty. Already activated, never fetched here.
-  String get paywallLayoutKey;
-
-  /// The same for Pro, under `pro_paywall_layout`. Empty is the Pro sheet.
-  String get proPaywallLayoutKey;
-
-  /// What Remote Config holds under `paywall_intro`: the short animation
-  /// that plays before a Hosted layout. Empty, the default, is none.
-  /// `PaywallIntroId.parse` reads it, and an unknown value counts as empty.
-  String get paywallIntroKey;
-
-  /// The same for Pro, under `pro_paywall_intro`.
-  String get proPaywallIntroKey;
-
-  /// What Remote Config holds under `paywall_thanks`: what plays after a
-  /// confirmed purchase on a Hosted layout. Empty, the default, is none.
-  /// `PaywallThanksId.parse` reads it, and an unknown value counts as empty.
-  String get paywallThanksKey;
-
-  /// The same for Pro, under `pro_paywall_thanks`.
-  String get proPaywallThanksKey;
-
-  /// What Remote Config holds under `paywall_outro`: what plays between a
-  /// confirmed purchase and the thanks on a Hosted layout. Empty, the
-  /// default, is none. `PaywallOutroId.parse` reads it, and an unknown
-  /// value counts as empty.
-  String get paywallOutroKey;
-
-  /// The same for Pro, under `pro_paywall_outro`.
-  String get proPaywallOutroKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
 class NoopTelemetryGate implements TelemetryGate {
   const NoopTelemetryGate({
-    this.paywallEnabled = false,
-    this.paywallVariantKey = '',
     this.onboardingFlowJson = '',
     this.onboardingOfferJson = '',
-    this.paywallLayoutKey = '',
-    this.proPaywallLayoutKey = '',
-    this.paywallIntroKey = '',
-    this.proPaywallIntroKey = '',
-    this.paywallThanksKey = '',
-    this.proPaywallThanksKey = '',
-    this.paywallOutroKey = '',
-    this.proPaywallOutroKey = '',
   });
 
   @override
   final String onboardingOfferJson;
 
   @override
-  final bool paywallEnabled;
-
-  @override
-  final String paywallVariantKey;
-
-  @override
   final String onboardingFlowJson;
-
-  @override
-  final String paywallLayoutKey;
-
-  @override
-  final String proPaywallLayoutKey;
-
-  @override
-  final String paywallIntroKey;
-
-  @override
-  final String proPaywallIntroKey;
-
-  @override
-  final String paywallThanksKey;
-
-  @override
-  final String proPaywallThanksKey;
-
-  @override
-  final String paywallOutroKey;
-
-  @override
-  final String proPaywallOutroKey;
-
-  @override
-  bool get isPaywallEnabled => paywallEnabled;
 
   @override
   Future<void> initialize() async {}
