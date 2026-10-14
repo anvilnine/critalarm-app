@@ -23,7 +23,7 @@ void main() {
       expect(book.isEmpty, isFalse);
       expect(book.priceOf(PriceBookPlan.hostedMonthly)!.priceString, r'$4.99');
       expect(book.priceOf(PriceBookPlan.hostedYearly)!.priceString, r'$39.99');
-      expect(book.priceOf(PriceBookPlan.proOnce)!.priceString, r'$49.99');
+      expect(book.priceOf(PriceBookPlan.proOnce)!.priceString, r'$19.99');
     });
 
     test('gives the yearly plan its price per month, rounded down', () {

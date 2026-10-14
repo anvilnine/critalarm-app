@@ -268,7 +268,7 @@ void main() {
         await cubit.load();
         expect(cubit.state.status, PaywallBuyStatus.ready);
         expect(cubit.state.canBuy, isTrue);
-        expect(cubit.state.options.single.price, r'$49.99');
+        expect(cubit.state.options.single.price, r'$19.99');
         expect(cubit.state.options.single.title, 'Pro');
       },
     );
@@ -337,7 +337,7 @@ void main() {
     test("shows the book's price for Pro", () async {
       final cubit = DemoPaywallBuyCubit(PaywallProduct.pro, priceBook: book);
       await cubit.load();
-      expect(cubit.state.options.single.price, r'$49.99');
+      expect(cubit.state.options.single.price, r'$19.99');
     });
 
     test('with an empty book it is not on sale', () async {

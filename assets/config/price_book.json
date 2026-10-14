@@ -9,7 +9,7 @@
   "pro": {
     "offering": "pro",
     "plans": {
-      "once": { "amount": 49.99, "currency": "USD", "package": null }
+      "once": { "amount": 19.99, "currency": "USD", "package": null }
     }
   }
 }
