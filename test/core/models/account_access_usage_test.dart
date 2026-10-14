@@ -74,7 +74,7 @@ void main() {
       expect(pending.isProPending, isTrue);
       expect(
         pending.criticalUsage(_topics),
-        'Hosted, confirming your purchase',
+        'Cloud, confirming your purchase',
       );
     });
 

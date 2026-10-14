@@ -142,14 +142,14 @@ void main() {
 
         // 4. Check Crit Alarm Cloud card is present
         // Its name is there twice: on the card and in the picture.
-        expect(find.text('Crit Alarm Cloud'), findsNWidgets(2));
+        expect(find.text("Crit Alarm's server"), findsNWidgets(2));
         expect(find.text('EASIEST'), findsOneWidget);
         expect(
           find.text('We run the server. Nothing to set up.'),
           findsOneWidget,
         );
         expect(
-          find.text('Use Crit Alarm Cloud'),
+          find.text('Use our server'),
           findsOneWidget,
         );
       },

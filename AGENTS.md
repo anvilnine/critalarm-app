@@ -125,9 +125,16 @@ names in code, strings, comments and PRs, and never one for another.
   replays them all. Formerly "tour" and, before that, "showcase". The prefs keys
   `tour_guides_seen` and `has_completed_showcase_tour` keep their old names
   because devices already hold them.
+- **Cloud** (the paid plan): the word in copy since the plan was renamed from
+  Hosted. The code keeps `hosted` everywhere it was already there: `Holding.hosted`,
+  `PaywallProduct.hosted`, translation key names such as `paywall_kit.name_hosted`,
+  route values, prefs keys, analytics, the store product ids, the server mode
+  and the account tier. Only the text a person reads or hears says Cloud. The
+  server we run is "our server" in copy, never "Crit Alarm Cloud", so that Cloud
+  means the plan only.
 - **In-App Notices** (`lib/features/in_app_notices/`): a reminder Home pins
   above the tab bar as an `AppPinnedNoticeBar`. `InAppNoticeCubit` picks two
-  of them: the Hosted plan ending and "back up your topics". A notice sits
+  of them: the Cloud plan ending and "back up your topics". A notice sits
   there until its condition clears or the user dismisses it. An **ask** is
   different: an interruptive sheet or popup (the Pro ask, the consent ask,
   the Local reminders sheet, the store review), governed by `HomeAskRules`
@@ -138,7 +145,7 @@ names in code, strings, comments and PRs, and never one for another.
   notice:
   - **Pinned bars** (`pinnedBarFor` in
     `lib/features/topics/domain/home_list_rules.dart`): one at a time, in
-    this order. The Hosted ending, the account backup reminder, then "One
+    this order. The Cloud ending, the account backup reminder, then "One
     topic so far", which is Home's own rule and not a notice.
   - **Status card kinds** (`HomeCardKind`): what Home reports about whether
     an alarm will ring, and where setup stands. No server, a missed alarm, a
@@ -291,10 +298,10 @@ it has no chapter, and it ships switched on.
   with a value it cannot have sets the whole object aside and the next
   source is asked. A build older than `auto`
   sets a value holding it aside the same way.
-- `auto` picks the product from the answer on Cloud: the Pro pack for the
-  home answer, Hosted for the rest. `pro`, `hosted` and `none` force one
+- `auto` picks the product from the answer on our server: the Pro pack for the
+  home answer, Cloud for the rest. `pro`, `hosted` and `none` force one
   answer for everyone. On a server of the user's own only
-  `self_hosted_product` counts, and Hosted is never offered there.
+  `self_hosted_product` counts, and Cloud is never offered there.
 - `decideOnboardingOffer` is the rule. The step skips itself on a replay
   (see below), when it is off, when the product is `none` for this kind of
   server, when the layout is not built in this version, when no account id is
@@ -341,7 +348,7 @@ it has no chapter, and it ships switched on.
   that replay (`SetupUseReplay`), then the made-up purchase or the cross, the
   thanks and hook up. On that made-up buy model a replay ignores the account
   and the products held (`offerIgnoresHoldings`), so a tester sees the paywall
-  with no account, with Hosted already held and with Pro already held. It
+  with no account, with Cloud already held and with Pro already held. It
   still follows the switches: the offer switched off (by the developer value
   or the remote one), no product for an own server, and an unbuilt layout all
   skip it. An own server gets the `self_hosted_product` offer, as a real run
@@ -479,7 +486,7 @@ round for Back. `finishOnboardingStep` and `goBackInOnboarding` start it, so
 a step route has no page transition of its own. The canvas gets `pop` for
 Back, and `sweep` when the change crosses a chapter.
 
-Background connect: Continue with Crit Alarm Cloud finishes the `connect`
+Background connect: Continue with our server finishes the `connect`
 step at once. `BackgroundConnect`
 (`lib/features/onboarding/domain/connect/background_connect.dart`, one object
 for the whole app run, registered in `lib/app/di.dart`) does the work behind
@@ -666,7 +673,7 @@ created stop either: the topic drops as a row into a small picture of Home
 (`TopicMadeBeat`, about 1.2 seconds, a tap skips it, still under reduce
 motion) and the screen moves on, because the hook-up step shows the address
 and the token where they are used. A replay makes no topic and shows no
-picture. It shows no ask, the Hosted ask included. Opened from Home, the
+picture. It shows no ask, the Cloud ask included. Opened from Home, the
 screen keeps its two steps and its created state, whatever the topic count.
 
 When finishing a step ends setup, `finishOnboardingStepInEngine` raises
@@ -1047,7 +1054,7 @@ offer whose screen went away under it is not counted as declined.
 
 - Two things share a word. Identifiers that say Pro and are not `ProPack...`
   (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
-  `ProOverride`, `DevProSwitch`) mean the Hosted plan. The pack is always
+  `ProOverride`, `DevProSwitch`) mean the Cloud plan. The pack is always
   `ProPack...` in code and "Pro" in copy. Neither routes through the other.
 - `ProPackAccess` answers one question: does this install hold the pack.
   `isHeld` is the value and `stream` carries its changes. It never says how
@@ -1079,7 +1086,7 @@ offer whose screen went away under it is not counted as declined.
   still checking and asks again. It is never "no pack" and never a failed
   purchase.
 - Pro is sold on a paywall layout (`/plans/<layout>?product=pro`), the same
-  route that sells Hosted. There is no Pro sheet and no `/pro` route.
+  route that sells Cloud. There is no Pro sheet and no `/pro` route.
   `ProPaywallBuyCubit` lists the packages of the RevenueCat offering
   `proPackOfferingId`. With no such offering the layout still draws, and
   its buy block says Pro is not on sale yet and offers nothing to buy.
@@ -1088,7 +1095,7 @@ offer whose screen went away under it is not counted as declined.
   `PaywallDoor` (`lib/features/paywall/presentation/paywall_door.dart`), and
   the door always answers with a layout location. `paywallOpeningFor`
   (`lib/features/paywall/domain/paywall_routing.dart`) holds the defaults:
-  the place table picks the layout and the intro, Hosted ends on Receipt
+  the place table picks the layout and the intro, Cloud ends on Receipt
   party after Cloud climb, Pro on Stamp after Break, lift, ring. Remote
   Config holds no paywall key, RevenueCat's dashboard draws no paywall
   (`RevenueCatUI.presentPaywall` is never called), and only the customer
@@ -1102,35 +1109,35 @@ offer whose screen went away under it is not counted as declined.
   "What opens".
 - The pack unlocks features built into the app (`featureTable`). It has
   no row on the Reliability screen: the weekly delivery check there needs
-  Hosted (see "Weekly check").
-- Developer options has a switch for the pack beside the Hosted one, in a
+  Cloud (see "Weekly check").
+- Developer options has a switch for the pack beside the Cloud one, in a
   `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
   the mock relay hold the pack (`MockServer.grantedPacks`).
 
 **Weekly check.** Once a week the relay sends an enrolled phone a push that
 shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
-It needs Hosted, because the relay runs it, and it does not exist on a
+It needs Cloud, because the relay runs it, and it does not exist on a
 server of the user's own. The Pro pack does not unlock it. The code is in
 `lib/features/weekly_check/`, plus the native handlers.
 
-- `featureTable` holds the rule: `weeklyCheck` is unlocked by Hosted and is
+- `featureTable` holds the rule: `weeklyCheck` is unlocked by Cloud and is
   `OwnServerRule.notOffered`. `FeatureAccess.decide` answers
   `FeatureDecision.notOffered` there, which is its own answer: not open,
   and not a lock. A screen says in plain words that the feature is not
   available and opens no paywall. `weeklyCheckAccessFor` turns the decision
   into the four words this feature acts on (`WeeklyCheckAccess`).
 - The weekly row inside the proof card on Will it wake me (`WeeklyCheckCardRow`) is one of three: the switch
-  with Hosted held, a locked row that opens the Hosted paywall through
+  with Cloud held, a locked row that opens the Cloud paywall through
   `AccessLock`, or one line saying it is not available on a server of your
   own.
 - A lapse takes nothing away. The relay keeps the device enrolled and
   answers `off` with the reason `tier`. The row locks from what is held,
-  and when Hosted is back the check goes on with no new tap. A reason the
+  and when Cloud is back the check goes on with no new tap. A reason the
   app does not know, `pack` from before 1.19.0 included, is no reason.
 - A lapse is never a miss. `WeeklyCheckNoticeRule` answers no while the
   plan is away, and sets aside what the phone learned before it last saw
   the plan away (`weekly_check.plan_away_at`), so a clock that ran on
-  through a lapse raises nothing when Hosted is back.
+  through a lapse raises nothing when Cloud is back.
 - On a server of the user's own the app never sends `"enabled":true`. A
   phone that was enrolled before sends `"enabled":false` once
   (`WeeklyCheckMonitor.accessChanged`). A send that fails is tried again on
@@ -1183,7 +1190,7 @@ server of the user's own. The Pro pack does not unlock it. The code is in
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
   `openWeeklyCheckRound()` returns the id a push would carry. The mock
   gates the check on `MockServer.accountTier`, which the developer switch
-  for Hosted sets in a mock build.
+  for Cloud sets in a mock build.
 
 **Backups and restores.** A restored phone starts as a phone the relay has
 never seen, and a person's own alarm photo and own sounds are in no backup.
@@ -1288,7 +1295,7 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
   or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
   plain words, no em dashes. Write user entries from the user's side ("History
-  keeps 90 days on Hosted"), not the code's.
+  keeps 90 days on Cloud"), not the code's.
 - Add the entry in the same branch as the change. When branches merge, keep
   both sides' lines.
 - This repo is public. Neither file names prices, keys, task numbers or

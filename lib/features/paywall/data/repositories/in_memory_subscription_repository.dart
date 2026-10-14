@@ -115,8 +115,8 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
       PackageType.lifetime,
       StoreProduct(
         'lifetime',
-        'Crit Alarm Hosted Lifetime',
-        'Crit Alarm Hosted Lifetime',
+        'Crit Alarm Cloud Lifetime',
+        'Crit Alarm Cloud Lifetime',
         0,
         r'$0.00',
         'USD',
