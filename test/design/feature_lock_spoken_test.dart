@@ -11,9 +11,9 @@ void main() {
       featureLockSpoken(
         name: 'App icon',
         lockedWord: 'locked',
-        planWord: 'Hosted',
+        planWord: 'Cloud',
       ),
-      'App icon, locked, Hosted',
+      'App icon, locked, Cloud',
     );
   });
 

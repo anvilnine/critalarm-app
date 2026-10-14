@@ -193,7 +193,7 @@ void main() {
       'TWO',
       'THREE FOUR FIVE',
     ]);
-    expect(T.words('Hosted'), ['HOSTED']);
+    expect(T.words('Cloud'), ['CLOUD']);
     expect(T.words('  '), isEmpty);
   });
 
