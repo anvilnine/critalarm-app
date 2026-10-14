@@ -39,15 +39,17 @@ FaceShape _faceAt(double t) {
   return FaceShape.lerp(upright, upright.blinking, blink);
 }
 
-/// The false alarm: the screen looks like an alarm for about a second, the
-/// mascot blinks and admits it, and the red opens from where the mascot
-/// stands to show the layout under it.
+/// The false alarm: the alarm red floods out from where the mascot stands,
+/// the mascot pops up and the big word lands. The screen looks like an
+/// alarm for about a second, the mascot blinks and admits it, and the red
+/// opens from the same place to show the layout under it.
 ///
 /// A silent picture of an alarm. The app makes none. The score is the only
-/// sound and owns the whole intro: a soft ringing figure for as long as
-/// the screen rings, cut dead as the ringing stops, a beat of nothing, and
-/// the arrival from the reveal. Nothing is felt while the screen rings. A
-/// tap that skips the joke plays the arrival alone.
+/// sound and owns the whole intro: air that rises with the red, a soft
+/// ringing figure for as long as the screen rings, two small notes for the
+/// admission while the figure dies away, and the arrival from the reveal.
+/// Nothing is felt while the screen rings. A tap that skips the joke plays
+/// the arrival alone.
 const PaywallIntro falseAlarmIntro = PaywallIntro(
   seconds: FalseAlarmTimeline.end,
   handover: FalseAlarmTimeline.handover,
@@ -72,9 +74,9 @@ String _tag() => LocaleKeys.paywall_false_alarm_admission.tr();
 Widget _build(BuildContext context, PaywallIntroScope scope) =>
     FalseAlarmIntro(scope: scope);
 
-/// Draws the false alarm for the second its scope's clock reads: the
-/// screen in the alarm red, the mascot large and ringing, one big word,
-/// then the admission. Where the red has opened it draws nothing.
+/// Draws the false alarm for the second its scope's clock reads: the red
+/// flooding in, the mascot large and ringing, one big word, then the
+/// admission. Where the red has opened it draws nothing.
 class FalseAlarmIntro extends StatelessWidget {
   const FalseAlarmIntro({required this.scope, super.key});
 
@@ -98,6 +100,10 @@ class FalseAlarmIntro extends StatelessWidget {
         if (FalseAlarmTimeline.isOver(t)) return const SizedBox.shrink();
         final ringing = FalseAlarmTimeline.ringing(t);
         final saysAlarm = FalseAlarmTimeline.saysAlarm(t);
+        final arrive = FalseAlarmTimeline.arrive(t);
+        final wordIn = AppCurves.easeOut.transform(
+          FalseAlarmTimeline.wordIn(t),
+        );
         final admit = AppCurves.easeBack.transform(
           FalseAlarmTimeline.admission(t),
         );
@@ -109,6 +115,10 @@ class FalseAlarmIntro extends StatelessWidget {
                 painter: IntroAlarmRedPainter(
                   centre: centre,
                   face: face,
+                  flood: Curves.easeInOutCubic.transform(
+                    FalseAlarmTimeline.flood(t),
+                  ),
+                  cover: colors.canvas,
                   wipe: Curves.easeInOutCubic.transform(
                     FalseAlarmTimeline.wipe(t),
                   ),
@@ -127,7 +137,13 @@ class FalseAlarmIntro extends StatelessWidget {
               shape: _faceAt(t),
               leave: FalseAlarmTimeline.leave(t),
               angle: FalseAlarmTimeline.shake(t),
-              scale: 1 + 0.05 * ringing,
+              // It pops up from just under where it stands.
+              scale:
+                  AppCurves.easeBack.transform(arrive) * (1 + 0.05 * ringing),
+              offset: Offset(
+                0,
+                face * 0.18 * (1 - AppCurves.easeOut.transform(arrive)),
+              ),
             ),
             Positioned(
               left: Spacing.s5,
@@ -136,10 +152,14 @@ class FalseAlarmIntro extends StatelessWidget {
               height: wordSize * 1.1,
               child: Opacity(
                 opacity: saysAlarm
-                    ? 1
+                    ? wordIn
                     : admit.clamp(0, 1) * FalseAlarmTimeline.words(t),
                 child: Transform.scale(
-                  scale: saysAlarm ? 1 + 0.06 * ringing : 0.8 + 0.2 * admit,
+                  // The word lands from a little large, then swells with
+                  // each ring.
+                  scale: saysAlarm
+                      ? 1.3 - 0.3 * wordIn + 0.06 * ringing
+                      : 0.8 + 0.2 * admit,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(

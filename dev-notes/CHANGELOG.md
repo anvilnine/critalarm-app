@@ -53,6 +53,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
 - Paywall defaults: Hosted ends on Cloud climb then Receipt party, Pro on Break, lift, ring then Stamp. Developer options pickers start at Auto. paywall\_\* events no longer carry variant.
 - Pro lists four benefits with wake-up challenges first. A place whose lead the product has no benefit for opens the product's plan place.
+- FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
+- The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
@@ -68,6 +70,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
 - Paywalls are coded. Removed Remote Config keys paywall\_layout, pro\_paywall\_layout, paywall\_intro, pro\_paywall\_intro, paywall\_thanks, pro\_paywall\_thanks, paywall\_outro, pro\_paywall\_outro, paywall\_variant, paywall\_enabled. onboarding\_flow and onboarding\_offer stay.
 - Route /pro, ProPackSheet, HostedPaywallScreen, PaywallScreen, PaywallVariant and PaywallCubit.presentNativePaywall. /paywall?source= redirects to /plans/<layout>.
+- The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
+- The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added
