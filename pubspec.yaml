@@ -66,6 +66,7 @@ flutter:
   shaders:
     - shaders/edge_blur.frag
   assets:
+    - assets/config/
     - assets/translations/
     - assets/sounds/
     - assets/ui_sounds/

@@ -275,16 +275,6 @@ void main() {
       },
     );
 
-    test('isPaywallEnabled and paywallEnabled delegate to telemetryGate', () {
-      when(() => telemetryGate.isPaywallEnabled).thenReturn(true);
-      final cubit = SettingsCubit(
-        telemetryGate: telemetryGate,
-      );
-
-      expect(cubit.isPaywallEnabled, isTrue);
-      expect(cubit.paywallEnabled, isTrue);
-    });
-
     blocTest<SettingsCubit, SettingsState>(
       'disconnectServer clears connection from repository and updates state',
       setUp: () {

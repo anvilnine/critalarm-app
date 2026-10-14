@@ -7,7 +7,6 @@ import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/personalize/sound/sound_sheet.dart';
@@ -163,7 +162,8 @@ void main() {
       await tester.pump();
       await tester.tap(target);
       await settle(tester);
-      expect(path(router), proPackSheetPath, reason: '$what opens the paywall');
+      // Own sounds open the sheet layout, never an old surface.
+      expect(path(router), '/plans/sheet', reason: '$what opens the paywall');
       router.pop();
       await settle(tester);
       expect(path(router), '/sounds');

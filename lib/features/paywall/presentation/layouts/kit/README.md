@@ -16,6 +16,30 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
    reads. An unregistered id draws `hero` (`paywallFallbackLayout`).
 4. Import `kit/paywall_frame.dart` (buy block, clock, scope, tones), `kit/paywall_preview.dart`.
 
+## What opens
+
+The layouts are the paywall. No remote value picks one, and RevenueCat's dashboard draws none.
+`paywallOpeningFor` (`lib/features/paywall/domain/paywall_routing.dart`) holds every default:
+
+- Layout: the place table, `paywallRowFor`. Each place that opens a paywall has one row.
+- Intro: what the row says. Today that is the false alarm, once per install, at the critical
+  topic limit, for Hosted only. Every other place plays none.
+- Thanks: Receipt party for Hosted, Stamp for Pro (`paywallDefaultThanksFor`).
+- Outro: Cloud climb for Hosted, Break, lift, ring for Pro (`paywallDefaultOutroFor`). It is none
+  whenever the thanks is none.
+
+Developer options, Paywall layouts, can set each of the four in a `SKIP_PAYWALL` or `PAYWALL_LAB`
+build. "Auto" is the first choice in every picker and means the coded default. A value set there
+outranks the default, `none` included. The prefs are `dev.paywall_layout`, `dev.paywall_intro`,
+`dev.paywall_thanks`, `dev.paywall_outro` and the same four with `dev.pro_`. A layout pref that
+holds `auto` or `shipped`, which older builds saved, reads as Auto.
+
+`PaywallDoor` (`presentation/paywall_door.dart`) turns an opening into a `/plans/<key>` location.
+It always answers with a layout. If it cannot read what it needs, or no door is registered, it
+opens the layout of the plan place for that product. `/paywall?source=...` is still a path, for
+reminders, the settings search result and a locked home screen widget, and it redirects to the
+layout for its source.
+
 ## Add an intro
 
 An intro is a short full screen animation (1.5 to 2.5 seconds) that plays once when a paywall
@@ -23,7 +47,7 @@ opens, then hands over to whichever layout was chosen. It is not a layout: any i
 any layout, and it never draws a benefit, a price or a button.
 
 1. Add an id to `PaywallIntroId` (`lib/core/paywall/paywall_intro.dart`). The key ships in
-   remote values and analytics, so it never changes.
+   routes, saved developer values and analytics, so it never changes.
 2. Add one folder, `presentation/intros/<name>/`, with one file that holds a
    `const PaywallIntro` and the widget its `builder` returns. Keep the times in a pure timeline
    (a class of static functions of `t`) and unit test it: the order of the beats, the first
@@ -127,10 +151,10 @@ plays, reduce motion included) and `scope.followsIntro` is true when one does. T
 the mascot, so a layout may shorten or skip its own entrance pop then. Hero plays its approved
 entrance either way.
 
-Which intro plays is a second value beside the layout: remote keys `paywall_intro` and
-`pro_paywall_intro`, developer prefs `dev.paywall_intro` and `dev.pro_paywall_intro`. Empty is no
-intro. An empty layout value still means the shipped surface, whatever the intro says. The
-layout value `false_alarm`, from when the joke was a layout, reads as `hero` with that intro.
+Which intro plays is a second value beside the layout: the place table's row, or the developer
+prefs `dev.paywall_intro` and `dev.pro_paywall_intro` in its place. See "What opens". The layout
+key `false_alarm`, from when the joke was a layout, reads as `hero`, and a route that names it
+plays that intro.
 
 ## Add a step after the purchase
 
@@ -139,7 +163,7 @@ What plays once a purchase is confirmed is a third value beside the intro and th
 ending as it did before: Hosted goes to the welcome screen, Pro's buy block says it is on.
 
 1. Add an id to `PaywallThanksId` (`lib/core/paywall/paywall_thanks.dart`). The key ships in
-   remote values and analytics, so it never changes. Add its name to `paywallThanksNameKey`.
+   routes, saved developer values and analytics, so it never changes. Add its name to `paywallThanksNameKey`.
 2. Add one folder, `presentation/thanks/<name>/`, with a pure timeline (a class of static
    functions of `t`) and one file that holds a `const PaywallThanks` and the widget its
    `builder` returns. Unit test the timeline: the order of the beats, the first frame, and that
@@ -200,9 +224,9 @@ What the host does, so a version does not:
 - Analytics: `paywall_thanks_shown` and `paywall_thanks_left`, and every layout event carries
   `thanks`.
 
-Which one plays: remote keys `paywall_thanks` and `pro_paywall_thanks`, developer prefs
-`dev.paywall_thanks` and `dev.pro_paywall_thanks`, the route's `?thanks=<key>`. Empty is none. An
-empty layout value still means the shipped surface, whatever this says.
+Which one plays: the product's coded default (Receipt party for Hosted, Stamp for Pro), or the
+developer prefs `dev.paywall_thanks` and `dev.pro_paywall_thanks` in its place. The door writes
+the answer into the route as `?thanks=<key>`, and a route with none plays none.
 
 ## Add an outro
 
@@ -211,8 +235,8 @@ layout, the intro and the thanks, a `PaywallOutroId`. Any one goes with any layo
 thanks, for either product. It needs a thanks: with `PaywallThanksId.none` there is nothing to
 hand over to, and the outro is none too. `none` is a purchase going straight to the thanks.
 
-1. Add an id to `PaywallOutroId` (`lib/core/paywall/paywall_outro.dart`). The key ships in remote
-   values and analytics, so it never changes.
+1. Add an id to `PaywallOutroId` (`lib/core/paywall/paywall_outro.dart`). The key ships in
+   routes, saved developer values and analytics, so it never changes.
 2. Add one folder, `presentation/outros/<name>/`, with a pure timeline (a class of static
    functions of `t`) and one file that holds a `const PaywallOutro` and the widget its `builder`
    returns. Unit test the timeline: the order of the beats, the first frame (the picture whole,
@@ -302,9 +326,14 @@ What the host does, so an outro does not:
 - The picture is disposed at `seconds`, on a skip and when the route goes away mid outro.
 - Analytics: every layout event carries `outro` when one is set.
 
-Which one plays: remote keys `paywall_outro` and `pro_paywall_outro`, developer prefs
-`dev.paywall_outro` and `dev.pro_paywall_outro`, the route's `?outro=<key>`. The developer value
-outranks the remote one, and the route is what a try-out uses. Empty is none.
+Which one plays: the product's coded default (Cloud climb for Hosted, Break, lift, ring for
+Pro), or the developer prefs `dev.paywall_outro` and `dev.pro_paywall_outro` in its place. The
+door writes the answer into the route as `?outro=<key>`, which is also what a try-out uses. A
+route with none plays none.
+
+## Prices
+
+`assets/config/price_book.json` is `{"hosted": {"offering": null, "plans": {"yearly": P, "monthly": P}}, "pro": {"offering": "pro", "plans": {"once": P}}}` with `P` as `{"amount": <number>, "currency": "<ISO code>", "package": "<id or null>"}`: a null `offering` is the current one and a null `package` is the offering's only package. The buy models show the store's price for each plan it sends and the book's for each it does not, and the demo model shows the book's.
 
 ## The frame
 

@@ -38,8 +38,8 @@ void main() {
       expect(listed.every((b) => b.inThisBuild), isTrue, reason: product.key);
       expect(listed.every((b) => b.product == product), isTrue);
     }
+    // Nothing waits today. The check stays for the next benefit that does.
     final hidden = allPaywallBenefits.where((b) => !b.inThisBuild);
-    expect(hidden, isNotEmpty);
     final shown = {
       for (final product in PaywallProduct.values)
         ...paywallBenefitsFor(product).map((b) => b.id),
@@ -143,9 +143,11 @@ void main() {
     ]);
   });
 
-  test('a store build lists only the three Pro benefits the app has '
-      'today', () {
+  test('a store build lists the four Pro benefits the app has today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
+      // Type the topic name, type the alert title, a sum and a scratch
+      // card, each asked before "At my desk".
+      PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.widgets,
       // A file picked or a recording, as its line says.
       PaywallBenefitId.customSounds,
@@ -155,9 +157,7 @@ void main() {
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
         .map((b) => b.id);
-    // Wake-up challenges are built, and their line and preview still show
-    // a QR code scan the app does not have.
-    expect(waiting, [PaywallBenefitId.wakeUpChallenges]);
+    expect(waiting, isEmpty);
   });
 
   test('no benefit is listed under both products', () {

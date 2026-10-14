@@ -2,7 +2,7 @@
 /// the fourth value of a paywall, beside the layout, the intro and the
 /// thanks: any one goes with any layout and any thanks, for either product.
 ///
-/// The keys go in the route (`?outro=<key>`), in remote values and in
+/// The keys go in the route (`?outro=<key>`), in saved values and in
 /// analytics, so a shipped key never changes.
 enum PaywallOutroId {
   /// Nothing of its own: a purchase goes straight to the thanks.
@@ -29,7 +29,7 @@ enum PaywallOutroId {
     return null;
   }
 
-  /// Reads a remote value or a route's `outro`. Empty means [none], and so
+  /// Reads a saved value or a route's `outro`. Empty means [none], and so
   /// does a value this build does not know.
   static PaywallOutroId parse(String? value) => fromKey(value?.trim()) ?? none;
 }
