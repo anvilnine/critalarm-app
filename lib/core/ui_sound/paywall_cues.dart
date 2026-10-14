@@ -136,10 +136,6 @@ enum PaywallCue {
   /// The score of the curtain call: a hush, a look each way.
   scoreCurtain(sound: 'ui_score_curtain', hasFlavours: true),
 
-  /// The score of the alarm snack: the soft ringing figure with a nudge on
-  /// each hop of the button, cut dead on the gulp.
-  scoreAlarmSnack(sound: 'ui_score_alarm_snack', hasFlavours: true),
-
   // The scores of the success outros: one composed piece each, started on
   // the outro's clock and timed to the picture. Each takes the place of
   // [bought] when its outro plays. Sound only: the outro's beats carry the
