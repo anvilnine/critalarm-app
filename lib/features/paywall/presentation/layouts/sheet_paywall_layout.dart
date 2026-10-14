@@ -655,8 +655,6 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   // The cross is over the headline when the
                                   // stage has no room above it.
                                   headlineEndRoom: _headlineEndRoom(context),
-                                  // A list is never cut at its foot.
-                                  showsWholeLinesOnly: true,
                                 ),
                               ],
                             ),
