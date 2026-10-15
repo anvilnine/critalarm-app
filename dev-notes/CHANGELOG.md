@@ -1,7 +1,7 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
-## Unreleased
+## 1.0.0+15 - 2026-10-16
 ### Added
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
