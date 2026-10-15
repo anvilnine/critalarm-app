@@ -10,8 +10,8 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 
 Future<void> _realWait(Duration d) => Future<void>.delayed(d);
 
-/// Buys the Pro pack, through the same shop and the same access object the
-/// Pro sheet uses.
+/// Buys the Pro pack, through the shop and the access object every Pro
+/// paywall uses.
 ///
 /// Whether the pack is held is always the relay's answer. The store
 /// finishing a purchase only starts the asking, and an answer that says
@@ -54,6 +54,12 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   final Map<String, ProPackOffer> _offers = {};
   bool _afterPurchase = false;
 
+  static const String _confirmingKey = LocaleKeys.paywall_kit_paused;
+
+  /// The line a paused check shows. After a payment the store is holding
+  /// it stays the pending line, because no payment went through.
+  String _pausedKey = _confirmingKey;
+
   bool get _isDone => state.status == PaywallBuyStatus.done;
 
   @override
@@ -82,6 +88,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     if (!state.canBuy) return;
     var offer = _offers[state.selectedId];
     began(PaywallBuyAction.purchase);
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     if (offer == null) {
       // The price on screen is the book's. The store may have an offer by
@@ -111,6 +118,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   Future<void> restore() async {
     if (!state.canRestore) return;
     began(PaywallBuyAction.restore);
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     await _afterStore(await _shop.restore(), afterPurchase: false);
   }
@@ -126,6 +134,12 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     required bool afterPurchase,
   }) async {
     if (isClosed || _isDone) return;
+    if (result == ProPackStoreResult.pending) {
+      // The purchase stays written down, so launch and resume keep asking
+      // the relay. Check again asks it now, as after any purchase.
+      _afterPurchase = afterPurchase;
+      _pausedKey = LocaleKeys.purchase_errors_payment_pending;
+    }
     show(afterStore(state, storeResultOfProPack(result)));
     if (result == ProPackStoreResult.done) {
       await _confirm(afterPurchase: afterPurchase);
@@ -153,13 +167,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     }
     // The relay can answer through another door while the last ask is out.
     if (_access.isHeld) step = PaywallConfirmStep.done;
-    show(
-      afterConfirmStep(
-        state,
-        step,
-        pausedKey: LocaleKeys.paywall_kit_paused,
-      ),
-    );
+    show(afterConfirmStep(state, step, pausedKey: _pausedKey));
   }
 
   @override
