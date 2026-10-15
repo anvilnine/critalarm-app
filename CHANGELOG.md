@@ -25,6 +25,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A long topic name no longer gets cut off in the name field during setup at a large text size.
 - The keyboard no longer opens over a Feature Guide on Search and on the new topic screen
 - On small phones the plans sheet no longer drops what Cloud or Pro includes. The list scrolls above the button instead.
+- Buying Pro when the payment still needs approval, such as Ask to Buy, now says the payment is pending and checks again, instead of saying the purchase failed.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added
