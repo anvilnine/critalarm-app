@@ -8,6 +8,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
+import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/search/domain/entities/docs_page.dart';
@@ -231,6 +232,7 @@ class SearchCubit extends Cubit<SearchState> {
           subtitle: historyMetaText(entry),
           timeText: dayFormat.format(entry.startedAt),
           faceState: entry.faceState,
+          historyMark: historyMarkFor(entry.state),
           keywords: <String>[
             'history',
             'alarm',
