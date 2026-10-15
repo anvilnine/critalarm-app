@@ -23,6 +23,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - tool/capture\_paywall\_walk.dart captures what each paywall place opens with no settings.
 - make run-store and make build-store-apk build a release that sells through the real store with the RevenueCat keys in .env, for a sandbox or licence tester purchase. make run-release still passes SKIP\_PAYWALL and buys nothing.
 - ProPackStoreResult.pending: RevenueCatProPackShop maps paymentPendingError to it, and ProPaywallBuyCubit rests on a paused check with the pending line and keeps the purchase written down. paywall\_store\_wiring\_test.dart runs both buy models over the real RevenueCat repository and Pro shop with a faked RevenueCatService.
+- tool/capture\_search\_panel.dart draws the search panel with every result kind, light and dark, into build/search\_shots.
 
 ### Changed
 - The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.

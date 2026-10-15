@@ -1553,6 +1553,7 @@
     "section_history": "History",
     "section_settings": "Settings",
     "section_docs": "Documentation",
+    "docs_opens_outside": "Opens in your browser",
     "subtitle_topic": "Topic",
     "subtitle_topic_critical": "Topic, critical delivery on",
     "no_matches_title": "Nothing matched “{query}”",
