@@ -1,4 +1,4 @@
-.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -106,11 +106,26 @@ doctor:
 	sh tool/check_l10n.sh
 	sh tool/check_access.sh
 
-# Release build for UI work on a device. Skips RevenueCat, so the test API key
-# cannot pop the "Wrong API Key" dialog that closes the app.
+# Release build for UI work on a device. SKIP_PAYWALL leaves RevenueCat out:
+# every paywall draws price book prices and a purchase is made up, nothing is
+# charged and nothing unlocks. Developer options are in. To buy for real, use
+# run-store.
 # Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
 run-release: google-xcconfig
 	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
+
+# Release build that sells through the real store, as a store build does:
+# RevenueCat with the keys in .env, the store's own prices, a real purchase
+# and restore. For a test purchase with an App Store sandbox account or a Play
+# licence tester. No Developer options and no layout pickers. Not obfuscated
+# and sends no symbols, so it never goes to a store: the release scripts do.
+# Pass a device with DEVICE=<id>, e.g. make run-store DEVICE=R5CXB30NDRV
+run-store: google-xcconfig
+	fvm flutter run --release $(if $(DEVICE),-d $(DEVICE),)
+
+# Same, as an installable APK.
+build-store-apk:
+	fvm flutter build apk --release
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.
@@ -126,7 +141,8 @@ build-quiet-apk:
 cold-start:
 	sh tool/cold_start.sh --apk "$(APK)" $(if $(SERIAL),--serial "$(SERIAL)",) $(if $(RUNS),--runs "$(RUNS)",) $(if $(MODE),--mode "$(MODE)",) $(if $(LABEL),--label "$(LABEL)",)
 
-# Same flag, for an installable artifact instead of an attached run.
+# Same flag, for an installable artifact instead of an attached run. Buys
+# nothing: build-store-apk is the one that sells.
 build-release-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true
 
