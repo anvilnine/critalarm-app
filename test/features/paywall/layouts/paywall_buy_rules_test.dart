@@ -243,11 +243,11 @@ void main() {
       expect(state.selectedId, PaywallPlanOption.yearlyId);
     });
 
-    test('every Pro store result has its match, and the Pro shop has no '
-        'word for a held payment', () {
+    test('every Pro store result has its match, a held payment included', () {
       expect(ProPackStoreResult.values.map(storeResultOfProPack), [
         PaywallStoreResult.done,
         PaywallStoreResult.cancelled,
+        PaywallStoreResult.pending,
         PaywallStoreResult.problem,
       ]);
     });

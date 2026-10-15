@@ -37,6 +37,11 @@ enum ProPackStoreResult {
   /// The person backed out.
   cancelled,
 
+  /// The store took the purchase and is holding the payment: Ask to Buy, or
+  /// a Play payment that still has to clear. Nothing failed and nothing is
+  /// held yet.
+  pending,
+
   /// The store reported a problem of its own.
   problem,
 }

@@ -66,6 +66,7 @@ state-management library.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
+| Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store) |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
