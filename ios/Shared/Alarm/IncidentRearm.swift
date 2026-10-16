@@ -1,5 +1,8 @@
 import Foundation
 import UserNotifications
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 /// Sets the phone's own next ring for an incident the user silenced.
 ///
@@ -186,72 +189,127 @@ struct TopicTimers {
     }
 }
 
-/// The stage mark for an incident's ring on this phone.
+/// The ring generation of an incident on this phone.
 ///
 /// A reopen moves `opened_at` (api.md §5.1), and an answer about an earlier
 /// stage must never end the ring of a later one: that silences a phone for
-/// an incident nobody handled. Pushes carry no `opened_at`, so the phone keeps
-/// its own marks, on its own clock:
+/// an incident nobody handled. Pushes carry no `opened_at`, so the phone
+/// counts instead. Every push that arms a ring moves the incident's
+/// generation on by one (`bump`, called from the one push arming path in
+/// `AppDelegate`). Stop's own re-arm does not. A check reads the generation
+/// before its question goes out and hands it back with the answer; the
+/// answer counts only if the generation has not moved. No clock is read.
 ///
-/// - `armedAt`: when any push last armed a ring for the incident. An answer
-///   to a question asked before this may be about the old stage.
-/// - `stageStartedAt`: when an `open` or `reopen` push armed one. A Live
-///   Activity update names the stage it is about by `opened_at`, which is
-///   compared against this.
-///
+/// The read and the cancel run as one step on [AlarmSerial], the same
+/// queue push arming goes through, so a push cannot arm a ring between them.
 /// Kept in the app group, because Stop can run in the widget extension.
-enum RingStage {
-    private static let armedKey = "critalarm.ring_armed_at"
-    private static let stageKey = "critalarm.ring_stage_started_at"
+enum RingGeneration {
+    enum Outcome: String {
+        /// The answer was for the ring going now, and a ring was stopped.
+        case stopped
+        /// The answer was for the ring going now, and nothing was set.
+        case nothing
+        /// A push armed a ring since the question went out, or no
+        /// generation came with it. Nothing changed.
+        case refused
+    }
 
-    /// How far before this phone's stage mark a stage may have opened on the
-    /// server and still be the same stage: push delivery plus clock drift. A
-    /// reopen comes a whole desk timer after the stage before it.
-    static let liveActivityMargin: TimeInterval = 120
+    private static let key = "critalarm.ring_generation"
 
     private static var defaults: UserDefaults {
         UserDefaults(suiteName: "group.app.critalarm") ?? .standard
     }
 
-    /// True when an answer may end the ring: it carries the moment its
-    /// question went out, and no push armed a ring at or after that moment.
-    /// No mark on record means no push came since this build.
-    static func mayApply(checkedAt: Date?, armedAt: Date?) -> Bool {
-        guard let checkedAt else { return false }
-        guard let armedAt else { return true }
-        return armedAt < checkedAt
+    static func decide(expected: Int?, current: Int, live: Bool) -> Outcome {
+        guard let expected, expected == current else { return .refused }
+        return live ? .stopped : .nothing
     }
 
-    /// True when a Live Activity update about the stage that opened at
-    /// [updateOpenedAt] can be about the stage ringing here.
-    static func updateEndsRingingStage(updateOpenedAt: Date, stageStartedAt: Date?) -> Bool {
-        guard let stageStartedAt else { return true }
-        return updateOpenedAt >= stageStartedAt.addingTimeInterval(-liveActivityMargin)
+    static func current(incidentId: String) -> Int {
+        (defaults.dictionary(forKey: key)?[incidentId] as? Int) ?? 0
     }
 
-    static func markArmed(incidentId: String, startsStage: Bool, at now: Date = Date()) {
-        write(key: armedKey, incidentId: incidentId, date: now)
-        if startsStage || stageStartedAt(incidentId: incidentId) == nil {
-            write(key: stageKey, incidentId: incidentId, date: now)
+    @discardableResult
+    static func bump(incidentId: String) -> Int {
+        var values = defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
+        let next = (values[incidentId] ?? 0) + 1
+        values[incidentId] = next
+        // The map only needs incidents that can still ring. Past a few
+        // hundred, the others go; a forgotten one starts again from zero.
+        if values.count > 300 {
+            var kept = Dictionary(uniqueKeysWithValues: values.prefix(200).map { ($0.key, $0.value) })
+            kept[incidentId] = next
+            values = kept
+        }
+        defaults.set(values, forKey: key)
+        return next
+    }
+
+    /// True when this phone rings for [incidentId] now or has a ring set for
+    /// it: an AlarmKit alarm in any state, or a re-arm waiting (the
+    /// notification form on older iPhones). Alarms that cannot be read count
+    /// as set.
+    static func ringIsSet(incidentId: String) -> Bool {
+        if IncidentRearm.debugEntries()[incidentId] != nil { return true }
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+            return (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+        }
+        #endif
+        return false
+    }
+
+    /// Applies a state the server named, asked under generation [expected],
+    /// as one serial step: read, decide, cancel. [applyWhenNothingSet] lets
+    /// the Live Activity path still update the card and the widgets for an
+    /// accepted answer when nothing was ringing.
+    @available(iOS 16.2, *)
+    @MainActor
+    static func applyIfCurrent(
+        _ state: IncidentActivityState,
+        incidentId: String,
+        expected: Int?,
+        applyWhenNothingSet: Bool = false
+    ) async -> Outcome {
+        await AlarmSerial.shared.run {
+            let outcome = decide(
+                expected: expected,
+                current: current(incidentId: incidentId),
+                live: ringIsSet(incidentId: incidentId)
+            )
+            switch outcome {
+            case .refused:
+                NSLog("CritAlarmAlarm: remote_state_refused reason=newer_ring incident_id=%@", incidentId)
+            case .nothing:
+                if applyWhenNothingSet {
+                    await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+                }
+            case .stopped:
+                await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+            }
+            return outcome
         }
     }
+}
 
-    static func armedAt(incidentId: String) -> Date? { read(key: armedKey, incidentId: incidentId) }
+/// One step at a time for everything that sets or stops an incident ring:
+/// push arming, Stop's re-arm and every guarded stop. A step waits for the
+/// one before it to finish, awaits included, so a stop that checked the
+/// generation always cancels before a newer ring is armed.
+@MainActor
+final class AlarmSerial {
+    static let shared = AlarmSerial()
 
-    static func stageStartedAt(incidentId: String) -> Date? {
-        read(key: stageKey, incidentId: incidentId)
-    }
+    private var tail: Task<Void, Never>?
 
-    private static func read(key: String, incidentId: String) -> Date? {
-        (defaults.dictionary(forKey: key)?[incidentId] as? Double).map(Date.init(timeIntervalSince1970:))
-    }
-
-    private static func write(key: String, incidentId: String, date: Date) {
-        var values = defaults.dictionary(forKey: key) as? [String: Double] ?? [:]
-        values[incidentId] = date.timeIntervalSince1970
-        // Two days covers any ring window; older marks go so the map stays small.
-        let cutoff = date.addingTimeInterval(-2 * 24 * 3600).timeIntervalSince1970
-        values = values.filter { $0.value >= cutoff }
-        defaults.set(values, forKey: key)
+    func run<T>(_ step: @escaping @MainActor () async -> T) async -> T {
+        let previous = tail
+        let task = Task { @MainActor () -> T in
+            await previous?.value
+            return await step()
+        }
+        tail = Task { @MainActor in _ = await task.value }
+        return await task.value
     }
 }

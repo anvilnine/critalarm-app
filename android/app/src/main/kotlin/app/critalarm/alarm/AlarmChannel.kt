@@ -12,6 +12,8 @@ import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.push.PushRouter
+import app.critalarm.push.RingLocks
+import app.critalarm.push.RemoteStateRule
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -159,12 +161,16 @@ class AlarmChannel(private val context: Context) {
                 // This incident only. One service holds every un-acked
                 // incident, and stopping it outright silenced the others too.
                 AlarmForegroundService.stopIncident(context, incidentId)
-                val seconds = IncidentRearm.rearm(
-                    context = context,
-                    incidentId = incidentId,
-                    title = call.argument<String>("title"),
-                    body = call.argument<String>("body"),
-                )
+                // Under the incident's lock, so it never lands between a
+                // guarded stop's check and its cancel.
+                val seconds = synchronized(RingLocks.of(incidentId)) {
+                    IncidentRearm.rearm(
+                        context = context,
+                        incidentId = incidentId,
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                    )
+                }
                 IncidentCards.show(
                     context = context,
                     incidentId = incidentId,
@@ -190,19 +196,33 @@ class AlarmChannel(private val context: Context) {
             "applyRemoteState" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {
-                    result.success(false)
+                    result.success(RemoteStateRule.Outcome.REFUSED.wire)
                     return
                 }
                 result.success(
                     PushRouter(context).applyRemoteState(
                         incidentId = incidentId,
                         state = call.argument<String>("state"),
-                        checkedAtMillis = call.argument<Number>("checked_at")?.toLong(),
-                    ),
+                        expectedGeneration = call.argument<Number>("generation")?.toLong(),
+                    ).wire,
                 )
             }
 
             "liveIncidentIds" -> result.success(PushRouter(context).liveIncidentIds())
+
+            // Read before Dart asks the server, handed back with the answer.
+            "ringGeneration" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(null)
+                    return
+                }
+                result.success(
+                    synchronized(RingLocks.of(incidentId)) {
+                        IncidentDeliveryStore(context).ringGeneration(incidentId)
+                    },
+                )
+            }
 
             // The acked cards this device still has up. They are plain
             // notifications rather than Live Activities, so the store is the

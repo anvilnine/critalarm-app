@@ -27,16 +27,30 @@ object RemoteStateRule {
         else -> null
     }
 
+    /** What applying a state the server named did, in the words Dart reads. */
+    enum class Outcome(val wire: String) {
+        /** The answer was for the ring going now, and a ring was stopped. */
+        STOPPED("stopped"),
+
+        /** The answer was for the ring going now, and nothing was set to ring. */
+        NOTHING("nothing"),
+
+        /** A push armed a ring since the question went out, or no generation came with it. */
+        REFUSED("refused"),
+    }
+
     /**
-     * True when an answer may end the ring: it carries the moment its
-     * question went out ([checkedAtMillis]), and no push armed a ring for the
-     * incident at or after that moment. A push after the question can be a
-     * reopen the answer knew nothing about. No arm time on record means no
-     * push came since this build, so nothing can have reopened it.
+     * Whether an answer may end the ring. The caller read the incident's ring
+     * generation ([expectedGeneration]) before its question went out; every
+     * push that arms a ring moves the generation on, and Stop's own re-arm
+     * does not. A changed generation means a push, which can be a reopen,
+     * came after the question, so the answer may be about the stage before.
+     * No clock is read: a phone whose clock jumps cannot fool this.
      */
-    fun mayApply(checkedAtMillis: Long?, ringArmedAtMillis: Long?): Boolean {
-        if (checkedAtMillis == null) return false
-        return ringArmedAtMillis == null || ringArmedAtMillis < checkedAtMillis
+    fun decide(expectedGeneration: Long?, currentGeneration: Long, live: Boolean): Outcome = when {
+        expectedGeneration == null || expectedGeneration != currentGeneration -> Outcome.REFUSED
+        !live -> Outcome.NOTHING
+        else -> Outcome.STOPPED
     }
 
     /** The `state` of a `GET /v1/incidents/{id}` answer, or null when it has none. */
@@ -98,4 +112,15 @@ object CallDeadline {
         }
         return answer.get()
     }
+}
+
+/**
+ * One lock per incident. Push arming, Stop's re-arm and every guarded stop
+ * take it, so reading the ring generation and cancelling can never interleave
+ * with a push that arms a new ring.
+ */
+object RingLocks {
+    private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    fun of(incidentId: String): Any = locks.getOrPut(incidentId) { Any() }
 }

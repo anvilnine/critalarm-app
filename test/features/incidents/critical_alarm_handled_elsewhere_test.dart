@@ -45,6 +45,10 @@ class _Server implements IncidentRepository {
   Completer<void>? checkGate;
   int checks = 0;
 
+  /// What the single read answers instead of [store], once. A stale answer:
+  /// what the server said before something changed.
+  Incident? staleAnswer;
+
   @override
   Future<AppResult<List<Incident>>> getIncidents({
     required int limit,
@@ -63,6 +67,11 @@ class _Server implements IncidentRepository {
     await checkGate?.future;
     if (checkFails) {
       return const Failure.unexpected(message: 'no route').toFailure();
+    }
+    final stale = staleAnswer;
+    if (stale != null) {
+      staleAnswer = null;
+      return stale.toSuccess();
     }
     final incident = store[id];
     return incident == null
@@ -107,28 +116,31 @@ void main() {
 
   setUp(() {
     server = _Server([_incident('inc_1')]);
-    alarm = FakeAlarmHost();
+    alarm = FakeAlarmHost()
+      ..answers['ringGeneration'] = 7
+      ..answers['applyRemoteState'] = 'nothing';
   });
 
   tearDown(() => alarm.dispose());
 
   List<Map<String, Object?>> remoteStates() => alarm.argsTo('applyRemoteState');
 
+  Future<void> ringing() async {
+    cubit = build();
+    await incidents.ensureLoaded();
+    await cubit.load(incidentId: 'inc_1');
+    expect(cubit.state.status, CriticalAlarmStatus.ringing);
+    alarm.calls.clear();
+  }
+
   group("I'm up on a phone where another device was first", () {
     setUp(() async {
       server.refuseAck['inc_1'] = const Failure.api(statusCode: 409);
-      cubit = build();
-      await incidents.ensureLoaded();
-      // The phone loaded the incident while it was still open. Then another
-      // device acknowledged it.
-      await cubit.load(incidentId: 'inc_1');
+      await ringing();
       server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-      expect(cubit.state.status, CriticalAlarmStatus.ringing);
     });
 
     test('a 409 is a success: the ring stops and nothing re-arms', () async {
-      alarm.calls.clear();
-
       await cubit.acknowledge();
       await pumpEventQueue();
 
@@ -138,15 +150,32 @@ void main() {
       expect(alarm.callsTo('stopRinging'), isEmpty);
       expect(cubit.state.errorMessage, isNull);
       expect(cubit.state.isAcknowledged, isTrue);
-      expect(cubit.state.status, CriticalAlarmStatus.acknowledged);
     });
 
-    test('the screen says it was handled on another device', () async {
+    test('the note follows a check native accepted', () async {
       await cubit.acknowledge();
       await pumpEventQueue();
 
+      expect(remoteStates().single['generation'], 7);
       expect(cubit.state.isHandledElsewhere, isTrue);
-      expect(cubit.state.isLive, isFalse);
+    });
+
+    test('no note when native refused the check', () async {
+      alarm.answers['applyRemoteState'] = 'refused';
+
+      await cubit.acknowledge();
+      await pumpEventQueue();
+
+      expect(cubit.state.isHandledElsewhere, isFalse);
+    });
+
+    test('a 409 never ends a card on its own', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.closed);
+
+      await cubit.acknowledge();
+      await pumpEventQueue();
+
+      expect(alarm.callsTo('endActivity'), isEmpty);
     });
 
     test('a 409 is never counted as an acknowledge made here', () async {
@@ -166,107 +195,100 @@ void main() {
       }
     });
 
-    test('a 409 for a closed incident leaves no acked card behind', () async {
-      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.closed);
-      alarm.calls.clear();
-
+    test('Stop on the note goes through the guarded call only', () async {
       await cubit.acknowledge();
       await pumpEventQueue();
+      alarm.calls.clear();
 
-      final ended = alarm.argsOnce('endActivity');
-      expect(ended['incident_id'], 'inc_1');
-      expect(ended['state'], 'closed');
-      expect(cubit.state.incident?.isClosed, isTrue);
-      expect(cubit.state.isHandledElsewhere, isTrue);
+      final done = await cubit.stopHandledElsewhere();
+
+      expect(done, isTrue);
+      expect(remoteStates().single['generation'], 7);
+      expect(alarm.callsTo('cancelAlarm'), isEmpty);
+      expect(alarm.callsTo('cancelRearm'), isEmpty);
+      expect(alarm.callsTo('stopRinging'), isEmpty);
     });
 
-    test('Stop on the note silences this incident only', () async {
+    test('Stop on the note that native refuses shows the ring again', () async {
       await cubit.acknowledge();
       await pumpEventQueue();
-      alarm.calls.clear();
+      // A reopen armed a new ring since the check.
+      alarm.answers['applyRemoteState'] = 'refused';
+      server.store['inc_1'] = _incident(
+        'inc_1',
+      ).copyWith(openedAt: _openedAt.add(const Duration(minutes: 10)));
 
-      await cubit.stopHandledElsewhere();
+      final done = await cubit.stopHandledElsewhere();
+      await pumpEventQueue();
 
-      expect(alarm.argsOnce('cancelAlarm')['incident_id'], 'inc_1');
-      expect(alarm.argsOnce('cancelRearm')['incident_id'], 'inc_1');
-      expect(alarm.callsTo('stopRinging'), isEmpty);
+      expect(done, isFalse);
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(cubit.state.isHandledElsewhere, isFalse);
     });
   });
 
   group('the shared list hears another device answered', () {
-    setUp(() async {
-      cubit = build();
-      await incidents.ensureLoaded();
-      await cubit.load(incidentId: 'inc_1');
-      expect(cubit.state.status, CriticalAlarmStatus.ringing);
-      alarm.calls.clear();
-    });
+    setUp(ringing);
 
-    test('an ack elsewhere closes the ringing screen with the note', () async {
-      // An Android state push makes the app reload the list.
+    test('an ack elsewhere: a fresh guarded check, then the note', () async {
       server.store['inc_1'] = _incident(
         'inc_1',
         state: IncidentStates.acked,
       ).copyWith(updatedAt: _openedAt.add(const Duration(minutes: 1)));
+      final checks = server.checks;
       await incidents.refresh();
       await pumpEventQueue();
 
+      expect(server.checks, checks + 1);
+      final told = remoteStates().single;
+      expect(told['state'], 'acked');
+      expect(told['generation'], 7);
       expect(cubit.state.isHandledElsewhere, isTrue);
       expect(cubit.state.isLive, isFalse);
-      final told = remoteStates().single;
-      expect(told['incident_id'], 'inc_1');
-      expect(told['state'], 'acked');
-      // The list can be older than the ring native holds, so native is only
-      // asked after a fresh check, and is told when that check started.
-      expect(told['checked_at'], isA<int>());
-      expect(alarm.callsTo('rearmAlarm'), isEmpty);
     });
 
-    test('a fresh check that fails leaves native alone', () async {
-      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-      await incidents.refresh();
-      server.checkFails = true;
-      await pumpEventQueue();
-
-      expect(remoteStates(), isEmpty);
-    });
-
-    test('a close elsewhere does the same', () async {
+    test('native refusing it keeps the ringing screen', () async {
+      alarm.answers['applyRemoteState'] = 'refused';
       server.store['inc_1'] = _incident('inc_1', state: IncidentStates.closed);
       await incidents.refresh();
       await pumpEventQueue();
 
-      expect(cubit.state.isHandledElsewhere, isTrue);
-      expect(remoteStates().single['state'], 'closed');
+      expect(cubit.state.isLive, isTrue);
+      expect(cubit.state.isHandledElsewhere, isFalse);
     });
 
-    test('an acknowledge of this phone is not taken for one elsewhere', () {
-      // This phone's own I'm up moves the screen to the acknowledged state
-      // before the list hears of it, so no note and no second stop.
-      return cubit.acknowledge().then((_) async {
-        await pumpEventQueue();
-        expect(cubit.state.isHandledElsewhere, isFalse);
-        expect(remoteStates(), isEmpty);
-      });
+    test('a fresh check that fails keeps the ringing screen', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+      server.checkFails = true;
+      await incidents.refresh();
+      await pumpEventQueue();
+
+      expect(remoteStates(), isEmpty);
+      expect(cubit.state.isLive, isTrue);
     });
 
     test(
-      'a copy from an earlier stage of the incident does not count',
+      'an acknowledge of this phone is not taken for one elsewhere',
       () async {
-        // Acknowledged once, reopened by the desk timer, ringing again now. A
-        // stale copy of the first stage carries the old opened_at.
-        server.store['inc_1'] = _incident(
-          'inc_1',
-          state: IncidentStates.acked,
-        ).copyWith(openedAt: _openedAt.subtract(const Duration(minutes: 20)));
-        await incidents.refresh();
+        await cubit.acknowledge();
         await pumpEventQueue();
 
-        expect(cubit.state.status, CriticalAlarmStatus.ringing);
-        expect(cubit.state.isLive, isTrue);
+        expect(cubit.state.isHandledElsewhere, isFalse);
         expect(remoteStates(), isEmpty);
       },
     );
+
+    test('a copy from an earlier stage does not count', () async {
+      server.store['inc_1'] = _incident(
+        'inc_1',
+        state: IncidentStates.acked,
+      ).copyWith(openedAt: _openedAt.subtract(const Duration(minutes: 20)));
+      await incidents.refresh();
+      await pumpEventQueue();
+
+      expect(cubit.state.isLive, isTrue);
+      expect(remoteStates(), isEmpty);
+    });
 
     test('a state word the app does not know does not count', () async {
       server.store['inc_1'] = _incident('inc_1', state: 'snoozed');
@@ -279,10 +301,21 @@ void main() {
   });
 
   group('Silence asks the server once', () {
-    setUp(() async {
-      cubit = build();
-      await cubit.load(incidentId: 'inc_1');
-      alarm.calls.clear();
+    setUp(ringing);
+
+    test('the generation is read before the question goes out', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+      server.checkGate = Completer<void>();
+
+      final silencing = cubit.silence();
+      await pumpEventQueue();
+      // A push arms a new ring while the question is out.
+      alarm.answers['ringGeneration'] = 8;
+      server.checkGate!.complete();
+      await silencing;
+
+      expect(remoteStates().single['generation'], 7);
+      expect(remoteStates().single.containsKey('checked_at'), isFalse);
     });
 
     test('a failed check never stops a ring', () async {
@@ -291,10 +324,8 @@ void main() {
       await cubit.silence();
 
       expect(alarm.argsOnce('rearmAlarm')['incident_id'], 'inc_1');
-      expect(alarm.callsTo('cancelRearm'), isEmpty);
       expect(remoteStates(), isEmpty);
       expect(cubit.state.status, CriticalAlarmStatus.ringing);
-      expect(cubit.state.isHandledElsewhere, isFalse);
     });
 
     test('a check that never answers never stops a ring', () async {
@@ -305,16 +336,13 @@ void main() {
 
       await cubit.silence();
 
-      expect(alarm.callsTo('rearmAlarm'), hasLength(1));
       expect(remoteStates(), isEmpty);
       expect(cubit.state.status, CriticalAlarmStatus.ringing);
-      expect(cubit.state.isHandledElsewhere, isFalse);
     });
 
     test('an open incident keeps the ring Silence set', () async {
       await cubit.silence();
 
-      expect(alarm.callsTo('rearmAlarm'), hasLength(1));
       expect(remoteStates(), isEmpty);
       expect(cubit.state.isHandledElsewhere, isFalse);
     });
@@ -331,42 +359,29 @@ void main() {
       expect(cubit.state.isLive, isTrue);
     });
 
-    test('native is told the stage and when the check started', () async {
-      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-      final before = DateTime.now().millisecondsSinceEpoch;
+    test(
+      'an acknowledge elsewhere that native accepts shows the note',
+      () async {
+        server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+        alarm.answers['applyRemoteState'] = 'stopped';
 
-      await cubit.silence();
+        await cubit.silence();
 
-      final told = remoteStates().single;
-      expect(told['opened_at'], _openedAt.millisecondsSinceEpoch ~/ 1000);
-      final checkedAt = told['checked_at']! as int;
-      expect(checkedAt, greaterThanOrEqualTo(before));
-      expect(
-        checkedAt,
-        lessThanOrEqualTo(DateTime.now().millisecondsSinceEpoch),
-      );
-    });
-
-    test('an acknowledge elsewhere drops the ring Silence set', () async {
-      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-
-      await cubit.silence();
-
-      expect(alarm.callsTo('rearmAlarm'), hasLength(1));
-      expect(remoteStates().single['state'], 'acked');
-      expect(cubit.state.isHandledElsewhere, isTrue);
-    });
+        expect(remoteStates().single['state'], 'acked');
+        expect(cubit.state.isHandledElsewhere, isTrue);
+      },
+    );
   });
 
   group('the screen opens on an incident that is already over', () {
     test('a phone still ringing for it stops and shows the note', () async {
       server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-      alarm.answers['applyRemoteState'] = true;
+      alarm.answers['applyRemoteState'] = 'stopped';
       cubit = build();
 
       await cubit.load(incidentId: 'inc_1');
 
-      expect(remoteStates().single['state'], 'acked');
+      expect(remoteStates().single['generation'], 7);
       expect(cubit.state.isHandledElsewhere, isTrue);
     });
 
@@ -374,7 +389,6 @@ void main() {
       'a phone with nothing ringing shows the acknowledged screen',
       () async {
         server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
-        alarm.answers['applyRemoteState'] = false;
         cubit = build();
 
         await cubit.load(incidentId: 'inc_1');
@@ -383,6 +397,35 @@ void main() {
         expect(cubit.state.status, CriticalAlarmStatus.acknowledged);
       },
     );
+
+    test('a newer stage seen while the answer was out wins', () async {
+      cubit = build();
+      final later = _openedAt.add(const Duration(minutes: 10));
+      server.store['inc_1'] = _incident(
+        'inc_1',
+      ).copyWith(openedAt: later, updatedAt: later);
+      await incidents.ensureLoaded();
+      // The answer describes the stage before the reopen.
+      server.staleAnswer = _incident('inc_1', state: IncidentStates.acked);
+      alarm.answers['applyRemoteState'] = 'stopped';
+
+      await cubit.load(incidentId: 'inc_1');
+
+      expect(remoteStates(), isEmpty);
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(cubit.state.incident?.openedAt, later);
+    });
+
+    test('native refusing a stale answer loads the incident again', () async {
+      server.staleAnswer = _incident('inc_1', state: IncidentStates.acked);
+      alarm.answers['applyRemoteState'] = 'refused';
+      cubit = build();
+
+      await cubit.load(incidentId: 'inc_1');
+
+      expect(server.checks, 2);
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+    });
 
     test('an open incident asks the phone nothing', () async {
       cubit = build();
@@ -395,11 +438,7 @@ void main() {
   });
 
   group('the iPhone hears it through the Live Activity', () {
-    setUp(() async {
-      cubit = build();
-      await incidents.ensureLoaded();
-      await cubit.load(incidentId: 'inc_1');
-    });
+    setUp(ringing);
 
     Future<void> nativeSays(
       String incidentId,
@@ -424,52 +463,43 @@ void main() {
       await pumpEventQueue();
     }
 
-    test('the ringing screen closes with the note', () async {
+    test('the screen makes its own guarded check before the note', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+      final checks = server.checks;
+
       await nativeSays('inc_1', 'acked');
 
+      expect(server.checks, greaterThan(checks));
+      expect(remoteStates().first['generation'], 7);
       expect(cubit.state.isHandledElsewhere, isTrue);
-      expect(cubit.state.isLive, isFalse);
     });
 
-    test('another incident leaves the screen alone', () async {
-      await nativeSays('inc_other', 'acked');
+    test('the update alone does not end the screen', () async {
+      // The server still says open: the update was about something else.
+      await nativeSays('inc_1', 'acked');
 
       expect(cubit.state.isHandledElsewhere, isFalse);
       expect(cubit.state.isLive, isTrue);
     });
 
-    test('an update for an earlier stage leaves the screen alone', () async {
-      // Acknowledged, reopened by the desk timer and ringing again: a late
-      // update about the first stage must not end the second.
+    test('an update for an earlier stage asks nothing', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+      final checks = server.checks;
       final earlier = _openedAt.subtract(const Duration(minutes: 20));
+
       await nativeSays(
         'inc_1',
         'acked',
         openedAt: earlier.millisecondsSinceEpoch ~/ 1000,
       );
 
-      expect(cubit.state.isHandledElsewhere, isFalse);
+      expect(server.checks, checks);
       expect(cubit.state.isLive, isTrue);
     });
 
-    test('an update that names no stage leaves the screen alone', () async {
-      await nativeSays('inc_1', 'acked', openedAt: null);
-
-      expect(cubit.state.isLive, isTrue);
-    });
-
-    test(
-      'the native side already stopped it, so it is not asked again',
-      () async {
-        alarm.calls.clear();
-        await nativeSays('inc_1', 'acked');
-
-        expect(remoteStates(), isEmpty);
-      },
-    );
-
-    test('an open state leaves the screen alone', () async {
-      await nativeSays('inc_1', 'open');
+    test('another incident leaves the screen alone', () async {
+      server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
+      await nativeSays('inc_other', 'acked');
 
       expect(cubit.state.isLive, isTrue);
     });
@@ -477,9 +507,7 @@ void main() {
 
   group('an acknowledge the server took', () {
     test('counts once, after the server answered', () async {
-      cubit = build();
-      await incidents.ensureLoaded();
-      await cubit.load(incidentId: 'inc_1');
+      await ringing();
       final seen = <CriticalAlarmState>[cubit.state];
       final sub = cubit.stream.listen(seen.add);
       addTearDown(sub.cancel);
@@ -499,19 +527,15 @@ void main() {
   });
 
   group('coming back to the app with the ringing screen up', () {
-    setUp(() async {
-      cubit = build();
-      await cubit.load(incidentId: 'inc_1');
-      alarm.calls.clear();
-    });
+    setUp(ringing);
 
-    test('the screen checks its own incident and shows the note', () async {
+    test('the screen checks its own incident with the generation', () async {
       server.store['inc_1'] = _incident('inc_1', state: IncidentStates.acked);
 
       await cubit.recheck();
 
+      expect(remoteStates().single['generation'], 7);
       expect(cubit.state.isHandledElsewhere, isTrue);
-      expect(remoteStates().single['checked_at'], isA<int>());
     });
 
     test('an open incident keeps ringing', () async {

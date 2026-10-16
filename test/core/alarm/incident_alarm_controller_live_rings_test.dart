@@ -46,7 +46,9 @@ void main() {
   );
 
   setUp(() {
-    fake = FakeAlarmHost();
+    fake = FakeAlarmHost()
+      ..answers['ringGeneration'] = 3
+      ..answers['applyRemoteState'] = 'stopped';
     applied = [];
   });
 
@@ -56,7 +58,6 @@ void main() {
 
   test('a ring another device acknowledged is stopped', () async {
     fake.answers['liveIncidentIds'] = <String>['inc_1'];
-    fake.answers['applyRemoteState'] = true;
     api = _StatesApiClient(MockServer(), {'inc_1': 'acked'});
 
     await build().stopRingsHandledElsewhere();
@@ -68,7 +69,8 @@ void main() {
       args['opened_at'],
       DateTime.utc(2026, 10, 17, 3).millisecondsSinceEpoch ~/ 1000,
     );
-    expect(args['checked_at'], isA<int>());
+    expect(args['generation'], 3);
+    expect(args.containsKey('checked_at'), isFalse);
     expect(applied.single.isAcked, isTrue);
   });
 
@@ -163,6 +165,27 @@ void main() {
     onScreen = true;
     api.gate!.complete();
     await sweep;
+
+    expect(told(), isEmpty);
+  });
+
+  test('an answer native refuses changes nothing here', () async {
+    fake.answers['liveIncidentIds'] = <String>['inc_1'];
+    fake.answers['applyRemoteState'] = 'refused';
+    api = _StatesApiClient(MockServer(), {'inc_1': 'acked'});
+
+    await build().stopRingsHandledElsewhere();
+
+    expect(told(), hasLength(1));
+    expect(applied, isEmpty);
+  });
+
+  test('no generation, no stop', () async {
+    fake.answers['liveIncidentIds'] = <String>['inc_1'];
+    fake.answers['ringGeneration'] = null;
+    api = _StatesApiClient(MockServer(), {'inc_1': 'acked'});
+
+    await build().stopRingsHandledElsewhere();
 
     expect(told(), isEmpty);
   });

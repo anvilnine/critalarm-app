@@ -202,42 +202,82 @@ final class RemoteStateCheckTests: XCTestCase {
 }
 
 /// Whether an answer about an incident may still end the ring this phone
-/// holds, or names an earlier stage of it.
-final class RingStageTests: XCTestCase {
-    private let t0 = Date(timeIntervalSince1970: 1_760_000_000)
-
-    func testAnAnswerCountsWhenNoRingWasArmedAfterTheQuestion() {
-        XCTAssertTrue(RingStage.mayApply(checkedAt: t0, armedAt: t0.addingTimeInterval(-5)))
-        XCTAssertTrue(RingStage.mayApply(checkedAt: t0, armedAt: nil))
+/// holds: the ring generation it was asked under, and the serial step that
+/// push arming and every guarded stop share.
+final class RingGenerationTests: XCTestCase {
+    func testAnAnswerForTheGenerationGoingNowStopsALiveRing() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: true), .stopped)
     }
 
-    func testAnAnswerWithNoTimeNeverCounts() {
-        XCTAssertFalse(RingStage.mayApply(checkedAt: nil, armedAt: nil))
+    func testNothingLiveIsStillAnAcceptedAnswer() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: false), .nothing)
+    }
+
+    func testAPushThatArmedARingSinceWins() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 5, live: true), .refused)
+    }
+
+    func testAnAnswerWithNoGenerationNeverCounts() {
+        XCTAssertEqual(RingGeneration.decide(expected: nil, current: 0, live: true), .refused)
+    }
+
+    func testTheOutcomeWordsMatchWhatDartReads() {
+        XCTAssertEqual(RingGeneration.Outcome.stopped.rawValue, "stopped")
+        XCTAssertEqual(RingGeneration.Outcome.nothing.rawValue, "nothing")
+        XCTAssertEqual(RingGeneration.Outcome.refused.rawValue, "refused")
+    }
+
+    func testAPushMovesTheGenerationOnByOne() {
+        let id = "inc_gen_\(UUID().uuidString)"
+        let before = RingGeneration.current(incidentId: id)
+        RingGeneration.bump(incidentId: id)
+        XCTAssertEqual(RingGeneration.current(incidentId: id), before + 1)
     }
 
     func testTheCheckAnswerCarriesTheStage() {
         let body = Data(#"{"id":"inc_1","state":"acked","opened_at":1760000000}"#.utf8)
         let answer = RemoteStateCheck.answer(status: 200, body: body)
         XCTAssertEqual(answer?.state, "acked")
-        XCTAssertEqual(answer?.openedAt, t0)
+        XCTAssertEqual(answer?.openedAt, Date(timeIntervalSince1970: 1_760_000_000))
     }
 
-    func testARingArmedAfterTheQuestionWins() {
-        XCTAssertFalse(RingStage.mayApply(checkedAt: t0, armedAt: t0.addingTimeInterval(5)))
-        XCTAssertFalse(RingStage.mayApply(checkedAt: t0, armedAt: t0))
+    @MainActor
+    func testOneStepRunsAtATime() async {
+        var order: [String] = []
+        let gate = AsyncGate()
+        let first = Task { @MainActor in
+            await AlarmSerial.shared.run {
+                order.append("first starts")
+                await gate.wait()
+                order.append("first ends")
+            }
+        }
+        await Task.yield()
+        let second = Task { @MainActor in
+            await AlarmSerial.shared.run { order.append("second") }
+        }
+        for _ in 0 ..< 5 { await Task.yield() }
+        XCTAssertEqual(order, ["first starts"])
+        await gate.open()
+        await first.value
+        await second.value
+        XCTAssertEqual(order, ["first starts", "first ends", "second"])
+    }
+}
+
+/// Holds a step until the test opens it.
+actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
     }
 
-    func testALiveActivityUpdateForTheRingingStageEndsIt() {
-        XCTAssertTrue(RingStage.updateEndsRingingStage(
-            updateOpenedAt: t0, stageStartedAt: t0.addingTimeInterval(3)
-        ))
-        XCTAssertTrue(RingStage.updateEndsRingingStage(updateOpenedAt: t0, stageStartedAt: nil))
-    }
-
-    func testAnUpdateForAnEarlierStageDoesNot() {
-        // The reopen push rang this phone ten minutes after that stage opened.
-        XCTAssertFalse(RingStage.updateEndsRingingStage(
-            updateOpenedAt: t0, stageStartedAt: t0.addingTimeInterval(600)
-        ))
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
     }
 }

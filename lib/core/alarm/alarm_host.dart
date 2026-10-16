@@ -256,40 +256,41 @@ final class AlarmHost {
   Future<void> cancelRearm(String incidentId) async =>
       _invoke<void>('cancelRearm', {'incident_id': incidentId});
 
+  /// The ring generation of [incidentId] on this phone: a counter every
+  /// push that arms a ring for it moves on by one. A Stop's own re-arm does
+  /// not. Read it before asking the server, and hand it to
+  /// [applyRemoteState] with the answer. Null where the platform has none.
+  Future<int?> ringGeneration(String incidentId) async =>
+      _invoke<int>('ringGeneration', {'incident_id': incidentId});
+
   /// The server says [incidentId] is [state] (`acked`, `closed` or
-  /// `expired`), which it learned from somewhere other than this phone.
+  /// `expired`), in answer to a question asked when the ring generation was
+  /// [generation].
   ///
   /// The native side does what a state push does (api.md §5.2): stops the
   /// ring, drops the phone's own next ring and moves or takes down the card.
-  /// It does that only when this phone is ringing for the incident or has a
-  /// ring set for it, so calling it for an incident that went quiet long ago
-  /// touches nothing. Answers true when it stopped something, false when
-  /// there was nothing to stop or the platform has no such call.
+  /// It first checks, in the same step that push arming goes through, that
+  /// the generation has not moved. If a push armed a ring since the question
+  /// went out, the answer may be about the stage before a reopen, and it is
+  /// refused. A missing [generation] is always refused.
   ///
-  /// Only a state the server named may reach here. A failed check is not a
-  /// state.
-  ///
-  /// [checkedAt] is when the question that got this answer went out, on this
-  /// phone's clock. The native side refuses the call when a push armed a ring
-  /// for the incident at or after that moment: the answer may be about an
-  /// earlier stage, from before a reopen. [openedAt] is the stage the answer
-  /// is about, sent along for the log. No push carries `opened_at` (api.md
-  /// §5.1, §5.2), so the native side has no stage of its own to hold it
-  /// against; the arm time is what it has.
-  Future<bool> applyRemoteState(
+  /// [openedAt] is the stage the answer is about, sent along for the log.
+  Future<RemoteApply> applyRemoteState(
     String incidentId,
     String state, {
-    required DateTime checkedAt,
+    required int? generation,
     DateTime? openedAt,
-  }) async =>
-      await _invoke<bool>('applyRemoteState', {
-        'incident_id': incidentId,
-        'state': state,
-        'checked_at': checkedAt.millisecondsSinceEpoch,
-        if (openedAt != null)
-          'opened_at': openedAt.millisecondsSinceEpoch ~/ 1000,
-      }) ??
-      false;
+  }) async {
+    if (generation == null) return RemoteApply.refused;
+    final answer = await _invoke<String>('applyRemoteState', {
+      'incident_id': incidentId,
+      'state': state,
+      'generation': generation,
+      if (openedAt != null)
+        'opened_at': openedAt.millisecondsSinceEpoch ~/ 1000,
+    });
+    return RemoteApply.fromWire(answer);
+  }
 
   /// Incidents this phone is ringing for right now or has a ring set for:
   /// an alarm going off, a re-arm waiting, or on Android an alarm push whose
@@ -464,6 +465,30 @@ final class AlarmHost {
     await _magicTaps.close();
     await _remoteStates.close();
   }
+}
+
+/// What the native side did with a state the server named.
+enum RemoteApply {
+  /// The answer was for the ring generation going now, and a ring or a
+  /// ring set for later was stopped.
+  stopped,
+
+  /// The answer was for the ring generation going now, and nothing was
+  /// ringing or set. Still an answer this phone accepts.
+  nothingToStop,
+
+  /// A push armed a ring since the question went out, or the answer was not
+  /// one native takes. Nothing changed.
+  refused;
+
+  /// Native took the answer as true for the ring going now.
+  bool get isAccepted => this != refused;
+
+  static RemoteApply fromWire(String? value) => switch (value) {
+    'stopped' => stopped,
+    'nothing' => nothingToStop,
+    _ => refused,
+  };
 }
 
 /// One incident the native side heard was answered somewhere else.

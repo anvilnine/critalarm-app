@@ -142,6 +142,12 @@ class PushRouter(private val context: Context) {
 
     private fun handleAlarm(payload: FcmIncidentPayload) {
         val incidentId = payload.incidentId ?: return
+        // Arming and every guarded stop take the same lock, so a stop that
+        // read the generation before this push cannot cancel what it arms.
+        synchronized(RingLocks.of(incidentId)) { armFromPush(payload, incidentId) }
+    }
+
+    private fun armFromPush(payload: FcmIncidentPayload, incidentId: String) {
         val store = IncidentDeliveryStore(context)
         if (payload.kind == IncidentPushKind.REPEAT && store.isAcknowledged(incidentId)) {
             Log.i(TAG, "push_dropped reason=already_acked incident_id=$incidentId")
@@ -150,9 +156,9 @@ class PushRouter(private val context: Context) {
         }
         val alreadyActive = store.isActive(incidentId)
         val reopen = payload.kind == IncidentPushKind.REOPEN
-        // The stage mark. An answer asked for before this moment can no
-        // longer end the ring (RemoteStateRule.mayApply).
-        store.rememberRingArmed(incidentId)
+        // The stage mark. An answer asked for under an older generation can
+        // no longer end the ring (RemoteStateRule.decide).
+        store.bumpRingGeneration(incidentId)
         store.activate(incidentId, reopen = reopen)
         patchWidgets(payload, incidentId, store)
         // Written before anything is posted, because a Stop can land seconds
@@ -216,7 +222,7 @@ class PushRouter(private val context: Context) {
      * [incidentId] is [state] (`acked`, `closed` or `expired`). Does exactly
      * what that state push would have done, and only when this phone is
      * ringing for the incident or has a ring set for it ([RemoteStateRule]).
-     * Answers true when it stopped something.
+     * Answers what it did; see [RemoteStateRule.Outcome].
      *
      * Dart calls this once it has the server's answer, and Stop calls it after
      * asking the server once. Either way a push that went missing no longer
@@ -225,22 +231,28 @@ class PushRouter(private val context: Context) {
     fun applyRemoteState(
         incidentId: String,
         state: String?,
-        checkedAtMillis: Long?,
+        expectedGeneration: Long?,
         nowMillis: Long = System.currentTimeMillis(),
-    ): Boolean {
-        val kind = RemoteStateRule.kindForState(state) ?: return false
-        val server = NativeConnectionStore(context).canonicalServer() ?: return false
-        if (!isLiveHere(incidentId, nowMillis)) return false
-        // Read right before anything is cancelled: a ring armed after the
-        // question went out may be a reopen the answer knew nothing about.
-        val armedAt = IncidentDeliveryStore(context).ringArmedAtMillis(incidentId)
-        if (!RemoteStateRule.mayApply(checkedAtMillis, armedAt)) {
-            Log.i(TAG, "remote_state_refused reason=newer_ring incident_id=$incidentId")
-            return false
+    ): RemoteStateRule.Outcome {
+        val kind = RemoteStateRule.kindForState(state) ?: return RemoteStateRule.Outcome.REFUSED
+        val server = NativeConnectionStore(context).canonicalServer()
+            ?: return RemoteStateRule.Outcome.REFUSED
+        // Read, decide and cancel as one step under the lock push arming
+        // takes, so no push can arm a ring in between.
+        synchronized(RingLocks.of(incidentId)) {
+            val outcome = RemoteStateRule.decide(
+                expectedGeneration = expectedGeneration,
+                currentGeneration = IncidentDeliveryStore(context).ringGeneration(incidentId),
+                live = isLiveHere(incidentId, nowMillis),
+            )
+            if (outcome == RemoteStateRule.Outcome.REFUSED) {
+                Log.i(TAG, "remote_state_refused reason=newer_ring incident_id=$incidentId")
+            }
+            if (outcome != RemoteStateRule.Outcome.STOPPED) return outcome
+            applyStateChange(incidentId, server, kind)
+            events.record("remote_state_applied", mapOf("kind" to kind.wireValue))
+            return outcome
         }
-        applyStateChange(incidentId, server, kind)
-        events.record("remote_state_applied", mapOf("kind" to kind.wireValue))
-        return true
     }
 
     /** Incidents this phone is ringing for, holds, or has a ring set for. */

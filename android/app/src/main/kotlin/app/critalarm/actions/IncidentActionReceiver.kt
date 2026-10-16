@@ -23,6 +23,8 @@ import app.critalarm.widgets.WidgetSnapshotPatch
 import app.critalarm.widgets.WidgetSnapshotStore
 import android.app.NotificationManager
 import app.critalarm.push.PushRouter
+import app.critalarm.push.RingLocks
+import app.critalarm.push.RemoteStateRule
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -189,7 +191,11 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf(String::isNotEmpty)
         val body = intent.getStringExtra(EXTRA_BODY)?.takeIf(String::isNotEmpty)
         AlarmForegroundService.stopIncident(context, incidentId)
-        val seconds = IncidentRearm.rearm(context, incidentId, title = title, body = body)
+        // Under the incident's lock, so it never lands between a guarded
+        // stop's check and its cancel.
+        val seconds = synchronized(RingLocks.of(incidentId)) {
+            IncidentRearm.rearm(context, incidentId, title = title, body = body)
+        }
         Log.i(TAG, "alarm_silenced incident_id=$incidentId rearm_in_s=${seconds ?: -1}")
 
         val server = intent.getStringExtra(EXTRA_SERVER)
@@ -226,10 +232,14 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
             try {
-                // Before the question goes out, on this phone's clock.
-                val checkedAt = System.currentTimeMillis()
+                // Before the question goes out. A push that arms a ring while
+                // it is out moves this on, and the answer is then refused.
+                val generation = synchronized(RingLocks.of(incidentId)) {
+                    IncidentDeliveryStore(context).ringGeneration(incidentId)
+                }
                 val state = IncidentContentFetcher.fetchState(context, target, incidentId)
-                if (PushRouter(context).applyRemoteState(incidentId, state, checkedAt)) {
+                val outcome = PushRouter(context).applyRemoteState(incidentId, state, generation)
+                if (outcome == RemoteStateRule.Outcome.STOPPED) {
                     Log.i(TAG, "silence_handled_elsewhere incident_id=$incidentId state=$state")
                 }
             } catch (error: Exception) {

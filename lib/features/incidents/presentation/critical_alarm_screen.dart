@@ -661,7 +661,13 @@ class _HandledElsewhereView extends StatelessWidget {
           AppHaptics.capture();
           final cubit = context.read<CriticalAlarmCubit>();
           final router = GoRouter.of(context);
-          unawaited(cubit.stopHandledElsewhere().then((_) => router.go('/')));
+          // A refusal means a new ring armed since the note went up: the
+          // screen rings again instead of leaving.
+          unawaited(
+            cubit.stopHandledElsewhere().then((mayLeave) {
+              if (mayLeave) router.go('/');
+            }),
+          );
         },
       ),
       slivers: [
