@@ -71,4 +71,16 @@ class RemoteStateRuleTest {
     fun `an incident this phone never rang for is not live`() {
         assertFalse(live())
     }
+
+    @Test
+    fun `an answer counts only when no ring was armed after the question went out`() {
+        assertTrue(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 1_000L))
+        // A reopen push after the question: the answer may be about the old stage.
+        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 3_000L))
+        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 2_000L))
+        // Nothing armed since this build: no push can have reopened it.
+        assertTrue(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = null))
+        // An answer with no time on it never counts.
+        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = null, ringArmedAtMillis = null))
+    }
 }

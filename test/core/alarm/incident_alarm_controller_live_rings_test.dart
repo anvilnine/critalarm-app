@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
@@ -15,13 +16,20 @@ class _StatesApiClient extends MockApiClient {
 
   final Map<String, String> states;
   final asked = <String>[];
+  Completer<void>? gate;
 
   @override
   Future<Incident> getIncident(String id) async {
     asked.add(id);
     final state = states[id];
     if (state == null) throw const SocketException('no route');
-    return Incident(id: id, topic: 'prod-db', state: state);
+    await gate?.future;
+    return Incident(
+      id: id,
+      topic: 'prod-db',
+      state: state,
+      openedAt: DateTime.utc(2026, 10, 17, 3),
+    );
   }
 }
 
@@ -53,7 +61,14 @@ void main() {
 
     await build().stopRingsHandledElsewhere();
 
-    expect(told().single, {'incident_id': 'inc_1', 'state': 'acked'});
+    final args = told().single;
+    expect(args['incident_id'], 'inc_1');
+    expect(args['state'], 'acked');
+    expect(
+      args['opened_at'],
+      DateTime.utc(2026, 10, 17, 3).millisecondsSinceEpoch ~/ 1000,
+    );
+    expect(args['checked_at'], isA<int>());
     expect(applied.single.isAcked, isTrue);
   });
 
@@ -119,5 +134,36 @@ void main() {
     await build().stopRingsHandledElsewhere();
 
     expect(api.asked, hasLength(IncidentAlarmController.liveCheckLimit));
+  });
+
+  test('two resumes in a row run one sweep', () async {
+    fake.answers['liveIncidentIds'] = <String>['inc_1'];
+    api = _StatesApiClient(MockServer(), {'inc_1': 'acked'})
+      ..gate = Completer<void>();
+    final controller = build();
+
+    final first = controller.stopRingsHandledElsewhere();
+    final second = controller.stopRingsHandledElsewhere();
+    await pumpEventQueue();
+    api.gate!.complete();
+    await Future.wait([first, second]);
+
+    expect(fake.callsTo('liveIncidentIds'), hasLength(1));
+    expect(api.asked, ['inc_1']);
+  });
+
+  test('an alarm screen that took the incident meanwhile keeps it', () async {
+    fake.answers['liveIncidentIds'] = <String>['inc_1'];
+    api = _StatesApiClient(MockServer(), {'inc_1': 'acked'})
+      ..gate = Completer<void>();
+    var onScreen = false;
+
+    final sweep = build().stopRingsHandledElsewhere(skip: (_) => onScreen);
+    await pumpEventQueue();
+    onScreen = true;
+    api.gate!.complete();
+    await sweep;
+
+    expect(told(), isEmpty);
   });
 }

@@ -40,6 +40,12 @@ object IncidentContentFetcher {
     const val ACTION_CONNECT_TIMEOUT_MS = 2_000
     const val ACTION_READ_TIMEOUT_MS = 3_000
 
+    /**
+     * The whole state check after Stop, connect to last byte. Stop's
+     * receiver has about ten seconds; this keeps the check well inside them.
+     */
+    const val ACTION_TOTAL_TIMEOUT_MS = 6_000L
+
     private const val TAG = "CritAlarmFetch"
 
     fun fallback(payload: FcmIncidentPayload) = IncidentContent(
@@ -112,29 +118,38 @@ object IncidentContentFetcher {
         incidentId: String,
         connectTimeoutMs: Int = ACTION_CONNECT_TIMEOUT_MS,
         readTimeoutMs: Int = ACTION_READ_TIMEOUT_MS,
+        totalTimeoutMs: Long = ACTION_TOTAL_TIMEOUT_MS,
     ): String? {
         val credentials = NativeConnectionStore(context).credentialsFor(server) ?: return null
         val encoded = URLEncoder.encode(incidentId, "UTF-8").replace("+", "%20")
         val url = credentials.first.toString().trimEnd('/') + "/v1/incidents/" + encoded
+        val open = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
         return try {
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Authorization", "Bearer ${credentials.second}")
-            connection.setRequestProperty("Accept", "application/json")
-            connection.connectTimeout = connectTimeoutMs
-            connection.readTimeout = readTimeoutMs
-            val status = connection.responseCode
-            if (status !in 200..299) {
-                Log.w(TAG, "incident_state_failed_$status incident_id=$incidentId")
-                connection.disconnect()
-                return null
+            CallDeadline.run(
+                timeoutMs = totalTimeoutMs,
+                onTimeout = {
+                    Log.w(TAG, "incident_state_failed reason=deadline incident_id=$incidentId")
+                    open.get()?.disconnect()
+                },
+            ) {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                open.set(connection)
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer ${credentials.second}")
+                connection.setRequestProperty("Accept", "application/json")
+                connection.connectTimeout = connectTimeoutMs
+                connection.readTimeout = readTimeoutMs
+                val status = connection.responseCode
+                if (status !in 200..299) {
+                    Log.w(TAG, "incident_state_failed_$status incident_id=$incidentId")
+                    null
+                } else {
+                    val text = connection.inputStream.bufferedReader().use { it.readText() }
+                    RemoteStateRule.stateOf(text)
+                }
             }
-            val text = connection.inputStream.bufferedReader().use { it.readText() }
-            connection.disconnect()
-            RemoteStateRule.stateOf(text)
-        } catch (error: Exception) {
-            Log.w(TAG, "incident_state_failed incident_id=$incidentId reason=${error.javaClass.simpleName}")
-            null
+        } finally {
+            open.get()?.disconnect()
         }
     }
 

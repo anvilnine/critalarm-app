@@ -177,11 +177,23 @@ struct StopAlarmIntent: LiveActivityIntent {
         // may have answered already, and this phone may have missed the Live
         // Activity update that says so. Only a state the server names takes
         // the ring away again; no answer leaves it as Stop set it.
-        if let raw = await RemoteStateCheck.fetch(incidentId: incidentId),
-           let state = IncidentActivityState(rawValue: raw) {
-            NSLog("CritAlarmAlarm: stop_handled_elsewhere incident_id=%@ state=%@", incidentId, raw)
+        // The stage mark is read after the answer, right before anything is
+        // cancelled: a push that armed a ring after the question went out
+        // may be a reopen the answer knew nothing about.
+        let checkedAt = Date()
+        if let found = await RemoteStateCheck.fetch(incidentId: incidentId),
+           let state = IncidentActivityState(rawValue: found.state) {
+            guard RingStage.mayApply(
+                checkedAt: checkedAt, armedAt: RingStage.armedAt(incidentId: incidentId)
+            ) else {
+                NSLog("CritAlarmAlarm: stop_check_refused reason=newer_ring incident_id=%@", incidentId)
+                return .result()
+            }
+            NSLog("CritAlarmAlarm: stop_handled_elsewhere incident_id=%@ state=%@", incidentId, found.state)
             await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
-            await IncidentActivityCoordinator.shared.reportRemoteState(state, incidentId: incidentId)
+            await IncidentActivityCoordinator.shared.reportRemoteState(
+                state, incidentId: incidentId, openedAt: found.openedAt
+            )
         }
         return .result()
     }

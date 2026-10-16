@@ -43,6 +43,7 @@ class CriticalAlarmState {
     this.doneIncidentId,
     this.isDoneHandedOff = false,
     this.isHandledElsewhere = false,
+    this.isAckPending = false,
   });
 
   final CriticalAlarmStatus status;
@@ -115,6 +116,11 @@ class CriticalAlarmState {
   /// does what they came to do.
   final bool isHandledElsewhere;
 
+  /// "I'm up" was tapped here and the screen already shows it, but the
+  /// server has not answered yet. A 409 never clears this into a confirmed
+  /// acknowledge: it ends on [isHandledElsewhere] instead.
+  final bool isAckPending;
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
@@ -162,6 +168,7 @@ class CriticalAlarmState {
     String? firstToolIncidentId,
     bool? isPreview,
     bool? isHandledElsewhere,
+    bool? isAckPending,
     bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
@@ -198,6 +205,7 @@ class CriticalAlarmState {
       doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
       isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
       isHandledElsewhere: isHandledElsewhere ?? this.isHandledElsewhere,
+      isAckPending: isAckPending ?? this.isAckPending,
     );
   }
 
@@ -231,7 +239,8 @@ class CriticalAlarmState {
           isPreview == other.isPreview &&
           doneIncidentId == other.doneIncidentId &&
           isDoneHandedOff == other.isDoneHandedOff &&
-          isHandledElsewhere == other.isHandledElsewhere;
+          isHandledElsewhere == other.isHandledElsewhere &&
+          isAckPending == other.isAckPending;
 
   @override
   int get hashCode => Object.hash(
@@ -262,6 +271,21 @@ class CriticalAlarmState {
       doneIncidentId,
       isDoneHandedOff,
       isHandledElsewhere,
+      isAckPending,
     ),
   );
 }
+
+/// True on the one change where an acknowledge on this screen becomes
+/// settled: the server took it, or the screen opened on an incident already
+/// acknowledged, or the demo alarm was answered. The real-use stamps and the
+/// sheet after an acknowledge hang off this. A guess still waiting for the
+/// server does not count, and neither does a 409 or any other incident
+/// another device answered.
+bool countsAsConfirmedAck({
+  required CriticalAlarmState previous,
+  required CriticalAlarmState current,
+}) => !_isConfirmedAck(previous) && _isConfirmedAck(current);
+
+bool _isConfirmedAck(CriticalAlarmState state) =>
+    state.isAcknowledged && !state.isAckPending && !state.isHandledElsewhere;

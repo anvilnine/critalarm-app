@@ -292,6 +292,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<AlarmStyleGate>().check());
     unawaited(_retryFailedLaunchCalls());
     _stopRingsHandledElsewhere();
+    // The alarm screen, if it is up and ringing, asks about its own
+    // incident. The sweep above leaves that one to it.
+    unawaited(CriticalAlarmCubit.current?.recheck());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.
     unawaited(getIt<BackgroundConnect>().retryNow());

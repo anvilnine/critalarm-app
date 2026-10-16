@@ -55,10 +55,11 @@ public final class IncidentActivityCoordinator {
 
     /// Told when this phone learned, from a Live Activity update or from
     /// Stop asking the server, that an incident was answered somewhere else
-    /// and its ring is already stopped. Arguments: incident id, state word.
-    /// The app hands it to Dart, so the alarm screen can say why it went
-    /// quiet.
-    public var onRemoteState: ((String, String) -> Void)?
+    /// and its ring is already stopped. Arguments: incident id, state word,
+    /// and the `opened_at` of the stage it is about when known. The app hands
+    /// it to Dart, so the alarm screen can say why it went quiet, and only
+    /// for the stage it is showing.
+    public var onRemoteState: ((String, String, Date?) -> Void)?
 
     /// Tells the host app to open an incident triggered by an alarm button.
     public var onOpenIncident: ((String) -> Void)? {
@@ -177,8 +178,25 @@ public final class IncidentActivityCoordinator {
         let incidentId = activity.attributes.incidentId
         contentWatchers[activity.id] = Task { [weak self] in
             for await content in activity.contentUpdates {
-                await self?.applyRemoteState(content.state.state, incidentId: incidentId)
-                await self?.reportRemoteState(content.state.state, incidentId: incidentId)
+                let update = content.state
+                // An update about an earlier stage of the incident, late
+                // after a reopen rang this phone again, must not end the
+                // new ring. The update names its stage by opened_at.
+                if update.state != .open,
+                   !RingStage.updateEndsRingingStage(
+                       updateOpenedAt: update.openedAt,
+                       stageStartedAt: RingStage.stageStartedAt(incidentId: incidentId)
+                   ) {
+                    NSLog(
+                        "CritAlarmActivity: remote_state_refused reason=earlier_stage incident_id=%@",
+                        incidentId
+                    )
+                    continue
+                }
+                await self?.applyRemoteState(update.state, incidentId: incidentId)
+                await self?.reportRemoteState(
+                    update.state, incidentId: incidentId, openedAt: update.openedAt
+                )
             }
         }
     }
@@ -374,9 +392,13 @@ public final class IncidentActivityCoordinator {
 
     /// Passes an ending state on to the app, if it is listening. Open and the
     /// onboarding card are never passed on.
-    public func reportRemoteState(_ state: IncidentActivityState, incidentId: String) {
+    public func reportRemoteState(
+        _ state: IncidentActivityState,
+        incidentId: String,
+        openedAt: Date?
+    ) {
         guard state != .open, incidentId != Self.onboardingIncidentId else { return }
-        onRemoteState?(incidentId, state.rawValue)
+        onRemoteState?(incidentId, state.rawValue, openedAt)
     }
 
     /// Puts the acknowledge time and the stale date on a card this phone

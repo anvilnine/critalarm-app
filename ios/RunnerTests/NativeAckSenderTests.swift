@@ -200,3 +200,44 @@ final class RemoteStateCheckTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer dv_test")
     }
 }
+
+/// Whether an answer about an incident may still end the ring this phone
+/// holds, or names an earlier stage of it.
+final class RingStageTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_760_000_000)
+
+    func testAnAnswerCountsWhenNoRingWasArmedAfterTheQuestion() {
+        XCTAssertTrue(RingStage.mayApply(checkedAt: t0, armedAt: t0.addingTimeInterval(-5)))
+        XCTAssertTrue(RingStage.mayApply(checkedAt: t0, armedAt: nil))
+    }
+
+    func testAnAnswerWithNoTimeNeverCounts() {
+        XCTAssertFalse(RingStage.mayApply(checkedAt: nil, armedAt: nil))
+    }
+
+    func testTheCheckAnswerCarriesTheStage() {
+        let body = Data(#"{"id":"inc_1","state":"acked","opened_at":1760000000}"#.utf8)
+        let answer = RemoteStateCheck.answer(status: 200, body: body)
+        XCTAssertEqual(answer?.state, "acked")
+        XCTAssertEqual(answer?.openedAt, t0)
+    }
+
+    func testARingArmedAfterTheQuestionWins() {
+        XCTAssertFalse(RingStage.mayApply(checkedAt: t0, armedAt: t0.addingTimeInterval(5)))
+        XCTAssertFalse(RingStage.mayApply(checkedAt: t0, armedAt: t0))
+    }
+
+    func testALiveActivityUpdateForTheRingingStageEndsIt() {
+        XCTAssertTrue(RingStage.updateEndsRingingStage(
+            updateOpenedAt: t0, stageStartedAt: t0.addingTimeInterval(3)
+        ))
+        XCTAssertTrue(RingStage.updateEndsRingingStage(updateOpenedAt: t0, stageStartedAt: nil))
+    }
+
+    func testAnUpdateForAnEarlierStageDoesNot() {
+        // The reopen push rang this phone ten minutes after that stage opened.
+        XCTAssertFalse(RingStage.updateEndsRingingStage(
+            updateOpenedAt: t0, stageStartedAt: t0.addingTimeInterval(600)
+        ))
+    }
+}

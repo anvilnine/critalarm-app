@@ -327,18 +327,13 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   }
 
   Widget _buildAlarm(BuildContext context) {
-    return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
-      // An incident another device answered is not an acknowledge made
-      // here: no haptic, no real-use stamp and no sheet after it.
+    return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
+      // The stamps and the sheet after an acknowledge wait for the server to
+      // take it. A 409, or any incident another device answered, is not an
+      // acknowledge made here and gets neither.
       listenWhen: (previous, current) =>
-          !previous.isAcknowledged &&
-          current.isAcknowledged &&
-          !current.isHandledElsewhere,
+          countsAsConfirmedAck(previous: previous, current: current),
       listener: (context, state) {
-        AppHaptics.success();
-        setState(() {
-          _direction = AmbientDirection.push;
-        });
         // An alarm setup itself caused (its test, or the first hook-up
         // message) is not real use: it stamps nothing and opens no sheet.
         final isRealUse = countsAsRealUse(
@@ -356,6 +351,24 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           unawaited(getIt<InAppNoticeRepository>().markFirstRealAcknowledged());
         }
         unawaited(_afterAck(state));
+      },
+      child: _buildAlarmView(context),
+    );
+  }
+
+  Widget _buildAlarmView(BuildContext context) {
+    return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
+      // The tap is felt at once, before the server answers. An incident
+      // another device answered gets no success haptic.
+      listenWhen: (previous, current) =>
+          !previous.isAcknowledged &&
+          current.isAcknowledged &&
+          !current.isHandledElsewhere,
+      listener: (context, state) {
+        AppHaptics.success();
+        setState(() {
+          _direction = AmbientDirection.push;
+        });
       },
       builder: (context, state) {
         final colors = context.appColors;

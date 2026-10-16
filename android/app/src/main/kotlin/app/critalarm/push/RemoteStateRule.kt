@@ -27,6 +27,18 @@ object RemoteStateRule {
         else -> null
     }
 
+    /**
+     * True when an answer may end the ring: it carries the moment its
+     * question went out ([checkedAtMillis]), and no push armed a ring for the
+     * incident at or after that moment. A push after the question can be a
+     * reopen the answer knew nothing about. No arm time on record means no
+     * push came since this build, so nothing can have reopened it.
+     */
+    fun mayApply(checkedAtMillis: Long?, ringArmedAtMillis: Long?): Boolean {
+        if (checkedAtMillis == null) return false
+        return ringArmedAtMillis == null || ringArmedAtMillis < checkedAtMillis
+    }
+
     /** The `state` of a `GET /v1/incidents/{id}` answer, or null when it has none. */
     fun stateOf(json: String): String? = runCatching {
         JSONObject(json).optString("state").takeIf { it.isNotEmpty() }
@@ -53,5 +65,37 @@ object RemoteStateRule {
         if (acknowledged || closed) return false
         if (rearmPending) return true
         return active && ringUntilMillis != null && nowMillis < ringUntilMillis
+    }
+}
+
+/**
+ * One blocking call with a deadline over all of it: connect, headers and
+ * body. `HttpURLConnection` timeouts apply to each step on its own, so a slow
+ * server could hold a broadcast receiver past the time Android gives it.
+ * Past [timeoutMs] the answer is null and [onTimeout] runs, which is where
+ * the caller disconnects. A call that throws also answers null.
+ */
+object CallDeadline {
+    fun <T> run(timeoutMs: Long, onTimeout: () -> Unit, call: () -> T?): T? {
+        val answer = java.util.concurrent.atomic.AtomicReference<T?>(null)
+        val worker = Thread {
+            try {
+                answer.set(call())
+            } catch (_: Throwable) {
+                answer.set(null)
+            }
+        }
+        worker.isDaemon = true
+        worker.start()
+        worker.join(timeoutMs)
+        if (worker.isAlive) {
+            try {
+                onTimeout()
+            } finally {
+                worker.interrupt()
+            }
+            return null
+        }
+        return answer.get()
     }
 }

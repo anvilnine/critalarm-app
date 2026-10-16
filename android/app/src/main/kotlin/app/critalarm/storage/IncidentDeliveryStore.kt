@@ -132,6 +132,20 @@ class IncidentDeliveryStore(context: Context) {
     fun topicOf(incidentId: String): String? =
         preferences.getString("topic:$incidentId", null)?.takeIf(String::isNotEmpty)
 
+    /**
+     * When a push last armed a ring for the incident, on this phone's clock.
+     * An answer from the server that was asked for before this moment may be
+     * about an earlier stage (a reopen came since), so it may not end the
+     * ring. Pushes carry no `opened_at` (api.md §5.2), so this is the stage
+     * mark the phone has. Null before the first push since this build.
+     */
+    fun ringArmedAtMillis(incidentId: String): Long? =
+        preferences.getLong("ring_armed_at:$incidentId", 0L).takeIf { it > 0L }
+
+    fun rememberRingArmed(incidentId: String, millis: Long = System.currentTimeMillis()) {
+        preferences.edit().putLong("ring_armed_at:$incidentId", millis).apply()
+    }
+
     fun rememberRingUntil(incidentId: String, millis: Long) {
         preferences.edit().putLong("ring_until:$incidentId", millis).apply()
     }
@@ -227,6 +241,7 @@ class IncidentDeliveryStore(context: Context) {
             "topic:",
             "rearm_fires_at:",
             "local_acked_at:",
+            "ring_armed_at:",
         )
     }
 }

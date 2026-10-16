@@ -246,36 +246,62 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
     // The ring is set again first, so a check that fails or never answers
     // leaves the phone exactly as Silence always left it. Only a server
-    // that says the incident is over takes the ring away.
-    final checked = await _checkState(incidentId);
-    if (checked != null && !isClosed) await _handledElsewhere(checked);
+    // that says this stage of the incident is over takes the ring away.
+    await recheck();
   }
 
-  /// One `GET /v1/incidents/{id}`, cut off at [stateCheckTimeout]. Null for
-  /// every answer that is not the incident: an error, a timeout, anything
-  /// thrown.
-  Future<Incident?> _checkState(String incidentId) async {
+  /// Asks the server once about the incident ringing on screen, and ends
+  /// the ring only when the answer says this stage of it is over. Silence
+  /// runs it, and so does the app coming back to the front with this screen
+  /// up. Anything but a ringing screen asks nothing.
+  Future<void> recheck() async {
+    if (isClosed) return;
+    final ringing = state.incident;
+    if (ringing == null ||
+        state.isPreview ||
+        ringing.id == 'inc_demo' ||
+        state.status != CriticalAlarmStatus.ringing) {
+      return;
+    }
+    final checked = await _checkState(ringing.id);
+    if (checked == null || isClosed) return;
+    await _handledElsewhere(checked.incident, checkedAt: checked.at);
+  }
+
+  /// One `GET /v1/incidents/{id}`, cut off at [stateCheckTimeout], with the
+  /// moment the question went out on this phone's clock. Null for every
+  /// answer that is not the incident: an error, a timeout, anything thrown.
+  Future<({Incident incident, DateTime at})?> _checkState(
+    String incidentId,
+  ) async {
+    final at = DateTime.now();
     try {
       final result = await _getIncident(
         incidentId,
       ).timeout(stateCheckTimeout);
-      return result.getOrNull();
+      final incident = result.getOrNull();
+      return incident == null ? null : (incident: incident, at: at);
     } on Object catch (_) {
       return null;
     }
   }
 
   /// Hands a state the server named to the native side, which stops the ring
-  /// and drops the phone's own next ring when it has either for [incidentId].
-  /// Answers whether it stopped anything. Never throws.
+  /// and drops the phone's own next ring when it has either for [incident].
+  /// [checkedAt] is when the question went out; native refuses the answer
+  /// when a push armed a ring after it, which is a reopen the answer did not
+  /// know about. Answers whether it stopped anything. Never throws.
   Future<bool> _applyRemoteState(
-    String incidentId,
-    IncidentState ending,
-  ) async {
+    Incident incident,
+    IncidentState ending, {
+    required DateTime checkedAt,
+  }) async {
     try {
       return await _alarm?.applyRemoteState(
-            incidentId,
+            incident.id,
             HandledElsewhereRule.wireName(ending),
+            checkedAt: checkedAt,
+            openedAt: incident.openedAt,
           ) ??
           false;
     } on Object catch (_) {
@@ -283,24 +309,38 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  /// The incident ringing on screen is over, and the server said so.
+  /// The incident ringing on screen is over, and the server said so about
+  /// the same stage that is ringing (`opened_at`, see
+  /// [HandledElsewhereRule.endsRing]).
   ///
   /// Anything that is not a known end state is ignored, and so is any
   /// incident that is not the one ringing on screen: an acknowledge from
   /// this phone has already moved the screen on by the time the list hears
   /// about it. When another incident is still open it takes the screen, the
   /// same as after "I'm up". Otherwise the screen shows the note.
-  Future<void> _handledElsewhere(Incident incident) async {
+  ///
+  /// The native side is told only with an answer it can date: [checkedAt]
+  /// from a check made here. A list copy has no such time, so a fresh check
+  /// is made first and only its answer goes to native. [tellNative] is false
+  /// when native already did it, which is the Live Activity path.
+  Future<void> _handledElsewhere(
+    Incident incident, {
+    DateTime? checkedAt,
+    bool tellNative = true,
+  }) async {
     final ending = HandledElsewhereRule.endingState(incident.state);
     if (ending == null) return;
     final incidentId = incident.id;
-    if (state.isPreview ||
+    final ringing = state.incident;
+    if (ringing == null ||
+        state.isPreview ||
         incidentId == 'inc_demo' ||
-        state.incident?.id != incidentId ||
-        state.status != CriticalAlarmStatus.ringing) {
+        ringing.id != incidentId ||
+        state.status != CriticalAlarmStatus.ringing ||
+        !HandledElsewhereRule.endsRing(held: incident, ringing: ringing)) {
       return;
     }
-    _endedStages[incidentId] = state.incident?.openedAt;
+    _endedStages[incidentId] = ringing.openedAt;
     final remaining = _newestFirst(
       state.openIncidents.where((i) => i.id != incidentId),
     );
@@ -313,15 +353,41 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         handledElsewhere: true,
       );
     }
-    await _applyRemoteState(incidentId, ending);
+    if (!tellNative) return;
+    if (checkedAt != null) {
+      await _applyRemoteState(incident, ending, checkedAt: checkedAt);
+      return;
+    }
+    final fresh = await _checkState(incidentId);
+    if (fresh == null) return;
+    final freshEnding = HandledElsewhereRule.endingState(fresh.incident.state);
+    if (freshEnding == null ||
+        !HandledElsewhereRule.endsRing(
+          held: fresh.incident,
+          ringing: ringing,
+        )) {
+      return;
+    }
+    await _applyRemoteState(fresh.incident, freshEnding, checkedAt: fresh.at);
   }
 
+  /// The Live Activity says the incident is over. The native side already
+  /// stopped the ring after its own stage check; this only moves the screen,
+  /// and only when the update names the same stage that is ringing here.
   void _onRemoteState(RemoteIncidentState remote) {
     if (isClosed) return;
     final shown = state.incident;
-    if (shown == null || shown.id != remote.incidentId) return;
+    final openedAt = remote.openedAt;
+    if (shown == null || shown.id != remote.incidentId || openedAt == null) {
+      return;
+    }
     if (HandledElsewhereRule.endingState(remote.state) == null) return;
-    unawaited(_handledElsewhere(shown.copyWith(state: remote.state)));
+    unawaited(
+      _handledElsewhere(
+        shown.copyWith(state: remote.state, openedAt: openedAt),
+        tellNative: false,
+      ),
+    );
     // The list catches up too, so Home and History show the same state.
     unawaited(_incidents?.refresh());
   }
@@ -431,6 +497,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       return;
     }
     if (incidentId != null && incidentId.isNotEmpty) {
+      final checkedAt = DateTime.now();
       final result = await _getIncident(incidentId);
       // The server says this one is over. If the phone is still ringing for
       // it, or has a ring set, that stops now, and the screen says why
@@ -440,7 +507,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           ? null
           : HandledElsewhereRule.endingState(loaded.state);
       final stopped =
-          ending != null && await _applyRemoteState(loaded!.id, ending);
+          ending != null &&
+          await _applyRemoteState(loaded!, ending, checkedAt: checkedAt);
       if (isClosed) return;
       result.fold(
         (incident) {
@@ -643,6 +711,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         ack?.guess ??
             incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
         openIncidents: remaining,
+        isPending: true,
       );
     }
 
@@ -676,7 +745,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         // 409 means it was acknowledged somewhere else, so the guess on
         // screen was right and there is nothing to put back.
         if (failure is ApiFailure && failure.statusCode == 409) {
-          unawaited(_settleConflict(targetId));
+          unawaited(_settleConflict(incident));
           return;
         }
 
@@ -692,6 +761,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             incident: ack?.before ?? incident,
             isAcknowledged: false,
             isAcknowledging: false,
+            isAckPending: false,
             isLive: true,
             errorMessage: LocaleKeys.critical_alarm_ack_failed.tr(),
           ),
@@ -706,16 +776,26 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// and one state check sorts out what the card should be: an incident
   /// that was closed or expired leaves no acked card behind. A check that
   /// fails changes nothing more; the phone is already quiet.
-  Future<void> _settleConflict(String incidentId) async {
+  Future<void> _settleConflict(Incident answered) async {
+    final incidentId = answered.id;
     if (state.incident?.id == incidentId && state.isAcknowledged) {
-      emit(state.copyWith(isHandledElsewhere: true));
+      // Never a confirmed acknowledge of this phone: no stamps, no sheet.
+      emit(state.copyWith(isHandledElsewhere: true, isAckPending: false));
     }
     final checked = await _checkState(incidentId);
     if (checked == null || isClosed) return;
-    final ending = HandledElsewhereRule.endingState(checked.state);
+    final ending = HandledElsewhereRule.endingState(checked.incident.state);
     if (ending == null) return;
-    _incidents?.applyIncident(checked);
-    if (ending != IncidentState.acked) {
+    // An answer about another stage (a reopen since) says nothing about the
+    // card this acknowledge left.
+    if (!HandledElsewhereRule.sameStage(
+      checked.incident.openedAt,
+      answered.openedAt,
+    )) {
+      return;
+    }
+    _incidents?.applyIncident(checked.incident);
+    if (ending != IncidentState.acked && await _mayEndCard(incidentId)) {
       try {
         await _alarm?.endActivity(
           incidentId,
@@ -727,7 +807,19 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
     if (isClosed) return;
     if (state.incident?.id == incidentId && state.isHandledElsewhere) {
-      emit(state.copyWith(incident: checked));
+      emit(state.copyWith(incident: checked.incident));
+    }
+  }
+
+  /// Asked right before the card comes down: a phone that rings for the
+  /// incident again, or has a ring set, is on a newer stage than the answer,
+  /// and `endActivity` would stop that ring too.
+  Future<bool> _mayEndCard(String incidentId) async {
+    try {
+      final live = await _alarm?.liveIncidentIds() ?? const <String>[];
+      return !live.contains(incidentId);
+    } on Object catch (_) {
+      return false;
     }
   }
 
@@ -787,6 +879,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     Incident incident, {
     FaceState face = FaceState.acked,
     List<Incident>? openIncidents,
+    bool isPending = false,
   }) {
     _stopRingTicker();
     final firstToolId = _firstToolIdFor(incident);
@@ -800,6 +893,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         openIncidents: openIncidents ?? state.openIncidents,
         isAcknowledged: true,
         isAcknowledging: false,
+        isAckPending: isPending,
         severityMode: SeverityMode.ack,
         faceState: face,
         isLive: false,
@@ -1203,6 +1297,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           faceState: FaceState.alarmed,
           isLive: true,
           isAcknowledged: false,
+          isAckPending: false,
           isHandledElsewhere: false,
           clearError: true,
         ),
