@@ -423,6 +423,14 @@ import AlarmKit
         if let activityId { payload["activity_id"] = activityId }
         self?.alarmChannel?.invokeMethod("onActivityToken", arguments: payload)
       }
+      // An incident answered on another device, heard through the Live
+      // Activity or by Stop asking the server. The ring is already stopped;
+      // Dart only updates the screen and the list.
+      IncidentActivityCoordinator.shared.onRemoteState = { [weak self] incidentId, state in
+        self?.alarmChannel?.invokeMethod(
+          "onRemoteState", arguments: ["incident_id": incidentId, "state": state]
+        )
+      }
     }
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
@@ -464,6 +472,22 @@ import AlarmKit
   /// ringing screen is still in front.
   @objc private func disarmMagicTap() {
     magicTapArmed = false
+  }
+
+  /// True when this phone rings for [incidentId] now or has a ring set for
+  /// it: an AlarmKit alarm in any state, or a re-arm waiting (the
+  /// notification form on older iPhones). Alarms that cannot be read count
+  /// as set, because applying a state the server named is safe and missing
+  /// a ring is not.
+  private func ringIsSet(incidentId: String) -> Bool {
+    if IncidentRearm.debugEntries()[incidentId] != nil { return true }
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *) {
+      let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+      return (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+    }
+    #endif
+    return false
   }
 
   private func handleAlarmCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -610,6 +634,32 @@ import AlarmKit
         await IncidentRearm.cancel(incidentId: incidentId)
         await MainActor.run { result(nil) }
       }
+
+    case "applyRemoteState":
+      // The server says the incident is acked, closed or expired, and Dart
+      // learned it from a list read or its own check. The same as a Live
+      // Activity update would do, and only when this phone still rings for
+      // the incident or has a ring set. Answers whether it stopped anything.
+      guard #available(iOS 16.2, *),
+            let incidentId = args["incident_id"] as? String, !incidentId.isEmpty,
+            let raw = RemoteStateCheck.endingState(args["state"] as? String),
+            let state = IncidentActivityState(rawValue: raw)
+      else {
+        result(false)
+        return
+      }
+      guard ringIsSet(incidentId: incidentId) else {
+        result(false)
+        return
+      }
+      NSLog("CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@", incidentId, raw)
+      Task {
+        await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+        await MainActor.run { result(true) }
+      }
+
+    case "liveIncidentIds":
+      result(PendingIncidentStore.all().keys.filter { ringIsSet(incidentId: $0) }.sorted())
 
     case "markAcked":
       // Dart acknowledged this incident (in the app, or from its queue). A

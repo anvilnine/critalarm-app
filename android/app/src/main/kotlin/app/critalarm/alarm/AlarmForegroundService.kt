@@ -147,6 +147,14 @@ class AlarmForegroundService : Service() {
 
         internal fun isRinging(incidentId: String): Boolean = ringingIncidentId == incidentId
 
+        /**
+         * True while [incidentId] holds the alarm, ringing now or waiting its
+         * turn behind another incident. A state learned from the server has
+         * to reach both.
+         */
+        internal fun isHolding(incidentId: String): Boolean =
+            synchronized(held) { held.any { it.incidentId == incidentId } }
+
         private fun push(next: Ringing) = synchronized(held) {
             held.removeAll { it.incidentId == next.incidentId }
             held.add(next)

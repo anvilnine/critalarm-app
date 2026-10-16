@@ -101,6 +101,43 @@ object IncidentContentFetcher {
         }
     }
 
+    /**
+     * The incident's `state` as the server holds it now, or null for any
+     * answer that is not one: no session, an error status, a timeout, a body
+     * with no state. Run off the main thread.
+     */
+    fun fetchState(
+        context: Context,
+        server: URI,
+        incidentId: String,
+        connectTimeoutMs: Int = ACTION_CONNECT_TIMEOUT_MS,
+        readTimeoutMs: Int = ACTION_READ_TIMEOUT_MS,
+    ): String? {
+        val credentials = NativeConnectionStore(context).credentialsFor(server) ?: return null
+        val encoded = URLEncoder.encode(incidentId, "UTF-8").replace("+", "%20")
+        val url = credentials.first.toString().trimEnd('/') + "/v1/incidents/" + encoded
+        return try {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer ${credentials.second}")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.connectTimeout = connectTimeoutMs
+            connection.readTimeout = readTimeoutMs
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                Log.w(TAG, "incident_state_failed_$status incident_id=$incidentId")
+                connection.disconnect()
+                return null
+            }
+            val text = connection.inputStream.bufferedReader().use { it.readText() }
+            connection.disconnect()
+            RemoteStateRule.stateOf(text)
+        } catch (error: Exception) {
+            Log.w(TAG, "incident_state_failed incident_id=$incidentId reason=${error.javaClass.simpleName}")
+            null
+        }
+    }
+
     /** Reads the newest message out of an incident object (api.md §3.2). */
     fun parse(json: String): IncidentContent? {
         val incident = runCatching { JSONObject(json) }.getOrNull() ?: return null

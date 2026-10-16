@@ -126,3 +126,81 @@ enum NativeAckSender {
         }.resume()
     }
 }
+
+/// One question to the server after Stop: is this incident still open?
+///
+/// Every phone on a topic rings for the same incident. iOS hears that it was
+/// answered somewhere else only through the Live Activity update (api.md
+/// §5.3), and only while the app runs. A phone that was asleep kept setting
+/// its own next ring on every Stop until `ring_until`. Stop now asks once.
+/// The ring it set stays unless the server names a state that ends it:
+/// `acked`, `closed` or `expired`. No answer, an error or a word this app
+/// does not know leaves the ring alone, because a phone that stops ringing
+/// for an incident nobody handled is the worse mistake.
+///
+/// Dart reads the same three words in
+/// `lib/core/alarm/handled_elsewhere_rule.dart`, and Android in
+/// `RemoteStateRule.kt`.
+enum RemoteStateCheck {
+    static let timeout: TimeInterval = 4
+
+    /// [state] when it ends the ring, nil for anything else.
+    static func endingState(_ state: String?) -> String? {
+        switch state {
+        case "acked", "closed", "expired": return state
+        default: return nil
+        }
+    }
+
+    /// The ending state in a `GET /v1/incidents/{id}` answer, or nil for any
+    /// answer that is not a 2xx incident in one of the three states.
+    static func endingState(status: Int?, body: Data?) -> String? {
+        guard let status, (200 ..< 300).contains(status), let body,
+              let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        else { return nil }
+        return endingState(json["state"] as? String)
+    }
+
+    /// `GET {server}/v1/incidents/{id}`, with the same headers as the ack.
+    static func request(incidentId: String, session: NseCredentials.Session) -> URLRequest {
+        let escaped = incidentId.addingPercentEncoding(
+            withAllowedCharacters: .urlPathAllowed
+        ) ?? incidentId
+        let url = session.server
+            .appendingPathComponent("v1")
+            .appendingPathComponent("incidents")
+            .appendingPathComponent(escaped)
+
+        var request = URLRequest(url: url, timeoutInterval: timeout)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(session.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+
+    /// The ending state the server holds for [incidentId], or nil.
+    static func fetch(
+        incidentId: String,
+        session: NseCredentials.Session? = NseCredentials.read(),
+        urlSession: URLSession = NativeAckSender.makeSession(timeout: timeout)
+    ) async -> String? {
+        guard let session else { return nil }
+        let request = request(incidentId: incidentId, session: session)
+        return await withCheckedContinuation { continuation in
+            urlSession.dataTask(with: request) { data, response, error in
+                if let error {
+                    NSLog("CritAlarmAck: state_check_failed incident_id=%@ reason=%@", incidentId, "\(error)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let status = (response as? HTTPURLResponse)?.statusCode
+                let state = endingState(status: status, body: data)
+                NSLog(
+                    "CritAlarmAck: state_check status=%d incident_id=%@ ends=%@",
+                    status ?? 0, incidentId, state ?? "-"
+                )
+                continuation.resume(returning: state)
+            }.resume()
+        }
+    }
+}
