@@ -50,6 +50,7 @@ import 'package:critalarm/features/permissions/presentation/device_permissions_s
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
+import 'package:critalarm/features/search/presentation/screens/docs_list_screen.dart';
 import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
@@ -122,6 +123,7 @@ abstract final class AppRoute {
   static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
   static const priorities = 'priorities';
+  static const docs = 'docs';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
@@ -590,6 +592,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     opaque: true,
                     leavesTabBehind: true,
                     child: const PrioritiesScreen(),
+                  ),
+                ),
+                // The bundled docs index as a list. Settings > Help opens it,
+                // and search can link here.
+                GoRoute(
+                  path: 'docs',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.docs,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const DocsListScreen(),
                   ),
                 ),
                 GoRoute(

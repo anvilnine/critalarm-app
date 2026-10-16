@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/search_edge_swipe.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
@@ -103,6 +104,10 @@ class _AppShellContentState extends State<_AppShellContent>
   late final AnimationController _reveal;
 
   bool _isSearching = false;
+
+  /// An edge swipe is moving the panel, or settling it after the finger lifts.
+  /// While it is set the panel also slides sideways with [_reveal].
+  bool _edgeSwiping = false;
 
   /// The guide opened search to show it off, so the guide closes it again.
   bool _guideOpenedSearch = false;
@@ -205,7 +210,12 @@ class _AppShellContentState extends State<_AppShellContent>
     _search.clearQuery();
     unawaited(
       _reveal.reverse().whenComplete(() {
-        if (mounted) setState(() => _isSearching = false);
+        if (mounted) {
+          setState(() {
+            _isSearching = false;
+            _edgeSwiping = false;
+          });
+        }
       }),
     );
   }
@@ -334,8 +344,35 @@ class _AppShellContentState extends State<_AppShellContent>
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: _panel(width, screen.height, panelBottom),
+                  child: _panel(
+                    width,
+                    screen.height,
+                    panelBottom,
+                    screen.width,
+                  ),
                 ),
+                // iOS has no system back for an overlay, so the left edge
+                // closes search the way it closes a pushed screen. Translucent
+                // and only 20 wide: taps and vertical scrolls go through.
+                if (Theme.of(context).platform == TargetPlatform.iOS)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: SearchEdgeSwipe.edgeWidth,
+                    child: SearchEdgeSwipe(
+                      reveal: _reveal,
+                      screenWidth: screen.width,
+                      onStart: () {
+                        _focusNode.unfocus();
+                        setState(() => _edgeSwiping = true);
+                      },
+                      onClose: _closeSearch,
+                      onSettled: () {
+                        if (mounted) setState(() => _edgeSwiping = false);
+                      },
+                    ),
+                  ),
               ],
 
               // On its side or wide enough for two panes, the rail stands up
@@ -438,7 +475,12 @@ class _AppShellContentState extends State<_AppShellContent>
     );
   }
 
-  Widget _panel(double width, double maxHeight, double bottomInset) {
+  Widget _panel(
+    double width,
+    double maxHeight,
+    double bottomInset,
+    double screenWidth,
+  ) {
     return BlocBuilder<SearchCubit, SearchState>(
       bloc: _search,
       builder: (context, state) => AnimatedBuilder(
@@ -450,7 +492,12 @@ class _AppShellContentState extends State<_AppShellContent>
             // Rises the last few pixels into place, so the list reads as
             // coming up out of the bar rather than appearing on top of it.
             child: Transform.translate(
-              offset: Offset(0, _panelGap * (1 - t)),
+              // Following the finger: the panel leaves to the right as the
+              // reveal drops, the way a pushed screen does.
+              offset: Offset(
+                _edgeSwiping ? (1 - _reveal.value) * screenWidth : 0,
+                _edgeSwiping ? 0 : _panelGap * (1 - t),
+              ),
               child: child,
             ),
           );

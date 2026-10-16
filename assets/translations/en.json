@@ -1007,7 +1007,9 @@
     "help_rate_row": "Rate Crit Alarm",
     "help_rate_sub_android": "Leave a review on Google Play",
     "help_rate_sub_ios": "Leave a review on the App Store",
-    "help_report_subject": "Crit Alarm problem"
+    "help_report_subject": "Crit Alarm problem",
+    "help_docs_row": "Docs",
+    "help_docs_sub": "How to set up and send alerts"
   },
   "developer_setup": {
     "title": "Setup flow",
@@ -1561,6 +1563,10 @@
     "example_one": "prod",
     "example_two": "sound",
     "example_three": "docker"
+  },
+  "docs_list": {
+    "title": "Docs",
+    "unavailable": "The docs list did not load."
   },
   "account": {
     "plan_unavailable": "Plan unavailable",
