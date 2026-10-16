@@ -42,6 +42,7 @@ class CriticalAlarmState {
     this.isPreview = false,
     this.doneIncidentId,
     this.isDoneHandedOff = false,
+    this.isHandledElsewhere = false,
   });
 
   final CriticalAlarmStatus status;
@@ -107,6 +108,13 @@ class CriticalAlarmState {
   /// it, or keeps it until the server can be reached.
   final bool isDoneHandedOff;
 
+  /// The incident on screen was rung on this phone and then acknowledged,
+  /// closed or expired somewhere else, which the server said. The ringing
+  /// layout gives way to a short note and one Stop button. The ring is
+  /// already stopped by then; Stop is there so the person has a button that
+  /// does what they came to do.
+  final bool isHandledElsewhere;
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
@@ -153,6 +161,7 @@ class CriticalAlarmState {
     bool? setupFlowHasRealRing,
     String? firstToolIncidentId,
     bool? isPreview,
+    bool? isHandledElsewhere,
     bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
@@ -188,6 +197,7 @@ class CriticalAlarmState {
       isPreview: isPreview ?? this.isPreview,
       doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
       isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
+      isHandledElsewhere: isHandledElsewhere ?? this.isHandledElsewhere,
     );
   }
 
@@ -220,7 +230,8 @@ class CriticalAlarmState {
           firstToolIncidentId == other.firstToolIncidentId &&
           isPreview == other.isPreview &&
           doneIncidentId == other.doneIncidentId &&
-          isDoneHandedOff == other.isDoneHandedOff;
+          isDoneHandedOff == other.isDoneHandedOff &&
+          isHandledElsewhere == other.isHandledElsewhere;
 
   @override
   int get hashCode => Object.hash(
@@ -250,6 +261,7 @@ class CriticalAlarmState {
       ringTimeSpoken,
       doneIncidentId,
       isDoneHandedOff,
+      isHandledElsewhere,
     ),
   );
 }

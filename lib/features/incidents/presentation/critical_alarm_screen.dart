@@ -328,8 +328,12 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 
   Widget _buildAlarm(BuildContext context) {
     return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
+      // An incident another device answered is not an acknowledge made
+      // here: no haptic, no real-use stamp and no sheet after it.
       listenWhen: (previous, current) =>
-          !previous.isAcknowledged && current.isAcknowledged,
+          !previous.isAcknowledged &&
+          current.isAcknowledged &&
+          !current.isHandledElsewhere,
       listener: (context, state) {
         AppHaptics.success();
         setState(() {
@@ -379,7 +383,9 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             : style.lookOf(stage).ambient(colors, brightness);
 
         Widget content;
-        if (!state.isLive && !state.isAcknowledged) {
+        if (state.isHandledElsewhere) {
+          content = _HandledElsewhereView(state: state);
+        } else if (!state.isLive && !state.isAcknowledged) {
           final isLoading = state.status == CriticalAlarmStatus.loading;
           // Set only when a native Done opened the screen and the server
           // gave no answer. Without it this screen is what it always was.
@@ -607,6 +613,60 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           child: content,
         );
       },
+    );
+  }
+}
+
+/// The note that replaces the ringing screen once the server says the
+/// incident was answered on another device, or ended. The phone is already
+/// quiet. Stop is the one button, because Stop is what the person came here
+/// to press, and it leaves for Home.
+class _HandledElsewhereView extends StatelessWidget {
+  const _HandledElsewhereView({required this.state});
+
+  final CriticalAlarmState state;
+
+  @override
+  Widget build(BuildContext context) {
+    // Expired means nobody answered it: the server stopped the alarm when
+    // its ring time ran out. Saying another device handled it would be false.
+    final isEnded = state.incident?.isExpired ?? false;
+    return AppScreenScaffold(
+      hasTabBar: false,
+      topBar: AppTopBar(
+        title: LocaleKeys.critical_alarm_screen_title.tr(),
+        leading: AppIconButton(
+          glyph: GlyphType.back,
+          ariaLabel: LocaleKeys.critical_alarm_back_aria_label.tr(),
+          onPressed: () => context.go('/'),
+        ),
+      ),
+      bottomBar: AppButton(
+        label: LocaleKeys.incidents_handled_elsewhere_stop_button.tr(),
+        isFullWidth: true,
+        onPressed: () {
+          AppHaptics.capture();
+          final cubit = context.read<CriticalAlarmCubit>();
+          final router = GoRouter.of(context);
+          unawaited(cubit.stopHandledElsewhere().then((_) => router.go('/')));
+        },
+      ),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+          sliver: SliverToBoxAdapter(
+            child: AppEmptyState(
+              title: isEnded
+                  ? LocaleKeys.incidents_alarm_ended_title.tr()
+                  : LocaleKeys.incidents_handled_elsewhere_title.tr(),
+              description: isEnded
+                  ? LocaleKeys.incidents_alarm_ended_body.tr()
+                  : LocaleKeys.incidents_handled_elsewhere_body.tr(),
+              faceState: FaceState.calm,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

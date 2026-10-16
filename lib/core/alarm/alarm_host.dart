@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/alarm/quiet_hours.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Whether the user has let the app set alarms.
@@ -88,6 +89,7 @@ final class AlarmHost {
   final _tokens = StreamController<ActivityToken>.broadcast();
   final _scheduled = StreamController<String>.broadcast();
   final _magicTaps = StreamController<void>.broadcast();
+  final _remoteStates = StreamController<RemoteIncidentState>.broadcast();
 
   /// Tokens captured while the app is running. Tokens captured before Dart was
   /// listening come from [takePendingTokens] instead.
@@ -102,6 +104,13 @@ final class AlarmHost {
   /// The native side only sends one while [setMagicTapArmed] is on. It is a
   /// touch on the glass and exists only with VoiceOver running.
   Stream<void> get magicTaps => _magicTaps.stream;
+
+  /// An incident this phone heard was acknowledged, closed or expired
+  /// somewhere else, after the native side already stopped its ring. iOS
+  /// sends one when a Live Activity update lands (api.md §5.3). Android hears
+  /// the same thing as a state push and reloads the list instead, so it sends
+  /// none.
+  Stream<RemoteIncidentState> get remoteStates => _remoteStates.stream;
 
   /// Tells the iPhone whether a magic tap belongs to the app right now. On
   /// only while the ringing alarm screen is in front. Off, the native handler
@@ -246,6 +255,35 @@ final class AlarmHost {
   /// when the incident is acknowledged, closed or expired somewhere else.
   Future<void> cancelRearm(String incidentId) async =>
       _invoke<void>('cancelRearm', {'incident_id': incidentId});
+
+  /// The server says [incidentId] is [state] (`acked`, `closed` or
+  /// `expired`), which it learned from somewhere other than this phone.
+  ///
+  /// The native side does what a state push does (api.md §5.2): stops the
+  /// ring, drops the phone's own next ring and moves or takes down the card.
+  /// It does that only when this phone is ringing for the incident or has a
+  /// ring set for it, so calling it for an incident that went quiet long ago
+  /// touches nothing. Answers true when it stopped something, false when
+  /// there was nothing to stop or the platform has no such call.
+  ///
+  /// Only a state the server named may reach here. A failed check is not a
+  /// state.
+  Future<bool> applyRemoteState(String incidentId, String state) async =>
+      await _invoke<bool>('applyRemoteState', {
+        'incident_id': incidentId,
+        'state': state,
+      }) ??
+      false;
+
+  /// Incidents this phone is ringing for right now or has a ring set for:
+  /// an alarm going off, a re-arm waiting, or on Android an alarm push whose
+  /// ring window is still open and that nobody answered here. Usually empty.
+  /// Empty where the platform has no such idea.
+  Future<List<String>> liveIncidentIds() async =>
+      (await _invoke<List<Object?>>(
+        'liveIncidentIds',
+      ))?.whereType<String>().toList() ??
+      const [];
 
   /// Whether an alarm is ringing on this device right now. Android answers
   /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
@@ -397,6 +435,9 @@ final class AlarmHost {
         if (id != null && id.isNotEmpty) _scheduled.add(id);
       case 'onMagicTap':
         _magicTaps.add(null);
+      case 'onRemoteState':
+        final remote = RemoteIncidentState.fromMap(call.arguments);
+        if (remote != null) _remoteStates.add(remote);
     }
   }
 
@@ -405,5 +446,27 @@ final class AlarmHost {
     await _tokens.close();
     await _scheduled.close();
     await _magicTaps.close();
+    await _remoteStates.close();
+  }
+}
+
+/// One incident the native side heard was answered somewhere else.
+@immutable
+final class RemoteIncidentState {
+  const RemoteIncidentState({required this.incidentId, required this.state});
+
+  final String incidentId;
+
+  /// `acked`, `closed` or `expired`, as the Live Activity carried it.
+  final String state;
+
+  static RemoteIncidentState? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final incidentId = raw['incident_id'];
+    final state = raw['state'];
+    if (incidentId is! String || incidentId.isEmpty || state is! String) {
+      return null;
+    }
+    return RemoteIncidentState(incidentId: incidentId, state: state);
   }
 }
