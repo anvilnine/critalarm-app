@@ -22,6 +22,7 @@ import app.critalarm.push.SingleCardRule
 import app.critalarm.widgets.WidgetSnapshotPatch
 import app.critalarm.widgets.WidgetSnapshotStore
 import android.app.NotificationManager
+import app.critalarm.push.PushRouter
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -207,6 +208,34 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
         manager.cancel(MessageNotificationFactory.notificationId(incidentId))
+        checkAfterSilence(context, incidentId, server)
+    }
+
+    /**
+     * One question to the server after Stop: is this incident still open?
+     *
+     * Another device may have answered it and the state push may never have
+     * come, which left this phone ringing again every repeat interval until
+     * `ring_until`. The ring Stop set stays unless the server names a state
+     * that ends it (acked, closed, expired). No answer, an error or a slow
+     * network leaves it exactly as Stop left it. The short action timeouts
+     * keep it inside the broadcast window.
+     */
+    private fun checkAfterSilence(context: Context, incidentId: String, server: URI?) {
+        val target = server ?: NativeConnectionStore(context).canonicalServer() ?: return
+        val pending = goAsync()
+        Thread {
+            try {
+                val state = IncidentContentFetcher.fetchState(context, target, incidentId)
+                if (PushRouter(context).applyRemoteState(incidentId, state)) {
+                    Log.i(TAG, "silence_handled_elsewhere incident_id=$incidentId state=$state")
+                }
+            } catch (error: Exception) {
+                Log.w(TAG, "silence_check_failed incident_id=$incidentId reason=${error.javaClass.simpleName}")
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 
     /**

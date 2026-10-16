@@ -173,6 +173,16 @@ struct StopAlarmIntent: LiveActivityIntent {
                 seconds, incidentId: incidentId
             )
         }
+        // One question to the server, after the ring is set. Another device
+        // may have answered already, and this phone may have missed the Live
+        // Activity update that says so. Only a state the server names takes
+        // the ring away again; no answer leaves it as Stop set it.
+        if let raw = await RemoteStateCheck.fetch(incidentId: incidentId),
+           let state = IncidentActivityState(rawValue: raw) {
+            NSLog("CritAlarmAlarm: stop_handled_elsewhere incident_id=%@ state=%@", incidentId, raw)
+            await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+            await IncidentActivityCoordinator.shared.reportRemoteState(state, incidentId: incidentId)
+        }
         return .result()
     }
 }

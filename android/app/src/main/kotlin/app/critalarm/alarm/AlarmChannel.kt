@@ -11,6 +11,7 @@ import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.localreminders.LocalReminderReceiver
+import app.critalarm.push.PushRouter
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -179,6 +180,23 @@ class AlarmChannel(private val context: Context) {
                 if (!incidentId.isNullOrEmpty()) IncidentRearm.cancel(context, incidentId)
                 result.success(null)
             }
+
+            // The server says the incident is acked, closed or expired, and
+            // Dart learned it some way other than a state push. The same as
+            // that push, and only when this phone still rings for it or has a
+            // ring set. Answers whether it stopped anything.
+            "applyRemoteState" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(false)
+                    return
+                }
+                result.success(
+                    PushRouter(context).applyRemoteState(incidentId, call.argument<String>("state")),
+                )
+            }
+
+            "liveIncidentIds" -> result.success(PushRouter(context).liveIncidentIds())
 
             // The acked cards this device still has up. They are plain
             // notifications rather than Live Activities, so the store is the

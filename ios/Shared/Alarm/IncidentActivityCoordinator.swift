@@ -53,6 +53,13 @@ public final class IncidentActivityCoordinator {
     /// Told about a new token so it can send it now instead of next launch.
     public var onTokenCaptured: ((TokenKind, String, String?, String?) -> Void)?
 
+    /// Told when this phone learned, from a Live Activity update or from
+    /// Stop asking the server, that an incident was answered somewhere else
+    /// and its ring is already stopped. Arguments: incident id, state word.
+    /// The app hands it to Dart, so the alarm screen can say why it went
+    /// quiet.
+    public var onRemoteState: ((String, String) -> Void)?
+
     /// Tells the host app to open an incident triggered by an alarm button.
     public var onOpenIncident: ((String) -> Void)? {
         didSet {
@@ -171,6 +178,7 @@ public final class IncidentActivityCoordinator {
         contentWatchers[activity.id] = Task { [weak self] in
             for await content in activity.contentUpdates {
                 await self?.applyRemoteState(content.state.state, incidentId: incidentId)
+                await self?.reportRemoteState(content.state.state, incidentId: incidentId)
             }
         }
     }
@@ -362,6 +370,13 @@ public final class IncidentActivityCoordinator {
         } else {
             end(incidentId: incidentId, finalState: state)
         }
+    }
+
+    /// Passes an ending state on to the app, if it is listening. Open and the
+    /// onboarding card are never passed on.
+    public func reportRemoteState(_ state: IncidentActivityState, incidentId: String) {
+        guard state != .open, incidentId != Self.onboardingIncidentId else { return }
+        onRemoteState?(incidentId, state.rawValue)
     }
 
     /// Puts the acknowledge time and the stale date on a card this phone

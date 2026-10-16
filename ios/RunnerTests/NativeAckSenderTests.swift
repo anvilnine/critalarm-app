@@ -158,3 +158,45 @@ final class NativeAckSenderTests: XCTestCase {
         XCTAssertFalse(NativeAckSender.endsTheIncident(status: nil))
     }
 }
+
+/// The one question Stop asks the server, and which answers take the ring
+/// it just set away again.
+final class RemoteStateCheckTests: XCTestCase {
+    private func body(_ state: String) -> Data {
+        Data(#"{"id":"inc_1","topic":"prod","state":"\#(state)","messages":[]}"#.utf8)
+    }
+
+    func testAckedClosedAndExpiredEndTheRing() {
+        for state in ["acked", "closed", "expired"] {
+            XCTAssertEqual(RemoteStateCheck.endingState(status: 200, body: body(state)), state)
+        }
+    }
+
+    func testAnOpenIncidentKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: body("open")))
+    }
+
+    func testAWordTheAppDoesNotKnowKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: body("snoozed")))
+        XCTAssertNil(RemoteStateCheck.endingState("ACKED"))
+        XCTAssertNil(RemoteStateCheck.endingState(nil))
+    }
+
+    func testNoAnswerKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: nil, body: nil))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 500, body: body("acked")))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 404, body: nil))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: Data("not json".utf8)))
+    }
+
+    func testTheCheckIsAGetOnTheIncident() {
+        let session = NseCredentials.Session(
+            server: URL(string: "https://api.example.test")!,
+            token: "dv_test"
+        )
+        let request = RemoteStateCheck.request(incidentId: "inc_1", session: session)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.absoluteString, "https://api.example.test/v1/incidents/inc_1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer dv_test")
+    }
+}
