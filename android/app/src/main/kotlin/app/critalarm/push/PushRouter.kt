@@ -150,6 +150,9 @@ class PushRouter(private val context: Context) {
         }
         val alreadyActive = store.isActive(incidentId)
         val reopen = payload.kind == IncidentPushKind.REOPEN
+        // The stage mark. An answer asked for before this moment can no
+        // longer end the ring (RemoteStateRule.mayApply).
+        store.rememberRingArmed(incidentId)
         store.activate(incidentId, reopen = reopen)
         patchWidgets(payload, incidentId, store)
         // Written before anything is posted, because a Stop can land seconds
@@ -222,11 +225,19 @@ class PushRouter(private val context: Context) {
     fun applyRemoteState(
         incidentId: String,
         state: String?,
+        checkedAtMillis: Long?,
         nowMillis: Long = System.currentTimeMillis(),
     ): Boolean {
         val kind = RemoteStateRule.kindForState(state) ?: return false
         val server = NativeConnectionStore(context).canonicalServer() ?: return false
         if (!isLiveHere(incidentId, nowMillis)) return false
+        // Read right before anything is cancelled: a ring armed after the
+        // question went out may be a reopen the answer knew nothing about.
+        val armedAt = IncidentDeliveryStore(context).ringArmedAtMillis(incidentId)
+        if (!RemoteStateRule.mayApply(checkedAtMillis, armedAt)) {
+            Log.i(TAG, "remote_state_refused reason=newer_ring incident_id=$incidentId")
+            return false
+        }
         applyStateChange(incidentId, server, kind)
         events.record("remote_state_applied", mapOf("kind" to kind.wireValue))
         return true

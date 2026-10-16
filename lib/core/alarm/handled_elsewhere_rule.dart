@@ -41,7 +41,7 @@ abstract final class HandledElsewhereRule {
     final heldOpenedAt = held.openedAt;
     final ringingOpenedAt = ringing.openedAt;
     if (heldOpenedAt == null || ringingOpenedAt == null) return false;
-    if (!heldOpenedAt.isAtSameMomentAs(ringingOpenedAt)) return false;
+    if (!sameStage(heldOpenedAt, ringingOpenedAt)) return false;
     final heldUpdatedAt = held.updatedAt;
     final ringingUpdatedAt = ringing.updatedAt;
     if (heldUpdatedAt != null &&
@@ -51,6 +51,14 @@ abstract final class HandledElsewhereRule {
     }
     return true;
   }
+
+  /// True when two `opened_at` values name the same stage. The server sends
+  /// whole seconds, and the Live Activity carries the same number, so the
+  /// two are compared to the second.
+  static bool sameStage(DateTime? a, DateTime? b) =>
+      a != null &&
+      b != null &&
+      a.millisecondsSinceEpoch ~/ 1000 == b.millisecondsSinceEpoch ~/ 1000;
 
   /// The word the native side and the Live Activity use for [state].
   static String wireName(IncidentState state) => switch (state) {

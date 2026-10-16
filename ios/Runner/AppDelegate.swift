@@ -426,10 +426,10 @@ import AlarmKit
       // An incident answered on another device, heard through the Live
       // Activity or by Stop asking the server. The ring is already stopped;
       // Dart only updates the screen and the list.
-      IncidentActivityCoordinator.shared.onRemoteState = { [weak self] incidentId, state in
-        self?.alarmChannel?.invokeMethod(
-          "onRemoteState", arguments: ["incident_id": incidentId, "state": state]
-        )
+      IncidentActivityCoordinator.shared.onRemoteState = { [weak self] incidentId, state, openedAt in
+        var payload: [String: Any] = ["incident_id": incidentId, "state": state]
+        if let openedAt { payload["opened_at"] = Int(openedAt.timeIntervalSince1970) }
+        self?.alarmChannel?.invokeMethod("onRemoteState", arguments: payload)
       }
     }
     #if canImport(AlarmKit)
@@ -649,6 +649,18 @@ import AlarmKit
         return
       }
       guard ringIsSet(incidentId: incidentId) else {
+        result(false)
+        return
+      }
+      // Read right before anything is cancelled. A ring armed after Dart's
+      // question went out may be a reopen the answer knew nothing about.
+      let checkedAt = (args["checked_at"] as? NSNumber).map {
+        Date(timeIntervalSince1970: $0.doubleValue / 1000)
+      }
+      guard RingStage.mayApply(
+        checkedAt: checkedAt, armedAt: RingStage.armedAt(incidentId: incidentId)
+      ) else {
+        NSLog("CritAlarmAlarm: remote_state_refused reason=newer_ring incident_id=%@", incidentId)
         result(false)
         return
       }
@@ -898,6 +910,9 @@ import AlarmKit
       return
     }
 
+    // The stage mark: an answer asked for before this moment can no longer
+    // end the ring. An open or a reopen starts a stage; a repeat continues it.
+    RingStage.markArmed(incidentId: incidentId, startsStage: push.kind != .repeat)
     scheduleAlarm(
       incidentId: incidentId,
       topic: userInfo["topic"] as? String ?? "",

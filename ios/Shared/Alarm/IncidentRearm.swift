@@ -185,3 +185,73 @@ struct TopicTimers {
         return defaults.bool(forKey: key)
     }
 }
+
+/// The stage mark for an incident's ring on this phone.
+///
+/// A reopen moves `opened_at` (api.md §5.1), and an answer about an earlier
+/// stage must never end the ring of a later one: that silences a phone for
+/// an incident nobody handled. Pushes carry no `opened_at`, so the phone keeps
+/// its own marks, on its own clock:
+///
+/// - `armedAt`: when any push last armed a ring for the incident. An answer
+///   to a question asked before this may be about the old stage.
+/// - `stageStartedAt`: when an `open` or `reopen` push armed one. A Live
+///   Activity update names the stage it is about by `opened_at`, which is
+///   compared against this.
+///
+/// Kept in the app group, because Stop can run in the widget extension.
+enum RingStage {
+    private static let armedKey = "critalarm.ring_armed_at"
+    private static let stageKey = "critalarm.ring_stage_started_at"
+
+    /// How far before this phone's stage mark a stage may have opened on the
+    /// server and still be the same stage: push delivery plus clock drift. A
+    /// reopen comes a whole desk timer after the stage before it.
+    static let liveActivityMargin: TimeInterval = 120
+
+    private static var defaults: UserDefaults {
+        UserDefaults(suiteName: "group.app.critalarm") ?? .standard
+    }
+
+    /// True when an answer may end the ring: it carries the moment its
+    /// question went out, and no push armed a ring at or after that moment.
+    /// No mark on record means no push came since this build.
+    static func mayApply(checkedAt: Date?, armedAt: Date?) -> Bool {
+        guard let checkedAt else { return false }
+        guard let armedAt else { return true }
+        return armedAt < checkedAt
+    }
+
+    /// True when a Live Activity update about the stage that opened at
+    /// [updateOpenedAt] can be about the stage ringing here.
+    static func updateEndsRingingStage(updateOpenedAt: Date, stageStartedAt: Date?) -> Bool {
+        guard let stageStartedAt else { return true }
+        return updateOpenedAt >= stageStartedAt.addingTimeInterval(-liveActivityMargin)
+    }
+
+    static func markArmed(incidentId: String, startsStage: Bool, at now: Date = Date()) {
+        write(key: armedKey, incidentId: incidentId, date: now)
+        if startsStage || stageStartedAt(incidentId: incidentId) == nil {
+            write(key: stageKey, incidentId: incidentId, date: now)
+        }
+    }
+
+    static func armedAt(incidentId: String) -> Date? { read(key: armedKey, incidentId: incidentId) }
+
+    static func stageStartedAt(incidentId: String) -> Date? {
+        read(key: stageKey, incidentId: incidentId)
+    }
+
+    private static func read(key: String, incidentId: String) -> Date? {
+        (defaults.dictionary(forKey: key)?[incidentId] as? Double).map(Date.init(timeIntervalSince1970:))
+    }
+
+    private static func write(key: String, incidentId: String, date: Date) {
+        var values = defaults.dictionary(forKey: key) as? [String: Double] ?? [:]
+        values[incidentId] = date.timeIntervalSince1970
+        // Two days covers any ring window; older marks go so the map stays small.
+        let cutoff = date.addingTimeInterval(-2 * 24 * 3600).timeIntervalSince1970
+        values = values.filter { $0.value >= cutoff }
+        defaults.set(values, forKey: key)
+    }
+}

@@ -226,8 +226,10 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
             try {
+                // Before the question goes out, on this phone's clock.
+                val checkedAt = System.currentTimeMillis()
                 val state = IncidentContentFetcher.fetchState(context, target, incidentId)
-                if (PushRouter(context).applyRemoteState(incidentId, state)) {
+                if (PushRouter(context).applyRemoteState(incidentId, state, checkedAt)) {
                     Log.i(TAG, "silence_handled_elsewhere incident_id=$incidentId state=$state")
                 }
             } catch (error: Exception) {

@@ -251,14 +251,23 @@ final class IncidentAlarmController {
   ///
   /// [skip] names incidents another screen is already handling, which is the
   /// alarm screen. Never throws.
+  ///
+  /// One run at a time: a resume that lands while a run is going joins it.
   Future<void> stopRingsHandledElsewhere({
     bool Function(String incidentId)? skip,
-  }) async {
+  }) => _sweep ??= _sweepOnce(skip).whenComplete(() => _sweep = null);
+
+  Future<void>? _sweep;
+
+  Future<void> _sweepOnce(bool Function(String incidentId)? skip) async {
     try {
       await wait(liveCheckSettle);
       final live = await host.liveIncidentIds();
       for (final incidentId in live.take(liveCheckLimit)) {
         if (skip?.call(incidentId) ?? false) continue;
+        // On this phone's clock, before the question goes out. The native
+        // side refuses the answer if a ring was armed after this.
+        final checkedAt = DateTime.now();
         final Incident incident;
         try {
           incident = await api
@@ -269,9 +278,14 @@ final class IncidentAlarmController {
         }
         final ending = HandledElsewhereRule.endingState(incident.state);
         if (ending == null) continue;
+        // The alarm screen may have opened on this incident while the
+        // question was out. It checks its own incident, so it keeps it.
+        if (skip?.call(incidentId) ?? false) continue;
         final stopped = await host.applyRemoteState(
           incidentId,
           HandledElsewhereRule.wireName(ending),
+          checkedAt: checkedAt,
+          openedAt: incident.openedAt,
         );
         _log(
           'ring_handled_elsewhere id=$incidentId state=${incident.state} '

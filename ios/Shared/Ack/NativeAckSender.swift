@@ -161,6 +161,19 @@ enum RemoteStateCheck {
         return endingState(json["state"] as? String)
     }
 
+    /// The ending state and the stage (`opened_at`, epoch seconds in
+    /// api.md §3.2) of a `GET /v1/incidents/{id}` answer, or nil when the
+    /// answer does not end the ring.
+    static func answer(status: Int?, body: Data?) -> (state: String, openedAt: Date?)? {
+        guard let state = endingState(status: status, body: body), let body,
+              let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        else { return nil }
+        let openedAt = (json["opened_at"] as? NSNumber).map {
+            Date(timeIntervalSince1970: $0.doubleValue)
+        }
+        return (state, openedAt)
+    }
+
     /// `GET {server}/v1/incidents/{id}`, with the same headers as the ack.
     static func request(incidentId: String, session: NseCredentials.Session) -> URLRequest {
         let escaped = incidentId.addingPercentEncoding(
@@ -178,12 +191,13 @@ enum RemoteStateCheck {
         return request
     }
 
-    /// The ending state the server holds for [incidentId], or nil.
+    /// The ending state the server holds for [incidentId], with its stage,
+    /// or nil.
     static func fetch(
         incidentId: String,
         session: NseCredentials.Session? = NseCredentials.read(),
         urlSession: URLSession = NativeAckSender.makeSession(timeout: timeout)
-    ) async -> String? {
+    ) async -> (state: String, openedAt: Date?)? {
         guard let session else { return nil }
         let request = request(incidentId: incidentId, session: session)
         return await withCheckedContinuation { continuation in
@@ -194,12 +208,12 @@ enum RemoteStateCheck {
                     return
                 }
                 let status = (response as? HTTPURLResponse)?.statusCode
-                let state = endingState(status: status, body: data)
+                let found = answer(status: status, body: data)
                 NSLog(
                     "CritAlarmAck: state_check status=%d incident_id=%@ ends=%@",
-                    status ?? 0, incidentId, state ?? "-"
+                    status ?? 0, incidentId, found?.state ?? "-"
                 )
-                continuation.resume(returning: state)
+                continuation.resume(returning: found)
             }.resume()
         }
     }

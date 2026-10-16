@@ -268,10 +268,26 @@ final class AlarmHost {
   ///
   /// Only a state the server named may reach here. A failed check is not a
   /// state.
-  Future<bool> applyRemoteState(String incidentId, String state) async =>
+  ///
+  /// [checkedAt] is when the question that got this answer went out, on this
+  /// phone's clock. The native side refuses the call when a push armed a ring
+  /// for the incident at or after that moment: the answer may be about an
+  /// earlier stage, from before a reopen. [openedAt] is the stage the answer
+  /// is about, sent along for the log. No push carries `opened_at` (api.md
+  /// §5.1, §5.2), so the native side has no stage of its own to hold it
+  /// against; the arm time is what it has.
+  Future<bool> applyRemoteState(
+    String incidentId,
+    String state, {
+    required DateTime checkedAt,
+    DateTime? openedAt,
+  }) async =>
       await _invoke<bool>('applyRemoteState', {
         'incident_id': incidentId,
         'state': state,
+        'checked_at': checkedAt.millisecondsSinceEpoch,
+        if (openedAt != null)
+          'opened_at': openedAt.millisecondsSinceEpoch ~/ 1000,
       }) ??
       false;
 
@@ -453,12 +469,21 @@ final class AlarmHost {
 /// One incident the native side heard was answered somewhere else.
 @immutable
 final class RemoteIncidentState {
-  const RemoteIncidentState({required this.incidentId, required this.state});
+  const RemoteIncidentState({
+    required this.incidentId,
+    required this.state,
+    this.openedAt,
+  });
 
   final String incidentId;
 
   /// `acked`, `closed` or `expired`, as the Live Activity carried it.
   final String state;
+
+  /// The `opened_at` of the stage the update is about (api.md §5.3), or null
+  /// when the update did not say. A reopen moves it, so it is what tells a
+  /// late update about an earlier stage from one about the ring going now.
+  final DateTime? openedAt;
 
   static RemoteIncidentState? fromMap(Object? raw) {
     if (raw is! Map) return null;
@@ -467,6 +492,16 @@ final class RemoteIncidentState {
     if (incidentId is! String || incidentId.isEmpty || state is! String) {
       return null;
     }
-    return RemoteIncidentState(incidentId: incidentId, state: state);
+    final openedAt = raw['opened_at'];
+    return RemoteIncidentState(
+      incidentId: incidentId,
+      state: state,
+      openedAt: openedAt is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (openedAt * 1000).round(),
+              isUtc: true,
+            )
+          : null,
+    );
   }
 }

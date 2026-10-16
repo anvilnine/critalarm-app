@@ -156,7 +156,9 @@ class AlarmChannel(private val context: Context) {
                     result.success(null)
                     return
                 }
-                stopService("dart_silence")
+                // This incident only. One service holds every un-acked
+                // incident, and stopping it outright silenced the others too.
+                AlarmForegroundService.stopIncident(context, incidentId)
                 val seconds = IncidentRearm.rearm(
                     context = context,
                     incidentId = incidentId,
@@ -192,7 +194,11 @@ class AlarmChannel(private val context: Context) {
                     return
                 }
                 result.success(
-                    PushRouter(context).applyRemoteState(incidentId, call.argument<String>("state")),
+                    PushRouter(context).applyRemoteState(
+                        incidentId = incidentId,
+                        state = call.argument<String>("state"),
+                        checkedAtMillis = call.argument<Number>("checked_at")?.toLong(),
+                    ),
                 )
             }
 
