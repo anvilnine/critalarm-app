@@ -263,6 +263,26 @@ final class AlarmHost {
   Future<int?> ringGeneration(String incidentId) async =>
       _invoke<int>('ringGeneration', {'incident_id': incidentId});
 
+  /// [ringGeneration] for launch reconcile, which must tell two kinds of
+  /// "no number" apart. A host with no handler, or one that answers
+  /// nothing, keeps no ring generations and has no native ring to guard
+  /// (web, desktop, a test host). A call that failed is a phone whose ring
+  /// may be live, and the card must stay.
+  Future<RingGenerationRead> readRingGeneration(String incidentId) async {
+    try {
+      final value = await _channel.invokeMethod<int>('ringGeneration', {
+        'incident_id': incidentId,
+      });
+      return value == null
+          ? const RingGenerationRead.notKept()
+          : RingGenerationRead.known(value);
+    } on MissingPluginException {
+      return const RingGenerationRead.notKept();
+    } on PlatformException {
+      return const RingGenerationRead.failed();
+    }
+  }
+
   /// The server says [incidentId] is [state] (`acked`, `closed` or
   /// `expired`), in answer to a question asked when the ring generation was
   /// [generation].
@@ -275,11 +295,18 @@ final class AlarmHost {
   /// refused. A missing [generation] is always refused.
   ///
   /// [openedAt] is the stage the answer is about, sent along for the log.
+  ///
+  /// [applyWhenNothing] also moves or takes down the card, in the same
+  /// native step, when the answer is accepted and nothing was set to ring.
+  /// [keepLive] refuses the answer when a ring is set: for an answer that
+  /// may end a card but never a ring, such as a 404 on launch.
   Future<RemoteApply> applyRemoteState(
     String incidentId,
     String state, {
     required int? generation,
     DateTime? openedAt,
+    bool applyWhenNothing = false,
+    bool keepLive = false,
   }) async {
     if (generation == null) return RemoteApply.refused;
     final answer = await _invoke<String>('applyRemoteState', {
@@ -288,6 +315,8 @@ final class AlarmHost {
       'generation': generation,
       if (openedAt != null)
         'opened_at': openedAt.millisecondsSinceEpoch ~/ 1000,
+      if (applyWhenNothing) 'apply_when_nothing': true,
+      if (keepLive) 'keep_live': true,
     });
     return RemoteApply.fromWire(answer);
   }
@@ -465,6 +494,23 @@ final class AlarmHost {
     await _magicTaps.close();
     await _remoteStates.close();
   }
+}
+
+/// What [AlarmHost.readRingGeneration] found.
+@immutable
+final class RingGenerationRead {
+  const RingGenerationRead.known(int this.value) : isKept = true;
+  const RingGenerationRead.notKept() : value = null, isKept = false;
+  const RingGenerationRead.failed() : value = null, isKept = true;
+
+  /// The generation, or null when there is none to hand back.
+  final int? value;
+
+  /// False only on a host that keeps no ring generations at all.
+  final bool isKept;
+
+  /// The host keeps generations and the read did not give one.
+  bool get isFailed => isKept && value == null;
 }
 
 /// What the native side did with a state the server named.

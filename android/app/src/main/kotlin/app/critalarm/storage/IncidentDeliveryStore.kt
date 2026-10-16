@@ -1,6 +1,7 @@
 package app.critalarm.storage
 
 import android.content.Context
+import android.content.SharedPreferences
 
 /**
  * What this device knows about one incident, kept on disk because the cards are
@@ -10,8 +11,9 @@ import android.content.Context
  * before it puts a card back: a fetch started at 0s can land at 10s, by which
  * time the user may have stopped the alarm, closed the incident, or both.
  */
-class IncidentDeliveryStore(context: Context) {
-    private val preferences = context.getSharedPreferences("incident_delivery", Context.MODE_PRIVATE)
+class IncidentDeliveryStore internal constructor(private val preferences: SharedPreferences) {
+    constructor(context: Context) :
+        this(context.getSharedPreferences("incident_delivery", Context.MODE_PRIVATE))
 
     fun isActive(incidentId: String) = preferences.getBoolean("active:$incidentId", false)
     fun isAcknowledged(incidentId: String) = preferences.getBoolean("acknowledged:$incidentId", false)
@@ -133,20 +135,28 @@ class IncidentDeliveryStore(context: Context) {
         preferences.getString("topic:$incidentId", null)?.takeIf(String::isNotEmpty)
 
     /**
-     * The incident's ring generation: how many pushes armed a ring for it on
-     * this phone. An answer from the server asked for under an older
+     * The incident's ring generation: a number every push that arms a ring
+     * for it moves on. An answer from the server asked for under an older
      * generation may be about an earlier stage (a reopen came since), so it
      * may not end the ring. Stop's own re-arm leaves it alone. Pushes carry
      * no `opened_at` (api.md §5.2), so this is the stage mark the phone has.
      * Read and moved only under [app.critalarm.push.RingLocks].
+     *
+     * A value never comes back for the same incident. [prune] drops the
+     * keys of old incidents, and a reopen can arm one of them again; that
+     * restarted from zero, so an answer held since the first stage could
+     * match the new ring and stop it. An incident with no stored value reads
+     * as the floor instead: the highest generation [prune] ever dropped. The
+     * value only ever goes up, and every push moves it on by at least one.
      */
     fun ringGeneration(incidentId: String): Long =
-        preferences.getLong("ring_generation:$incidentId", 0L)
+        preferences.getLong("$GENERATION_PREFIX$incidentId", 0L).takeIf { it > 0L }
+            ?: preferences.getLong(GENERATION_FLOOR, 0L)
 
     /** Moves the generation on by one, written before the call returns. */
     fun bumpRingGeneration(incidentId: String): Long {
         val next = ringGeneration(incidentId) + 1
-        preferences.edit().putLong("ring_generation:$incidentId", next).commit()
+        preferences.edit().putLong("$GENERATION_PREFIX$incidentId", next).commit()
         return next
     }
 
@@ -209,21 +219,31 @@ class IncidentDeliveryStore(context: Context) {
      * purged incident answers 404 for good, and each one cost another server
      * call on every cold start.
      */
-    fun prune(nowMillis: Long = System.currentTimeMillis()) {
-        val stale = incidentIds().filter { incidentId ->
-            DeliveryRetention.isStale(
-                acknowledged = isAcknowledged(incidentId),
-                closed = isClosed(incidentId),
-                ackedAtMillis = acknowledgedAtMillis(incidentId),
-                nowMillis = nowMillis,
-            )
+    fun prune(nowMillis: Long = System.currentTimeMillis()) = synchronized(PRUNE_LOCK) {
+        for (incidentId in incidentIds()) {
+            // Under the incident's lock, the one push arming takes, so a
+            // reopen cannot move the generation between the read below and
+            // the removal.
+            synchronized(app.critalarm.push.RingLocks.of(incidentId)) {
+                val stale = DeliveryRetention.isStale(
+                    acknowledged = isAcknowledged(incidentId),
+                    closed = isClosed(incidentId),
+                    ackedAtMillis = acknowledgedAtMillis(incidentId),
+                    nowMillis = nowMillis,
+                )
+                if (!stale) return@synchronized
+                val edit = preferences.edit()
+                // The floor goes up in the same write that drops the value,
+                // so no read can see the incident go back to a lower one.
+                val floor = maxOf(
+                    preferences.getLong(GENERATION_FLOOR, 0L),
+                    ringGeneration(incidentId),
+                )
+                edit.putLong(GENERATION_FLOOR, floor)
+                for (prefix in PREFIXES) edit.remove("$prefix$incidentId")
+                edit.apply()
+            }
         }
-        if (stale.isEmpty()) return
-        val edit = preferences.edit()
-        for (incidentId in stale) {
-            for (prefix in PREFIXES) edit.remove("$prefix$incidentId")
-        }
-        edit.apply()
     }
 
     /** Every incident this store holds anything about. */
@@ -235,6 +255,14 @@ class IncidentDeliveryStore(context: Context) {
         .toSet()
 
     private companion object {
+        const val GENERATION_PREFIX = "ring_generation:"
+
+        /** No incident prefix, so [prune] never drops it. */
+        const val GENERATION_FLOOR = "ring_generation_floor"
+
+        /** One prune at a time, because the floor is shared by every incident. */
+        val PRUNE_LOCK = Any()
+
         val PREFIXES = listOf(
             "active:",
             "acknowledged:",
@@ -245,7 +273,7 @@ class IncidentDeliveryStore(context: Context) {
             "topic:",
             "rearm_fires_at:",
             "local_acked_at:",
-            "ring_generation:",
+            GENERATION_PREFIX,
         )
     }
 }

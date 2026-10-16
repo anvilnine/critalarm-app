@@ -192,7 +192,10 @@ class AlarmChannel(private val context: Context) {
             // The server says the incident is acked, closed or expired, and
             // Dart learned it some way other than a state push. The same as
             // that push, and only when this phone still rings for it or has a
-            // ring set. Answers whether it stopped anything.
+            // ring set. Answers whether it stopped anything. Launch
+            // reconcile sends `apply_when_nothing` (fix the card in the same
+            // locked step when nothing is set) and, for a 404, `keep_live`
+            // (never stop a live ring).
             "applyRemoteState" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {
@@ -204,6 +207,8 @@ class AlarmChannel(private val context: Context) {
                         incidentId = incidentId,
                         state = call.argument<String>("state"),
                         expectedGeneration = call.argument<Number>("generation")?.toLong(),
+                        applyWhenNothing = call.argument<Boolean>("apply_when_nothing") == true,
+                        keepLive = call.argument<Boolean>("keep_live") == true,
                     ).wire,
                 )
             }

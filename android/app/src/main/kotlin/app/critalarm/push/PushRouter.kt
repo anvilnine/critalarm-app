@@ -208,13 +208,43 @@ class PushRouter(private val context: Context) {
 
     /**
      * `ack`, `close` or `expire` (api.md §5.2). The incident was answered
-     * somewhere else, so this device stops ringing for it, drops the ring it
-     * had set for itself, and either hands the card to the acked state or
-     * takes it down.
+     * somewhere else, as far as this push knows.
+     *
+     * A phone with nothing ringing and nothing set only fixes the card, at
+     * once, under the incident's lock. A phone that rings or has a ring set
+     * does not trust the push: it may be late, and a reopen may have armed
+     * the ring going now ([StatePushRule]). It reads the ring generation,
+     * asks the server once off this thread under the action deadline, and
+     * stops only through [applyRemoteState]. No answer, an error or an open
+     * incident leaves the ring alone.
      */
     private fun handleStateChange(payload: FcmIncidentPayload) {
         val incidentId = payload.incidentId ?: return
-        applyStateChange(incidentId, payload.server, payload.kind)
+        val generation = synchronized(RingLocks.of(incidentId)) {
+            when (StatePushRule.onArrival(isLiveHere(incidentId, System.currentTimeMillis()))) {
+                StatePushRule.Step.APPLY_NOW -> {
+                    applyStateChange(incidentId, payload.server, payload.kind)
+                    return
+                }
+                StatePushRule.Step.ASK_SERVER ->
+                    IncidentDeliveryStore(context).ringGeneration(incidentId)
+            }
+        }
+        Log.i(TAG, "state_push_checking kind=${payload.kind.wireValue} incident_id=$incidentId")
+        Thread {
+            try {
+                val state = IncidentContentFetcher.fetchState(context, payload.server, incidentId)
+                val outcome = applyRemoteState(
+                    incidentId,
+                    state,
+                    generation,
+                    applyWhenNothing = true,
+                )
+                Log.i(TAG, "state_push_checked incident_id=$incidentId state=$state outcome=${outcome.wire}")
+            } catch (error: Exception) {
+                Log.w(TAG, "state_push_check_failed incident_id=$incidentId reason=${error.javaClass.simpleName}")
+            }
+        }.start()
     }
 
     /**
@@ -227,12 +257,18 @@ class PushRouter(private val context: Context) {
      * Dart calls this once it has the server's answer, and Stop calls it after
      * asking the server once. Either way a push that went missing no longer
      * leaves the phone ringing every repeat interval until `ring_until`.
+     *
+     * [applyWhenNothing] also fixes the card for an accepted answer when
+     * nothing was set to ring, in the same locked step. [keepLive] refuses
+     * an answer that would stop a live ring (see [RemoteStateRule.decide]).
      */
     fun applyRemoteState(
         incidentId: String,
         state: String?,
         expectedGeneration: Long?,
         nowMillis: Long = System.currentTimeMillis(),
+        applyWhenNothing: Boolean = false,
+        keepLive: Boolean = false,
     ): RemoteStateRule.Outcome {
         val kind = RemoteStateRule.kindForState(state) ?: return RemoteStateRule.Outcome.REFUSED
         val server = NativeConnectionStore(context).canonicalServer()
@@ -244,11 +280,13 @@ class PushRouter(private val context: Context) {
                 expectedGeneration = expectedGeneration,
                 currentGeneration = IncidentDeliveryStore(context).ringGeneration(incidentId),
                 live = isLiveHere(incidentId, nowMillis),
+                keepLive = keepLive,
             )
             if (outcome == RemoteStateRule.Outcome.REFUSED) {
-                Log.i(TAG, "remote_state_refused reason=newer_ring incident_id=$incidentId")
+                Log.i(TAG, "remote_state_refused incident_id=$incidentId keep_live=$keepLive")
+                return outcome
             }
-            if (outcome != RemoteStateRule.Outcome.STOPPED) return outcome
+            if (outcome == RemoteStateRule.Outcome.NOTHING && !applyWhenNothing) return outcome
             applyStateChange(incidentId, server, kind)
             events.record("remote_state_applied", mapOf("kind" to kind.wireValue))
             return outcome
