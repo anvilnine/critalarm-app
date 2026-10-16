@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
+import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
@@ -225,6 +226,61 @@ final class IncidentAlarmController {
       if (incident.isOpen || incident.isAcked) continue;
       applyIncident?.call(incident);
       await onIncidentFinished(incidentId, state: incident.incidentState);
+    }
+  }
+
+  /// How many live rings one run checks. A phone rings for one or two
+  /// incidents at a time; anything past this waits for the next run.
+  static const int liveCheckLimit = 5;
+
+  /// How long each check may take before it counts as no answer.
+  static const Duration liveCheckTimeout = Duration(seconds: 5);
+
+  /// How long a run waits before it starts, so the alarm screen a tap just
+  /// opened gets to check its own incident first and say why it went quiet.
+  static const Duration liveCheckSettle = Duration(seconds: 2);
+
+  /// Stops every ring on this phone that the server says is over.
+  ///
+  /// Launch and resume run this. It is for the rings nothing else catches:
+  /// an iPhone that was asleep when another device answered, or an Android
+  /// phone whose state push never came. Each incident the phone is ringing
+  /// for, or has a ring set for, is asked about once. Only an answer of
+  /// acked, closed or expired stops it. No answer, an error, 404 and an open
+  /// incident all leave the ring exactly as it was.
+  ///
+  /// [skip] names incidents another screen is already handling, which is the
+  /// alarm screen. Never throws.
+  Future<void> stopRingsHandledElsewhere({
+    bool Function(String incidentId)? skip,
+  }) async {
+    try {
+      await wait(liveCheckSettle);
+      final live = await host.liveIncidentIds();
+      for (final incidentId in live.take(liveCheckLimit)) {
+        if (skip?.call(incidentId) ?? false) continue;
+        final Incident incident;
+        try {
+          incident = await api
+              .getIncident(incidentId)
+              .timeout(liveCheckTimeout);
+        } on Object catch (_) {
+          continue;
+        }
+        final ending = HandledElsewhereRule.endingState(incident.state);
+        if (ending == null) continue;
+        final stopped = await host.applyRemoteState(
+          incidentId,
+          HandledElsewhereRule.wireName(ending),
+        );
+        _log(
+          'ring_handled_elsewhere id=$incidentId state=${incident.state} '
+          'stopped=$stopped',
+        );
+        applyIncident?.call(incident);
+      }
+    } on Object catch (_) {
+      // Nothing to do. A ring left alone is the safe side.
     }
   }
 

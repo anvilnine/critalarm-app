@@ -793,6 +793,13 @@
     "terms_link": "Terms",
     "privacy_link": "Privacy Policy"
   },
+  "incidents": {
+    "handled_elsewhere_title": "Handled on another device",
+    "handled_elsewhere_body": "Someone answered this alarm on another device, so this phone stopped ringing.",
+    "alarm_ended_title": "This alarm is over",
+    "alarm_ended_body": "The server ended this alarm after its ring time ran out, so this phone stopped ringing.",
+    "handled_elsewhere_stop_button": "Stop"
+  },
   "critical_alarm": {
     "demo_title": "Crit Alarm Test",
     "demo_body": "This is a test alarm to verify your device rings through silent mode.",

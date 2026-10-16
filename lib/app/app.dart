@@ -44,6 +44,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
@@ -231,6 +232,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
       _checkAppIcon();
+      _stopRingsHandledElsewhere();
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
@@ -289,11 +291,30 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<ChallengeFlagSync>().check());
     unawaited(getIt<AlarmStyleGate>().check());
     unawaited(_retryFailedLaunchCalls());
+    _stopRingsHandledElsewhere();
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.
     unawaited(getIt<BackgroundConnect>().retryNow());
     _autoDelete();
     _checkAppIcon();
+  }
+
+  /// A ring left on this phone for an incident another device already
+  /// answered stops here, on launch and on every resume. The alarm screen
+  /// checks the incident it shows itself, so it is left to do that and to
+  /// say why the phone went quiet.
+  void _stopRingsHandledElsewhere() {
+    unawaited(
+      getIt<IncidentAlarmController>().stopRingsHandledElsewhere(
+        skip: (incidentId) {
+          final screen = CriticalAlarmCubit.current;
+          if (screen == null || screen.isClosed) return false;
+          // Still loading: it is about to check its own incident.
+          if (screen.state.status == CriticalAlarmStatus.loading) return true;
+          return screen.state.incident?.id == incidentId;
+        },
+      ),
+    );
   }
 
   /// A Pro icon goes back to the default once Pro has ended, including an
