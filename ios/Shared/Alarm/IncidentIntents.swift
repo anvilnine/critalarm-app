@@ -169,9 +169,7 @@ struct StopAlarmIntent: LiveActivityIntent {
         await IncidentActivityCoordinator.shared.alarmSilenced(incidentId: incidentId)
         // On AlarmSerial, so it never lands between a guarded stop's check
         // and its cancel.
-        let seconds = await AlarmSerial.shared.run {
-            await IncidentRearm.rearm(incidentId: incidentId)
-        }
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         if let seconds {
             await IncidentActivityCoordinator.shared.setRingsAgainIn(
                 seconds, incidentId: incidentId

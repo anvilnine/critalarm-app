@@ -115,6 +115,21 @@ enum IncidentRearm {
         }
     }
 
+    /// [rearm] as one step on [AlarmSerial], the queue push arming and every
+    /// guarded stop go through, so it never lands between a guarded stop's
+    /// check and its cancel. Every re-arm outside the serial step itself
+    /// goes through here: Stop, the in-app silence and a dismissed banner.
+    @MainActor
+    @discardableResult
+    static func rearmInOrder(
+        incidentId: String,
+        center: UNUserNotificationCenter? = .current()
+    ) async -> Int? {
+        await AlarmSerial.shared.run {
+            await rearm(incidentId: incidentId, center: center)
+        }
+    }
+
     /// Drops a pending re-arm, whichever of the two holds it. Safe to call
     /// when there is none.
     static func cancel(incidentId: String, center: UNUserNotificationCenter? = .current()) async {
@@ -215,34 +230,73 @@ enum RingGeneration {
     }
 
     private static let key = "critalarm.ring_generation"
+    private static let floorKey = "critalarm.ring_generation_floor"
+
+    /// How many incidents the map holds before it drops some, and how many
+    /// it keeps when it does.
+    private static let limit = 300
+    private static let keep = 200
 
     private static var defaults: UserDefaults {
         UserDefaults(suiteName: "group.app.critalarm") ?? .standard
     }
 
-    static func decide(expected: Int?, current: Int, live: Bool) -> Outcome {
+    static func decide(expected: Int?, current: Int, live: Bool, keepLive: Bool = false) -> Outcome {
         guard let expected, expected == current else { return .refused }
+        // An answer that may end a card but never a ring: a 404 on launch
+        // says the server forgot the incident, not that anyone handled it.
+        if live, keepLive { return .refused }
         return live ? .stopped : .nothing
     }
 
     static func current(incidentId: String) -> Int {
-        (defaults.dictionary(forKey: key)?[incidentId] as? Int) ?? 0
+        current(
+            in: defaults.dictionary(forKey: key) as? [String: Int] ?? [:],
+            floor: defaults.integer(forKey: floorKey),
+            incidentId: incidentId
+        )
+    }
+
+    /// An incident the map no longer holds reads as the floor: the highest
+    /// generation ever dropped. A value only goes up, so an answer held from
+    /// an earlier stage never matches a later ring. Restarting a dropped
+    /// incident from zero let it.
+    static func current(in values: [String: Int], floor: Int, incidentId: String) -> Int {
+        values[incidentId] ?? floor
     }
 
     @discardableResult
     static func bump(incidentId: String) -> Int {
-        var values = defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
-        let next = (values[incidentId] ?? 0) + 1
+        let state = bumped(
+            defaults.dictionary(forKey: key) as? [String: Int] ?? [:],
+            floor: defaults.integer(forKey: floorKey),
+            incidentId: incidentId
+        )
+        // The floor first. A read between the two writes then sees either
+        // the old map or a floor at least as high as anything dropped.
+        defaults.set(state.floor, forKey: floorKey)
+        defaults.set(state.values, forKey: key)
+        return state.next
+    }
+
+    /// One push for [incidentId]: its generation moves on by one from what
+    /// it reads now. The map only needs incidents that can still ring, so
+    /// past [limit] it keeps the [keep] highest and the one just bumped, and
+    /// the floor rises to the highest it dropped.
+    static func bumped(
+        _ values: [String: Int],
+        floor: Int,
+        incidentId: String
+    ) -> (values: [String: Int], floor: Int, next: Int) {
+        var values = values
+        let next = current(in: values, floor: floor, incidentId: incidentId) + 1
         values[incidentId] = next
-        // The map only needs incidents that can still ring. Past a few
-        // hundred, the others go; a forgotten one starts again from zero.
-        if values.count > 300 {
-            var kept = Dictionary(uniqueKeysWithValues: values.prefix(200).map { ($0.key, $0.value) })
-            kept[incidentId] = next
-            values = kept
-        }
-        defaults.set(values, forKey: key)
-        return next
+        guard values.count > limit else { return (values, floor, next) }
+        let ranked = values.filter { $0.key != incidentId }.sorted { $0.value > $1.value }
+        var kept = Dictionary(uniqueKeysWithValues: ranked.prefix(keep).map { ($0.key, $0.value) })
+        kept[incidentId] = next
+        let dropped = ranked.dropFirst(keep).map(\.value).max() ?? floor
+        return (kept, max(floor, dropped), next)
     }
 
     /// True when this phone rings for [incidentId] now or has a ring set for
@@ -263,24 +317,30 @@ enum RingGeneration {
     /// Applies a state the server named, asked under generation [expected],
     /// as one serial step: read, decide, cancel. [applyWhenNothingSet] lets
     /// the Live Activity path still update the card and the widgets for an
-    /// accepted answer when nothing was ringing.
+    /// accepted answer when nothing was ringing. [keepLive] refuses an
+    /// answer that would stop a ring that is set (launch reconcile's 404).
     @available(iOS 16.2, *)
     @MainActor
     static func applyIfCurrent(
         _ state: IncidentActivityState,
         incidentId: String,
         expected: Int?,
-        applyWhenNothingSet: Bool = false
+        applyWhenNothingSet: Bool = false,
+        keepLive: Bool = false
     ) async -> Outcome {
         await AlarmSerial.shared.run {
             let outcome = decide(
                 expected: expected,
                 current: current(incidentId: incidentId),
-                live: ringIsSet(incidentId: incidentId)
+                live: ringIsSet(incidentId: incidentId),
+                keepLive: keepLive
             )
             switch outcome {
             case .refused:
-                NSLog("CritAlarmAlarm: remote_state_refused reason=newer_ring incident_id=%@", incidentId)
+                NSLog(
+                    "CritAlarmAlarm: remote_state_refused incident_id=%@ keep_live=%d",
+                    incidentId, keepLive ? 1 : 0
+                )
             case .nothing:
                 if applyWhenNothingSet {
                     await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)

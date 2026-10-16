@@ -207,6 +207,11 @@ final class IncidentAlarmController {
   Future<void> _reconcileOnce() async {
     final showing = await host.showingIncidentIds();
     for (final incidentId in showing.take(reconcileLimit)) {
+      // Before the question goes out. A reopen can arm a ring for this
+      // incident while it is out, and the native step then refuses the
+      // answer. A read that failed leaves the card for the next launch.
+      final generation = await host.readRingGeneration(incidentId);
+      if (generation.isFailed) continue;
       final Incident incident;
       try {
         incident = await api.getIncident(incidentId);
@@ -214,9 +219,15 @@ final class IncidentAlarmController {
         // 404 and 410 are answers, not failures. The incident is gone from the
         // server, which relays do after a retention window, so the card comes
         // down and the id leaves the list. Left as an error it came back every
-        // launch and cost a server call every time.
+        // launch and cost a server call every time. It says the server forgot
+        // the incident, not that anyone handled it, so it never stops a ring.
         if (error.statusCode == 404 || error.statusCode == 410) {
-          await onIncidentFinished(incidentId, state: IncidentState.expired);
+          await _finishCard(
+            incidentId,
+            IncidentState.expired,
+            generation,
+            keepLive: true,
+          );
           continue;
         }
         // Any other status is a launch hiccup or a real failure; let
@@ -224,9 +235,49 @@ final class IncidentAlarmController {
         rethrow;
       }
       if (incident.isOpen || incident.isAcked) continue;
-      applyIncident?.call(incident);
-      await onIncidentFinished(incidentId, state: incident.incidentState);
+      await _finishCard(
+        incidentId,
+        incident.incidentState,
+        generation,
+        incident: incident,
+      );
     }
+  }
+
+  /// Ends the card for an incident the server has finished with, through
+  /// the native step that checks the ring generation and cancels as one
+  /// (`applyRemoteState`). A refused answer changes nothing.
+  ///
+  /// A host that keeps no generations has no native ring to guard, so it
+  /// takes the plain path.
+  Future<void> _finishCard(
+    String incidentId,
+    IncidentState state,
+    RingGenerationRead generation, {
+    bool keepLive = false,
+    Incident? incident,
+  }) async {
+    if (!generation.isKept) {
+      if (incident != null) applyIncident?.call(incident);
+      await onIncidentFinished(incidentId, state: state);
+      return;
+    }
+    final applied = await host.applyRemoteState(
+      incidentId,
+      _activityState(state),
+      generation: generation.value,
+      openedAt: incident?.openedAt,
+      applyWhenNothing: true,
+      keepLive: keepLive,
+    );
+    _log(
+      'reconcile_finished id=$incidentId state=${state.name} '
+      'native=${applied.name}',
+    );
+    if (!applied.isAccepted) return;
+    _alarming.remove(incidentId);
+    if (incident != null) applyIncident?.call(incident);
+    await tokens?.forget(incidentId);
   }
 
   /// How many live rings one run checks. A phone rings for one or two

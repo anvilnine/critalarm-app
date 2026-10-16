@@ -340,8 +340,10 @@ import AlarmKit
     // incident. `.customDismissAction` on the INCIDENT category is what makes
     // iOS call us at all; without this branch the dismiss was ignored.
     if response.actionIdentifier == UNNotificationDismissActionIdentifier, let incidentId {
-      Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+      Task { @MainActor in
+        // On AlarmSerial, like Stop's re-arm, so it never lands between a
+        // guarded stop's check and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         NSLog(
           "CritAlarm: notification_dismissed incident_id=%@ rearm_in_s=%d",
           incidentId, seconds ?? -1
@@ -604,9 +606,7 @@ import AlarmKit
       Task {
         // On AlarmSerial, so it never lands between a guarded stop's check
         // and its cancel.
-        let seconds = await AlarmSerial.shared.run {
-          await IncidentRearm.rearm(incidentId: incidentId)
-        }
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         if #available(iOS 16.2, *), let seconds {
           await IncidentActivityCoordinator.shared.setRingsAgainIn(seconds, incidentId: incidentId)
         }
@@ -639,9 +639,14 @@ import AlarmKit
         return
       }
       let expected = (args["generation"] as? NSNumber)?.intValue
+      // Launch reconcile: fix the card in the same step when nothing is set,
+      // and for a 404 never stop a ring that is.
+      let applyWhenNothing = (args["apply_when_nothing"] as? Bool) ?? false
+      let keepLive = (args["keep_live"] as? Bool) ?? false
       Task { @MainActor in
         let outcome = await RingGeneration.applyIfCurrent(
-          state, incidentId: incidentId, expected: expected
+          state, incidentId: incidentId, expected: expected,
+          applyWhenNothingSet: applyWhenNothing, keepLive: keepLive
         )
         NSLog(
           "CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@ outcome=%@",

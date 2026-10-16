@@ -265,6 +265,85 @@ final class RingGenerationTests: XCTestCase {
     }
 }
 
+/// A ring generation never comes back for the same incident, so an answer
+/// held from an earlier stage can never match a later ring.
+final class RingGenerationNeverRepeatsTests: XCTestCase {
+    private func crowded(with incident: String, at value: Int) -> [String: Int] {
+        var values = [incident: value]
+        for index in 0 ..< 300 { values["inc_other_\(index)"] = value + 10 }
+        return values
+    }
+
+    func testAnEvictedIncidentNeverGetsAnOldGenerationBack() {
+        let captured = 1
+        let crowd = crowded(with: "inc_x", at: captured)
+        // A push for a new incident pushes the map past its limit.
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertNil(evicted.values["inc_x"])
+
+        let rearmed = RingGeneration.bumped(evicted.values, floor: evicted.floor, incidentId: "inc_x")
+
+        XCTAssertNotEqual(rearmed.next, captured)
+        XCTAssertGreaterThan(rearmed.next, captured)
+    }
+
+    func testEvictionNeverMovesAGenerationBack() {
+        let crowd = crowded(with: "inc_x", at: 7)
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertGreaterThanOrEqual(
+            RingGeneration.current(in: evicted.values, floor: evicted.floor, incidentId: "inc_x"),
+            7
+        )
+    }
+
+    func testAValueReadBeforeTheFirstPushIsNotFoundAgainAfterEviction() {
+        let captured = RingGeneration.current(in: [:], floor: 0, incidentId: "inc_x")
+        var state = RingGeneration.bumped([:], floor: 0, incidentId: "inc_x")
+        for index in 0 ..< 400 {
+            state = RingGeneration.bumped(state.values, floor: state.floor, incidentId: "inc_flood_\(index)")
+        }
+        XCTAssertNotEqual(
+            RingGeneration.current(in: state.values, floor: state.floor, incidentId: "inc_x"),
+            captured
+        )
+    }
+
+    func testTheIncidentJustBumpedIsKept() {
+        let crowd = crowded(with: "inc_x", at: 3)
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertEqual(evicted.values["inc_new"], evicted.next)
+    }
+
+    func testAnAnswerThatMayNotEndARingIsRefusedWhileOneIsSet() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: true, keepLive: true), .refused)
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: false, keepLive: true), .nothing)
+    }
+
+    @MainActor
+    func testADismissReArmWaitsForTheStepBeforeIt() async {
+        var order: [String] = []
+        let gate = AsyncGate()
+        let held = Task { @MainActor in
+            await AlarmSerial.shared.run {
+                order.append("guarded stop starts")
+                await gate.wait()
+                order.append("guarded stop ends")
+            }
+        }
+        await Task.yield()
+        let rearm = Task { @MainActor in
+            _ = await IncidentRearm.rearmInOrder(incidentId: "inc_dismiss_\(UUID().uuidString)", center: nil)
+            order.append("re-arm")
+        }
+        for _ in 0 ..< 5 { await Task.yield() }
+        XCTAssertEqual(order, ["guarded stop starts"])
+        await gate.open()
+        await held.value
+        await rearm.value
+        XCTAssertEqual(order, ["guarded stop starts", "guarded stop ends", "re-arm"])
+    }
+}
+
 /// Holds a step until the test opens it.
 actor AsyncGate {
     private var isOpen = false

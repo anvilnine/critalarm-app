@@ -46,10 +46,20 @@ object RemoteStateRule {
      * does not. A changed generation means a push, which can be a reopen,
      * came after the question, so the answer may be about the stage before.
      * No clock is read: a phone whose clock jumps cannot fool this.
+     *
+     * [keepLive] is for an answer that may end a card but never a ring: a
+     * 404 from launch reconcile says the server forgot the incident, not
+     * that anyone handled it. A live ring is then refused.
      */
-    fun decide(expectedGeneration: Long?, currentGeneration: Long, live: Boolean): Outcome = when {
+    fun decide(
+        expectedGeneration: Long?,
+        currentGeneration: Long,
+        live: Boolean,
+        keepLive: Boolean = false,
+    ): Outcome = when {
         expectedGeneration == null || expectedGeneration != currentGeneration -> Outcome.REFUSED
         !live -> Outcome.NOTHING
+        keepLive -> Outcome.REFUSED
         else -> Outcome.STOPPED
     }
 
@@ -80,6 +90,22 @@ object RemoteStateRule {
         if (rearmPending) return true
         return active && ringUntilMillis != null && nowMillis < ringUntilMillis
     }
+}
+
+/**
+ * What a state push (`ack`, `close`, `expire`, api.md §5.2) does on arrival.
+ *
+ * A state push can be late. If a reopen armed a new ring after the ack it
+ * reports, ending the ring on its word silences a phone for an incident
+ * nobody handled. So a phone that rings, or has a ring set, asks the server
+ * once with the ring generation read first, the way Stop does, and only a
+ * state the server names under that same generation ends the ring. A phone
+ * with nothing set only has a card to fix, and fixes it at once.
+ */
+object StatePushRule {
+    enum class Step { APPLY_NOW, ASK_SERVER }
+
+    fun onArrival(live: Boolean): Step = if (live) Step.ASK_SERVER else Step.APPLY_NOW
 }
 
 /**
