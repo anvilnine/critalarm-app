@@ -83,6 +83,15 @@ build. `make worktree-list` shows what is still open; `make worktree-clean` remo
 only the worktrees that are clean and already merged. Details in
 `worktrees/README.md`.
 
+**Worktrees live in `worktrees/`, never in `.claude/worktrees/`.** This is a hard
+rule for every agent and session. Do not use Claude Code's built-in worktree
+option (`claude --worktree`, `EnterWorktree`, or an agent started with
+`isolation: "worktree"`): it puts the copy in `.claude/worktrees/<name>` on a
+`worktree-<name>` branch. Flutter skips folders whose names start with a dot, so
+nothing builds there, and `make worktree-list`, `make worktree-clean` and the
+prep hook never see it. Always run `make worktree-new NAME=<slug>`. If you find a
+worktree under `.claude/worktrees/`, stop and tell Z.
+
 **Most generated files are git-ignored.** `*.g.dart` and `*.freezed.dart` are not
 in the repo. FlutterGen's `lib/gen/*.gen.dart` is the exception and is committed,
 because it is derived from `pubspec.yaml` rather than from source. After a clone, run `make gen` and `make l10n` or nothing compiles.
