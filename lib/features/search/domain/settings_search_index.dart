@@ -101,6 +101,14 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['privacy', 'analytics', 'crash', 'telemetry', 'data'],
     ),
+    // The docs list under Help. The About screen keeps its own docs link.
+    const SettingsDestination(
+      id: 'docs',
+      routePath: '/settings/docs',
+      titleKey: LocaleKeys.docs_list_title,
+      parentTitleKey: LocaleKeys.settings_help_header,
+      keywords: <String>['docs', 'documentation', 'help', 'guide', 'manual'],
+    ),
     const SettingsDestination(
       id: 'about',
       routePath: '/settings/about',
