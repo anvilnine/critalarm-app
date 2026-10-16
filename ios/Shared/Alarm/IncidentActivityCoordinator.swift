@@ -178,25 +178,12 @@ public final class IncidentActivityCoordinator {
         let incidentId = activity.attributes.incidentId
         contentWatchers[activity.id] = Task { [weak self] in
             for await content in activity.contentUpdates {
-                let update = content.state
-                // An update about an earlier stage of the incident, late
-                // after a reopen rang this phone again, must not end the
-                // new ring. The update names its stage by opened_at.
-                if update.state != .open,
-                   !RingStage.updateEndsRingingStage(
-                       updateOpenedAt: update.openedAt,
-                       stageStartedAt: RingStage.stageStartedAt(incidentId: incidentId)
-                   ) {
-                    NSLog(
-                        "CritAlarmActivity: remote_state_refused reason=earlier_stage incident_id=%@",
-                        incidentId
-                    )
-                    continue
-                }
-                await self?.applyRemoteState(update.state, incidentId: incidentId)
-                await self?.reportRemoteState(
-                    update.state, incidentId: incidentId, openedAt: update.openedAt
-                )
+                // An update alone ends nothing: it can be about an earlier
+                // stage, late after a reopen, and desk timers can be short.
+                // An ending update makes one fresh, generation-guarded check,
+                // the same as Stop's, and only that answer can cancel.
+                guard content.state.state != .open else { continue }
+                await self?.checkWithServer(incidentId: incidentId, applyWhenNothingSet: true)
             }
         }
     }
@@ -390,15 +377,29 @@ public final class IncidentActivityCoordinator {
         }
     }
 
-    /// Passes an ending state on to the app, if it is listening. Open and the
-    /// onboarding card are never passed on.
-    public func reportRemoteState(
-        _ state: IncidentActivityState,
-        incidentId: String,
-        openedAt: Date?
-    ) {
-        guard state != .open, incidentId != Self.onboardingIncidentId else { return }
-        onRemoteState?(incidentId, state.rawValue, openedAt)
+    /// Asks the server once about [incidentId] and applies an ending answer
+    /// only if no push armed a ring for it since the question went out (see
+    /// `RingGeneration`). Stop runs it, and so does an ending Live Activity
+    /// update. An accepted answer is passed on to the app. No answer, an
+    /// error or an open incident changes nothing.
+    public func checkWithServer(incidentId: String, applyWhenNothingSet: Bool = false) async {
+        guard incidentId != Self.onboardingIncidentId else { return }
+        let generation = RingGeneration.current(incidentId: incidentId)
+        guard let found = await RemoteStateCheck.fetch(incidentId: incidentId),
+              let state = IncidentActivityState(rawValue: found.state)
+        else { return }
+        let outcome = await RingGeneration.applyIfCurrent(
+            state,
+            incidentId: incidentId,
+            expected: generation,
+            applyWhenNothingSet: applyWhenNothingSet
+        )
+        NSLog(
+            "CritAlarmActivity: server_check incident_id=%@ state=%@ outcome=%@",
+            incidentId, found.state, outcome.rawValue
+        )
+        guard outcome != .refused else { return }
+        onRemoteState?(incidentId, state.rawValue, found.openedAt)
     }
 
     /// Puts the acknowledge time and the stale date on a card this phone

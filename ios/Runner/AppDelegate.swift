@@ -474,22 +474,6 @@ import AlarmKit
     magicTapArmed = false
   }
 
-  /// True when this phone rings for [incidentId] now or has a ring set for
-  /// it: an AlarmKit alarm in any state, or a re-arm waiting (the
-  /// notification form on older iPhones). Alarms that cannot be read count
-  /// as set, because applying a state the server named is safe and missing
-  /// a ring is not.
-  private func ringIsSet(incidentId: String) -> Bool {
-    if IncidentRearm.debugEntries()[incidentId] != nil { return true }
-    #if canImport(AlarmKit)
-    if #available(iOS 26.0, *) {
-      let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
-      return (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
-    }
-    #endif
-    return false
-  }
-
   private func handleAlarmCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
     switch call.method {
@@ -618,7 +602,11 @@ import AlarmKit
         return
       }
       Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        // On AlarmSerial, so it never lands between a guarded stop's check
+        // and its cancel.
+        let seconds = await AlarmSerial.shared.run {
+          await IncidentRearm.rearm(incidentId: incidentId)
+        }
         if #available(iOS 16.2, *), let seconds {
           await IncidentActivityCoordinator.shared.setRingsAgainIn(seconds, incidentId: incidentId)
         }
@@ -636,42 +624,41 @@ import AlarmKit
       }
 
     case "applyRemoteState":
-      // The server says the incident is acked, closed or expired, and Dart
-      // learned it from a list read or its own check. The same as a Live
-      // Activity update would do, and only when this phone still rings for
-      // the incident or has a ring set. Answers whether it stopped anything.
+      // The server says the incident is acked, closed or expired, in answer
+      // to a question Dart asked under ring generation `generation`. The
+      // check and the cancel run as one step on AlarmSerial, the queue push
+      // arming goes through: a push that armed a ring since the question
+      // went out moves the generation on, and the answer is refused.
+      // Answers "stopped", "nothing" or "refused".
       guard #available(iOS 16.2, *),
             let incidentId = args["incident_id"] as? String, !incidentId.isEmpty,
             let raw = RemoteStateCheck.endingState(args["state"] as? String),
             let state = IncidentActivityState(rawValue: raw)
       else {
-        result(false)
+        result(RingGeneration.Outcome.refused.rawValue)
         return
       }
-      guard ringIsSet(incidentId: incidentId) else {
-        result(false)
-        return
-      }
-      // Read right before anything is cancelled. A ring armed after Dart's
-      // question went out may be a reopen the answer knew nothing about.
-      let checkedAt = (args["checked_at"] as? NSNumber).map {
-        Date(timeIntervalSince1970: $0.doubleValue / 1000)
-      }
-      guard RingStage.mayApply(
-        checkedAt: checkedAt, armedAt: RingStage.armedAt(incidentId: incidentId)
-      ) else {
-        NSLog("CritAlarmAlarm: remote_state_refused reason=newer_ring incident_id=%@", incidentId)
-        result(false)
-        return
-      }
-      NSLog("CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@", incidentId, raw)
-      Task {
-        await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
-        await MainActor.run { result(true) }
+      let expected = (args["generation"] as? NSNumber)?.intValue
+      Task { @MainActor in
+        let outcome = await RingGeneration.applyIfCurrent(
+          state, incidentId: incidentId, expected: expected
+        )
+        NSLog(
+          "CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@ outcome=%@",
+          incidentId, raw, outcome.rawValue
+        )
+        result(outcome.rawValue)
       }
 
+    case "ringGeneration":
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(nil)
+        return
+      }
+      result(RingGeneration.current(incidentId: incidentId))
+
     case "liveIncidentIds":
-      result(PendingIncidentStore.all().keys.filter { ringIsSet(incidentId: $0) }.sorted())
+      result(PendingIncidentStore.all().keys.filter { RingGeneration.ringIsSet(incidentId: $0) }.sorted())
 
     case "markAcked":
       // Dart acknowledged this incident (in the app, or from its queue). A
@@ -809,11 +796,13 @@ import AlarmKit
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
       Task {
-        let ok = await IncidentAlarmScheduler.schedule(
-          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
-          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
-          ringUntil: ringUntil
-        )
+        let ok = await AlarmSerial.shared.run {
+          await IncidentAlarmScheduler.schedule(
+            incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
+            delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
+            ringUntil: ringUntil
+          )
+        }
         await MainActor.run {
           if ok {
             self.alarmChannel?.invokeMethod("onAlarmScheduled", arguments: incidentId)
@@ -910,9 +899,10 @@ import AlarmKit
       return
     }
 
-    // The stage mark: an answer asked for before this moment can no longer
-    // end the ring. An open or a reopen starts a stage; a repeat continues it.
-    RingStage.markArmed(incidentId: incidentId, startsStage: push.kind != .repeat)
+    // The one push arming path. The generation moves on now, before the
+    // arming step is queued, so a stop that asked before this push is
+    // refused, and one already running finishes before the new ring is set.
+    RingGeneration.bump(incidentId: incidentId)
     scheduleAlarm(
       incidentId: incidentId,
       topic: userInfo["topic"] as? String ?? "",

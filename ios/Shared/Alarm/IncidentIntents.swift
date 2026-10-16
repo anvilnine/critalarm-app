@@ -167,7 +167,11 @@ struct StopAlarmIntent: LiveActivityIntent {
         // force-quit, which is the one exit the server repeat cannot reach.
         NSLog("CritAlarmAlarm: alarm_silenced incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.alarmSilenced(incidentId: incidentId)
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        // On AlarmSerial, so it never lands between a guarded stop's check
+        // and its cancel.
+        let seconds = await AlarmSerial.shared.run {
+            await IncidentRearm.rearm(incidentId: incidentId)
+        }
         if let seconds {
             await IncidentActivityCoordinator.shared.setRingsAgainIn(
                 seconds, incidentId: incidentId
@@ -175,26 +179,10 @@ struct StopAlarmIntent: LiveActivityIntent {
         }
         // One question to the server, after the ring is set. Another device
         // may have answered already, and this phone may have missed the Live
-        // Activity update that says so. Only a state the server names takes
-        // the ring away again; no answer leaves it as Stop set it.
-        // The stage mark is read after the answer, right before anything is
-        // cancelled: a push that armed a ring after the question went out
-        // may be a reopen the answer knew nothing about.
-        let checkedAt = Date()
-        if let found = await RemoteStateCheck.fetch(incidentId: incidentId),
-           let state = IncidentActivityState(rawValue: found.state) {
-            guard RingStage.mayApply(
-                checkedAt: checkedAt, armedAt: RingStage.armedAt(incidentId: incidentId)
-            ) else {
-                NSLog("CritAlarmAlarm: stop_check_refused reason=newer_ring incident_id=%@", incidentId)
-                return .result()
-            }
-            NSLog("CritAlarmAlarm: stop_handled_elsewhere incident_id=%@ state=%@", incidentId, found.state)
-            await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
-            await IncidentActivityCoordinator.shared.reportRemoteState(
-                state, incidentId: incidentId, openedAt: found.openedAt
-            )
-        }
+        // Activity update that says so. The ring generation is read before
+        // the question goes out; a push that arms a ring meanwhile moves it
+        // on and the answer is refused. No answer leaves the ring as set.
+        await IncidentActivityCoordinator.shared.checkWithServer(incidentId: incidentId)
         return .result()
     }
 }

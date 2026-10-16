@@ -133,17 +133,21 @@ class IncidentDeliveryStore(context: Context) {
         preferences.getString("topic:$incidentId", null)?.takeIf(String::isNotEmpty)
 
     /**
-     * When a push last armed a ring for the incident, on this phone's clock.
-     * An answer from the server that was asked for before this moment may be
-     * about an earlier stage (a reopen came since), so it may not end the
-     * ring. Pushes carry no `opened_at` (api.md §5.2), so this is the stage
-     * mark the phone has. Null before the first push since this build.
+     * The incident's ring generation: how many pushes armed a ring for it on
+     * this phone. An answer from the server asked for under an older
+     * generation may be about an earlier stage (a reopen came since), so it
+     * may not end the ring. Stop's own re-arm leaves it alone. Pushes carry
+     * no `opened_at` (api.md §5.2), so this is the stage mark the phone has.
+     * Read and moved only under [app.critalarm.push.RingLocks].
      */
-    fun ringArmedAtMillis(incidentId: String): Long? =
-        preferences.getLong("ring_armed_at:$incidentId", 0L).takeIf { it > 0L }
+    fun ringGeneration(incidentId: String): Long =
+        preferences.getLong("ring_generation:$incidentId", 0L)
 
-    fun rememberRingArmed(incidentId: String, millis: Long = System.currentTimeMillis()) {
-        preferences.edit().putLong("ring_armed_at:$incidentId", millis).apply()
+    /** Moves the generation on by one, written before the call returns. */
+    fun bumpRingGeneration(incidentId: String): Long {
+        val next = ringGeneration(incidentId) + 1
+        preferences.edit().putLong("ring_generation:$incidentId", next).commit()
+        return next
     }
 
     fun rememberRingUntil(incidentId: String, millis: Long) {
@@ -241,7 +245,7 @@ class IncidentDeliveryStore(context: Context) {
             "topic:",
             "rearm_fires_at:",
             "local_acked_at:",
-            "ring_armed_at:",
+            "ring_generation:",
         )
     }
 }

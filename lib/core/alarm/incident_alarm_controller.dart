@@ -265,9 +265,16 @@ final class IncidentAlarmController {
       final live = await host.liveIncidentIds();
       for (final incidentId in live.take(liveCheckLimit)) {
         if (skip?.call(incidentId) ?? false) continue;
-        // On this phone's clock, before the question goes out. The native
-        // side refuses the answer if a ring was armed after this.
-        final checkedAt = DateTime.now();
+        // Before the question goes out. The native side refuses the answer
+        // if a push armed a ring since: that can be a reopen it knew
+        // nothing about.
+        final int? generation;
+        try {
+          generation = await host.ringGeneration(incidentId);
+        } on Object catch (_) {
+          continue;
+        }
+        if (generation == null) continue;
         final Incident incident;
         try {
           incident = await api
@@ -281,17 +288,17 @@ final class IncidentAlarmController {
         // The alarm screen may have opened on this incident while the
         // question was out. It checks its own incident, so it keeps it.
         if (skip?.call(incidentId) ?? false) continue;
-        final stopped = await host.applyRemoteState(
+        final applied = await host.applyRemoteState(
           incidentId,
           HandledElsewhereRule.wireName(ending),
-          checkedAt: checkedAt,
+          generation: generation,
           openedAt: incident.openedAt,
         );
         _log(
           'ring_handled_elsewhere id=$incidentId state=${incident.state} '
-          'stopped=$stopped',
+          'native=${applied.name}',
         );
-        applyIncident?.call(incident);
+        if (applied.isAccepted) applyIncident?.call(incident);
       }
     } on Object catch (_) {
       // Nothing to do. A ring left alone is the safe side.

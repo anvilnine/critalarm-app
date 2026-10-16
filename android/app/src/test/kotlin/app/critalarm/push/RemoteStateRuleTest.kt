@@ -2,7 +2,9 @@ package app.critalarm.push
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,14 +75,47 @@ class RemoteStateRuleTest {
     }
 
     @Test
-    fun `an answer counts only when no ring was armed after the question went out`() {
-        assertTrue(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 1_000L))
-        // A reopen push after the question: the answer may be about the old stage.
-        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 3_000L))
-        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = 2_000L))
-        // Nothing armed since this build: no push can have reopened it.
-        assertTrue(RemoteStateRule.mayApply(checkedAtMillis = 2_000L, ringArmedAtMillis = null))
-        // An answer with no time on it never counts.
-        assertFalse(RemoteStateRule.mayApply(checkedAtMillis = null, ringArmedAtMillis = null))
+    fun `an answer for the ring generation going now stops a live ring`() {
+        assertEquals(
+            RemoteStateRule.Outcome.STOPPED,
+            RemoteStateRule.decide(expectedGeneration = 4L, currentGeneration = 4L, live = true),
+        )
+    }
+
+    @Test
+    fun `an answer for the generation going now with nothing live changes nothing`() {
+        assertEquals(
+            RemoteStateRule.Outcome.NOTHING,
+            RemoteStateRule.decide(expectedGeneration = 4L, currentGeneration = 4L, live = false),
+        )
+    }
+
+    @Test
+    fun `a push that armed a ring since the question went out wins`() {
+        assertEquals(
+            RemoteStateRule.Outcome.REFUSED,
+            RemoteStateRule.decide(expectedGeneration = 4L, currentGeneration = 5L, live = true),
+        )
+    }
+
+    @Test
+    fun `an answer with no generation never counts`() {
+        assertEquals(
+            RemoteStateRule.Outcome.REFUSED,
+            RemoteStateRule.decide(expectedGeneration = null, currentGeneration = 0L, live = true),
+        )
+    }
+
+    @Test
+    fun `the outcome words match what Dart reads`() {
+        assertEquals("stopped", RemoteStateRule.Outcome.STOPPED.wire)
+        assertEquals("nothing", RemoteStateRule.Outcome.NOTHING.wire)
+        assertEquals("refused", RemoteStateRule.Outcome.REFUSED.wire)
+    }
+
+    @Test
+    fun `one incident has one lock, and two incidents two`() {
+        assertSame(RingLocks.of("inc_1"), RingLocks.of("inc_1"))
+        assertNotSame(RingLocks.of("inc_1"), RingLocks.of("inc_2"))
     }
 }
