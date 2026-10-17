@@ -4,6 +4,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ## Unreleased
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
+- The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
 
 ## 1.0.0+15 - 2026-10-16
 ### Added

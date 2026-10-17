@@ -54,6 +54,7 @@
     "story_seconds": "{seconds} sec",
     "story_now": "now",
     "story_until_ack": "Ringing until acknowledged. Tap to acknowledge.",
+    "story_open_app": "Open Crit Alarm",
     "story_im_up": "I'm up",
     "story_silence": "Silence",
     "story_slide_to_stop": "slide to stop",
