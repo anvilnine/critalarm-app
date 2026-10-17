@@ -151,7 +151,7 @@ public enum IncidentAlarmScheduler {
         try? AlarmManager.shared.cancel(id: id)
 
         // Two buttons, and they are not the same thing. Stop silences and
-        // sets the next ring; "I'm up" opens the app to the active incident
+        // sets the next ring; "Open Crit Alarm" opens the app to the active incident
         // without stopping the alarm in the background. The secondary button is
         // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
         let alert = AlarmPresentation.Alert(
@@ -162,7 +162,7 @@ public enum IncidentAlarmScheduler {
                 systemImageName: "bell.slash.fill"
             ),
             secondaryButton: AlarmButton(
-                text: "I'm up",
+                text: "Open Crit Alarm",
                 textColor: .white,
                 systemImageName: "checkmark.circle.fill"
             ),
