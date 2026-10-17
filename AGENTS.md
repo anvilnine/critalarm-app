@@ -67,6 +67,7 @@ state-management library.
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
 | Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store) |
+| Record the Cloud paywall layouts and benefit previews as frames (site and marketing media) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |

@@ -1,4 +1,4 @@
-.PHONY: screens gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -136,6 +136,12 @@ run-quiet: google-xcconfig
 # Same, as an installable artifact.
 build-quiet-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true
+
+# Cloud paywall layouts and benefit previews as frames, for the site. Ids,
+# env and output are in the header of tool/capture_site_paywalls.dart; then
+# `sh tool/site_paywalls_to_web.sh <out-dir>` makes the web assets.
+site-paywalls:
+	sh tool/capture_site_paywalls.sh
 
 # Never passes --yes-wipe. Fresh runs require an explicit script invocation.
 cold-start:
