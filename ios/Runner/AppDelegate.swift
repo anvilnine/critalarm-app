@@ -340,8 +340,10 @@ import AlarmKit
     // incident. `.customDismissAction` on the INCIDENT category is what makes
     // iOS call us at all; without this branch the dismiss was ignored.
     if response.actionIdentifier == UNNotificationDismissActionIdentifier, let incidentId {
-      Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+      Task { @MainActor in
+        // On AlarmSerial, like Stop's re-arm, so it never lands between a
+        // guarded stop's check and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         NSLog(
           "CritAlarm: notification_dismissed incident_id=%@ rearm_in_s=%d",
           incidentId, seconds ?? -1
@@ -422,6 +424,14 @@ import AlarmKit
         if let incidentId { payload["incident_id"] = incidentId }
         if let activityId { payload["activity_id"] = activityId }
         self?.alarmChannel?.invokeMethod("onActivityToken", arguments: payload)
+      }
+      // An incident answered on another device, heard through the Live
+      // Activity or by Stop asking the server. The ring is already stopped;
+      // Dart only updates the screen and the list.
+      IncidentActivityCoordinator.shared.onRemoteState = { [weak self] incidentId, state, openedAt in
+        var payload: [String: Any] = ["incident_id": incidentId, "state": state]
+        if let openedAt { payload["opened_at"] = Int(openedAt.timeIntervalSince1970) }
+        self?.alarmChannel?.invokeMethod("onRemoteState", arguments: payload)
       }
     }
     #if canImport(AlarmKit)
@@ -594,7 +604,9 @@ import AlarmKit
         return
       }
       Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        // On AlarmSerial, so it never lands between a guarded stop's check
+        // and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         if #available(iOS 16.2, *), let seconds {
           await IncidentActivityCoordinator.shared.setRingsAgainIn(seconds, incidentId: incidentId)
         }
@@ -610,6 +622,48 @@ import AlarmKit
         await IncidentRearm.cancel(incidentId: incidentId)
         await MainActor.run { result(nil) }
       }
+
+    case "applyRemoteState":
+      // The server says the incident is acked, closed or expired, in answer
+      // to a question Dart asked under ring generation `generation`. The
+      // check and the cancel run as one step on AlarmSerial, the queue push
+      // arming goes through: a push that armed a ring since the question
+      // went out moves the generation on, and the answer is refused.
+      // Answers "stopped", "nothing" or "refused".
+      guard #available(iOS 16.2, *),
+            let incidentId = args["incident_id"] as? String, !incidentId.isEmpty,
+            let raw = RemoteStateCheck.endingState(args["state"] as? String),
+            let state = IncidentActivityState(rawValue: raw)
+      else {
+        result(RingGeneration.Outcome.refused.rawValue)
+        return
+      }
+      let expected = (args["generation"] as? NSNumber)?.intValue
+      // Launch reconcile: fix the card in the same step when nothing is set,
+      // and for a 404 never stop a ring that is.
+      let applyWhenNothing = (args["apply_when_nothing"] as? Bool) ?? false
+      let keepLive = (args["keep_live"] as? Bool) ?? false
+      Task { @MainActor in
+        let outcome = await RingGeneration.applyIfCurrent(
+          state, incidentId: incidentId, expected: expected,
+          applyWhenNothingSet: applyWhenNothing, keepLive: keepLive
+        )
+        NSLog(
+          "CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@ outcome=%@",
+          incidentId, raw, outcome.rawValue
+        )
+        result(outcome.rawValue)
+      }
+
+    case "ringGeneration":
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(nil)
+        return
+      }
+      result(RingGeneration.current(incidentId: incidentId))
+
+    case "liveIncidentIds":
+      result(PendingIncidentStore.all().keys.filter { RingGeneration.ringIsSet(incidentId: $0) }.sorted())
 
     case "markAcked":
       // Dart acknowledged this incident (in the app, or from its queue). A
@@ -747,11 +801,13 @@ import AlarmKit
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
       Task {
-        let ok = await IncidentAlarmScheduler.schedule(
-          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
-          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
-          ringUntil: ringUntil
-        )
+        let ok = await AlarmSerial.shared.run {
+          await IncidentAlarmScheduler.schedule(
+            incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
+            delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
+            ringUntil: ringUntil
+          )
+        }
         await MainActor.run {
           if ok {
             self.alarmChannel?.invokeMethod("onAlarmScheduled", arguments: incidentId)
@@ -848,6 +904,10 @@ import AlarmKit
       return
     }
 
+    // The one push arming path. The generation moves on now, before the
+    // arming step is queued, so a stop that asked before this push is
+    // refused, and one already running finishes before the new ring is set.
+    RingGeneration.bump(incidentId: incidentId)
     scheduleAlarm(
       incidentId: incidentId,
       topic: userInfo["topic"] as? String ?? "",

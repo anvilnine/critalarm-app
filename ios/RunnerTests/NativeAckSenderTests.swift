@@ -158,3 +158,205 @@ final class NativeAckSenderTests: XCTestCase {
         XCTAssertFalse(NativeAckSender.endsTheIncident(status: nil))
     }
 }
+
+/// The one question Stop asks the server, and which answers take the ring
+/// it just set away again.
+final class RemoteStateCheckTests: XCTestCase {
+    private func body(_ state: String) -> Data {
+        Data(#"{"id":"inc_1","topic":"prod","state":"\#(state)","messages":[]}"#.utf8)
+    }
+
+    func testAckedClosedAndExpiredEndTheRing() {
+        for state in ["acked", "closed", "expired"] {
+            XCTAssertEqual(RemoteStateCheck.endingState(status: 200, body: body(state)), state)
+        }
+    }
+
+    func testAnOpenIncidentKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: body("open")))
+    }
+
+    func testAWordTheAppDoesNotKnowKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: body("snoozed")))
+        XCTAssertNil(RemoteStateCheck.endingState("ACKED"))
+        XCTAssertNil(RemoteStateCheck.endingState(nil))
+    }
+
+    func testNoAnswerKeepsTheRing() {
+        XCTAssertNil(RemoteStateCheck.endingState(status: nil, body: nil))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 500, body: body("acked")))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 404, body: nil))
+        XCTAssertNil(RemoteStateCheck.endingState(status: 200, body: Data("not json".utf8)))
+    }
+
+    func testTheCheckIsAGetOnTheIncident() {
+        let session = NseCredentials.Session(
+            server: URL(string: "https://api.example.test")!,
+            token: "dv_test"
+        )
+        let request = RemoteStateCheck.request(incidentId: "inc_1", session: session)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.absoluteString, "https://api.example.test/v1/incidents/inc_1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer dv_test")
+    }
+}
+
+/// Whether an answer about an incident may still end the ring this phone
+/// holds: the ring generation it was asked under, and the serial step that
+/// push arming and every guarded stop share.
+final class RingGenerationTests: XCTestCase {
+    func testAnAnswerForTheGenerationGoingNowStopsALiveRing() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: true), .stopped)
+    }
+
+    func testNothingLiveIsStillAnAcceptedAnswer() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: false), .nothing)
+    }
+
+    func testAPushThatArmedARingSinceWins() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 5, live: true), .refused)
+    }
+
+    func testAnAnswerWithNoGenerationNeverCounts() {
+        XCTAssertEqual(RingGeneration.decide(expected: nil, current: 0, live: true), .refused)
+    }
+
+    func testTheOutcomeWordsMatchWhatDartReads() {
+        XCTAssertEqual(RingGeneration.Outcome.stopped.rawValue, "stopped")
+        XCTAssertEqual(RingGeneration.Outcome.nothing.rawValue, "nothing")
+        XCTAssertEqual(RingGeneration.Outcome.refused.rawValue, "refused")
+    }
+
+    func testAPushMovesTheGenerationOnByOne() {
+        let id = "inc_gen_\(UUID().uuidString)"
+        let before = RingGeneration.current(incidentId: id)
+        RingGeneration.bump(incidentId: id)
+        XCTAssertEqual(RingGeneration.current(incidentId: id), before + 1)
+    }
+
+    func testTheCheckAnswerCarriesTheStage() {
+        let body = Data(#"{"id":"inc_1","state":"acked","opened_at":1760000000}"#.utf8)
+        let answer = RemoteStateCheck.answer(status: 200, body: body)
+        XCTAssertEqual(answer?.state, "acked")
+        XCTAssertEqual(answer?.openedAt, Date(timeIntervalSince1970: 1_760_000_000))
+    }
+
+    @MainActor
+    func testOneStepRunsAtATime() async {
+        var order: [String] = []
+        let gate = AsyncGate()
+        let first = Task { @MainActor in
+            await AlarmSerial.shared.run {
+                order.append("first starts")
+                await gate.wait()
+                order.append("first ends")
+            }
+        }
+        await Task.yield()
+        let second = Task { @MainActor in
+            await AlarmSerial.shared.run { order.append("second") }
+        }
+        for _ in 0 ..< 5 { await Task.yield() }
+        XCTAssertEqual(order, ["first starts"])
+        await gate.open()
+        await first.value
+        await second.value
+        XCTAssertEqual(order, ["first starts", "first ends", "second"])
+    }
+}
+
+/// A ring generation never comes back for the same incident, so an answer
+/// held from an earlier stage can never match a later ring.
+final class RingGenerationNeverRepeatsTests: XCTestCase {
+    private func crowded(with incident: String, at value: Int) -> [String: Int] {
+        var values = [incident: value]
+        for index in 0 ..< 300 { values["inc_other_\(index)"] = value + 10 }
+        return values
+    }
+
+    func testAnEvictedIncidentNeverGetsAnOldGenerationBack() {
+        let captured = 1
+        let crowd = crowded(with: "inc_x", at: captured)
+        // A push for a new incident pushes the map past its limit.
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertNil(evicted.values["inc_x"])
+
+        let rearmed = RingGeneration.bumped(evicted.values, floor: evicted.floor, incidentId: "inc_x")
+
+        XCTAssertNotEqual(rearmed.next, captured)
+        XCTAssertGreaterThan(rearmed.next, captured)
+    }
+
+    func testEvictionNeverMovesAGenerationBack() {
+        let crowd = crowded(with: "inc_x", at: 7)
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertGreaterThanOrEqual(
+            RingGeneration.current(in: evicted.values, floor: evicted.floor, incidentId: "inc_x"),
+            7
+        )
+    }
+
+    func testAValueReadBeforeTheFirstPushIsNotFoundAgainAfterEviction() {
+        let captured = RingGeneration.current(in: [:], floor: 0, incidentId: "inc_x")
+        var state = RingGeneration.bumped([:], floor: 0, incidentId: "inc_x")
+        for index in 0 ..< 400 {
+            state = RingGeneration.bumped(state.values, floor: state.floor, incidentId: "inc_flood_\(index)")
+        }
+        XCTAssertNotEqual(
+            RingGeneration.current(in: state.values, floor: state.floor, incidentId: "inc_x"),
+            captured
+        )
+    }
+
+    func testTheIncidentJustBumpedIsKept() {
+        let crowd = crowded(with: "inc_x", at: 3)
+        let evicted = RingGeneration.bumped(crowd, floor: 0, incidentId: "inc_new")
+        XCTAssertEqual(evicted.values["inc_new"], evicted.next)
+    }
+
+    func testAnAnswerThatMayNotEndARingIsRefusedWhileOneIsSet() {
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: true, keepLive: true), .refused)
+        XCTAssertEqual(RingGeneration.decide(expected: 4, current: 4, live: false, keepLive: true), .nothing)
+    }
+
+    @MainActor
+    func testADismissReArmWaitsForTheStepBeforeIt() async {
+        var order: [String] = []
+        let gate = AsyncGate()
+        let held = Task { @MainActor in
+            await AlarmSerial.shared.run {
+                order.append("guarded stop starts")
+                await gate.wait()
+                order.append("guarded stop ends")
+            }
+        }
+        await Task.yield()
+        let rearm = Task { @MainActor in
+            _ = await IncidentRearm.rearmInOrder(incidentId: "inc_dismiss_\(UUID().uuidString)", center: nil)
+            order.append("re-arm")
+        }
+        for _ in 0 ..< 5 { await Task.yield() }
+        XCTAssertEqual(order, ["guarded stop starts"])
+        await gate.open()
+        await held.value
+        await rearm.value
+        XCTAssertEqual(order, ["guarded stop starts", "guarded stop ends", "re-arm"])
+    }
+}
+
+/// Holds a step until the test opens it.
+actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
+}
