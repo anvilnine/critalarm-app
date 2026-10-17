@@ -1,6 +1,10 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
+## Unreleased
+### Changed
+- The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+
 ## 1.0.0+15 - 2026-10-16
 ### Added
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
