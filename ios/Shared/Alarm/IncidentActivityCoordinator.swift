@@ -53,6 +53,14 @@ public final class IncidentActivityCoordinator {
     /// Told about a new token so it can send it now instead of next launch.
     public var onTokenCaptured: ((TokenKind, String, String?, String?) -> Void)?
 
+    /// Told when this phone learned, from a Live Activity update or from
+    /// Stop asking the server, that an incident was answered somewhere else
+    /// and its ring is already stopped. Arguments: incident id, state word,
+    /// and the `opened_at` of the stage it is about when known. The app hands
+    /// it to Dart, so the alarm screen can say why it went quiet, and only
+    /// for the stage it is showing.
+    public var onRemoteState: ((String, String, Date?) -> Void)?
+
     /// Tells the host app to open an incident triggered by an alarm button.
     public var onOpenIncident: ((String) -> Void)? {
         didSet {
@@ -170,7 +178,12 @@ public final class IncidentActivityCoordinator {
         let incidentId = activity.attributes.incidentId
         contentWatchers[activity.id] = Task { [weak self] in
             for await content in activity.contentUpdates {
-                await self?.applyRemoteState(content.state.state, incidentId: incidentId)
+                // An update alone ends nothing: it can be about an earlier
+                // stage, late after a reopen, and desk timers can be short.
+                // An ending update makes one fresh, generation-guarded check,
+                // the same as Stop's, and only that answer can cancel.
+                guard content.state.state != .open else { continue }
+                await self?.checkWithServer(incidentId: incidentId, applyWhenNothingSet: true)
             }
         }
     }
@@ -362,6 +375,31 @@ public final class IncidentActivityCoordinator {
         } else {
             end(incidentId: incidentId, finalState: state)
         }
+    }
+
+    /// Asks the server once about [incidentId] and applies an ending answer
+    /// only if no push armed a ring for it since the question went out (see
+    /// `RingGeneration`). Stop runs it, and so does an ending Live Activity
+    /// update. An accepted answer is passed on to the app. No answer, an
+    /// error or an open incident changes nothing.
+    public func checkWithServer(incidentId: String, applyWhenNothingSet: Bool = false) async {
+        guard incidentId != Self.onboardingIncidentId else { return }
+        let generation = RingGeneration.current(incidentId: incidentId)
+        guard let found = await RemoteStateCheck.fetch(incidentId: incidentId),
+              let state = IncidentActivityState(rawValue: found.state)
+        else { return }
+        let outcome = await RingGeneration.applyIfCurrent(
+            state,
+            incidentId: incidentId,
+            expected: generation,
+            applyWhenNothingSet: applyWhenNothingSet
+        )
+        NSLog(
+            "CritAlarmActivity: server_check incident_id=%@ state=%@ outcome=%@",
+            incidentId, found.state, outcome.rawValue
+        )
+        guard outcome != .refused else { return }
+        onRemoteState?(incidentId, state.rawValue, found.openedAt)
     }
 
     /// Puts the acknowledge time and the stale date on a card this phone

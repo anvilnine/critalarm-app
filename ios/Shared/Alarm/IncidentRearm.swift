@@ -1,5 +1,8 @@
 import Foundation
 import UserNotifications
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 /// Sets the phone's own next ring for an incident the user silenced.
 ///
@@ -112,6 +115,21 @@ enum IncidentRearm {
         }
     }
 
+    /// [rearm] as one step on [AlarmSerial], the queue push arming and every
+    /// guarded stop go through, so it never lands between a guarded stop's
+    /// check and its cancel. Every re-arm outside the serial step itself
+    /// goes through here: Stop, the in-app silence and a dismissed banner.
+    @MainActor
+    @discardableResult
+    static func rearmInOrder(
+        incidentId: String,
+        center: UNUserNotificationCenter? = .current()
+    ) async -> Int? {
+        await AlarmSerial.shared.run {
+            await rearm(incidentId: incidentId, center: center)
+        }
+    }
+
     /// Drops a pending re-arm, whichever of the two holds it. Safe to call
     /// when there is none.
     static func cancel(incidentId: String, center: UNUserNotificationCenter? = .current()) async {
@@ -183,5 +201,175 @@ struct TopicTimers {
         let key = "flutter.topic_critical.\(topic)"
         guard defaults.object(forKey: key) != nil else { return true }
         return defaults.bool(forKey: key)
+    }
+}
+
+/// The ring generation of an incident on this phone.
+///
+/// A reopen moves `opened_at` (api.md §5.1), and an answer about an earlier
+/// stage must never end the ring of a later one: that silences a phone for
+/// an incident nobody handled. Pushes carry no `opened_at`, so the phone
+/// counts instead. Every push that arms a ring moves the incident's
+/// generation on by one (`bump`, called from the one push arming path in
+/// `AppDelegate`). Stop's own re-arm does not. A check reads the generation
+/// before its question goes out and hands it back with the answer; the
+/// answer counts only if the generation has not moved. No clock is read.
+///
+/// The read and the cancel run as one step on [AlarmSerial], the same
+/// queue push arming goes through, so a push cannot arm a ring between them.
+/// Kept in the app group, because Stop can run in the widget extension.
+enum RingGeneration {
+    enum Outcome: String {
+        /// The answer was for the ring going now, and a ring was stopped.
+        case stopped
+        /// The answer was for the ring going now, and nothing was set.
+        case nothing
+        /// A push armed a ring since the question went out, or no
+        /// generation came with it. Nothing changed.
+        case refused
+    }
+
+    private static let key = "critalarm.ring_generation"
+    private static let floorKey = "critalarm.ring_generation_floor"
+
+    /// How many incidents the map holds before it drops some, and how many
+    /// it keeps when it does.
+    private static let limit = 300
+    private static let keep = 200
+
+    private static var defaults: UserDefaults {
+        UserDefaults(suiteName: "group.app.critalarm") ?? .standard
+    }
+
+    static func decide(expected: Int?, current: Int, live: Bool, keepLive: Bool = false) -> Outcome {
+        guard let expected, expected == current else { return .refused }
+        // An answer that may end a card but never a ring: a 404 on launch
+        // says the server forgot the incident, not that anyone handled it.
+        if live, keepLive { return .refused }
+        return live ? .stopped : .nothing
+    }
+
+    static func current(incidentId: String) -> Int {
+        current(
+            in: defaults.dictionary(forKey: key) as? [String: Int] ?? [:],
+            floor: defaults.integer(forKey: floorKey),
+            incidentId: incidentId
+        )
+    }
+
+    /// An incident the map no longer holds reads as the floor: the highest
+    /// generation ever dropped. A value only goes up, so an answer held from
+    /// an earlier stage never matches a later ring. Restarting a dropped
+    /// incident from zero let it.
+    static func current(in values: [String: Int], floor: Int, incidentId: String) -> Int {
+        values[incidentId] ?? floor
+    }
+
+    @discardableResult
+    static func bump(incidentId: String) -> Int {
+        let state = bumped(
+            defaults.dictionary(forKey: key) as? [String: Int] ?? [:],
+            floor: defaults.integer(forKey: floorKey),
+            incidentId: incidentId
+        )
+        // The floor first. A read between the two writes then sees either
+        // the old map or a floor at least as high as anything dropped.
+        defaults.set(state.floor, forKey: floorKey)
+        defaults.set(state.values, forKey: key)
+        return state.next
+    }
+
+    /// One push for [incidentId]: its generation moves on by one from what
+    /// it reads now. The map only needs incidents that can still ring, so
+    /// past [limit] it keeps the [keep] highest and the one just bumped, and
+    /// the floor rises to the highest it dropped.
+    static func bumped(
+        _ values: [String: Int],
+        floor: Int,
+        incidentId: String
+    ) -> (values: [String: Int], floor: Int, next: Int) {
+        var values = values
+        let next = current(in: values, floor: floor, incidentId: incidentId) + 1
+        values[incidentId] = next
+        guard values.count > limit else { return (values, floor, next) }
+        let ranked = values.filter { $0.key != incidentId }.sorted { $0.value > $1.value }
+        var kept = Dictionary(uniqueKeysWithValues: ranked.prefix(keep).map { ($0.key, $0.value) })
+        kept[incidentId] = next
+        let dropped = ranked.dropFirst(keep).map(\.value).max() ?? floor
+        return (kept, max(floor, dropped), next)
+    }
+
+    /// True when this phone rings for [incidentId] now or has a ring set for
+    /// it: an AlarmKit alarm in any state, or a re-arm waiting (the
+    /// notification form on older iPhones). Alarms that cannot be read count
+    /// as set.
+    static func ringIsSet(incidentId: String) -> Bool {
+        if IncidentRearm.debugEntries()[incidentId] != nil { return true }
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+            return (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+        }
+        #endif
+        return false
+    }
+
+    /// Applies a state the server named, asked under generation [expected],
+    /// as one serial step: read, decide, cancel. [applyWhenNothingSet] lets
+    /// the Live Activity path still update the card and the widgets for an
+    /// accepted answer when nothing was ringing. [keepLive] refuses an
+    /// answer that would stop a ring that is set (launch reconcile's 404).
+    @available(iOS 16.2, *)
+    @MainActor
+    static func applyIfCurrent(
+        _ state: IncidentActivityState,
+        incidentId: String,
+        expected: Int?,
+        applyWhenNothingSet: Bool = false,
+        keepLive: Bool = false
+    ) async -> Outcome {
+        await AlarmSerial.shared.run {
+            let outcome = decide(
+                expected: expected,
+                current: current(incidentId: incidentId),
+                live: ringIsSet(incidentId: incidentId),
+                keepLive: keepLive
+            )
+            switch outcome {
+            case .refused:
+                NSLog(
+                    "CritAlarmAlarm: remote_state_refused incident_id=%@ keep_live=%d",
+                    incidentId, keepLive ? 1 : 0
+                )
+            case .nothing:
+                if applyWhenNothingSet {
+                    await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+                }
+            case .stopped:
+                await IncidentActivityCoordinator.shared.applyRemoteState(state, incidentId: incidentId)
+            }
+            return outcome
+        }
+    }
+}
+
+/// One step at a time for everything that sets or stops an incident ring:
+/// push arming, Stop's re-arm and every guarded stop. A step waits for the
+/// one before it to finish, awaits included, so a stop that checked the
+/// generation always cancels before a newer ring is armed.
+@MainActor
+final class AlarmSerial {
+    static let shared = AlarmSerial()
+
+    private var tail: Task<Void, Never>?
+
+    func run<T>(_ step: @escaping @MainActor () async -> T) async -> T {
+        let previous = tail
+        let task = Task { @MainActor () -> T in
+            await previous?.value
+            return await step()
+        }
+        tail = Task { @MainActor in _ = await task.value }
+        return await task.value
     }
 }

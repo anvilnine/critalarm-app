@@ -67,9 +67,14 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         // SPIKE (docs/specs/remote-alarm-ios-spike.md): can a Notification
-        // Service Extension schedule an AlarmKit alarm? Everything else in
-        // Part A hangs off the answer.
-        scheduleAlarmSpike(push)
+        // Service Extension schedule an AlarmKit alarm? The spike chose the
+        // app's background push (AlarmTriggerPath.chosen), so this runs only
+        // if that choice is ever reversed. Left on, it armed a second alarm
+        // from every push that no ring generation tracked and no Stop,
+        // acknowledge or state change cancelled.
+        if AlarmTriggerPath.chosen == .notificationServiceExtension {
+            scheduleAlarmSpike(push)
+        }
 
         // The fetch has to finish inside the budget or the placeholder wins.
         let timeout = DispatchWorkItem { [weak self] in

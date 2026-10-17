@@ -167,12 +167,20 @@ struct StopAlarmIntent: LiveActivityIntent {
         // force-quit, which is the one exit the server repeat cannot reach.
         NSLog("CritAlarmAlarm: alarm_silenced incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.alarmSilenced(incidentId: incidentId)
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        // On AlarmSerial, so it never lands between a guarded stop's check
+        // and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         if let seconds {
             await IncidentActivityCoordinator.shared.setRingsAgainIn(
                 seconds, incidentId: incidentId
             )
         }
+        // One question to the server, after the ring is set. Another device
+        // may have answered already, and this phone may have missed the Live
+        // Activity update that says so. The ring generation is read before
+        // the question goes out; a push that arms a ring meanwhile moves it
+        // on and the answer is refused. No answer leaves the ring as set.
+        await IncidentActivityCoordinator.shared.checkWithServer(incidentId: incidentId)
         return .result()
     }
 }
