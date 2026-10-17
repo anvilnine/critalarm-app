@@ -1,5 +1,11 @@
 # Screenshots
 
+> **Legacy reference only:** The numbered Galaxy A25 captures below are a historical device run.
+> They are not the current source of truth for marketing screenshots. Use the canonical screenshot
+> library maintained outside this repository. To refresh it, set `SCREENS_OUT` to that library's
+> destination and run `make screens` from the app checkout. Before reuse, compare the library
+> manifest's `app_commit` with the current app revision; regenerate from current `main` when stale.
+
 Fourteen screens, captured on a Galaxy A25 (SM-A256E, 1080x2340) from a profile
 build. Profile rather than debug, so there is no DEBUG banner in the corner.
 

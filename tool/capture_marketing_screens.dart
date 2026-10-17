@@ -179,6 +179,13 @@ final List<_Screen> _screens = [
     after: _showCriticalSwitch,
     story: null,
   ),
+  (
+    id: 'topic.messages',
+    route: '/topics/db-1/messages',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
   (id: 'history', route: '/history', fixture: 'calm', after: null, story: null),
   (
     id: 'settings',
