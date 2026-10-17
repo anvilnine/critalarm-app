@@ -131,23 +131,7 @@ class SearchPanel extends StatelessWidget {
       // box explaining what search is. The bar's own hint already says it.
       if (state.recent.isEmpty) return const <Widget>[];
 
-      return <Widget>[
-        _Section(
-          label: SearchSectionLabel(
-            LocaleKeys.search_recent_header.tr(),
-            action: LocaleKeys.search_recent_clear.tr(),
-            onAction: onClearRecent,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              for (final query in state.recent)
-                SearchRecentRow(query: query, onTap: () => onTapRecent(query)),
-            ],
-          ),
-        ),
-      ];
+      return <Widget>[_recentCard(context)];
     }
 
     if (state.hasNoMatches) {
@@ -166,6 +150,42 @@ class SearchPanel extends StatelessWidget {
           child: _body(context, kind, results),
         ),
     ];
+  }
+
+  /// Past searches on one card, the same white sheet the results sit on, so
+  /// the blur behind never washes the text. Label and Clear are inside it.
+  Widget _recentCard(BuildContext context) {
+    final colors = context.appColors;
+
+    return AppSheet(
+      padding: _sheetPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SearchSectionLabel(
+            LocaleKeys.search_recent_header.tr(),
+            action: LocaleKeys.search_recent_clear.tr(),
+            onAction: onClearRecent,
+            padding: const EdgeInsets.fromLTRB(14, Spacing.s2, 0, Spacing.s1),
+          ),
+          for (var i = 0; i < state.recent.length; i++) ...<Widget>[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: ColoredBox(
+                  color: colors.hairline,
+                  child: const SizedBox(height: 1),
+                ),
+              ),
+            SearchRecentRow(
+              query: state.recent[i],
+              onTap: () => onTapRecent(state.recent[i]),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _body(
