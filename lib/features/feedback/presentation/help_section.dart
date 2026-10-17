@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -36,6 +38,12 @@ class HelpSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final on = getIt<PlatformCapabilities>();
     final rows = <Widget>[
+      _row(
+        context,
+        LocaleKeys.settings_help_docs_row.tr(),
+        () async => context.pushNamed(AppRoute.docs),
+        subtitle: LocaleKeys.settings_help_docs_sub.tr(),
+      ),
       if (FeedbackLinks.feedbackFormUrl.isNotEmpty)
         _row(
           context,
