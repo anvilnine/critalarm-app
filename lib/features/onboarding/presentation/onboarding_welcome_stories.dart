@@ -491,7 +491,7 @@ class _AlarmKitAlert extends StatelessWidget {
                 borderRadius: BorderRadius.circular(46),
               ),
               child: Text(
-                LocaleKeys.onboarding_welcome_story_im_up.tr(),
+                LocaleKeys.onboarding_welcome_story_open_app.tr(),
                 style: const TextStyle(
                   color: _white,
                   fontSize: 26,
