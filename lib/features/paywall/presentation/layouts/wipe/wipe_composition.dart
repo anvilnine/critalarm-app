@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
@@ -75,10 +75,8 @@ class _WipeCompositionState extends State<WipeComposition> {
     final String after;
     if (reversed) {
       final ends = leaving!.endsOn;
-      before = DateFormat(
-        'd MMM',
-        currentFormatLocale(),
-      ).format(DateTime(ends.year, ends.month, ends.day + 1));
+      final dayAfter = DateTime(ends.year, ends.month, ends.day + 1);
+      before = DateLabel.dayMonth(dayAfter);
       after = LocaleKeys.paywall_leaving_wipe_today.tr();
     } else {
       before = LocaleKeys.paywall_wipe_tag_free.tr();

@@ -389,14 +389,20 @@ class $AssetsSoundsGen {
 class $AssetsTranslationsGen {
   const $AssetsTranslationsGen();
 
+  /// File path: assets/translations/de.json
+  String get de => 'assets/translations/de.json';
+
   /// File path: assets/translations/en.json
   String get en => 'assets/translations/en.json';
+
+  /// File path: assets/translations/ja.json
+  String get ja => 'assets/translations/ja.json';
 
   /// Directory path: assets/translations
   String get path => 'assets/translations';
 
   /// List of all assets
-  List<String> get values => [en];
+  List<String> get values => [de, en, ja];
 }
 
 class $AssetsUiSoundsGen {
