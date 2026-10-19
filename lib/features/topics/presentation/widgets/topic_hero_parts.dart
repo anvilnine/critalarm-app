@@ -21,9 +21,40 @@ const double _kSummaryLine = 1.35;
 /// The gap between the name and the summary.
 const double _kHeaderGap = 2;
 
-/// How many lines the summary may take: one, or two once the text is large.
-int _summaryLines(TextScaler scaler) =>
-    scaler.scale(16) / 16 > kChromeMaxTextScale ? 2 : 1;
+/// How many lines the summary may take: two once the text is large (the
+/// chrome cap or more), or when [summary] does not fit one line of [width]
+/// points. The time at its end is the point of the line, so it is not cut.
+///
+/// [summary] is null when the caller does not know it yet. Then only the text
+/// size decides.
+int _summaryLines(
+  BuildContext context, {
+  required double width,
+  String? summary,
+}) {
+  final scaler = MediaQuery.textScalerOf(context);
+  if (scaler.scale(16) / 16 >= kChromeMaxTextScale) return 2;
+  if (summary == null || summary.isEmpty) return 1;
+  final room = width > 2 * _kHeaderSide ? width - 2 * _kHeaderSide : 0.0;
+  final painter = TextPainter(
+    text: TextSpan(
+      text: summary,
+      style: DefaultTextStyle.of(context).style.merge(
+        AppTypography.small(
+          context.appColors.onCanvasMuted,
+          fontSize: _kSummarySize,
+        ).copyWith(height: _kSummaryLine),
+      ),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: scaler,
+    locale: Localizations.maybeLocaleOf(context),
+    maxLines: 1,
+  )..layout(maxWidth: room);
+  final exceeds = painter.didExceedMaxLines;
+  painter.dispose();
+  return exceeds ? 2 : 1;
+}
 
 /// The side padding of [TopicHeader].
 const double _kHeaderSide = 20;
@@ -75,7 +106,8 @@ TopicNameFit topicNameFit(
 }
 
 /// How tall [TopicHeader] is for the text size of [context] and the way
-/// [name] is set at [width].
+/// [name] is set at [width]. Pass [summary] when it is known, so a summary
+/// that needs two lines at a normal text size is counted.
 ///
 /// Fixed once the name is known, because the canvas draws the hero's disc and
 /// has to know where the scene starts: a name is never taller than two lines,
@@ -84,19 +116,22 @@ double topicHeaderHeight(
   BuildContext context, {
   required String name,
   required double width,
+  String? summary,
 }) {
   final scaler = MediaQuery.textScalerOf(context);
   final fit = topicNameFit(context, name, width: width);
+  final summaryLines = _summaryLines(context, width: width, summary: summary);
   return fit.lines * scaler.scale(fit.size) * _kNameLine +
       _kHeaderGap +
-      _summaryLines(scaler) * scaler.scale(_kSummarySize) * _kSummaryLine;
+      summaryLines * scaler.scale(_kSummarySize) * _kSummaryLine;
 }
 
 /// The topic's name in mono and the one line under it.
 ///
 /// The name takes up to two lines, in a smaller type when it needs the room,
 /// and ends in an ellipsis only past that. The summary takes one line (two at
-/// large text). A screen reader gets both in full.
+/// large text, or when one line cannot hold it). A screen reader gets both
+/// in full.
 class TopicHeader extends StatelessWidget {
   const TopicHeader({
     required this.name,
@@ -125,6 +160,11 @@ class TopicHeader extends StatelessWidget {
                 name,
                 width: box.maxWidth + 2 * _kHeaderSide,
               );
+              final summaryLines = _summaryLines(
+                context,
+                width: box.maxWidth + 2 * _kHeaderSide,
+                summary: summary,
+              );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -140,12 +180,12 @@ class TopicHeader extends StatelessWidget {
                   const SizedBox(height: _kHeaderGap),
                   SizedBox(
                     height:
-                        _summaryLines(scaler) *
+                        summaryLines *
                         scaler.scale(_kSummarySize) *
                         _kSummaryLine,
                     child: Text(
                       summary,
-                      maxLines: _summaryLines(scaler),
+                      maxLines: summaryLines,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.small(
                         colors.onCanvasMuted,
@@ -180,7 +220,9 @@ String topicSummaryText(TopicSummary summary) {
   final last = LocaleKeys.topic_hero_summary_last_alarm.tr(
     namedArgs: {'time': time},
   );
-  return '$count $last';
+  return LocaleKeys.topic_hero_summary_join.tr(
+    namedArgs: {'count': count, 'last': last},
+  );
 }
 
 /// The foot of the card for [foot].
@@ -243,6 +285,7 @@ class _TopicCriticalCardState extends State<TopicCriticalCard> {
       numeral: numeral,
       numeralTone: card.isOn ? AppStatusTone.yellow : AppStatusTone.muted,
       foot: foot == null ? null : topicFootText(foot),
+      footMaxLines: 2,
       popsOnChange: !_cameFromLoading,
       onTap: card.isLoading ? null : widget.onInfo,
       trailing: AppSwitch(
