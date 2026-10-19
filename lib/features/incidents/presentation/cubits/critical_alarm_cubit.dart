@@ -4,6 +4,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -624,7 +625,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     emit(
       CriticalAlarmState(
         status: CriticalAlarmStatus.failure,
-        errorMessage: failure.message,
+        errorMessage: failure.message == null ? null : failureMessage(failure),
         doneIncidentId: doneIncidentId,
       ),
     );
@@ -1061,7 +1062,13 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         }
       },
       (failure) {
-        emit(state.copyWith(errorMessage: failure.message));
+        emit(
+          state.copyWith(
+            errorMessage: failure.message == null
+                ? null
+                : failureMessage(failure),
+          ),
+        );
       },
     );
   }

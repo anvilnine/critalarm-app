@@ -6,6 +6,7 @@ import 'package:easy_localization/src/localization.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads `assets/translations/en.json` so `.tr()` returns real English text
@@ -17,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// reads a string off a cubit state.
 Future<void> loadTestTranslations() async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting();
   SharedPreferences.setMockInitialValues({});
   await EasyLocalization.ensureInitialized();
 

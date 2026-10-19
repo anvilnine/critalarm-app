@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
@@ -46,8 +47,8 @@ Future<void> showProPlanSheet(
         face: FaceState.watching,
         title: LocaleKeys.notices_pro_ending_title.tr(
           namedArgs: {
-            'weekday': DateFormat('EEEE').format(endsAt),
-            'date': DateFormat('d MMM').format(endsAt),
+            'weekday': DateFormat('EEEE', currentFormatLocale()).format(endsAt),
+            'date': DateFormat('d MMM', currentFormatLocale()).format(endsAt),
           },
         ),
         body: [

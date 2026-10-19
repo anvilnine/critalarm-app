@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -97,7 +98,7 @@ class _HistoryHeroState extends State<HistoryHero> {
       : _result;
 
   AppStatDay _day(WeekBarDay day) {
-    final name = DateFormat('EEEE').format(day.day);
+    final name = DateFormat('EEEE', currentFormatLocale()).format(day.day);
     final label = day.isHidden
         ? LocaleKeys.history_hero_day_hidden.tr(namedArgs: {'day': name})
         : day.alarms == 0
@@ -107,7 +108,7 @@ class _HistoryHeroState extends State<HistoryHero> {
                   : LocaleKeys.history_hero_day_alarms)
               .plural(day.alarms, namedArgs: {'day': name});
     return AppStatDay(
-      letter: DateFormat('EEEEE').format(day.day),
+      letter: DateFormat('EEEEE', currentFormatLocale()).format(day.day),
       alarms: day.alarms,
       isToday: day.isToday,
       hasUnanswered: day.unanswered > 0,

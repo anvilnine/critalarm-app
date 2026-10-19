@@ -1,6 +1,7 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
@@ -52,7 +53,9 @@ class LocalTestCountdownCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            '${seconds}s', // l10n-ok: unit letter after a number of seconds
+            LocaleKeys.dart_format_countdown_seconds.tr(
+              namedArgs: {'seconds': formatInt(seconds)},
+            ),
             style: TextStyle(
               fontFamily: AppTypography.fontDisplay,
               fontFamilyFallback: AppTypography.fontDisplayFallbacks,

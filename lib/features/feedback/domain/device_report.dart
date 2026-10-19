@@ -43,8 +43,16 @@ class DeviceReport {
   /// The lines added to the bottom of a problem report email.
   String get mailFooter =>
       '--\n'
-      'App: $appVersion ($buildNumber)\n'
-      'Phone: $device · $os\n'
-      'Server: $server · Plan: $plan · Pro: $pro\n'
-      'Language: $locale';
+      'App: ' // l10n-ok: support report read by the team in English
+      '$appVersion ($buildNumber)\n'
+      'Phone: ' // l10n-ok: support report read by the team in English
+      '$device · $os\n'
+      'Server: ' // l10n-ok: support report read by the team in English
+      '$server · '
+      'Plan: ' // l10n-ok: support report read by the team in English
+      '$plan · '
+      'Pro: ' // l10n-ok: support report read by the team in English
+      '$pro\n'
+      'Language: ' // l10n-ok: support report read by the team in English
+      '$locale';
 }

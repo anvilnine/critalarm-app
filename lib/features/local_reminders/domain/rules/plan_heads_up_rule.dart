@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_args.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_candidate.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_dates.dart';
@@ -66,7 +67,10 @@ abstract final class PlanHeadsUpRule {
           !inputs.planHeadsUpsSent.contains(key)) {
         out.add(
           _headsUp(PlanHeadsUpKind.renew, fireAt, key, {
-            LocalReminderArgs.date: DateFormat('d MMM').format(expires),
+            LocalReminderArgs.date: DateFormat(
+              'd MMM',
+              currentFormatLocale(),
+            ).format(expires),
             LocalReminderArgs.price: price,
             LocalReminderArgs.url: url,
           }),
@@ -84,7 +88,10 @@ abstract final class PlanHeadsUpRule {
           !inputs.planHeadsUpsSent.contains(key)) {
         out.add(
           _headsUp(PlanHeadsUpKind.ends, fireAt, key, {
-            LocalReminderArgs.weekday: DateFormat('EEEE').format(expires),
+            LocalReminderArgs.weekday: DateFormat(
+              'EEEE',
+              currentFormatLocale(),
+            ).format(expires),
             LocalReminderArgs.url: url,
           }),
         );

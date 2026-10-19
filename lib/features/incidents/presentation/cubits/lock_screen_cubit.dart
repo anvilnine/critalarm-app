@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
@@ -74,7 +75,10 @@ class LockScreenCubit extends Cubit<LockScreenState> {
               ringingPillText: isCrit ? ringingPill : null,
               timeText: inc.lastMessageAt == null
                   ? null
-                  : DateFormat('HH:mm').format(inc.lastMessageAt!.toLocal()),
+                  : DateFormat(
+                      'HH:mm',
+                      currentFormatLocale(),
+                    ).format(inc.lastMessageAt!.toLocal()),
               isCrit: isCrit,
               isQuiet: isQuiet,
               incidentId: inc.id,
@@ -113,8 +117,8 @@ class LockScreenCubit extends Cubit<LockScreenState> {
     emit(
       state.copyWith(
         status: status,
-        dateText: DateFormat('EEEE d MMMM').format(now),
-        timeText: DateFormat('HH:mm').format(now),
+        dateText: DateFormat('EEEE d MMMM', currentFormatLocale()).format(now),
+        timeText: DateFormat('HH:mm', currentFormatLocale()).format(now),
       ),
     );
   }
