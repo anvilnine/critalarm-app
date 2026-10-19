@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';

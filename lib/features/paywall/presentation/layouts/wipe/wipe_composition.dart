@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
@@ -76,6 +77,7 @@ class _WipeCompositionState extends State<WipeComposition> {
       final ends = leaving!.endsOn;
       before = DateFormat(
         'd MMM',
+        currentFormatLocale(),
       ).format(DateTime(ends.year, ends.month, ends.day + 1));
       after = LocaleKeys.paywall_leaving_wipe_today.tr();
     } else {

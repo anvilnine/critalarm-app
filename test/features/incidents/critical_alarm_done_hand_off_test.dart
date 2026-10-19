@@ -207,7 +207,10 @@ void main() {
       server.getFails = _offline;
       await cubit.load(incidentId: 'inc_1');
       expect(cubit.state.status, CriticalAlarmStatus.failure);
-      expect(cubit.state.errorMessage, 'SocketException');
+      expect(
+        cubit.state.errorMessage,
+        'Something went wrong on the server. Try again.',
+      );
       expect(cubit.state.doneIncidentId, isNull);
 
       await cubit.handCloseToNative();

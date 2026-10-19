@@ -2427,5 +2427,28 @@
   "first_topic_answer": {
     "or": "or",
     "what_sends_it": "What sends it"
+  },
+  "dart_format": {
+    "locale": "en",
+    "seconds": "{seconds} s",
+    "minutes_seconds": "{minutes} min {seconds} s",
+    "minutes": "{minutes} min",
+    "hours": "{hours} h",
+    "hours_minutes": "{hours} h {minutes} min",
+    "countdown_seconds": "{seconds}s",
+    "days": "{days}d",
+    "clip_time": "{minutes}:{seconds}.{tenths}"
+  },
+  "dart_labels": {
+    "priority_min": "min",
+    "priority_low": "low",
+    "priority_default": "default",
+    "priority_high": "high",
+    "priority_critical": "critical",
+    "cap_critical_topics": "Critical topics",
+    "cap_devices": "Devices",
+    "cap_daily_pushes": "Daily high-priority pushes",
+    "cap_reached": "{label} limit reached",
+    "no_purchase": "No purchase is available."
   }
 }

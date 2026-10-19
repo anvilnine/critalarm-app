@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/topics/domain/topic_messages_page.dart';
@@ -148,7 +149,9 @@ class _Words extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                NumberFormat.decimalPattern().format(value),
+                NumberFormat.decimalPattern(
+                  currentFormatLocale(),
+                ).format(value),
                 maxLines: 1,
                 textScaler: MediaQuery.textScalerOf(
                   context,

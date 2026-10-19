@@ -230,7 +230,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     emit(
       state.copyWith(
         status: PaywallStatus.failure,
-        errorMessage: 'No purchase is available.',
+        errorMessage: LocaleKeys.dart_labels_no_purchase.tr(),
       ),
     );
   }

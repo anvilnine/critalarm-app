@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/topics/domain/topic_messages_page.dart';
@@ -320,6 +321,7 @@ class _Days extends StatelessWidget {
     MessageDayKind.yesterday => LocaleKeys.home_card_row_yesterday.tr(),
     MessageDayKind.earlier => DateFormat(
       group.day.year == now.year ? 'EEEE d MMMM' : 'EEEE d MMMM y',
+      currentFormatLocale(),
     ).format(group.day),
   };
 
@@ -349,7 +351,7 @@ class _Days extends StatelessWidget {
       title: item.title,
       time: item.sentAt == null
           ? item.timestamp
-          : DateFormat.Hm().format(entry.at.toLocal()),
+          : DateFormat.Hm(currentFormatLocale()).format(entry.at.toLocal()),
       body: item.body,
       tags: item.source,
       mark: entry.match != null

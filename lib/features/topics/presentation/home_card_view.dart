@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
@@ -112,7 +113,8 @@ String homeCardNumeralText(HomeCardNumeral numeral, {required DateTime now}) =>
       ),
       Elapsed(:final since) => _clock(now.difference(since)),
       Remaining(:final until) => _remaining(until.difference(now)),
-      At(:final time) => DateFormat.Hm().format(time.toLocal()),
+      At(:final time) =>
+        DateFormat.Hm(currentFormatLocale()).format(time.toLocal()),
     };
 
 /// `m:ss`, never negative.
@@ -158,8 +160,8 @@ String _time(DateTime at, DateTime now) {
       local.month == today.month &&
       local.day == today.day;
   return sameDay
-      ? DateFormat.Hm().format(local)
-      : DateFormat('d MMM').format(local);
+      ? DateFormat.Hm(currentFormatLocale()).format(local)
+      : DateFormat('d MMM', currentFormatLocale()).format(local);
 }
 
 String _span(Duration d) => d.inSeconds < 60
