@@ -13,6 +13,7 @@ class QuickActionBindings {
   QuickActionBindings({
     required TopicsCubit topics,
     required void Function(String path) navigate,
+    this.localeChanges,
     QuickActions quickActions = const QuickActions(),
     bool isWeb = kIsWeb,
     LocalReminderAnalytics? analytics,
@@ -37,6 +38,8 @@ class QuickActionBindings {
        // ignore: prefer_initializing_formals
        _analytics = analytics;
 
+  final Stream<void>? localeChanges;
+  StreamSubscription<void>? _localeSubscription;
   final TopicsCubit _topics;
   final void Function(String path) _navigate;
   final QuickActions _quickActions;
@@ -48,9 +51,19 @@ class QuickActionBindings {
 
   void start() {
     if (_isWeb) return;
+    _localeSubscription = localeChanges?.listen(
+      (_) => unawaited(refreshTitles()),
+    );
     unawaited(_initialize());
     _subscription = _topics.stream.listen((state) => unawaited(_update(state)));
     unawaited(_update(_topics.state));
+  }
+
+  /// Locale changes must bypass the unchanged-topic shortcut.
+  Future<void> refreshTitles() async {
+    if (_isWeb) return;
+    _hasCriticalTopic = null;
+    await _update(_topics.state);
   }
 
   Future<void> _initialize() async {
@@ -91,5 +104,8 @@ class QuickActionBindings {
     'QuickActionBindings: $what failed: ${error.runtimeType}',
   );
 
-  Future<void> dispose() async => _subscription?.cancel();
+  Future<void> dispose() async {
+    await _subscription?.cancel();
+    await _localeSubscription?.cancel();
+  }
 }

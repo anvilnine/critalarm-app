@@ -2528,5 +2528,8 @@
     "cap_daily_pushes": "Daily high-priority pushes",
     "cap_reached": "{label} limit reached",
     "no_purchase": "No purchase is available."
+  },
+  "language": {
+    "system_default": "System default"
   }
 }
