@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
@@ -66,12 +67,22 @@ String formatClipTime(Duration d) {
   final tenths = (d.inMilliseconds / 100).round();
   final minutes = tenths ~/ 600;
   final seconds = (tenths % 600) ~/ 10;
-  return '$minutes:${seconds.toString().padLeft(2, '0')}.${tenths % 10}';
+  return LocaleKeys.dart_format_clip_time.tr(
+    namedArgs: {
+      'minutes': formatInt(minutes),
+      'seconds': formatInt(seconds, minimumDigits: 2),
+      'tenths': formatInt(tenths % 10),
+    },
+  );
 }
 
 /// `29.5 s`.
 String formatClipLength(Duration d) =>
-    '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
+    LocaleKeys.dart_format_seconds.tr(
+      namedArgs: {
+        'seconds': formatNum(d.inMilliseconds / 1000, minDecimals: 1),
+      },
+    );
 
 class _SoundCropView extends StatelessWidget {
   const _SoundCropView();

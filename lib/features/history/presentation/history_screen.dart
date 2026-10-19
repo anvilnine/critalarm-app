@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -296,7 +297,9 @@ class _DaySection extends StatelessWidget {
               return HistoryRow(
                 name: entry.topic,
                 meta: historyMetaText(entry),
-                time: DateFormat.Hm().format(entry.startedAt),
+                time: DateFormat.Hm(
+                  currentFormatLocale(),
+                ).format(entry.startedAt),
                 mark: mark,
                 markLabel: _markLabel(mark),
                 isSelected: entry.id == selectedId,
@@ -488,7 +491,7 @@ class _IncidentDetail extends StatelessWidget {
           const SizedBox(height: Spacing.s4),
           AppKeyValueRow(
             label: LocaleKeys.history_detail_started_label.tr(),
-            value: DateFormat.Hm().format(entry.startedAt),
+            value: DateFormat.Hm(currentFormatLocale()).format(entry.startedAt),
           ),
           const SizedBox(height: 10),
           AppKeyValueRow(
@@ -507,7 +510,10 @@ String _dayLabel(DateTime day) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   // intl already knows the weekday and month names for the active locale.
-  final formatted = DateFormat('EEEE d MMMM').format(day);
+  final formatted = DateFormat(
+    'EEEE d MMMM',
+    currentFormatLocale(),
+  ).format(day);
 
   if (day == today) {
     return LocaleKeys.history_day_today.tr(namedArgs: {'date': formatted});
