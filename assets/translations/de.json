@@ -2528,5 +2528,8 @@
     "cap_daily_pushes": "Tägliche Pushs mit hoher Priorität",
     "cap_reached": "Limit für {label} erreicht",
     "no_purchase": "Kein Kauf verfügbar."
+  },
+  "language": {
+    "system_default": "Systemstandard"
   }
 }

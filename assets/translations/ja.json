@@ -2528,5 +2528,8 @@
     "cap_daily_pushes": "一日の高優先度プッシュ数",
     "cap_reached": "{label}の上限に達しました",
     "no_purchase": "購入できるものはありません。"
+  },
+  "language": {
+    "system_default": "システムのデフォルト"
   }
 }
