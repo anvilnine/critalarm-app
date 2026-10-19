@@ -35,8 +35,12 @@ final class NativeL10nTests: XCTestCase {
     }
 
     func testALanguageThatIsNotShippedFallsBackToThePhone() {
-        XCTAssertEqual(NativeL10n.text(.alarmStop, [:], tag: "de", bundle: .main), "Stop")
+        XCTAssertEqual(NativeL10n.text(.alarmStop, [:], tag: "fr", bundle: .main), "Stop")
         XCTAssertEqual(NativeL10n.text(.alarmStop, [:], tag: "en", bundle: .main), "Stop")
+    }
+
+    func testAShippedLanguageUsesItsOwnWords() {
+        XCTAssertEqual(NativeL10n.text(.alarmStop, [:], tag: "de", bundle: .main), "Stopp")
     }
 
     func testPlaceholdersAreFilledByName() {
