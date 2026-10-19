@@ -31,9 +31,9 @@
     <string name="native_content_alert">Alert</string>
     <string name="native_content_attention">Immediate attention required</string>
     <string name="native_content_critical_alert_on">Critical alert on {topic}</string>
-    <string name="native_content_critical_alert_on_details">Critical alert on {topic} — open to see details</string>
+    <string name="native_content_critical_alert_on_details">Critical alert on {topic}. Open to see details.</string>
     <string name="native_content_critical_incident">Critical incident</string>
-    <string name="native_content_critical_open_to_see">Critical alert — open to see details</string>
+    <string name="native_content_critical_open_to_see">Critical alert. Open to see details.</string>
     <string name="native_content_open_to_see">Open Crit Alarm to see details</string>
     <string name="native_state_awake">Awake</string>
     <string name="native_state_closed">Closed</string>
