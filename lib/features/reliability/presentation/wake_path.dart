@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
@@ -293,25 +292,36 @@ class _StopLabel extends StatelessWidget {
           fontWeight: isBad ? FontWeight.w700 : FontWeight.w600,
           height: 1.2,
         );
+    // `Text` merges the default style under its own, which can carry a letter
+    // spacing. The painter does the same, so it measures what is drawn.
+    final measured = DefaultTextStyle.of(context).style.merge(style);
+    final locale = Localizations.maybeLocaleOf(context);
+    // Japanese has no spaces: the whole label is one word, and it stays on
+    // one line instead of breaking inside it.
+    final isOneWord = !label.contains(' ');
     return LayoutBuilder(
       builder: (context, constraints) {
         var widest = 0.0;
         for (final word in label.split(' ')) {
           final painter = TextPainter(
-            text: TextSpan(text: word, style: style),
-            textDirection: ui.TextDirection.ltr,
+            text: TextSpan(text: word, style: measured),
+            textDirection: Directionality.of(context),
             textScaler: scaler,
+            locale: locale,
           )..layout();
           widest = math.max(widest, painter.width);
           painter.dispose();
         }
-        final shrink = widest > constraints.maxWidth && widest > 0
-            ? constraints.maxWidth / widest
-            : 1.0;
+        // A pixel of room, so a rounding step cannot push the last glyph over.
+        final room = constraints.maxWidth - 1;
+        final shrink = widest > room && widest > 0 ? room / widest : 1.0;
         return Text(
           label,
           textAlign: TextAlign.center,
-          maxLines: 2,
+          maxLines: isOneWord ? 1 : 2,
+          // A word shrunk to the column fits to the pixel, so it may not
+          // wrap. One with room to spare lays out as it always did.
+          softWrap: !(isOneWord && shrink < 1),
           textScaler: scaler,
           style: style.copyWith(fontSize: _fontSize * shrink),
         );
