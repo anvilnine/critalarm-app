@@ -4,10 +4,22 @@
     "NSAlarmKitUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm braucht Zugriff auf Alarme, damit ein Alarm trotz Stummmodus und Nicht stören klingeln kann, bis du ihn stoppst."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarmにはアラームへのアクセスが必要です。停止するまで、マナーモードやおやすみモードでもアラームを鳴らせるようにするためです。"
           }
         }
       }
@@ -15,10 +27,22 @@
     "NSMicrophoneUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm nutzt das Mikrofon, um Alarmtöne aufzunehmen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crit Alarm uses the microphone to record alarm sounds."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarmはアラーム音の録音にマイクを使用します。"
           }
         }
       }
