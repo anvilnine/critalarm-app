@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
@@ -9,6 +10,8 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_prev
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 // History: a list of alarms by age scrolls down to the line where the free
@@ -334,7 +337,9 @@ HistoryPreviewLayout historyPreviewLayoutFor(Size size) {
 const double historyPreviewTagRoom = 20;
 
 /// An age as the list writes it.
-String historyPreviewAge(int days) => '${days}d'; // l10n-ok: unit letter
+String historyPreviewAge(int days) => LocaleKeys.dart_format_days.tr(
+  namedArgs: {'days': formatInt(days)},
+);
 
 const _topics = ['prod-db', 'uptime-kuma', 'nas-backup', 'home-ha'];
 const _barLengths = [0.62, 0.9, 0.74, 0.54, 0.82];

@@ -192,7 +192,7 @@ class _IosLock extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat(
       'EEEE d MMMM',
-      context.locale.toString(),
+      currentFormatLocale(),
     ).format(DateTime(2026, 9, 24));
     return Stack(
       children: [
@@ -782,7 +782,7 @@ class _AndroidLock extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat(
       'EEE, d MMM',
-      context.locale.toString(),
+      currentFormatLocale(),
     ).format(DateTime(2026, 9, 24));
     const clock = TextStyle(
       color: Color(0xFFDCE4FF),

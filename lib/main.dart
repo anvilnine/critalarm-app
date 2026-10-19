@@ -32,6 +32,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// Registers the bundled font faces' OFL licenses so they surface in
 /// Settings > Acknowledgements (`showLicensePage`). Bundled asset fonts need
@@ -65,6 +66,15 @@ void _registerSoundPackCredits() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const pseudoRequested = bool.fromEnvironment('PSEUDO_LOCALE');
+  final supportedLocales = localesForBuild(
+    isDebug: kDebugMode,
+    pseudoRequested: pseudoRequested,
+  );
+  // Load symbols before dependencies or push callbacks can format a date.
+  for (final locale in supportedLocales) {
+    await initializeDateFormatting(locale.toString());
+  }
   _registerFontLicenses();
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
@@ -191,11 +201,6 @@ Future<void> main() async {
     // Never stops the app from opening.
   }
 
-  const pseudoRequested = bool.fromEnvironment('PSEUDO_LOCALE');
-  final supportedLocales = localesForBuild(
-    isDebug: kDebugMode,
-    pseudoRequested: pseudoRequested,
-  );
   runApp(
     EasyLocalization(
       supportedLocales: supportedLocales,

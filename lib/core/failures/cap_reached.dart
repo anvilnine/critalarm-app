@@ -16,12 +16,14 @@ class CapReached {
   /// A cap name we have no wording for falls back to a generic label, never
   /// to the wire name. The error card puts this in its title.
   String get label => switch (name) {
-    'critical_topics' => 'Critical topics',
-    'devices' => 'Devices',
-    'p4_daily' => 'Daily high-priority pushes',
+    'critical_topics' => LocaleKeys.dart_labels_cap_critical_topics.tr(),
+    'devices' => LocaleKeys.dart_labels_cap_devices.tr(),
+    'p4_daily' => LocaleKeys.dart_labels_cap_daily_pushes.tr(),
     _ => LocaleKeys.account_cap_generic_label.tr(),
   };
-  String get message => '$label limit reached';
+  String get message => LocaleKeys.dart_labels_cap_reached.tr(
+    namedArgs: {'label': label},
+  );
   @override
   bool operator ==(Object other) => other is CapReached && other.name == name;
   @override
