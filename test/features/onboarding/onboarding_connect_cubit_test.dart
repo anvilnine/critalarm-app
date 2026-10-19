@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
@@ -19,6 +20,9 @@ import 'package:critalarm/features/onboarding/domain/usecases/save_connection_us
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +37,8 @@ class MockCompleteOnboardingUsecase extends Mock
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
+
+class MockGetTopics extends Mock implements GetTopicsUsecase {}
 
 class MockBackgroundConnect extends Mock implements BackgroundConnect {}
 
@@ -83,6 +89,76 @@ void main() {
   });
 
   group('OnboardingConnectCubit', () {
+    test('unknown server text is mapped when loading the test topic', () async {
+      final getTopics = MockGetTopics();
+      when(() => getTopics(any())).thenAnswer(
+        (_) async => const Failure.api(
+          statusCode: 500,
+          message: 'An unknown English server sentence.',
+        ).toFailure(),
+      );
+      final cubit = OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        establishSession: mockEstablishSession,
+        getTopics: getTopics,
+      );
+      addTearDown(cubit.close);
+      final states = <OnboardingConnectState>[];
+      final subscription = cubit.stream.listen(states.add);
+      addTearDown(subscription.cancel);
+      await cubit.loadTestTopic();
+      await pumpEventQueue();
+      expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+      expect(
+        states.last.errorMessage,
+        isNot(contains('English server sentence')),
+      );
+    });
+
+    for (final duringRegistration in [false, true]) {
+      test(
+        'connect maps unknown server text during '
+        '${duringRegistration ? 'registration' : 'server info'}',
+        () async {
+          if (duringRegistration) {
+            when(() => mockEstablishSession(any(), any())).thenThrow(
+              const ApiException(
+                statusCode: 500,
+                message: 'An unknown English server sentence.',
+              ),
+            );
+          } else {
+            when(() => mockGetServerInfo(any())).thenAnswer(
+              (_) async => const Failure.api(
+                statusCode: 500,
+                message: 'An unknown English server sentence.',
+              ).toFailure(),
+            );
+          }
+          final cubit =
+              OnboardingConnectCubit(
+                  mockGetServerInfo,
+                  mockSaveConnection,
+                  establishSession: mockEstablishSession,
+                )
+                ..serverUrlChanged('https://api.critalarm.app')
+                ..adminTokenChanged('ad_test');
+          addTearDown(cubit.close);
+          final states = <OnboardingConnectState>[];
+          final subscription = cubit.stream.listen(states.add);
+          addTearDown(subscription.cancel);
+          await cubit.connect();
+          await pumpEventQueue();
+          expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+          expect(
+            states.last.errorMessage,
+            isNot(contains('English server sentence')),
+          );
+        },
+      );
+    }
+
     test('initial state has no server URL and idle status', () async {
       final cubit = OnboardingConnectCubit(
         mockGetServerInfo,

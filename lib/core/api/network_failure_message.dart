@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -13,6 +14,10 @@ import 'package:http/http.dart' as http;
 /// "ClientException with SocketException: Failed host lookup ...
 /// (OS Error: nodename nor servname provided, errno = 8)".
 String networkFailureMessage(Object error) {
+  // Device registration can throw a server response while connecting.
+  if (error is ApiException) {
+    return apiErrorMessage(error.message, code: error.code, cap: error.cap);
+  }
   if (error is TimeoutException) {
     return LocaleKeys.onboarding_connect_connect_timeout.tr();
   }
@@ -29,17 +34,24 @@ String networkFailureMessage(Object error) {
       text.contains('Network is unreachable')) {
     return LocaleKeys.onboarding_connect_network_unreachable.tr();
   }
-  return text;
+  return LocaleKeys.api_errors_unknown.tr();
 }
 
-/// Turns a wire error code from the server into a sentence a user can read.
-///
-/// The server answers things like `{"error":"cap","cap":"critical_topics"}`,
-/// and the bare word `cap` used to land under the Name field on New Topic. Any
-/// code we have no sentence for falls back to one generic line, so a wire code
-/// never reaches the screen.
-String apiErrorMessage(String? wireCode, {String? cap}) {
-  return switch (wireCode?.trim().toLowerCase()) {
+/// Picks app-owned words for a server error. A numeric code is authoritative;
+/// only a response without one is matched by its known error text.
+/// Unknown codes and text both use the generic line, never server prose.
+String apiErrorMessage(String? wireError, {int? code, String? cap}) {
+  final error = code == null
+      ? wireError?.trim().toLowerCase()
+      : switch (code) {
+          40101 => 'unauthorized',
+          40001 => 'invalid topic name',
+          40901 => 'topic already exists',
+          41301 => 'message too large',
+          42901 => 'rate limited',
+          _ => null,
+        };
+  return switch (error) {
     'cap' =>
       cap == null
           ? LocaleKeys.api_errors_cap_unnamed.tr()
@@ -49,9 +61,23 @@ String apiErrorMessage(String? wireCode, {String? cap}) {
     'unauthorized' => LocaleKeys.api_errors_unauthorized.tr(),
     'invalid topic name' => LocaleKeys.api_errors_invalid_topic_name.tr(),
     'topic already exists' => LocaleKeys.api_errors_topic_already_exists.tr(),
+    'message too large' => LocaleKeys.api_errors_message_too_large.tr(),
     'rate limited' => LocaleKeys.api_errors_rate_limited.tr(),
+    'invalid priority' => LocaleKeys.api_errors_invalid_priority.tr(),
     'invalid request' => LocaleKeys.api_errors_invalid_request.tr(),
+    'incident state conflict' =>
+      LocaleKeys.api_errors_incident_state_conflict.tr(),
+    'scheduled delivery not supported' =>
+      LocaleKeys.api_errors_scheduled_delivery_not_supported.tr(),
+    'streaming not supported' =>
+      LocaleKeys.api_errors_streaming_not_supported.tr(),
     'not found' => LocaleKeys.api_errors_not_found.tr(),
+    'pack' => LocaleKeys.api_errors_pack.tr(),
+    'tier' => LocaleKeys.api_errors_tier.tr(),
+    'invalid base_url' => LocaleKeys.api_errors_invalid_base_url.tr(),
+    'challenge failed' => LocaleKeys.api_errors_challenge_failed.tr(),
+    'registration closed' => LocaleKeys.api_errors_registration_closed.tr(),
+    'topic mismatch' => LocaleKeys.api_errors_topic_mismatch.tr(),
     'topic must retain a token' =>
       LocaleKeys.api_errors_topic_must_retain_a_token.tr(),
     _ => LocaleKeys.api_errors_unknown.tr(),
@@ -65,6 +91,7 @@ String apiErrorMessage(String? wireCode, {String? cap}) {
 /// so every cubit that shows an error runs it through here.
 String failureMessage(Failure failure) => apiErrorMessage(
   failure.message,
+  code: failure is ApiFailure ? failure.code : null,
   cap: CapReached.fromFailure(failure)?.name,
 );
 

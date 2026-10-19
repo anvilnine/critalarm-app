@@ -22,6 +22,8 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_state.d
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -83,6 +85,31 @@ void main() {
   });
 
   group('SettingsCubit', () {
+    test(
+      'unknown server text is mapped in the emitted settings state',
+      () async {
+        final repository = MockTopicRepository();
+        when(repository.getTopics).thenAnswer(
+          (_) async => const Failure.api(
+            statusCode: 500,
+            message: 'An unknown English server sentence.',
+          ).toFailure(),
+        );
+        final cubit = SettingsCubit(getTopics: GetTopicsUsecase(repository));
+        addTearDown(cubit.close);
+        final states = <SettingsState>[];
+        final subscription = cubit.stream.listen(states.add);
+        addTearDown(subscription.cancel);
+        await cubit.load();
+        await pumpEventQueue();
+        expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+        expect(
+          states.last.errorMessage,
+          isNot(contains('English server sentence')),
+        );
+      },
+    );
+
     test('initial state has no server connection', () {
       final cubit = SettingsCubit();
 
