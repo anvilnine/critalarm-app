@@ -4,6 +4,7 @@ import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -140,6 +141,20 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   final DateTime Function() _now;
 
   final AccountIdentityChanges _identityChanges;
+
+  Failure? _textFailure;
+
+  String _rememberFailureText(Failure failure) {
+    _textFailure = failure;
+    return failureMessage(failure);
+  }
+
+  /// Re-render the held failure only. Never fetch or change list/status state.
+  void refreshTranslations() {
+    final failure = _textFailure;
+    if (isClosed || failure == null || state.errorMessage == null) return;
+    emit(state.copyWith(errorMessage: failureMessage(failure)));
+  }
 
   /// Same reason as the topic list: incidents belong to the account, so the
   /// history in memory is somebody else's once the identity changes, and
@@ -295,7 +310,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
         state.copyWith(
           status: AppDataStatus.failure,
           isRefreshing: false,
-          errorMessage: failureMessage(failure),
+          errorMessage: _rememberFailureText(failure),
         ),
       ),
     );

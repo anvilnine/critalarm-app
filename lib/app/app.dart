@@ -5,6 +5,7 @@ import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
+import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
@@ -45,6 +46,7 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
@@ -113,9 +115,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
+  StreamSubscription<LanguageState>? _languageSub;
+
   late final QuickActionBindings _quickActions = QuickActionBindings(
     topics: getIt<TopicsCubit>(),
     navigate: _openPath,
+    localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
@@ -212,6 +217,11 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(getIt<LanguageCubit>().synchronizeNative());
+    _languageSub = getIt<LanguageCubit>().stream.listen((_) {
+      getIt<TopicsCubit>().refreshTranslations();
+      getIt<IncidentsCubit>().refreshTranslations();
+    });
     _push.start();
     _reminders.start();
     // Sign-in, sign-out, a linked provider and an account delete all bump
@@ -249,11 +259,24 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    getIt<EasyLocalizationLanguageHost>().attach(context);
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    unawaited(getIt<LanguageCubit>().followSystemLocale());
+  }
+
+  @override
   void dispose() {
+    getIt<EasyLocalizationLanguageHost>().detach();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_push.dispose());
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
+    unawaited(_languageSub?.cancel());
     appAccountIdentityChanges
       ..removeListener(_replan)
       ..removeListener(_checkAccountNotes);

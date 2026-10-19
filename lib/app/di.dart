@@ -8,6 +8,8 @@ import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
+import 'package:critalarm/app/l10n/language_feedback.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
@@ -51,6 +53,7 @@ import 'package:critalarm/core/device/os_version_reader.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/l10n/native_locale_bridge.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
@@ -145,6 +148,7 @@ import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
@@ -402,6 +406,25 @@ Future<void> configureDependencies({
       debugPrintStack(stackTrace: stack);
     }
   }
+
+  getIt
+    ..registerLazySingleton<NativeLocaleBridge>(
+      () => kIsWeb
+          ? const NoopNativeLocaleBridge()
+          : const MethodChannelNativeLocaleBridge(),
+    )
+    ..registerLazySingleton(() => EasyLocalizationLanguageHost(prefs))
+    ..registerLazySingleton(
+      () => LanguageCubit(
+        host: getIt<EasyLocalizationLanguageHost>(),
+        bridge: getIt<NativeLocaleBridge>(),
+        replanReminders: () => getIt<LocalReminderPlanTrigger>().run(),
+        openReport: LanguageFeedback(
+          readReport: ({required locale}) =>
+              getIt<DeviceReportRepository>().read(locale: locale),
+        ).open,
+      ),
+    );
 
   // The alarm service runs with no Dart engine, so it reads this flag out of
   // the same preferences file rather than asking the app. Written on every
@@ -2243,6 +2266,7 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SearchCubit(
+        localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
         sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
