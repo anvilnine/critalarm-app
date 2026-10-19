@@ -3,6 +3,7 @@ package app.critalarm.notifications
 import android.app.NotificationManager
 import android.content.Context
 import android.util.Log
+import app.critalarm.l10n.NativeWords
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
@@ -134,7 +135,7 @@ object IncidentCards {
             StatusNotificationFactory.create(
                 context = context,
                 payload = payload,
-                content = content ?: IncidentContentFetcher.fallback(payload),
+                content = content ?: IncidentContentFetcher.fallback(payload, NativeWords.of(context)),
                 state = state,
                 ackedAtMillis = ackedAtMillis,
                 silencedInSeconds = silencedInSeconds,

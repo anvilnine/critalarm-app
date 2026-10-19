@@ -15,6 +15,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.appicon.AppIconChannel
+import app.critalarm.l10n.LocaleChannel
 import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderChannel
@@ -107,6 +108,9 @@ class MainActivity : FlutterFragmentActivity() {
         val appIcon = AppIconChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AppIconChannel.NAME)
             .setMethodCallHandler(appIcon::handle)
+        val locale = LocaleChannel(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LocaleChannel.NAME)
+            .setMethodCallHandler(locale::handle)
         val reminders = LocalReminderChannel(applicationContext) {
             val tap = pendingReminderTap
             pendingReminderTap = null

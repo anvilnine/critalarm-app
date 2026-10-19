@@ -2,6 +2,8 @@ package app.critalarm.push
 
 import android.content.Context
 import android.util.Log
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.storage.NativeConnectionStore
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -48,26 +50,32 @@ object IncidentContentFetcher {
 
     private const val TAG = "CritAlarmFetch"
 
-    fun fallback(payload: FcmIncidentPayload) = IncidentContent(
-        title = payload.title ?: if (payload.isIncident) "Critical incident" else "Alert",
-        body = payload.body ?: if (payload.isIncident) {
-            "Immediate attention required"
-        } else {
-            "Open Crit Alarm to see details"
-        },
+    /**
+     * The text a card shows before, or without, the fetch. The words come
+     * from [words], in the language picked in the app; [NativeWords.English]
+     * is what a caller with no [Context] gets.
+     */
+    fun fallback(payload: FcmIncidentPayload, words: NativeWords = NativeWords.English) = IncidentContent(
+        title = payload.title ?: words.text(
+            if (payload.isIncident) NativeText.CONTENT_CRITICAL_INCIDENT else NativeText.CONTENT_ALERT,
+        ),
+        body = payload.body ?: words.text(
+            if (payload.isIncident) NativeText.CONTENT_ATTENTION else NativeText.CONTENT_OPEN_TO_SEE,
+        ),
     )
 
     /** Resolved content, or the fallback when the push carries nothing and the
      *  fetch does not land inside [TIMEOUT_MS]. */
     fun resolve(context: Context, payload: FcmIncidentPayload): IncidentContent {
+        val words = NativeWords.of(context)
         if (!payload.needsContentFetch) {
             return IncidentContent(
-                title = payload.title ?: fallback(payload).title,
-                body = payload.body ?: fallback(payload).body,
+                title = payload.title ?: fallback(payload, words).title,
+                body = payload.body ?: fallback(payload, words).body,
             )
         }
-        val incidentId = payload.incidentId ?: return fallback(payload)
-        return fetch(context, payload.server, incidentId) ?: fallback(payload)
+        val incidentId = payload.incidentId ?: return fallback(payload, words)
+        return fetch(context, payload.server, incidentId) ?: fallback(payload, words)
     }
 
     fun fetch(

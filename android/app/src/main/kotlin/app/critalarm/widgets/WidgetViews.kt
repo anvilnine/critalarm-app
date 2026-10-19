@@ -11,6 +11,8 @@ import app.critalarm.MainActivity
 import app.critalarm.R
 import app.critalarm.TapRoute
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.notifications.CritAlarmFace
 import app.critalarm.notifications.FaceBitmap
 import app.critalarm.storage.ChallengeFlagStore
@@ -20,7 +22,8 @@ import app.critalarm.storage.NativeConnectionStore
 
 /**
  * Builds the RemoteViews for the three widgets from the snapshot. The words
- * come from [WidgetRows], the faces from [FaceBitmap].
+ * come from [WidgetRows] in the language picked in the app, the faces from
+ * [FaceBitmap].
  */
 object WidgetViews {
     /** Small faces keep a list of 8 rows well under the RemoteViews binder limit. */
@@ -29,6 +32,7 @@ object WidgetViews {
     private const val COUNT_FACE_DP = 24
 
     fun listViews(context: Context, snapshot: WidgetSnapshot?, heightDp: Int): RemoteViews {
+        val words = NativeWords.of(context)
         val views = RemoteViews(context.packageName, R.layout.widget_topic_list)
         if (snapshot?.locked == true) {
             views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
@@ -36,13 +40,13 @@ object WidgetViews {
             views.setViewVisibility(R.id.rows, View.GONE)
             views.setViewVisibility(R.id.list_more, View.GONE)
             views.setViewVisibility(R.id.list_message, View.VISIBLE)
-            views.setTextViewText(R.id.list_message, WidgetRows.LOCKED)
+            views.setTextViewText(R.id.list_message, words.text(NativeText.WIDGET_LOCKED))
             showLock(views, R.id.list_message)
             return views
         }
         views.removeAllViews(R.id.rows)
         views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
-        val message = message(snapshot)
+        val message = message(snapshot, words)
         if (message != null || snapshot == null) {
             views.setTextViewText(R.id.list_count, "")
             views.setViewVisibility(R.id.rows, View.GONE)
@@ -54,26 +58,26 @@ object WidgetViews {
         }
         views.setViewVisibility(R.id.rows, View.VISIBLE)
         views.setViewVisibility(R.id.list_message, View.GONE)
-        views.setTextViewText(R.id.list_count, WidgetRows.countText(snapshot.openCount))
+        views.setTextViewText(R.id.list_count, WidgetRows.countText(snapshot.openCount, words))
         val list = WidgetRows.listRows(snapshot, heightDp)
-        for (topic in list.rows) views.addView(R.id.rows, rowViews(context, topic))
+        for (topic in list.rows) views.addView(R.id.rows, rowViews(context, topic, words))
         if (list.more > 0) {
             views.setViewVisibility(R.id.list_more, View.VISIBLE)
-            views.setTextViewText(R.id.list_more, WidgetRows.moreText(list.more))
+            views.setTextViewText(R.id.list_more, WidgetRows.moreText(list.more, words))
         } else {
             views.setViewVisibility(R.id.list_more, View.GONE)
         }
         return views
     }
 
-    private fun rowViews(context: Context, topic: WidgetTopic): RemoteViews {
+    private fun rowViews(context: Context, topic: WidgetTopic, words: NativeWords): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.widget_topic_row)
         val incident = topic.incident
         row.setImageViewBitmap(R.id.row_face, FaceBitmap.render(WidgetRows.face(incident), ROW_FACE_PX))
         row.setTextViewText(R.id.row_name, topic.name)
         row.setTextViewText(R.id.row_title, incident?.title ?: "")
         row.setViewVisibility(R.id.row_title, if (incident == null) View.GONE else View.VISIBLE)
-        showState(row, incident, R.id.row_state, R.id.row_state_awake, R.id.row_state_quiet)
+        showState(row, incident, R.id.row_state, R.id.row_state_awake, R.id.row_state_quiet, words)
         showTimer(row, R.id.row_since, incident)
         row.setOnClickPendingIntent(R.id.row, topicIntent(context, topic.name))
         return row
@@ -85,17 +89,18 @@ object WidgetViews {
         topicName: String?,
         appWidgetId: Int,
     ): RemoteViews {
+        val words = NativeWords.of(context)
         val views = RemoteViews(context.packageName, R.layout.widget_topic)
         if (snapshot?.locked == true) {
             views.setViewVisibility(R.id.topic_content, View.GONE)
             views.setViewVisibility(R.id.topic_message, View.VISIBLE)
-            views.setTextViewText(R.id.topic_message, WidgetRows.LOCKED)
+            views.setTextViewText(R.id.topic_message, words.text(NativeText.WIDGET_LOCKED))
             showLock(views, R.id.topic_message)
             views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
             return views
         }
         val topic = snapshot?.topics?.firstOrNull { it.name == topicName }
-        val message = message(snapshot) ?: if (topic == null) WidgetRows.TOPIC_NOT_FOUND else null
+        val message = message(snapshot, words) ?: if (topic == null) words.text(NativeText.WIDGET_TOPIC_NOT_FOUND) else null
         if (message != null || topic == null) {
             views.setViewVisibility(R.id.topic_content, View.GONE)
             views.setViewVisibility(R.id.topic_message, View.VISIBLE)
@@ -109,12 +114,12 @@ object WidgetViews {
         val incident = topic.incident
         val facePx = (TOPIC_FACE_DP * context.resources.displayMetrics.density).toInt()
         views.setImageViewBitmap(R.id.topic_face, FaceBitmap.render(WidgetRows.face(incident), facePx))
-        showState(views, incident, R.id.topic_state, R.id.topic_state_awake, R.id.topic_state_quiet)
+        showState(views, incident, R.id.topic_state, R.id.topic_state_awake, R.id.topic_state_quiet, words)
         showTimer(views, R.id.topic_since, incident)
         views.setTextViewText(R.id.topic_name, topic.name)
-        views.setTextViewText(R.id.topic_title, incident?.title ?: WidgetRows.ALL_QUIET)
+        views.setTextViewText(R.id.topic_title, incident?.title ?: words.text(NativeText.WIDGET_ALL_QUIET))
         views.setOnClickPendingIntent(android.R.id.background, topicIntent(context, topic.name))
-        val button = WidgetRows.buttonTitle(incident)
+        val button = WidgetRows.buttonTitle(incident, words)
         if (button == null || incident == null) {
             views.setViewVisibility(R.id.topic_button, View.GONE)
         } else {
@@ -126,6 +131,7 @@ object WidgetViews {
     }
 
     fun countViews(context: Context, snapshot: WidgetSnapshot?): RemoteViews {
+        val words = NativeWords.of(context)
         val views = RemoteViews(context.packageName, R.layout.widget_open_count)
         if (snapshot?.locked == true) {
             views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
@@ -133,12 +139,12 @@ object WidgetViews {
             views.setViewVisibility(R.id.count_message, View.GONE)
             views.setImageViewResource(R.id.count_face, R.drawable.ic_widget_lock)
             views.setViewVisibility(R.id.count_number, View.GONE)
-            views.setTextViewText(R.id.count_label, WidgetRows.LOCKED_SHORT)
+            views.setTextViewText(R.id.count_label, words.text(NativeText.WIDGET_LOCKED_SHORT))
             return views
         }
         views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
         // No topics is still a count: zero, all quiet.
-        val message = if (snapshot == null || !snapshot.connected) WidgetRows.NOT_CONNECTED else null
+        val message = if (snapshot == null || !snapshot.connected) words.text(NativeText.WIDGET_CONNECT) else null
         if (message != null || snapshot == null) {
             views.setViewVisibility(R.id.count_content, View.GONE)
             views.setViewVisibility(R.id.count_message, View.VISIBLE)
@@ -152,10 +158,10 @@ object WidgetViews {
         if (snapshot.openCount > 0) {
             views.setViewVisibility(R.id.count_number, View.VISIBLE)
             views.setTextViewText(R.id.count_number, snapshot.openCount.toString())
-            views.setTextViewText(R.id.count_label, "open")
+            views.setTextViewText(R.id.count_label, words.text(NativeText.WIDGET_OPEN_WORD))
         } else {
             views.setViewVisibility(R.id.count_number, View.GONE)
-            views.setTextViewText(R.id.count_label, WidgetRows.ALL_QUIET)
+            views.setTextViewText(R.id.count_label, words.text(NativeText.WIDGET_ALL_QUIET))
         }
         return views
     }
@@ -171,9 +177,9 @@ object WidgetViews {
         views.setTextViewCompoundDrawables(id, 0, 0, 0, 0)
 
     /** The empty states every list shares, or null when there is something to list. */
-    private fun message(snapshot: WidgetSnapshot?): String? = when {
-        snapshot == null || !snapshot.connected -> WidgetRows.NOT_CONNECTED
-        snapshot.topics.isEmpty() -> WidgetRows.NO_TOPICS
+    private fun message(snapshot: WidgetSnapshot?, words: NativeWords): String? = when {
+        snapshot == null || !snapshot.connected -> words.text(NativeText.WIDGET_CONNECT)
+        snapshot.topics.isEmpty() -> words.text(NativeText.WIDGET_NO_TOPICS)
         else -> null
     }
 
@@ -182,7 +188,14 @@ object WidgetViews {
      * from code would not follow the launcher into dark mode. The resource
      * colours in the layout do.
      */
-    private fun showState(views: RemoteViews, incident: WidgetIncident?, ringing: Int, awake: Int, quiet: Int) {
+    private fun showState(
+        views: RemoteViews,
+        incident: WidgetIncident?,
+        ringing: Int,
+        awake: Int,
+        quiet: Int,
+        words: NativeWords,
+    ) {
         val shown = when (WidgetRows.face(incident)) {
             CritAlarmFace.ALARMED -> ringing
             CritAlarmFace.ACKED -> awake
@@ -191,7 +204,7 @@ object WidgetViews {
         for (id in listOf(ringing, awake, quiet)) {
             views.setViewVisibility(id, if (id == shown) View.VISIBLE else View.GONE)
         }
-        views.setTextViewText(shown, WidgetRows.stateWord(incident))
+        views.setTextViewText(shown, WidgetRows.stateWord(incident, words))
     }
 
     /**
