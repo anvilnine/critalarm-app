@@ -4,6 +4,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -23,6 +24,8 @@ import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -189,10 +192,7 @@ void main() {
           reason: 'the acknowledge belongs to the shared list',
         );
         expect(
-          history.state.entries
-              .firstWhere((e) => e.id == openId)
-              .state
-              .name,
+          history.state.entries.firstWhere((e) => e.id == openId).state.name,
           'acked',
           reason: 'History follows without being reopened',
         );
@@ -202,6 +202,29 @@ void main() {
           reason: 'nobody fetched the list again to find that out',
         );
       },
+    );
+  });
+
+  test('unknown server text is mapped in the emitted incident state', () async {
+    final repository = _ScriptedIncidents();
+    final cubit = IncidentsCubit(GetIncidentsUsecase(repository));
+    addTearDown(cubit.close);
+    final states = <IncidentsState>[];
+    final subscription = cubit.stream.listen(states.add);
+    addTearDown(subscription.cancel);
+    final loading = cubit.ensureLoaded();
+    repository.pending.single.complete(
+      const Failure.api(
+        statusCode: 500,
+        message: 'An unknown English server sentence.',
+      ).toFailure(),
+    );
+    await loading;
+    await pumpEventQueue();
+    expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+    expect(
+      states.last.errorMessage,
+      isNot(contains('English server sentence')),
     );
   });
 
