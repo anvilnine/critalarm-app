@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -294,7 +295,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
         state.copyWith(
           status: AppDataStatus.failure,
           isRefreshing: false,
-          errorMessage: failure.message,
+          errorMessage: failureMessage(failure),
         ),
       ),
     );
