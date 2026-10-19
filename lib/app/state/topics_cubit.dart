@@ -4,6 +4,7 @@ import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -158,6 +159,20 @@ class TopicsCubit extends Cubit<TopicsState> {
   final DateTime Function() _now;
 
   final AccountIdentityChanges _identityChanges;
+
+  Failure? _textFailure;
+
+  String _rememberFailureText(Failure failure) {
+    _textFailure = failure;
+    return failureMessage(failure);
+  }
+
+  /// Re-render the held failure only. Never fetch or change list/status state.
+  void refreshTranslations() {
+    final failure = _textFailure;
+    if (isClosed || failure == null || state.errorMessage == null) return;
+    emit(state.copyWith(errorMessage: failureMessage(failure)));
+  }
 
   /// Somebody signed in, signed out, linked another provider or deleted the
   /// account. Topics belong to the account, so the list in memory is somebody
@@ -354,7 +369,7 @@ class TopicsCubit extends Cubit<TopicsState> {
         return null;
       },
       (failure) {
-        final message = failureMessage(failure);
+        final message = _rememberFailureText(failure);
         if (removed != null) _restore(removed);
         emit(state.copyWith(errorMessage: message));
         return message;
@@ -435,7 +450,7 @@ class TopicsCubit extends Cubit<TopicsState> {
         state.copyWith(
           status: AppDataStatus.failure,
           isRefreshing: false,
-          errorMessage: failureMessage(failure),
+          errorMessage: _rememberFailureText(failure),
         ),
       ),
     );
