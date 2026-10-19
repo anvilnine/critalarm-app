@@ -2531,6 +2531,9 @@
     "no_purchase": "購入できるものはありません。"
   },
   "language": {
-    "system_default": "システムのデフォルト"
+    "title": "言語",
+    "system_default": "システムのデフォルト",
+    "ai_line": "AIで翻訳しています。間違いを見つけましたか？",
+    "report_link": "お知らせください。"
   }
 }

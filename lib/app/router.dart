@@ -26,6 +26,7 @@ import 'package:critalarm/features/account/presentation/delete_account_screen.da
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
+import 'package:critalarm/features/language/presentation/language_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
@@ -129,6 +130,7 @@ abstract final class AppRoute {
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const languageSettings = 'languageSettings';
   static const personalize = 'personalize';
   static const personalizeLook = 'personalizeLook';
   static const topicLook = 'topicLook';
@@ -713,6 +715,17 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     opaque: true,
                     leavesTabBehind: true,
                     child: const AppearanceSettingsScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'language',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.languageSettings,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const LanguageScreen(),
                   ),
                 ),
                 GoRoute(

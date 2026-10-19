@@ -2531,6 +2531,9 @@
     "no_purchase": "No purchase is available."
   },
   "language": {
-    "system_default": "System default"
+    "title": "Language",
+    "system_default": "System default",
+    "ai_line": "Translated with AI. Spot a mistake?",
+    "report_link": "Tell us."
   }
 }
