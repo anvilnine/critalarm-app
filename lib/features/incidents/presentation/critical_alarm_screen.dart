@@ -16,6 +16,7 @@ import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
 import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
 import 'package:critalarm/features/challenges/presentation/challenge.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
+import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
@@ -878,7 +879,7 @@ class AcknowledgedScreen extends StatelessWidget {
       namedArgs: {
         'duration': ringDuration == null
             ? ''
-            : _formatRingDuration(ringDuration),
+            : formatRingDuration(ringDuration),
       },
     );
     // The demo welcomes: a ripple of happy faces, the title and one line,
@@ -892,8 +893,11 @@ class AcknowledgedScreen extends StatelessWidget {
     final isClosed = state.status == CriticalAlarmStatus.closed;
     // The hint is pinned over At my desk. At a large text size it runs to
     // several lines and the pinned block would take half a small screen,
-    // so it goes into the list, under the details card.
-    final pinsHint = MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+    // so it goes into the list, under the details card. At 1.3 it already
+    // takes two lines and hides the last row of the card, so it moves there
+    // from 1.3 on.
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final pinsHint = textScale < 1.3;
     final hintInList = !isClosed && !pinsHint;
 
     final bottomBar = Column(
@@ -1156,6 +1160,7 @@ class AcknowledgedScreen extends StatelessWidget {
     // The face takes what the rest leaves. Everything else on the screen
     // has a size of its own (title, pill, line, the three-row card, the
     // hint and the two buttons, about [_restHeight] at the default text
+    // size, of which [_restTextHeight] is text that grows with the text
     // size), so on a short phone the face shrinks until the whole card
     // sits above the pinned buttons with nothing hidden at rest. At a large
     // text size the list scrolls, and the room the scaffold leaves under
@@ -1163,10 +1168,11 @@ class AcknowledgedScreen extends StatelessWidget {
     final media = MediaQuery.of(context);
     // The room decides the face. A look may only cap it.
     final faceSize = math.min(
-      (media.size.height - media.padding.vertical - _restHeight).clamp(
-        _minFace,
-        224.0,
-      ),
+      (media.size.height -
+              media.padding.vertical -
+              _restHeight -
+              _restTextHeight * math.max(0, textScale - 1))
+          .clamp(_minFace, 224.0),
       look.maxFace,
     );
 
@@ -1373,6 +1379,11 @@ class AcknowledgedScreen extends StatelessWidget {
   /// What the acknowledged screen needs besides its face, at the default
   /// text size, and the smallest face that still reads as the face.
   static const double _restHeight = 556;
+
+  /// The part of [_restHeight] that is lines of text (the line under the
+  /// title, the three rows of the card and the hint), which grows with the
+  /// text size while the rest stays put.
+  static const double _restTextHeight = 120;
   static const double _minFace = 88;
 
   /// One line on any phone at the default text size: the type scales down
@@ -1739,12 +1750,6 @@ String _formatClock(DateTime dt) {
   final minute = dt.minute.toString().padLeft(2, '0');
   final second = dt.second.toString().padLeft(2, '0');
   return '$hour:$minute:$second';
-}
-
-String _formatRingDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds % 60;
-  return '$minutes min $seconds s';
 }
 
 /// Holds the confetti back until the screen knows it may fly.
