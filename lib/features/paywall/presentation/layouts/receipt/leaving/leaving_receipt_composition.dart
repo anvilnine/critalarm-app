@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
@@ -105,10 +105,7 @@ class LeavingReceiptComposition extends StatelessWidget {
         (PaywallLayoutScope.closeCrossSize +
             PaywallLayoutScope.closeCrossInset +
             Spacing.s2);
-    final endsText = DateFormat(
-      'd MMM',
-      currentFormatLocale(),
-    ).format(leaving.endsOn);
+    final endsText = DateLabel.dayMonth(leaving.endsOn);
 
     final headline = LocaleKeys.paywall_leaving_receipt_headline.tr();
     final headlineStyle = AppTypography.headline(

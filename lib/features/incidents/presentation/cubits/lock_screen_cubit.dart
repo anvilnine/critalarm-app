@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
@@ -117,7 +118,7 @@ class LockScreenCubit extends Cubit<LockScreenState> {
     emit(
       state.copyWith(
         status: status,
-        dateText: DateFormat('EEEE d MMMM', currentFormatLocale()).format(now),
+        dateText: DateLabel.weekdayDayMonth(now),
         timeText: DateFormat('HH:mm', currentFormatLocale()).format(now),
       ),
     );

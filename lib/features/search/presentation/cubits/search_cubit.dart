@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/own_server.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -232,7 +233,6 @@ class SearchCubit extends Cubit<SearchState> {
 
   List<SearchResult> _historyResults(List<Incident> incidents) {
     final entries = HistoryCubit.toEntries(incidents, _now());
-    final dayFormat = DateFormat('MMM d', currentFormatLocale());
 
     return <SearchResult>[
       for (final entry in entries)
@@ -244,14 +244,14 @@ class SearchCubit extends Cubit<SearchState> {
           // because a flat result list has no day headings to sit under.
           title: entry.topic,
           subtitle: historyMetaText(entry),
-          timeText: dayFormat.format(entry.startedAt),
+          timeText: DateLabel.monthDay(entry.startedAt),
           faceState: entry.faceState,
           historyMark: historyMarkFor(entry.state),
           keywords: <String>[
             'history',
             'alarm',
             _stateWord(entry),
-            dayFormat.format(entry.startedAt).toLowerCase(),
+            DateLabel.monthDay(entry.startedAt).toLowerCase(),
             DateFormat('MMMM', currentFormatLocale())
                 .format(entry.startedAt)
                 .toLowerCase(),

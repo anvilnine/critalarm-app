@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// What a shared message says: the title when it has its own, the body, and
@@ -19,10 +18,7 @@ String messageShareText(TopicDetailMessageItem message, String topic) {
   final sentAt = message.sentAt;
   final when = sentAt == null
       ? message.timestamp
-      : DateFormat(
-          'd MMM y HH:mm',
-          currentFormatLocale(),
-        ).format(sentAt.toLocal());
+      : DateLabel.dayMonthYear(sentAt.toLocal(), withTime: true);
   return '${lines.join('\n')}\n\n$topic · $when';
 }
 
