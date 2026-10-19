@@ -215,20 +215,21 @@ void main() {
     });
 
     testWidgets('on a small phone at 1.3 the Source row, value and all, '
-        'scrolls clear of the pinned hint', (tester) async {
+        'shows above the pinned buttons with nothing scrolled', (
+      tester,
+    ) async {
       await pumpOn(tester, const Size(375, 667), textScale: 1.3);
 
       expect(tester.takeException(), isNull);
-      // The hint is still pinned at this size.
+      // At 1.3 the hint takes two lines, so it goes into the list under the
+      // card, and the whole Source row shows at rest.
       final hint = find.text(
         'Rings again in 10 min unless you tap At my desk.',
       );
       final desk = find.widgetWithText(AppButton, 'At my desk');
       expect(
-        tester.getRect(hint).bottom,
-        lessThanOrEqualTo(
-          tester.getRect(desk).top,
-        ),
+        tester.getRect(find.text(sourceLine)).bottom,
+        lessThanOrEqualTo(tester.getRect(desk).top),
       );
 
       await tester.dragFrom(const Offset(187, 120), const Offset(0, -3000));
