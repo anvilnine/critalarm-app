@@ -440,7 +440,7 @@ public final class IncidentActivityCoordinator {
             incidentId: incidentId,
             topic: pending?.topic ?? "",
             server: pending?.server ?? "",
-            title: pending?.title ?? "Incident acknowledged",
+            title: pending?.title ?? NativeL10n.text(.cardIncidentAcknowledged),
             state: .acked,
             openedAt: pending?.openedAt ?? now,
             ackedAt: now

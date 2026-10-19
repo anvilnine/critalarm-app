@@ -206,6 +206,28 @@ import AlarmKit
       }
     }
 
+    // The language picked in the app (lib/core/l10n/native_locale_bridge.dart).
+    // The app group carries it to the extensions; the notification button
+    // and the widgets are redrawn in it at once. An alarm already set keeps
+    // the words it was set with.
+    let locale = FlutterMethodChannel(
+      name: "app.critalarm/locale",
+      binaryMessenger: messenger
+    )
+    locale.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "setAppLocale":
+        let tag = (call.arguments as? [String: Any])?["tag"] as? String
+        NativeL10n.write(tag: tag, to: NativeL10n.groupDefaults)
+        NSLog("CritAlarm: app_locale_set tag=%@", tag ?? "system")
+        self?.registerNotificationCategories()
+        WidgetSnapshotStore.reloadWidgets()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     localReminders.attach(messenger: messenger)
   }
 
@@ -242,9 +264,11 @@ import AlarmKit
   /// because `setNotificationCategories` replaces whatever was there.
   /// `.foreground` opens the app so the user acknowledges inside Crit Alarm.
   func registerNotificationCategories() {
+    // Registered again on a language switch (`setAppLocale`), so the button
+    // follows the language picked in the app.
     let ack = UNNotificationAction(
       identifier: Self.ackAction,
-      title: "I'm up",
+      title: NativeL10n.text(.actionImUp),
       options: [.foreground]
     )
     let incident = UNNotificationCategory(
