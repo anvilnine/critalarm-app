@@ -555,7 +555,7 @@
     "guide_settings_sub": "Weckt es mich? und wo du das erneut startest",
     "example_topic_sub": "Beispiel-Topic. Hier ist nichts echt.",
     "example_message_title": "Disk almost full",
-    "example_message_time": "Today 09:41",
+    "example_message_time": "Heute 09:41",
     "example_message_body": "db-1 is at 92% disk. Sent by your monitor."
   },
   "gallery": {
@@ -770,6 +770,7 @@
       "other": "Heute {} Nachrichten."
     },
     "summary_last_alarm": "Letzter Alarm {time}.",
+    "summary_join": "{count} {last}",
     "summary_yesterday": "gestern",
     "all_messages": {
       "one": "1 Nachricht",
@@ -789,7 +790,7 @@
     "edit_aria": "Diesen Token bearbeiten",
     "edit_title": "Token",
     "edit_name_label": "Name",
-    "edit_name_placeholder": "CI server",
+    "edit_name_placeholder": "CI-Server",
     "edit_save_button": "Speichern",
     "edit_revoke_button": "Widerrufen",
     "revoke_dialog_title": "Diesen Token widerrufen?",
@@ -831,7 +832,7 @@
     "first_topic_title": "Dein erstes Topic",
     "back_aria_label": "Zurück",
     "name_label": "Topic-Name",
-    "name_placeholder": "e.g. prod-db",
+    "name_placeholder": "z. B. prod-db",
     "critical_toggle_title": "Kritische Zustellung",
     "critical_toggle_subtitle": "Klingelt trotz Stummmodus und Nicht stören",
     "critical_toggle_subtitle_time_sensitive": "Zeitkritische Benachrichtigung mit Ton, wiederholt bis zur Bestätigung. Klingeln trotz Stummmodus braucht iOS 26.",
@@ -853,7 +854,7 @@
     "next_button": "Weiter",
     "done_button": "Erledigt",
     "token_name_label": "Token-Name (optional)",
-    "token_name_placeholder": "e.g. CI server",
+    "token_name_placeholder": "z. B. CI-Server",
     "token_recap_label": "Token für",
     "toast_created": "Topic erstellt",
     "made_title": "Hier liegt dein Topic",
@@ -1407,7 +1408,7 @@
       },
       "wake_up_challenges": {
         "title": "Aufwachaufgaben",
-        "line": "Tippe einen Namen, löse eine Rechenaufgabe oder rubbele eine Karte frei."
+        "line": "Namen tippen, rechnen oder Karte freirubbeln."
       },
       "reliability_checks": {
         "title": "Zuverlässigkeitsprüfungen",
@@ -1924,7 +1925,7 @@
     "widget_done": "Erledigt",
     "challenge_locked": "Am Schreibtisch",
     "challenge_stopped": "Gestoppt",
-    "sound_name": "My rooster",
+    "sound_name": "Mein Hahn",
     "screen_wake_up": "Aufwachen"
   },
   "paywall_also": {
@@ -2440,7 +2441,7 @@
     "foot_setup_next": "als Nächstes: {row}",
     "foot_setup_done": "alles bereit",
     "foot_send_the_line": "sende die erste Zeile",
-    "foot_last_alarm": "letzter Alarm {time}",
+    "foot_last_alarm": "zuletzt {time}",
     "foot_no_alarm_yet": "noch kein Alarm",
     "foot_no_topic_rings": "noch kein kritisches Topic",
     "setup_row_server": "Server verbinden",

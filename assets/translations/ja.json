@@ -110,9 +110,9 @@
     "button": "始める",
     "next": "次へ",
     "page_progress": "{count}ページ中{page}ページ",
-    "rings_title": "curlひとつでスマートフォンが鳴ります",
+    "rings_title": "curlひとつでスマホが鳴ります",
     "rings_subtitle": "「起きました」をタップするまで鳴り続けます。",
-    "widgets_title": "ホーム画面から見守る",
+    "widgets_title": "ホーム画面で見守る",
     "widgets_subtitle": "何が鳴っているかを見て、アプリを開かずに応答できます。",
     "widgets_pro": "Proの機能",
     "continue": "続ける",
@@ -179,7 +179,7 @@
     "self_host_title": "自分のサーバー",
     "self_host_hide": "代わりに私たちのサーバーを使う",
     "routes_tool": "自分のツール",
-    "routes_phone": "自分のスマートフォン",
+    "routes_phone": "自分のスマホ",
     "routes_label_cloud": "ツールが私たちのサーバーに送信し、サーバーがスマートフォンにアラートを送ります。",
     "routes_label_own": "ツールが自分のサーバーに送信し、そのサーバーがスマートフォンにアラートを送ります。",
     "routes_label_connecting": "接続中です。",
@@ -214,7 +214,7 @@
     "network_unreachable": "サーバーに到達できません。接続をチェックして再試行してください。",
     "connect_timeout": "サーバーから応答がありませんでした。アドレスをチェックして再試行してください。",
     "demo_alarm_title": "Crit Alarm Test",
-    "demo_alarm_body": "A test alarm from Crit Alarm. Stop it to finish setup.",
+    "demo_alarm_body": "Crit Alarmからのテストアラームです。停止して設定を完了してください。",
     "hook_no_alarm_title": "ここではアラームを使えません",
     "hook_no_alarm_body": "このスマートフォンではローカルのテストアラームを鳴らせません。実際のアラームは引き続き通知として届きます。",
     "ready_activity_title": "Crit Alarmの準備ができました",
@@ -322,7 +322,7 @@
     "send_countdown_aria": "{seconds}秒後に送信します。今すぐ画面をロックしてください。",
     "send_countdown_note": "このテストはサーバーが代わりに送信します。ツールからも同じような行を送ります。",
     "send_terminal_aria": "{topic}を鳴らすコマンドを入力しているターミナルです。",
-    "send_message": "Test alarm",
+    "send_message": "テストアラーム",
     "send_cancel": "キャンセル",
     "works_title": "動作しました",
     "proof_server_sent": "サーバーが送信しました",
@@ -555,7 +555,7 @@
     "guide_settings_sub": "「起こしてくれる？」とガイドの再表示",
     "example_topic_sub": "トピックの例です。実際のデータではありません。",
     "example_message_title": "Disk almost full",
-    "example_message_time": "Today 09:41",
+    "example_message_time": "今日 9:41",
     "example_message_body": "db-1 is at 92% disk. Sent by your monitor."
   },
   "gallery": {
@@ -697,8 +697,8 @@
   },
   "history_hero": {
     "alarms_days": {
-      "one": "件のアラーム、{days}日間",
-      "other": "件のアラーム、{days}日間"
+      "one": "件・過去{days}日間",
+      "other": "件・過去{days}日間"
     },
     "alarms_filtered": {
       "one": "件のアラームが条件に一致",
@@ -766,10 +766,11 @@
     "summary_nothing": "まだ何も送信されていません。",
     "summary_none_today": "今日のメッセージはありません。",
     "summary_today": {
-      "one": "今日のメッセージは1件です。",
-      "other": "今日のメッセージは{}件です。"
+      "one": "今日のメッセージ1件。",
+      "other": "今日のメッセージ{}件。"
     },
-    "summary_last_alarm": "直近のアラームは{time}です。",
+    "summary_last_alarm": "直近のアラーム {time}。",
+    "summary_join": "{count}{last}",
     "summary_yesterday": "昨日",
     "all_messages": {
       "one": "全1件のメッセージ",
@@ -789,7 +790,7 @@
     "edit_aria": "このトークンを編集",
     "edit_title": "トークン",
     "edit_name_label": "名前",
-    "edit_name_placeholder": "CI server",
+    "edit_name_placeholder": "CIサーバー",
     "edit_save_button": "保存",
     "edit_revoke_button": "失効",
     "revoke_dialog_title": "このトークンを失効させますか？",
@@ -853,7 +854,7 @@
     "next_button": "次へ",
     "done_button": "完了",
     "token_name_label": "トークン名（任意）",
-    "token_name_placeholder": "例: CI server",
+    "token_name_placeholder": "例: CIサーバー",
     "token_recap_label": "トークンの対象",
     "toast_created": "トピックを作成しました",
     "made_title": "トピックのアドレス",
@@ -881,8 +882,8 @@
   },
   "critical_alarm": {
     "demo_title": "Crit Alarm Test",
-    "demo_body": "This is a test alarm to verify your device rings through silent mode.",
-    "demo_body_time_sensitive": "This is a test alarm to verify your device plays a sound. On this iPhone, silent mode mutes it.",
+    "demo_body": "マナーモードでもデバイスが鳴るかチェックするテストアラームです。",
+    "demo_body_time_sensitive": "デバイスでサウンドが再生されるかチェックするテストアラームです。このiPhoneでは、マナーモードで消音されます。",
     "back_aria_label": "戻る",
     "acknowledge_button": "起きました",
     "silence_ringing_button": "消音",
@@ -1280,7 +1281,7 @@
     "stop_tool": "自分のツール",
     "stop_server": "サーバー",
     "stop_push": "プッシュ",
-    "stop_phone": "このスマートフォン",
+    "stop_phone": "このスマホ",
     "stop_ok_aria_label": "{stop}、動作中",
     "stop_problems_aria_label": {
       "one": "{stop}、問題1件",
@@ -1572,7 +1573,7 @@
     "time_sensitive_ios": "音付きの即時通知です。マナーモードのスイッチで消音されます。確認するまで繰り返します。",
     "notification_android": "通知です。アラームは鳴りません。",
     "notification_ios": "即時通知です。アラームは鳴りません。",
-    "history_only": "通知はありません。アラーム履歴に残ります。",
+    "history_only": "通知なし。アラーム履歴に残ります。",
     "hear_aria_label": "アラーム音を試聴",
     "stop_aria_label": "音を停止",
     "critical_topic_title": "トピック",
@@ -1924,7 +1925,7 @@
     "widget_done": "完了",
     "challenge_locked": "デスクに着きました",
     "challenge_stopped": "停止済み",
-    "sound_name": "My rooster",
+    "sound_name": "わたしのニワトリ",
     "screen_wake_up": "起きてください"
   },
   "paywall_also": {
@@ -1983,7 +1984,7 @@
       "history": "すべてのアラームを、より長く保存",
       "widgets": "ホーム画面のアラーム",
       "app_icons": "自分のアプリアイコンを選ぶ",
-      "wake_up_challenges": "起きたことを確かめる",
+      "wake_up_challenges": "起きたか確かめる",
       "reliability_checks": "毎週の配信チェック",
       "custom_sounds": "自分のアラーム音",
       "custom_alarm_screens": "自分のアラームの見た目"
@@ -2010,7 +2011,7 @@
     }
   },
   "paywall_hero": {
-    "headline_hosted": "Cloudですべての上限を引き上げ",
+    "headline_hosted": "Cloudで上限をすべて解除",
     "headline_pro": "Proでアラームを自分好みに",
     "stage_label": "表示中: {benefit}",
     "lines": {
@@ -2408,7 +2409,7 @@
     "icons_cap": "デフォルトのみ"
   },
   "home_card": {
-    "label_will_it_wake_me": "スマートフォンのチェック",
+    "label_will_it_wake_me": "スマホのチェック",
     "label_ringing": "鳴動中",
     "label_rings_again_in": "再び鳴るまで",
     "label_answered_in": "応答まで",
@@ -2440,7 +2441,7 @@
     "foot_setup_next": "次: {row}",
     "foot_setup_done": "準備完了",
     "foot_send_the_line": "最初の行を送信",
-    "foot_last_alarm": "最後のアラームは{time}",
+    "foot_last_alarm": "直近 {time}",
     "foot_no_alarm_yet": "アラームはまだありません",
     "foot_no_topic_rings": "重大トピックはまだありません",
     "setup_row_server": "サーバーに接続",
@@ -2493,7 +2494,7 @@
       "jobs": "Nightly backup missed its check-in",
       "home": "Freezer is above -10 C"
     },
-    "sample_body": "This is what a real one looks like.",
+    "sample_body": "実際のアラームはこのように表示されます。",
     "waiting": {
       "from_your_server": "サーバーから最初の行を送信",
       "run_the_job": "ジョブを一度実行",
