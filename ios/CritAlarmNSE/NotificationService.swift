@@ -133,6 +133,11 @@ final class NotificationService: UNNotificationServiceExtension {
             if let topic = resolved.topic { info["topic"] = topic }
             if let id = push?.incidentId { info["incident_id"] = id }
             content.userInfo = info
+        } else {
+            // Out of time with nothing fetched: the payload's own text goes
+            // up, with the server's English placeholder put in the picked
+            // language. Any other text is left exactly as it came.
+            content.body = IncidentContentFetcher.localizedPlaceholder(content.body)
         }
 
         applyPickedSound(to: content, topic: resolved?.topic)

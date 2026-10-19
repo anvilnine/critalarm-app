@@ -58,7 +58,7 @@
             android:id="@+id/row_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ringing"
+            android:text="@string/native_state_ringing"
             android:textColor="@color/widget_ringing"
             android:textSize="12sp"
             android:textStyle="bold" />
