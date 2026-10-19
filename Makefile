@@ -1,4 +1,4 @@
-.PHONY: screens site-paywalls gen regen l10n test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -22,6 +22,10 @@ regen:
 # Regenerate type-safe locale keys from assets/translations.
 l10n:
 	fvm dart run easy_localization:generate -S assets/translations -O lib/gen -o locale_keys.g.dart -f keys
+
+# Generate the opt-in debug pseudo-locale before a capture or asset test.
+l10n-pseudo:
+	fvm dart run tool/l10n_pseudo.dart
 
 # Refresh docs/api.md and docs/ARCHITECTURE.md from critalarm-server.
 sync-contract:
@@ -83,6 +87,7 @@ check-layers:
 # AppButton label. Mark text that must stay with `// l10n-ok: <reason>`.
 check-l10n:
 	sh tool/check_l10n.sh
+	fvm dart run tool/l10n_parity.dart
 
 # Fail on plan access decided anywhere but lib/core/access/: a raw read of
 # the tier, the store, the packs or a developer switch outside the allow
