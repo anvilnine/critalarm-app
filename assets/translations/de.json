@@ -2531,6 +2531,9 @@
     "no_purchase": "Kein Kauf verfügbar."
   },
   "language": {
-    "system_default": "Systemstandard"
+    "title": "Sprache",
+    "system_default": "Systemstandard",
+    "ai_line": "Mit KI übersetzt. Fehler entdeckt?",
+    "report_link": "Sag es uns."
   }
 }
