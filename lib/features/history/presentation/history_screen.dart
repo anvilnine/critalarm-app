@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -510,10 +511,7 @@ String _dayLabel(DateTime day) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   // intl already knows the weekday and month names for the active locale.
-  final formatted = DateFormat(
-    'EEEE d MMMM',
-    currentFormatLocale(),
-  ).format(day);
+  final formatted = DateLabel.weekdayDayMonth(day);
 
   if (day == today) {
     return LocaleKeys.history_day_today.tr(namedArgs: {'date': formatted});

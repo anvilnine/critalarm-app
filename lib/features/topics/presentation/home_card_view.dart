@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
@@ -161,7 +162,7 @@ String _time(DateTime at, DateTime now) {
       local.day == today.day;
   return sameDay
       ? DateFormat.Hm(currentFormatLocale()).format(local)
-      : DateFormat('d MMM', currentFormatLocale()).format(local);
+      : DateLabel.dayMonth(local);
 }
 
 String _span(Duration d) => d.inSeconds < 60

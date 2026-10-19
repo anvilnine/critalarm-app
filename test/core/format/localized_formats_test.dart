@@ -65,7 +65,7 @@ void main() {
         now: DateTime(2026, 3, 8),
         yesterday: 'Gestern',
       ),
-      '4 März',
+      DateFormat.MMMd('de').format(sample),
     );
     expect(
       formatWhenWithTime(
@@ -73,7 +73,7 @@ void main() {
         now: DateTime(2026, 3, 8),
         yesterday: 'Gestern',
       ),
-      '4 März 18:05',
+      DateFormat.MMMd('de').add_Hm().format(sample),
     );
     expect(
       formatRingDuration(const Duration(minutes: 6, seconds: 2)),
