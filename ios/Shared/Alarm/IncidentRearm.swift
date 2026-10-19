@@ -88,7 +88,7 @@ enum IncidentRearm {
         guard let center else { return nil }
         let content = UNMutableNotificationContent()
         content.title = pending?.title ?? "Crit Alarm"
-        content.body = "Still ringing. Tap I'm up to end it."
+        content.body = NativeL10n.text(.alarmStillRinging)
         content.sound = UNNotificationSound(named: UNNotificationSoundName(
             OwnSoundLock.alarmSound(
                 requested: pending?.sound,

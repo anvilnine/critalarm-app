@@ -2,6 +2,84 @@
   "app": {
     "title": "Crit Alarm"
   },
+  "native": {
+    "alarm": {
+      "stop": "Stop",
+      "open_app": "Open Crit Alarm",
+      "still_ringing": "Still ringing. Tap I'm up to end it."
+    },
+    "action": {
+      "im_up": "I'm up",
+      "done": "Done",
+      "ack": "ACK"
+    },
+    "content": {
+      "alert": "Alert",
+      "open_to_see": "Open Crit Alarm to see details",
+      "critical_open_to_see": "Critical alert — open to see details",
+      "critical_incident": "Critical incident",
+      "attention": "Immediate attention required",
+      "critical_alert_on": "Critical alert on {topic}",
+      "critical_alert_on_details": "Critical alert on {topic} — open to see details"
+    },
+    "state": {
+      "ringing": "Ringing",
+      "awake": "Awake",
+      "quiet": "Quiet",
+      "still_open": "Still open",
+      "closed": "Closed",
+      "missed": "Missed"
+    },
+    "card": {
+      "still_open_line": "Still open. Tap Done if it's fixed.",
+      "acked_at": "Acknowledged at {time}",
+      "acknowledged": "Acknowledged",
+      "incident_acknowledged": "Incident acknowledged",
+      "awake_for": "Awake for {time}",
+      "open_for": "Open for {time}",
+      "opened_ago": "Opened {time} ago",
+      "silenced": "Stopped. Rings again in {seconds} s. Tap I'm up to end it.",
+      "silenced_short": "Stopped. Rings again in {seconds} s."
+    },
+    "widget": {
+      "locked": "Widgets are part of Pro. Tap to see plans.",
+      "locked_short": "Pro",
+      "connect": "Open Crit Alarm to connect",
+      "all_quiet": "All quiet",
+      "no_topics": "No topics yet",
+      "topic_not_found": "Topic not found",
+      "choose_topic": "Choose a topic",
+      "open_app_first": "Open Crit Alarm first",
+      "more": "+{count} more",
+      "open_count": "{count} open",
+      "open_word": "open",
+      "open_topic": "open · {topic}",
+      "topics_name": "Topics",
+      "topics_description": "Your topics, ringing ones first.",
+      "topic_name": "Topic",
+      "topic_description": "One topic, with I'm up and Done buttons.",
+      "count_name": "Open incidents",
+      "count_description": "How many incidents are open right now."
+    },
+    "channel": {
+      "messages": "Messages",
+      "messages_description": "Priority 1-3 messages",
+      "urgent": "Urgent messages",
+      "urgent_description": "Priority 4, and priority 5 on a topic that is not critical",
+      "alarms": "Critical alarms",
+      "alarms_description": "Audible on-call incident alarms",
+      "status": "Incident status",
+      "status_description": "Ongoing incident status",
+      "reminders": "Local reminders",
+      "reminders_description": "Test checks, silent topics, backups and plan notices",
+      "offers": "Offers",
+      "offers_description": "News about Pro"
+    },
+    "permission": {
+      "microphone": "Crit Alarm uses the microphone to record alarm sounds.",
+      "alarmkit": "Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it."
+    }
+  },
   "nav": {
     "topics": "Topics",
     "settings": "Settings",

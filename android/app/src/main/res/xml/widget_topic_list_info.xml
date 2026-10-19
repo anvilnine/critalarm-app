@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:description="@string/widget_topic_list_description"
+    android:description="@string/native_widget_topics_description"
     android:initialLayout="@layout/widget_topic_list"
     android:minWidth="250dp"
     android:minHeight="110dp"

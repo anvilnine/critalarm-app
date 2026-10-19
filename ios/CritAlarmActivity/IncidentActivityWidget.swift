@@ -88,13 +88,24 @@ private struct LiveCard {
     init(_ context: ActivityViewContext<CritAlarmIncidentAttributes>) {
         incidentId = context.attributes.incidentId
         topic = context.attributes.topic
-        title = context.state.title
+        title = LiveCard.localizedTitle(context.state.title, topic: context.attributes.topic)
         state = context.state.state
         openedAt = context.state.openedAt
         ringsAgainInSeconds = context.state.ringsAgainInSeconds
         isStale = context.isStale
         ackedAt = context.state.ackedAt
             ?? (context.state.state == .acked ? WidgetSnapshotStore.ackedAt(incidentId: incidentId) : nil)
+    }
+
+    /// The server's fixed English title for a `relay_content: none` card
+    /// (api.md §5.3), rebuilt in the picked language. The topic is in the
+    /// attributes, so only an exact match is replaced; any other title, the
+    /// user's own included, stays as it came.
+    static func localizedTitle(_ title: String, topic: String) -> String {
+        guard !topic.isEmpty,
+              title == NativeL10n.fill(NativeText.contentCriticalAlertOn.english, ["topic": topic])
+        else { return title }
+        return NativeL10n.text(.contentCriticalAlertOn, ["topic": topic])
     }
 
     var face: CritAlarmFace { .forIncident(state) }
@@ -165,22 +176,24 @@ private struct LockScreenCard: View {
             // Two lines: beside the Done button one line cuts the clock off.
             VStack(alignment: .leading, spacing: 2) {
                 Text(LiveCardText.ackedLine(ackedAt))
-                Text("Awake for ")
-                    + liveTimer(ackedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink)
+                around(.cardAwakeFor) {
+                    liveTimer(ackedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink)
+                }
             }
             .lineLimit(1)
         } else if card.state == .acked {
             // Acknowledged somewhere this phone did not see: no time to
             // show, so the open time stays instead.
             VStack(alignment: .leading, spacing: 2) {
-                Text("Acknowledged")
-                Text("Opened ") + Text(card.openedAt, style: .relative) + Text(" ago")
+                Text(verbatim: NativeL10n.text(.cardAcknowledged))
+                around(.cardOpenedAgo) { Text(card.openedAt, style: .relative) }
             }
             .lineLimit(1)
         } else if card.state == .open {
-            (Text("Open for ")
-                + liveTimer(card.openedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink))
-                .lineLimit(1)
+            around(.cardOpenFor) {
+                liveTimer(card.openedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink)
+            }
+            .lineLimit(1)
         } else {
             Text(card.openedAt, style: .relative)
         }
@@ -201,8 +214,7 @@ private struct IslandBottom: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
-                (Text(clockLabel).font(.caption).foregroundColor(.secondary)
-                    + liveTimer(card.timerStart).font(.title3.weight(.semibold)))
+                clockLine
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,26 +229,38 @@ private struct IslandBottom: View {
     /// Nothing on a ringing card: the pill already says so.
     private var line: String? {
         if card.state == .open, let seconds = card.ringsAgainInSeconds {
-            return "Stopped. Rings again in \(seconds) s."
+            return NativeL10n.text(.cardSilencedShort, ["seconds": "\(seconds)"])
         }
         if card.state == .acked {
             if card.isStale { return LiveCardText.staleLine }
             if let ackedAt = card.ackedAt { return LiveCardText.ackedLine(ackedAt) }
-            return "Acknowledged"
+            return NativeL10n.text(.cardAcknowledged)
         }
         return nil
     }
 
     /// Says what the clock counts, so it never reads as a countdown.
-    private var clockLabel: String {
-        card.state == .acked && card.ackedAt != nil ? "Awake for " : "Open for "
+    private var clockLine: Text {
+        let words: NativeText = card.state == .acked && card.ackedAt != nil ? .cardAwakeFor : .cardOpenFor
+        let (before, after) = NativeL10n.around(words, placeholder: "time")
+        return Text(verbatim: before).font(.caption).foregroundColor(.secondary)
+            + liveTimer(card.timerStart).font(.title3.weight(.semibold))
+            + Text(verbatim: after).font(.caption).foregroundColor(.secondary)
     }
 }
 
-/// The line the card carries after Stop. `assets/translations/en.json` holds
-/// the same sentence for the in-app screen.
+/// [id]'s words with [middle] where its `{time}` is: a live timer or a
+/// relative date joined to the words on one line.
+@available(iOS 16.2, *)
+private func around(_ id: NativeText, middle: () -> Text) -> Text {
+    let (before, after) = NativeL10n.around(id, placeholder: "time")
+    return Text(verbatim: before) + middle() + Text(verbatim: after)
+}
+
+/// The line the card carries after Stop, in the picked language. The same
+/// sentence is in `assets/translations/en.json` under `native.card`.
 private func silencedText(_ seconds: Int) -> String {
-    "Stopped. Rings again in \(seconds) s. Tap I'm up to end it."
+    NativeL10n.text(.cardSilenced, ["seconds": "\(seconds)"])
 }
 
 /// I'm up on a card the user silenced, or Done on an acknowledged one.
@@ -249,7 +273,7 @@ private struct CardButton: View {
     var body: some View {
         switch kind {
         case .imUp:
-            Button(intent: AckAlarmIntent(incidentId: incidentId)) { label("I'm up") }
+            Button(intent: AckAlarmIntent(incidentId: incidentId)) { label(NativeL10n.text(.actionImUp)) }
                 .buttonStyle(.plain)
                 .background(CritAlarmFace.alarmed.canvas, in: Capsule())
                 .foregroundStyle(CritAlarmFace.alarmed.stroke)
@@ -265,9 +289,9 @@ private struct CardButton: View {
                 if let url = WidgetLink.doneURL(
                     incidentId: incidentId, topic: topic, shared: ChallengeFlag.groupDefaults
                 ) {
-                    Link(destination: url) { label("Done") }
+                    Link(destination: url) { label(NativeL10n.text(.actionDone)) }
                 } else {
-                    Button(intent: CloseIncidentIntent(incidentId: incidentId)) { label("Done") }
+                    Button(intent: CloseIncidentIntent(incidentId: incidentId)) { label(NativeL10n.text(.actionDone)) }
                 }
             }
             .buttonStyle(.plain)

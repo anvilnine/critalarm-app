@@ -10,7 +10,7 @@ enum LiveCardText {
     /// the incident is fixed.
     static let staleAfter: TimeInterval = 4 * 3600
 
-    static let staleLine = "Still open. Tap Done if it's fixed."
+    static var staleLine: String { NativeL10n.text(.cardStillOpenLine) }
 
     /// The button a card carries, if any.
     enum Button: Equatable {
@@ -25,10 +25,10 @@ enum LiveCardText {
 
     static func pillLabel(state: IncidentActivityState, isStale: Bool) -> String {
         switch state {
-        case .open: return isStale ? "Still open" : "Ringing"
-        case .acked: return isStale ? "Still open" : "Awake"
-        case .closed: return "Closed"
-        case .expired: return "Missed"
+        case .open: return NativeL10n.text(isStale ? .stateStillOpen : .stateRinging)
+        case .acked: return NativeL10n.text(isStale ? .stateStillOpen : .stateAwake)
+        case .closed: return NativeL10n.text(.stateClosed)
+        case .expired: return NativeL10n.text(.stateMissed)
         }
     }
 
@@ -44,7 +44,7 @@ enum LiveCardText {
         formatter.timeZone = timeZone
         formatter.dateStyle = .none
         formatter.timeStyle = .short
-        return "Acknowledged at \(formatter.string(from: ackedAt))"
+        return NativeL10n.text(.cardAckedAt, ["time": formatter.string(from: ackedAt)])
     }
 
     /// Where the running clock starts. An acknowledged card counts from the
