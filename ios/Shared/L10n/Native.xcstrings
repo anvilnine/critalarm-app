@@ -337,7 +337,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Critical alert on {topic} — open to see details"
+            "value" : "Critical alert on {topic}. Open to see details."
           }
         }
       }
@@ -359,7 +359,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Critical alert — open to see details"
+            "value" : "Critical alert. Open to see details."
           }
         }
       }

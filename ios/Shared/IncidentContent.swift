@@ -18,6 +18,14 @@ struct IncidentContent {
 enum IncidentContentFetcher {
     static let timeout: TimeInterval = 10
 
+    /// The exact English body the server sends with `relay_content: none`
+    /// (critalarm-server src/push/apns.ts), `{topic}` where the topic goes.
+    /// It is matched as written, so it stays here and never follows the
+    /// translation table: the shown English can change without breaking the
+    /// match. The em dash belongs to the server, not to anything a person
+    /// reads in this app.
+    static let serverPlaceholder = "Critical alert on {topic} \u{2014} open to see details"
+
     /// Extra `URLProtocol` classes to put in front of the real network. Empty
     /// in the app; a test puts a stub in here so it can count the calls.
     static var extraProtocolClasses: [AnyClass] = []
@@ -46,8 +54,7 @@ enum IncidentContentFetcher {
     /// a real body included, comes back as it is. The plain APNs text stays
     /// English and is what shows when this extension does not run.
     static func localizedPlaceholder(_ body: String) -> String {
-        let english = NativeText.contentCriticalAlertOnDetails.english
-        let (before, after) = NativeL10n.around(english, placeholder: "topic")
+        let (before, after) = NativeL10n.around(serverPlaceholder, placeholder: "topic")
         guard body.hasPrefix(before), body.hasSuffix(after),
               body.count > before.count + after.count
         else { return body }
