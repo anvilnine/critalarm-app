@@ -93,7 +93,7 @@ object AlarmNotificationFactory {
 
         // "I'm up" is the acknowledge and the only way out of the loop.
         val imUp = action(IncidentActionReceiver.ACTION_STOP)
-        // "Stop" silences and nothing more: the phone sets its own next ring for
+        // Stop silences and nothing more: the phone sets its own next ring for
         // the same incident. Swiping the card away does the same thing, which
         // is what the delete intent below is for.
         val silence = action(IncidentActionReceiver.ACTION_SILENCE)
