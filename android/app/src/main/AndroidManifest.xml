@@ -42,6 +42,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:label="Crit Alarm"
+        android:localeConfig="@xml/locales_config"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
@@ -247,7 +248,7 @@
         <receiver
             android:name=".widgets.TopicListWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_topic_list_label">
+            android:label="@string/native_widget_topics_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -258,7 +259,7 @@
         <receiver
             android:name=".widgets.TopicWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_topic_label">
+            android:label="@string/native_widget_topic_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -269,7 +270,7 @@
         <receiver
             android:name=".widgets.OpenCountWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_open_count_label">
+            android:label="@string/native_widget_count_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

@@ -38,7 +38,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:singleLine="true"
-            android:text="open"
+            android:text="@string/native_widget_open_word"
             android:textColor="@color/widget_ink_muted"
             android:textSize="10sp" />
     </LinearLayout>

@@ -9,6 +9,9 @@ import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.l10n.NativeLocale
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.notifications.LiveUpdate.requestPromotion
 import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
@@ -45,10 +48,13 @@ object AlarmNotificationFactory {
     fun create(
         context: Context,
         payload: FcmIncidentPayload,
-        content: IncidentContent = IncidentContentFetcher.fallback(payload),
+        content: IncidentContent = IncidentContentFetcher.fallback(payload, NativeWords.of(context)),
         handOverToStatusCard: Boolean = true,
     ): Notification {
-        NotificationChannels.ensureCreated(context)
+        // The buttons and the chip in the language picked in the app. The
+        // lookup never throws: a failed one gives the English.
+        val words = NativeWords.of(context)
+        NotificationChannels.ensureCreated(context, words)
         val incidentId = payload.incidentId ?: ""
         val id = notificationId(incidentId)
         val immutable = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -87,7 +93,7 @@ object AlarmNotificationFactory {
 
         // "I'm up" is the acknowledge and the only way out of the loop.
         val imUp = action(IncidentActionReceiver.ACTION_STOP)
-        // Stop silences and nothing more: the phone sets its own next ring for
+        // "Stop" silences and nothing more: the phone sets its own next ring for
         // the same incident. Swiping the card away does the same thing, which
         // is what the delete intent below is for.
         val silence = action(IncidentActionReceiver.ACTION_SILENCE)
@@ -98,7 +104,7 @@ object AlarmNotificationFactory {
             .setContentTitle(title)
             .setContentText(body)
             .setColor(CritAlarmPalette.CRIT)
-            .shortCriticalText(IncidentCardState.OPEN.chipText)
+            .shortCriticalText(IncidentCardState.OPEN.chipText(words, NativeLocale.locales(context)[0]))
             .requestPromotion()
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -106,7 +112,7 @@ object AlarmNotificationFactory {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(PendingIntent.getActivity(context, id, launch, immutable))
-            .addAction(0, "I'm up", PendingIntent.getBroadcast(context, id, imUp, immutable))
+            .addAction(0, words.text(NativeText.ACTION_IM_UP), PendingIntent.getBroadcast(context, id, imUp, immutable))
             .setDeleteIntent(
                 PendingIntent.getBroadcast(context, id xor DELETE_SALT, silence, immutable),
             )
@@ -116,7 +122,7 @@ object AlarmNotificationFactory {
         )
         builder.addAction(
             0,
-            "Stop",
+            words.text(NativeText.ALARM_STOP),
             PendingIntent.getBroadcast(context, id xor SILENCE_SALT, silence, immutable),
         )
 
