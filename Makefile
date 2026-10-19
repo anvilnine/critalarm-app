@@ -19,9 +19,11 @@ regen:
 	fvm dart run build_runner clean
 	fvm dart run build_runner build --delete-conflicting-outputs
 
-# Regenerate type-safe locale keys from assets/translations.
+# Regenerate type-safe locale keys from assets/translations, then the iOS and
+# Android string files from the `native` group (tool/l10n_native.dart).
 l10n:
 	fvm dart run easy_localization:generate -S assets/translations -O lib/gen -o locale_keys.g.dart -f keys
+	fvm dart run tool/l10n_native.dart
 
 # Generate the opt-in debug pseudo-locale before a capture or asset test.
 l10n-pseudo:
@@ -88,6 +90,7 @@ check-layers:
 check-l10n:
 	sh tool/check_l10n.sh
 	fvm dart run tool/l10n_parity.dart
+	fvm dart run tool/l10n_native.dart --check
 
 # Fail on plan access decided anywhere but lib/core/access/: a raw read of
 # the tier, the store, the packs or a developer switch outside the allow
