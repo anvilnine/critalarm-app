@@ -278,6 +278,9 @@ class _AppStatusCardState extends State<AppStatusCard>
   /// never loses a word.
   static const int _stripStackedTitleLines = 8;
 
+  /// How far the eyebrow label scales down before it ends in an ellipsis.
+  static const double _labelMinScale = 0.85;
+
   /// The widest the strip's numeral gets beside the title.
   static const double _stripNumeralMaxWidth = 110;
 
@@ -359,11 +362,24 @@ class _AppStatusCardState extends State<AppStatusCard>
         : _capped(
             context,
             _cross(
-              Text(
-                labelText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _label(colors.onPanelMuted),
+              // A long label scales down to _labelMinScale of its size
+              // before the ellipsis cuts it, as the numeral does.
+              LayoutBuilder(
+                builder: (context, box) => FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: box.maxWidth / _labelMinScale,
+                    ),
+                    child: Text(
+                      labelText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _label(colors.onPanelMuted),
+                    ),
+                  ),
+                ),
               ),
               labelText,
             ),
