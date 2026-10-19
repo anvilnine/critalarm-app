@@ -46,6 +46,7 @@ Register: informal du in explanatory text. Fixed button labels identical whereve
 | notification | Benachrichtigung | no | |
 | history | Alarmverlauf | no | one word everywhere |
 | device | Gerät | no | |
+| phone | Handy | no | |
 | account | Konto | no | |
 | check | Prüfung / prüfen | no | |
 | delivery | Zustellung | no | |
@@ -97,6 +98,7 @@ Register: neutral です・ます in sentences, short labels for controls, first
 | notification | 通知 | no | |
 | history | アラーム履歴 | no | one word everywhere |
 | device | デバイス | no | |
+| phone | スマホ / スマートフォン | no | スマホ in short labels, スマートフォン in sentences |
 | account | アカウント | no | |
 | check | チェック | no | keeps it apart from 確認 (acknowledge) |
 | delivery | 配信 | no | |
