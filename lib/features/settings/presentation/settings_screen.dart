@@ -12,6 +12,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_anc
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -298,6 +299,21 @@ class _SettingsScreenContent extends StatelessWidget {
                               .tr(),
                           path: '/settings/appearance',
                           value: settingsThemeValueKey(mode).tr(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      BlocBuilder<LanguageCubit, LanguageState>(
+                        bloc: getIt<LanguageCubit>(),
+                        builder: (context, state) => _buildNavRow(
+                          context,
+                          title: LocaleKeys.language_title.tr(),
+                          // The value says what it is set to, and a line
+                          // under "Language" would only repeat the title.
+                          subtitle: '',
+                          path: '/settings/language',
+                          value: state.selectedTag == null
+                              ? LocaleKeys.language_system_default.tr()
+                              : languageNativeNames[state.selectedTag] ?? '',
                         ),
                       ),
                       // Web has no local notifications, so no reminders.
