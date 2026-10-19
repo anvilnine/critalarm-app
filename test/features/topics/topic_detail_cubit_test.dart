@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/models/message.dart' as wire;
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -22,6 +24,8 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,6 +54,45 @@ class _StaticTopics implements TopicRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
+class _FailingApi extends MockApiClient {
+  _FailingApi(super.server);
+
+  bool failPoll = false;
+  bool failUpdate = false;
+  ApiException failure = const ApiException(
+    statusCode: 500,
+    message: 'An unknown English server sentence.',
+  );
+
+  @override
+  Future<List<wire.Message>> pollMessages(
+    String topic, {
+    required int poll,
+    String? since,
+  }) {
+    if (failPoll) throw failure;
+    return super.pollMessages(topic, poll: poll, since: since);
+  }
+
+  @override
+  Future<Topic> updateTopic(
+    String name, {
+    bool? critical,
+    int? repeatIntervalS,
+    int? maxRingS,
+    int? deskTimerS,
+  }) {
+    if (failUpdate) throw failure;
+    return super.updateTopic(
+      name,
+      critical: critical,
+      repeatIntervalS: repeatIntervalS,
+      maxRingS: maxRingS,
+      deskTimerS: deskTimerS,
+    );
+  }
+}
+
 void main() {
   late MockServer server;
   late MockApiClient apiClient;
@@ -75,6 +118,80 @@ void main() {
   });
 
   group('TopicDetailCubit', () {
+    for (final pollFails in [true, false]) {
+      for (final code in <int?>[null, 40101]) {
+        test(
+          '${pollFails ? 'poll' : 'Critical toggle'} maps unknown server text '
+          'with code $code in the emitted toast state',
+          () async {
+            server.seedCalm();
+            final api = _FailingApi(server)
+              ..failure = ApiException(
+                statusCode: code == null ? 500 : 429,
+                code: code,
+                cap: code == null ? null : 'devices',
+                message: 'An unknown English server sentence.',
+              );
+            final topics = InMemoryTopicRepository(api);
+            final incidents = InMemoryIncidentRepository(api);
+            final cubit = TopicDetailCubit(
+              incidentsCubit,
+              topicsCubit,
+              UpdateTopicUsecase(topics),
+              incidents,
+            );
+            addTearDown(cubit.close);
+            final states = <TopicDetailState>[];
+            final subscription = cubit.stream.listen(states.add);
+            addTearDown(subscription.cancel);
+            api.failPoll = pollFails;
+            await cubit.load('nas-backup');
+            if (!pollFails) {
+              api.failUpdate = true;
+              await cubit.toggleCriticalDelivery(isCritical: true);
+            }
+            await pumpEventQueue();
+            expect(states.last.capReached, isNull);
+            expect(
+              states.last.errorMessage,
+              code == null
+                  ? LocaleKeys.api_errors_unknown.tr()
+                  : LocaleKeys.api_errors_unauthorized.tr(),
+            );
+            expect(
+              states.last.errorMessage,
+              isNot(contains('English server sentence')),
+            );
+          },
+        );
+      }
+    }
+
+    test('a code-less cap keeps the existing Critical limit message', () async {
+      server.seedCalm();
+      final api = _FailingApi(server)
+        ..failure = const ApiException(
+          statusCode: 429,
+          message: 'cap',
+          cap: 'critical_topics',
+        );
+      final cubit = TopicDetailCubit(
+        incidentsCubit,
+        topicsCubit,
+        UpdateTopicUsecase(InMemoryTopicRepository(api)),
+        incidentRepo,
+      );
+      addTearDown(cubit.close);
+      await cubit.load('nas-backup');
+      api.failUpdate = true;
+      await cubit.toggleCriticalDelivery(isCritical: true);
+      expect(
+        cubit.state.errorMessage,
+        'You have hit your critical topics limit.',
+      );
+      expect(cubit.state.capReached?.message, 'Critical topics limit reached');
+    });
+
     test('refresh reports true when both lists load', () async {
       server.seedCalm();
       final cubit = TopicDetailCubit(
