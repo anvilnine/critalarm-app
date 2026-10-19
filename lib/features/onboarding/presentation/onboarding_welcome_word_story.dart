@@ -81,6 +81,58 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
 
   bool _hasSaidDone = false;
 
+  Object? _fitKey;
+  double _fitRatio = 1;
+
+  /// The share of [fontSize] at which the widest of the three lines, drawn
+  /// the way [build] draws them, fits [width]. 1 when they already fit.
+  /// Measured with the style and text scale the `Text` widgets will use, and
+  /// kept until one of the inputs changes, so a frame costs nothing.
+  double _widthFit(
+    BuildContext context,
+    double fontSize,
+    double width,
+    double lineHeight,
+  ) {
+    final line1 = LocaleKeys.onboarding_welcome_title_line_1.tr();
+    final line2 = LocaleKeys.onboarding_welcome_title_line_2.tr();
+    final word = LocaleKeys.onboarding_welcome_title_word.tr();
+    final scaler = MediaQuery.textScalerOf(context);
+    final locale = Localizations.maybeLocaleOf(context);
+    final key = (fontSize, width, scaler, locale, line1, line2, word);
+    if (key == _fitKey) return _fitRatio;
+
+    final style = DefaultTextStyle.of(context).style.merge(
+      AppTypography.display(
+        context.appColors.onCanvas,
+        fontSize: fontSize,
+      ).copyWith(height: lineHeight, letterSpacing: -0.045 * fontSize),
+    );
+    double measure(String text) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+        locale: locale,
+      )..layout();
+      final w = painter.width;
+      painter.dispose();
+      return w;
+    }
+
+    // The last line is drawn as one `Text` per letter.
+    final wordWidth = word.characters.fold<double>(
+      0,
+      (sum, letter) => sum + measure(letter),
+    );
+    final widest = math.max(
+      wordWidth,
+      math.max(measure(line1), measure(line2)),
+    );
+    _fitKey = key;
+    return _fitRatio = widest > width ? width / widest : 1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,12 +164,15 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
         // The drawing is made for 84 point type. A short room shrinks the
         // type so the three lines always fit.
         const lineHeight = 0.94;
+        final drawnSize = math.min(
+          welcomeWordFontSize(width),
+          (height - 8) / (welcomeWordLineCount * lineHeight),
+        );
+        // The size above was tuned for a seven letter word. A longer first
+        // word shrinks the type until the widest line fits the width.
         final fontSize = math.max<double>(
           24,
-          math.min(
-            welcomeWordFontSize(width),
-            (height - 8) / (welcomeWordLineCount * lineHeight),
-          ),
+          drawnSize * _widthFit(context, drawnSize, width, lineHeight),
         );
         final unit = fontSize / welcomeWordMaxFontSize;
         final titleHeight = welcomeWordLineCount * lineHeight * fontSize;
