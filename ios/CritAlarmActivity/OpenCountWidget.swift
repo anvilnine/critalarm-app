@@ -11,8 +11,8 @@ struct OpenCountWidget: Widget {
             OpenCountView(snapshot: entry.snapshot)
                 .widgetURL(entry.snapshot?.locked == true ? WidgetLink.paywallURL : WidgetLink.homeURL)
         }
-        .configurationDisplayName("Open incidents")
-        .description("How many incidents are open right now.")
+        .configurationDisplayName(NativeL10n.text(.widgetCountName))
+        .description(NativeL10n.text(.widgetCountDescription))
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .systemSmall])
     }
 }

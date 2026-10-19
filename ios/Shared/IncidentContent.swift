@@ -30,14 +30,29 @@ enum IncidentContentFetcher {
 
     static func fallback(_ push: IncidentPush) -> IncidentContent {
         IncidentContent(
-            title: push.title ?? (push.incidentId == nil ? "Alert" : "Crit Alarm"),
-            body: push.body ?? (push.incidentId == nil
-                ? "Open Crit Alarm to see details"
-                : "Critical alert — open to see details"),
+            title: push.title ?? (push.incidentId == nil ? NativeL10n.text(.contentAlert) : "Crit Alarm"),
+            body: push.body.map(localizedPlaceholder) ?? NativeL10n.text(push.incidentId == nil
+                ? .contentOpenToSee
+                : .contentCriticalOpenToSee),
             tags: [],
             click: nil,
             topic: nil
         )
+    }
+
+    /// The server's English placeholder (api.md §5.1, relay_content: none),
+    /// rebuilt in the picked language. It is the only fixed line the server
+    /// sends, and the topic is the one part of it that varies. Anything else,
+    /// a real body included, comes back as it is. The plain APNs text stays
+    /// English and is what shows when this extension does not run.
+    static func localizedPlaceholder(_ body: String) -> String {
+        let english = NativeText.contentCriticalAlertOnDetails.english
+        let (before, after) = NativeL10n.around(english, placeholder: "topic")
+        guard body.hasPrefix(before), body.hasSuffix(after),
+              body.count > before.count + after.count
+        else { return body }
+        let topic = String(body.dropFirst(before.count).dropLast(after.count))
+        return NativeL10n.text(.contentCriticalAlertOnDetails, ["topic": topic])
     }
 
     /// Runs the fetch and calls back with the resolved content, or with the
@@ -157,9 +172,9 @@ enum IncidentContentFetcher {
 
         return IncidentContent(
             title: (newest["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                ?? topic ?? "Critical incident",
+                ?? topic ?? NativeL10n.text(.contentCriticalIncident),
             body: (newest["message"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                ?? "Immediate attention required",
+                ?? NativeL10n.text(.contentAttention),
             tags: tags,
             click: (newest["click"] as? String).flatMap { $0.isEmpty ? nil : $0 },
             topic: topic
