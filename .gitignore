@@ -125,3 +125,6 @@ docs/home-prompts.html
 .worktree-prep.log
 .worktree-prep.err
 .worktree-prep.lock/
+
+# Generated debug-only pseudo-locale. Run make l10n-pseudo.
+/assets/translations/en-XA.json
