@@ -89,7 +89,12 @@ final class NativeL10nTests: XCTestCase {
 
     func testTheServerPlaceholderIsRebuiltAndAnyOtherBodyIsLeftAlone() {
         let server = "Critical alert on prod-db \u{2014} open to see details"
-        XCTAssertEqual(IncidentContentFetcher.localizedPlaceholder(server), server)
+        XCTAssertEqual(server, IncidentContentFetcher.serverPlaceholder.replacingOccurrences(of: "{topic}", with: "prod-db"))
+        XCTAssertEqual(IncidentContentFetcher.localizedPlaceholder(server), "Critical alert on prod-db. Open to see details.")
+        XCTAssertEqual(
+            IncidentContentFetcher.localizedPlaceholder("Critical alert on prod-db. Open to see details."),
+            "Critical alert on prod-db. Open to see details."
+        )
         XCTAssertEqual(
             IncidentContentFetcher.localizedPlaceholder("Critical alert on prod-db, open to see details"),
             "Critical alert on prod-db, open to see details"

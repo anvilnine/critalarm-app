@@ -16,11 +16,11 @@
     "content": {
       "alert": "Alert",
       "open_to_see": "Open Crit Alarm to see details",
-      "critical_open_to_see": "Critical alert — open to see details",
+      "critical_open_to_see": "Critical alert. Open to see details.",
       "critical_incident": "Critical incident",
       "attention": "Immediate attention required",
       "critical_alert_on": "Critical alert on {topic}",
-      "critical_alert_on_details": "Critical alert on {topic} — open to see details"
+      "critical_alert_on_details": "Critical alert on {topic}. Open to see details."
     },
     "state": {
       "ringing": "Ringing",
@@ -2528,5 +2528,8 @@
     "cap_daily_pushes": "Daily high-priority pushes",
     "cap_reached": "{label} limit reached",
     "no_purchase": "No purchase is available."
+  },
+  "language": {
+    "system_default": "System default"
   }
 }

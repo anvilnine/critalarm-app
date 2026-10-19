@@ -25,13 +25,13 @@ const _englishBefore = {
   // IncidentContent.swift, IncidentContent.kt
   'native.content.alert': 'Alert',
   'native.content.open_to_see': 'Open Crit Alarm to see details',
-  'native.content.critical_open_to_see': 'Critical alert — open to see details',
+  'native.content.critical_open_to_see': 'Critical alert. Open to see details.',
   'native.content.critical_incident': 'Critical incident',
   'native.content.attention': 'Immediate attention required',
   // critalarm-server src/push/dispatcher.ts and apns.ts (api.md §5.1, §5.3)
   'native.content.critical_alert_on': 'Critical alert on {topic}',
   'native.content.critical_alert_on_details':
-      'Critical alert on {topic} — open to see details',
+      'Critical alert on {topic}. Open to see details.',
   // LiveCardText.swift, WidgetSnapshot.swift, WidgetRows.kt, IncidentFace.kt
   'native.state.ringing': 'Ringing',
   'native.state.awake': 'Awake',
