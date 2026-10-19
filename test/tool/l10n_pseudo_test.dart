@@ -45,6 +45,7 @@ void main() {
         }
       }
     }
+
     visit(english, pseudo);
   });
 
@@ -58,10 +59,12 @@ void main() {
   test('generator writes en-XA with valid parity', () {
     final directory = Directory.systemTemp.createTempSync('l10n_pseudo_');
     addTearDown(() => directory.deleteSync(recursive: true));
-    File('${directory.path}/en.json').writeAsStringSync(jsonEncode({
-      'title': 'Crit Alarm {name} {}',
-      'items': {'one': 'Item', 'other': 'Items'},
-    }));
+    File('${directory.path}/en.json').writeAsStringSync(
+      jsonEncode({
+        'title': 'Crit Alarm {name} {}',
+        'items': {'one': 'Item', 'other': 'Items'},
+      }),
+    );
     final output = generatePseudoLocale(directory, keep);
     expect(output.path, '${directory.path}/en-XA.json');
     expect(readTranslation(output)['title'], contains('Crit Alarm {name} {}'));
@@ -69,14 +72,22 @@ void main() {
   });
 
   test('release and profile configurations never list pseudo locale', () {
-    expect(localesForBuild(isDebug: false, pseudoRequested: true),
-        [const Locale('en')]);
-    expect(localesForBuild(isDebug: false, pseudoRequested: false),
-        [const Locale('en')]);
-    expect(localesForBuild(isDebug: true, pseudoRequested: false),
-        [const Locale('en')]);
-    expect(localesForBuild(isDebug: true, pseudoRequested: true),
-        [const Locale('en'), const Locale('en', 'XA')]);
+    expect(
+      localesForBuild(isDebug: false, pseudoRequested: true),
+      shippedLocales,
+    );
+    expect(
+      localesForBuild(isDebug: false, pseudoRequested: false),
+      shippedLocales,
+    );
+    expect(
+      localesForBuild(isDebug: true, pseudoRequested: false),
+      shippedLocales,
+    );
+    expect(localesForBuild(isDebug: true, pseudoRequested: true), [
+      ...shippedLocales,
+      const Locale('en', 'XA'),
+    ]);
   });
 
   test('generated pseudo file loads without a widget tree', () async {

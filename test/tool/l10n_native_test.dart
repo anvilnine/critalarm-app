@@ -150,11 +150,15 @@ void main() {
 
   test('Info.plist lists the shipped locales and the English prompts', () {
     final plist = File(iosInfoPlistPath).readAsStringSync();
+    final tags = shippedLocaleTags
+        .map((tag) => '\t\t<string>$tag</string>\n')
+        .join();
     expect(
       plist,
       contains(
-        '<key>CFBundleLocalizations</key>\n\t<array>\n\t\t<string>en</string>'
-        '\n\t</array>',
+        '<key>CFBundleLocalizations</key>\n\t<array>\n'
+        '$tags'
+        '\t</array>',
       ),
     );
     expect(
