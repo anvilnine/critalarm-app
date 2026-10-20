@@ -397,7 +397,7 @@ class MainActivity : FlutterFragmentActivity() {
      * `takeIncomingAudio` and sent live as well, the same way a tap is.
      */
     private fun readIncomingAudio(intent: Intent?): Map<String, Any>? {
-        val file = IncomingAudioHolder.read(intent) ?: return null
+        val file = IncomingAudioHolder.read(intent, cacheDir) ?: return null
         soundMethods?.invokeMethod("incomingAudio", file)
         return file
     }

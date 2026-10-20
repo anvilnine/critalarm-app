@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/sound/share_copy_path.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/foundation.dart';
 
@@ -39,6 +40,7 @@ PickedSoundFile? pickedSoundFileFrom(Object? raw) {
 /// opens during setup or over a ringing alarm.
 class IncomingAudio {
   IncomingAudio({
+    required this.isShareCopy,
     required this.canImportSounds,
     required this.readOwnSounds,
     required this.isOnboardingDone,
@@ -46,6 +48,12 @@ class IncomingAudio {
     required this.discard,
     required this.platform,
   });
+
+  /// Whether a path is one of the platform's own share copies
+  /// ([isShareCopyPath]). Every path that reaches [discard] or the cropper
+  /// passed this first. Anything else is dropped untouched: on Android the
+  /// path can come from any app, and deleting it would delete one of ours.
+  final Future<bool> Function(String path) isShareCopy;
 
   final Future<bool> Function() canImportSounds;
 
@@ -99,6 +107,15 @@ class IncomingAudio {
   /// Whether a paywall is waiting for setup to finish or an alarm to stop.
   bool get hasPaywallPending => _paywallPending;
 
+  Future<bool> _isShareCopy(String path) async {
+    try {
+      return await isShareCopy(path);
+    } on Object catch (_) {
+      // A check that cannot answer lets nothing through.
+      return false;
+    }
+  }
+
   Future<FeatureDecision> _ownSounds() async {
     try {
       return await readOwnSounds();
@@ -111,6 +128,7 @@ class IncomingAudio {
   /// A file just came in. Checks it, holds it, and opens it if it can.
   Future<void> receive(PickedSoundFile file) async {
     if (!_seen.add(file.path)) return;
+    if (!await _isShareCopy(file.path)) return;
     if (!await canImportSounds()) {
       await discard(file.path);
       return;
