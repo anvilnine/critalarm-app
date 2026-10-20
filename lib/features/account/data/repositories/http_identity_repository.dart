@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
+import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
@@ -20,19 +21,24 @@ final class HttpIdentityRepository implements IdentityRepository {
     required this.sessions,
     required this.prefs,
     required this.providers,
+    IdentityTokenStore? tokens,
     AccountIdentityChanges? identityChanges,
-  }) : identityChanges = identityChanges ?? appAccountIdentityChanges;
+  }) : tokens = tokens ?? PrefsIdentityTokenStore(prefs),
+       identityChanges = identityChanges ?? appAccountIdentityChanges;
 
   final http.Client httpClient;
   final ApiSessionStore sessions;
   final SharedPreferences prefs;
   final ProviderSignIn providers;
 
+  /// The session token itself. The Keychain on iOS, the preferences
+  /// elsewhere. The provider, email and account id stay in [prefs].
+  final IdentityTokenStore tokens;
+
   /// Bumped whenever the stored identity changes, so screens that show a
   /// signed-in or signed-out state look again on their own.
   final AccountIdentityChanges identityChanges;
 
-  static const _tokenKey = 'identity_session_token';
   static const _providerKey = 'identity_provider';
   static const _emailKey = 'identity_email';
   static const _accountKey = 'identity_account_id';
@@ -84,7 +90,7 @@ final class HttpIdentityRepository implements IdentityRepository {
       provider: provider,
       email: credential.email ?? user?['email'] as String?,
     );
-    await prefs.setString(_tokenKey, identity.token);
+    await tokens.write(identity.token);
     await prefs.setString(_providerKey, provider.wireValue);
     final email = identity.email;
     if (email != null) await prefs.setString(_emailKey, email);
@@ -93,7 +99,7 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   @override
   Future<IdentitySession?> readSession() async {
-    final token = prefs.getString(_tokenKey);
+    final token = await tokens.read();
     final provider = _readProvider();
     if (token == null || provider == null) return null;
     return IdentitySession(
@@ -135,7 +141,7 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   @override
   Future<void> clearSession() async {
-    await prefs.remove(_tokenKey);
+    await tokens.clear();
     await prefs.remove(_providerKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_accountKey);

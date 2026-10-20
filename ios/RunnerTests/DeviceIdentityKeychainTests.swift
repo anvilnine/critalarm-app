@@ -37,6 +37,33 @@ final class DeviceIdentityKeychainTests: XCTestCase {
     XCTAssertEqual(sync as? String, kSecAttrSynchronizableAny as String)
   }
 
+  /// The sign-in session never leaves the phone, so it is ThisDeviceOnly.
+  func testTheSessionItemStaysOnThisDevice() {
+    let session = DeviceIdentityKeychain.accessibility([
+      "service": "app.critalarm.identity_session",
+      "synchronizable": false,
+      "this_device_only": true,
+    ])
+    XCTAssertEqual(
+      session as String, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
+  }
+
+  /// The two identity items keep what they always had, and a synced item
+  /// cannot be ThisDeviceOnly.
+  func testTheIdentityItemsKeepTheirAccessibility() {
+    XCTAssertEqual(
+      DeviceIdentityKeychain.accessibility([
+        "service": "app.critalarm.device_identity", "synchronizable": false,
+      ]) as String,
+      kSecAttrAccessibleAfterFirstUnlock as String)
+    XCTAssertEqual(
+      DeviceIdentityKeychain.accessibility([
+        "service": "app.critalarm.account", "synchronizable": true,
+        "this_device_only": true,
+      ]) as String,
+      kSecAttrAccessibleAfterFirstUnlock as String)
+  }
+
   func testAnUnnamedItemIsRefused() {
     XCTAssertNil(DeviceIdentityKeychain.itemQuery(nil))
     XCTAssertNil(DeviceIdentityKeychain.itemQuery(["service": "app.critalarm.account"]))
