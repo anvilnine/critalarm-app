@@ -1,6 +1,15 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Added
+- Crit Alarm now speaks German and Japanese. Pick a language in Settings under Language, or keep System default to follow your phone. The alarm screen, notifications and widgets switch too.
+- The translations were made with AI. The Language screen and About have a link to tell us about a mistake.
+
+### Changed
+- Dates and times follow the format of the language you use.
+- When the server refuses something, the app explains it in its own words in your language.
+
 ## 1.0.0+15 - 2026-10-16
 ### Added
 - Setup asks what you want to be woken for and fills in your first topic to match.
