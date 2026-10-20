@@ -20,7 +20,7 @@ class IncidentCardsRoutingTest {
     fun `the Stop action and the delete intent both silence`() {
         val alarm = source("src/main/kotlin/app/critalarm/notifications/AlarmNotificationFactory.kt")
         assertTrue("Stop and swipe must both carry the silence action", alarm.contains("ACTION_SILENCE"))
-        assertTrue("the Stop button must silence", alarm.contains("\"Stop\""))
+        assertTrue("the Stop button must silence", alarm.contains("NativeText.ALARM_STOP"))
         assertTrue("the swipe must silence", alarm.contains("setDeleteIntent"))
     }
 
@@ -59,7 +59,7 @@ class IncidentCardsRoutingTest {
     @Test
     fun `the silenced card button is the acknowledge`() {
         val status = source("src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt")
-        assertTrue("the silenced card must carry I'm up", status.contains("\"I'm up\""))
+        assertTrue("the silenced card must carry I'm up", status.contains("NativeText.ACTION_IM_UP"))
         assertTrue("I'm up must be the acknowledge, not the close", status.contains("ACTION_STOP"))
     }
 

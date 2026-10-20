@@ -1,3 +1,5 @@
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/time/calendar_days.dart';
 import 'package:intl/intl.dart';
 
@@ -21,10 +23,11 @@ String formatWhen({
   final local = at.toLocal();
   final today = now.toLocal();
   final days = calendarDaysBetween(local, today);
-  if (days <= 0) return DateFormat.Hm().format(local);
+  if (days <= 0) return DateFormat.Hm(currentFormatLocale()).format(local);
   if (days == 1) return yesterday;
-  final pattern = local.year == today.year ? 'd MMM' : 'd MMM y';
-  return DateFormat(pattern).format(local);
+  return local.year == today.year
+      ? DateLabel.dayMonth(local)
+      : DateLabel.dayMonthYear(local);
 }
 
 /// When a message was sent, for a row that must always show the time so two
@@ -46,9 +49,10 @@ String formatWhenWithTime({
   final local = at.toLocal();
   final today = now.toLocal();
   final days = calendarDaysBetween(local, today);
-  final time = DateFormat.Hm().format(local);
+  final time = DateFormat.Hm(currentFormatLocale()).format(local);
   if (days <= 0) return time;
   if (days == 1) return '$yesterday $time';
-  final pattern = local.year == today.year ? 'd MMM' : 'd MMM y';
-  return '${DateFormat(pattern).format(local)} $time';
+  return local.year == today.year
+      ? DateLabel.dayMonth(local, withTime: true)
+      : DateLabel.dayMonthYear(local, withTime: true);
 }

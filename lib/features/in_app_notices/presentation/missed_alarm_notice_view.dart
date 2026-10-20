@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
@@ -67,5 +68,8 @@ String missedAlarmTime(DateTime at, {required DateTime now}) {
       local.year == today.year &&
       local.month == today.month &&
       local.day == today.day;
-  return DateFormat(sameDay ? 'HH:mm' : 'EEE HH:mm').format(local);
+  return DateFormat(
+    sameDay ? 'HH:mm' : 'EEE HH:mm',
+    currentFormatLocale(),
+  ).format(local);
 }

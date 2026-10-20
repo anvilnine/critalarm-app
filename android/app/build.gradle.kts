@@ -59,6 +59,12 @@ android {
     assetPacks += listOf(":sound_pack_library")
 
     buildTypes {
+        debug {
+            // Builds the en-XA pseudo-locale from the default strings, so a
+            // debug run with the pseudo-locale picked shows which native text
+            // follows the app's language. Never on in release.
+            isPseudoLocalesEnabled = true
+        }
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")

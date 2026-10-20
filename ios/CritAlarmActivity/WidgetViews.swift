@@ -178,18 +178,20 @@ struct LockedState: View {
     }
 }
 
-/// The copy the empty states use.
+/// The copy the empty states use, in the language picked in the app.
 enum WidgetCopy {
-    static let locked = "Widgets are part of Pro. Tap to see plans."
-    static let lockedShort = "Pro"
-    static let connect = "Open Crit Alarm to connect"
-    static let allQuiet = "All quiet"
-    static let noTopics = "No topics yet"
-    static let topicNotFound = "Topic not found"
-    static let chooseTopic = "Choose a topic"
+    static var locked: String { NativeL10n.text(.widgetLocked) }
+    static var lockedShort: String { NativeL10n.text(.widgetLockedShort) }
+    static var connect: String { NativeL10n.text(.widgetConnect) }
+    static var allQuiet: String { NativeL10n.text(.widgetAllQuiet) }
+    static var noTopics: String { NativeL10n.text(.widgetNoTopics) }
+    static var topicNotFound: String { NativeL10n.text(.widgetTopicNotFound) }
+    static var chooseTopic: String { NativeL10n.text(.widgetChooseTopic) }
+    static var openWord: String { NativeL10n.text(.widgetOpenWord) }
 
-    static func more(_ count: Int) -> String { "+\(count) more" }
-    static func open(_ count: Int) -> String { "\(count) open" }
+    static func more(_ count: Int) -> String { NativeL10n.text(.widgetMore, ["count": "\(count)"]) }
+    static func open(_ count: Int) -> String { NativeL10n.text(.widgetOpenCount, ["count": "\(count)"]) }
+    static func open(topic: String) -> String { NativeL10n.text(.widgetOpenTopic, ["topic": topic]) }
 }
 
 /// "I'm up" or "Done", the same capsules and the same intents as the live

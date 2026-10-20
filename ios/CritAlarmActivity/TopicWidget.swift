@@ -12,8 +12,8 @@ struct TopicWidget: Widget {
         AppIntentConfiguration(kind: Self.kind, intent: SelectTopicIntent.self, provider: TopicProvider()) { entry in
             TopicWidgetView(snapshot: entry.snapshot, topicName: entry.topic)
         }
-        .configurationDisplayName("Topic")
-        .description("One topic, with I'm up and Done buttons.")
+        .configurationDisplayName(NativeL10n.text(.widgetTopicName))
+        .description(NativeL10n.text(.widgetTopicDescription))
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
