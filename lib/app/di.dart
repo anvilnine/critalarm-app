@@ -107,6 +107,7 @@ import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
+import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
@@ -942,6 +943,11 @@ Future<void> configureDependencies({
         sessions: getIt<ApiSessionStore>(),
         prefs: getIt<SharedPreferences>(),
         providers: getIt<ProviderSignIn>(),
+        // iOS preferences go into iCloud and computer backups, so the
+        // session token is a ThisDeviceOnly Keychain item there.
+        tokens: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+            ? KeychainIdentityTokenStore(getIt<SharedPreferences>())
+            : PrefsIdentityTokenStore(getIt<SharedPreferences>()),
         identityChanges: appAccountIdentityChanges,
       ),
     )
