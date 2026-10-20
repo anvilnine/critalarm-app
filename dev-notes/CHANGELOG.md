@@ -13,6 +13,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ### Security
 - Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
+- Android: MainActivity shows over the lock screen only for an alarm\_incident\_id the alarm service holds or the delivery store has open and unacknowledged (AlarmLockRule), on a cold start and on onNewIntent. The alarm screen calls AlarmHost.releaseLockScreen when it stops ringing, opens the topic or goes away (LockScreenHold), and the window then asks for the unlock and stops showing over the lock screen. onStart, onResume and onStop let go of an alarm answered from the notification.
 
 ## 1.0.0+15 - 2026-10-16
 ### Added

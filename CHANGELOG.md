@@ -10,6 +10,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
 
+### Security
+- On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
+
 ## 1.0.0+15 - 2026-10-16
 ### Added
 - Setup asks what you want to be woken for and fills in your first topic to match.
