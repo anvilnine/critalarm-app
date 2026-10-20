@@ -74,6 +74,7 @@ import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
+import 'package:critalarm/core/sound/share_copy_path.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack_host.dart';
@@ -371,6 +372,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1889,6 +1891,15 @@ Future<void> configureDependencies({
     // no alarm is going off.
     ..registerLazySingleton(
       () => IncomingAudio(
+        // Both platforms copy a share into incoming_audio under the app's
+        // cache. Only a file there may be opened, and then deleted.
+        isShareCopy: (path) async => isShareCopyPath(
+          path,
+          folder: p.join(
+            (await getApplicationCacheDirectory()).path,
+            shareCopyFolderName,
+          ),
+        ),
         canImportSounds: () async =>
             (await getIt<SoundHost>().capabilities()).canImportSounds,
         readOwnSounds: () => ownSoundsOnceReady(getIt<FeatureAccess>()),

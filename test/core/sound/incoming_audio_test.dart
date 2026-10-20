@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
@@ -47,9 +49,11 @@ void main() {
     late bool ringing;
     late List<FeatureDecision> paywalls;
     late Future<FeatureDecision> Function() readOwnSounds;
+    late Future<bool> Function(String path) isShareCopy;
 
     IncomingAudio build() {
       final incoming = IncomingAudio(
+        isShareCopy: (path) => isShareCopy(path),
         canImportSounds: () async => canImport,
         readOwnSounds: () => readOwnSounds(),
         isOnboardingDone: () async => onboardingDone,
@@ -79,6 +83,63 @@ void main() {
       ringing = false;
       paywalls = [];
       readOwnSounds = () async => const FeatureDecision.open();
+      isShareCopy = (_) async => true;
+    });
+
+    group('a path that is not a share copy', () {
+      const prefs = PickedSoundFile(
+        path: '/data/user/0/app.critalarm/shared_prefs/prefs.xml',
+        name: 'prefs.xml',
+        sizeBytes: 0,
+      );
+
+      setUp(() {
+        isShareCopy = (path) async => path.startsWith('/cache/incoming_audio/');
+      });
+
+      test('is never deleted, opened or answered', () async {
+        final incoming = build();
+        await incoming.receive(prefs);
+        expect(discarded, isEmpty);
+        expect(opened, isEmpty);
+        expect(rejected, isEmpty);
+        expect(incoming.pending, isNull);
+      });
+
+      test('is not deleted while own sounds are locked either', () async {
+        readOwnSounds = () async => const FeatureDecision.locked(Holding.pro);
+        final incoming = build();
+        await incoming.receive(prefs);
+        expect(discarded, isEmpty);
+        expect(paywalls, isEmpty);
+      });
+
+      test('an audio name and a size do not get it through', () async {
+        final incoming = build();
+        await incoming.receive(
+          const PickedSoundFile(
+            path: '/data/user/0/app.critalarm/files/own_look.m4a',
+            name: 'own_look.m4a',
+            sizeBytes: 4096,
+          ),
+        );
+        expect(opened, isEmpty);
+        expect(discarded, isEmpty);
+      });
+
+      test('a check that throws lets nothing through', () async {
+        isShareCopy = (_) async => throw const FileSystemException('no');
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, isEmpty);
+        expect(discarded, isEmpty);
+      });
+
+      test('a real share copy still opens', () async {
+        final incoming = build();
+        await incoming.receive(memo);
+        expect(opened, [memo]);
+      });
     });
 
     group('own sounds locked', () {

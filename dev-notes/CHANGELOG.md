@@ -11,6 +11,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
 
+### Security
+- Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
+
 ## 1.0.0+15 - 2026-10-16
 ### Added
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
