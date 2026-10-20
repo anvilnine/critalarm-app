@@ -464,6 +464,16 @@ AmbientProfile topicCanvasProfileFor(
     context,
     name: state.topicName,
     width: MediaQuery.sizeOf(context).width,
+    // Same text TopicHeader draws, so a two-line summary moves the disc too.
+    summary: state.areMessageTimesKnown
+        ? topicSummaryText(
+            topicSummaryFor(
+              messageTimes: state.messageTimes,
+              lastAlarmAt: state.lastAlarmAt,
+              now: DateTime.now(),
+            ),
+          )
+        : '',
   );
   return AmbientAppProfiles.topicsHero(
     context.appColors,

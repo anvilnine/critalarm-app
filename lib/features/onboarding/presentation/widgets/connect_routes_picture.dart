@@ -322,24 +322,41 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
     );
 
     Widget label(String text, Offset centre, double lit, {bool above = false}) {
-      const width = 132.0;
+      final width = math.min<double>(132, w);
+      final style = AppTypography.small(
+        colors.onCanvas,
+        fontSize: 12,
+      ).copyWith(fontWeight: FontWeight.w700, height: 1.3);
+      // The box is centred on the node. A label that would run past either
+      // edge of the picture moves in, and one wider than the box scales down.
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        locale: Localizations.maybeLocaleOf(context),
+        maxLines: 1,
+      )..layout();
+      final half = math.min(painter.width, width) / 2;
+      painter.dispose();
+      final middle = centre.dx.clamp(half, math.max(half, w - half));
       return Positioned(
-        left: centre.dx - width / 2,
+        left: middle - width / 2,
         width: width,
         top: above ? centre.dy - _labelHeight : centre.dy,
-        height: _labelHeight,
         child: Opacity(
           opacity: 0.45 + 0.55 * lit,
-          child: Text(
-            text,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.visible,
-            softWrap: false,
-            style: AppTypography.small(
-              colors.onCanvas,
-              fontSize: 12,
-            ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              text,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              softWrap: false,
+              style: style,
+            ),
           ),
         ),
       );

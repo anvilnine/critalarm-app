@@ -6,6 +6,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -272,7 +273,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     if (pollResult.isError()) {
       return state.copyWith(
         status: TopicDetailStatus.failure,
-        errorMessage: pollResult.exceptionOrNull()?.message,
+        errorMessage: failureMessage(pollResult.exceptionOrNull()!),
         isMessagesLoading: false,
       );
     }
@@ -423,12 +424,19 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         );
       },
       (failure) {
+        // A numeric code wins over the optional cap field too.
+        final cap =
+            failure is ApiFailure &&
+                failure.code == null &&
+                failure.message?.trim().toLowerCase() == 'cap'
+            ? CapReached.fromFailure(failure)
+            : null;
         _markUpstreamAccountedFor();
         emit(
           state.copyWith(
             isUpdatingCritical: false,
-            errorMessage: failure.message,
-            capReached: CapReached.fromFailure(failure),
+            errorMessage: failureMessage(failure),
+            capReached: cap,
           ),
         );
       },

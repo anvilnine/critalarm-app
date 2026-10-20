@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/own_server.dart';
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -44,9 +46,12 @@ class SearchCubit extends Cubit<SearchState> {
     required this._clearRecentSearches,
     required this._includeDevOnlySettings,
     this.sessionStore,
+    Stream<void>? localeChanges,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       super(const SearchState());
+       super(const SearchState()) {
+    _localeSub = localeChanges?.listen((_) => refreshTranslations());
+  }
 
   final TopicsCubit _topics;
   final IncidentsCubit _incidents;
@@ -74,6 +79,7 @@ class SearchCubit extends Cubit<SearchState> {
   /// changes it while search is open.
   List<DocsPage> _docs = const <DocsPage>[];
 
+  late final StreamSubscription<void>? _localeSub;
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
 
@@ -138,6 +144,14 @@ class SearchCubit extends Cubit<SearchState> {
     emit(state.copyWith(results: _rank(state.query)));
   }
 
+  /// Search is held by the shell even while another tab is open.
+  /// Rebuild text and date keywords without refetching or losing the query.
+  void refreshTranslations() {
+    if (isClosed || state.status != SearchStatus.ready) return;
+    _catalogue = _buildCatalogue();
+    emit(state.copyWith(results: _rank(state.query)));
+  }
+
   List<SearchResult> _buildCatalogue() {
     final topics = _topics.state.topics;
     final incidents = _incidents.state.incidents;
@@ -159,6 +173,7 @@ class SearchCubit extends Cubit<SearchState> {
 
   @override
   Future<void> close() async {
+    await _localeSub?.cancel();
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();
@@ -218,7 +233,6 @@ class SearchCubit extends Cubit<SearchState> {
 
   List<SearchResult> _historyResults(List<Incident> incidents) {
     final entries = HistoryCubit.toEntries(incidents, _now());
-    final dayFormat = DateFormat('MMM d');
 
     return <SearchResult>[
       for (final entry in entries)
@@ -230,16 +244,20 @@ class SearchCubit extends Cubit<SearchState> {
           // because a flat result list has no day headings to sit under.
           title: entry.topic,
           subtitle: historyMetaText(entry),
-          timeText: dayFormat.format(entry.startedAt),
+          timeText: DateLabel.monthDay(entry.startedAt),
           faceState: entry.faceState,
           historyMark: historyMarkFor(entry.state),
           keywords: <String>[
             'history',
             'alarm',
             _stateWord(entry),
-            dayFormat.format(entry.startedAt).toLowerCase(),
-            DateFormat('MMMM').format(entry.startedAt).toLowerCase(),
-            DateFormat('EEEE').format(entry.startedAt).toLowerCase(),
+            DateLabel.monthDay(entry.startedAt).toLowerCase(),
+            DateFormat('MMMM', currentFormatLocale())
+                .format(entry.startedAt)
+                .toLowerCase(),
+            DateFormat('EEEE', currentFormatLocale())
+                .format(entry.startedAt)
+                .toLowerCase(),
           ],
           routePath: '/incidents/${Uri.encodeComponent(entry.id)}',
           date: entry.day,

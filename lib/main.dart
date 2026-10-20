@@ -8,6 +8,7 @@ import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/core/l10n/app_locales.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
@@ -31,6 +32,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// Registers the bundled font faces' OFL licenses so they surface in
 /// Settings > Acknowledgements (`showLicensePage`). Bundled asset fonts need
@@ -64,6 +66,15 @@ void _registerSoundPackCredits() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const pseudoRequested = bool.fromEnvironment('PSEUDO_LOCALE');
+  final supportedLocales = localesForBuild(
+    isDebug: kDebugMode,
+    pseudoRequested: pseudoRequested,
+  );
+  // Load symbols before dependencies or push callbacks can format a date.
+  for (final locale in supportedLocales) {
+    await initializeDateFormatting(locale.toString());
+  }
   _registerFontLicenses();
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
@@ -192,7 +203,11 @@ Future<void> main() async {
 
   runApp(
     EasyLocalization(
-      supportedLocales: const [Locale('en')],
+      supportedLocales: supportedLocales,
+      startLocale: pseudoStartLocale(
+        isDebug: kDebugMode,
+        pseudoRequested: pseudoRequested,
+      ),
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
       child: CritAlarmApp(initialLocation: initialLocation),

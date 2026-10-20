@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/language/presentation/language_mistake_line.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -37,47 +38,55 @@ class AboutScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
-            child: AppSheet(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppKeyValueRow(
-                    label: LocaleKeys.settings_about_version_label.tr(),
-                    value: 'v$appVersion',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSheet(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppKeyValueRow(
+                        label: LocaleKeys.settings_about_version_label.tr(),
+                        value: 'v$appVersion',
+                      ),
+                      const SizedBox(height: 8),
+                      AppKeyValueRow(
+                        label: LocaleKeys.settings_about_license_label.tr(),
+                        value: LocaleKeys.settings_about_license_value.tr(),
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_docs_label.tr(),
+                        url: 'https://critalarm.app/docs/',
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_github_label.tr(),
+                        url: 'https://github.com/anvilnine/critalarm-app',
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_issues_label.tr(),
+                        url:
+                            'https://github.com/anvilnine/critalarm-app/issues',
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_privacy_label.tr(),
+                        url: privacyUrl,
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_terms_label.tr(),
+                        url: termsUrl,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  AppKeyValueRow(
-                    label: LocaleKeys.settings_about_license_label.tr(),
-                    value: LocaleKeys.settings_about_license_value.tr(),
-                  ),
-                  const SizedBox(height: 8),
-                  _AboutLinkRow(
-                    label: LocaleKeys.settings_about_docs_label.tr(),
-                    url: 'https://critalarm.app/docs/',
-                  ),
-                  const SizedBox(height: 8),
-                  _AboutLinkRow(
-                    label: LocaleKeys.settings_about_github_label.tr(),
-                    url: 'https://github.com/anvilnine/critalarm-app',
-                  ),
-                  const SizedBox(height: 8),
-                  _AboutLinkRow(
-                    label: LocaleKeys.settings_about_issues_label.tr(),
-                    url: 'https://github.com/anvilnine/critalarm-app/issues',
-                  ),
-                  const SizedBox(height: 8),
-                  _AboutLinkRow(
-                    label: LocaleKeys.settings_about_privacy_label.tr(),
-                    url: privacyUrl,
-                  ),
-                  const SizedBox(height: 8),
-                  _AboutLinkRow(
-                    label: LocaleKeys.settings_about_terms_label.tr(),
-                    url: termsUrl,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                const LanguageMistakeLine(screen: 'about'),
+              ],
             ),
           ),
         ),

@@ -520,16 +520,23 @@ class _StopButton extends StatelessWidget {
               ),
             if (hasWords) ...[
               SizedBox(width: height * 0.22),
-              Text(
-                isStopped
-                    ? LocaleKeys.paywall_previews_extras_challenge_stopped.tr()
-                    : LocaleKeys.paywall_previews_extras_challenge_locked.tr(),
-                maxLines: 1,
-                softWrap: false,
-                style: AppTypography.title(
-                  ink,
-                  fontSize: height * 0.42,
-                ).copyWith(height: 1),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    isStopped
+                        ? LocaleKeys.paywall_previews_extras_challenge_stopped
+                              .tr()
+                        : LocaleKeys.paywall_previews_extras_challenge_locked
+                              .tr(),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTypography.title(
+                      ink,
+                      fontSize: height * 0.42,
+                    ).copyWith(height: 1),
+                  ),
+                ),
               ),
             ],
           ],

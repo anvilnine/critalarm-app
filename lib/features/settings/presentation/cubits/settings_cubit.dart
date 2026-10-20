@@ -6,6 +6,7 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
@@ -313,6 +314,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
+    final failure = result?.exceptionOrNull();
     await holdings?.ready;
     if (isClosed) return;
     emit(
@@ -321,7 +323,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         access: _access(identity),
         holdsHosted: _holdsHosted,
         topics: result?.getOrNull() ?? [],
-        errorMessage: result?.exceptionOrNull()?.message,
+        errorMessage: failure == null ? null : failureMessage(failure),
       ),
     );
   }
