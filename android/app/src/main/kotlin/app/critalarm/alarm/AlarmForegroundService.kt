@@ -147,6 +147,10 @@ class AlarmForegroundService : Service() {
 
         internal fun isRinging(incidentId: String): Boolean = ringingIncidentId == incidentId
 
+        /** The incident on the speaker now, for [AlarmLockRule]. */
+        internal val ringingNow: String?
+            get() = ringingIncidentId
+
         /**
          * True while [incidentId] holds the alarm, ringing now or waiting its
          * turn behind another incident. A state learned from the server has

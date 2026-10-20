@@ -32,6 +32,7 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styles.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/incidents/presentation/lock_screen_hold.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
@@ -94,13 +95,16 @@ class CriticalAlarmScreen extends StatelessWidget {
         }
         return cubit;
       },
-      child: const _CriticalAlarmView(),
+      child: _CriticalAlarmView(routeIncidentId: incidentId),
     );
   }
 }
 
 class _CriticalAlarmView extends StatefulWidget {
-  const _CriticalAlarmView();
+  const _CriticalAlarmView({required this.routeIncidentId});
+
+  /// The incident the route named. The screen may move on to another one.
+  final String? routeIncidentId;
 
   @override
   State<_CriticalAlarmView> createState() => _CriticalAlarmViewState();
@@ -272,6 +276,24 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// Keeps the look of the incident on screen still while it is on screen.
   final AlarmStyleLatch _lookLatch = AlarmStyleLatch();
 
+  /// Lets the Android window leave the lock screen once this screen stops
+  /// ringing, opens another screen on top, or goes away.
+  late final LockScreenHold _lockHold = LockScreenHold(
+    release: (id) => _withAlarmHost((host) => host.releaseLockScreen(id)),
+    hold: (id) => _withAlarmHost((host) => host.holdLockScreen(id)),
+  );
+
+  static void _withAlarmHost(Future<void> Function(AlarmHost host) call) {
+    if (!getIt.isRegistered<AlarmHost>()) return;
+    unawaited(call(getIt<AlarmHost>()));
+  }
+
+  @override
+  void dispose() {
+    _lockHold.leave(widget.routeIncidentId);
+    super.dispose();
+  }
+
   /// The look this alarm is drawn in: the topic's own, or the phone's.
   ///
   /// Only an alarm that is ringing or acknowledged has one. The loading
@@ -313,17 +335,23 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     // challenge opened before is left. It is not carried over, and nothing
     // is owed until "At my desk" is tapped again.
     return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
-      listenWhen: (previous, current) =>
-          previous.incident?.id != current.incident?.id ||
-          (previous.isAcknowledged && !current.isAcknowledged),
-      listener: (context, state) {
-        // Ringing again: what was cleared for it is owed again.
-        if (!state.isAcknowledged) {
-          _clearedIncidentIds.remove(state.incident?.id);
-        }
-        _leaveChallenge();
-      },
-      child: _buildAlarm(context),
+      listener: (context, state) => _lockHold.show(
+        incidentId: state.incident?.id,
+        isRinging: showsRingingLayout(state),
+      ),
+      child: BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
+        listenWhen: (previous, current) =>
+            previous.incident?.id != current.incident?.id ||
+            (previous.isAcknowledged && !current.isAcknowledged),
+        listener: (context, state) {
+          // Ringing again: what was cleared for it is owed again.
+          if (!state.isAcknowledged) {
+            _clearedIncidentIds.remove(state.incident?.id);
+          }
+          _leaveChallenge();
+        },
+        child: _buildAlarm(context),
+      ),
     );
   }
 
@@ -605,10 +633,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                           ? null
                           : () {
                               AppHaptics.selection();
+                              // The topic's screen does not show over the
+                              // lock screen. Back on a screen that still
+                              // rings, it does again.
+                              _lockHold.cover();
                               unawaited(
-                                context.push(
-                                  '/topics/${state.incident!.topic}',
-                                ),
+                                context
+                                    .push('/topics/${state.incident!.topic}')
+                                    .whenComplete(_lockHold.uncover),
                               );
                             },
                       onSelectAlarm: (id) =>
