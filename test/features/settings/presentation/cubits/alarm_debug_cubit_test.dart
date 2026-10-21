@@ -101,6 +101,7 @@ void main() {
         clearAckedSet: () async => calls.add('acked'),
         reconcileNow: () async => calls.add('reconcile'),
         recordDebugAction: actions.add,
+        probeAlarmCapacity: () async => calls.add('probe'),
         clock: () => at,
       );
       addTearDown(cubit.close);
@@ -110,6 +111,10 @@ void main() {
       expect(calls, ['flush']);
       expect(actions, ['flush_now']);
       expect(nativeReads, 2);
+
+      await cubit.performAction(AlarmDebugAction.probeAlarmCapacity);
+      expect(calls, ['flush', 'probe']);
+      expect(nativeReads, 3);
     },
   );
 

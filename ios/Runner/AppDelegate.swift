@@ -78,6 +78,7 @@ import AlarmKit
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
     startAlarmAndActivityStreams()
+    startChainSweeps()
     localReminders.registerCategories = { [weak self] in self?.registerNotificationCategories() }
     registerNotificationCategories()
     // The engine owns the delegate by default. Take it back so the ACK action
@@ -176,6 +177,11 @@ import AlarmKit
         result(nil)
       case "clear":
         NseCredentials.clear()
+        // Dart clears the connection on sign-out, account delete, a reset
+        // and a disconnect. No incident of the old one may ring here again.
+        Task { @MainActor in
+          await AlarmSerial.shared.run { await IncidentChain.cancelAll() }
+        }
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
@@ -466,6 +472,40 @@ import AlarmKit
     #endif
   }
 
+  /// The phone's own ring chains (`IncidentChain`). At launch every chain
+  /// whose incident is no longer active goes, and the rest are topped up.
+  /// After that the stale ones go again whenever the app's preferences
+  /// change, because that is where Dart writes a topic's Critical switch
+  /// and drops a deleted topic (`TopicTimerCache`).
+  private func startChainSweeps() {
+    Task { @MainActor in
+      await AlarmSerial.shared.run { await IncidentChain.sweep() }
+    }
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(preferencesChanged),
+      name: UserDefaults.didChangeNotification,
+      object: UserDefaults.standard
+    )
+  }
+
+  private var chainSweepQueued = false
+
+  /// Shared preferences writes one key at a time, so one sweep follows the
+  /// whole burst. This sweep only drops chains; it never sets a slot.
+  @objc private func preferencesChanged() {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, !self.chainSweepQueued else { return }
+      self.chainSweepQueued = true
+      DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+        self?.chainSweepQueued = false
+        Task { @MainActor in
+          await AlarmSerial.shared.run { await IncidentChain.sweep(topUp: false) }
+        }
+      }
+    }
+  }
+
   /// VoiceOver's magic tap, a two-finger double tap on the glass. While the
   /// ringing alarm screen is in front it does what the "I'm up" button does:
   /// Dart is told, and acknowledges through the button's own path.
@@ -582,10 +622,19 @@ import AlarmKit
         result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
         return
       }
+      // True only for an acknowledge in the app ("I'm up"): the ring chain
+      // goes and the desk timer chain is set. Anything else (a close, the
+      // challenge passed, an expiry, the demo) ends every ring this phone
+      // set for the incident.
+      let acknowledged = args["hand_over_to_status_card"] as? Bool ?? false
       #if canImport(AlarmKit)
       if #available(iOS 26.0, *) {
         Task {
-          await IncidentAlarmScheduler.cancel(incidentId: incidentId)
+          if acknowledged {
+            await IncidentRearm.acknowledged(incidentId: incidentId)
+          } else {
+            await IncidentRearm.cancel(incidentId: incidentId, for: .atMyDesk)
+          }
           if #available(iOS 16.2, *) {
             await IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: .closed)
           }
@@ -594,7 +643,14 @@ import AlarmKit
         return
       }
       #endif
-      result(false)
+      Task {
+        if acknowledged {
+          await IncidentRearm.acknowledged(incidentId: incidentId)
+        } else {
+          await IncidentRearm.cancel(incidentId: incidentId, for: .atMyDesk)
+        }
+        await MainActor.run { result(false) }
+      }
 
     case "startLocalActivity":
       guard #available(iOS 16.2, *), let incidentId = args["incident_id"] as? String else {
@@ -697,7 +753,9 @@ import AlarmKit
         return
       }
       AckedIncidentStore.mark(incidentId: incidentId)
-      Task { await IncidentRearm.cancel(incidentId: incidentId) }
+      // The ring chain goes. A desk timer chain stays: this also runs when
+      // the ack queue reaches the server, long after "I'm up" set it.
+      Task { await IncidentRearm.cancel(incidentId: incidentId, for: .ackSent) }
       result(nil)
 
     case "setMagicTapArmed":
@@ -720,6 +778,18 @@ import AlarmKit
         let snapshot = await AlarmDebug.snapshot()
         await MainActor.run { result(snapshot) }
       }
+
+    case "probeAlarmCapacity":
+      // Developer screen only. Sets 60 alarms an hour out, lists them back
+      // and cancels them, to learn how many AlarmKit holds for one app.
+      #if DEBUG
+      Task {
+        let found = await AlarmDebug.probeAlarmCapacity()
+        await MainActor.run { result(found) }
+      }
+      #else
+      result(FlutterMethodNotImplemented)
+      #endif
 
     case "cancelAllRearms":
       Task {
@@ -932,17 +1002,62 @@ import AlarmKit
     // arming step is queued, so a stop that asked before this push is
     // refused, and one already running finishes before the new ring is set.
     RingGeneration.bump(incidentId: incidentId)
+    let topic = userInfo["topic"] as? String ?? ""
+    let title = push.title ?? "Crit Alarm"
+    let sound = userInfo["sound"] as? String
+    let alarmKit = IncidentChain.usesAlarmKit
+    let plan = ChainRule.pushPlan(
+      kind: push.kind,
+      ringChainHeld: IncidentChainStore.holdsRing(incidentId: incidentId),
+      alarmKit: alarmKit,
+      repeatIntervalS: TopicTimers.read(topic: topic)?.repeatIntervalS
+        ?? RearmRule.defaultRepeatIntervalS
+    )
+    NSLog(
+      "CritAlarm: push_chain_plan incident_id=%@ own_alarm=%d chain=%@",
+      incidentId, plan.setsOwnAlarm ? 1 : 0, "\(plan.chain)"
+    )
+    // After the push's own alarm (or none), the chain, as one more serial
+    // step. Only then is iOS told the push is handled.
+    let setChain: (Bool) -> Void = { ok in
+      Task { @MainActor in
+        await AlarmSerial.shared.run {
+          if !alarmKit {
+            // Below iOS 26 no alarm wrote the incident down, and the chain
+            // and Stop both read it from here.
+            PendingIncidentStore.write(
+              incidentId: incidentId, topic: topic, server: push.server.absoluteString,
+              title: title, openedAt: PendingIncidentStore.read(incidentId: incidentId)?.openedAt ?? Date(),
+              ringUntil: push.ringUntil, sound: sound
+            )
+          }
+          switch plan.chain {
+          case .none:
+            break
+          case .topUp:
+            await IncidentChain.topUp(incidentId: incidentId)
+          case .reset(let offsetS):
+            await IncidentChain.armRing(incidentId: incidentId, offsetS: offsetS)
+          }
+        }
+        completionHandler(ok ? .newData : .noData)
+      }
+    }
+    guard plan.setsOwnAlarm else {
+      setChain(true)
+      return
+    }
     scheduleAlarm(
       incidentId: incidentId,
-      topic: userInfo["topic"] as? String ?? "",
+      topic: topic,
       server: push.server.absoluteString,
-      title: push.title ?? "Crit Alarm",
-      sound: userInfo["sound"] as? String,
+      title: title,
+      sound: sound,
       // Stored with the incident by the scheduler, so a Stop tapped seconds
       // later can decide whether to re-arm without a network call.
       ringUntil: push.ringUntil
     ) { ok in
-      completionHandler(ok ? .newData : .noData)
+      setChain(ok || !alarmKit)
     }
   }
 }

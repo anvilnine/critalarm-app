@@ -1209,6 +1209,7 @@ Future<void> configureDependencies({
             localStore == null ? DebugStoreStats.empty : localStore.stats(),
         flushNow: getIt<AckQueue>().flushNow,
         cancelAllRearms: getIt<AlarmHost>().cancelAllRearms,
+        probeAlarmCapacity: getIt<AlarmHost>().probeAlarmCapacity,
         clearContentCache: getIt<AlarmHost>().clearContentCache,
         clearAckedSet: getIt<AlarmHost>().clearAckedSet,
         reconcileNow: getIt<IncidentAlarmController>().reconcile,

@@ -368,7 +368,10 @@ public final class IncidentActivityCoordinator {
         // Marked first, so a repeat push that crosses this does not ring.
         AckedIncidentStore.markRemotelyAcknowledged(incidentId: incidentId)
         WidgetSnapshotStore.patch(state == .acked ? .acked(incidentId, at: Date()) : .ended(incidentId))
-        await IncidentRearm.cancel(incidentId: incidentId)
+        // Acknowledged keeps a desk timer chain "I'm up" set on this phone.
+        // An acknowledge from another phone finds none, so its ring chain
+        // goes all the same.
+        await IncidentRearm.cancel(incidentId: incidentId, for: state == .acked ? .remoteAcked : .ended)
         setAlarmActive(false, incidentId: incidentId)
         if state == .acked {
             await markCardAcked(incidentId: incidentId)

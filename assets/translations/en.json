@@ -1033,6 +1033,7 @@
     "alarm_debug_clear_acked": "Clear",
     "alarm_debug_flush_now": "Flush now",
     "alarm_debug_reconcile": "Reconcile now",
+    "alarm_debug_probe_alarms": "Test 60 alarms",
     "alarm_debug_report_copied": "Report copied",
     "alarm_debug_error": "Could not refresh: {error}",
     "alarm_debug_device_time": "Device time",

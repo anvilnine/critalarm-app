@@ -378,6 +378,11 @@ final class AlarmHost {
   /// Drops every pending native re-arm, leaving unrelated notifications alone.
   Future<void> cancelAllRearms() => _invoke<void>('cancelAllRearms');
 
+  /// Debug builds on iOS 26 and later: sets 60 AlarmKit alarms an hour out,
+  /// lists them back and cancels them. The answer lands in the next
+  /// [debugSnapshot] as an `alarmkit_probe` row. A no-op elsewhere.
+  Future<void> probeAlarmCapacity() => _invoke<void>('probeAlarmCapacity');
+
   /// Clears cached native incident text.
   Future<void> clearContentCache() => _invoke<void>('clearContentCache');
 
