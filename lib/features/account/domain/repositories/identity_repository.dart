@@ -24,4 +24,12 @@ abstract interface class IdentityRepository {
 
   /// Drops the stored session and signs out of the provider.
   Future<void> clearSession();
+
+  /// For a phone restored from a backup or moved to a new one. The
+  /// provider, email and account id ride along in the backup, and the
+  /// session token does not. A sign-in with no token reads as signed out:
+  /// this drops what came along, so the account screen offers sign-in
+  /// again. A phone that still holds its token stays signed in. The account
+  /// itself is not touched.
+  Future<void> forgetRestoredSignIn();
 }
