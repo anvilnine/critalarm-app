@@ -34,7 +34,7 @@ class AlarmChains(
         fun set(incidentId: String, slot: Int, atMillis: Long, title: String?, body: String?): Boolean
 
         /** Safe to call for a slot that is not set. */
-        fun cancel(incidentId: String, slot: Int)
+        fun cancelSlot(incidentId: String, slot: Int)
 
         fun isSet(incidentId: String, slot: Int): Boolean
     }
@@ -158,7 +158,7 @@ class AlarmChains(
     /** Removes every slot of the incident's chain, whichever kind it is. */
     fun cancelChain(incidentId: String) = synchronized(RingLocks.of(incidentId)) {
         val chain = store.chainOf(incidentId) ?: return@synchronized
-        for (slot in chain.slots.indices) alarms.cancel(incidentId, slot)
+        for (slot in chain.slots.indices) alarms.cancelSlot(incidentId, slot)
         store.clearChain(incidentId)
         log("chain_cancelled incident_id=$incidentId slots=${chain.slots.size}")
     }
@@ -306,12 +306,12 @@ class AlarmChains(
         for ((slot, at) in chain.slots.withIndex()) {
             if (alarms.set(incidentId, slot, at, title, body)) continue
             val count = maxOf(chain.slots.size, old?.slots?.size ?: 0)
-            for (each in 0 until count) alarms.cancel(incidentId, each)
+            for (each in 0 until count) alarms.cancelSlot(incidentId, each)
             store.clearChain(incidentId)
             log("chain_refused incident_id=$incidentId")
             return null
         }
-        old?.let { for (slot in chain.slots.size until it.slots.size) alarms.cancel(incidentId, slot) }
+        old?.let { for (slot in chain.slots.size until it.slots.size) alarms.cancelSlot(incidentId, slot) }
         store.rememberChain(incidentId, chain)
         log("chain_set incident_id=$incidentId kind=${chain.kind} slots=${chain.slots.size}")
         return chain.slots.first()
@@ -373,7 +373,7 @@ object AlarmChain {
                 body = body,
             )
 
-        override fun cancel(incidentId: String, slot: Int) =
+        override fun cancelSlot(incidentId: String, slot: Int) =
             ScheduledAlarmReceiver.cancelSlot(context, incidentId, slot)
 
         override fun isSet(incidentId: String, slot: Int) =
