@@ -105,6 +105,20 @@ class LinkHandoverTest {
         assertEquals("/incidents/inc_1", TapRoute.routeFor(tap))
     }
 
+    @Test
+    fun `a Done tap keeps its marker and gets no link from an extra nothing held`() {
+        val tap = TapRoute.tapFor(1, "inc_1", null, null, LinkHandover.take(connect), MainActivity.FROM_DONE)
+        assertEquals(
+            mapOf(
+                MainActivity.KEY_TAP_ID to "1",
+                MainActivity.EXTRA_INCIDENT_ID to "inc_1",
+                MainActivity.EXTRA_FROM to MainActivity.FROM_DONE,
+            ),
+            tap,
+        )
+        assertEquals("/incidents/inc_1?from=done", TapRoute.routeFor(tap))
+    }
+
     private val manifest = File("src/main/AndroidManifest.xml").readText()
     private val mainActivity = File("src/main/kotlin/app/critalarm/MainActivity.kt").readText()
     private val linkActivity = File("src/main/kotlin/app/critalarm/links/AppLinkActivity.kt").readText()
