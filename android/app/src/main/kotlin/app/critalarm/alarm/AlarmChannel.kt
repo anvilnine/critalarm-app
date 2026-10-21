@@ -31,7 +31,20 @@ import io.flutter.plugin.common.MethodChannel
  * Only the calls Android can honour are answered. The rest fall through to
  * notImplemented, which Dart already reads as "this platform does not do that".
  */
-class AlarmChannel(private val context: Context) {
+class AlarmChannel(
+    private val context: Context,
+    /**
+     * The window that shows the alarm over the lock screen, when an activity
+     * is attached. See [AlarmLockRule].
+     */
+    private val lockScreen: LockScreen? = null,
+) {
+    /** What MainActivity does for `releaseLockScreen` and `holdLockScreen`. */
+    interface LockScreen {
+        fun release(incidentId: String?)
+        fun hold(incidentId: String)
+    }
+
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -74,6 +87,21 @@ class AlarmChannel(private val context: Context) {
             }
 
             "isRinging" -> result.success(AlarmForegroundService.isRinging)
+
+            // The alarm screen was acknowledged, closed or left. The window
+            // stops showing over the lock screen unless another alarm needs it.
+            "releaseLockScreen" -> {
+                lockScreen?.release(call.argument<String>("incident_id"))
+                result.success(null)
+            }
+
+            // The alarm screen started ringing, or is in front again after
+            // its topic. Refused natively for an incident that owes no ack.
+            "holdLockScreen" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (!incidentId.isNullOrEmpty()) lockScreen?.hold(incidentId)
+                result.success(null)
+            }
 
             "debugSnapshot" -> result.success(AlarmDebug.snapshot(context))
 

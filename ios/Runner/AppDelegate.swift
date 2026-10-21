@@ -1730,7 +1730,25 @@ enum AlarmSoundPolicy {
 /// flag was true is invisible to a read asking for false. Dart passes "any" to
 /// find both, which is how the old single item is still reachable after the
 /// split. Updates never delete the old secret.
+///
+/// The same channel holds the sign-in session (`identity_session`), an
+/// unsynced item that Dart writes with `this_device_only`. That item never
+/// leaves the phone: no iCloud Keychain, no backup, no phone to phone
+/// transfer.
 enum DeviceIdentityKeychain {
+  /// How readable the item is. Every item is readable after the first unlock,
+  /// because pushes arrive with the phone locked. `this_device_only: true`
+  /// adds ThisDeviceOnly, which an unsynced item needs to stay out of
+  /// backups. A synced item cannot carry it, so the flag is ignored there.
+  static func accessibility(_ arguments: Any?) -> CFString {
+    let args = arguments as? [String: Any]
+    let thisDeviceOnly = args?["this_device_only"] as? Bool ?? false
+    let synced = args?["synchronizable"] as? Bool ?? false
+    return thisDeviceOnly && !synced
+      ? kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+      : kSecAttrAccessibleAfterFirstUnlock
+  }
+
   /// What `synchronizable` may be on a call from Dart: true, false, or the
   /// string "any", which reads a synced and an unsynced copy at once.
   static func syncAttribute(_ value: Any?) -> Any? {
@@ -1784,7 +1802,7 @@ enum DeviceIdentityKeychain {
       }
       let attributes: [String: Any] = [
         kSecValueData as String: data,
-        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        kSecAttrAccessible as String: accessibility(call.arguments),
       ]
       var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
       if status == errSecItemNotFound {
