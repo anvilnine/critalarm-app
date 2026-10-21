@@ -150,35 +150,8 @@ public enum IncidentAlarmScheduler {
         // system auto-muted it.
         try? AlarmManager.shared.cancel(id: id)
 
-        // Two buttons, and they are not the same thing. Stop silences and
-        // sets the next ring; "Open Crit Alarm" opens the app to the active incident
-        // without stopping the alarm in the background. The secondary button is
-        // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
-        //
-        // The button words are looked up here, in the language picked in the
-        // app, and handed over as finished text: AlarmKit draws them outside
-        // this process, where only the phone's language is known.
-        let alert = AlarmPresentation.Alert(
-            title: LocalizedStringResource(stringLiteral: title),
-            stopButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmStop)),
-                textColor: .white,
-                systemImageName: "bell.slash.fill"
-            ),
-            secondaryButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmOpenApp)),
-                textColor: .white,
-                systemImageName: "checkmark.circle.fill"
-            ),
-            secondaryButtonBehavior: .custom
-        )
-        let countdown = AlarmPresentation.Countdown(
-            title: LocalizedStringResource(stringLiteral: title)
-        )
-        let attributes = AlarmAttributes(
-            presentation: AlarmPresentation(alert: alert, countdown: countdown),
-            metadata: IncidentAlarmMetadata(incidentId: incidentId, topic: topic, server: server),
-            tintColor: Color(red: 0.961, green: 0.278, blue: 0.227)  // crit #F5473A
+        let attributes = alarmAttributes(
+            incidentId: incidentId, topic: topic, server: server, title: title
         )
 
         // An own sound never rings here while own sounds are locked. The
@@ -219,6 +192,47 @@ public enum IncidentAlarmScheduler {
             )
             return false
         }
+    }
+
+    /// What the alarm shows and the two buttons it carries. The push alarm
+    /// and every slot of the incident's chain look the same.
+    @available(iOS 26.0, *)
+    static func alarmAttributes(
+        incidentId: String,
+        topic: String,
+        server: String,
+        title: String
+    ) -> AlarmAttributes<IncidentAlarmMetadata> {
+        // Two buttons, and they are not the same thing. Stop silences and
+        // sets the next ring; "Open Crit Alarm" opens the app to the active incident
+        // without stopping the alarm in the background. The secondary button is
+        // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
+        //
+        // The button words are looked up here, in the language picked in the
+        // app, and handed over as finished text: AlarmKit draws them outside
+        // this process, where only the phone's language is known.
+        let alert = AlarmPresentation.Alert(
+            title: LocalizedStringResource(stringLiteral: title),
+            stopButton: AlarmButton(
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmStop)),
+                textColor: .white,
+                systemImageName: "bell.slash.fill"
+            ),
+            secondaryButton: AlarmButton(
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmOpenApp)),
+                textColor: .white,
+                systemImageName: "checkmark.circle.fill"
+            ),
+            secondaryButtonBehavior: .custom
+        )
+        let countdown = AlarmPresentation.Countdown(
+            title: LocalizedStringResource(stringLiteral: title)
+        )
+        return AlarmAttributes(
+            presentation: AlarmPresentation(alert: alert, countdown: countdown),
+            metadata: IncidentAlarmMetadata(incidentId: incidentId, topic: topic, server: server),
+            tintColor: Color(red: 0.961, green: 0.278, blue: 0.227)  // crit #F5473A
+        )
     }
 
     /// The incident closed or expired, so nothing should ring for it.

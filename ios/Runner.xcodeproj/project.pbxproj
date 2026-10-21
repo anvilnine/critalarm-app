@@ -181,6 +181,15 @@
 		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
 		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
+		C4A100000000000000000201 /* ChainRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000101 /* ChainRule.swift */; };
+		C4A100000000000000000202 /* ChainRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000101 /* ChainRule.swift */; };
+		C4A100000000000000000203 /* ChainRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000101 /* ChainRule.swift */; };
+		C4A100000000000000000204 /* ChainRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000101 /* ChainRule.swift */; };
+		C4A100000000000000000211 /* IncidentChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000102 /* IncidentChain.swift */; };
+		C4A100000000000000000212 /* IncidentChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000102 /* IncidentChain.swift */; };
+		C4A100000000000000000213 /* IncidentChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000102 /* IncidentChain.swift */; };
+		C4A100000000000000000214 /* IncidentChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000102 /* IncidentChain.swift */; };
+		C4A100000000000000000221 /* ChainRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000103 /* ChainRuleTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -367,6 +376,9 @@
 		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
 		F706A2A4516835A56FA2F295 /* IncidentContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContent.swift; sourceTree = "<group>"; };
 		F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmActivityWidget.swift; sourceTree = "<group>"; };
+		C4A100000000000000000101 /* ChainRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChainRule.swift; sourceTree = "<group>"; };
+		C4A100000000000000000102 /* IncidentChain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentChain.swift; sourceTree = "<group>"; };
+		C4A100000000000000000103 /* ChainRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChainRuleTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -449,6 +461,7 @@
 			children = (
 				A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */,
 				A28A00000000000000000103 /* RearmRuleTests.swift */,
+				C4A100000000000000000103 /* ChainRuleTests.swift */,
 				A19B00000000000000000002 /* DebugStateRuleTests.swift */,
 				A24A00000000000000000005 /* AckedIncidentStoreTests.swift */,
 				A24A00000000000000000081 /* OpenIncidentStoreTests.swift */,
@@ -611,6 +624,8 @@
 				A19B00000000000000000001 /* DebugStateRule.swift */,
 				A19B00000000000000000003 /* AlarmDebug.swift */,
 				A28A00000000000000000102 /* IncidentRearm.swift */,
+				C4A100000000000000000101 /* ChainRule.swift */,
+				C4A100000000000000000102 /* IncidentChain.swift */,
 				94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */,
 				0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */,
 				C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */,
@@ -1029,9 +1044,12 @@
 				A191A0000000000000000031 /* MotionSensorTests.swift in Sources */,
 				A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */,
 				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
+				C4A100000000000000000221 /* ChainRuleTests.swift in Sources */,
 				A19B00000000000000000011 /* DebugStateRule.swift in Sources */,
 				A19B00000000000000000013 /* DebugStateRuleTests.swift in Sources */,
 				A28A00000000000000000211 /* IncidentRearm.swift in Sources */,
+				C4A100000000000000000201 /* ChainRule.swift in Sources */,
+				C4A100000000000000000211 /* IncidentChain.swift in Sources */,
 				A28A00000000000000000201 /* RearmRule.swift in Sources */,
 				A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */,
 				A24A00000000000000000052 /* OpenIncidentStore.swift in Sources */,
@@ -1078,6 +1096,8 @@
 				A31000000000000000000021 /* WidgetSnapshotStore.swift in Sources */,
 				A31000000000000000000031 /* WidgetLink.swift in Sources */,
 				A28A00000000000000000212 /* IncidentRearm.swift in Sources */,
+				C4A100000000000000000202 /* ChainRule.swift in Sources */,
+				C4A100000000000000000212 /* IncidentChain.swift in Sources */,
 				A28A00000000000000000202 /* RearmRule.swift in Sources */,
 				A19B00000000000000000012 /* DebugStateRule.swift in Sources */,
 				A19B00000000000000000014 /* AlarmDebug.swift in Sources */,
@@ -1132,6 +1152,8 @@
 				A31000000000000000000012 /* WidgetSnapshot.swift in Sources */,
 				A31000000000000000000022 /* WidgetSnapshotStore.swift in Sources */,
 				A28A00000000000000000213 /* IncidentRearm.swift in Sources */,
+				C4A100000000000000000203 /* ChainRule.swift in Sources */,
+				C4A100000000000000000213 /* IncidentChain.swift in Sources */,
 				A28A00000000000000000203 /* RearmRule.swift in Sources */,
 				A24A00000000000000000035 /* NativeAckSender.swift in Sources */,
 				A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */,
@@ -1167,6 +1189,8 @@
 				A28A00000000000000000241 /* IncidentPush.swift in Sources */,
 				A28A00000000000000000231 /* QuietHours.swift in Sources */,
 				A28A00000000000000000214 /* IncidentRearm.swift in Sources */,
+				C4A100000000000000000204 /* ChainRule.swift in Sources */,
+				C4A100000000000000000214 /* IncidentChain.swift in Sources */,
 				A28A00000000000000000204 /* RearmRule.swift in Sources */,
 				A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */,
 				A24A00000000000000000033 /* NativeAckSender.swift in Sources */,

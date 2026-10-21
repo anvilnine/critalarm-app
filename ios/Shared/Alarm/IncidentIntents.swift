@@ -161,10 +161,12 @@ struct StopAlarmIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         // Nothing is queued and nothing is marked. Stop is not an acknowledge:
-        // the incident stays open, the server keeps repeating, and this sets
-        // the phone's own next ring on top of that. A LiveActivityIntent runs
-        // in the app's own process, so the re-armed alarm survives a
-        // force-quit, which is the one exit the server repeat cannot reach.
+        // the incident stays open, the server keeps repeating, and the
+        // phone's own chain already holds the next ring. Stop only silences
+        // this one; the re-arm below tops the chain up, or starts one when
+        // none is set. A LiveActivityIntent runs in the app's own process,
+        // so the chain survives a force-quit, which is the one exit the
+        // server repeat cannot reach.
         NSLog("CritAlarmAlarm: alarm_silenced incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.alarmSilenced(incidentId: incidentId)
         // On AlarmSerial, so it never lands between a guarded stop's check
@@ -240,9 +242,11 @@ struct AckAlarmIntent: LiveActivityIntent {
             "CritAlarmAlarm: alarm_acked incident_id=%@ process=%@",
             incidentId, Bundle.main.bundleIdentifier ?? "unknown"
         )
-        // Any ring this phone set for itself goes with the acknowledge. This
-        // also cancels the AlarmKit alarm that is alerting right now.
-        await IncidentRearm.cancel(incidentId: incidentId)
+        // Every ring this phone set for itself goes with the acknowledge,
+        // network or not. This also cancels the AlarmKit alarm that is
+        // alerting right now. The desk timer chain takes over until
+        // "At my desk".
+        await IncidentRearm.acknowledged(incidentId: incidentId)
         await IncidentActivityCoordinator.shared.alarmStopped(incidentId: incidentId)
         // One native try. On success the queue entry is gone; otherwise Dart
         // sends it with its own backoff.
@@ -273,6 +277,9 @@ struct CloseIncidentIntent: LiveActivityIntent {
             "CritAlarmActivity: incident_closed incident_id=%@ process=%@",
             incidentId, Bundle.main.bundleIdentifier ?? "unknown"
         )
+        // "At my desk": the desk timer chain, and anything else this phone
+        // set, goes now, before the network is tried.
+        await IncidentRearm.cancel(incidentId: incidentId, for: .atMyDesk)
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
         // The widget drops the incident only once the server says it is over,
         // the same as Android. A 409 or a failed try leaves the row; Dart sends

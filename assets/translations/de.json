@@ -1038,6 +1038,7 @@
     "alarm_debug_clear_acked": "Leeren",
     "alarm_debug_flush_now": "Jetzt senden",
     "alarm_debug_reconcile": "Jetzt abgleichen",
+    "alarm_debug_probe_alarms": "60 Alarme testen",
     "alarm_debug_report_copied": "Bericht kopiert",
     "alarm_debug_error": "Aktualisieren fehlgeschlagen: {error}",
     "alarm_debug_device_time": "Gerätezeit",
