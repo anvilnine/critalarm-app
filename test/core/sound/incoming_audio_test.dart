@@ -97,13 +97,47 @@ void main() {
         isShareCopy = (path) async => path.startsWith('/cache/incoming_audio/');
       });
 
-      test('is never deleted, opened or answered', () async {
+      test('is never deleted or opened, and reads as unreadable', () async {
         final incoming = build();
         await incoming.receive(prefs);
         expect(discarded, isEmpty);
         expect(opened, isEmpty);
-        expect(rejected, isEmpty);
+        expect(rejected, [SoundImportRejection.unreadable]);
         expect(incoming.pending, isNull);
+      });
+
+      test(
+        'an iOS copy that could not be made says it could not be read',
+        () async {
+          // No Caches folder: iOS sends the Inbox path it handed over.
+          final incoming = build();
+          await incoming.receive(
+            const PickedSoundFile(
+              path:
+                  '/var/mobile/Containers/Data/Application/X/Documents/Inbox/memo.m4a',
+              name: 'memo.m4a',
+              sizeBytes: 0,
+            ),
+          );
+          expect(rejected, [SoundImportRejection.unreadable]);
+          expect(discarded, isEmpty);
+          expect(opened, isEmpty);
+        },
+      );
+
+      test('the same refused path is answered once', () async {
+        final incoming = build();
+        await incoming.receive(prefs);
+        await incoming.receive(prefs);
+        expect(rejected, [SoundImportRejection.unreadable]);
+      });
+
+      test('says nothing where sounds cannot be imported at all', () async {
+        canImport = false;
+        final incoming = build();
+        await incoming.receive(prefs);
+        expect(rejected, isEmpty);
+        expect(discarded, isEmpty);
       });
 
       test('is not deleted while own sounds are locked either', () async {

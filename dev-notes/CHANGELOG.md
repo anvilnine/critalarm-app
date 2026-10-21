@@ -13,6 +13,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
+- IncomingAudio answers a shared path that fails isShareCopyPath with the unreadable rejection, so an iOS share copy that could not be made shows the could not read message. The path is still never opened or deleted.
 
 ### Security
 - Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
