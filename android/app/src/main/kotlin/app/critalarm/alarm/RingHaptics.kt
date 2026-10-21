@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
 import androidx.annotation.RequiresApi
+import app.critalarm.storage.BootStorage
 
 /**
  * The vibration that goes with a ring, when "Vibrate with the alarm" is on.
@@ -105,7 +106,6 @@ class RingHaptics(private val context: Context) {
  * with no Flutter engine running. Both default to on.
  */
 object RingSwitches {
-    private const val PREFS = "FlutterSharedPreferences"
     const val BRIGHT_SCREEN_KEY = "flutter.ring_bright_screen"
     const val VIBRATE_KEY = "flutter.ring_vibrate"
 
@@ -114,6 +114,7 @@ object RingSwitches {
     fun vibrate(context: Context): Boolean = read(context, VIBRATE_KEY)
 
     private fun read(context: Context, key: String): Boolean = runCatching {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(key, true)
+        // Before the first unlock, from the copy in device-protected storage.
+        BootStorage.flutterPrefs(context).getBoolean(key, true)
     }.getOrDefault(true)
 }

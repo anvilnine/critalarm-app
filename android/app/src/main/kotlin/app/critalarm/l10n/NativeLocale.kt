@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
+import app.critalarm.storage.BootStorage
 
 /**
  * The language picked inside the app, for code that runs with no Flutter
@@ -24,12 +25,13 @@ import android.os.LocaleList
  * No pick means System default: the phone's own languages.
  */
 object NativeLocale {
-    private const val PREFS = "critalarm_locale"
-    private const val KEY = "app_locale"
+    /** Device-protected, so the alarm card has its words before the first unlock. */
+    private const val PREFS = BootStorage.LOCALE
+    internal const val KEY = "app_locale"
 
     /** The tag last picked in the app, or null for System default. */
     fun savedTag(context: Context): String? =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        BootStorage.prefs(context, PREFS)
             .getString(KEY, null)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
@@ -37,7 +39,7 @@ object NativeLocale {
     /** Stores [tag] (null or empty for System default) and hands it to the system on 13+. */
     fun apply(context: Context, tag: String?) {
         val clean = tag?.trim()?.takeIf { it.isNotEmpty() }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
+        BootStorage.prefs(context, PREFS).edit().apply {
             if (clean == null) remove(KEY) else putString(KEY, clean)
         }.apply()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

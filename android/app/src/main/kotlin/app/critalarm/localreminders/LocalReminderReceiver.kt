@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 
 /** Posts a reminder when its alarm goes off, unless an alarm is under way. */
@@ -26,8 +27,13 @@ class LocalReminderReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "CritAlarmLocalReminders"
 
-        /** Posts every reminder that waited. Called from each ack path. */
+        /**
+         * Posts every reminder that waited. Called from each ack path. Before
+         * the first unlock after a reboot the reminders cannot be read; the
+         * boot after the unlock sets them all again.
+         */
         fun releaseHeld(context: Context) {
+            if (!BootStorage.isUnlocked(context)) return
             val ids = LocalReminderHoldRule.released(
                 heldIds = LocalReminderSpecStore.heldIds(context),
                 alarmRinging = AlarmForegroundService.isRinging,

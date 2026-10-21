@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import app.critalarm.storage.BootStorage
 
 /** [AlarmStream] on the phone's alarm stream. */
 class AudioManagerStream(private val audioManager: AudioManager) : AlarmStream {
@@ -19,10 +21,11 @@ class AudioManagerStream(private val audioManager: AudioManager) : AlarmStream {
 
 /**
  * [SavedVolume] in the app's own preferences file. Written with commit, so
- * the value is on disk before the stream is raised.
+ * the value is on disk before the stream is raised. Device-protected, so a
+ * ring before the first unlock can save and restore it too.
  */
-class PrefsSavedVolume(context: Context) : SavedVolume {
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+class PrefsSavedVolume internal constructor(private val prefs: SharedPreferences) : SavedVolume {
+    constructor(context: Context) : this(BootStorage.prefs(context, PREFS))
 
     override fun read(): Int? = if (prefs.contains(KEY)) prefs.getInt(KEY, 0) else null
 
@@ -34,8 +37,8 @@ class PrefsSavedVolume(context: Context) : SavedVolume {
         prefs.edit().remove(KEY).commit()
     }
 
-    private companion object {
-        const val PREFS = "critalarm_ring_volume"
+    internal companion object {
+        const val PREFS = BootStorage.RING_VOLUME
         const val KEY = "volume_before_ring"
     }
 }

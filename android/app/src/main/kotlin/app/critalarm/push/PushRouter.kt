@@ -17,6 +17,7 @@ import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderReceiver
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
@@ -88,6 +89,12 @@ class PushRouter(private val context: Context) {
         // sound, no card, and nothing below this line runs for it. Every
         // other push is not a check and goes on exactly as before.
         CheckPush.fromData(data)?.let { check ->
+            // The receipt needs the session, which cannot be read before the
+            // first unlock after a reboot. That check goes unanswered.
+            if (!BootStorage.isUnlocked(context)) {
+                Log.i(TAG, "check_skipped reason=locked")
+                return null
+            }
             WeeklyCheckResponder.answer(context, check)
             return null
         }
@@ -166,6 +173,9 @@ class PushRouter(private val context: Context) {
         // later and the re-arm reads this with no network call. A reopen moves
         // opened_at, so the server sends a new value and it lands here too.
         payload.ringUntilMillis?.let { store.rememberRingUntil(incidentId, it) }
+        // A chain set again after a reboot needs the server for its rings
+        // before the session can be read.
+        store.rememberServer(incidentId, payload.server.toString())
         // Every ring from now to ring_until, held by the system, so the phone
         // keeps ringing with no network until someone answers. A later push
         // for the incident sets it again from now, in place of the old one.

@@ -191,8 +191,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- directBootAware: a phone that restarts overnight sits locked until
+             someone unlocks it, and the alarm has to ring before that. The
+             push service, the alarm service, the chain's receiver and the
+             boot receiver run then, and read only device-protected storage
+             (storage/BootStorage.kt). firebase-messaging-directboot delivers
+             pushes to the service in that state. -->
         <service
             android:name=".push.CritAlarmMessagingService"
+            android:directBootAware="true"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -206,6 +213,7 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
             android:name=".alarm.AlarmForegroundService"
+            android:directBootAware="true"
             android:exported="false"
             android:foregroundServiceType="specialUse"
             android:stopWithTask="false">
@@ -217,10 +225,23 @@
             android:name=".actions.IncidentActionReceiver"
             android:exported="false" />
         <!-- Starts the alarm service for a local alarm set earlier, with no
-             push involved. Onboarding's test alarm is the only caller. -->
+             push involved: onboarding's test alarm and every slot of an
+             incident's ring chain. -->
         <receiver
             android:name=".alarm.ScheduledAlarmReceiver"
+            android:directBootAware="true"
             android:exported="false" />
+        <!-- A reboot drops every alarm. Sets each open incident's ring chain
+             again, before the first unlock and, if that did not run, after. -->
+        <receiver
+            android:name=".alarm.ChainBootReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
         <!-- Local reminders. AlarmManager fires LocalReminderReceiver; the boot
              receiver re-arms them after a reboot, an update, or a clock or
              time zone change; the action receiver handles "Not now" without
