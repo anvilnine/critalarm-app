@@ -16,6 +16,7 @@ import android.util.Log
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import app.critalarm.alarm.AlarmChain
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.AlarmLockRule
@@ -514,6 +515,9 @@ class MainActivity : FlutterFragmentActivity() {
         NotificationChannels.ensureCreated(this)
         // A ring the process died in left the alarm volume at full.
         RingVolumeWatch.recoverOnLaunch(this)
+        // Any ring chain whose incident is over goes, which heals a slot a
+        // cancel missed.
+        AlarmChain.of(this).sweep(System.currentTimeMillis())
         pendingReminderTap = LocalReminderTapIntent.read(this, intent)
         showOverLockFor(intent)
         // Read once, before Flutter asks for the initial route. Dart's

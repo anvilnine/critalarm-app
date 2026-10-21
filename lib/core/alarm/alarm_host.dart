@@ -256,6 +256,25 @@ final class AlarmHost {
   Future<void> cancelRearm(String incidentId) async =>
       _invoke<void>('cancelRearm', {'incident_id': incidentId});
 
+  /// Drops every ring the phone set for itself, for every incident. A
+  /// sign-out, an account wipe and a connect to another server call it, so
+  /// no incident of the old account rings on its own. Android sets those
+  /// rings ahead, every repeat interval to `ring_until`, the moment an
+  /// incident first rings.
+  Future<void> cancelAllChains() => _invoke<void>('cancelAllChains');
+
+  /// Drops every ring the phone set for itself for incidents on [topic].
+  /// For a topic that was deleted or had its critical switch turned off.
+  Future<void> cancelChainsForTopic(String topic) =>
+      _invoke<void>('cancelChainsForTopic', {'topic': topic});
+
+  /// Hands over the full topic list, name to critical switch, right after it
+  /// was read. Native drops the rings it set for incidents on a topic that is
+  /// gone from the list or switched off. Incidents whose topic the phone has
+  /// not learned yet keep theirs.
+  Future<void> syncChains(Map<String, bool> criticalByTopic) =>
+      _invoke<void>('syncChains', {'topics': criticalByTopic});
+
   /// The ring generation of [incidentId] on this phone: a counter every
   /// push that arms a ring for it moves on by one. A Stop's own re-arm does
   /// not. Read it before asking the server, and hand it to

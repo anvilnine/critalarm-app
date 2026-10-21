@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.alarm.AlarmChain
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
 import app.critalarm.localreminders.LocalReminderReceiver
@@ -71,6 +72,15 @@ class IncidentActionReceiver : BroadcastReceiver() {
                 WidgetSnapshotStore(context).patch { snapshot, now ->
                     WidgetSnapshotPatch.acked(snapshot, incidentId, ackedAtMillis / 1000L, now)
                 }
+                // Nobody at the desk when the desk timer ends rings again,
+                // with or without a network. "At my desk" ends it.
+                AlarmChain.of(context).setDeskChain(
+                    incidentId = incidentId,
+                    ackedAtMillis = ackedAtMillis,
+                    nowMillis = System.currentTimeMillis(),
+                    title = title,
+                    body = body,
+                )
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
@@ -117,6 +127,12 @@ class IncidentActionReceiver : BroadcastReceiver() {
                 Log.i(TAG, "status_notification_posted incident_id=$incidentId")
             }
         }
+        if (route.action == IncidentAction.CLOSE) {
+            // "At my desk" ends every ring this phone set for itself, the
+            // desk timer chain included, before the close goes out. With no
+            // network the close waits in the queue; the rings do not.
+            IncidentRearm.cancel(context, incidentId)
+        }
         val queue = AckQueueStore(context)
         val pending = goAsync()
         Thread {
@@ -144,7 +160,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     Log.i(TAG, "ack_queued action=${route.action.wireValue} incident_id=$incidentId pending=${queue.pendingCount()}")
                 }
                 if (route.action == IncidentAction.ACK && status in 200..299) {
-                    rememberDeskTimer(connection, deliveries, incidentId)
+                    rememberDeskTimer(context, connection, deliveries, incidentId, title, body)
                 }
                 if (route.action == IncidentAction.CLOSE && ActionResponseRule.endsTheIncident(status)) {
                     // Written before the cancel, because a fetch started by the
@@ -257,15 +273,26 @@ class IncidentActionReceiver : BroadcastReceiver() {
      * in place.
      */
     private fun rememberDeskTimer(
+        context: Context,
         connection: HttpURLConnection,
         deliveries: IncidentDeliveryStore,
         incidentId: String,
+        title: String?,
+        body: String?,
     ) {
         val text = runCatching {
             connection.inputStream.bufferedReader().use { it.readText() }
         }.getOrNull() ?: return
         val firesAt = IncidentContentFetcher.parseDeskTimerFiresAt(text) ?: return
         deliveries.rememberDeskTimerFiresAt(incidentId, firesAt)
+        // The desk timer chain counted from the cached timer. The server's
+        // instant replaces it.
+        AlarmChain.of(context).deskTimerLearned(
+            incidentId = incidentId,
+            nowMillis = System.currentTimeMillis(),
+            title = title,
+            body = body,
+        )
         Log.i(TAG, "desk_timer_resolved incident_id=$incidentId fires_at=$firesAt")
     }
 

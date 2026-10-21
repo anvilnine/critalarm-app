@@ -140,7 +140,8 @@ class AlarmChannel(
                     closed = deliveries.isClosed(incidentId),
                     active = deliveries.isActive(incidentId),
                     ringing = AlarmForegroundService.isRinging(incidentId),
-                    rearmPending = deliveries.rearmFiresAtMillis(incidentId) != null,
+                    rearmPending = AlarmChain.of(context)
+                        .ringPending(incidentId, System.currentTimeMillis()),
                 )
                 if (!mayClose) {
                     Log.w(TAG, "close_from_done_refused incident_id=$incidentId")
@@ -214,6 +215,27 @@ class AlarmChannel(
             "cancelRearm" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (!incidentId.isNullOrEmpty()) IncidentRearm.cancel(context, incidentId)
+                result.success(null)
+            }
+
+            // Sign-out, an account wipe or a connect to another server. No
+            // incident of the old account may ring on its own.
+            "cancelAllChains" -> {
+                AlarmChain.of(context).cancelAll()
+                result.success(null)
+            }
+
+            // The topic was deleted, or its critical switch turned off.
+            "cancelChainsForTopic" -> {
+                val topic = call.argument<String>("topic")
+                if (!topic.isNullOrEmpty()) AlarmChain.of(context).cancelForTopic(topic)
+                result.success(null)
+            }
+
+            // The full topic list was just read: name to critical switch.
+            "syncChains" -> {
+                val topics = call.argument<Map<String, Boolean>>("topics")
+                if (topics != null) AlarmChain.of(context).syncTopics(topics)
                 result.success(null)
             }
 
@@ -312,7 +334,9 @@ class AlarmChannel(
         title: String? = null,
         body: String? = null,
     ): Boolean = try {
-        ScheduledAlarmReceiver.cancel(context, incidentId)
+        // An acknowledge and a close both end the ring chain. The acknowledge
+        // sets the desk timer chain below.
+        IncidentRearm.cancel(context, incidentId)
         val ackedAtMillis = System.currentTimeMillis()
         val deliveries = IncidentDeliveryStore(context)
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -330,6 +354,13 @@ class AlarmChannel(
         manager?.cancel(MessageNotificationFactory.notificationId(incidentId))
         if (handOverToStatusCard) {
             deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
+            AlarmChain.of(context).setDeskChain(
+                incidentId = incidentId,
+                ackedAtMillis = ackedAtMillis,
+                nowMillis = System.currentTimeMillis(),
+                title = title,
+                body = body,
+            )
             // Anything that waited while the alarm was up can go out now.
             LocalReminderReceiver.releaseHeld(context)
             // Without this the user keeps a promoted RINGING card on an

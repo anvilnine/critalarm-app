@@ -554,6 +554,40 @@ void main() {
       expect(stuck.order, contains('sound lock'));
     });
 
+    test('the rings the phone set for itself go with the rest, and a cancel '
+        'that fails stops nothing', () async {
+      final list = _List();
+      final data = AccountData(
+        acks: list.acks,
+        messageCursors: list.cursors,
+        recentSearches: list.searches,
+        challenges: list.challenges,
+        alarmStyles: list.looks,
+        soundLock: list.soundLock,
+        ownLook: list.ownLook,
+        cancelAlarmChains: () async => list.order.add('alarm chains'),
+      );
+      await data.forget();
+      expect(list.order, [
+        ...everything.where((step) => step != 'after'),
+        'alarm chains',
+      ]);
+
+      final stuck = _List();
+      final blocked = AccountData(
+        acks: stuck.acks,
+        messageCursors: stuck.cursors,
+        recentSearches: stuck.searches,
+        challenges: stuck.challenges,
+        alarmStyles: stuck.looks,
+        soundLock: stuck.soundLock,
+        ownLook: stuck.ownLook,
+        cancelAlarmChains: () async => throw StateError('alarm chains'),
+      );
+      await blocked.forget();
+      expect(stuck.order, contains('sound lock'));
+    });
+
     test('with the real photo store: a sign-out whose ack queue fails '
         'still takes the photo off the phone', () async {
       SharedPreferences.setMockInitialValues({});

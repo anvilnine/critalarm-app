@@ -5,9 +5,12 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import app.critalarm.storage.IncidentDeliveryStore
+import app.critalarm.widgets.WidgetSnapshotPatch
+import app.critalarm.widgets.WidgetSnapshotStore
 
 /**
  * Rings a local alarm after a delay, with no push involved.
@@ -23,8 +26,9 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val incidentId = intent.getStringExtra(EXTRA_INCIDENT_ID)
         if (incidentId.isNullOrEmpty()) return
-        IncidentDeliveryStore(context).clearRearm(incidentId)
-        Log.i(TAG, "scheduled_alarm_fired incident_id=$incidentId")
+        val slot = intent.getIntExtra(EXTRA_SLOT, -1)
+        if (slot >= 0 && !slotRings(context, intent, incidentId, slot)) return
+        Log.i(TAG, "scheduled_alarm_fired incident_id=$incidentId slot=$slot")
 
         val service = Intent(context, AlarmForegroundService::class.java).apply {
             putExtra("incident_id", incidentId)
@@ -43,12 +47,48 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
         context.startForegroundService(service)
     }
 
+    /**
+     * A slot of a chain ([AlarmChains]) went off. True when it rings. The
+     * gate runs again here because the chain was set minutes ago: an ack, a
+     * close or the critical switch may have come since.
+     */
+    private fun slotRings(context: Context, intent: Intent, incidentId: String, slot: Int): Boolean {
+        val now = System.currentTimeMillis()
+        val fired = AlarmChain.of(context).onSlotFired(
+            incidentId = incidentId,
+            slot = slot,
+            atMillis = intent.getLongExtra(EXTRA_AT, 0L),
+            nowMillis = now,
+            title = intent.getStringExtra(EXTRA_TITLE),
+            body = intent.getStringExtra(EXTRA_BODY),
+        )
+        Log.i(TAG, "chain_slot_fired incident_id=$incidentId slot=$slot outcome=$fired")
+        return when (fired) {
+            ChainRule.Fired.RING -> true
+            ChainRule.Fired.REOPEN_AND_RING -> {
+                WidgetSnapshotStore(context).patch { snapshot, nowSeconds ->
+                    WidgetSnapshotPatch.reopened(snapshot, incidentId, nowSeconds)
+                }
+                true
+            }
+            ChainRule.Fired.END -> {
+                val ringUntil = IncidentDeliveryStore(context).ringUntilMillis(incidentId)
+                if (ringUntil != null && now >= ringUntil) IncidentRearm.endRingWindow(context, incidentId)
+                false
+            }
+            ChainRule.Fired.SKIP, ChainRule.Fired.STALE -> false
+        }
+    }
+
     companion object {
         private const val TAG = "CritAlarmAlarm"
         private const val EXTRA_INCIDENT_ID = "incident_id"
         private const val EXTRA_SERVER = "server"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_BODY = "body"
+        private const val EXTRA_SLOT = "chain_slot"
+        private const val EXTRA_AT = "chain_at"
+        private const val SLOT_SCHEME = "critalarm-chain"
 
         /**
          * Puts an alarm [delaySeconds] out for [incidentId], replacing any
@@ -125,17 +165,73 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             )?.let(manager::cancel)
         }
 
-        internal fun isScheduled(context: Context, incidentId: String, firesAtMillis: Long?): Boolean =
-            firesAtMillis != null &&
-                IncidentDeliveryStore(context).rearmFiresAtMillis(incidentId) == firesAtMillis &&
-                pendingIntent(
-                context = context,
-                incidentId = incidentId,
-                server = "",
-                title = "",
-                body = null,
-                flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
-            ) != null
+        /**
+         * One slot of a chain, as a `setAlarmClock` alarm of its own. Its
+         * request code comes from the incident id and [slot], and its intent
+         * carries its own data address, so setting slot 3 again replaces slot
+         * 3 and never touches slot 4 or the onboarding alarm.
+         */
+        fun scheduleSlot(
+            context: Context,
+            incidentId: String,
+            slot: Int,
+            atMillis: Long,
+            server: String,
+            title: String,
+            body: String?,
+        ): Boolean {
+            val manager = context.getSystemService(AlarmManager::class.java) ?: return false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !manager.canScheduleExactAlarms()) {
+                Log.w(TAG, "chain_slot_refused reason=no_exact_alarm_permission")
+                return false
+            }
+            val intent = slotIntent(context, incidentId, slot).apply {
+                putExtra(EXTRA_AT, atMillis)
+                putExtra(EXTRA_SERVER, server)
+                putExtra(EXTRA_TITLE, title)
+                body?.let { putExtra(EXTRA_BODY, it) }
+            }
+            val fire = PendingIntent.getBroadcast(
+                context,
+                ChainRule.requestCode(incidentId, slot),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            ) ?: return false
+            return try {
+                manager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, fire), fire)
+                true
+            } catch (e: Exception) {
+                Log.w(TAG, "chain_slot_failed incident_id=$incidentId slot=$slot error=${e.message}")
+                false
+            }
+        }
+
+        /** Drops one slot. Safe to call when it is not set. */
+        fun cancelSlot(context: Context, incidentId: String, slot: Int) {
+            val manager = context.getSystemService(AlarmManager::class.java) ?: return
+            existingSlot(context, incidentId, slot)?.let {
+                manager.cancel(it)
+                it.cancel()
+            }
+        }
+
+        fun slotIsSet(context: Context, incidentId: String, slot: Int): Boolean =
+            existingSlot(context, incidentId, slot) != null
+
+        private fun existingSlot(context: Context, incidentId: String, slot: Int): PendingIntent? =
+            PendingIntent.getBroadcast(
+                context,
+                ChainRule.requestCode(incidentId, slot),
+                slotIntent(context, incidentId, slot),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        private fun slotIntent(context: Context, incidentId: String, slot: Int): Intent =
+            Intent(context, ScheduledAlarmReceiver::class.java).apply {
+                data = Uri.fromParts(SLOT_SCHEME, "$incidentId/$slot", null)
+                putExtra(EXTRA_INCIDENT_ID, incidentId)
+                putExtra(EXTRA_SLOT, slot)
+            }
 
         private fun pendingIntent(
             context: Context,

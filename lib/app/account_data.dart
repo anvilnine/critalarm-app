@@ -32,6 +32,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// 9. The topic list the phone kept to open with (the `topics` table of the
 ///    local store). It is also read only for the account and server it was
 ///    written for, so a copy that survives a failed drop is still never shown.
+/// 10. The rings the phone set for itself for the account's incidents (the
+///    alarm chains). Nobody is left to acknowledge them to.
 ///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
@@ -57,6 +59,7 @@ class AccountData {
     required this._ownLook,
     this._proofLog,
     this._heldTopics,
+    this._cancelAlarmChains,
     this._afterForget,
   });
 
@@ -72,6 +75,10 @@ class AccountData {
   /// The topic list kept on the phone. Null where the local store is not
   /// open: the web build, or a store that would not open.
   final TopicStore? _heldTopics;
+
+  /// Drops every ring the phone set for itself. Null where no alarm runs,
+  /// such as the web build and tests that do not care.
+  final Future<void> Function()? _cancelAlarmChains;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -111,6 +118,8 @@ class AccountData {
     if (proofLog != null) await _quietly(proofLog.clear);
     final heldTopics = _heldTopics;
     if (heldTopics != null) await _quietly(heldTopics.clear);
+    final cancelAlarmChains = _cancelAlarmChains;
+    if (cancelAlarmChains != null) await _quietly(cancelAlarmChains);
     final after = _afterForget;
     if (after != null) await _quietly(after);
     final failed = failure;

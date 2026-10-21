@@ -21,11 +21,24 @@ class InMemoryTopicRepository implements TopicRepository {
     this.sessions,
     this.identity,
     this.prefs,
+    this.syncAlarmChains,
+    this.cancelAlarmChains,
   });
 
   final ApiSessionStore? sessions;
   final DeviceIdentityStore? identity;
   final SharedPreferences? prefs;
+
+  /// Hands the full topic list (name to critical switch) to the native
+  /// alarm, which drops the rings it set for itself on a topic that is gone
+  /// or switched off. Null where no alarm runs.
+  final Future<void> Function(Map<String, bool> criticalByTopic)?
+  syncAlarmChains;
+
+  /// Drops the rings the native alarm set for itself on one topic. Called
+  /// when the topic is deleted or its critical switch goes off. Null where
+  /// no alarm runs.
+  final Future<void> Function(String topic)? cancelAlarmChains;
 
   /// Key prefix for the mark that a topic's subscription has moved from its
   /// name to its `relay_name` on one server. The value names the device id
@@ -185,6 +198,14 @@ class InMemoryTopicRepository implements TopicRepository {
 
   final ApiClient _client;
 
+  /// The alarm calls never fail or hold up a topic call. A ring left set is
+  /// caught again when its slot fires.
+  Future<void> _quietly(Future<void> Function() call) async {
+    try {
+      await call();
+    } on Object catch (_) {}
+  }
+
   @override
   Future<AppResult<List<Topic>>> getTopics() async {
     try {
@@ -193,6 +214,15 @@ class InMemoryTopicRepository implements TopicRepository {
       if (prefs != null) {
         await TopicTimerCache(prefs).save(topics);
       }
+      // Not awaited, like the relay moves below: the list never waits on
+      // the alarm.
+      unawaited(
+        _quietly(
+          () async => syncAlarmChains?.call({
+            for (final topic in topics) topic.name: topic.critical,
+          }),
+        ),
+      );
       _rememberRelayNames(topics);
       // Not awaited: the list should not wait on relay calls, and a failed
       // move is retried on the next list anyway.
@@ -284,6 +314,9 @@ class InMemoryTopicRepository implements TopicRepository {
         maxRingS: maxRingS,
         deskTimerS: deskTimerS,
       );
+      if (!topic.critical) {
+        unawaited(_quietly(() async => cancelAlarmChains?.call(topic.name)));
+      }
       return topic.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -326,6 +359,7 @@ class InMemoryTopicRepository implements TopicRepository {
       }
       _relayNames.remove(name);
       if (target != null) await _forgetMoved(target.baseUrl, name);
+      unawaited(_quietly(() async => cancelAlarmChains?.call(name)));
       return unit.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(

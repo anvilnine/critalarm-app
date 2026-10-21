@@ -19,14 +19,20 @@ internal object AlarmDebug {
             .map { it.incidentId }
             .toSet()
         val now = System.currentTimeMillis()
+        val chains = AlarmChain.of(context)
+        val nextSlots = deliveryEntries.associate { it.incidentId to chains.nextSlotMillis(it.incidentId, now) }
         val incidents = deliveryEntries.map { entry ->
-            val pending = ScheduledAlarmReceiver.isScheduled(context, entry.incidentId, entry.rearmFiresAtMillis)
+            val pending = chains.ringPending(entry.incidentId, now)
             buildMap<String, Any> {
                 put("id", entry.incidentId)
                 entry.topic?.let { put("topic", it) }
                 entry.ringUntilMillis?.let { put("ring_until", seconds(it)) }
                 put("rearm_pending", pending)
-                entry.rearmFiresAtMillis?.let { put("rearm_fires_at", seconds(it)) }
+                nextSlots[entry.incidentId]?.let { put("rearm_fires_at", seconds(it)) }
+                entry.chain?.let { chain ->
+                    put("chain_kind", chain.kind)
+                    put("chain_slots", chain.slots.count { it > now })
+                }
                 put("acked_locally", entry.incidentId in localAcked)
                 entry.deskTimerFiresAtMillis?.let { put("desk_timer_fires_at", seconds(it)) }
                 put(
@@ -47,19 +53,16 @@ internal object AlarmDebug {
             }
         }
         val scheduled = deliveryEntries.mapNotNull { entry ->
-            if (!ScheduledAlarmReceiver.isScheduled(context, entry.incidentId, entry.rearmFiresAtMillis)) return@mapNotNull null
+            val firesAt = nextSlots[entry.incidentId] ?: return@mapNotNull null
             buildMap<String, Any> {
-                put("kind", "rearm")
+                put("kind", if (entry.chain?.kind == ChainRule.Kind.DESK.wire) "desk" else "rearm")
                 put("identifier", entry.incidentId)
-                entry.rearmFiresAtMillis?.let { put("fires_at", seconds(it)) }
+                put("fires_at", seconds(firesAt))
             }
         }.toMutableList()
         val nextAlarmClock = context.getSystemService(AlarmManager::class.java)?.nextAlarmClock
         val nextIncident = nextAlarmClock?.let { clock ->
-            deliveryEntries.firstOrNull {
-                it.rearmFiresAtMillis == clock.triggerTime &&
-                    ScheduledAlarmReceiver.isScheduled(context, it.incidentId, it.rearmFiresAtMillis)
-            }
+            deliveryEntries.firstOrNull { nextSlots[it.incidentId] == clock.triggerTime }
         }
         if (nextAlarmClock != null && nextIncident != null) {
             scheduled.add(mapOf(
