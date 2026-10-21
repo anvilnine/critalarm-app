@@ -13,11 +13,14 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.AlarmLockRule
+import app.critalarm.alarm.RingVolumeWatch
+import app.critalarm.alarm.RingWindow
 import app.critalarm.appicon.AppIconChannel
 import app.critalarm.l10n.LocaleChannel
 import app.critalarm.notifications.LiveUpdate
@@ -74,10 +77,23 @@ class MainActivity : FlutterFragmentActivity() {
     /** An unlock prompt is up. The window lets go when it answers. */
     private var unlockPending = false
 
+    /** Full brightness and no volume down while the alarm screen rings. */
+    private val ringWindow = RingWindow(this)
+
     private val lockScreen = object : AlarmChannel.LockScreen {
-        override fun release(incidentId: String?) = releaseLockScreen(incidentId)
-        override fun hold(incidentId: String) = holdLockScreen(incidentId)
+        override fun release(incidentId: String?) {
+            ringWindow.ended(incidentId)
+            releaseLockScreen(incidentId)
+        }
+
+        override fun hold(incidentId: String) {
+            if (owesAck(incidentId)) ringWindow.ringing(incidentId)
+            holdLockScreen(incidentId)
+        }
     }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        ringWindow.swallows(event) || super.dispatchKeyEvent(event)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -496,6 +512,8 @@ class MainActivity : FlutterFragmentActivity() {
         // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
+        // A ring the process died in left the alarm volume at full.
+        RingVolumeWatch.recoverOnLaunch(this)
         pendingReminderTap = LocalReminderTapIntent.read(this, intent)
         showOverLockFor(intent)
         // Read once, before Flutter asks for the initial route. Dart's

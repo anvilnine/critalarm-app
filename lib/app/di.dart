@@ -297,12 +297,14 @@ import 'package:critalarm/features/settings/data/repositories/observed_privacy_r
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_appearance_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_ring_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/appearance_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/ring_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
@@ -810,6 +812,9 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<StorageSettingsRepository>(
       () => SharedPrefsStorageSettingsRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<RingSettingsRepository>(
+      () => SharedPrefsRingSettingsRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<AutoDeleteHistoryUsecase>(
       () => AutoDeleteHistoryUsecase(
@@ -2607,6 +2612,7 @@ Future<void> configureDependencies({
             : null,
         quietHoursStore: getIt<QuietHoursStore>(),
         storageSettings: getIt<StorageSettingsRepository>(),
+        ringSettings: getIt<RingSettingsRepository>(),
         // Turning auto-delete on should not wait for the next launch.
         onAutoDeleteChanged: () async =>
             unawaited(getIt<AutoDeleteHistoryUsecase>()()),

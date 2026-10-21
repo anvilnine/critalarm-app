@@ -243,6 +243,36 @@ class _SettingsScreenContent extends StatelessWidget {
                               .tr(),
                           path: '/settings/priorities',
                         ),
+                        // Every ring, every topic, every plan. The volume
+                        // has no switch: every ring starts at full.
+                        const SizedBox(height: 8),
+                        AppToggleRow(
+                          key: const ValueKey('settings-ring-bright-screen'),
+                          title: LocaleKeys.settings_ring_bright_screen_title
+                              .tr(),
+                          subtitle: LocaleKeys
+                              .settings_ring_bright_screen_subtitle
+                              .tr(),
+                          value: state.ring.brightScreen,
+                          onChanged: (on) => unawaited(
+                            context.read<SettingsCubit>().setRingBrightScreen(
+                              on: on,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        AppToggleRow(
+                          key: const ValueKey('settings-ring-vibrate'),
+                          title: LocaleKeys.settings_ring_vibrate_title.tr(),
+                          subtitle: LocaleKeys.settings_ring_vibrate_subtitle
+                              .tr(),
+                          value: state.ring.vibrate,
+                          onChanged: (on) => unawaited(
+                            context.read<SettingsCubit>().setRingVibrate(
+                              on: on,
+                            ),
+                          ),
+                        ),
                       ],
                       // Storage is the only thing left of the old Alarms
                       // page. It only touches this phone's own copy, so it
