@@ -152,7 +152,9 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   @override
   Future<void> forgetRestoredSignIn() async {
-    if (await tokens.read() != null) return;
+    // Not [IdentityTokenStore.read]: that would move a token left in the
+    // preferences by a backup made before the Keychain held it.
+    if (await tokens.readAfterMove() != null) return;
     final saved = [_providerKey, _emailKey, _accountKey, _providersKey];
     if (!saved.any(prefs.containsKey)) return;
     for (final key in saved) {

@@ -586,6 +586,64 @@ void main() {
       expect((await made.identities.readSession())?.token, 'sess_here');
     });
 
+    test('a token in a backup from before the Keychain is not used', () async {
+      final made = await make(
+        extra: {..._restoredSignIn, identitySessionTokenKey: 'sess_old_phone'},
+      );
+
+      await made.reset.run();
+
+      expect(made.prefs.containsKey(identitySessionTokenKey), isFalse);
+      expect(keychain.values, isNot(contains('sess_old_phone')));
+      expect(await made.identities.readSession(), isNull);
+      expect(await made.identities.readIdentity(), isNull);
+    });
+
+    test('the same phone still moves its token into the Keychain', () async {
+      final made = await make(
+        extra: {..._restoredSignIn, identitySessionTokenKey: 'sess_mine'},
+        verdict: InstallMarkerVerdict.same,
+      );
+
+      await made.reset.run();
+
+      expect((await made.identities.readSession())?.token, 'sess_mine');
+      expect(
+        keychain['${KeychainIdentityTokenStore.service}|false'],
+        'sess_mine',
+      );
+      expect(made.prefs.containsKey(identitySessionTokenKey), isFalse);
+    });
+
+    test(
+      'a Keychain that cannot answer leaves the marker for next time',
+      () async {
+        final made = await make(extra: _restoredSignIn);
+        final reset = made.reset;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          final args = call.arguments as Map<Object?, Object?>;
+          if (args['service'] == KeychainIdentityTokenStore.service) {
+            throw PlatformException(code: 'keychain_read');
+          }
+          switch (call.method) {
+            case 'read':
+              return keychain[slot(args)];
+            case 'write':
+              keychain[slot(args)] = args['value']! as String;
+            case 'delete':
+              keychain.remove(slot(args));
+          }
+          return null;
+        });
+
+        expect(await reset.run(), isTrue);
+
+        // Not signed out on a guess, and the next launch tries again.
+        expect(await made.identities.readIdentity(), isNotNull);
+        expect(await reset.run(), isTrue);
+      },
+    );
+
     test('a phone that has not moved keeps its sign-in as it is', () async {
       final made = await make(
         extra: _restoredSignIn,

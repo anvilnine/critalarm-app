@@ -25,7 +25,9 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 ///    Keychain only, on this phone only. With no token the account screen
 ///    would show signed in while the account routes get nothing, so it
 ///    reads as signed out and the person signs in again. A phone that still
-///    holds its token keeps the sign-in. The account itself stays.
+///    holds its token keeps the sign-in. The account itself stays. A
+///    backup made before the token moved to the Keychain still holds it in
+///    the preferences: that copy is deleted here, never moved in.
 /// 3. The saved session and connection, when the token in them is this
 ///    phone's device token (every server but one of the person's own). A
 ///    server of the person's own keeps its connection: that token was typed

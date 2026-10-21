@@ -29,7 +29,8 @@ abstract interface class IdentityRepository {
   /// provider, email and account id ride along in the backup, and the
   /// session token does not. A sign-in with no token reads as signed out:
   /// this drops what came along, so the account screen offers sign-in
-  /// again. A phone that still holds its token stays signed in. The account
+  /// again. A phone that still holds its token stays signed in. A token
+  /// that came in an older backup is dropped, never used. The account
   /// itself is not touched.
   Future<void> forgetRestoredSignIn();
 }
