@@ -1718,6 +1718,8 @@ Future<void> configureDependencies({
       () => MovedPhoneReset(
         host: getIt<BackupHost>(),
         forgetAccountData: () => getIt<AccountData>().forget(),
+        forgetRestoredSignIn: () =>
+            getIt<IdentityRepository>().forgetRestoredSignIn(),
         sessions: getIt<ApiSessionStore>(),
         connections: getIt<ConnectionRepository>(),
         devices: getIt<DeviceIdentityStore>(),

@@ -56,6 +56,11 @@ final class FakeIdentityRepository implements IdentityRepository {
     saved = null;
     session = null;
   }
+
+  @override
+  Future<void> forgetRestoredSignIn() async {
+    if (session == null) saved = null;
+  }
 }
 
 final class FakeAccountRepository implements AccountRepository {

@@ -11,6 +11,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
 
+### Fixed
+- MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
+
 ### Security
 - Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
 - Android: MainActivity shows over the lock screen only for an alarm\_incident\_id the alarm service holds or the delivery store has open and unacknowledged (AlarmLockRule), on a cold start and on onNewIntent. The alarm screen calls AlarmHost.releaseLockScreen when it stops ringing, opens the topic or goes away (LockScreenHold), and the window then asks for the unlock and stops showing over the lock screen. onStart, onResume and onStop let go of an alarm answered from the notification.

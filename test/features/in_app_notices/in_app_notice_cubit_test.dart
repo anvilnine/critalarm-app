@@ -64,6 +64,9 @@ class FakeIdentityRepo implements IdentityRepository {
     identity = null;
     changes.bump();
   }
+
+  @override
+  Future<void> forgetRestoredSignIn() async {}
 }
 
 class FakeAccountRepo implements AccountRepository {
