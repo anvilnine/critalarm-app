@@ -49,6 +49,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_navigation
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -280,12 +281,39 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// ringing, opens another screen on top, or goes away.
   late final LockScreenHold _lockHold = LockScreenHold(
     release: (id) => _withAlarmHost((host) => host.releaseLockScreen(id)),
-    hold: (id) => _withAlarmHost((host) => host.holdLockScreen(id)),
+    hold: (id) => unawaited(_withAlarmHost((host) => host.holdLockScreen(id))),
+    onSettled: () {
+      if (mounted) setState(() {});
+    },
+    holdsWindow: defaultTargetPlatform == TargetPlatform.android,
   );
 
-  static void _withAlarmHost(Future<void> Function(AlarmHost host) call) {
+  /// The last state that drew the ringing layout. Drawn in place of the
+  /// acknowledged and failure layouts until the window has left the lock
+  /// screen ([LockScreenHold.mayShowOverLock]).
+  CriticalAlarmState? _lastRinging;
+
+  static Future<void> _withAlarmHost(
+    Future<void> Function(AlarmHost host) call,
+  ) async {
     if (!getIt.isRegistered<AlarmHost>()) return;
-    unawaited(call(getIt<AlarmHost>()));
+    await call(getIt<AlarmHost>());
+  }
+
+  /// What the screen draws for [current]. A screen that stops ringing keeps
+  /// its last ringing frame while the window may still be over the lock
+  /// screen, so the acknowledged and failure layouts draw only once it has
+  /// left. On an unlocked phone that is the next frame. On a locked one it
+  /// is after the unlock prompt, which covers the screen meanwhile.
+  CriticalAlarmState _shownState(CriticalAlarmState current) {
+    if (showsRingingLayout(current)) {
+      _lastRinging = current;
+      return current;
+    }
+    final last = _lastRinging;
+    if (last != null && _lockHold.mayShowOverLock) return last;
+    _lastRinging = null;
+    return current;
   }
 
   @override
@@ -399,7 +427,8 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           _direction = AmbientDirection.push;
         });
       },
-      builder: (context, state) {
+      builder: (context, current) {
+        final state = _shownState(current);
         final colors = context.appColors;
         final brightness = Theme.of(context).brightness;
         // A look that cannot be drawn is the standard one for this build,

@@ -1,16 +1,23 @@
 import 'dart:convert';
 
 import 'package:critalarm/app/moved_phone_reset.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
+import 'package:critalarm/features/account/data/services/identity_token_store.dart';
+import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
+import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A phone that answers with one verdict until it is settled, the way the
@@ -93,6 +100,7 @@ final class _Harness {
   final reconnects = <String>[];
   bool forgetFails = false;
   int forgets = 0;
+  int signInForgets = 0;
 
   late final devices = DeviceIdentityStore(prefs);
   late final sessions = SharedPrefsApiSessionStore(prefs);
@@ -104,6 +112,10 @@ final class _Harness {
       forgets++;
       log.add('forget');
       if (forgetFails) throw StateError('a drop failed');
+    },
+    forgetRestoredSignIn: () async {
+      signInForgets++;
+      log.add('sign-in');
     },
     sessions: sessions,
     connections: connections,
@@ -142,6 +154,7 @@ void main() {
 
         expect(h.everything, before);
         expect(h.forgets, 0);
+        expect(h.signInForgets, 0);
         expect(h.host.settled, 0);
         expect(h.reconnects, isEmpty);
       });
@@ -239,7 +252,13 @@ void main() {
 
         await h.reset.run();
 
-        expect(h.log, ['forget', 'push token', 'settle', 'reconnect']);
+        expect(h.log, [
+          'forget',
+          'sign-in',
+          'push token',
+          'settle',
+          'reconnect',
+        ]);
         expect(h.host.settled, 1);
       },
     );
@@ -381,6 +400,7 @@ void main() {
       final reset = MovedPhoneReset(
         host: host,
         forgetAccountData: () async {},
+        forgetRestoredSignIn: () async {},
         sessions: SharedPrefsApiSessionStore(prefs),
         connections: SharedPrefsConnectionRepository(prefs),
         devices: DeviceIdentityStore(prefs),
@@ -444,20 +464,42 @@ void main() {
 
     tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-    Future<({MovedPhoneReset reset, KeychainDeviceIdentityStore devices})>
-    make() async {
+    Future<
+      ({
+        MovedPhoneReset reset,
+        KeychainDeviceIdentityStore devices,
+        HttpIdentityRepository identities,
+        SharedPreferences prefs,
+      })
+    >
+    make({
+      Map<String, Object> extra = const {},
+      InstallMarkerVerdict verdict = InstallMarkerVerdict.moved,
+    }) async {
       SharedPreferences.setMockInitialValues({
         'api_session': '$_cloud|$_relay|hosted|$_oldToken',
         'server_url': _cloud,
         'admin_token': _oldToken,
+        ...extra,
       });
       final prefs = await SharedPreferences.getInstance();
       final devices = KeychainDeviceIdentityStore(prefs);
+      final identities = HttpIdentityRepository(
+        httpClient: MockClient((_) async => http.Response('', 500)),
+        sessions: SharedPrefsApiSessionStore(prefs),
+        prefs: prefs,
+        providers: _NoSheets(),
+        tokens: KeychainIdentityTokenStore(prefs),
+        identityChanges: AccountIdentityChanges(),
+      );
       return (
         devices: devices,
+        identities: identities,
+        prefs: prefs,
         reset: MovedPhoneReset(
-          host: _Host(InstallMarkerVerdict.moved),
+          host: _Host(verdict),
           forgetAccountData: () async {},
+          forgetRestoredSignIn: identities.forgetRestoredSignIn,
           sessions: SharedPrefsApiSessionStore(prefs),
           connections: SharedPrefsConnectionRepository(prefs),
           devices: devices,
@@ -513,5 +555,125 @@ void main() {
       final second = await made.devices.readOrCreate();
       expect(second.deviceId, first.deviceId);
     });
+
+    test('a sign-in that came without its token reads as signed out', () async {
+      final made = await make(extra: _restoredSignIn);
+      // Before: the account screen would show signed in, with no token.
+      expect(await made.identities.readIdentity(), isNotNull);
+
+      await made.reset.run();
+
+      expect(await made.identities.readIdentity(), isNull);
+      expect(await made.identities.readSession(), isNull);
+      for (final key in _restoredSignIn.keys) {
+        expect(made.prefs.containsKey(key), isFalse, reason: key);
+      }
+      // The account stays: the synced item still lets this phone join it.
+      final identity = await made.devices.readOrCreate();
+      expect(identity.accountId, 'acct_1');
+      expect(identity.accountJoinToken, 'aj_join');
+    });
+
+    test('a phone that kept its token stays signed in', () async {
+      // A restore onto the same phone from an encrypted backup brings the
+      // ThisDeviceOnly item back.
+      keychain['${KeychainIdentityTokenStore.service}|false'] = 'sess_here';
+      final made = await make(extra: _restoredSignIn);
+
+      await made.reset.run();
+
+      expect((await made.identities.readIdentity())?.accountId, 'acct_1');
+      expect((await made.identities.readSession())?.token, 'sess_here');
+    });
+
+    test('a token in a backup from before the Keychain is not used', () async {
+      final made = await make(
+        extra: {..._restoredSignIn, identitySessionTokenKey: 'sess_old_phone'},
+      );
+
+      await made.reset.run();
+
+      expect(made.prefs.containsKey(identitySessionTokenKey), isFalse);
+      expect(keychain.values, isNot(contains('sess_old_phone')));
+      expect(await made.identities.readSession(), isNull);
+      expect(await made.identities.readIdentity(), isNull);
+    });
+
+    test('the same phone still moves its token into the Keychain', () async {
+      final made = await make(
+        extra: {..._restoredSignIn, identitySessionTokenKey: 'sess_mine'},
+        verdict: InstallMarkerVerdict.same,
+      );
+
+      await made.reset.run();
+
+      expect((await made.identities.readSession())?.token, 'sess_mine');
+      expect(
+        keychain['${KeychainIdentityTokenStore.service}|false'],
+        'sess_mine',
+      );
+      expect(made.prefs.containsKey(identitySessionTokenKey), isFalse);
+    });
+
+    test(
+      'a Keychain that cannot answer leaves the marker for next time',
+      () async {
+        final made = await make(extra: _restoredSignIn);
+        final reset = made.reset;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          final args = call.arguments as Map<Object?, Object?>;
+          if (args['service'] == KeychainIdentityTokenStore.service) {
+            throw PlatformException(code: 'keychain_read');
+          }
+          switch (call.method) {
+            case 'read':
+              return keychain[slot(args)];
+            case 'write':
+              keychain[slot(args)] = args['value']! as String;
+            case 'delete':
+              keychain.remove(slot(args));
+          }
+          return null;
+        });
+
+        expect(await reset.run(), isTrue);
+
+        // Not signed out on a guess, and the next launch tries again.
+        expect(await made.identities.readIdentity(), isNotNull);
+        expect(await reset.run(), isTrue);
+      },
+    );
+
+    test('a phone that has not moved keeps its sign-in as it is', () async {
+      final made = await make(
+        extra: _restoredSignIn,
+        verdict: InstallMarkerVerdict.same,
+      );
+
+      await made.reset.run();
+
+      expect(await made.identities.readIdentity(), isNotNull);
+    });
   });
 }
+
+final class _NoSheets implements ProviderSignIn {
+  @override
+  bool supports(IdentityProvider provider) => true;
+
+  @override
+  Future<ProviderCredential> signIn(IdentityProvider provider) =>
+      throw StateError('no sheet in this test');
+
+  @override
+  Future<void> signOut() async {}
+}
+
+/// Who was signed in on the old phone. A backup carries this, and on an
+/// iPhone never the session token.
+const _restoredSignIn = <String, Object>{
+  'identity_provider': 'google',
+  'identity_email': 'someone@example.test',
+  'identity_account_id': 'acct_1',
+  'identity_providers': 'google',
+};

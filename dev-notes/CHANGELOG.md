@@ -11,10 +11,16 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
 
+### Fixed
+- MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
+- IncomingAudio answers a shared path that fails isShareCopyPath with the unreadable rejection, so an iOS share copy that could not be made shows the could not read message. The path is still never opened or deleted.
+
 ### Security
 - Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
 - Android: MainActivity shows over the lock screen only for an alarm\_incident\_id the alarm service holds or the delivery store has open and unacknowledged (AlarmLockRule), on a cold start and on onNewIntent. The alarm screen calls AlarmHost.releaseLockScreen when it stops ringing, opens the topic or goes away (LockScreenHold), and the window then asks for the unlock and stops showing over the lock screen. onStart, onResume and onStop let go of an alarm answered from the notification.
 - iOS: the sign-in session token (identity\_session\_token) moved from the preferences to an unsynced, ThisDeviceOnly Keychain item, service app.critalarm.identity\_session (KeychainIdentityTokenStore). The first read moves an existing token and removes the old key once the Keychain write succeeds. DeviceIdentityKeychain takes a this\_device\_only flag on write. Android keeps the preferences key, which no backup carries.
+- iOS: MovedPhoneReset deletes the flutter.identity\_session\_token preferences key that a backup made before the Keychain move still carries, and never moves it into the Keychain (IdentityTokenStore.readAfterMove). The one-time move on the same phone is unchanged.
+- Android: the alarm screen keeps its ringing layout until releaseLockScreen answers (LockScreenHold.mayShowOverLock), and MainActivity answers it only once the window has left the lock screen, after the unlock prompt on a locked phone (LockReleaseAnswers). The acknowledged, answered elsewhere and failure layouts no longer draw over the lock screen.
 
 ## 1.0.0+15 - 2026-10-16
 ### Added
