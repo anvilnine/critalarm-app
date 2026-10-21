@@ -34,7 +34,7 @@ class BootRearmTest {
             return true
         }
 
-        override fun cancel(incidentId: String, slot: Int) {
+        override fun cancelSlot(incidentId: String, slot: Int) {
             set.remove(incidentId to slot)
         }
 
