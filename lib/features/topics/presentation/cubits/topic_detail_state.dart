@@ -275,8 +275,7 @@ class TopicDetailState {
     Object.hashAll(messageTimes),
     areMessageTimesKnown,
     lastAlarmAt,
-    flashOn,
-    strongVibrationOn,
-    hasTorch,
+    // One slot for the three switches: Object.hash takes 20 at most.
+    Object.hash(flashOn, strongVibrationOn, hasTorch),
   );
 }

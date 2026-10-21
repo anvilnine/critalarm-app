@@ -138,6 +138,21 @@ void main() {
     await cubit.close();
   });
 
+  test('a seed for another topic does not carry the switches over', () async {
+    await store.setFlash('prod-db', on: true);
+    await store.setStrongVibration('prod-db', on: true);
+    final cubit = build();
+    await cubit.load('prod-db');
+    expect(cubit.state.flashOn, isTrue);
+
+    final seed = cubit.seedFor('nas-backup');
+
+    expect(seed, isNotNull);
+    expect(seed!.flashOn, isFalse);
+    expect(seed.strongVibrationOn, isFalse);
+    await cubit.close();
+  });
+
   test('neither switch changes the topic on the server', () async {
     final cubit = build();
     await cubit.load('prod-db');
