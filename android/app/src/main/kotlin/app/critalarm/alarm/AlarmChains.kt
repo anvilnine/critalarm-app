@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import app.critalarm.push.IncidentPushKind
 import app.critalarm.push.RingLocks
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.StoredChain
@@ -260,6 +261,46 @@ class AlarmChains(
         fired
     }
 
+    /**
+     * After a reboot, which took every alarm with it. Sets the ring chain
+     * again from [nowMillis] for every incident still ringing here, with the
+     * title and body it last rang with, and drops the record of every other
+     * chain, whose slots the reboot already took. An acked incident gets
+     * nothing. [rearmAfterBoot] runs before the first unlock, so it reads only
+     * what device-protected storage holds.
+     */
+    fun rearmAfterBoot(nowMillis: Long): BootRearm {
+        val rearmed = mutableMapOf<String, Long>()
+        val windowOver = mutableListOf<String>()
+        for (incidentId in store.activeIncidentIds()) {
+            val at = setRingChain(
+                incidentId = incidentId,
+                nowMillis = nowMillis,
+                kind = IncidentPushKind.REPEAT,
+                title = store.titleOf(incidentId),
+                body = store.bodyOf(incidentId),
+            )
+            if (at != null) {
+                rearmed[incidentId] = at
+                continue
+            }
+            val ringUntil = store.ringUntilMillis(incidentId)
+            if (ringUntil != null && nowMillis >= ringUntil) windowOver += incidentId
+        }
+        for (incidentId in store.chainIncidentIds()) {
+            if (incidentId !in rearmed) cancelChain(incidentId)
+        }
+        log("boot_rearm chains=${rearmed.size} window_over=${windowOver.size}")
+        return BootRearm(rearmed, windowOver)
+    }
+
+    /**
+     * What [rearmAfterBoot] did: the first slot of every chain it set, by
+     * incident, and the incidents whose `ring_until` passed while the phone
+     * was off.
+     */
+    data class BootRearm(val firstSlotByIncident: Map<String, Long>, val windowOver: List<String>)
+
     /** True when a ring chain still has a slot set after [nowMillis]. */
     fun ringPending(incidentId: String, nowMillis: Long): Boolean {
         val chain = store.chainOf(incidentId) ?: return false
@@ -313,6 +354,9 @@ class AlarmChains(
         }
         old?.let { for (slot in chain.slots.size until it.slots.size) alarms.cancelSlot(incidentId, slot) }
         store.rememberChain(incidentId, chain)
+        // A reboot drops the slots and the text on them. The chain set again
+        // after one reads it back.
+        store.rememberContent(incidentId, title, body)
         log("chain_set incident_id=$incidentId kind=${chain.kind} slots=${chain.slots.size}")
         return chain.slots.first()
     }
@@ -350,12 +394,12 @@ object AlarmChain {
      * lists topics. An incident whose topic this device has never listed reads
      * as on: the push that rang it was a priority-5 alarm push, which the
      * server only sends for a critical topic, and the server is still
-     * repeating anyway.
+     * repeating anyway. Before the first unlock the switch comes from the
+     * copy in device-protected storage.
      */
     internal fun criticalOn(context: Context, topic: String?): Boolean {
         if (topic.isNullOrEmpty()) return true
-        val preferences =
-            context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val preferences = BootStorage.flutterPrefs(context)
         val key = "flutter.topic_critical.$topic"
         if (!preferences.contains(key)) return true
         return preferences.getBoolean(key, true)
@@ -368,7 +412,10 @@ object AlarmChain {
                 incidentId = incidentId,
                 slot = slot,
                 atMillis = atMillis,
-                server = NativeConnectionStore(context).canonicalServer()?.toString().orEmpty(),
+                // The incident's own server when the session cannot be read,
+                // which is the case before the first unlock after a reboot.
+                server = NativeConnectionStore(context).canonicalServer()?.toString()
+                    ?: IncidentDeliveryStore(context).serverOf(incidentId).orEmpty(),
                 title = title.orEmpty(),
                 body = body,
             )

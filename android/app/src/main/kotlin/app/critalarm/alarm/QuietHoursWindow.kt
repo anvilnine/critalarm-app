@@ -1,6 +1,7 @@
 package app.critalarm.alarm
 
 import android.content.Context
+import app.critalarm.storage.BootStorage
 import java.util.Calendar
 
 /**
@@ -59,8 +60,8 @@ data class QuietHoursWindow(
         )
 
         fun read(context: Context): QuietHoursWindow {
-            val preferences =
-                context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            // Before the first unlock, from the copy in device-protected storage.
+            val preferences = BootStorage.flutterPrefs(context)
             if (!preferences.contains("flutter.quiet_hours_enabled")) return DEFAULTS
             return QuietHoursWindow(
                 isEnabled = preferences.getBoolean("flutter.quiet_hours_enabled", false),

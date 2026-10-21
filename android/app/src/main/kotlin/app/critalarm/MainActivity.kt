@@ -33,6 +33,7 @@ import app.critalarm.motion.MotionSensorChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
+import app.critalarm.storage.BootMirror
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.uisound.UiSoundChannel
 import app.critalarm.widgets.WidgetChannel
@@ -374,6 +375,7 @@ class MainActivity : FlutterFragmentActivity() {
         soundChannel?.endPreview()
         uiSounds?.stop()
         checkLockScreen()
+        BootMirror.sync(this)
         super.onStop()
     }
 
@@ -518,6 +520,9 @@ class MainActivity : FlutterFragmentActivity() {
         // Any ring chain whose incident is over goes, which heals a slot a
         // cancel missed.
         AlarmChain.of(this).sweep(System.currentTimeMillis())
+        // The copy of the ring settings a reboot reads before the first
+        // unlock, kept in step with every change Dart makes from here on.
+        BootMirror.follow(this)
         pendingReminderTap = LocalReminderTapIntent.read(this, intent)
         showOverLockFor(intent)
         // Read once, before Flutter asks for the initial route. Dart's

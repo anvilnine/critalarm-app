@@ -2,6 +2,7 @@ package app.critalarm.widgets
 
 import android.content.Context
 import android.util.Log
+import app.critalarm.storage.BootStorage
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -11,7 +12,12 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class WidgetSnapshotStore(context: Context) {
     private val context = context.applicationContext
-    private val preferences = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /**
+     * Opened on first use. Normal storage, so a push or a ring before the
+     * first unlock after a reboot leaves the widgets alone ([patch]).
+     */
+    private val preferences by lazy { this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
     private val ledger = WidgetSnapshotLedger(
         load = { preferences.getString(KEY, null) },
         store = { preferences.edit().putString(KEY, it).apply() },
@@ -53,6 +59,10 @@ class WidgetSnapshotStore(context: Context) {
 
     /** See [WidgetSnapshotLedger.patch]. */
     fun patch(operation: (WidgetSnapshot?, Long) -> WidgetPatchResult) {
+        if (!BootStorage.isUnlocked(context)) {
+            Log.i(TAG, "widget_snapshot_patch result=locked")
+            return
+        }
         val result = ledger.patch(nowSeconds(), operation)
         Log.i(TAG, "widget_snapshot_patch result=${result.javaClass.simpleName}")
         if (result != WidgetPatchResult.Unchanged) WidgetRedraw.all(context)

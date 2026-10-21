@@ -18,9 +18,8 @@ import android.content.SharedPreferences
  * the incident as it always has.
  */
 class ChallengeFlagStore(private val preferences: SharedPreferences) {
-    constructor(context: Context) : this(
-        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE),
-    )
+    /** Before the first unlock, the copy in device-protected storage. */
+    constructor(context: Context) : this(BootStorage.flutterPrefs(context))
 
     /** True only while Dart's last sure answer for [topic] was "owed". */
     fun owesChallenge(topic: String?): Boolean {

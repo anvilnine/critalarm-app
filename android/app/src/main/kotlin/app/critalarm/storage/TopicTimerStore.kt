@@ -18,8 +18,8 @@ data class TopicTimers(
  * down the wrong number is worse than no bar.
  */
 class TopicTimerStore(context: Context) {
-    private val preferences =
-        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    /** Before the first unlock, the copy in device-protected storage. */
+    private val preferences = BootStorage.flutterPrefs(context)
 
     fun timersFor(topic: String): TopicTimers? =
         parse(preferences.getString(keyFor(topic), null))
