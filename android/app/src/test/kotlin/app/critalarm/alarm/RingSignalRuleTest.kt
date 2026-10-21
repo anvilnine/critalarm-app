@@ -71,6 +71,12 @@ class RingSignalRuleTest {
     }
 
     @Test
+    fun `a local alarm with no incident on the server never asks for its topic`() {
+        assertFalse(RingSignalRule.shouldLearnTopic(null, saved, isOnServer = false))
+        assertTrue(RingSignalRule.shouldLearnTopic(null, saved, isOnServer = true))
+    }
+
+    @Test
     fun `the flash is one a second, on for half of it`() {
         assertEquals(1.0, RingSignalRule.flashesPerSecond, 0.0)
         assertEquals(RingSignalRule.FLASH_ON_MS, RingSignalRule.FLASH_OFF_MS)
