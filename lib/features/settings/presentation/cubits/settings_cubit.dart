@@ -23,6 +23,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_us
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/ring_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
@@ -50,6 +51,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.getTopics,
     this.quietHoursStore,
     this.storageSettings,
+    this.ringSettings,
     this.onAutoDeleteChanged,
     this.onConnectionChanged,
     this.holdings,
@@ -88,6 +90,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// The two Storage rows. Null in tests that do not open that section, and
   /// then both controls only move in memory.
   final StorageSettingsRepository? storageSettings;
+
+  /// The two ring switches. Null in tests that do not look at them, and then
+  /// both only move in memory.
+  final RingSettingsRepository? ringSettings;
 
   /// Runs auto-delete after a Storage row changes, so turning it on takes
   /// effect without waiting for the next launch. Null in tests.
@@ -185,6 +191,18 @@ class SettingsCubit extends Cubit<SettingsState> {
     await onAutoDeleteChanged?.call();
   }
 
+  /// Whether the alarm screen goes to full brightness while it rings.
+  Future<void> setRingBrightScreen({required bool on}) async {
+    emit(state.copyWith(ring: state.ring.copyWith(brightScreen: on)));
+    await ringSettings?.setBrightScreen(on: on);
+  }
+
+  /// Whether the phone vibrates on the beat of the alarm sound.
+  Future<void> setRingVibrate({required bool on}) async {
+    emit(state.copyWith(ring: state.ring.copyWith(vibrate: on)));
+    await ringSettings?.setVibrate(on: on);
+  }
+
   Future<void> load({bool forceDisconnected = false}) async {
     emit(state.copyWith(status: SettingsStatus.loading));
 
@@ -222,6 +240,8 @@ class SettingsCubit extends Cubit<SettingsState> {
 
     final storage = storageSettings?.read();
     if (storage != null) emit(state.copyWith(storage: storage));
+    final ring = ringSettings?.read();
+    if (ring != null) emit(state.copyWith(ring: ring));
 
     if (forceDisconnected) {
       emit(

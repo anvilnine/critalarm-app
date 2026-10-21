@@ -29,4 +29,28 @@ object AlarmPlayerRules {
      * that errored or stopped) is dead and is replaced.
      */
     fun shouldRing(loopAlive: Boolean, mediaPlaying: Boolean): Boolean = !loopAlive && !mediaPlaying
+
+    /**
+     * What every start does first: put the alarm stream back to full, even
+     * when the sound already plays, so a repeat push or the next ring of the
+     * chain is loud whatever the person did to the volume. A quiet build
+     * leaves the volume alone. A failed raise never stops the ring. Returns
+     * [shouldRing].
+     */
+    fun onStart(
+        quiet: Boolean,
+        loopAlive: Boolean,
+        mediaPlaying: Boolean,
+        volume: RingVolume,
+        onError: (Exception) -> Unit = {},
+    ): Boolean {
+        if (!quiet) {
+            try {
+                volume.raise()
+            } catch (error: Exception) {
+                onError(error)
+            }
+        }
+        return shouldRing(loopAlive, mediaPlaying)
+    }
 }
