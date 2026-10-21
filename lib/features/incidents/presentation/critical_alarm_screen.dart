@@ -23,6 +23,7 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/ack_confetti_rule.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
+import 'package:critalarm/features/incidents/domain/loudness_ask.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
@@ -33,6 +34,7 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen_hold.dart';
+import 'package:critalarm/features/incidents/presentation/widgets/loud_enough_ask.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
@@ -932,7 +934,7 @@ class AcknowledgedScreen extends StatelessWidget {
     final pinsHint = textScale < 1.3;
     final hintInList = !isClosed && !pinsHint;
 
-    final bottomBar = Column(
+    final exitButtons = Column(
       mainAxisSize: MainAxisSize.min,
       children: isDemo
           ? [
@@ -1064,6 +1066,30 @@ class AcknowledgedScreen extends StatelessWidget {
               ),
             ],
     );
+
+    // After a test on an iPhone, "Loud enough?" sits above the exits.
+    final loudnessRetry = state.isPreview
+        ? null
+        : loudnessAskFor(
+            isIos: getIt<PlatformCapabilities>().isIos,
+            exits: exits,
+            isTestIncident: incident != null && IncidentKinds.isTest(incident),
+          );
+    final bottomBar = loudnessRetry == null
+        ? exitButtons
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LoudEnoughAsk(
+                key: ValueKey('loud-enough-${incident?.id}'),
+                retry: loudnessRetry,
+                setupTest: setupTest,
+                incidentId: incident?.id ?? '',
+                textColor: colors.onCanvas,
+              ),
+              exitButtons,
+            ],
+          );
 
     // Setup going on, and the alarm the user's own tool set off, both say
     // what the ring proved.
