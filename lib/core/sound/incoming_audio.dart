@@ -51,8 +51,9 @@ class IncomingAudio {
 
   /// Whether a path is one of the platform's own share copies
   /// ([isShareCopyPath]). Every path that reaches [discard] or the cropper
-  /// passed this first. Anything else is dropped untouched: on Android the
-  /// path can come from any app, and deleting it would delete one of ours.
+  /// passed this first. Anything else is left untouched and answered as
+  /// unreadable: on Android the path can come from any app, and deleting it
+  /// would delete one of ours.
   final Future<bool> Function(String path) isShareCopy;
 
   final Future<bool> Function() canImportSounds;
@@ -128,7 +129,15 @@ class IncomingAudio {
   /// A file just came in. Checks it, holds it, and opens it if it can.
   Future<void> receive(PickedSoundFile file) async {
     if (!_seen.add(file.path)) return;
-    if (!await _isShareCopy(file.path)) return;
+    if (!await _isShareCopy(file.path)) {
+      // Never opened and never deleted, but the person who shared it hears
+      // that it did not work. On iOS a copy that could not be made arrives
+      // as the path iOS handed over, which is not one of ours.
+      if (await canImportSounds()) {
+        _rejected.add(SoundImportRejection.unreadable);
+      }
+      return;
+    }
     if (!await canImportSounds()) {
       await discard(file.path);
       return;
