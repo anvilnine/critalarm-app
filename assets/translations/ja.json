@@ -776,7 +776,8 @@
       "one": "全1件のメッセージ",
       "other": "全{}件のメッセージ"
     },
-    "no_messages": "メッセージはまだありません。"
+    "no_messages": "メッセージはまだありません。",
+    "ring_length": "起きるまで、{every}おきに最大{total}鳴ります。"
   },
   "topic_tokens": {
     "header": "トークン",

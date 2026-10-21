@@ -111,6 +111,8 @@ class TopicDetailState {
     this.messageTimes = const [],
     this.areMessageTimesKnown = true,
     this.lastAlarmAt,
+    this.maxRingS,
+    this.repeatIntervalS,
   });
 
   /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
@@ -153,6 +155,14 @@ class TopicDetailState {
   /// When this topic last raised an alarm, or null if it never has.
   final DateTime? lastAlarmAt;
 
+  /// How long an alarm on this topic rings, in seconds (`max_ring_s`), or null
+  /// until the topic has been read.
+  final int? maxRingS;
+
+  /// How often it rings again inside that time, in seconds
+  /// (`repeat_interval_s`), or null until the topic has been read.
+  final int? repeatIntervalS;
+
   /// Whether messages are currently being polled or loaded.
   final bool isMessagesLoading;
 
@@ -184,6 +194,8 @@ class TopicDetailState {
     List<DateTime>? messageTimes,
     bool? areMessageTimesKnown,
     DateTime? lastAlarmAt,
+    int? maxRingS,
+    int? repeatIntervalS,
     bool clearError = false,
   }) {
     return TopicDetailState(
@@ -205,6 +217,8 @@ class TopicDetailState {
       messageTimes: messageTimes ?? this.messageTimes,
       areMessageTimesKnown: areMessageTimesKnown ?? this.areMessageTimesKnown,
       lastAlarmAt: lastAlarmAt ?? this.lastAlarmAt,
+      maxRingS: maxRingS ?? this.maxRingS,
+      repeatIntervalS: repeatIntervalS ?? this.repeatIntervalS,
     );
   }
 
@@ -230,7 +244,9 @@ class TopicDetailState {
           isMessagesLoading == other.isMessagesLoading &&
           listEquals(messageTimes, other.messageTimes) &&
           areMessageTimesKnown == other.areMessageTimesKnown &&
-          lastAlarmAt == other.lastAlarmAt;
+          lastAlarmAt == other.lastAlarmAt &&
+          maxRingS == other.maxRingS &&
+          repeatIntervalS == other.repeatIntervalS;
 
   @override
   int get hashCode => Object.hash(
@@ -252,5 +268,7 @@ class TopicDetailState {
     Object.hashAll(messageTimes),
     areMessageTimesKnown,
     lastAlarmAt,
+    maxRingS,
+    repeatIntervalS,
   );
 }

@@ -776,7 +776,8 @@
       "one": "All 1 message",
       "other": "All {} messages"
     },
-    "no_messages": "No messages yet."
+    "no_messages": "No messages yet.",
+    "ring_length": "Rings for {total}, every {every}, until you're up."
   },
   "topic_tokens": {
     "header": "Tokens",
