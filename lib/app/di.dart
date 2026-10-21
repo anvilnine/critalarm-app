@@ -35,6 +35,7 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
+import 'package:critalarm/core/alarm/ring_screen_host.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
@@ -1137,6 +1138,9 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
+    ..registerLazySingleton<RingScreenHost>(
+      () => RingScreenHost(isIos: getIt<PlatformCapabilities>().isIos),
+    )
     ..registerLazySingleton(
       () => LiveActivityTokenRegistry(
         prefs: getIt<SharedPreferences>(),
