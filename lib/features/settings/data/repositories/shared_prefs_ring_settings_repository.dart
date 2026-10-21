@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The two ring switches, kept in preferences.
 ///
 /// The alarm rings with no Flutter engine running, so the native side reads
-/// these keys straight out of the same preferences file. On Android that is
+/// these keys straight out of the same preferences file. On iOS the plugin puts
+/// `flutter.` in front of each key in the standard user defaults, and
+/// `RingScreenRule` reads them there. On Android the file is
 /// `FlutterSharedPreferences`, where the plugin puts `flutter.` in front of
 /// each key (`RingSwitches` in the alarm code). Rename a key on both sides
 /// or not at all: a key the native side cannot find reads as on.
