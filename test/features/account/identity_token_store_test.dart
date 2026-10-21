@@ -146,6 +146,48 @@ void main() {
       await KeychainIdentityTokenStore(prefs).clear();
       expect(prefs.getString(identitySessionTokenKey), isNull);
     });
+
+    group('after a move or a restore', () {
+      test('a token from an older backup is deleted, not moved', () async {
+        final prefs = await prefsWith({identitySessionTokenKey: 'sess_old'});
+        final store = KeychainIdentityTokenStore(prefs);
+
+        expect(await store.readAfterMove(), isNull);
+
+        expect(prefs.getString(identitySessionTokenKey), isNull);
+        expect(keychain.value, isNull);
+        expect(keychain.methods, ['read']);
+        // Later reads have nothing left to move.
+        expect(await store.read(), isNull);
+      });
+
+      test('a token this phone holds is kept', () async {
+        keychain.value = 'sess_here';
+        final prefs = await prefsWith({identitySessionTokenKey: 'sess_old'});
+        final store = KeychainIdentityTokenStore(prefs);
+
+        expect(await store.readAfterMove(), 'sess_here');
+
+        expect(keychain.value, 'sess_here');
+        expect(prefs.getString(identitySessionTokenKey), isNull);
+      });
+
+      test(
+        'a Keychain that cannot be read throws, and the old copy is gone',
+        () async {
+          keychain.failRead = true;
+          final prefs = await prefsWith({identitySessionTokenKey: 'sess_old'});
+          final store = KeychainIdentityTokenStore(prefs);
+
+          await expectLater(
+            store.readAfterMove(),
+            throwsA(isA<PlatformException>()),
+          );
+
+          expect(prefs.getString(identitySessionTokenKey), isNull);
+        },
+      );
+    });
   });
 
   group('PrefsIdentityTokenStore', () {
@@ -157,6 +199,14 @@ void main() {
       expect(await store.read(), 'sess_a');
       await store.clear();
       expect(await store.read(), isNull);
+      expect(keychain.calls, isEmpty);
+    });
+
+    test('after a move it keeps the token: Android restores nothing', () async {
+      final prefs = await prefsWith({identitySessionTokenKey: 'sess_a'});
+      final store = PrefsIdentityTokenStore(prefs);
+      expect(await store.readAfterMove(), 'sess_a');
+      expect(prefs.getString(identitySessionTokenKey), 'sess_a');
       expect(keychain.calls, isEmpty);
     });
   });
