@@ -41,7 +41,11 @@ class AlarmChannel(
 ) {
     /** What MainActivity does for `releaseLockScreen` and `holdLockScreen`. */
     interface LockScreen {
-        fun release(incidentId: String?)
+        /**
+         * Lets go of [incidentId]. Calls [done] once the window has left the
+         * lock screen, or at once when it stays for another alarm.
+         */
+        fun release(incidentId: String?, done: () -> Unit)
         fun hold(incidentId: String)
     }
 
@@ -90,9 +94,17 @@ class AlarmChannel(
 
             // The alarm screen was acknowledged, closed or left. The window
             // stops showing over the lock screen unless another alarm needs it.
+            // Answered once it has left, because the screen keeps its ringing
+            // layout until then.
             "releaseLockScreen" -> {
-                lockScreen?.release(call.argument<String>("incident_id"))
-                result.success(null)
+                val screen = lockScreen
+                if (screen == null) {
+                    result.success(null)
+                } else {
+                    screen.release(call.argument<String>("incident_id")) {
+                        result.success(null)
+                    }
+                }
             }
 
             // The alarm screen started ringing, or is in front again after
