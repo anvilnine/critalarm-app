@@ -74,6 +74,72 @@ void main() {
       expect(listResult.getOrNull(), isEmpty);
     });
 
+    group('the rings the native alarm set for itself', () {
+      late List<Map<String, bool>> synced;
+      late List<String> cancelled;
+      late TopicRepository repo;
+
+      setUp(() {
+        synced = [];
+        cancelled = [];
+        repo = InMemoryTopicRepository(
+          apiClient,
+          syncAlarmChains: (topics) async => synced.add(topics),
+          cancelAlarmChains: (topic) async => cancelled.add(topic),
+        );
+      });
+
+      test('a topic list hands over every topic with its switch', () async {
+        await repo.createTopic(name: 'prod', critical: true);
+        await repo.createTopic(name: 'nas');
+
+        await repo.getTopics();
+
+        expect(synced.single, {'prod': true, 'nas': false});
+      });
+
+      test('turning Critical off drops the rings on that topic', () async {
+        await repo.createTopic(name: 'prod', critical: true);
+
+        await repo.updateTopic('prod', repeatIntervalS: 60);
+        expect(cancelled, isEmpty);
+
+        await repo.updateTopic('prod', critical: false);
+        expect(cancelled, ['prod']);
+      });
+
+      test('deleting a topic drops the rings on it', () async {
+        await repo.createTopic(name: 'prod', critical: true);
+
+        await repo.deleteTopic('prod');
+
+        expect(cancelled, ['prod']);
+      });
+
+      test('a failed delete keeps the rings', () async {
+        final result = await repo.deleteTopic('missing');
+
+        expect(result.isError(), isTrue);
+        expect(cancelled, isEmpty);
+      });
+
+      test('an alarm call that throws never fails the topic call', () async {
+        final throwing = InMemoryTopicRepository(
+          apiClient,
+          syncAlarmChains: (_) async => throw StateError('no alarm'),
+          cancelAlarmChains: (_) async => throw StateError('no alarm'),
+        );
+        await throwing.createTopic(name: 'prod', critical: true);
+
+        expect((await throwing.getTopics()).isSuccess(), isTrue);
+        expect(
+          (await throwing.updateTopic('prod', critical: false)).isSuccess(),
+          isTrue,
+        );
+        expect((await throwing.deleteTopic('prod')).isSuccess(), isTrue);
+      });
+    });
+
     test(
       'createTopic with invalid name returns Failure.api(statusCode: 400)',
       () async {

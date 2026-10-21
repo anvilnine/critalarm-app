@@ -803,6 +803,9 @@ Future<void> configureDependencies({
         sessions: getIt<ApiSessionStore>(),
         identity: getIt<DeviceIdentityStore>(),
         prefs: getIt<SharedPreferences>(),
+        syncAlarmChains: (topics) => getIt<AlarmHost>().syncChains(topics),
+        cancelAlarmChains: (topic) =>
+            getIt<AlarmHost>().cancelChainsForTopic(topic),
       ),
     )
     ..registerLazySingleton<IncidentRepository>(
@@ -1701,6 +1704,7 @@ Future<void> configureDependencies({
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
         heldTopics: localStore?.topics,
+        cancelAlarmChains: () => getIt<AlarmHost>().cancelAllChains(),
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {
