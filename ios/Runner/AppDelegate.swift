@@ -124,6 +124,7 @@ import AlarmKit
     soundPackChannel = attachSoundPackChannel(messenger: messenger)
     UiSoundPlayer.shared.attach(messenger: messenger)
     MotionSensorChannel.shared.attach(messenger: messenger)
+    RingScreenEffects.shared.attach(messenger: messenger)
 
     let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
     alarm.setMethodCallHandler { [weak self] call, result in
