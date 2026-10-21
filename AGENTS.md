@@ -641,6 +641,21 @@ see the step on an emulator, run a debug build with
 `--dart-define=DEVICE_MAKER=samsung`. A release build ignores the flag.
 Settings > Health keeps its battery row for every phone.
 
+**Do Not Disturb.** Crit Alarm never turns Do Not Disturb on or off. No Kotlin,
+Java, Swift or Dart file may call `setInterruptionFilter`.
+`test/core/notifications/no_interruption_filter_test.dart` greps `lib/`,
+`android/` and `ios/` and fails on any mention.
+
+- The one Do Not Disturb use is the Android alarm channel bypass
+  (`setBypassDnd(true)` in `NotificationChannels.kt`), which needs the
+  `ACCESS_NOTIFICATION_POLICY` permission. It changes the channel and leaves
+  the phone's Do Not Disturb setting alone.
+- No screen asks for that access today. `checkDndAccess` and `openDndSettings`
+  exist on the native side and nothing in Dart calls them.
+- A screen that ever asks for Do Not Disturb access says, in the same view,
+  "Crit Alarm never turns Do Not Disturb on or off." (`en.json`, `de.json` and
+  `ja.json`).
+
 **First topic.** The create-topic screen is the `first_topic` step. On the
 user's first topic (`isFirstTopicFor`: the shared list is ready and empty,
 `CreateTopicState.isFirstTopic`) it draws two extra things:
