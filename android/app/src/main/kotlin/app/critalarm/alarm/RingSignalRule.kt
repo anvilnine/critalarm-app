@@ -64,7 +64,14 @@ object RingSignalRule {
      * Whether the phone should ask the server which topic an incident is on.
      * Only when some topic has a switch on: with every switch off the answer
      * could change nothing, so no request is made.
+     *
+     * [isOnServer] is false for a local alarm with no incident on the server,
+     * such as the setup test ring. There is nothing to ask the server about,
+     * so no request is made and its topic stays unknown, which is off.
      */
-    fun shouldLearnTopic(topic: String?, saved: AlarmSignalStore.Saved): Boolean =
-        topic == null && saved.anyOn
+    fun shouldLearnTopic(
+        topic: String?,
+        saved: AlarmSignalStore.Saved,
+        isOnServer: Boolean = true,
+    ): Boolean = isOnServer && topic == null && saved.anyOn
 }

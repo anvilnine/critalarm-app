@@ -112,7 +112,11 @@ class AlarmForegroundService : Service() {
         )
         signals.update(flash = wanted.flash, vibration = wanted.vibration)
         ringing.forEachIndexed { index, incident ->
-            if (RingSignalRule.shouldLearnTopic(topics[index], saved)) learnTopic(incident)
+            // A ring that leaves no card behind has no incident on the server.
+            val isOnServer = incident.handOver
+            if (RingSignalRule.shouldLearnTopic(topics[index], saved, isOnServer)) {
+                learnTopic(incident)
+            }
         }
     }
 
