@@ -2540,5 +2540,20 @@
     "system_default": "System default",
     "ai_line": "Translated with AI. Spot a mistake?",
     "report_link": "Tell us."
+  },
+  "alarm_loudness": {
+    "ask": "Loud enough?",
+    "ask_yes": "Yes",
+    "ask_no": "No",
+    "title": "Make it louder",
+    "line": "On iPhone the alarm rings at your ringer volume.",
+    "step_aria": "Step {number}",
+    "step_1": "In Settings, open Sounds & Haptics and turn Ringtone and Alerts all the way up.",
+    "step_2": "Turn off Change with Buttons, so the volume buttons cannot turn the alarm down.",
+    "open_settings": "Open Settings",
+    "opened_note": "Settings opens on the Crit Alarm page. Go back one step for Sounds & Haptics.",
+    "open_failed": "Could not open Settings. Follow the steps.",
+    "ring_again": "Ring again",
+    "back_aria": "Back"
   }
 }

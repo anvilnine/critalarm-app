@@ -24,6 +24,7 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_loudness_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
 import 'package:critalarm/features/language/presentation/language_screen.dart';
@@ -155,6 +156,7 @@ abstract final class AppRoute {
   static const incidentDetail = 'incidentDetail';
   static const lockScreen = 'lockScreen';
   static const testRing = 'testRing';
+  static const alarmLoudness = 'alarmLoudness';
   static const askPermissions = 'askPermissions';
 }
 
@@ -971,6 +973,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
         child: const ConfirmRingScreen(),
+      ),
+    ),
+    // "No" under "Loud enough?" after a test alarm. iPhone only: Android
+    // sets the alarm volume itself, so anywhere else a typed URL goes Home.
+    GoRoute(
+      path: '/alarm-loudness',
+      name: AppRoute.alarmLoudness,
+      redirect: (context, state) =>
+          getIt<PlatformCapabilities>().isIos ? null : '/',
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        // It opens over the alarm screen, which must not show through.
+        opaque: true,
+        child: const AlarmLoudnessScreen(),
       ),
     ),
     // Debug builds only. Nothing in the shipping UI links here, and a store

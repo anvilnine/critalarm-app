@@ -2540,5 +2540,20 @@
     "system_default": "Systemstandard",
     "ai_line": "Mit KI übersetzt. Fehler entdeckt?",
     "report_link": "Sag es uns."
+  },
+  "alarm_loudness": {
+    "ask": "Laut genug?",
+    "ask_yes": "Ja",
+    "ask_no": "Nein",
+    "title": "Lauter stellen",
+    "line": "Auf dem iPhone klingelt der Alarm in deiner Klingeltonlautstärke.",
+    "step_aria": "Schritt {number}",
+    "step_1": "Öffne in den Einstellungen Töne & Haptik und stelle Klingel- und Hinweistöne ganz nach oben.",
+    "step_2": "Schalte Mit Tasten ändern aus, damit die Lautstärketasten den Alarm nicht leiser machen.",
+    "open_settings": "Einstellungen öffnen",
+    "opened_note": "Die Einstellungen öffnen sich auf der Seite von Crit Alarm. Geh einen Schritt zurück zu Töne & Haptik.",
+    "open_failed": "Die Einstellungen ließen sich nicht öffnen. Folge den Schritten.",
+    "ring_again": "Noch mal klingeln lassen",
+    "back_aria": "Zurück"
   }
 }
