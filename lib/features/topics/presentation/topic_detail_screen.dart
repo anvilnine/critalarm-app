@@ -16,6 +16,7 @@ import 'package:critalarm/features/topics/domain/topic_tokens_page_rules.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
+import 'package:critalarm/features/topics/presentation/formatters/topic_ring_length.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
@@ -540,6 +541,7 @@ class _TopicSheet extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
       children: [
         _MessagesBlock(state: state),
+        _RingLengthLine(state: state),
         // The topic's look, sound, wake-up challenge and tokens. Each card
         // opens the page that changes it. Kept on the device only, except the
         // tokens.
@@ -573,6 +575,30 @@ class _TopicSheet extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// How long an alarm on this topic rings and how often it rings again, in one
+/// quiet line. Read only. Drawn only while Critical delivery is on, because a
+/// plain push never rings, and only once the topic's timers are known.
+class _RingLengthLine extends StatelessWidget {
+  const _RingLengthLine({required this.state});
+
+  final TopicDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final line = state.critical
+        ? topicRingLengthLine(
+            maxRingS: state.maxRingS,
+            repeatIntervalS: state.repeatIntervalS,
+          )
+        : null;
+    if (line == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Text(line, style: AppTypography.small(context.appColors.ink3)),
     );
   }
 }

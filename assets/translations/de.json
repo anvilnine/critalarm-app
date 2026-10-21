@@ -776,7 +776,8 @@
       "one": "1 Nachricht",
       "other": "Alle {} Nachrichten"
     },
-    "no_messages": "Noch keine Nachrichten."
+    "no_messages": "Noch keine Nachrichten.",
+    "ring_length": "Klingelt {total} lang, alle {every}, bis du wach bist."
   },
   "topic_tokens": {
     "header": "Tokens",
