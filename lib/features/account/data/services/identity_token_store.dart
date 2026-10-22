@@ -12,6 +12,12 @@ abstract interface class IdentityTokenStore {
   Future<String?> read();
   Future<void> write(String token);
   Future<void> clear();
+
+  /// For a phone restored from a backup or moved to a new one: the token
+  /// this phone holds of its own. A copy that came in the backup is
+  /// removed and never moved in. Throws when the store cannot answer, so
+  /// the caller can try again on the next launch.
+  Future<String?> readAfterMove();
 }
 
 /// The preferences key the token was kept under, and still is off iOS.
@@ -31,6 +37,12 @@ final class PrefsIdentityTokenStore implements IdentityTokenStore {
 
   @override
   Future<void> clear() => prefs.remove(identitySessionTokenKey);
+
+  /// Off iOS the preferences stay out of every backup and transfer, so what
+  /// is here is this phone's own.
+  @override
+  Future<String?> readAfterMove() async =>
+      prefs.getString(identitySessionTokenKey);
 }
 
 /// iOS: an unsynced Keychain item that is ThisDeviceOnly, through the same
@@ -45,6 +57,11 @@ final class PrefsIdentityTokenStore implements IdentityTokenStore {
 /// first read moves it: Keychain write first, and the old key is removed
 /// only once that write succeeded. A Keychain that cannot be written keeps
 /// the old copy, and the next read tries again.
+///
+/// That move is for the same phone only. A backup made before the token
+/// went to the Keychain still holds it in the preferences, so on a restored
+/// or moved phone [readAfterMove] removes the old key first and moves
+/// nothing.
 final class KeychainIdentityTokenStore implements IdentityTokenStore {
   const KeychainIdentityTokenStore(
     this.prefs, {
@@ -102,6 +119,12 @@ final class KeychainIdentityTokenStore implements IdentityTokenStore {
       // Signing out goes on. With the provider gone, readSession answers
       // null whatever is left here, and the next sign-in writes over it.
     }
+  }
+
+  @override
+  Future<String?> readAfterMove() async {
+    await prefs.remove(identitySessionTokenKey);
+    return channel.invokeMethod<String>('read', _item);
   }
 
   Future<void> _write(String token) => channel.invokeMethod<void>('write', {

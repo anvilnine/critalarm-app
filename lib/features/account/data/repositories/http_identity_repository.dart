@@ -150,6 +150,19 @@ final class HttpIdentityRepository implements IdentityRepository {
     identityChanges.bump();
   }
 
+  @override
+  Future<void> forgetRestoredSignIn() async {
+    // Not [IdentityTokenStore.read]: that would move a token left in the
+    // preferences by a backup made before the Keychain held it.
+    if (await tokens.readAfterMove() != null) return;
+    final saved = [_providerKey, _emailKey, _accountKey, _providersKey];
+    if (!saved.any(prefs.containsKey)) return;
+    for (final key in saved) {
+      await prefs.remove(key);
+    }
+    identityChanges.bump();
+  }
+
   /// The saved provider set, or null when nothing was saved, which is every
   /// install made before linking existed.
   Set<IdentityProvider>? _readProviders() {

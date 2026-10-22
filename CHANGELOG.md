@@ -10,6 +10,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
 
+### Fixed
+- After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
+
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
 

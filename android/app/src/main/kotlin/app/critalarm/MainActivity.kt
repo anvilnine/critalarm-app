@@ -20,6 +20,7 @@ import app.critalarm.alarm.AlarmChain
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.AlarmLockRule
+import app.critalarm.alarm.LockReleaseAnswers
 import app.critalarm.alarm.RingVolumeWatch
 import app.critalarm.alarm.RingWindow
 import app.critalarm.appicon.AppIconChannel
@@ -82,10 +83,13 @@ class MainActivity : FlutterFragmentActivity() {
     /** Full brightness and no volume down while the alarm screen rings. */
     private val ringWindow = RingWindow(this)
 
+    /** Releases that wait for the unlock prompt to answer. */
+    private val releaseAnswers = LockReleaseAnswers()
+
     private val lockScreen = object : AlarmChannel.LockScreen {
-        override fun release(incidentId: String?) {
+        override fun release(incidentId: String?, done: () -> Unit) {
             ringWindow.ended(incidentId)
-            releaseLockScreen(incidentId)
+            releaseLockScreen(incidentId, done)
         }
 
         override fun hold(incidentId: String) {
@@ -417,28 +421,43 @@ class MainActivity : FlutterFragmentActivity() {
     /**
      * Dart: the alarm screen let go of [incidentId]. With the phone locked,
      * the unlock prompt comes up, and the window leaves the lock screen
-     * whatever the answer. Without a lock it leaves at once.
+     * whatever the answer. Without a lock it leaves at once. [done] is
+     * called once the window has left, or at once when it stays: Dart keeps
+     * the ringing layout until then.
      */
-    private fun releaseLockScreen(incidentId: String?) {
-        val shown = lockIncidentId ?: return
-        if (unlockPending) return
+    private fun releaseLockScreen(incidentId: String?, done: () -> Unit) {
+        val shown = lockIncidentId
+        if (shown == null) {
+            done()
+            return
+        }
+        if (unlockPending) {
+            releaseAnswers.add(done)
+            return
+        }
         val keeps = AlarmLockRule.keepsOnRelease(
             released = incidentId ?: shown,
             shownFor = shown,
             ringingNow = AlarmForegroundService.ringingNow,
             shownForOwesAck = owesAck(shown),
         )
-        if (keeps) return
+        if (keeps) {
+            done()
+            return
+        }
         Log.i(TAG, "lock_screen_released incident_id=$shown")
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (keyguard == null || !keyguard.isKeyguardLocked) {
             setOverLock(null)
+            done()
             return
         }
         unlockPending = true
+        releaseAnswers.add(done)
         val generation = lockGeneration
         val settle = {
             if (generation == lockGeneration) setOverLock(null)
+            releaseAnswers.answerAll()
         }
         keyguard.requestDismissKeyguard(
             this,
