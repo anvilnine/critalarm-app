@@ -642,6 +642,19 @@
     "pro_ended_action": "プランを見る",
     "pro_ended_dismiss": "OK"
   },
+  "cancel_question": {
+    "title": "解約した理由は何ですか？",
+    "reason_price": "料金が高い",
+    "reason_unused": "あまり使っていない",
+    "reason_selfhost": "自分のサーバーに移行する",
+    "reason_missing": "足りない機能がある",
+    "reason_broken": "不具合があった",
+    "reason_other": "その他",
+    "explain_hint": "理由があれば教えてください（任意）",
+    "send": "送信",
+    "thanks_title": "ありがとうございます。参考になります。",
+    "keeps": "Cloudは{date}まで有効です。"
+  },
   "asks": {
     "pro_title": "Cloudで追加:",
     "pro_cap_refused": "無料では重大トピックを{free_critical_topics}件まで作成できます。このトピックは作成されませんでした。入力内容は残っています。",
