@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 
@@ -23,6 +25,12 @@ PaywallTone reelAirFor(ReelTone tone) => switch (tone) {
   ReelTone.panel => PaywallTone.panel,
   ReelTone.cream || ReelTone.high || ReelTone.surface => PaywallTone.surface,
 };
+
+/// The lead the scene at [index] reads: the route's lead for the first
+/// scene, none for any other. The offer lists the lead's benefit first, so
+/// the first scene is the one the lead is about.
+PaywallLead? reelLeadAt(int index, PaywallLead? lead) =>
+    index == 0 ? lead : null;
 
 /// How full the story bar at [bar] is, 0 to 1, while the scene at [active]
 /// is [progress] of the way through its turn: the scenes already seen are
@@ -67,6 +75,37 @@ ReelPush reelPushAt(double eased, int direction) {
   final from = direction < 0 ? -1.0 : 1.0;
   return ReelPush(into: from * (1 - eased), out: -from * eased);
 }
+
+/// How the reel's stage moves. No scene shares its air with the next, so
+/// the air is rings on the scene's own tone. The mascot comes in from the
+/// side, as the pages do, and hops as each new page lands. The picture
+/// travels with its page.
+const HeroMotion reelMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rings,
+  entrance: HeroEntranceStyle.slide,
+  idle: HeroIdleStyle.benefitHop,
+  arrival: HeroCardArrival.slideThrough,
+);
+
+/// How much of the entrance is already over when the reel opens after an
+/// intro, in seconds. The intro ends on the mascot, so the mascot is in
+/// its place from the first frame and only the picture and the words are
+/// still arriving.
+const double reelAfterIntroLead = 0.6;
+
+/// The loop's prelude: none alone, and a head start after an intro.
+double reelPreludeFor({required bool followsIntro}) =>
+    followsIntro ? -reelAfterIntroLead : 0;
+
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot slides in and lands. After an intro the mascot
+/// is already there and nothing is played.
+///
+/// Every page after that has the page cue: the hand's own, and the reel's
+/// through its first pass (`paywallTurnCues`).
+List<PaywallCueBeat> reelCues({required double prelude}) => [
+  heroLandingBeat(reelMotion.entrance, prelude: prelude),
+];
 
 /// [frame] for the scene on stage, with nothing fading under its picture.
 /// The push shows the scene before it, so the stage must not.
@@ -133,6 +172,9 @@ const double reelCrossRoom = 52;
 /// button and the saving badge never touch it.
 const double reelSceneGap = 12;
 
+/// The gap between the picture and the lead's line under it.
+const double reelLineGap = 8;
+
 /// What one scene measures on one phone.
 class ReelSizes {
   const ReelSizes({
@@ -160,21 +202,35 @@ class ReelSizes {
   final double foot;
 }
 
+/// The shortest stage that draws something to read: the room above the
+/// mascot and the smallest mascot the stage draws. A shorter one would hold
+/// only the soft disc behind the picture, which reads as a stray dot.
+const double reelStageMinHeight = heroTopRoom + heroMascotMin;
+
 /// The height left for the stage in a scene [height] points tall whose
-/// words take [words]. Never under zero: at a large text size the stage's
-/// own arrangement drops the picture, then the mascot.
+/// words take [words] and whose line under the picture takes [line], gap
+/// included. Never under zero.
+///
+/// A room under [reelStageMinHeight] is zero: the scene draws no stage and
+/// no placeholder, and the words keep the room. At a larger text size the
+/// stage's own arrangement still drops the card before the mascot.
 double reelStageHeight({
   required double height,
   required double words,
   required ReelSizes sizes,
-}) => math
-    .max(
-      0,
-      height -
-          reelBarsHeight -
-          words -
-          sizes.stageGap -
-          sizes.foot -
-          reelSceneGap,
-    )
-    .floorToDouble();
+  double line = 0,
+}) {
+  final room = math
+      .max(
+        0,
+        height -
+            reelBarsHeight -
+            words -
+            sizes.stageGap -
+            line -
+            sizes.foot -
+            reelSceneGap,
+      )
+      .floorToDouble();
+  return room < reelStageMinHeight ? 0 : room;
+}

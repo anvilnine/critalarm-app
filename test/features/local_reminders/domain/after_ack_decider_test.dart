@@ -281,7 +281,7 @@ void main() {
         LocalRemindersSheetChoice.turnOn(
           offersTicked: true,
           isSelfHosted: false,
-          isPaid: true,
+          holdsHosted: true,
         ),
         LocalReminderSwitches.defaults,
       );

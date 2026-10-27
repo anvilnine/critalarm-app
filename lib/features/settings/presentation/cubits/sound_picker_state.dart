@@ -1,4 +1,7 @@
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
+import 'package:critalarm/core/sound/sound_assignments.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:flutter/foundation.dart';
@@ -30,6 +33,7 @@ class SoundPickerState {
     this.errorCode,
     this.platform = TargetPlatform.android,
     this.isLoadingPeaks = true,
+    this.ownSounds = const FeatureDecision.open(),
   });
 
   final bool isLoading;
@@ -69,6 +73,36 @@ class SoundPickerState {
 
   bool get isPerTopic => topicName != null;
 
+  /// The access layer's answer for own sounds. Handed to the paywall door
+  /// as it is when a locked way in is tapped.
+  final FeatureDecision ownSounds;
+
+  /// Whether own sounds are locked: listed, and not selectable.
+  bool get ownSoundsLocked => ownSoundsLockedBy(ownSounds);
+
+  /// Whether [sound] is one of the person's own and locked right now.
+  bool isLocked(AlarmSound sound) =>
+      ownSoundsLocked && sound.source == AlarmSoundSource.user;
+
+  /// The sound that really rings for this screen's choice. The same as
+  /// [selectedSoundId] unless that is an own sound and own sounds are
+  /// locked.
+  String get ringingSoundId {
+    final topic = topicName;
+    return OwnSoundRule.ringingSoundId(
+      saved: SoundAssignments(
+        defaultSoundId: defaultSoundId,
+        perTopic: topic == null ? const {} : {topic: selectedSoundId},
+      ),
+      ownSoundsLocked: ownSoundsLocked,
+      topicName: topic,
+    );
+  }
+
+  /// True when the saved choice is a locked own sound, so something else
+  /// rings in its place.
+  bool get ringsSomethingElse => ringingSoundId != selectedSoundId;
+
   SoundPickerState copyWith({
     bool? isLoading,
     List<AlarmSound>? bundled,
@@ -85,7 +119,9 @@ class SoundPickerState {
     bool clearError = false,
     TargetPlatform? platform,
     bool? isLoadingPeaks,
+    FeatureDecision? ownSounds,
   }) => SoundPickerState(
+    ownSounds: ownSounds ?? this.ownSounds,
     isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
     isLoading: isLoading ?? this.isLoading,
     bundled: bundled ?? this.bundled,

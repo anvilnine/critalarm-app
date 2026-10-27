@@ -1,4 +1,7 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sentence/sentence_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -57,6 +60,70 @@ void main() {
           expect((roll.arriving - roll.leaving!).abs(), closeTo(1, 1e-9));
         }
       }
+    });
+  });
+
+  group('the first ending', () {
+    test('waits one box below, out of sight, until its turn', () {
+      final before = sentenceFirstRollAt(sentenceFirstRollStart);
+      expect(before.arriving, 1);
+      expect(before.shown, 0);
+    });
+
+    test('rolls up into place and stays there', () {
+      const mid = (sentenceFirstRollStart + sentenceFirstRollEnd) / 2;
+      final half = sentenceFirstRollAt(mid);
+      expect(half.arriving, inExclusiveRange(0, 1));
+      expect(half.shown, inExclusiveRange(0, 1));
+
+      for (final t in [sentenceFirstRollEnd, heroEntranceSeconds, 9.0]) {
+        final landed = sentenceFirstRollAt(t);
+        expect(landed.arriving, closeTo(0, 1e-9));
+        expect(landed.shown, 1);
+      }
+    });
+
+    test('is in place before the entrance is over', () {
+      expect(sentenceFirstRollEnd, lessThanOrEqualTo(heroEntranceSeconds));
+    });
+
+    test('is heard as it starts, after the mascot has landed', () {
+      final cues = sentenceCues(prelude: 0);
+      expect(
+        [for (final beat in cues) beat.cue],
+        [
+          PaywallCue.pop,
+          PaywallCue.roll,
+        ],
+      );
+      expect(cues.last.at, sentenceFirstRollStart);
+      expect(cues.first.at, lessThan(cues.last.at));
+      // A head start moves both.
+      final early = sentenceCues(prelude: -0.3);
+      expect(early.last.at, closeTo(sentenceFirstRollStart - 0.3, 1e-9));
+    });
+  });
+
+  group('the motion', () {
+    test('is its own: rays, in from the side, a hop for each ending', () {
+      expect(sentenceMotion.atmosphere, HeroAtmosphereStyle.rays);
+      expect(sentenceMotion.entrance, HeroEntranceStyle.slide);
+      expect(sentenceMotion.idle, HeroIdleStyle.benefitHop);
+      expect(sentenceMotion.arrival, HeroCardArrival.fade);
+    });
+
+    test('after an intro the mascot is already in its place', () {
+      expect(sentencePreludeFor(followsIntro: false), 0);
+      final prelude = sentencePreludeFor(followsIntro: true);
+      expect(prelude, lessThan(0));
+      // The entrance is this far in when the layout's clock starts.
+      final pose = heroEntrancePose(
+        sentenceMotion.entrance,
+        -prelude / heroEntranceSeconds,
+        size: 160,
+      );
+      expect(pose.dx, closeTo(0, 1e-9));
+      expect(pose.opacity, 1);
     });
   });
 }

@@ -81,7 +81,7 @@ void main() {
     final host = SoundHost();
     return SoundCropCubit(
       host,
-      ImportSoundUsecase(repository, host),
+      ImportSoundUsecase(repository, host, isLocked: () async => false),
       picker,
       platform: platform,
     );

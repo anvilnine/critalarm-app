@@ -113,7 +113,12 @@ class _ServerSettingsView extends StatelessWidget {
                   12,
                   16 + bottomInset + viewInsetsBottom,
                 ),
+                // The close button is a 32 circle in a 48 tap box. The sheet
+                // gives up 8 of its top and right padding for the box, and
+                // the rest of the sheet takes the right 8 back, so nothing
+                // moves.
                 child: AppSheet(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -142,70 +147,89 @@ class _ServerSettingsView extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        label: LocaleKeys.settings_server_url_label.tr(),
-                        controller: urlController,
-                        placeholder: 'https://api.critalarm.app',
-                        errorText: urlError,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        label: LocaleKeys.settings_admin_token_label.tr(),
-                        controller: tokenController,
-                        placeholder: LocaleKeys.settings_admin_token_placeholder
-                            .tr(),
-                        errorText: tokenError,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AppButton(
-                              label: LocaleKeys.common_cancel.tr(),
-                              variant: AppButtonVariant.ghost,
-                              onPressed: () => Navigator.of(sheetContext).pop(),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 8 less than the 14 it was: the box reaches 8
+                            // below the circle.
+                            const SizedBox(height: 6),
+                            AppTextField(
+                              label: LocaleKeys.settings_server_url_label.tr(),
+                              controller: urlController,
+                              placeholder: 'https://api.critalarm.app',
+                              errorText: urlError,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: AppButton(
-                              label: LocaleKeys.common_save.tr(),
-                              isLoading: isSaving,
-                              onPressed: () async {
-                                final newUrl = urlController.text.trim();
-                                final newToken = tokenController.text.trim();
-                                if (newUrl.isEmpty) return;
-                                setSheetState(() {
-                                  isSaving = true;
-                                  urlError = null;
-                                  tokenError = null;
-                                });
-                                // The sheet stays up until the server is
-                                // checked, and closes only on a connect that
-                                // landed. Nothing is saved before that.
-                                final outcome = await cubit.saveConnection(
-                                  serverUrl: newUrl,
-                                  adminToken: newToken,
-                                );
-                                if (!sheetContext.mounted) return;
-                                if (outcome == null || outcome is Connected) {
-                                  Navigator.of(sheetContext).pop();
-                                  return;
-                                }
-                                final line = cubit.state.errorMessage;
-                                setSheetState(() {
-                                  isSaving = false;
-                                  if (editServerErrorIsOnToken(outcome)) {
-                                    tokenError = line;
-                                  } else {
-                                    urlError = line;
-                                  }
-                                });
-                              },
+                            const SizedBox(height: 12),
+                            AppTextField(
+                              label: LocaleKeys.settings_admin_token_label.tr(),
+                              controller: tokenController,
+                              placeholder: LocaleKeys
+                                  .settings_admin_token_placeholder
+                                  .tr(),
+                              errorText: tokenError,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: AppButton(
+                                    label: LocaleKeys.common_cancel.tr(),
+                                    variant: AppButtonVariant.ghost,
+                                    onPressed: () =>
+                                        Navigator.of(sheetContext).pop(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: AppButton(
+                                    label: LocaleKeys.common_save.tr(),
+                                    isLoading: isSaving,
+                                    onPressed: () async {
+                                      final newUrl = urlController.text.trim();
+                                      final newToken = tokenController.text
+                                          .trim();
+                                      if (newUrl.isEmpty) return;
+                                      setSheetState(() {
+                                        isSaving = true;
+                                        urlError = null;
+                                        tokenError = null;
+                                      });
+                                      // The sheet stays up until the server
+                                      // is checked, and closes only on a
+                                      // connect that landed. Nothing is
+                                      // saved before that.
+                                      final outcome = await cubit
+                                          .saveConnection(
+                                            serverUrl: newUrl,
+                                            adminToken: newToken,
+                                          );
+                                      if (!sheetContext.mounted) return;
+                                      if (outcome == null ||
+                                          outcome is Connected) {
+                                        Navigator.of(sheetContext).pop();
+                                        return;
+                                      }
+                                      final line = cubit.state.errorMessage;
+                                      setSheetState(() {
+                                        isSaving = false;
+                                        if (editServerErrorIsOnToken(
+                                          outcome,
+                                        )) {
+                                          tokenError = line;
+                                        } else {
+                                          urlError = line;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -287,7 +311,9 @@ class _ServerSettingsView extends StatelessWidget {
               ),
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 10),
+            // The buttons are 36 pills in 48 tap boxes: 6 less above and
+            // below them.
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
@@ -315,7 +341,7 @@ class _ServerSettingsView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             Text(
               LocaleKeys.settings_server_disconnect_hint.tr(),
               style: TextStyle(
@@ -332,7 +358,8 @@ class _ServerSettingsView extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      // The Connect button is a 36 pill in a 48 tap box: 6 less below it.
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -373,7 +400,7 @@ class _ServerSettingsView extends StatelessWidget {
               color: colors.ink2,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           AppButton(
             label: LocaleKeys.settings_server_connect_button.tr(),
             size: AppButtonSize.sm,

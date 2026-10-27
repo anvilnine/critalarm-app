@@ -84,4 +84,208 @@ final class PushDeliveryTests: XCTestCase {
         _ = try await intent.perform()
         await fulfillment(of: [expectation], timeout: 2.0)
     }
+
+    // Done on the acknowledged card, and the wake-up challenge flag.
+    //
+    // The keys are spelled the way Dart writes them. A key spelled
+    // differently on this side would read as "never owed", and Done would
+    // close.
+
+    /// Two defaults of the test's own: the app's, and the app group's.
+    private func challengeDefaults() -> (app: UserDefaults, group: UserDefaults) {
+        let appName = "challenge-flag-app-\(UUID().uuidString)"
+        let groupName = "challenge-flag-group-\(UUID().uuidString)"
+        let app = UserDefaults(suiteName: appName)!
+        let group = UserDefaults(suiteName: groupName)!
+        addTeardownBlock {
+            app.removePersistentDomain(forName: appName)
+            group.removePersistentDomain(forName: groupName)
+        }
+        return (app, group)
+    }
+
+    func testDoneClosesWhenNothingWasEverPublished() {
+        let (_, group) = challengeDefaults()
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .closes)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: nil), .closes)
+    }
+
+    func testDoneOpensTheAppWhileTheTopicsFlagIsSet() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .opensApp)
+        // Another topic on the same phone still closes.
+        XCTAssertEqual(DoneButton.forCard(topic: "nas", shared: group), .closes)
+    }
+
+    func testDoneClosesAgainOnceTheFlagIsGone() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        app.removeObject(forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod-db", shared: group), .closes)
+    }
+
+    func testOnlyARealTrueCountsAsAFlag() {
+        let (app, group) = challengeDefaults()
+        app.set(false, forKey: "flutter.topic_challenge_owed.off")
+        app.set("true", forKey: "flutter.topic_challenge_owed.text")
+        app.set(1, forKey: "flutter.topic_challenge_owed.number")
+        app.set(true, forKey: "flutter.topic_challenge_owed.")
+        // The choice itself is not the flag. Without Pro Dart keeps the
+        // choice and sets no flag.
+        app.set("type_topic_name", forKey: "flutter.topic_challenge.chosen")
+        app.set(true, forKey: "flutter.topic_challenge_owed.db.eu.1")
+        XCTAssertEqual(ChallengeFlag.owedTopics(in: app), ["db.eu.1"])
+        ChallengeFlag.publish(from: app, to: group)
+        for topic in ["off", "text", "number", "chosen", ""] {
+            XCTAssertEqual(DoneButton.forCard(topic: topic, shared: group), .closes, topic)
+        }
+        XCTAssertEqual(DoneButton.forCard(topic: "db.eu.1", shared: group), .opensApp)
+    }
+
+    func testACardWithNoTopicCloses() {
+        let (app, group) = challengeDefaults()
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod-db")
+        ChallengeFlag.publish(from: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "", shared: group), .closes)
+    }
+
+    // The gate in front of a close the app asks for on behalf of Done.
+
+    private func mayClose(
+        acked: Bool = true,
+        alarmUnderWay: Bool = false,
+        card: IncidentActivityState? = nil,
+        widget: String? = nil
+    ) -> Bool {
+        DoneHandOffRule.mayClose(
+            acked: acked, alarmUnderWay: alarmUnderWay, cardState: card, widgetState: widget
+        )
+    }
+
+    func testAnAckedLiveActivityMayBeClosed() {
+        XCTAssertTrue(mayClose(card: .acked))
+        XCTAssertTrue(mayClose(card: .acked, widget: WidgetIncident.acked))
+    }
+
+    func testTheSnapshotSayingAckedWithNoCardMayBeClosed() {
+        XCTAssertTrue(mayClose(card: nil, widget: WidgetIncident.acked))
+    }
+
+    func testTheAckedSetAloneWithNoCardAndNoSnapshotEntryIsRefused() {
+        // The mark can be stale: nothing that draws Done says acknowledged.
+        XCTAssertFalse(mayClose(card: nil, widget: nil))
+    }
+
+    func testTheSnapshotSayingOpenIsRefused() {
+        XCTAssertFalse(mayClose(card: nil, widget: WidgetIncident.open))
+        // Even under a card that still says acked: the extension turned the
+        // snapshot on a reopen push the card has not caught up with.
+        XCTAssertFalse(mayClose(card: .acked, widget: WidgetIncident.open))
+    }
+
+    func testAnIdThisPhoneHasNeverSeenIsRefused() {
+        XCTAssertFalse(mayClose(acked: false))
+    }
+
+    func testNotInTheAckedSetIsRefusedWhateverTheSurfacesSay() {
+        XCTAssertFalse(mayClose(acked: false, card: .acked))
+        XCTAssertFalse(mayClose(acked: false, widget: WidgetIncident.acked))
+        XCTAssertFalse(mayClose(acked: false, card: .acked, widget: WidgetIncident.acked))
+    }
+
+    func testOpenAndRingingAreRefused() {
+        XCTAssertFalse(mayClose(acked: false, alarmUnderWay: true))
+        XCTAssertFalse(mayClose(acked: false, alarmUnderWay: true, card: .open))
+        // Even if every mark says acknowledged.
+        XCTAssertFalse(mayClose(alarmUnderWay: true, card: .acked, widget: WidgetIncident.acked))
+    }
+
+    func testSilencedButNotAcknowledgedIsRefused() {
+        // The card Stop leaves: open, with "I'm up" on it.
+        XCTAssertFalse(mayClose(acked: false, alarmUnderWay: true, card: .open))
+        XCTAssertFalse(mayClose(acked: false, card: .open, widget: WidgetIncident.open))
+        XCTAssertFalse(mayClose(card: .open, widget: WidgetIncident.acked))
+    }
+
+    func testRungAgainAfterAnAcknowledgeIsRefused() {
+        // With the app force-quit the acked mark survives a reopen. Each
+        // of the other signals refuses on its own.
+        XCTAssertFalse(mayClose(alarmUnderWay: true, card: .acked))
+        XCTAssertFalse(mayClose(card: .open))
+        XCTAssertFalse(mayClose(card: nil, widget: WidgetIncident.open))
+        XCTAssertFalse(mayClose(card: nil, widget: nil))
+    }
+
+    func testAClosedOrExpiredCardIsRefused() {
+        XCTAssertFalse(mayClose(card: .closed, widget: WidgetIncident.acked))
+        XCTAssertFalse(mayClose(card: .expired))
+    }
+
+    func testAStateTheSnapshotDoesNotKnowIsNotAcknowledged() {
+        XCTAssertFalse(mayClose(card: nil, widget: "closed"))
+        XCTAssertFalse(mayClose(card: nil, widget: ""))
+    }
+
+    /// The acked set under the key the app writes, read the way the gate
+    /// reads it: marked passes, cleared does not.
+    func testTheGateReadsTheAckedSet() {
+        let name = "done-gate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        func passes(_ id: String) -> Bool {
+            mayClose(
+                acked: AckedIncidentStore.contains(incidentId: id, in: defaults), card: .acked
+            )
+        }
+        XCTAssertFalse(passes("inc_1"))
+        AckedIncidentStore.mark(incidentId: "inc_1", in: defaults)
+        XCTAssertTrue(passes("inc_1"))
+        XCTAssertFalse(passes("inc_other"))
+        AckedIncidentStore.clear(incidentId: "inc_1", in: defaults)
+        XCTAssertFalse(passes("inc_1"))
+    }
+
+    /// The snapshot read the way the gate reads it, and turned by the
+    /// patch the notification extension applies on a reopen push.
+    func testTheGateReadsTheWidgetSnapshot() {
+        func topic(_ name: String, _ incident: WidgetIncident?) -> WidgetTopic {
+            WidgetTopic(name: name, critical: true, count: incident == nil ? 0 : 1, incident: incident)
+        }
+        let acked = WidgetIncident(
+            id: "inc_1", state: WidgetIncident.acked, title: "Disk full", openedAt: 100, ackedAt: 160
+        )
+        let ringing = WidgetIncident(
+            id: "inc_2", state: WidgetIncident.open, title: "Down", openedAt: 200, ackedAt: nil
+        )
+        let snapshot = WidgetSnapshot(
+            updatedAt: 300, connected: true, openCount: 2,
+            topics: [topic("prod", acked), topic("nas", ringing), topic("quiet", nil)]
+        )
+        XCTAssertEqual(DoneHandOffRule.widgetState(incidentId: "inc_1", in: snapshot), WidgetIncident.acked)
+        XCTAssertEqual(DoneHandOffRule.widgetState(incidentId: "inc_2", in: snapshot), WidgetIncident.open)
+        XCTAssertNil(DoneHandOffRule.widgetState(incidentId: "inc_unknown", in: snapshot))
+        XCTAssertNil(DoneHandOffRule.widgetState(incidentId: "inc_1", in: nil))
+
+        guard case let .changed(reopened) = WidgetPatch.reopened("inc_1").apply(
+            to: snapshot, now: Date(timeIntervalSince1970: 400)
+        ) else {
+            return XCTFail("a reopen changes the snapshot")
+        }
+        let state = DoneHandOffRule.widgetState(incidentId: "inc_1", in: reopened)
+        XCTAssertEqual(state, WidgetIncident.open)
+        XCTAssertFalse(mayClose(card: nil, widget: state))
+    }
+
+    /// Whatever the flag says, the two buttons that stop a ring never open
+    /// the app first.
+    @available(iOS 16.2, *)
+    func testStoppingTheRingNeverOpensTheApp() {
+        XCTAssertFalse(StopAlarmIntent.openAppWhenRun)
+        XCTAssertFalse(AckAlarmIntent.openAppWhenRun)
+        XCTAssertFalse(CloseIncidentIntent.openAppWhenRun)
+    }
 }

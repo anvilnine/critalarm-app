@@ -29,14 +29,16 @@ class SheetPlan {
     required this.header,
     required this.rowsAbove,
     this.isMeasured = true,
+    this.standsInFront = true,
+    this.isNarrow = false,
   });
 
   /// The most quiet rows drawn between the title and the lit row.
   static const int maxRowsAbove = 2;
 
-  /// How much of the mascot shows over the sheet's edge: down to just
-  /// under its eyes.
-  static const double faceShown = 0.56;
+  /// How much of the mascot shows over the sheet's edge when it stands
+  /// behind the sheet: down to just under its eyes.
+  static const double faceShownBehind = 0.56;
 
   final bool isCompact;
 
@@ -53,6 +55,25 @@ class SheetPlan {
   /// lays the sheet out so the kit can measure the block, and none of it
   /// is drawn, so the first frame on screen is already the settled one.
   final bool isMeasured;
+
+  /// True when the mascot stands whole in front of the sheet, astride its
+  /// top edge, beside the preview. False past the default text size: the
+  /// words then take the room its lower half needs, so it stands behind
+  /// the sheet and looks over the edge.
+  final bool standsInFront;
+
+  /// True on a phone under [sheetNarrowWidth] points wide. The mascot is
+  /// then small and still, and stands wholly above the sheet's top edge:
+  /// beside the preview it would lie over the words.
+  final bool isNarrow;
+
+  /// True when the mascot is drawn without motion: no bob, no blink, no hop.
+  bool get isFaceStill => isNarrow;
+
+  /// True when the mascot stands beside the preview, over the sheet's top
+  /// edge. A narrow phone has no room for that, and past the default text
+  /// size the mascot is behind the sheet.
+  bool get showsFaceBesideCard => standsInFront && !isNarrow;
 
   /// The back row at the top of the screen behind.
   double get navHeight => switch (header) {
@@ -78,15 +99,37 @@ class SheetPlan {
   /// The lit row's height.
   double get litHeight => isCompact ? 64 : 72;
 
-  /// The mascot that looks over the sheet's edge.
-  double get faceSize => isCompact ? 72 : 108;
+  /// The mascot on the sheet's edge. In front of the sheet it is close to
+  /// the size the approved stage draws it at.
+  double get faceSize => isNarrow
+      ? sheetNarrowFace
+      : standsInFront
+      ? (isCompact ? 112 : 150)
+      : (isCompact ? 72 : 108);
 
-  /// How many points of the mascot show above the sheet.
+  /// How much of the mascot is above the sheet's edge. In front of the
+  /// sheet the rest of it is on the sheet, beside the preview.
+  double get faceShown => isNarrow
+      ? 1
+      : standsInFront
+      ? (isCompact ? 0.36 : 0.37)
+      : faceShownBehind;
+
+  /// How many points of the mascot are above the sheet's edge.
   double get faceAbove => faceSize * faceShown;
 
   /// The room between the lit row and the sheet. The mascot's top is in
-  /// it, with a little air for what it wears.
-  double get peekGap => faceAbove + (isCompact ? 6 : 10);
+  /// it, with a little air for a hop and for what it wears.
+  double get peekGap =>
+      faceAbove +
+      (isNarrow
+          ? 6
+          : standsInFront
+          ? (isCompact ? 10 : 16)
+          : (isCompact ? 6 : 10));
+
+  /// Where the mascot's top is.
+  double get faceTop => sheetTop - faceAbove;
 
   double get litTop =>
       topInset + navHeight + titleBlock + rowsAbove * (rowHeight + rowGap);
@@ -96,6 +139,25 @@ class SheetPlan {
   /// The sheet's top edge.
   double get sheetTop => litBottom + peekGap;
 }
+
+/// A phone narrower than this has the small, still face wholly above the
+/// sheet.
+const double sheetNarrowWidth = 360;
+
+/// The edge of the mascot on a narrow phone.
+const double sheetNarrowFace = 72;
+
+/// True when a screen [width] points wide is narrow for the Sheet.
+bool sheetIsNarrow(double width) => width < sheetNarrowWidth;
+
+/// How far from the right edge the headline stops, or zero for no extra
+/// room. The close control sits over the sheet's top right corner. Where
+/// the stage has no room above the headline (a narrow phone, a large text
+/// size) the headline starts under it.
+double sheetHeadlineEndRoomFor({
+  required double width,
+  required double textScale,
+}) => sheetIsNarrow(width) || textScale > 1.01 ? sheetCrossRoom : 0;
 
 /// The room the preview keeps above and below it in the sheet's stage.
 const double sheetCardRoom = 6;
@@ -113,8 +175,25 @@ const double sheetCardMedium = 120;
 /// headline on one line over [benefitCount] lines, with the gaps around
 /// them. The sheet sets its words at the kit's compact sizes on every
 /// phone.
-double sheetWordsHeight(int benefitCount) =>
-    56 + 24.0 * math.max(1, benefitCount);
+///
+/// With [hasAlso] the first benefit is the lead and the others sit under
+/// the "Also included" label at a smaller size. A group needs a second
+/// benefit. A lead drawn with no line of its own ([showsLead] false) takes
+/// no room, and the label sits right under the headline.
+///
+/// [headlineExtra] is the height a headline of more than one line adds
+/// (zero for one line).
+double sheetWordsHeight(
+  int benefitCount, {
+  bool hasAlso = false,
+  bool showsLead = true,
+  double headlineExtra = 0,
+}) {
+  final count = math.max(1, benefitCount);
+  if (!hasAlso || count < 2) return 56 + 24.0 * count + headlineExtra;
+  final others = 20.0 * (count - 1);
+  return (showsLead ? 56 + 24 + 26 + others : 56 + 20 + others) + headlineExtra;
+}
 
 /// The height the sheet needs at the default text size for a stage
 /// [stage] points tall: the stage, the words, and the buy block as the kit
@@ -124,7 +203,19 @@ double sheetWantedHeight({
   required int benefitCount,
   required double bottomInset,
   double stage = sheetStageFull,
-}) => stage + sheetWordsHeight(benefitCount) + buyBlockHeight + bottomInset;
+  bool hasAlso = false,
+  bool showsLead = true,
+  double headlineExtra = 0,
+}) =>
+    stage +
+    sheetWordsHeight(
+      benefitCount,
+      hasAlso: hasAlso,
+      showsLead: showsLead,
+      headlineExtra: headlineExtra,
+    ) +
+    buyBlockHeight +
+    bottomInset;
 
 /// Lays the screen out for one phone.
 ///
@@ -148,8 +239,13 @@ SheetPlan sheetPlanFor({
   required bool isCompact,
   required double? buyBlockHeight,
   required int benefitCount,
+  double screenWidth = 390,
   double textScale = 1,
+  bool hasAlso = false,
+  bool showsLead = true,
+  double headlineExtra = 0,
 }) {
+  final isLargeText = textScale > 1.01;
   SheetPlan plan(SheetHeader header, int rows, {bool isMeasured = true}) =>
       SheetPlan(
         isCompact: isCompact,
@@ -157,8 +253,10 @@ SheetPlan sheetPlanFor({
         header: header,
         rowsAbove: rows,
         isMeasured: isMeasured,
+        standsInFront: !isLargeText,
+        isNarrow: sheetIsNarrow(screenWidth),
       );
-  if (textScale > 1.01) return plan(SheetHeader.none, 0);
+  if (isLargeText) return plan(SheetHeader.none, 0);
   if (buyBlockHeight == null) {
     return plan(SheetHeader.none, 0, isMeasured: false);
   }
@@ -168,6 +266,9 @@ SheetPlan sheetPlanFor({
     benefitCount: benefitCount,
     bottomInset: bottomInset,
     stage: stage,
+    hasAlso: hasAlso,
+    showsLead: showsLead,
+    headlineExtra: headlineExtra,
   );
   bool fits(SheetPlan plan, double stage) =>
       screenHeight - plan.sheetTop >= wanted(stage);
@@ -183,18 +284,36 @@ SheetPlan sheetPlanFor({
   return plan(SheetHeader.inline, 0);
 }
 
-/// Places the preview in the sheet's stage. The mascot is not on this
-/// stage: it stands behind the sheet and looks over its edge, so its box
-/// here is empty and sits at the preview's middle, where the air is drawn.
+/// The room kept at the stage's right for the close cross.
+const double sheetCrossRoom = 48;
+
+/// The side inset of the sheet's content, the same as the words'.
+const double sheetSide = 20;
+
+/// Places the preview in the sheet's stage. The mascot is not drawn by
+/// this stage: the layout draws it astride the sheet's top edge, at the
+/// left. So its box here is empty and sits at the preview's middle, where
+/// the air is drawn.
+///
+/// [face] is the edge of that mascot when it stands in front of the
+/// sheet. The preview then stands to its right, between the mascot (which
+/// may lie over the preview's corner by [heroOverlapX] of its own width,
+/// as on the approved stage) and the close cross. With no [face] the
+/// preview has the stage to itself and stands in the middle.
 ///
 /// The preview is as large as the stage allows, up to [heroCardMax]. A
 /// stage too short for the large class holds the middle class at
 /// [sheetCardMedium], and one too short for that holds nothing.
-HeroArrangement sheetStageArrangement(Size size) {
+HeroArrangement sheetStageArrangement(Size size, {double face = 0}) {
+  final from = face <= 0 ? 0.0 : sheetSide + face * (1 - heroOverlapX);
+  final to = face <= 0 ? size.width : size.width - sheetCrossRoom;
   final room = size.height - sheetCardRoom * 2;
   final double card;
   if (room >= heroCardMin) {
-    card = math.min(heroCardMax, room);
+    card = math.min(
+      heroCardMax,
+      math.min(room, math.max(heroCardMin, to - from)),
+    );
   } else if (room >= sheetCardMedium) {
     card = sheetCardMedium;
   } else {
@@ -205,7 +324,7 @@ HeroArrangement sheetStageArrangement(Size size) {
     );
   }
   final rect = Rect.fromLTWH(
-    (size.width - card) / 2,
+    from + math.max(0, (to - from - card) / 2),
     (size.height - card) / 2,
     card,
     card,

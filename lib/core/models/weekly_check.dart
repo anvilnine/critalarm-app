@@ -22,7 +22,7 @@ enum WeeklyCheckState {
   /// The relay holds no push token for the device.
   noToken('no_token'),
 
-  /// Not enrolled, or the account no longer holds the pack.
+  /// Not enrolled, or enrolled on an account whose tier is not `hosted`.
   off('off');
 
   const WeeklyCheckState(this.wireValue);
@@ -39,9 +39,13 @@ enum WeeklyCheckState {
 }
 
 /// Why [WeeklyCheckState.off] is off.
+///
+/// A value this build does not know reads as no reason (api.md §4.5). That
+/// includes `pack`, which a relay before 1.19.0 sent where this one sends
+/// `tier`, and which a phone may still hold from then.
 enum WeeklyCheckOffReason {
-  /// The account no longer holds the pack.
-  pack('pack'),
+  /// The device is enrolled and the account's tier is not `hosted`.
+  tier('tier'),
 
   /// The device is not enrolled.
   disabled('disabled');
@@ -232,8 +236,8 @@ final class WeeklyCheckRound {
   final int? deviceReceivedAt;
   final int? lateReceiptAt;
 
-  /// Why a skipped round was skipped: `pack`, `no_token`, `disabled`, `held`
-  /// or `unsent`.
+  /// Why a skipped round was skipped: `tier`, `no_token`, `disabled`, `held`
+  /// or `unsent`. A round closed before 1.19.0 may carry `pack`.
   final String? reason;
 
   Map<String, dynamic> toJson() => {

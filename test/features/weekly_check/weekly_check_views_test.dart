@@ -2,6 +2,7 @@ import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_views.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -14,16 +15,14 @@ void main() {
 
   WeeklyCheckBodyView view(
     WeeklyCheck? check, {
-    bool isSelfHosted = false,
     bool missedByClock = false,
   }) => weeklyCheckBodyView(
     standing: weeklyCheckStanding(
       check: check,
-      isPackHeld: true,
+      access: WeeklyCheckAccess.open,
       missedByClock: missedByClock,
     ),
     check: check,
-    isSelfHosted: isSelfHosted,
     now: now,
   );
 
@@ -54,7 +53,7 @@ void main() {
   group('the row, one line for each state', () {
     test('while off the line says what the check does', () {
       for (final v in [view(null), view(neverOn), view(off)]) {
-        expect(v.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
+        expect(v.lineKey, LocaleKeys.weekly_check_what_line);
         expect(v.isOn, isFalse);
       }
     });
@@ -108,8 +107,22 @@ void main() {
 
     test('a state this build does not know still shows the switch on', () {
       final v = view(on(null));
-      expect(v.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
+      expect(v.lineKey, LocaleKeys.weekly_check_what_line);
       expect(v.isOn, isTrue);
+    });
+
+    test('Hosted back, with the relay still answering from the lapse: the '
+        'switch is on as the person left it', () {
+      final v = view(
+        WeeklyCheck(
+          enabled: true,
+          state: WeeklyCheckState.off,
+          reason: WeeklyCheckOffReason.tier,
+          lastSentAt: nowSeconds - 30 * day,
+        ),
+      );
+      expect(v.isOn, isTrue);
+      expect(v.lineKey, LocaleKeys.weekly_check_what_line);
     });
 
     test('no line of any state claims that alarms work', () {
@@ -139,36 +152,6 @@ void main() {
         ),
         isFalse,
       );
-    });
-  });
-
-  group('on a self-hosted phone', () {
-    test('every state of the unlocked row carries the relay line', () {
-      for (final check in [
-        null,
-        neverOn,
-        off,
-        for (final state in WeeklyCheckState.values)
-          if (state != WeeklyCheckState.off) on(state),
-        on(null),
-      ]) {
-        expect(
-          view(check, isSelfHosted: true).showsSelfHostedLine,
-          isTrue,
-          reason: '$check',
-        );
-      }
-    });
-
-    test('a cloud phone never does', () {
-      for (final check in [
-        null,
-        neverOn,
-        off,
-        for (final state in WeeklyCheckState.values) on(state),
-      ]) {
-        expect(view(check).showsSelfHostedLine, isFalse);
-      }
     });
   });
 
@@ -205,7 +188,16 @@ void main() {
         LocaleKeys.weekly_check_result_skipped_off,
       );
       // Every other reason the contract lists, and none at all.
-      for (final reason in ['pack', 'no_token', 'held', 'unsent', null]) {
+      // `pack` is on a round that closed before 1.19.0.
+      for (final reason in [
+        'tier',
+        'pack',
+        'no_token',
+        'held',
+        'unsent',
+        'a_reason_from_later',
+        null,
+      ]) {
         expect(
           weeklyCheckResultKey(round('skipped', reason: reason)),
           LocaleKeys.weekly_check_result_skipped,

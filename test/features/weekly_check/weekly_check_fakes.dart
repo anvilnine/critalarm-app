@@ -12,8 +12,13 @@ class FakeWeeklyCheckApi implements WeeklyCheckApi {
     reason: WeeklyCheckOffReason.disabled,
   );
 
-  /// Whether the account holds the pack. Without it, enrolling answers 403.
-  bool hasPack = true;
+  /// The tier the relay holds for the account. On any tier but `hosted`,
+  /// enrolling answers the tier error (api.md §4.5).
+  String tier = 'hosted';
+
+  /// True makes a refused enrolment answer as a relay before 1.19.0 did:
+  /// the pack error, with no `tier` field.
+  bool answersAsBefore119 = false;
 
   /// True makes every call throw, as no network does.
   bool isDown = false;
@@ -36,8 +41,14 @@ class FakeWeeklyCheckApi implements WeeklyCheckApi {
   Future<WeeklyCheck> setWeeklyCheck({required bool enabled}) async {
     puts.add(enabled);
     if (isDown) throw Exception('no network');
-    if (enabled && !hasPack) {
-      throw const ApiException(statusCode: 403, message: 'pack', pack: 'pro');
+    if (enabled && tier != 'hosted') {
+      throw answersAsBefore119
+          ? const ApiException(statusCode: 403, message: 'pack', pack: 'pro')
+          : const ApiException(
+              statusCode: 403,
+              message: 'tier',
+              tier: 'hosted',
+            );
     }
     return check = enabled
         ? const WeeklyCheck(
@@ -72,6 +83,13 @@ class MemoryWeeklyCheckStore implements WeeklyCheckStore {
   KeptWeeklyCheck? kept;
   WeeklyCheckArrival? arrival;
   int? dismissedAt;
+  int? planAwayAt;
+
+  @override
+  int? readPlanAwayAt() => planAwayAt;
+
+  @override
+  Future<void> writePlanAwayAt(int at) async => planAwayAt = at;
 
   @override
   KeptWeeklyCheck? readCheck() => kept;
@@ -93,5 +111,6 @@ class MemoryWeeklyCheckStore implements WeeklyCheckStore {
     kept = null;
     arrival = null;
     dismissedAt = null;
+    planAwayAt = null;
   }
 }

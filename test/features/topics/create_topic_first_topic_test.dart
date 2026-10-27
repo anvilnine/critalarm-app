@@ -3,7 +3,6 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/device_registration.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
@@ -18,6 +17,8 @@ import 'package:critalarm/features/topics/presentation/widgets/first_topic_criti
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../app/access/store_access.dart';
 
 void main() {
   late CreateTopicCubit cubit;
@@ -110,8 +111,8 @@ void main() {
         null,
         identity,
         null,
-        const NoProOverride(),
         plan,
+        accessOver(identity, planChanges: plan).features,
       );
       addTearDown(withPlan.close);
       await withPlan.loadConnection();

@@ -1,7 +1,10 @@
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
@@ -26,7 +29,6 @@ final class WeeklyCheckBodyView {
     required this.lineKey,
     required this.isOn,
     this.lineWhen,
-    this.showsSelfHostedLine = false,
   });
 
   /// The one short line, and the time it names when it names one. While
@@ -37,22 +39,31 @@ final class WeeklyCheckBodyView {
   /// Where the switch stands.
   final bool isOn;
 
-  /// On a phone connected to a self-hosted server, in every state: the
-  /// check covers the relay to this phone and says nothing about that
-  /// server.
-  final bool showsSelfHostedLine;
-
   @override
   bool operator ==(Object other) =>
       other is WeeklyCheckBodyView &&
       other.lineKey == lineKey &&
       other.lineWhen == lineWhen &&
-      other.isOn == isOn &&
-      other.showsSelfHostedLine == showsSelfHostedLine;
+      other.isOn == isOn;
 
   @override
-  int get hashCode => Object.hash(lineKey, lineWhen, isOn, showsSelfHostedLine);
+  int get hashCode => Object.hash(lineKey, lineWhen, isOn);
 }
+
+/// The one line under the row for how the last tap on the switch ended, or
+/// null when it has nothing to say. A tap the relay refused says why in
+/// words that are true: it never reads as "could not reach the relay".
+String? weeklyCheckSwitchLineKey(WeeklyCheckSwitchOutcome? outcome) =>
+    switch (outcome) {
+      null || WeeklyCheckSwitchOutcome.done => null,
+      WeeklyCheckSwitchOutcome.tierRefused =>
+        LocaleKeys.weekly_check_switch_needs_hosted,
+      WeeklyCheckSwitchOutcome.notOffered =>
+        LocaleKeys.weekly_check_own_server_line,
+      WeeklyCheckSwitchOutcome.refused =>
+        LocaleKeys.weekly_check_switch_refused,
+      WeeklyCheckSwitchOutcome.failed => LocaleKeys.weekly_check_switch_failed,
+    };
 
 DateTime _at(int seconds) =>
     DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
@@ -66,32 +77,35 @@ String weeklyCheckMoment(int seconds, {required DateTime now}) {
       local.year == today.year &&
       local.month == today.month &&
       local.day == today.day;
-  return DateFormat(sameDay ? 'HH:mm' : 'EEE d MMM, HH:mm').format(local);
+  return sameDay
+      ? DateFormat('HH:mm', currentFormatLocale()).format(local)
+      : DateLabel.shortWeekdayDayMonth(local, withTime: true);
 }
 
 /// Whether the way to the list of rounds shows: once the relay has sent this
-/// phone a check. The list needs no pack, so this is true for a locked row
-/// too.
+/// phone a check. The list needs no plan, so this is true for a locked row
+/// and for one that is not offered too.
 bool weeklyCheckShowsRounds(WeeklyCheck? check) => check?.lastSentAt != null;
 
 /// The unlocked row for how the check stands. [check] is the relay's last
 /// answer, null until it has answered on this phone.
 ///
-/// [standing] is never [WeeklyCheckStanding.locked] here: a locked row is
-/// the Pro pack's to draw. Handed one, this answers as for a check that was
-/// never on.
+/// [standing] is never [WeeklyCheckStanding.locked] or
+/// [WeeklyCheckStanding.notOffered] here: those rows have no switch and
+/// are drawn by themselves. Handed one, this answers as for a check that
+/// was never on.
 WeeklyCheckBodyView weeklyCheckBodyView({
   required WeeklyCheckStanding standing,
   required WeeklyCheck? check,
-  required bool isSelfHosted,
   required DateTime now,
 }) {
   final received = check?.lastReceivedAt;
   final (lineKey, lineWhen) = switch (standing) {
     // Off: the switch shows that. The line says what the check does.
+    WeeklyCheckStanding.notOffered ||
     WeeklyCheckStanding.locked ||
     WeeklyCheckStanding.neverOn ||
-    WeeklyCheckStanding.off => (LocaleKeys.pro_pack_weekly_locked_line, null),
+    WeeklyCheckStanding.off => (LocaleKeys.weekly_check_what_line, null),
     WeeklyCheckStanding.waiting => (LocaleKeys.weekly_check_line_waiting, null),
     WeeklyCheckStanding.received when received != null => (
       LocaleKeys.weekly_check_line_received,
@@ -117,15 +131,86 @@ WeeklyCheckBodyView weeklyCheckBodyView({
       LocaleKeys.weekly_check_line_no_token,
       null,
     ),
-    // A state a newer relay sends and this build has no words for.
-    WeeklyCheckStanding.on => (LocaleKeys.pro_pack_weekly_locked_line, null),
+    // On, with no words for how the rounds went.
+    WeeklyCheckStanding.on => (LocaleKeys.weekly_check_what_line, null),
   };
   return WeeklyCheckBodyView(
     lineKey: lineKey,
     lineWhen: lineWhen,
     isOn: standing.isOn,
-    showsSelfHostedLine: isSelfHosted,
   );
+}
+
+/// Which row the weekly check draws inside the proof card.
+///
+/// It follows [WeeklyCheckStanding], which comes from `FeatureAccess`, so the
+/// card decides nothing about plans. Only [held] has a switch: a row that is
+/// locked or not offered never shows one.
+enum WeeklyCheckCardKind {
+  /// Hosted is held. The title, a line and the real switch.
+  held,
+
+  /// Hosted is not held on Crit Alarm Cloud. The title, a line and, once the
+  /// plan is read, a "See Hosted" button. No switch.
+  locked,
+
+  /// A server of the user's own, where the check does not exist. One line
+  /// and nothing to press.
+  notOffered;
+
+  bool get hasSwitch => this == held;
+}
+
+/// The row for [standing].
+WeeklyCheckCardKind weeklyCheckCardKindFor(WeeklyCheckStanding standing) =>
+    switch (standing) {
+      WeeklyCheckStanding.notOffered => WeeklyCheckCardKind.notOffered,
+      WeeklyCheckStanding.locked => WeeklyCheckCardKind.locked,
+      WeeklyCheckStanding.neverOn ||
+      WeeklyCheckStanding.off ||
+      WeeklyCheckStanding.waiting ||
+      WeeklyCheckStanding.received ||
+      WeeklyCheckStanding.missedOnce ||
+      WeeklyCheckStanding.missedRepeatedly ||
+      WeeklyCheckStanding.tokenRefused ||
+      WeeklyCheckStanding.noToken ||
+      WeeklyCheckStanding.on => WeeklyCheckCardKind.held,
+    };
+
+/// Whether the locked row shows its button: the plan has been read, so there
+/// is a plan word, and the lock has a way to open it. Until then the row has
+/// no badge and no button, as nothing is sold on a guess.
+bool weeklyCheckCardShowsSeePlan({
+  required String? planWord,
+  required bool canUnlock,
+}) => planWord != null && canUnlock;
+
+/// The next round as `Monday 09:00`, in the phone's own time.
+String weeklyCheckNextRound(int seconds) =>
+    DateFormat(
+      'EEEE HH:mm',
+      currentFormatLocale(),
+    ).format(_at(seconds).toLocal());
+
+/// The line under the title in the proof card, in the mono type.
+///
+/// While the check is on and the relay named the next round it is that
+/// round. Otherwise it is the line the unlocked row has, so an off check
+/// still says what it does.
+WeeklyCheckBodyView weeklyCheckCardView({
+  required WeeklyCheckStanding standing,
+  required WeeklyCheck? check,
+  required DateTime now,
+}) {
+  final next = check?.nextDueAt;
+  if (standing.isOn && next != null) {
+    return WeeklyCheckBodyView(
+      lineKey: LocaleKeys.proof_card_next_round,
+      lineWhen: weeklyCheckNextRound(next),
+      isOn: true,
+    );
+  }
+  return weeklyCheckBodyView(standing: standing, check: check, now: now);
 }
 
 /// One round in the list: what marks it, its result in a few words, and its
@@ -175,9 +260,11 @@ final class WeeklyCheckRoundView {
 ///
 /// A round still open is "Due by" its closing time when the relay named
 /// one. A skipped round says why only when the reason is that the check
-/// was switched off: api.md §4.5 lists four more reasons (`pack`,
+/// was switched off: api.md §4.5 lists four more reasons (`tier`,
 /// `no_token`, `held`, `unsent`) and "switched off" is true of none of
-/// them, so those stay a plain "Skipped".
+/// them, so those stay a plain "Skipped". So does `pack`, which a round
+/// closed before 1.19.0 may carry, and any reason this build does not
+/// know.
 String weeklyCheckResultKey(WeeklyCheckRound round) {
   if (round.isOpen) {
     return round.closesAt == null

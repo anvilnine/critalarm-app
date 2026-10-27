@@ -4,6 +4,7 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_pack_repository.dart';
 import 'package:critalarm/features/settings/domain/priorities/priority_effects.dart';
@@ -29,6 +30,7 @@ class PrioritiesCubit extends Cubit<PrioritiesState> {
     TargetPlatform? platform,
     this.isWeb = false,
     this.nameOf,
+    this._ownSoundsLocked,
   }) : _platform = platform ?? defaultTargetPlatform,
        super(const PrioritiesState()) {
     _previewEnded = _sound.previewEnded.listen((path) {
@@ -51,6 +53,9 @@ class PrioritiesCubit extends Cubit<PrioritiesState> {
 
   /// Turns a sound id into a name in the user's language. Null in tests.
   final String Function(String id)? nameOf;
+
+  /// Whether own sounds are locked. Left out, they count as open.
+  final bool Function()? _ownSoundsLocked;
 
   late final StreamSubscription<String> _previewEnded;
 
@@ -76,7 +81,13 @@ class PrioritiesCubit extends Cubit<PrioritiesState> {
   /// that is gone falls back to the bundled default, as the alarm does.
   Future<AlarmSound> _defaultSound() async {
     final assignments = (await _sounds.getAssignments()).getOrNull();
-    final id = assignments?.defaultSoundId ?? BundledSounds.fallbackId;
+    // What really rings: a locked own sound is not it.
+    final id = assignments == null
+        ? BundledSounds.fallbackId
+        : OwnSoundRule.ringingDefaultId(
+            saved: assignments,
+            ownSoundsLocked: _ownSoundsLocked?.call() ?? false,
+          );
     final bundled = BundledSounds.catalogue(
       platform: _platform,
       nameOf: nameOf,

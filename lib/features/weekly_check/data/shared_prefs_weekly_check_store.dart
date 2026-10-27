@@ -14,6 +14,7 @@ final class SharedPrefsWeeklyCheckStore implements WeeklyCheckStore {
 
   static const checkKey = 'weekly_check.kept';
   static const dismissedKey = 'weekly_check.notice_dismissed_at';
+  static const planAwayKey = 'weekly_check.plan_away_at';
 
   /// Keep in step with `WeeklyCheckResponder.kt` and
   /// `WeeklyCheckResponder.swift`, which add the `flutter.` prefix the
@@ -73,9 +74,16 @@ final class SharedPrefsWeeklyCheckStore implements WeeklyCheckStore {
   Future<void> writeDismissedAt(int at) => _prefs.setInt(dismissedKey, at);
 
   @override
+  int? readPlanAwayAt() => _prefs.getInt(planAwayKey);
+
+  @override
+  Future<void> writePlanAwayAt(int at) => _prefs.setInt(planAwayKey, at);
+
+  @override
   Future<void> clear() async {
     await _prefs.remove(checkKey);
     await _prefs.remove(dismissedKey);
+    await _prefs.remove(planAwayKey);
     await _prefs.remove(arrivalKey);
   }
 

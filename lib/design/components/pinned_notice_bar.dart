@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/dismiss_cross.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -63,12 +64,9 @@ class AppPinnedNoticeBar extends StatelessWidget {
           onTap: onTap,
           borderRadius: Radii.fullAll,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.s3,
-              Spacing.s1,
-              Spacing.s1,
-              Spacing.s1,
-            ),
+            // The cross is a 48 box now, not 44, so the bar gives up 2 of
+            // its 4 on every side the box reaches and stays 52 high.
+            padding: const EdgeInsets.fromLTRB(Spacing.s3, 2, 2, 2),
             child: Row(
               children: [
                 FaceWidget(state: face, size: 20),
@@ -100,10 +98,13 @@ class AppPinnedNoticeBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: Spacing.s2),
+                // 2 less than the 8 it was: the cross box is 4 wider and the
+                // bar's right padding gave up 2 of that.
+                const SizedBox(width: Spacing.s2 - 2),
                 AppDismissCross(
                   onPressed: onDismiss,
                   label: LocaleKeys.common_close.tr(),
+                  tapSize: kMinTapTarget,
                 ),
               ],
             ),

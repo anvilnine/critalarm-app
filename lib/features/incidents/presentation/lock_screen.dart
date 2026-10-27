@@ -12,9 +12,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+/// What sits faintly behind the lock screen.
+enum LockWatermark {
+  /// A yellow head with its ink features, faded back.
+  yellowFace,
+
+  /// An abstract shape from the ambient set. No face.
+  shape,
+}
+
+/// Which watermark the lock screen ships with. The one place to switch it.
+const LockWatermark lockScreenWatermark = LockWatermark.yellowFace;
+
 /// Lock Screen mockup matching docs/design-system/index.html.
 class LockScreen extends StatelessWidget {
-  const LockScreen({super.key});
+  const LockScreen({this.watermark = lockScreenWatermark, super.key});
+
+  final LockWatermark watermark;
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +38,15 @@ class LockScreen extends StatelessWidget {
         unawaited(cubit.load());
         return cubit;
       },
-      child: const _LockScreenView(),
+      child: _LockScreenView(watermark: watermark),
     );
   }
 }
 
 class _LockScreenView extends StatelessWidget {
-  const _LockScreenView();
+  const _LockScreenView({required this.watermark});
+
+  final LockWatermark watermark;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +61,7 @@ class _LockScreenView extends StatelessWidget {
           body: GhostField(
             child: Stack(
               children: [
-                // Watermark alarmed face (520px, faint ghost stroke)
-                // matching mockup
+                // Watermark behind the clock and cards, see [LockWatermark].
                 Positioned.fill(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -57,13 +72,12 @@ class _LockScreenView extends StatelessWidget {
                             top: top,
                             left: (constraints.maxWidth - 520.0) / 2.0,
                             child: IgnorePointer(
-                              child: FaceWidget(
-                                state: FaceState.alarmed,
-                                size: 520,
-                                overrideFillColor: Colors.transparent,
-                                overrideStrokeColor: colors.canvasGhostStrong,
-                                overrideInkColor: colors.canvasGhostStrong,
-                              ),
+                              child: switch (watermark) {
+                                LockWatermark.yellowFace =>
+                                  const GhostWatermarkFace(size: 520),
+                                LockWatermark.shape =>
+                                  const GhostWatermarkShape(size: 520),
+                              },
                             ),
                           ),
                         ],
@@ -94,6 +108,15 @@ class _LockScreenView extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 AppTopBar(
+                                  // Not in the scaffold's 58, so 8 above the
+                                  // 48 box puts the circle where 12 above a
+                                  // 40 one did.
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    0,
+                                  ),
                                   leading: AppIconButton(
                                     glyph: GlyphType.back,
                                     ariaLabel: LocaleKeys
@@ -111,9 +134,11 @@ class _LockScreenView extends StatelessWidget {
 
                                 if (isWide)
                                   Padding(
+                                    // 4 less on top: the bar above is 4
+                                    // taller, for its back button's tap box.
                                     padding: const EdgeInsets.fromLTRB(
                                       16,
-                                      Spacing.s4,
+                                      Spacing.s4 - 4,
                                       16,
                                       0,
                                     ),
@@ -139,9 +164,13 @@ class _LockScreenView extends StatelessWidget {
                                 else ...[
                                   // Clock section
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: Spacing.s4,
-                                      horizontal: 16,
+                                    // 4 less on top: the bar above is 4
+                                    // taller, for its back button's tap box.
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      Spacing.s4 - 4,
+                                      16,
+                                      Spacing.s4,
                                     ),
                                     child: _clockBlock(
                                       state,

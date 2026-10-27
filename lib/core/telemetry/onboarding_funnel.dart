@@ -42,8 +42,13 @@ enum OnboardingFunnelState {
 /// previous event. Both ids are checked before they become a parameter.
 ///
 /// The offer step adds three events of its own: shown, closed and bought.
-/// Each is the product, the layout and the flow id, checked the same way,
-/// and they wait, go and are dropped with the step events.
+/// Each is the product, the layout, the user's answer on the use step as
+/// one word from a closed set, and the flow id, checked the same way, and
+/// they wait, go and are dropped with the step events. An event buffered
+/// before the answer was added has no word and is sent as `other`.
+///
+/// The use step adds one more: the answer the user gave, as one word from a
+/// closed set. It waits, goes and is dropped the same way.
 final class OnboardingFunnel {
   OnboardingFunnel({
     required this._prefs,
@@ -79,10 +84,51 @@ final class OnboardingFunnel {
     _offerClosed,
     _offerBought,
   };
-  static const _offerFields = {'k', 'product', 'layout', 'flow_id', 'at'};
+  static const _offerFields = {
+    'k',
+    'product',
+    'layout',
+    'use',
+    'flow_id',
+    'at',
+  };
+
+  /// What a buffered offer event held before it carried the answer.
+  static const _offerFieldsWithoutUse = {
+    'k',
+    'product',
+    'layout',
+    'flow_id',
+    'at',
+  };
+
+  /// The word sent when an offer has no answer behind it.
+  static const _noUse = 'other';
+
+  static const _usePicked = 'up';
+  static const _useFields = {'k', 'use', 'flow_id', 'at'};
+
+  /// The words a pick can be sent as: the five answers and a skip.
+  static const Set<String> _useAnswers = {
+    'servers',
+    'homelab',
+    'jobs',
+    'home',
+    'other',
+    'skipped',
+  };
 
   /// The two products an offer can name.
   static const Set<String> _offerProducts = {'pro', 'hosted'};
+
+  /// The words an offer can carry for the answer: the five answers.
+  static const Set<String> _offerUses = {
+    'servers',
+    'homelab',
+    'jobs',
+    'home',
+    'other',
+  };
 
   final SharedPreferences _prefs;
   final TelemetryGate _gate;
@@ -116,29 +162,71 @@ final class OnboardingFunnel {
   }) => _record(_completed, step, flowId, isReplay: isReplay);
 
   /// The offer step put a paywall layout on screen. [product] is `pro` or
-  /// `hosted` and [layout] is a `PaywallLayoutId.key`.
+  /// `hosted`, [layout] is a `PaywallLayoutId.key` and [use] is the wire id
+  /// of the user's answer, `other` when there is none.
   Future<void> offerShown({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
     bool isReplay = false,
-  }) => _recordOffer(_offerShown, product, layout, flowId, isReplay: isReplay);
+  }) => _recordOffer(
+    _offerShown,
+    product,
+    layout,
+    use,
+    flowId,
+    isReplay: isReplay,
+  );
 
   /// The user left the offer without buying.
   Future<void> offerClosed({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
     bool isReplay = false,
-  }) => _recordOffer(_offerClosed, product, layout, flowId, isReplay: isReplay);
+  }) => _recordOffer(
+    _offerClosed,
+    product,
+    layout,
+    use,
+    flowId,
+    isReplay: isReplay,
+  );
 
   /// The user bought what the offer showed.
   Future<void> offerBought({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
     bool isReplay = false,
-  }) => _recordOffer(_offerBought, product, layout, flowId, isReplay: isReplay);
+  }) => _recordOffer(
+    _offerBought,
+    product,
+    layout,
+    use,
+    flowId,
+    isReplay: isReplay,
+  );
+
+  /// The user answered the use step. [use] is one of `servers`, `homelab`,
+  /// `jobs`, `home`, `other` or `skipped`.
+  Future<void> usePicked({
+    required String use,
+    required String flowId,
+    bool isReplay = false,
+  }) {
+    if (isReplay) return Future.value();
+    if (!_useAnswers.contains(use) || !_flowIdPattern.hasMatch(flowId)) {
+      return Future.value();
+    }
+    final at = _clock().millisecondsSinceEpoch;
+    return _enqueue(
+      () => _handle({'k': _usePicked, 'use': use, 'flow_id': flowId, 'at': at}),
+    );
+  }
 
   /// The app opened. [analyticsOn] is the saved analytics preference. This
   /// is where a leftover list is sent, deleted or aged out.
@@ -186,11 +274,14 @@ final class OnboardingFunnel {
     String kind,
     String product,
     String layout,
+    String use,
     String flowId, {
     required bool isReplay,
   }) {
     if (isReplay) return Future.value();
-    if (!_isOffer(product, layout) || !_flowIdPattern.hasMatch(flowId)) {
+    if (!_isOffer(product, layout) ||
+        !_offerUses.contains(use) ||
+        !_flowIdPattern.hasMatch(flowId)) {
       return Future.value();
     }
     final at = _clock().millisecondsSinceEpoch;
@@ -199,6 +290,7 @@ final class OnboardingFunnel {
         'k': kind,
         'product': product,
         'layout': layout,
+        'use': use,
         'flow_id': flowId,
         'at': at,
       }),
@@ -266,23 +358,30 @@ final class OnboardingFunnel {
   Future<void> _send(Map<String, Object?> event) {
     final kind = event['k']! as String;
     final flowId = event['flow_id']! as String;
+    if (kind == _usePicked) {
+      return _analytics.usePicked(use: event['use']! as String, flowId: flowId);
+    }
     if (_offerKinds.contains(kind)) {
       final product = event['product']! as String;
       final layout = event['layout']! as String;
+      final use = event['use'] as String? ?? _noUse;
       return switch (kind) {
         _offerShown => _analytics.offerShown(
           product: product,
           layout: layout,
+          use: use,
           flowId: flowId,
         ),
         _offerClosed => _analytics.offerClosed(
           product: product,
           layout: layout,
+          use: use,
           flowId: flowId,
         ),
         _ => _analytics.offerBought(
           product: product,
           layout: layout,
+          use: use,
           flowId: flowId,
         ),
       };
@@ -333,12 +432,24 @@ final class OnboardingFunnel {
       final at = row['at'];
       if (flowId is! String || !_flowIdPattern.hasMatch(flowId)) return null;
       if (at is! int) return null;
+      if (kind == _usePicked) {
+        if (row.length != _useFields.length ||
+            !row.keys.every(_useFields.contains)) {
+          return null;
+        }
+        if (!_useAnswers.contains(row['use'])) return null;
+        events.add(Map<String, Object?>.from(row));
+        continue;
+      }
       if (_offerKinds.contains(kind)) {
-        if (row.length != _offerFields.length ||
-            !row.keys.every(_offerFields.contains)) {
+        // A row from before the answer was added has no `use`, and reads.
+        final hasUse = row.containsKey('use');
+        final fields = hasUse ? _offerFields : _offerFieldsWithoutUse;
+        if (row.length != fields.length || !row.keys.every(fields.contains)) {
           return null;
         }
         if (!_isOffer(row['product'], row['layout'])) return null;
+        if (hasUse && !_offerUses.contains(row['use'])) return null;
         events.add(Map<String, Object?>.from(row));
         continue;
       }

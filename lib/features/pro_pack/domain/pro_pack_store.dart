@@ -55,12 +55,21 @@ final class StoredPacks {
 /// A purchase the store took and the relay has not confirmed yet.
 @immutable
 final class PendingProPackConfirm {
-  const PendingProPackConfirm({required this.scope, required this.since});
+  const PendingProPackConfirm({
+    required this.scope,
+    required this.since,
+    this.storeAccepted = false,
+  });
 
   final ProPackScope scope;
 
   /// When the purchase was started, by the phone's clock.
   final DateTime since;
+
+  /// True once the store finished the purchase. False for one that was
+  /// only started: the person may still back out, the payment may fail, or
+  /// the store may hold it for an approval or a payment.
+  final bool storeAccepted;
 }
 
 /// Keeps the relay's last answer on the phone, so a cold start with no

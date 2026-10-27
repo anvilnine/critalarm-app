@@ -34,6 +34,9 @@ migrate_working_dir/
 .pub/
 /build/
 coverage/
+# Symbol files kept per release by scripts/release-lib.sh. Large, and only
+# useful next to the build that made them.
+/symbols/
 
 # Generated code. Run `make gen` and `make l10n` after a clone.
 *.freezed.dart
@@ -122,3 +125,6 @@ docs/home-prompts.html
 .worktree-prep.log
 .worktree-prep.err
 .worktree-prep.lock/
+
+# Generated debug-only pseudo-locale. Run make l10n-pseudo.
+/assets/translations/en-XA.json

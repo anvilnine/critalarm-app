@@ -2,53 +2,6 @@ import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('the ring story', () {
-    test('the alert has landed within 1 s of launch', () {
-      expect(ringStoryAlertLandsAt, closeTo(0.6, 1e-9));
-      expect(ringStoryAlertLandsAt, lessThan(1));
-    });
-
-    test('the phone rings only after the alert has landed', () {
-      expect(ringStoryRingStartsAt, greaterThan(ringStoryAlertLandsAt));
-    });
-
-    test('with no tap the first full ring is on screen by 2.5 s', () {
-      expect(welcomeFirstRingAt, closeTo(1.4, 1e-9));
-      expect(welcomeFirstRingAt, lessThanOrEqualTo(2.5));
-    });
-
-    test('with no tap it stops by itself', () {
-      expect(ringStoryStopsAt(), ringStoryAutoStopAt);
-      expect(ringStoryIsRinging(ringStoryAutoStopAt - 0.01), isTrue);
-      expect(ringStoryIsRinging(ringStoryAutoStopAt), isFalse);
-    });
-
-    test('a tap stops it at the tap', () {
-      expect(ringStoryStopsAt(tappedAt: 2.2), 2.2);
-      expect(ringStoryIsRinging(2.19, tappedAt: 2.2), isTrue);
-      expect(ringStoryIsRinging(2.2, tappedAt: 2.2), isFalse);
-      expect(ringStoryIsRinging(3, tappedAt: 2.2), isFalse);
-    });
-
-    test('a tap before it rings, or after it stopped, changes nothing', () {
-      expect(ringStoryStopsAt(tappedAt: 0.4), ringStoryAutoStopAt);
-      expect(
-        ringStoryStopsAt(tappedAt: ringStoryAutoStopAt + 1),
-        ringStoryAutoStopAt,
-      );
-    });
-
-    test('it does not ring before the alarm starts', () {
-      expect(ringStoryIsRinging(ringStoryRingStartsAt - 0.01), isFalse);
-      expect(ringStoryIsRinging(ringStoryRingStartsAt), isTrue);
-    });
-
-    test('the acknowledged screen holds, then the next story starts', () {
-      expect(ringStoryEndsAt(), closeTo(6.8, 1e-9));
-      expect(ringStoryEndsAt(tappedAt: 2), closeTo(3.8, 1e-9));
-    });
-  });
-
   group('the ladder cards', () {
     test('start 0.9 s apart', () {
       expect(ladderCardStartsAt(0), closeTo(0.2, 1e-9));

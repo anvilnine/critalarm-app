@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
@@ -16,6 +17,7 @@ class AppKeyValueRow extends StatefulWidget {
     this.label,
     this.trailing,
     this.showCopyButton = false,
+    this.trailingFillsRow = false,
     this.isMono = true,
     this.onCopy,
     super.key,
@@ -25,6 +27,11 @@ class AppKeyValueRow extends StatefulWidget {
   final String? label;
   final Widget? trailing;
   final bool showCopyButton;
+
+  /// True when [trailing] is a tap box as tall as the row's 46 (a 30 high
+  /// pill with the row's 8 above and below). The row then spends none of its
+  /// own padding above and below, and the texts keep theirs.
+  final bool trailingFillsRow;
   final bool isMono;
   final VoidCallback? onCopy;
 
@@ -34,6 +41,16 @@ class AppKeyValueRow extends StatefulWidget {
 
 class _AppKeyValueRowState extends State<AppKeyValueRow> {
   bool _copied = false;
+
+  bool get _hasCopyPill =>
+      (widget.trailing == null && widget.showCopyButton) ||
+      (widget.trailing != null && widget.trailingFillsRow);
+
+  /// The padding a text keeps above and below when the row's own is spent on
+  /// the Copy pill's tap box.
+  Widget _padded(Widget text) => _hasCopyPill
+      ? Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: text)
+      : text;
 
   void _copyValue() {
     unawaited(Clipboard.setData(ClipboardData(text: widget.value)));
@@ -76,7 +93,13 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
     final hasTail = widget.trailing != null || widget.showCopyButton;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // With the Copy pill the 8 above and below belong to its tap box and to
+      // the texts (see _row), so the box can use them.
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: _hasCopyPill ? 0 : 8,
+      ),
+      constraints: _hasCopyPill ? const BoxConstraints(minHeight: 46) : null,
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -135,16 +158,20 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         if (widget.label != null) ...[
-          Text(widget.label!, style: labelStyle),
+          _padded(Text(widget.label!, style: labelStyle)),
           const SizedBox(width: 8),
         ],
         Expanded(
-          child: Text(
-            widget.value,
-            textAlign: widget.label != null ? TextAlign.right : TextAlign.left,
-            style: valueStyle,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+          child: _padded(
+            Text(
+              widget.value,
+              textAlign: widget.label != null
+                  ? TextAlign.right
+                  : TextAlign.left,
+              style: valueStyle,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
           ),
         ),
         if (widget.trailing != null) ...[
@@ -159,29 +186,38 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
             flex: 0,
             child: Semantics(
               button: true,
+              // "Copied" replaces "Copy" in place, so say it when it lands.
+              liveRegion: true,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: _copyValue,
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 30),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: Radii.fullAll,
-                      border: Border.all(color: colors.hairline, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _copied
-                          ? LocaleKeys.common_copied.tr()
-                          : LocaleKeys.common_copy.tr(),
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colors.ink,
+                  // The pill is 30 high. Its box is the row's whole 46, which
+                  // is as tall as the row can make it without growing.
+                  child: AppTapTarget(
+                    minWidth: 0,
+                    minHeight: 46,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: Radii.fullAll,
+                        border: Border.all(color: colors.hairline, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _copied
+                            ? LocaleKeys.common_copied.tr()
+                            : LocaleKeys.common_copy.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
                       ),
                     ),
                   ),

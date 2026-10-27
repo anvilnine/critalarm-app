@@ -124,6 +124,7 @@ class _PrioritiesView extends StatelessWidget {
                             metaMaxLines: 6,
                             faceState: faceFor(entry),
                             isCrit: entry.priority == 5,
+                            trailingTapRoom: AppPreviewButton.tapRoom,
                             trailing: entry.canHearIt && state.sound != null
                                 ? AppPreviewButton(
                                     isPlaying: state.isPlaying,

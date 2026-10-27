@@ -91,7 +91,36 @@ void main() {
       );
       expect(
         onboardingStepForPath('/onboarding/test'),
-        OnboardingAmbientStep.connected,
+        OnboardingAmbientStep.legacyTest,
+      );
+    });
+
+    test('no two steps share an arrangement of shapes', () {
+      for (final colors in const [AppColors.light, AppColors.dark]) {
+        final catalog = OnboardingAmbientProfiles.forColors(colors);
+        List<Object> arrangement(OnboardingAmbientStep step) => [
+          for (final shape in catalog[step]!.shapes) ...[
+            shape.anchor,
+            shape.scale,
+          ],
+        ];
+        const steps = OnboardingAmbientStep.values;
+        for (var i = 0; i < steps.length; i++) {
+          for (var j = i + 1; j < steps.length; j++) {
+            expect(
+              arrangement(steps[i]),
+              isNot(arrangement(steps[j])),
+              reason: '${steps[i].name} and ${steps[j].name}',
+            );
+          }
+        }
+      }
+    });
+
+    test('the route of the use step resolves to its own canvas step', () {
+      expect(
+        onboardingStepForPath('/onboarding/use'),
+        OnboardingAmbientStep.use,
       );
     });
 

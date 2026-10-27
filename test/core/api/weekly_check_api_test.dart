@@ -69,8 +69,10 @@ void main() {
     deviceId = 'dev_1';
   });
 
-  Future<void> register({bool withPack = true}) async {
-    if (withPack) server.grantedPacks.add('pro');
+  /// Registers the fixture device on an account of [tier]. The weekly
+  /// check goes by the tier and by nothing else (api.md §4.5).
+  Future<void> register({String tier = 'hosted'}) async {
+    server.accountTier = tier;
     final response = await client().registerDevice(_registration);
     deviceToken = response.deviceToken;
     requests.clear();
@@ -94,21 +96,84 @@ void main() {
       expect(check.noticeAfter, isNotNull);
     });
 
-    test('enabling without the pack answers 403 and names the pack', () async {
-      await register(withPack: false);
+    test(
+      'enabling off Hosted answers 403 and names the tier it needs',
+      () async {
+        await register(tier: 'free');
+        for (final tier in ['free', 'relay']) {
+          server.accountTier = tier;
+          await expectLater(
+            client().setWeeklyCheck(enabled: true),
+            throwsA(
+              isA<ApiException>()
+                  .having((e) => e.statusCode, 'statusCode', 403)
+                  .having((e) => e.message, 'message', 'tier')
+                  .having((e) => e.tier, 'tier', 'hosted')
+                  .having((e) => e.pack, 'pack', isNull),
+            ),
+            reason: tier,
+          );
+          expect((await client().getWeeklyCheck()).enabled, isFalse);
+        }
+      },
+    );
+
+    test('no pack is enough: free with Pro is refused the same way', () async {
+      await register(tier: 'free');
+      server.grantedPacks.add('pro');
       await expectLater(
         client().setWeeklyCheck(enabled: true),
         throwsA(
           isA<ApiException>()
               .having((e) => e.statusCode, 'statusCode', 403)
-              .having((e) => e.pack, 'pack', 'pro'),
+              .having((e) => e.tier, 'tier', 'hosted'),
         ),
       );
-      expect((await client().getWeeklyCheck()).enabled, isFalse);
     });
 
-    test('disabling always answers, pack or not', () async {
-      await register(withPack: false);
+    test('no pack is needed: Hosted with no pack enrols', () async {
+      await register();
+      expect(server.heldPacks(), isEmpty);
+      expect((await client().setWeeklyCheck(enabled: true)).enabled, isTrue);
+    });
+
+    test('enabling off Hosted changes nothing for a device already '
+        'enrolled', () async {
+      await register();
+      await client().setWeeklyCheck(enabled: true);
+      server.accountTier = 'free';
+      await expectLater(
+        client().setWeeklyCheck(enabled: true),
+        throwsA(isA<ApiException>().having((e) => e.tier, 'tier', 'hosted')),
+      );
+      expect((await client().getWeeklyCheck()).enabled, isTrue);
+    });
+
+    test('the pack error of 1.18.0 still parses, with no tier', () async {
+      final old = HttpApiClient(
+        MockClient(
+          (request) async => http.Response(
+            jsonEncode({'error': 'pack', 'pack': 'pro'}),
+            403,
+          ),
+        ),
+        _Sessions(),
+        readDeviceToken: () async => 'dv_1',
+        readDeviceId: () async => 'dev_1',
+      );
+      await expectLater(
+        old.setWeeklyCheck(enabled: true),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having((e) => e.pack, 'pack', 'pro')
+              .having((e) => e.tier, 'tier', isNull),
+        ),
+      );
+    });
+
+    test('disabling always answers, Hosted or not', () async {
+      await register(tier: 'free');
       final check = await client().setWeeklyCheck(enabled: false);
       expect(check.enabled, isFalse);
       expect(check.state, WeeklyCheckState.off);
@@ -184,14 +249,75 @@ void main() {
       expect(check.misses, 1);
     });
 
-    test('losing the pack reads as off with the reason', () async {
+    test('a lapse: still enrolled, off with the reason `tier`, and the '
+        'times it had', () async {
       await register();
       server.seedWeeklyCheck(WeeklyCheckState.received);
-      server.grantedPacks.clear();
+      final before = await client().getWeeklyCheck();
+      server.accountTier = 'free';
       final check = await client().getWeeklyCheck();
       expect(check.enabled, isTrue);
       expect(check.state, WeeklyCheckState.off);
-      expect(check.reason, WeeklyCheckOffReason.pack);
+      expect(check.reason, WeeklyCheckOffReason.tier);
+      expect(check.lastSentAt, before.lastSentAt);
+      expect(check.lastReceivedAt, before.lastReceivedAt);
+      expect(check.nextDueAt, isNull);
+      expect(check.noticeAfter, isNull);
+    });
+
+    test('a return: the device needs no new PUT', () async {
+      await register();
+      server
+        ..seedWeeklyCheck(WeeklyCheckState.received)
+        ..accountTier = 'free';
+      expect((await client().getWeeklyCheck()).state, WeeklyCheckState.off);
+      server.accountTier = 'hosted';
+      requests.clear();
+      final check = await client().getWeeklyCheck();
+      expect(check.enabled, isTrue);
+      expect(check.state, WeeklyCheckState.received);
+      expect(check.reason, isNull);
+      expect(check.noticeAfter, isNotNull);
+      expect(requests.map((r) => r.method), ['GET']);
+    });
+
+    test('holding Pro does not keep the check through a lapse', () async {
+      await register();
+      server
+        ..seedWeeklyCheck(WeeklyCheckState.received)
+        ..grantedPacks.add('pro')
+        ..accountTier = 'free';
+      final check = await client().getWeeklyCheck();
+      expect(check.state, WeeklyCheckState.off);
+      expect(check.reason, WeeklyCheckOffReason.tier);
+    });
+
+    test('a reason this build does not know reads as no reason: `pack` '
+        'from 1.18.0 and anything later', () {
+      for (final reason in ['pack', 'something_new', 7, '']) {
+        final check = WeeklyCheck.fromJson({
+          'enabled': true,
+          'state': 'off',
+          'reason': reason,
+        });
+        expect(check.state, WeeklyCheckState.off, reason: '$reason');
+        expect(check.reason, isNull, reason: '$reason');
+        // Written back out, it is still no reason.
+        expect(
+          WeeklyCheck.fromJson(check.toJson()).reason,
+          isNull,
+          reason: '$reason',
+        );
+      }
+      expect(
+        WeeklyCheck.fromJson(const {
+          'enabled': true,
+          'state': 'off',
+          'reason': 'tier',
+        }).reason,
+        WeeklyCheckOffReason.tier,
+      );
+      expect(WeeklyCheckOffReason.fromWire('disabled'), isNotNull);
     });
 
     test('a state this build does not know reads as null', () {
@@ -352,10 +478,11 @@ void main() {
       expect(rounds.single.closedAt, isNull);
     });
 
-    test('answers without the pack', () async {
+    test('answers whatever the tier is today', () async {
       await register();
-      server.seedWeeklyCheck(WeeklyCheckState.missedOnce);
-      server.grantedPacks.clear();
+      server
+        ..seedWeeklyCheck(WeeklyCheckState.missedOnce)
+        ..accountTier = 'free';
       expect(await client().listWeeklyCheckRounds(), hasLength(2));
     });
 
@@ -388,7 +515,7 @@ void main() {
   group('the mock client', () {
     test('speaks the same four routes', () async {
       final mock = MockApiClient(server);
-      server.grantedPacks.add('pro');
+      server.accountTier = 'hosted';
       expect((await mock.getWeeklyCheck()).state, WeeklyCheckState.off);
       expect((await mock.setWeeklyCheck(enabled: true)).enabled, isTrue);
       final checkId = server.openWeeklyCheckRound();
@@ -398,7 +525,7 @@ void main() {
 
     test('closing an open round with no receipt is a miss', () async {
       final mock = MockApiClient(server);
-      server.grantedPacks.add('pro');
+      server.accountTier = 'hosted';
       await mock.setWeeklyCheck(enabled: true);
       server
         ..openWeeklyCheckRound()

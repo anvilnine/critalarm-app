@@ -27,20 +27,12 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   static const Duration defaultFetchTimeout = Duration(seconds: 10);
   static const Duration minimumFetchInterval = Duration(hours: 1);
-  static const String paywallEnabledKey = 'paywall_enabled';
-  static const String paywallVariantKeyName = 'paywall_variant';
   static const String onboardingFlowKey = 'onboarding_flow';
   static const String onboardingOfferKey = 'onboarding_offer';
-  static const String paywallLayoutKeyName = 'paywall_layout';
-  static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
-    paywallEnabledKey: false,
-    paywallVariantKeyName: 'straight',
     onboardingFlowKey: '',
     onboardingOfferKey: '',
-    paywallLayoutKeyName: '',
-    proPaywallLayoutKeyName: '',
   };
 
   bool _isInitialized = false;
@@ -99,7 +91,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
         ),
       );
 
-      // Sets Remote Config defaults ({'paywall_enabled': false})
+      // Sets Remote Config defaults
       await remoteConfig?.setDefaults(remoteConfigDefaults);
 
       // Attempt to fetch and activate remote config values
@@ -145,6 +137,29 @@ class FirebaseTelemetryGate implements TelemetryGate {
   }
 
   @override
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  }) async {
+    // Checked here and not left to the plugin. With collection off the
+    // plugin still keeps the report on the phone and sends it the day
+    // collection is switched on.
+    if (!_crashlyticsEnabled) return;
+    try {
+      await crashlytics?.recordError(
+        ReportedError(error),
+        stack,
+        reason: reason,
+        fatal: fatal,
+      );
+    } on Object catch (_) {
+      // Reporting a failure must never be a second failure.
+    }
+  }
+
+  @override
   Future<void> logEvent(String name, [Map<String, Object?>? parameters]) async {
     if (!_analyticsEnabled) return;
     try {
@@ -159,27 +174,6 @@ class FirebaseTelemetryGate implements TelemetryGate {
       );
     } on Object catch (_) {
       // Analytics is best-effort; a failed send never breaks the alarm path.
-    }
-  }
-
-  @override
-  bool get paywallEnabled {
-    try {
-      return remoteConfig?.getBool(paywallEnabledKey) ?? false;
-    } on Object catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  bool get isPaywallEnabled => paywallEnabled;
-
-  @override
-  String get paywallVariantKey {
-    try {
-      return remoteConfig?.getString(paywallVariantKeyName) ?? '';
-    } on Object catch (_) {
-      return '';
     }
   }
 
@@ -200,19 +194,16 @@ class FirebaseTelemetryGate implements TelemetryGate {
       return '';
     }
   }
+}
+
+/// What crash reporting is handed in place of the error itself: its type and
+/// nothing else. The plugin sends `toString()` as the report's message, and
+/// the message of a real error can quote a server answer or an address.
+class ReportedError {
+  ReportedError(Object error) : type = error.runtimeType.toString();
+
+  final String type;
 
   @override
-  String get paywallLayoutKey => _layoutValue(paywallLayoutKeyName);
-
-  @override
-  String get proPaywallLayoutKey => _layoutValue(proPaywallLayoutKeyName);
-
-  /// Empty when Firebase is missing or the read fails: the shipped paywall.
-  String _layoutValue(String key) {
-    try {
-      return remoteConfig?.getString(key) ?? '';
-    } on Object catch (_) {
-      return '';
-    }
-  }
+  String toString() => type;
 }

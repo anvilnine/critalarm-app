@@ -3,7 +3,7 @@
 //
 //   fvm flutter test tool/capture_paywall_layout.dart \
 //     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
-//     --dart-define=LAYOUT=plain --dart-define=PRODUCT=hosted
+//     --dart-define=LAYOUT=hero --dart-define=PRODUCT=hosted
 //
 // It writes eight PNGs: 390 by 844 and 375 by 667, light and dark, at the
 // default text size and at the largest (2.0), with motion still. Each file is
@@ -18,6 +18,46 @@
 //                                  store build does (default: every benefit)
 //   --dart-define=SOURCE=<wire>    what opened the paywall, as a PaywallSource
 //                                  wire name such as history (default direct)
+//   --dart-define=LEAD=<key>       the benefit the paywall opens on, a
+//                                  PaywallBenefitId key such as history
+//                                  (default none)
+//   --dart-define=HEADLINE=<key>   the words for a plan that is ending or
+//                                  ended, a PaywallHeadlineVariant key such
+//                                  as ended (default none)
+//   --dart-define=HISTORY=<name:age,...>|<name:age,...>
+//                                  the person's own alarms for the history
+//                                  picture: the ones inside the Free window,
+//                                  then | and the ones past it, as the paywall
+//                                  location carries them (default none, the
+//                                  made-up rows). Needs LEAD=history. Leave
+//                                  the left side empty for a person who has
+//                                  only older alarms.
+//   --dart-define=FACTS=<used>,<limit>,<name>
+//                                  the person's own critical topic count and
+//                                  the topic they were making, as the
+//                                  paywall location carries them (`used`,
+//                                  `limit`, `topic`). Written as given, so
+//                                  junk goes in as junk. Leave a part empty
+//                                  to leave it out, as in `,,billing-api`.
+//                                  Needs LEAD=topics (default none).
+//   --dart-define=ENDS=<yyyy-MM-dd>
+//                                  the day a cancelled plan ends, for the
+//                                  leaving paywall. Without it the location
+//                                  carries nothing about leaving
+//   --dart-define=REST=true        with ENDS: the sad opening was shown for
+//                                  that day already, so the layout opens at
+//                                  rest (no tear, no print)
+//   --dart-define=LEAVING=<rang>,<ans>,<nights>,<crit>,<days>
+//                                  with ENDS: the person's numbers, as the
+//                                  location carries them: alarms that rang,
+//                                  answered, nights, critical topics on and
+//                                  days of history held (default none)
+//   --dart-define=SCENE=<name>     name the files <name>_<phone>_<theme>_
+//                                  <scale>x[_reduced][_<state>][_t<seconds>]
+//                                  in place of the long name, and add
+//                                  _reduced to a capture with no T, which
+//                                  is the settled frame with motion off
+//   --dart-define=NARROW=true      also capture a 320 by 568 phone
 //   --dart-define=T=<seconds>      let motion run and capture that second,
 //                                  to look at an entrance half way. The clock
 //                                  is stepped a frame at a time, so every
@@ -33,9 +73,54 @@
 //                                  down at the end of the drag
 //   --dart-define=THEN=<seconds>   with TAP or DRAG: let this much more time
 //                                  run before the capture
+//   --dart-define=ONLY=<part>,<part>
+//                                  capture only the files whose name has one
+//                                  of these parts, such as 390x844_light_1.0x
+//   --dart-define=ALSO=<s>,<s>     with T: go on to each of these later seconds
+//                                  in the same run and capture each as its
+//                                  own file, to see a motion as a strip
+//   --dart-define=INTRO=<key>      play that intro first, a PaywallIntroId
+//                                  key such as false_alarm. T then counts
+//                                  from the intro's first frame, and the
+//                                  layout's own clock starts at the intro's
+//                                  hand over. With no T nothing moves, so no
+//                                  intro plays.
+//   --dart-define=THANKS=<key>     buy on the made-up buy model and capture
+//                                  what plays after, a PaywallThanksId key
+//                                  such as confetti. T then counts from the
+//                                  confirmed purchase: the layout plays for
+//                                  three seconds first. With no T it is the
+//                                  resting frame. With STATE=done it is what
+//                                  a buyer who already has the product sees.
+//   --dart-define=OUTRO=<key>      with THANKS and T: play that success outro
+//                                  between the purchase and the thanks, a
+//                                  PaywallOutroId key such as cloud_climb.
+//                                  `plain` is a debug outro of this tool: a
+//                                  flat colour over the paywall picture, the
+//                                  mascot walking to where the thanks stands
+//                                  it, then the colour fades away. T then
+//                                  counts from the confirmed purchase.
+//   --dart-define=RESTORE=true     with THANKS: restore in place of buying
+//   --dart-define=MOTION=<names>   draw the Hero composition with these
+//                                  motion variants in place of LAYOUT: any
+//                                  of the HeroMotion enum names, comma
+//                                  separated, such as rays,drop,lean,flip
 //
 // A capture fails when a layout overflows, when the close cross or the button
 // is off screen, or when anything scrolls at the default text size.
+//
+// To capture the developer picker instead of a layout:
+//
+//   fvm flutter test tool/capture_paywall_layout.dart \
+//     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
+//     --dart-define=PICKER=intro --dart-define=T=2.5
+//
+// PICKER is `page` (the rows), `intro`, `paywall`, `thanks` or `outro` (that
+// sheet open).
+// PRODUCT picks the tab. T lets the tiles play to that second after the
+// sheet opens. It writes one size, light and dark, at both text sizes.
+// PICKED=<layout>,<intro> opens it with those already chosen for Hosted, as
+// the developer switches would hold them, to see the mark on a tile.
 //
 // To capture the previews instead of a layout, as the gallery shows them:
 //
@@ -59,14 +144,28 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -76,19 +175,132 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
 
-const _layoutKey = String.fromEnvironment('LAYOUT', defaultValue: 'plain');
+const _layoutKey = String.fromEnvironment('LAYOUT', defaultValue: 'hero');
 const _productKey = String.fromEnvironment('PRODUCT', defaultValue: 'hosted');
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/paywall_shots');
 const _state = String.fromEnvironment('STATE');
 const _benefits = String.fromEnvironment('BENEFITS');
 const _t = String.fromEnvironment('T');
+const _also = String.fromEnvironment('ALSO');
+const _only = String.fromEnvironment('ONLY');
 const _sourceKey = String.fromEnvironment('SOURCE');
+const _leadKey = String.fromEnvironment('LEAD');
+const _headlineKey = String.fromEnvironment('HEADLINE');
+const _history = String.fromEnvironment('HISTORY');
+const _facts = String.fromEnvironment('FACTS');
+const _ends = String.fromEnvironment('ENDS');
+const _rest = bool.fromEnvironment('REST');
+const _leavingFacts = String.fromEnvironment('LEAVING');
+const _scene = String.fromEnvironment('SCENE');
+const _narrow = bool.fromEnvironment('NARROW');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
 const _tap = String.fromEnvironment('TAP');
 const _drag = String.fromEnvironment('DRAG');
 const _held = bool.fromEnvironment('HELD');
 const _then = String.fromEnvironment('THEN');
+const _introKey = String.fromEnvironment('INTRO');
+const _thanksKey = String.fromEnvironment('THANKS');
+const _restore = bool.fromEnvironment('RESTORE');
+const _outroKey = String.fromEnvironment('OUTRO');
+
+/// The `OUTRO` word for the debug outro of this tool.
+const _plainOutro = 'plain';
+
+/// A debug outro that proves the host and nothing else. The paywall picture
+/// fades under a flat colour, the mascot walks from where the layout had it
+/// to where the thanks stands it, and the colour fades away to show the
+/// thanks under it. It is registered under one id for the length of the run.
+final PaywallOutro _plain = PaywallOutro(
+  seconds: 1.6,
+  uncover: 0.9,
+  builder: (context, scope) => PaywallClockBuilder(
+    clock: scope.clock,
+    builder: (context, t, _) {
+      final wall = scope.wall;
+      final from = scope.mascot ?? scope.land;
+      final walk = Curves.easeInOut.transform(phase(t, 0.1, 1));
+      return Stack(
+        children: [
+          if (wall != null && t < 0.4)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 1 - phase(t, 0, 0.3),
+                child: RawImage(image: wall, fit: BoxFit.fill),
+              ),
+            ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: phase(t, 0, 0.3) * (1 - phase(t, 1, 1.5)),
+              child: ColoredBox(color: Colors.indigo.shade900),
+            ),
+          ),
+          ThanksCrit(
+            box: Rect.lerp(from, scope.land, walk)!,
+            face: (from: HeroFace.glad, to: HeroFace.glad, blend: 1),
+          ),
+        ],
+      );
+    },
+  ),
+);
+
+/// How long the layout plays before the purchase, with THANKS and T.
+const double _beforeBuying = 3;
+const _motion = String.fromEnvironment('MOTION');
+const _picker = String.fromEnvironment('PICKER');
+const _picked = String.fromEnvironment('PICKED');
+
+/// The variants MOTION names, or null when a name is none of them.
+HeroMotion? _motionOf(String names) {
+  var atmosphere = HeroAtmosphereStyle.drift;
+  var entrance = HeroEntranceStyle.pop;
+  var idle = HeroIdleStyle.bob;
+  var arrival = HeroCardArrival.fade;
+  for (final name in names.split(',').map((n) => n.trim())) {
+    if (name.isEmpty) continue;
+    final a = HeroAtmosphereStyle.values.asNameMap()[name];
+    final e = HeroEntranceStyle.values.asNameMap()[name];
+    final i = HeroIdleStyle.values.asNameMap()[name];
+    final c = HeroCardArrival.values.asNameMap()[name];
+    if (a == null && e == null && i == null && c == null) return null;
+    atmosphere = a ?? atmosphere;
+    entrance = e ?? entrance;
+    idle = i ?? idle;
+    arrival = c ?? arrival;
+  }
+  return HeroMotion(
+    atmosphere: atmosphere,
+    entrance: entrance,
+    idle: idle,
+    arrival: arrival,
+  );
+}
+
+/// The Hero composition with [motion], on a made-up buy model: what MOTION
+/// captures. No layout picks these variants yet, so the tool draws its own.
+Widget _motionLayout(PaywallProduct product, HeroMotion motion) =>
+    BlocProvider<PaywallBuyCubit>(
+      create: (_) {
+        final cubit = DemoPaywallBuyCubit(product);
+        cubit.load().ignore();
+        return cubit;
+      },
+      child: PaywallRouteInfo(
+        layout: PaywallLayoutId.hero,
+        source: PaywallSource.direct,
+        showsUnbuilt: true,
+        child: PaywallFrame(
+          closeOnLeft: false,
+          restAt: heroEntranceSeconds,
+          builder: (context, scope) =>
+              HeroComposition(scope: scope, motion: motion),
+        ),
+      ),
+    );
+
+/// The developer picker's route.
+const _pickerLocation = '/settings/developer/paywall-layouts';
 
 List<double> _numbers(String text) => [
   for (final part in text.split(',')) ?double.tryParse(part.trim()),
@@ -158,11 +370,67 @@ Future<void> _save(
 /// The largest text size captured.
 const double _largest = 2;
 
-/// The two phones, with the insets each one really has.
+/// The phones, with the insets each one really has. NARROW adds the 320
+/// point wide one.
 const _phones = <(String, Size, double, double)>[
   ('390x844', Size(390, 844), 47, 34),
   ('375x667', Size(375, 667), 20, 0),
+  if (_narrow) ('320x568', Size(320, 568), 20, 0),
 ];
+
+/// The rows HISTORY names, or null when it is empty. Written like the
+/// location writes them, so they pass through its reader.
+HistoryOwn? _historyOwn() {
+  if (_history.isEmpty) return null;
+  List<HistoryOwnRow> rows(String text) => [
+    for (final part in text.split(','))
+      if (part.contains(':'))
+        HistoryOwnRow(
+          part.substring(0, part.lastIndexOf(':')),
+          int.parse(part.substring(part.lastIndexOf(':') + 1)),
+        ),
+  ];
+  final sides = _history.split('|');
+  return HistoryOwn(
+    inside: rows(sides.first),
+    beyond: rows(sides.length > 1 ? sides[1] : ''),
+  );
+}
+
+/// The entries FACTS names, written as the location writes them. Nothing is
+/// checked here: the paywall must cope with what arrives.
+Map<String, String> _factsQuery() {
+  if (_facts.isEmpty) return const {};
+  final parts = _facts.split(',');
+  String? at(int i) =>
+      i < parts.length && parts[i].isNotEmpty ? parts[i] : null;
+  return {'used': ?at(0), 'limit': ?at(1), 'topic': ?at(2)};
+}
+
+/// What ENDS, REST and LEAVING name, or null without ENDS. Written like the
+/// location writes it, so it passes through its reader.
+Map<String, String>? _leavingQuery() {
+  if (_ends.isEmpty) return null;
+  final numbers = _leavingFacts.isEmpty
+      ? const <int>[]
+      : [for (final part in _leavingFacts.split(',')) int.parse(part.trim())];
+  final date = DateTime.parse(_ends);
+  return PaywallLeaving(
+    endsOn: DateTime(date.year, date.month, date.day),
+    // REST is a define, so the analyzer reads it as its default.
+    // ignore: avoid_redundant_argument_values
+    atRest: _rest,
+    facts: numbers.length == 5
+        ? LeavingFacts(
+            rang: numbers[0],
+            answered: numbers[1],
+            nights: numbers[2],
+            criticalTopics: numbers[3],
+            historyDaysHeld: numbers[4],
+          )
+        : null,
+  ).toQuery();
+}
 
 String _scrolls(ScrollableState s) =>
     'Something scrolls at the default text size, by '
@@ -315,6 +583,14 @@ void main() {
     // `test/flutter_test_config.dart` only runs for files under test/, so
     // this tool loads the strings itself or every label renders as its key.
     await loadTestTranslations();
+    // After the strings, which start the preferences again from nothing.
+    final picked = _picked.split(',');
+    if (picked.length == 2) {
+      SharedPreferences.setMockInitialValues({
+        DevPaywallLayoutSwitch.hostedKey: picked[0].trim(),
+        DevPaywallIntroSwitch.hostedKey: picked[1].trim(),
+      });
+    }
     await configureDependencies();
     await _loadFonts();
   });
@@ -325,8 +601,43 @@ void main() {
   }
 
   final source = PaywallSource.parse(_sourceKey);
+  final intro = PaywallIntroId.fromKey(_introKey);
+  final motion = _motionOf(_motion);
+  final thanks = PaywallThanksId.fromKey(_thanksKey);
+  final outro = _outroKey == _plainOutro
+      ? PaywallOutroId.breakLiftRing
+      : PaywallOutroId.fromKey(_outroKey);
+  if (_outroKey == _plainOutro) {
+    paywallOutroBuilders[PaywallOutroId.breakLiftRing] = _plain;
+  }
   test('LAYOUT names a layout', () {
+    expect(
+      _outroKey.isEmpty || outro != null,
+      isTrue,
+      reason: 'No outro has the key "$_outroKey".',
+    );
+    expect(
+      _outroKey.isEmpty || thanks != null,
+      isTrue,
+      reason: 'OUTRO plays between a purchase and a THANKS: set both.',
+    );
+    expect(
+      _thanksKey.isEmpty || thanks != null,
+      isTrue,
+      reason: 'Nothing after a purchase has the key "$_thanksKey".',
+    );
     expect(layout, isNotNull, reason: 'No layout has the key "$_layoutKey".');
+    expect(
+      _introKey.isEmpty || intro != null,
+      isTrue,
+      reason: 'No intro has the key "$_introKey".',
+    );
+    expect(motion, isNotNull, reason: 'MOTION has a name no variant has.');
+    expect(
+      const ['', 'page', 'intro', 'paywall', 'thanks', 'outro'],
+      contains(_picker),
+      reason: 'PICKER is page, intro, paywall, thanks or outro.',
+    );
     expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
     expect(
       _sourceKey.isEmpty || source.wire == _sourceKey,
@@ -334,27 +645,53 @@ void main() {
       reason: 'No paywall source has the wire name "$_sourceKey".',
     );
   });
-  if (layout == null) return;
+  if (layout == null || motion == null) return;
+  final isPicker = _picker.isNotEmpty;
 
   for (final (sizeName, size, topInset, bottomInset) in _phones) {
+    // The picker is a developer page: one phone, both text sizes.
+    if (isPicker && sizeName != _phones.first.$1) continue;
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       for (final scale in [1.0, _largest]) {
-        final name = [
-          layout.key,
-          product.key,
-          sizeName,
-          mode.name,
-          '${scale.toStringAsFixed(1)}x',
-          if (_state.isNotEmpty) _state,
-          if (_benefits.isNotEmpty) 'benefits-$_benefits',
-          if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
-          if (second != null) 't$_t',
-          if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
-          if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
-          if (_held) 'held',
-          if (_then.isNotEmpty) 'then$_then',
-        ].join('_');
+        final name = _scene.isNotEmpty
+            ? [
+                _scene,
+                sizeName,
+                mode.name,
+                '${scale.toStringAsFixed(1)}x',
+                if (second == null) 'reduced',
+                if (_state.isNotEmpty) _state,
+                if (second != null) 't$_t',
+              ].join('_')
+            : [
+                if (isPicker) 'picker_$_picker' else layout.key,
+                if (_picked.isNotEmpty)
+                  'picked-${_picked.replaceAll(',', '-')}',
+                product.key,
+                sizeName,
+                mode.name,
+                '${scale.toStringAsFixed(1)}x',
+                if (_state.isNotEmpty) _state,
+                if (_benefits.isNotEmpty) 'benefits-$_benefits',
+                if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
+                if (_leadKey.isNotEmpty) 'lead-$_leadKey',
+                if (_headlineKey.isNotEmpty) 'headline-$_headlineKey',
+                if (_ends.isNotEmpty) 'ends-$_ends',
+                if (_rest) 'rest',
+                if (second != null) 't$_t',
+                if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
+                if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
+                if (_held) 'held',
+                if (_then.isNotEmpty) 'then$_then',
+                if (_introKey.isNotEmpty) 'intro-$_introKey',
+                if (_thanksKey.isNotEmpty) 'thanks-$_thanksKey',
+                if (_outroKey.isNotEmpty) 'outro-$_outroKey',
+                if (_restore) 'restore',
+                if (_motion.isNotEmpty)
+                  'motion-${_motion.replaceAll(',', '-')}',
+              ].join('_');
 
+        if (_only.isNotEmpty && !_only.split(',').any(name.contains)) continue;
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
           final oldHandler = FlutterError.onError;
@@ -371,19 +708,33 @@ void main() {
           tester.view.viewPadding = tester.view.padding;
           addTearDown(tester.view.reset);
 
-          final location = Uri.parse(paywallLayoutLocation(layout, product))
-              .replace(
-                queryParameters: {
-                  'product': product.key,
-                  if (_sourceKey.isNotEmpty) 'source': source.wire,
-                  if (_state.isNotEmpty) 'state': _state,
-                  // The route lists what the build has unless asked for all.
-                  'benefits': _benefits.isEmpty
-                      ? paywallAllBenefits
-                      : _benefits,
-                },
-              )
-              .toString();
+          final location = isPicker
+              ? _pickerLocation
+              : Uri.parse(paywallLayoutLocation(layout, product))
+                    .replace(
+                      queryParameters: {
+                        'product': product.key,
+                        if (intro != null) 'intro': intro.key,
+                        if (thanks != null) ...{
+                          'thanks': thanks.key,
+                          'try': paywallTryOut,
+                          if (outro != null) 'outro': outro.key,
+                        },
+                        if (_sourceKey.isNotEmpty) 'source': source.wire,
+                        if (_leadKey.isNotEmpty) 'lead': _leadKey,
+                        if (_headlineKey.isNotEmpty) 'headline': _headlineKey,
+                        ...?_leavingQuery(),
+                        ...?_historyOwn()?.toQuery(),
+                        ..._factsQuery(),
+                        if (_state.isNotEmpty) 'state': _state,
+                        // The route lists what the build has unless asked
+                        // for all.
+                        'benefits': _benefits.isEmpty
+                            ? paywallAllBenefits
+                            : _benefits,
+                      },
+                    )
+                    .toString();
           final boundaryKey = GlobalKey();
 
           // A test paints every shadow as a solid shape unless told
@@ -391,31 +742,87 @@ void main() {
           // does.
           debugDisableShadows = false;
           try {
+            Widget framed(BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+                // Still unless a second was asked for.
+                disableAnimations: second == null,
+              ),
+              child: RepaintBoundary(key: boundaryKey, child: child),
+            );
             await tester.pumpWidget(
               BlocProvider<ThemeCubit>.value(
                 value: getIt<ThemeCubit>(),
-                child: MaterialApp.router(
-                  theme: buildLightTheme(),
-                  darkTheme: buildDarkTheme(),
-                  themeMode: mode,
-                  routerConfig: buildRouter(initialLocation: location),
-                  builder: (context, child) => MediaQuery(
-                    data: MediaQuery.of(context).copyWith(
-                      textScaler: TextScaler.linear(scale),
-                      // Still unless a second was asked for.
-                      disableAnimations: second == null,
-                    ),
-                    child: RepaintBoundary(key: boundaryKey, child: child),
-                  ),
-                ),
+                child: _motion.isEmpty
+                    ? MaterialApp.router(
+                        theme: buildLightTheme(),
+                        darkTheme: buildDarkTheme(),
+                        themeMode: mode,
+                        routerConfig: buildRouter(initialLocation: location),
+                        builder: framed,
+                      )
+                    : MaterialApp(
+                        debugShowCheckedModeBanner: false,
+                        theme: buildLightTheme(),
+                        darkTheme: buildDarkTheme(),
+                        themeMode: mode,
+                        home: _motionLayout(product, motion),
+                        builder: framed,
+                      ),
               ),
             );
             await tester.pump();
-            if (second == null) {
+            if (isPicker) {
+              // The tab, then the row that opens the sheet asked for.
+              if (product == PaywallProduct.pro) {
+                await tester.tap(find.text(paywallProductName(product)));
+                await tester.pump();
+              }
+              final row = switch (_picker) {
+                'intro' => LocaleKeys.paywall_picker_intro_row,
+                'paywall' => LocaleKeys.paywall_picker_paywall_row,
+                'thanks' => LocaleKeys.paywall_thanks_picker_row,
+                'outro' => LocaleKeys.paywall_outro_picker_row,
+                _ => null,
+              };
+              if (row != null) {
+                await tester.tap(find.text(row.tr()));
+                await tester.pump();
+              }
+              await _stepTo(tester, second ?? 0.6);
+            } else if (second == null) {
               await tester.pump(const Duration(milliseconds: 300));
               await tester.pump(const Duration(milliseconds: 300));
-            } else {
+            } else if (thanks == null || _state.isNotEmpty) {
               await _stepTo(tester, second);
+            }
+            if (thanks != null && _state.isEmpty) {
+              // The layout plays, the buyer buys or restores, and T counts
+              // from the frame the made-up model says the product is held.
+              if (second != null) await _stepTo(tester, _beforeBuying);
+              final cubit = BlocProvider.of<PaywallBuyCubit>(
+                tester.element(find.byType(PaywallBuyBlock).first),
+              );
+              await tester.runAsync(() async {
+                await (_restore ? cubit.restore() : cubit.buy());
+              });
+              await tester.pump();
+              if (outro != null && second != null) {
+                // The picture the outro starts from is taken off the clock:
+                // let it finish in real time before the seconds run.
+                for (var i = 0; i < 24; i++) {
+                  await tester.runAsync(
+                    () =>
+                        Future<void>.delayed(const Duration(milliseconds: 25)),
+                  );
+                  await tester.pump();
+                }
+              }
+              if (second != null) await _stepTo(tester, second);
+              // The purchase cue's haptic is a short pattern on a timer.
+              if (second == null) {
+                await tester.pump(const Duration(milliseconds: 400));
+              }
             }
             final finger = await _touch(tester);
 
@@ -427,11 +834,15 @@ void main() {
 
             final problems = <String>[
               ...errors,
-              if (!onScreen(find.byType(AppDismissCross)))
+              if (!isPicker &&
+                  thanks == null &&
+                  !onScreen(find.byType(AppDismissCross)))
                 'The close cross is not on screen.',
-              if (_state.isEmpty && !onScreen(find.byType(AppButton)))
+              if (!isPicker &&
+                  _state.isEmpty &&
+                  !onScreen(find.byType(AppButton)))
                 'The button is not on screen.',
-              if (scale == 1.0)
+              if (scale == 1.0 && !isPicker)
                 for (final s in tester.stateList<ScrollableState>(
                   find.byType(Scrollable),
                 ))
@@ -449,6 +860,22 @@ void main() {
             if (block.evaluate().isNotEmpty) {
               final height = tester.getSize(block.first).height;
               print('     buy block ${height.toStringAsFixed(1)} points');
+            }
+
+            // The later seconds of the same run, each its own file.
+            var at = second ?? 0;
+            for (final later in _also.split(',')) {
+              final to = double.tryParse(later.trim());
+              if (second == null || to == null || to <= at) continue;
+              await _stepTo(tester, to - at);
+              at = to;
+              await _save(
+                tester,
+                boundaryKey,
+                name.replaceFirst('_t$_t', '_t${later.trim()}'),
+                pixelRatio: dpr,
+                isGood: errors.isEmpty,
+              );
             }
 
             await finger?.up();

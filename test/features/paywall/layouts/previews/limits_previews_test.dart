@@ -163,6 +163,55 @@ void main() {
         );
       }
     });
+
+    test('a given topic name takes the first row, and nothing else '
+        'changes', () {
+      for (var rows = 1; rows <= 4; rows++) {
+        final own = topicsPreviewNames(rows);
+        final named = topicsPreviewNames(rows, topicName: 'payments-db');
+        expect(named, hasLength(own.length), reason: '$rows rows');
+        expect(named.first, 'payments-db');
+        expect(named.skip(1), own.skip(1), reason: '$rows rows');
+      }
+      // Four rows start on prod-db: it is the name replaced.
+      expect(topicsPreviewNames(3, topicName: 'payments-db'), [
+        'payments-db',
+        'uptime-kuma',
+        'nas-backup',
+      ]);
+    });
+
+    test('with no name, or a blank one, the names are its own', () {
+      for (var rows = 1; rows <= 4; rows++) {
+        final own = topicsPreviewNames(rows);
+        expect(topicsPreviewNames(rows, topicName: ''), own);
+        expect(topicsPreviewNames(rows, topicName: '   '), own);
+      }
+      expect(topicsPreviewNames(3), ['prod-db', 'uptime-kuma', 'nas-backup']);
+    });
+
+    test('a name is trimmed, and a made-up name it matches is not listed '
+        'twice', () {
+      expect(topicsPreviewNames(3, topicName: ' api ').first, 'api');
+      // The user's topic is one of the made-up ones: that one moves to
+      // the row the first held.
+      expect(topicsPreviewNames(3, topicName: 'nas-backup'), [
+        'nas-backup',
+        'uptime-kuma',
+        'prod-db',
+      ]);
+      for (var rows = 1; rows <= 4; rows++) {
+        for (final name in [
+          'prod-db',
+          'uptime-kuma',
+          'nas-backup',
+          'home-ha',
+        ]) {
+          final names = topicsPreviewNames(rows, topicName: name);
+          expect(names.toSet(), hasLength(names.length), reason: '$name $rows');
+        }
+      }
+    });
   });
 
   group('pushes', () {
@@ -352,6 +401,36 @@ void main() {
         );
         expect(stopped, greaterThan(0), reason: '$size');
         expect(scroll, greaterThan(stopped), reason: '$size');
+      }
+    });
+
+    test('with no rows inside the window the band stays clear of a tag', () {
+      // The Proof layout puts its tag across the top edge of the card. With
+      // nothing above the band, the band sits at that edge: it has to keep
+      // below the tag at every moment of the loop.
+      for (final size in const [
+        Size.square(200),
+        Size(350, 300),
+        Size(320, 240),
+        Size(350, 110),
+      ]) {
+        final layout = historyPreviewLayoutFor(size);
+        for (final t in _loop) {
+          final scroll = layout.scrollFor(history(t), 0);
+          final bandTop = layout.lineTop(0) - scroll;
+          expect(
+            bandTop,
+            greaterThanOrEqualTo(historyPreviewTagRoom),
+            reason: '$size at $t',
+          );
+        }
+      }
+    });
+
+    test('rows inside the window put the band where it was', () {
+      final layout = historyPreviewLayoutFor(const Size(350, 300));
+      for (final inside in [1, 3, 7]) {
+        expect(layout.lineTop(inside), inside * layout.rowHeight);
       }
     });
 

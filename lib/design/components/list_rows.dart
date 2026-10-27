@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -19,8 +20,8 @@ class AppListRow extends StatefulWidget {
     required this.name,
     required this.meta,
     this.faceState = FaceState.calm,
-    this.faceStrokeColor,
     this.trailing,
+    this.trailingTapRoom = 0,
     this.timeText,
     this.isCrit = false,
     this.isQuiet = false,
@@ -41,8 +42,13 @@ class AppListRow extends StatefulWidget {
   /// Null draws no face at all. A face says something about the state of a
   /// thing, so a row that only opens another screen does not get one.
   final FaceState? faceState;
-  final Color? faceStrokeColor;
   final Widget? trailing;
+
+  /// How far [trailing]'s tap box reaches past what it draws, on each side.
+  /// The row takes it out of its right padding and of the gap before the
+  /// trailing widget, so what is drawn stays where it was. A preview button
+  /// is a 40 circle in a 48 box, which is 4.
+  final double trailingTapRoom;
   final String? timeText;
   final bool isCrit;
   final bool isQuiet;
@@ -92,38 +98,22 @@ class _AppListRowState extends State<AppListRow> {
     Color bg;
     final Color nameColor;
     final Color metaColor;
-    final Color faceFill;
-    final Color faceStroke;
-    final Color faceInk;
     final List<BoxShadow> shadows;
 
     if (widget.isCrit) {
       bg = colors.panel;
       nameColor = colors.onPanel;
       metaColor = colors.onPanelMuted;
-      faceFill = colors.panel;
-      faceStroke = colors.crit;
-      faceInk = colors.onPanel;
       shadows = AppShadows.lightMd;
     } else if (widget.isQuiet) {
       bg = colors.ash;
       nameColor = colors.ink;
       metaColor = colors.ink3;
-      faceFill = colors.canvas;
-      faceStroke = widget.faceStrokeColor ?? colors.faceStroke;
-      faceInk = colors.faceInk;
       shadows = const [];
     } else {
       bg = colors.surface;
       nameColor = colors.ink;
       metaColor = colors.ink3;
-      faceFill = colors.canvas;
-      faceStroke =
-          widget.faceStrokeColor ??
-          (widget.faceState == FaceState.worried
-              ? colors.high
-              : colors.faceStroke);
-      faceInk = colors.faceInk;
       shadows = _isHovered ? AppShadows.lightMd : const [];
     }
 
@@ -171,9 +161,18 @@ class _AppListRowState extends State<AppListRow> {
               child: AnimatedContainer(
                 duration: duration,
                 curve: AppCurves.easeOut,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+                // A row with no face and no second line is 42 high, short of
+                // a thumb. One that opens something is 48 at the least.
+                constraints: widget.onTap == null
+                    ? null
+                    : const BoxConstraints(minHeight: kMinTapTarget),
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  12,
+                  widget.trailing != null && widget.timeText == null
+                      ? 14 - widget.trailingTapRoom
+                      : 14,
+                  12,
                 ),
                 decoration: BoxDecoration(
                   color: bg,
@@ -189,9 +188,6 @@ class _AppListRowState extends State<AppListRow> {
                       FaceWidget(
                         state: widget.faceState!,
                         size: 40,
-                        overrideFillColor: faceFill,
-                        overrideStrokeColor: faceStroke,
-                        overrideInkColor: faceInk,
                       ),
                       const SizedBox(width: 14),
                     ],
@@ -282,7 +278,7 @@ class _AppListRowState extends State<AppListRow> {
                       _UnreadPill(count: widget.unreadCount),
                     ],
                     if (widget.trailing != null) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8 - widget.trailingTapRoom),
                       Flexible(
                         flex: 0,
                         child: widget.trailing!,

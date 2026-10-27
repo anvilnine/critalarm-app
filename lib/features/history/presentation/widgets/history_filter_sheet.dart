@@ -1,17 +1,19 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/components/buttons.dart';
-import 'package:critalarm/design/components/pro_badge.dart';
+import 'package:critalarm/design/components/feature_lock.dart';
 import 'package:critalarm/design/components/sheets.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -55,6 +57,14 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    // A chip is its text (14 at 1.4), 8 above and below, and the 1.5 stroke.
+    // It sits in a 48 tap box, which is taller than it by [room] at the
+    // default text size and not at all once the text is large. The sheet
+    // takes the room out of the gaps around the chips so they stay put: half
+    // of it above the group, half below, and all of it between two rows.
+    final chipHeight =
+        MediaQuery.textScalerOf(context).scale(14) * 1.4 + 2 * Spacing.s2 + 3;
+    final room = chipHeight >= kMinTapTarget ? 0.0 : kMinTapTarget - chipHeight;
 
     return SafeArea(
       top: false,
@@ -75,10 +85,10 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                 LocaleKeys.history_filter_state_header.tr(),
                 padding: EdgeInsets.zero,
               ),
-              const SizedBox(height: Spacing.s2),
+              SizedBox(height: Spacing.s2 - room / 2),
               Wrap(
                 spacing: Spacing.s2,
-                runSpacing: Spacing.s2,
+                runSpacing: Spacing.s2 - room,
                 children: <Widget>[
                   _FilterChip(
                     label: LocaleKeys.history_filter_state_all.tr(),
@@ -93,16 +103,16 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: Spacing.s4),
+              SizedBox(height: Spacing.s4 - room / 2),
 
               AppSectionHeader(
                 LocaleKeys.history_filter_window_header.tr(),
                 padding: EdgeInsets.zero,
               ),
-              const SizedBox(height: Spacing.s2),
+              SizedBox(height: Spacing.s2 - room / 2),
               Wrap(
                 spacing: Spacing.s2,
-                runSpacing: Spacing.s2,
+                runSpacing: Spacing.s2 - room,
                 children: <Widget>[
                   for (final window in HistoryWindows.all)
                     _FilterChip(
@@ -121,7 +131,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: Spacing.s5),
+              SizedBox(height: Spacing.s5 - room / 2),
 
               Row(
                 children: <Widget>[
@@ -163,11 +173,18 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
       _set(_draft.withWindow(isDefault ? HistoryWindows.full : window));
       return;
     }
-    // A longer window than the plan keeps. Close the sheet and offer Pro.
+    // A longer window than the plan keeps. Close the sheet and open the
+    // paywall for whatever unlocks long history.
     AppHaptics.selection();
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    unawaited(router.push(hostedPaywallLocation(PaywallSource.history)));
+    unawaited(() async {
+      final paywall = await paywallLocationForFeature(
+        AppFeature.longHistory,
+        LockSource.history,
+      );
+      if (paywall != null) await router.push(paywall);
+    }());
   }
 
   void _set(HistoryFilter next) {
@@ -227,38 +244,47 @@ class _FilterChip extends StatelessWidget {
             )
           : label,
       excludeSemantics: true,
-      child: InkWell(
+      child: AppTapTarget(
+        minWidth: 0,
         onTap: onTap,
-        borderRadius: Radii.fullAll,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.s4,
-            vertical: Spacing.s2,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected ? colors.ink : Colors.transparent,
-            borderRadius: Radii.fullAll,
-            border: Border.all(
-              color: isSelected
-                  ? colors.ink
-                  : colors.ink.withValues(alpha: 0.22),
-              width: 1.5,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: Radii.fullAll,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s4,
+              vertical: Spacing.s2,
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                label,
-                style: AppTypography.small(
-                  isSelected ? colors.canvas : colors.ink3,
-                ),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.ink : Colors.transparent,
+              borderRadius: Radii.fullAll,
+              border: Border.all(
+                color: isSelected
+                    ? colors.ink
+                    : colors.ink.withValues(alpha: 0.22),
+                width: 1.5,
               ),
-              if (isLocked) ...<Widget>[
-                const SizedBox(width: Spacing.s2),
-                ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: AppTypography.small(
+                    isSelected ? colors.canvas : colors.ink3,
+                  ),
+                ),
+                if (isLocked) ...<Widget>[
+                  const SizedBox(width: Spacing.s2),
+                  // The plan badge with its lock, from the one lock.
+                  const AccessLock.inline(
+                    feature: AppFeature.longHistory,
+                    source: LockSource.history,
+                    child: FeatureLockBadge(),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

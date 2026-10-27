@@ -15,11 +15,13 @@ import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dar
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/model/welcome_ambient.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
@@ -40,6 +42,53 @@ OnboardingFlowEngine? _appFlowEngine() =>
     ? getIt<OnboardingFlowEngine>()
     : null;
 
+/// Where a pager on the step on screen is, as a page value, for the canvas
+/// to follow. Null while no pager reports. The welcome step reports its
+/// pages, so the shapes behind it glide with a swipe.
+class AmbientPagePosition extends ChangeNotifier
+    implements ValueListenable<double?> {
+  double? _value;
+  bool _followsPager = true;
+  bool _isDisposed = false;
+
+  @override
+  double? get value => _value;
+
+  /// True when the canvas paints [value] as it comes, frame by frame, because
+  /// a pager is moving the page value itself. False when the page changed
+  /// without a pager to move it, and the canvas glides there on its own.
+  bool get followsPager => _followsPager;
+
+  /// Reports the pager's page value. Called while a frame is being drawn,
+  /// the listeners hear of it after that frame.
+  void report(double page, {bool followsPager = true}) {
+    if (_value == page && _followsPager == followsPager) return;
+    _value = page;
+    _followsPager = followsPager;
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      scheduler.addPostFrameCallback((_) {
+        if (!_isDisposed) notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// Forgets the position without telling anyone. The shell calls it as a
+  /// step changes, where it is about to rebuild by itself.
+  void clear() {
+    _value = null;
+    _followsPager = true;
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+}
+
 /// Controller coordinating ambient canvas step changes and direction within
 /// the onboarding flow. It also carries what the step on screen asks of the
 /// shell's top bar: the mood of the small face and whether Back is held.
@@ -53,6 +102,10 @@ class OnboardingAmbientController extends ChangeNotifier {
   AmbientMotionVariant _variant = AmbientMotionVariant.drift;
   TravellingFaceMood? _faceMood;
   bool _isBackHeld = false;
+
+  /// The page value of a pager on the step on screen, for the canvas to
+  /// follow. See [AmbientPagePosition].
+  final AmbientPagePosition pagePosition = AmbientPagePosition();
 
   OnboardingAmbientStep get step => _step;
   AmbientDirection get direction => _direction;
@@ -109,6 +162,13 @@ class OnboardingAmbientController extends ChangeNotifier {
   void resetForStep() {
     _faceMood = null;
     _isBackHeld = false;
+    pagePosition.clear();
+  }
+
+  @override
+  void dispose() {
+    pagePosition.dispose();
+    super.dispose();
   }
 }
 
@@ -260,10 +320,6 @@ class _OnboardingShellState extends State<OnboardingShell>
 
   bool _isGoingBack = false;
 
-  /// True while a step with no top bar of its own is scrolled, so its rows
-  /// run under the tracker.
-  bool _isScrolledUnder = false;
-
   Uri get _uri => widget.state.uri;
   bool get _isReplay => isOnboardingReplayUri(_uri);
   OnboardingStepEntry? get _entry =>
@@ -400,7 +456,6 @@ class _OnboardingShellState extends State<OnboardingShell>
     final after = _readFill();
     _fill = after;
     _opensOnItsOwn = _readOpensOnItsOwn();
-    _isScrolledUnder = false;
 
     final reduceMotion = context.reduceMotion;
     // A tick as a bar gains a step. An animation cue, so there is none
@@ -487,29 +542,6 @@ class _OnboardingShellState extends State<OnboardingShell>
     }
   }
 
-  bool _handleScroll(ScrollNotification notification) {
-    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
-      return false;
-    }
-    final isUnder = notification.metrics.pixels > 0;
-    if (isUnder == _isScrolledUnder) return false;
-    void show() {
-      if (mounted && isUnder != _isScrolledUnder) {
-        setState(() => _isScrolledUnder = isUnder);
-      }
-    }
-
-    // A list can move while the frame is being laid out, and nothing may be
-    // rebuilt then, so that one waits for the frame to finish.
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => show());
-    } else {
-      show();
-    }
-    return false;
-  }
-
   @override
   void dispose() {
     detachOnboardingStepLeave(_leave);
@@ -550,105 +582,96 @@ class _OnboardingShellState extends State<OnboardingShell>
     final onBack = showsTracker && _backStep != null && !_controller.isBackHeld
         ? () => unawaited(_goBack())
         : null;
-    final barHeight =
-        MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight;
 
     return Stack(
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: AmbientCanvas(
-              key: const ValueKey('onboarding-ambient-canvas'),
-              profile: currentProfile,
-              variant: _controller.variant,
-              direction: _controller.direction,
-              reduceMotion: context.reduceMotion,
+            // The welcome step reports where its pager is, and the shapes
+            // follow it. Any other step, or the welcome before its pager
+            // has moved, uses the step's own profile.
+            child: ValueListenableBuilder<double?>(
+              valueListenable: _controller.pagePosition,
+              builder: (context, position, _) {
+                final isOnWelcome =
+                    position != null &&
+                    _controller.step == OnboardingAmbientStep.welcome;
+                final isLive =
+                    isOnWelcome && _controller.pagePosition.followsPager;
+                return AmbientCanvas(
+                  key: const ValueKey('onboarding-ambient-canvas'),
+                  profile: isOnWelcome
+                      ? welcomeAmbientAt(
+                          OnboardingAmbientProfiles.welcomePages(
+                            context.appColors,
+                          ),
+                          position,
+                        )
+                      : currentProfile,
+                  variant: _controller.variant,
+                  direction: _controller.direction,
+                  reduceMotion: context.reduceMotion,
+                  isLive: isLive,
+                );
+              },
             ),
           ),
         ),
         Positioned.fill(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleScroll,
-            // The step slides and fades out, and the next one in. The canvas
-            // behind and the tracker above hold still. The widgets here stay
-            // the same at rest, so a step keeps its state through a change.
-            child: AnimatedBuilder(
-              animation: _motion,
-              builder: (context, child) {
-                final towards = _movesBack ? -1.0 : 1.0;
-                final (opacity, shift) = switch (_phase) {
-                  _StepMotionPhase.rest => (1.0, 0.0),
-                  _StepMotionPhase.leaving => () {
-                    final gone = Curves.easeIn.transform(_motion.value);
-                    return (1 - gone, -towards * _leaveSlide * gone);
-                  }(),
-                  _StepMotionPhase.entering => () {
-                    final here = AppCurves.easeOut.transform(_motion.value);
-                    return (here, towards * _enterSlide * (1 - here));
-                  }(),
-                };
-                return IgnorePointer(
-                  // A step on its way out takes no more taps.
-                  ignoring: _phase == _StepMotionPhase.leaving,
-                  child: Opacity(
-                    opacity: opacity.clamp(0.0, 1.0),
-                    child: FractionalTranslation(
-                      translation: Offset(shift, 0),
-                      child: child,
-                    ),
+          // The step slides and fades out, and the next one in. The canvas
+          // behind and the tracker above hold still. The widgets here stay
+          // the same at rest, so a step keeps its state through a change.
+          child: AnimatedBuilder(
+            animation: _motion,
+            builder: (context, child) {
+              final towards = _movesBack ? -1.0 : 1.0;
+              final (opacity, shift) = switch (_phase) {
+                _StepMotionPhase.rest => (1.0, 0.0),
+                _StepMotionPhase.leaving => () {
+                  final gone = Curves.easeIn.transform(_motion.value);
+                  return (1 - gone, -towards * _leaveSlide * gone);
+                }(),
+                _StepMotionPhase.entering => () {
+                  final here = AppCurves.easeOut.transform(_motion.value);
+                  return (here, towards * _enterSlide * (1 - here));
+                }(),
+              };
+              return IgnorePointer(
+                // A step on its way out takes no more taps.
+                ignoring: _phase == _StepMotionPhase.leaving,
+                child: Opacity(
+                  opacity: opacity.clamp(0.0, 1.0),
+                  child: FractionalTranslation(
+                    translation: Offset(shift, 0),
+                    child: child,
                   ),
-                );
-              },
-              child: AmbientScope(
-                // Every step sits on this canvas with a clear background, so
-                // each one backs its bars with the canvas colour while a row
-                // is scrolled under them, and at rest when the text is too
-                // large for the step to fit. The app name keeps to the top
-                // bar's height.
-                child: AppBarBackingScope(
-                  color: currentProfile.canvas,
-                  topBarMaxTextScale: setupTopBarMaxTextScale,
-                  child: OnboardingAmbientScope(
-                    controller: _controller,
-                    hasQuietLine: quietLine != null,
-                    showsTracker: showsTracker,
-                    onBack: onBack,
-                    child: widget.child,
-                  ),
+                ),
+              );
+            },
+            child: AmbientScope(
+              // Every step sits on this canvas with a clear background, so
+              // each one backs its bars with the canvas colour while a row
+              // is scrolled under them, and at rest when the text is too
+              // large for the step to fit. The app name keeps to the top
+              // bar's height. A step with no top bar of its own is backed
+              // the same way over the tracker the shell draws there.
+              child: AppBarBackingScope(
+                color: currentProfile.canvas,
+                topBarMaxTextScale: setupTopBarMaxTextScale,
+                barOverTop: showsTracker && !(_entry?.hasTopBar ?? true)
+                    ? AppScreenScaffold.topBarHeight
+                    : null,
+                child: OnboardingAmbientScope(
+                  controller: _controller,
+                  hasQuietLine: quietLine != null,
+                  showsTracker: showsTracker,
+                  onBack: onBack,
+                  child: widget.child,
                 ),
               ),
             ),
           ),
         ),
-        // A step with no top bar of its own has nothing behind the tracker
-        // once its rows scroll under it, so the shell backs it here.
-        if (showsTracker && !(_entry?.hasTopBar ?? true))
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: barHeight + 16,
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: _isScrolledUnder ? 1 : 0,
-                duration: context.motion(AppDurations.quick),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        currentProfile.canvas,
-                        currentProfile.canvas,
-                        currentProfile.canvas.withValues(alpha: 0),
-                      ],
-                      stops: [0, barHeight / (barHeight + 16), 1],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
         // Where a step's top bar has its title: Back when it is offered,
         // the small face and the three bars. Beside them, in the empty
         // corner, the word or three about the connect. Only Back takes
@@ -663,9 +686,14 @@ class _OnboardingShellState extends State<OnboardingShell>
             child: MediaQuery.withClampedTextScaling(
               maxScaleFactor: setupTopBarMaxTextScale,
               child: SizedBox(
-                height: AppScreenScaffold.topBarHeight,
+                // 2 taller than the bar's 56, as every step's bar is.
+                height: AppScreenScaffold.topBarHeight + 2,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  // Back is a 40 circle in a 48 tap box, which reaches 4 past
+                  // it: 4 less on the left, and 2 less above for the 2 the
+                  // bar is taller. The slot holds the 4 back on the left
+                  // while Back is not offered.
+                  padding: const EdgeInsets.fromLTRB(12, 10, 16, 0),
                   child: Row(
                     children: [
                       _BackSlot(onPressed: onBack),
@@ -724,9 +752,9 @@ class _BackSlot extends StatelessWidget {
       curve: AppCurves.easeOut,
       alignment: AlignmentDirectional.centerStart,
       child: onPressed == null
-          ? const SizedBox(height: 40)
+          ? const SizedBox(width: 4, height: 48)
           : Padding(
-              padding: const EdgeInsetsDirectional.only(end: Spacing.s3),
+              padding: const EdgeInsetsDirectional.only(end: Spacing.s3 - 4),
               child: AppIconButton(
                 glyph: GlyphType.back,
                 ariaLabel: LocaleKeys.common_back.tr(),

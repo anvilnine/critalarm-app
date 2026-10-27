@@ -1,3 +1,5 @@
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/feedback/domain/device_report.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
@@ -9,10 +11,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 class PlatformDeviceReportRepository implements DeviceReportRepository {
   PlatformDeviceReportRepository({
     required this.accountRepository,
+    required this.holdings,
     DeviceInfoPlugin? deviceInfo,
   }) : _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
 
   final AccountRepository accountRepository;
+  final Holdings holdings;
   final DeviceInfoPlugin _deviceInfo;
 
   @override
@@ -20,7 +24,7 @@ class PlatformDeviceReportRepository implements DeviceReportRepository {
     final package = await PackageInfo.fromPlatform();
     final (device, os) = await _readDevice();
     final serverMode = await accountRepository.readServerMode();
-    final isPaid = await accountRepository.readIsPaid();
+    final holdsHosted = await accountRepository.readHoldsHosted();
 
     return DeviceReport(
       appVersion: package.version,
@@ -28,9 +32,20 @@ class PlatformDeviceReportRepository implements DeviceReportRepository {
       device: device,
       os: os,
       server: serverMode?.name ?? 'none',
-      plan: isPaid ? 'pro' : 'free',
+      plan: holdsHosted ? 'cloud' : 'free',
+      pro: await _readPro(),
       locale: locale,
     );
+  }
+
+  /// `yes` or `no` for the Pro pack, from the same holdings the app locks
+  /// by. A pack that could not be read is `unknown`, never `no`.
+  Future<String> _readPro() async {
+    try {
+      return await holdings.holdsOnceReady(Holding.pro) ? 'yes' : 'no';
+    } on HoldingUnreadable {
+      return 'unknown';
+    }
   }
 
   Future<(String, String)> _readDevice() async {

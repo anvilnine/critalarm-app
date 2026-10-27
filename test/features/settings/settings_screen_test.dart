@@ -52,7 +52,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Settings'), findsOneWidget);
-        expect(find.text('Will it wake me?'), findsOneWidget);
+        expect(find.text('PHONE CHECKS'), findsOneWidget);
         expect(find.text('Default sound'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
         expect(find.text('Privacy'), findsOneWidget);
@@ -64,7 +64,7 @@ void main() {
         expect(find.text('Per-topic priority'), findsNothing);
         expect(find.text('Device permissions'), findsNothing);
 
-        await tester.tap(find.text('Will it wake me?'));
+        await tester.tap(find.text('PHONE CHECKS'));
         // Not pumpAndSettle: until the checks are read the screen shows the
         // waiting face, which never stops moving.
         await tester.pump();
@@ -216,7 +216,7 @@ void main() {
       expect(find.text('Disconnect server?'), findsOneWidget);
       expect(
         find.text(
-          'You will stop receiving pages until you connect again.',
+          'You will stop receiving alarms until you connect again.',
         ),
         findsOneWidget,
       );
@@ -262,7 +262,8 @@ void main() {
       expect(find.text('Share anonymous usage analytics'), findsOneWidget);
       expect(
         find.text(
-          'Which screens you open. No topic names, no message content.',
+          'Which screens you open and your setup answer. '
+          'No topic names, no message content.',
         ),
         findsOneWidget,
       );

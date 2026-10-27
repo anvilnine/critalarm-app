@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -33,7 +34,14 @@ class SearchNoMatches extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(Spacing.s4),
+      // The example chips are 40 high in 48 tap boxes, which reach 4 past
+      // them: 4 less below the last row and above the first.
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.s4,
+        Spacing.s4,
+        Spacing.s4,
+        Spacing.s4 - 4,
+      ),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: Radii.xlAll,
@@ -59,11 +67,12 @@ class SearchNoMatches extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppTypography.small(colors.ink3),
           ),
-          const SizedBox(height: Spacing.s3),
+          const SizedBox(height: Spacing.s3 - 4),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: Spacing.s2,
-            runSpacing: Spacing.s2,
+            // No runSpacing: it was 8 between 40 high chips, and the boxes
+            // are 8 taller than the chips.
             children: <Widget>[
               for (final example in examples)
                 _ExampleChip(
@@ -92,20 +101,24 @@ class _ExampleChip extends StatelessWidget {
       button: true,
       label: label,
       excludeSemantics: true,
-      child: InkWell(
+      child: AppTapTarget(
+        minWidth: 0,
         onTap: onTap,
-        borderRadius: Radii.fullAll,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: colors.cream,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Text(
-            label,
-            style: AppTypography.mono(colors.ink, fontSize: 13),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: Radii.fullAll,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.cream,
+              borderRadius: Radii.fullAll,
+            ),
+            child: Text(
+              label,
+              style: AppTypography.mono(colors.ink, fontSize: 13),
+            ),
           ),
         ),
       ),

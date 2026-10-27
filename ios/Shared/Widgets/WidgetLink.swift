@@ -24,6 +24,40 @@ enum WidgetLink {
         URL(string: "\(scheme)://incidents/\(escape(incidentId))")!
     }
 
+    /// Where Done on a home screen widget goes while the topic owes a
+    /// wake-up challenge: the incident, as a link. Nil when Done closes
+    /// from the widget, as it always has.
+    ///
+    /// A link and not `OpenIncidentIntent`: a widget's button can run in
+    /// the widget extension's process, where that intent would only note
+    /// the incident in memory the app never sees.
+    ///
+    /// The link carries `from=done`. Done is only ever drawn on an
+    /// acknowledged incident, so the marker tells Dart "native holds this
+    /// one as acknowledged", and the app can hand the close back when it
+    /// cannot reach the server. A plain tap on a card never carries it.
+    /// `PushDeepLink.fromKey` and `fromDone` in Dart hold the same words.
+    static func doneURL(incidentId: String, topic: String, shared: UserDefaults?) -> URL? {
+        guard DoneButton.forCard(topic: topic, shared: shared) == .opensApp else { return nil }
+        return URL(string: "\(scheme)://incidents/\(escape(incidentId))?\(fromKey)=\(fromDone)")!
+    }
+
+    static let fromKey = "from"
+    static let fromDone = "done"
+
+    /// The one link the small topic widget has for its whole face. A small
+    /// widget cannot hold a link of its own inside it, so while Done opens
+    /// the app, the face goes where Done goes. Otherwise the topic.
+    static func smallTopicURL(
+        topic: String, ackedIncidentId: String?, shared: UserDefaults?
+    ) -> URL {
+        if let ackedIncidentId,
+           let done = doneURL(incidentId: ackedIncidentId, topic: topic, shared: shared) {
+            return done
+        }
+        return url(topic: topic)
+    }
+
     /// The tap map for [url], or nil for any other scheme or shape.
     static func tap(from url: URL) -> [String: String]? {
         guard url.scheme == scheme,
@@ -38,7 +72,12 @@ enum WidgetLink {
         case "topics":
             return segment(path).map { ["topic": $0] }
         case "incidents":
-            return segment(path).map { ["incident_id": $0] }
+            guard let id = segment(path) else { return nil }
+            // Only the one marker, and only beside an incident.
+            let isFromDone = parts.queryItems?.contains {
+                $0.name == fromKey && $0.value == fromDone
+            } ?? false
+            return isFromDone ? ["incident_id": id, fromKey: fromDone] : ["incident_id": id]
         default:
             return nil
         }

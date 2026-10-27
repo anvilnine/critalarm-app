@@ -16,7 +16,6 @@ class FakeInAppNoticeRepository implements InAppNoticeRepository {
   DateTime? lastResolvedAt;
   DateTime? firstSeenAt;
   DateTime? firstTopicOwnedAt;
-  DateTime? batteryDismissedAt;
   DateTime? consentAskedAt;
   DateTime? reviewAskedAt;
   int reviewAskCount = 0;
@@ -91,15 +90,6 @@ class FakeInAppNoticeRepository implements InAppNoticeRepository {
   @override
   Future<void> markFirstTopicOwned() async {
     firstTopicOwnedAt ??= now();
-  }
-
-  @override
-  DateTime? getBatteryNoticeDismissedAt() => batteryDismissedAt;
-
-  @override
-  Future<void> dismissBatteryNotice() async {
-    batteryDismissedAt = now();
-    await markNoticeResolvedOrDismissed();
   }
 
   @override
@@ -242,13 +232,4 @@ class FakeInAppNoticeRepository implements InAppNoticeRepository {
   @override
   Future<void> setProEndedSheetDueFor(String? accountId) async =>
       proEndedDueFor = accountId;
-
-  int? systemUpdateDismissedFor;
-
-  @override
-  int? getSystemUpdateNoticeDismissedFor() => systemUpdateDismissedFor;
-
-  @override
-  Future<void> dismissSystemUpdateNotice(int osMajor) async =>
-      systemUpdateDismissedFor = osMajor;
 }

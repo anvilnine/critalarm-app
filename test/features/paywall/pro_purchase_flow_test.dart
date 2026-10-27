@@ -97,7 +97,7 @@ void main() {
       final plan = PlanChanges();
       var paid = false;
       final cubit = ProStatusCubit(
-        readIsPaid: () async => paid,
+        readHoldsHosted: () async => paid,
         planChanges: plan,
         identityChanges: AccountIdentityChanges(),
       );
@@ -113,7 +113,7 @@ void main() {
 
     test('shows no badge when the read fails', () async {
       final cubit = ProStatusCubit(
-        readIsPaid: () async => throw StateError('offline'),
+        readHoldsHosted: () async => throw StateError('offline'),
         planChanges: PlanChanges(),
         identityChanges: AccountIdentityChanges(),
       );

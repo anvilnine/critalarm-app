@@ -75,13 +75,18 @@ double setupButtonHeightFor({
 /// under the command, where it scrolls with the rest.
 bool setupPinsFirstMessageRow(double textScale) => textScale <= 1.5;
 
+/// Whether the hook-up steps layout stacks its three chips, one under the
+/// other. At the default size and a little above they share one row; from
+/// 1.3 up each gets the full width, so a label never wraps inside a pill.
+bool hookUpStacksChips(double textScale) => textScale > 1.25;
+
 /// The most the system text size may grow the app name in a setup step's
 /// top bar. The bar is 56 high and the name is set at 18, so past this it
 /// is cut by the bar.
 const double setupTopBarMaxTextScale = 1.3;
 
 /// The least height a control can be tapped on.
-const double setupMinTapHeight = 44;
+const double setupMinTapHeight = 48;
 
 /// The room a control [height] tall is short of a full tap area, or 0 once
 /// it is tall enough on its own.

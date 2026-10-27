@@ -1,7 +1,14 @@
+import 'dart:ui';
+
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_scene.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 HeroLoop _loop() => HeroLoop(const [
@@ -189,6 +196,236 @@ void main() {
           sizes: ReelSizes.of(isCompact: true),
         ),
         0,
+      );
+    });
+
+    test('the smallest stage is the room the smallest mascot needs', () {
+      expect(reelStageMinHeight, heroTopRoom + heroMascotMin);
+      // The stage's own arrangement agrees: at the minimum it draws the
+      // mascot, a point under it draws nothing.
+      expect(
+        heroArrangementFor(const Size(320, reelStageMinHeight)).kind,
+        HeroStageKind.mascot,
+      );
+      expect(
+        heroArrangementFor(const Size(320, reelStageMinHeight - 1)).kind,
+        HeroStageKind.none,
+      );
+    });
+
+    test('a room under the smallest stage is no stage at all', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      final fixed =
+          reelBarsHeight + 100 + sizes.stageGap + sizes.foot + reelSceneGap;
+      double room(double leftOver) =>
+          reelStageHeight(height: fixed + leftOver, words: 100, sizes: sizes);
+      expect(room(reelStageMinHeight - 1), 0);
+      expect(room(1), 0);
+      expect(room(0), 0);
+      expect(room(reelStageMinHeight), reelStageMinHeight);
+      expect(room(reelStageMinHeight + 1), reelStageMinHeight + 1);
+    });
+
+    test('a room that held a readable picture is unchanged', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      // Every height from the smallest stage up is the plain sum, as it was
+      // before the rule: the phone sizes the reel is checked on included.
+      for (final height in [480.0, 560.0, 640.0, 700.0, 780.0]) {
+        for (final words in [100.0, 160.0, 220.0]) {
+          final plain =
+              height -
+              reelBarsHeight -
+              words -
+              sizes.stageGap -
+              sizes.foot -
+              reelSceneGap;
+          final expected = plain < reelStageMinHeight
+              ? 0
+              : plain.floorToDouble();
+          expect(
+            reelStageHeight(height: height, words: words, sizes: sizes),
+            expected,
+            reason: '$height, $words',
+          );
+        }
+      }
+    });
+
+    test('the line takes room from the stage and can take all of it', () {
+      final sizes = ReelSizes.of(isCompact: false);
+      final withLine = reelStageHeight(
+        height: 400,
+        words: 150,
+        sizes: sizes,
+        line: 130,
+      );
+      expect(withLine, 0);
+      expect(
+        reelStageHeight(height: 400, words: 150, sizes: sizes, line: 20),
+        greaterThanOrEqualTo(reelStageMinHeight),
+      );
+    });
+  });
+
+  group('the motion of the reel', () {
+    test('the stage picks its own variants', () {
+      expect(reelMotion.atmosphere, HeroAtmosphereStyle.rings);
+      expect(reelMotion.entrance, HeroEntranceStyle.slide);
+      expect(reelMotion.idle, HeroIdleStyle.benefitHop);
+      expect(reelMotion.arrival, HeroCardArrival.slideThrough);
+    });
+
+    test('after an intro the mascot is in its place on the first frame', () {
+      expect(reelPreludeFor(followsIntro: false), 0);
+      final loop = HeroLoop(const [
+        PaywallPreviewId.topics,
+        PaywallPreviewId.pushes,
+      ], prelude: reelPreludeFor(followsIntro: true));
+      final first = loop.frameAt(0);
+      final pose = heroEntrancePose(
+        reelMotion.entrance,
+        first.entrance,
+        size: 160,
+      );
+      expect(pose.dx, closeTo(0, 1e-9));
+      expect(pose.opacity, 1);
+      expect(loop.entranceEnd, lessThan(heroEntranceSeconds));
+    });
+
+    test('the entrance is heard as the mascot lands, alone only', () {
+      final alone = reelCues(prelude: reelPreludeFor(followsIntro: false));
+      expect(alone.single.cue, PaywallCue.pop);
+      expect(alone.single.at, inExclusiveRange(0, heroEntranceSeconds));
+      // After an intro the mascot is there before the clock starts.
+      final after = reelCues(prelude: reelPreludeFor(followsIntro: true));
+      expect(after.single.at, lessThan(0));
+    });
+  });
+
+  group('the first scene under a lead', () {
+    const servers = PaywallLead(
+      benefit: PaywallBenefitId.topics,
+      headlineKey: 'paywall_lead.servers_headline',
+      lineKey: 'paywall_lead.servers_line',
+      topicName: 'payments-db',
+    );
+    const reaches = PaywallLead(
+      benefit: PaywallBenefitId.reliabilityChecks,
+      headlineKey: 'paywall_lead.reaches_headline',
+      lineKey: 'weekly_check.what_line',
+    );
+    final hosted = paywallBenefitsFor(PaywallProduct.hosted);
+    final pro = paywallBenefitsFor(PaywallProduct.pro);
+
+    PaywallBenefit benefit(List<PaywallBenefit> of, PaywallBenefitId id) =>
+        of.firstWhere((b) => b.id == id);
+
+    test('only the first scene reads the lead', () {
+      expect(reelLeadAt(0, servers), servers);
+      for (var i = 1; i < 6; i++) {
+        expect(reelLeadAt(i, servers), isNull);
+      }
+      expect(reelLeadAt(0, null), isNull);
+    });
+
+    test('the first scene takes its headline, line and eyebrow from the '
+        'lead', () {
+      expect(
+        reelHeadlineFor(
+          benefit(hosted, PaywallBenefitId.topics),
+          lead: reelLeadAt(0, servers),
+        ),
+        'Every server can wake you',
+      );
+      expect(
+        reelHeadlineFor(
+          benefit(hosted, PaywallBenefitId.reliabilityChecks),
+          lead: reelLeadAt(0, reaches),
+        ),
+        'Know it still reaches you',
+      );
+      // The number comes from the one place Hosted numbers are kept.
+      expect(
+        reelLineFor(servers),
+        'Free rings 2 critical topics. Cloud rings all of them.',
+      );
+      expect(
+        reelLineFor(reaches),
+        'Checks each week whether a push reaches this phone.',
+      );
+      expect(
+        reelEyebrowFor(isHosted: true, lead: reelLeadAt(0, servers)),
+        'With Cloud',
+      );
+      expect(
+        reelEyebrowFor(isHosted: false, lead: reelLeadAt(0, reaches)),
+        'With Pro',
+      );
+    });
+
+    test('a lead with its own eyebrow replaces it', () {
+      const own = PaywallLead(
+        benefit: PaywallBenefitId.topics,
+        eyebrowKey: 'paywall_lead.skip_hint',
+      );
+      expect(reelEyebrowFor(isHosted: true, lead: own), 'tap anywhere to skip');
+      expect(
+        reelEyebrowFor(isHosted: true, lead: reelLeadAt(1, own)),
+        'With Cloud',
+      );
+    });
+
+    test('later scenes read their own benefit, lead or not', () {
+      for (final lead in [servers, reaches, null]) {
+        expect(
+          reelHeadlineFor(
+            benefit(hosted, PaywallBenefitId.pushes),
+            lead: reelLeadAt(1, lead),
+          ),
+          reelHeadlineFor(benefit(hosted, PaywallBenefitId.pushes)),
+        );
+        expect(
+          reelEyebrowFor(isHosted: true, lead: reelLeadAt(2, lead)),
+          'With Cloud',
+        );
+      }
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.pushes)),
+        '1,000 high priority pushes a day',
+      );
+    });
+
+    test("with no lead the words are the benefit's, as before", () {
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.topics)),
+        'Unlimited critical topics',
+      );
+      expect(
+        reelHeadlineFor(benefit(hosted, PaywallBenefitId.reliabilityChecks)),
+        'Weekly delivery check',
+      );
+      expect(reelLineFor(null), isNull);
+      expect(
+        reelHeadlineFor(benefit(pro, PaywallBenefitId.widgets)),
+        'Widgets on your home screen',
+      );
+    });
+
+    test('a lead with no line leaves no room under the picture', () {
+      expect(
+        reelLineFor(const PaywallLead(benefit: PaywallBenefitId.widgets)),
+        isNull,
+      );
+      final sizes = ReelSizes.of(isCompact: false);
+      final bare = reelStageHeight(height: 700, words: 120, sizes: sizes);
+      expect(
+        reelStageHeight(height: 700, words: 120, sizes: sizes),
+        bare,
+      );
+      // A line takes its height and its gap out of the stage, no more.
+      expect(
+        reelStageHeight(height: 700, words: 120, sizes: sizes, line: 40),
+        bare - 40,
       );
     });
   });

@@ -1,5 +1,7 @@
 package app.critalarm.widgets
 
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.notifications.CritAlarmFace
 import app.critalarm.notifications.IncidentCardState
 
@@ -7,18 +9,21 @@ import app.critalarm.notifications.IncidentCardState
  * What the widgets say and how many rows they show. Pure, so the JVM tests
  * can hold it to the same words as `WidgetDisplay` in
  * ios/Shared/Widgets/WidgetSnapshot.swift.
+ *
+ * The words come from a [NativeWords]: [NativeWords.English] by default, the
+ * language picked in the app when the widget views pass theirs.
  */
 object WidgetRows {
     const val HEADER_DP = 40
     const val ROW_DP = 44
     const val MAX_ROWS = 8
 
-    const val NOT_CONNECTED = "Open Crit Alarm to connect"
-    const val NO_TOPICS = "No topics yet"
-    const val TOPIC_NOT_FOUND = "Topic not found"
-    const val ALL_QUIET = "All quiet"
-    const val LOCKED = "Widgets are part of Pro. Tap to see plans."
-    const val LOCKED_SHORT = "Pro"
+    val NOT_CONNECTED: String get() = NativeText.WIDGET_CONNECT.english
+    val NO_TOPICS: String get() = NativeText.WIDGET_NO_TOPICS.english
+    val TOPIC_NOT_FOUND: String get() = NativeText.WIDGET_TOPIC_NOT_FOUND.english
+    val ALL_QUIET: String get() = NativeText.WIDGET_ALL_QUIET.english
+    val LOCKED: String get() = NativeText.WIDGET_LOCKED.english
+    val LOCKED_SHORT: String get() = NativeText.WIDGET_LOCKED_SHORT.english
 
     data class Rows(val rows: List<WidgetTopic>, val more: Int)
 
@@ -42,23 +47,33 @@ object WidgetRows {
     }
 
     /** The word beside a topic: the same words the live card uses. */
-    fun stateWord(incident: WidgetIncident?): String = when (incident?.state) {
-        WidgetSnapshot.OPEN -> "Ringing"
-        WidgetSnapshot.ACKED -> "Awake"
-        else -> "Quiet"
-    }
+    fun stateWord(incident: WidgetIncident?, words: NativeWords = NativeWords.English): String =
+        words.text(
+            when (incident?.state) {
+                WidgetSnapshot.OPEN -> NativeText.STATE_RINGING
+                WidgetSnapshot.ACKED -> NativeText.STATE_AWAKE
+                else -> NativeText.STATE_QUIET
+            },
+        )
 
     /** "I'm up" acknowledges a ringing incident, "Done" closes an acked one. */
-    fun buttonTitle(incident: WidgetIncident?): String? = when (incident?.state) {
-        WidgetSnapshot.OPEN -> "I'm up"
-        WidgetSnapshot.ACKED -> "Done"
-        else -> null
-    }
+    fun buttonTitle(incident: WidgetIncident?, words: NativeWords = NativeWords.English): String? =
+        when (incident?.state) {
+            WidgetSnapshot.OPEN -> words.text(NativeText.ACTION_IM_UP)
+            WidgetSnapshot.ACKED -> words.text(NativeText.ACTION_DONE)
+            else -> null
+        }
 
-    fun moreText(more: Int): String = "+$more more"
+    fun moreText(more: Int, words: NativeWords = NativeWords.English): String =
+        words.text(NativeText.WIDGET_MORE, "count" to more)
 
     /** The list widget's header and the count widget's label. */
-    fun countText(openCount: Int): String = if (openCount > 0) "$openCount open" else ALL_QUIET
+    fun countText(openCount: Int, words: NativeWords = NativeWords.English): String =
+        if (openCount > 0) {
+            words.text(NativeText.WIDGET_OPEN_COUNT, "count" to openCount)
+        } else {
+            words.text(NativeText.WIDGET_ALL_QUIET)
+        }
 
     fun face(incident: WidgetIncident?): CritAlarmFace = when (incident?.state) {
         WidgetSnapshot.OPEN -> IncidentCardState.OPEN.face

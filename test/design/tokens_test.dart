@@ -89,13 +89,13 @@ void main() {
       final crit = base.withSeverity(SeverityMode.crit);
       expect(crit.canvas, base.critCanvas);
       expect(crit.canvasAlt, base.critCanvasAlt);
-      expect(crit.faceStroke, base.critStroke);
+      expect(crit.faceStroke, base.faceStroke);
       expect(crit.focusGap, base.critCanvas);
 
       final high = base.withSeverity(SeverityMode.high);
       expect(high.canvas, base.highCanvas);
       expect(high.canvasAlt, base.highCanvasAlt);
-      expect(high.faceStroke, base.highStroke);
+      expect(high.faceStroke, base.faceStroke);
 
       final ack = base.withSeverity(SeverityMode.ack);
       expect(ack.canvas, base.ackCanvas);
@@ -104,7 +104,7 @@ void main() {
       expect(ack.canvasGhostStrong, base.ackGhostStrong);
       expect(ack.onCanvas, base.ackText);
       expect(ack.ink, base.ink);
-      expect(ack.faceInk, base.ackText);
+      expect(ack.faceInk, base.faceInk);
     });
 
     test('copyWith creates modified instance', () {

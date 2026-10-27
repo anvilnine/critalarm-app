@@ -78,8 +78,7 @@ class _AlarmSettingsView extends StatelessWidget {
                       // and ignores it. Putting it back needs a contract
                       // change first. Its state, cubit method and strings all
                       // stay where they are.
-                      if (state.hasStorageSection)
-                        _StorageSection(state: state),
+                      _StorageSection(state: state),
                     ],
                   ),
                 ),
@@ -92,7 +91,8 @@ class _AlarmSettingsView extends StatelessWidget {
   }
 }
 
-/// The two Storage rows. Shown on a paid tier and on a self-hosted server.
+/// The two Storage rows. Shown on every plan: they only remove rows from
+/// this phone's own copy.
 ///
 /// The phone keeps every alarm by default (api.md §4.2). These rows are the
 /// user asking it to stop, and the switch keeps P5 alarms out of that.

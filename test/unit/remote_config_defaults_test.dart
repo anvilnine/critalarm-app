@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
-import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
@@ -13,6 +14,20 @@ class MockFirebaseCrashlytics extends Mock implements FirebaseCrashlytics {}
 class MockFirebaseRemoteConfig extends Mock implements FirebaseRemoteConfig {}
 
 class FakeRemoteConfigSettings extends Fake implements RemoteConfigSettings {}
+
+/// The ten paywall keys Remote Config held before the paywalls were coded.
+const _removedPaywallKeys = [
+  'paywall_layout',
+  'pro_paywall_layout',
+  'paywall_intro',
+  'pro_paywall_intro',
+  'paywall_thanks',
+  'pro_paywall_thanks',
+  'paywall_outro',
+  'pro_paywall_outro',
+  'paywall_variant',
+  'paywall_enabled',
+];
 
 void main() {
   setUpAll(() {
@@ -71,26 +86,24 @@ void main() {
           equals(const Duration(seconds: 10)),
         );
 
-        // Typed defaults map: paywall_enabled false, paywall_variant
-        // straight, onboarding_flow and onboarding_offer empty, and both
-        // paywall layout values empty, which is the paywall that ships today.
+        // Typed defaults map: onboarding_flow and onboarding_offer empty,
+        // and nothing else. No paywall value is remote.
         expect(
           FirebaseTelemetryGate.remoteConfigDefaults,
           equals(
             const {
-              'paywall_enabled': false,
-              'paywall_variant': 'straight',
               'onboarding_flow': '',
               'onboarding_offer': '',
-              'paywall_layout': '',
-              'pro_paywall_layout': '',
             },
           ),
         );
-        expect(
-          FirebaseTelemetryGate.remoteConfigDefaults['paywall_enabled'],
-          isFalse,
-        );
+        for (final key in _removedPaywallKeys) {
+          expect(
+            FirebaseTelemetryGate.remoteConfigDefaults.containsKey(key),
+            isFalse,
+            reason: key,
+          );
+        }
       },
     );
 
@@ -120,12 +133,8 @@ void main() {
         // Verify setDefaults was called with typed defaults map
         verify(
           () => mockRemoteConfig.setDefaults(const {
-            'paywall_enabled': false,
-            'paywall_variant': 'straight',
             'onboarding_flow': '',
             'onboarding_offer': '',
-            'paywall_layout': '',
-            'pro_paywall_layout': '',
           }),
         ).called(1);
 
@@ -143,63 +152,33 @@ void main() {
       expect(gate.isInitialized, isTrue);
     });
 
-    test('typed getter paywallEnabled returns false by default', () {
-      when(
-        () => mockRemoteConfig.getBool('paywall_enabled'),
-      ).thenReturn(false);
-
-      expect(gate.paywallEnabled, isFalse);
-      expect(gate.isPaywallEnabled, isFalse);
-      verify(() => mockRemoteConfig.getBool('paywall_enabled')).called(2);
+    test('no paywall value is read from Remote Config', () {
+      // The gate has no paywall getter left, so a paywall cannot follow a
+      // remote value. Neither file may name one of the removed keys, or the
+      // word paywall at all.
+      for (final path in [
+        'lib/core/telemetry/telemetry_gate.dart',
+        'lib/core/telemetry/firebase_telemetry_gate.dart',
+      ]) {
+        final source = File(path).readAsStringSync().toLowerCase();
+        expect(source.contains('paywall'), isFalse, reason: path);
+        for (final key in _removedPaywallKeys) {
+          expect(source.contains(key), isFalse, reason: '$path names $key');
+        }
+      }
     });
 
-    test(
-      'typed getter paywallEnabled returns true when remote config is true',
-      () {
-        when(
-          () => mockRemoteConfig.getBool('paywall_enabled'),
-        ).thenReturn(true);
-
-        expect(
-          gate.paywallEnabled,
-          isTrue,
-          reason:
-              'paywallEnabled must return true when remote config flag is true',
-        );
-        expect(gate.isPaywallEnabled, isTrue);
-        verify(() => mockRemoteConfig.getBool('paywall_enabled')).called(2);
-      },
-    );
-
-    test(
-      'typed getter paywallEnabled returns false on remoteConfig exception',
-      () {
-        when(
-          () => mockRemoteConfig.getBool('paywall_enabled'),
-        ).thenThrow(Exception('Missing key'));
-
-        expect(gate.paywallEnabled, isFalse);
-        expect(gate.isPaywallEnabled, isFalse);
-      },
-    );
-
-    test(
-      'typed getter paywallEnabled returns false when gate is unconfigured',
-      () {
-        final unconfigured = FirebaseTelemetryGate();
-        expect(unconfigured.paywallEnabled, isFalse);
-        expect(unconfigured.isPaywallEnabled, isFalse);
-      },
-    );
-
-    test('NoopTelemetryGate supports default false and custom true', () {
-      const defaultNoop = NoopTelemetryGate();
-      expect(defaultNoop.paywallEnabled, isFalse);
-      expect(defaultNoop.isPaywallEnabled, isFalse);
-
-      const activeNoop = NoopTelemetryGate(paywallEnabled: true);
-      expect(activeNoop.paywallEnabled, isTrue);
-      expect(activeNoop.isPaywallEnabled, isTrue);
+    test('the two setup keys are still read', () {
+      when(
+        () => mockRemoteConfig.getString('onboarding_flow'),
+      ).thenReturn('flow');
+      when(
+        () => mockRemoteConfig.getString('onboarding_offer'),
+      ).thenReturn('offer');
+      expect(gate.onboardingFlowJson, 'flow');
+      expect(gate.onboardingOfferJson, 'offer');
+      expect(FirebaseTelemetryGate.onboardingFlowKey, 'onboarding_flow');
+      expect(FirebaseTelemetryGate.onboardingOfferKey, 'onboarding_offer');
     });
   });
 }

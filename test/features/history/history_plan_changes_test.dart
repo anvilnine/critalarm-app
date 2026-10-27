@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../app/access/store_access.dart';
+
 /// A server with nothing new to add, so the cubit only ever sees local rows.
 class _QuietIncidents implements IncidentRepository {
   @override
@@ -26,6 +28,15 @@ class _QuietIncidents implements IncidentRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Lets the reload finish. It reads the plan and then the database, and
+/// the database answers from another isolate, so one turn of the event
+/// queue is not always enough.
+Future<void> until(bool Function() isDone) async {
+  for (var i = 0; i < 50 && !isDone(); i++) {
+    await pumpEventQueue();
+  }
 }
 
 void main() {
@@ -72,6 +83,7 @@ void main() {
       shared,
       now: () => now,
       identityStore: identity,
+      featureAccess: accessOver(identity, planChanges: plan).features,
       store: store,
       planChanges: plan,
     );
@@ -95,7 +107,7 @@ void main() {
     expect(history.state.olderCount, 23);
 
     plan.setStoreSaysPro(value: true);
-    await pumpEventQueue();
+    await until(() => history.state.olderCount == 0);
 
     expect(history.state.entries, hasLength(30));
     expect(history.state.olderCount, 0);
@@ -112,7 +124,7 @@ void main() {
       caps: const AccountCaps(historyDays: 90),
     );
     plan.bump();
-    await pumpEventQueue();
+    await until(() => history.state.olderCount == 0);
 
     expect(history.state.olderCount, 0);
   });

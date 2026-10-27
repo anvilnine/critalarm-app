@@ -11,6 +11,7 @@ class FirstTopicHandoffEntry {
     required this.serverUrl,
     required this.token,
     this.templateId,
+    this.isCritical,
   });
 
   final String topicName;
@@ -19,6 +20,11 @@ class FirstTopicHandoffEntry {
 
   /// The `ToolTemplate.id` the user picked, or null when no chip was picked.
   final String? templateId;
+
+  /// Whether the topic was made with Critical delivery on, or null when
+  /// that is not known. Lets the next step word what it promises in its
+  /// first frame, before the topic list is read.
+  final bool? isCritical;
 
   /// Never prints the token, so a log line or a crash report cannot leak it.
   @override

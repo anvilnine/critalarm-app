@@ -14,7 +14,7 @@ import 'package:go_router/go_router.dart';
 /// The weekly check rounds, newest first: each with how it ended in a few
 /// words and when it opened. A missed or refused round wears the face of a
 /// broken check, a received one a tick, and the rest nothing. The list is
-/// the relay's, and reading it needs no pack.
+/// the relay's, and reading it needs no plan.
 class WeeklyCheckRoundsScreen extends StatelessWidget {
   const WeeklyCheckRoundsScreen({super.key});
 
@@ -83,7 +83,9 @@ class _RoundsView extends StatelessWidget {
             else if (rounds == null)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, Spacing.s6, 12, 16),
+                  // The retry button is a 36 pill in a 48 tap box: 6 less above
+                  // and below it.
+                  padding: const EdgeInsets.fromLTRB(12, Spacing.s6, 12, 10),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -96,7 +98,7 @@ class _RoundsView extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: AppTypography.body(colors.onCanvas),
                       ),
-                      const SizedBox(height: Spacing.s3),
+                      const SizedBox(height: Spacing.s3 - 6),
                       AppButton(
                         label: LocaleKeys.weekly_check_rounds_retry.tr(),
                         size: AppButtonSize.sm,

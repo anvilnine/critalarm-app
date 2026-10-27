@@ -52,15 +52,11 @@ class _MiniPhone extends StatelessWidget {
   const _MiniPhone({
     required this.screen,
     this.isAndroid = false,
-    this.isSilent = false,
     this.island = 0,
   });
 
   final Widget screen;
   final bool isAndroid;
-
-  /// Draws the silent mark beside the clock in the status bar.
-  final bool isSilent;
 
   /// 0 is the resting Dynamic Island, 1 is stretched to hold a face and a
   /// bell, which is what a ringing Crit Alarm does to it.
@@ -102,25 +98,13 @@ class _MiniPhone extends StatelessWidget {
                   Positioned(
                     top: 18,
                     left: isAndroid ? 30 : 46,
-                    child: Row(
-                      children: [
-                        const Text(
-                          '3:12',
-                          style: TextStyle(
-                            color: _white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (isSilent) ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.notifications_off,
-                            color: _white,
-                            size: 17,
-                          ),
-                        ],
-                      ],
+                    child: const Text(
+                      '3:12',
+                      style: TextStyle(
+                        color: _white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -169,9 +153,6 @@ class _MiniPhone extends StatelessWidget {
             const FaceWidget(
               state: FaceState.alarmed,
               size: 24,
-              overrideFillColor: _yellow,
-              overrideStrokeColor: _yellow,
-              overrideInkColor: _darkInk,
             ),
             Icon(Icons.notifications, color: bell, size: 20),
           ],
@@ -209,10 +190,7 @@ class _IosLock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat(
-      'EEEE d MMMM',
-      context.locale.toString(),
-    ).format(DateTime(2026, 9, 24));
+    final date = DateLabel.weekdayDayMonth(DateTime(2026, 9, 24));
     return Stack(
       children: [
         const Positioned.fill(child: ColoredBox(color: Color(0xFF14121C))),
@@ -368,9 +346,6 @@ Widget _appIcon(double size, Color fill, {bool round = false}) => Container(
     child: FaceWidget(
       state: FaceState.alarmed,
       size: size * 0.7,
-      overrideFillColor: _yellow,
-      overrideStrokeColor: _darkInk,
-      overrideInkColor: _darkInk,
     ),
   ),
 );
@@ -397,9 +372,6 @@ class _LiveActivity extends StatelessWidget {
             state: FaceState.alarmed,
             size: 64,
             isLive: _mockFaceMoves(context),
-            overrideFillColor: crit,
-            overrideStrokeColor: crit,
-            overrideInkColor: _darkInk,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -516,7 +488,7 @@ class _AlarmKitAlert extends StatelessWidget {
                 borderRadius: BorderRadius.circular(46),
               ),
               child: Text(
-                LocaleKeys.onboarding_welcome_story_im_up.tr(),
+                LocaleKeys.onboarding_welcome_story_open_app.tr(),
                 style: const TextStyle(
                   color: _white,
                   fontSize: 26,
@@ -594,9 +566,6 @@ class _AppAlarm extends StatelessWidget {
                 state: FaceState.alarmed,
                 size: 210,
                 isLive: _mockFaceMoves(context),
-                overrideFillColor: _yellow,
-                overrideStrokeColor: _yellow,
-                overrideInkColor: _darkInk,
               ),
             ),
             const SizedBox(height: 8),
@@ -737,9 +706,6 @@ class _AckScreen extends StatelessWidget {
                 child: const FaceWidget(
                   state: FaceState.acked,
                   size: 170,
-                  overrideFillColor: _yellow,
-                  overrideStrokeColor: _yellow,
-                  overrideInkColor: _darkInk,
                 ),
               ),
             ),
@@ -811,10 +777,7 @@ class _AndroidLock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat(
-      'EEE, d MMM',
-      context.locale.toString(),
-    ).format(DateTime(2026, 9, 24));
+    final date = DateLabel.shortWeekdayDayMonth(DateTime(2026, 9, 24));
     const clock = TextStyle(
       color: Color(0xFFDCE4FF),
       fontSize: 150,
@@ -1387,15 +1350,12 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
 }
 
 // ---------------------------------------------------------------------------
-// 9. The priority ladder. The second welcome story: three alerts of rising
-// priority, and what the phone does with each one.
+// 9. The priority ladder: three alerts of rising priority, and what the phone
+// does with each one. Only the Developer options preview plays it now. It
+// starts over by itself.
 
 class _LadderHero extends StatefulWidget {
-  const _LadderHero({this.onDone});
-
-  /// Called once, when the story is over. With none the story starts over
-  /// by itself, which is how the Developer options preview plays it.
-  final VoidCallback? onDone;
+  const _LadderHero();
 
   @override
   State<_LadderHero> createState() => _LadderHeroState();
@@ -1406,25 +1366,15 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
   @override
   double get restAt => 4;
 
-  bool _hasSaidDone = false;
-
   @override
   List<TimedCue> buildCues() => ladderCues();
 
   @override
-  double? get loopTakes => widget.onDone == null ? ladderStoryTakes : null;
-
-  @override
-  void onClock(double seconds) {
-    if (_hasSaidDone || seconds < ladderStoryTakes) return;
-    _hasSaidDone = true;
-    widget.onDone?.call();
-  }
+  double? get loopTakes => ladderStoryTakes;
 
   @override
   Widget build(BuildContext context) {
-    final loops = widget.onDone == null;
-    final t = loops ? this.t % ladderStoryTakes : this.t;
+    final t = this.t % ladderStoryTakes;
     final colors = context.appColors;
     final acked = t > ladderRingEndsAt;
     final ringing = t > ladderRingStartsAt && !acked;
@@ -1564,7 +1514,7 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
     // it is once the system text is large.
     return LayoutBuilder(
       builder: (context, box) => Opacity(
-        opacity: loops ? 1 - _window(t, ladderStoryTakes - 0.5, 0.5) : 1,
+        opacity: 1 - _window(t, ladderStoryTakes - 0.5, 0.5),
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,
@@ -1767,7 +1717,7 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
               ),
               node(
                 xs[0],
-                _face(server, face, fill: const Color(0xFF4EAAD8)),
+                _face(server, face),
                 LocaleKeys.onboarding_welcome_story_your_server.tr(),
               ),
               node(
@@ -1788,9 +1738,6 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
                       child: FaceWidget(
                         state: phoneState,
                         size: face,
-                        overrideFillColor: const Color(0xFFF2A7C3),
-                        overrideStrokeColor: _darkInk,
-                        overrideInkColor: _darkInk,
                       ),
                     ),
                   ),
@@ -1926,9 +1873,6 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
       state: state,
       size: size,
       isLive: state == FaceState.alarmed && _mockFaceMoves(context),
-      overrideFillColor: fill,
-      overrideStrokeColor: _darkInk,
-      overrideInkColor: _darkInk,
     );
 
     Widget ringingBadge() =>

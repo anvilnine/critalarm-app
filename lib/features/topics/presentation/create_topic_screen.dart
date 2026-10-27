@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -16,11 +17,15 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -28,13 +33,14 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
 import 'package:critalarm/features/topics/presentation/widgets/create_topic_face.dart';
+import 'package:critalarm/features/topics/presentation/widgets/first_topic_chip_rows.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_made_beat.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +49,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
-  const CreateTopicScreen({this.onDone, this.isReplay = false, super.key});
+  const CreateTopicScreen({
+    this.onDone,
+    this.isReplay = false,
+    this.initialTool,
+    super.key,
+  });
+
+  /// The tool chip that starts picked, from `?tool=<id>` on the route. Null
+  /// when none is asked for or the id is not one this build knows.
+  final ToolTemplate? initialTool;
 
   /// Called in place of every exit, whether the topic was created or the
   /// screen was closed. Setup passes it to move on to its next step. Null
@@ -62,8 +77,11 @@ class CreateTopicScreen extends StatelessWidget {
         final cubit = getIt<CreateTopicCubit>()
           ..holdsHandoff = onDone != null && !isReplay
           // Setup asks for the topic and nothing else: no token-name step.
-          ..isOneStep = onDone != null;
+          ..isOneStep = onDone != null
+          ..isReplay = isReplay;
         unawaited(cubit.loadConnection());
+        final tool = initialTool;
+        if (tool != null) cubit.toolTemplateTapped(tool);
         // The shared topic list is already in memory, so a name that is taken
         // can be caught on step 1 instead of by the server after step 2. The
         // first-topic card waits on the list being ready.
@@ -72,6 +90,10 @@ class CreateTopicScreen extends StatelessWidget {
           topics.topics.map((topic) => topic.name),
           isListReady: topics.isReady,
         );
+        // Setup's first topic arrives filled from the answer, read before the
+        // first frame so nothing fills in late. A replay reads the pick it
+        // made, and saves nothing.
+        if (onDone != null) cubit.applySetupUse(_setupUse(isReplay: isReplay));
         return cubit;
       },
       child: BlocListener<TopicsCubit, TopicsState>(
@@ -85,6 +107,13 @@ class CreateTopicScreen extends StatelessWidget {
     );
   }
 }
+
+/// The answer the user gave on the question step, or the one a replay picked.
+SetupUse? _setupUse({required bool isReplay}) => setupUseFor(
+  isReplay: isReplay,
+  store: getIt<SetupUseStore>(),
+  replay: getIt<SetupUseReplay>(),
+);
 
 class _CreateTopicScreenContent extends StatefulWidget {
   const _CreateTopicScreenContent({this.onDone, this.isReplay = false});
@@ -100,6 +129,10 @@ class _CreateTopicScreenContent extends StatefulWidget {
 class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     with WidgetsBindingObserver {
   static const String _prefAskAgainOnEnter = 'create_topic_ask_again_on_enter';
+
+  /// What setup's first topic starts from, read once for the answer the
+  /// screen was built for.
+  late final FirstTopicStart _start;
 
   late final TextEditingController _nameController;
   late final TextEditingController _tokenNameController;
@@ -139,7 +172,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
       final isTyping = _nameFocus.hasFocus || _tokenNameFocus.hasFocus;
       if (!hasKeyboard || !isTyping) return;
-      final end = _scroll.position.maxScrollExtent;
+      // On a long form the end of the list is below the name field, so the
+      // field would go under the top bar. Stop where it is just clear of it.
+      final end = math.min(
+        _scroll.position.maxScrollExtent,
+        _nameFieldOffset() ?? double.infinity,
+      );
       if (end <= _scroll.offset) return;
       final duration = context.motion(AppDurations.base);
       if (duration == Duration.zero) {
@@ -150,6 +188,24 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         );
       }
     });
+  }
+
+  /// Where the name field and its label are, so the keyboard coming up can
+  /// keep them in view.
+  final GlobalKey _nameBlockKey = GlobalKey();
+
+  /// The scroll offset that puts the name field's label just under the top
+  /// bar, or null when it is not on screen to measure.
+  double? _nameFieldOffset() {
+    final box = _nameBlockKey.currentContext?.findRenderObject();
+    if (box == null || !_scroll.hasClients) return null;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return null;
+    final barBottom =
+        MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight;
+    final alignment =
+        (barBottom + Spacing.s4) / _scroll.position.viewportDimension;
+    return viewport.getOffsetToReveal(box, alignment).offset;
   }
 
   /// The glad face has had its moment and settles.
@@ -190,7 +246,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
+    _start = firstTopicStartFor(
+      _isSetup ? _setupUse(isReplay: widget.isReplay) : null,
+    );
+    // Setup's first topic may arrive with a name, so the field starts with it
+    // and the first frame is the finished one.
+    _nameController = TextEditingController(
+      text: _isSetup ? context.read<CreateTopicCubit>().state.name : null,
+    );
     _tokenNameController = TextEditingController();
     _nameFocus = FocusNode();
     _tokenNameFocus = FocusNode();
@@ -221,22 +284,34 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       }
     }
     if (!mounted) return;
-    if (getIt<FeatureGuideCubit>().state.isActive || _isFirstTopicNow()) {
-      return;
-    }
+    if (_guideHoldsKeyboard() || _isFirstTopicNow()) return;
     _focusNameField();
   }
 
-  /// Whether the shared list is ready and empty right now, so the screen is
-  /// about to draw the first-topic card.
+  /// Whether a guide is up or this screen's own guide is about to start.
+  ///
+  /// The guide is asked for a frame after this screen is built, so a guide
+  /// that is not up yet still counts. Setup's copy of this screen is not on
+  /// the create-topic route and never starts one.
+  bool _guideHoldsKeyboard() {
+    final guides = getIt<FeatureGuideCubit>();
+    return _isSetup
+        ? guides.state.isActive
+        : guides.takesScreenFor(FeatureGuide.createTopic);
+  }
+
+  /// Whether the screen is drawing the first-topic card right now.
   bool _isFirstTopicNow() {
     final topics = context.read<TopicsCubit>().state;
-    return isFirstTopicFor(
-      existingNames: {
-        for (final topic in topics.topics) topic.name.trim().toLowerCase(),
-      },
-      isListReady: topics.isReady,
-    );
+    return firstTopicLayoutFor(
+          isSetup: _isSetup,
+          isReplay: widget.isReplay,
+          existingNames: {
+            for (final topic in topics.topics) topic.name.trim().toLowerCase(),
+          },
+          isListReady: topics.isReady,
+        ) !=
+        FirstTopicLayout.plain;
   }
 
   @override
@@ -261,6 +336,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   void _focusAfterBuild(FocusNode node) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || node.context == null) return;
+      // A guide can start between the ask and this frame.
+      if (getIt<FeatureGuideCubit>().state.isActive) return;
       node.requestFocus();
     });
   }
@@ -477,8 +554,16 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         ? LocaleKeys.api_errors_topic_already_exists.tr()
         : null;
     // The user's first topic gets the Critical delivery card and the tool
-    // chips. Every later topic keeps the plain row.
-    final isFirstTopic = state.isFirstTopic;
+    // chips. Every later topic keeps the plain row. In setup the chips come
+    // under the name field, as one line each.
+    final layout = firstTopicLayoutFor(
+      isSetup: _isSetup,
+      isReplay: widget.isReplay,
+      existingNames: state.existingNames,
+      isListReady: state.isListReady,
+    );
+    final isFirstTopic = layout != FirstTopicLayout.plain;
+    final start = layout == FirstTopicLayout.answerFirst ? _start : null;
     final claim = RingClaim.forPhone(state.alarm);
     // An iPhone older than iOS 26 has no AlarmKit, so it must not be promised
     // a ring through silent mode.
@@ -490,7 +575,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (isFirstTopic) ...[
+        if (layout == FirstTopicLayout.wrapping) ...[
           // Locked while a create runs, without changing how the chips are
           // built: a chip with no tap is laid out tighter, and the rows
           // would shift under the user's finger.
@@ -503,42 +588,75 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           ),
           const SizedBox(height: Spacing.s4),
         ],
-        FeatureGuideAnchor(
-          id: FeatureGuideAnchorId.createName,
-          child: AppTextField(
-            label: LocaleKeys.create_topic_name_label.tr(),
-            controller: _nameController,
-            focusNode: _nameFocus,
-            placeholder: LocaleKeys.create_topic_name_placeholder.tr(),
-            errorText: state.errorMessage ?? duplicateError,
-            enabled: !isSubmitting,
-            maxLength: 100,
-            scrollPadding: _fieldScrollPadding,
-            textInputAction: TextInputAction.done,
-            inputFormatters: const [
-              TopicNameInputFormatter(),
-            ],
-            // Nobody on their first topic has a topic name on the clipboard.
-            headerTrailing: _isSetup
-                ? null
-                : AppButton(
-                    label: LocaleKeys.create_topic_paste_button.tr(),
-                    size: AppButtonSize.sm,
-                    variant: AppButtonVariant.paper,
-                    icon: AppGlyph(
-                      GlyphType.copy,
-                      size: 13,
-                      color: colors.ink,
+        KeyedSubtree(
+          key: _nameBlockKey,
+          child: FeatureGuideAnchor(
+            id: FeatureGuideAnchorId.createName,
+            child: AppTextField(
+              label: LocaleKeys.create_topic_name_label.tr(),
+              controller: _nameController,
+              focusNode: _nameFocus,
+              placeholder: LocaleKeys.create_topic_name_placeholder.tr(),
+              errorText: state.errorMessage ?? duplicateError,
+              enabled: !isSubmitting,
+              maxLength: 100,
+              // In setup the name stays whole at a large text size: the type
+              // steps down to its default size before the line scrolls.
+              fitText: _isSetup,
+              scrollPadding: _fieldScrollPadding,
+              textInputAction: TextInputAction.done,
+              inputFormatters: const [
+                TopicNameInputFormatter(),
+              ],
+              // Nobody on their first topic has a topic name on the clipboard.
+              headerTrailing: _isSetup
+                  ? null
+                  : AppButton(
+                      label: LocaleKeys.create_topic_paste_button.tr(),
+                      size: AppButtonSize.sm,
+                      // A box 48 high would make the label row 12 taller and
+                      // move the field.
+                      hasTapBox: false,
+                      variant: AppButtonVariant.paper,
+                      icon: AppGlyph(
+                        GlyphType.copy,
+                        size: 13,
+                        color: colors.ink,
+                      ),
+                      onPressed: isSubmitting ? null : _handlePaste,
                     ),
-                    onPressed: isSubmitting ? null : _handlePaste,
-                  ),
-            onChanged: cubit.nameChanged,
-            // In setup the keyboard's Done only puts the keyboard away: the
-            // Critical card is still to be read, and Create is pinned.
-            onSubmitted: (_) =>
-                _isSetup ? FocusScope.of(context).unfocus() : _next(),
+              onChanged: cubit.nameChanged,
+              // In setup the keyboard's Done only puts the keyboard away: the
+              // Critical card is still to be read, and Create is pinned.
+              onSubmitted: (_) =>
+                  _isSetup ? FocusScope.of(context).unfocus() : _next(),
+            ),
           ),
         ),
+        if (start != null)
+          // Locked while a create runs, like the wrapping chips above.
+          IgnorePointer(
+            ignoring: isSubmitting,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (start.nameChips.isNotEmpty) ...[
+                  const SizedBox(height: Spacing.s4),
+                  FirstTopicNameChips(
+                    names: start.nameChips,
+                    onTap: cubit.nameChipTapped,
+                  ),
+                ],
+                const SizedBox(height: Spacing.s3),
+                FirstTopicToolChips(
+                  tools: start.toolOrder,
+                  selected: state.selectedTool,
+                  onTap: cubit.toolTemplateTapped,
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 14),
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.createCritical,
@@ -628,13 +746,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       onPressed: () {
         AppHaptics.capture();
         unawaited(
-          context.push(hostedPaywallLocation(PaywallSource.createTopicCard)),
+          openPaywallForFeature(
+            context,
+            AppFeature.unlimitedCriticalTopics,
+            LockSource.createTopicCard,
+            // The paywall draws these and sends them nowhere. A name it
+            // cannot hold is left out there.
+            facts: PaywallLeadFacts(
+              used: state.criticalUsed,
+              limit: state.criticalLimit,
+              topicName: state.name.trim().isEmpty ? null : state.name.trim(),
+            ),
+          ),
         );
       },
     );
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      // The button is a 36 pill in a 48 tap box. The card gives up 6 of its 12
+      // above and below, and each layout adds back what it needs, so nothing
+      // moves.
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.mdAll,
@@ -643,18 +775,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       child: LayoutBuilder(
         builder: (context, box) =>
             countCardStacks(innerWidth: box.maxWidth, textScale: textScale)
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  text,
-                  const SizedBox(height: 10),
-                  Align(alignment: Alignment.centerLeft, child: button),
-                ],
+            ? Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    text,
+                    // The button's box reaches 6 above it: 6 of the 10 gap.
+                    const SizedBox(height: 4),
+                    Align(alignment: Alignment.centerLeft, child: button),
+                  ],
+                ),
               )
             : Row(
                 children: [
-                  Expanded(child: text),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: text,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   button,
                 ],
@@ -787,7 +928,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         if (state.capReached?.name == 'critical_topics') {
           // Just bought Pro and the server has not heard yet. Asking them to
           // buy it again would be wrong, so say it is on its way.
-          if (state.isProPending) {
+          if (state.isPlanConfirming) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
           } else if (!_isSetup) {
             unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));
@@ -984,26 +1125,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                     id: FeatureGuideAnchorId.createButton,
                     child: button,
                   ),
-                  if (showsLegal)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Spacing.s2),
-                      // A wrap, so the second link drops to its own line at a
-                      // large text size instead of running off the edge.
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 16,
-                        children: [
-                          _LegalLink(
-                            label: LocaleKeys.create_topic_terms_link.tr(),
-                            url: termsUrl,
-                          ),
-                          _LegalLink(
-                            label: LocaleKeys.create_topic_privacy_link.tr(),
-                            url: privacyUrl,
-                          ),
-                        ],
-                      ),
+                  // Pinned under the button where the topic is made in two
+                  // steps. Setup puts it at the end of the page instead: a
+                  // line of small text pinned over a page that scrolls has
+                  // the rows behind it showing through.
+                  if (showsLegal && !isSetup)
+                    const Padding(
+                      padding: EdgeInsets.only(top: Spacing.s2),
+                      child: _LegalLinks(),
                     ),
                 ],
               ),
@@ -1167,6 +1296,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                             if (state.serverUrl.isNotEmpty) ...[
                               AppKeyValueRow(
                                 value: '${state.serverUrl}/${state.name}',
+                                trailingFillsRow: true,
                                 trailing: TokenActions(
                                   value: '${state.serverUrl}/${state.name}',
                                   onCopied: _showToast,
@@ -1192,6 +1322,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                             ],
                             AppKeyValueRow(
                               value: token,
+                              trailingFillsRow: true,
                               trailing: TokenActions(
                                 value: token,
                                 onCopied: _showToast,
@@ -1215,6 +1346,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                     ),
                   ),
                 ),
+                if (isSetup && showsLegal && !hasKeyboard)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: Spacing.s2),
+                      child: _LegalLinks(),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1277,6 +1415,32 @@ class _ToolChips extends StatelessWidget {
                   onTap: onTap == null ? null : () => onTap(template),
                 ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The Terms and Privacy Policy links, side by side.
+class _LegalLinks extends StatelessWidget {
+  const _LegalLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    // A wrap, so the second link drops to its own line at a large text size
+    // instead of running off the edge.
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      children: [
+        _LegalLink(
+          label: LocaleKeys.create_topic_terms_link.tr(),
+          url: termsUrl,
+        ),
+        _LegalLink(
+          label: LocaleKeys.create_topic_privacy_link.tr(),
+          url: privacyUrl,
         ),
       ],
     );
@@ -1347,7 +1511,9 @@ class _ConfirmDialog extends StatelessWidget {
         child: Container(
           width: 320,
           margin: const EdgeInsets.symmetric(horizontal: 24),
-          padding: const EdgeInsets.all(20),
+          // The buttons at the bottom are 36 pills in 48 tap boxes: 6 less
+          // below them.
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
           decoration: BoxDecoration(
             color: colors.surface,
             borderRadius: Radii.xlAll,
@@ -1370,7 +1536,7 @@ class _ConfirmDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               content,
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

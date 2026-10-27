@@ -30,7 +30,7 @@ final class WeeklyCheckRoundsState {
 }
 
 /// Reads `GET .../checks`. The list is the relay's and is not kept on the
-/// phone. It answers with or without the pack.
+/// phone. It answers whatever the account's tier is.
 class WeeklyCheckRoundsCubit extends Cubit<WeeklyCheckRoundsState> {
   WeeklyCheckRoundsCubit(this._api) : super(const WeeklyCheckRoundsState());
 

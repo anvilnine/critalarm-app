@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
+import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
@@ -206,6 +207,11 @@ final class IncidentAlarmController {
   Future<void> _reconcileOnce() async {
     final showing = await host.showingIncidentIds();
     for (final incidentId in showing.take(reconcileLimit)) {
+      // Before the question goes out. A reopen can arm a ring for this
+      // incident while it is out, and the native step then refuses the
+      // answer. A read that failed leaves the card for the next launch.
+      final generation = await host.readRingGeneration(incidentId);
+      if (generation.isFailed) continue;
       final Incident incident;
       try {
         incident = await api.getIncident(incidentId);
@@ -213,9 +219,15 @@ final class IncidentAlarmController {
         // 404 and 410 are answers, not failures. The incident is gone from the
         // server, which relays do after a retention window, so the card comes
         // down and the id leaves the list. Left as an error it came back every
-        // launch and cost a server call every time.
+        // launch and cost a server call every time. It says the server forgot
+        // the incident, not that anyone handled it, so it never stops a ring.
         if (error.statusCode == 404 || error.statusCode == 410) {
-          await onIncidentFinished(incidentId, state: IncidentState.expired);
+          await _finishCard(
+            incidentId,
+            IncidentState.expired,
+            generation,
+            keepLive: true,
+          );
           continue;
         }
         // Any other status is a launch hiccup or a real failure; let
@@ -223,8 +235,124 @@ final class IncidentAlarmController {
         rethrow;
       }
       if (incident.isOpen || incident.isAcked) continue;
-      applyIncident?.call(incident);
-      await onIncidentFinished(incidentId, state: incident.incidentState);
+      await _finishCard(
+        incidentId,
+        incident.incidentState,
+        generation,
+        incident: incident,
+      );
+    }
+  }
+
+  /// Ends the card for an incident the server has finished with, through
+  /// the native step that checks the ring generation and cancels as one
+  /// (`applyRemoteState`). A refused answer changes nothing.
+  ///
+  /// A host that keeps no generations has no native ring to guard, so it
+  /// takes the plain path.
+  Future<void> _finishCard(
+    String incidentId,
+    IncidentState state,
+    RingGenerationRead generation, {
+    bool keepLive = false,
+    Incident? incident,
+  }) async {
+    if (!generation.isKept) {
+      if (incident != null) applyIncident?.call(incident);
+      await onIncidentFinished(incidentId, state: state);
+      return;
+    }
+    final applied = await host.applyRemoteState(
+      incidentId,
+      _activityState(state),
+      generation: generation.value,
+      openedAt: incident?.openedAt,
+      applyWhenNothing: true,
+      keepLive: keepLive,
+    );
+    _log(
+      'reconcile_finished id=$incidentId state=${state.name} '
+      'native=${applied.name}',
+    );
+    if (!applied.isAccepted) return;
+    _alarming.remove(incidentId);
+    if (incident != null) applyIncident?.call(incident);
+    await tokens?.forget(incidentId);
+  }
+
+  /// How many live rings one run checks. A phone rings for one or two
+  /// incidents at a time; anything past this waits for the next run.
+  static const int liveCheckLimit = 5;
+
+  /// How long each check may take before it counts as no answer.
+  static const Duration liveCheckTimeout = Duration(seconds: 5);
+
+  /// How long a run waits before it starts, so the alarm screen a tap just
+  /// opened gets to check its own incident first and say why it went quiet.
+  static const Duration liveCheckSettle = Duration(seconds: 2);
+
+  /// Stops every ring on this phone that the server says is over.
+  ///
+  /// Launch and resume run this. It is for the rings nothing else catches:
+  /// an iPhone that was asleep when another device answered, or an Android
+  /// phone whose state push never came. Each incident the phone is ringing
+  /// for, or has a ring set for, is asked about once. Only an answer of
+  /// acked, closed or expired stops it. No answer, an error, 404 and an open
+  /// incident all leave the ring exactly as it was.
+  ///
+  /// [skip] names incidents another screen is already handling, which is the
+  /// alarm screen. Never throws.
+  ///
+  /// One run at a time: a resume that lands while a run is going joins it.
+  Future<void> stopRingsHandledElsewhere({
+    bool Function(String incidentId)? skip,
+  }) => _sweep ??= _sweepOnce(skip).whenComplete(() => _sweep = null);
+
+  Future<void>? _sweep;
+
+  Future<void> _sweepOnce(bool Function(String incidentId)? skip) async {
+    try {
+      await wait(liveCheckSettle);
+      final live = await host.liveIncidentIds();
+      for (final incidentId in live.take(liveCheckLimit)) {
+        if (skip?.call(incidentId) ?? false) continue;
+        // Before the question goes out. The native side refuses the answer
+        // if a push armed a ring since: that can be a reopen it knew
+        // nothing about.
+        final int? generation;
+        try {
+          generation = await host.ringGeneration(incidentId);
+        } on Object catch (_) {
+          continue;
+        }
+        if (generation == null) continue;
+        final Incident incident;
+        try {
+          incident = await api
+              .getIncident(incidentId)
+              .timeout(liveCheckTimeout);
+        } on Object catch (_) {
+          continue;
+        }
+        final ending = HandledElsewhereRule.endingState(incident.state);
+        if (ending == null) continue;
+        // The alarm screen may have opened on this incident while the
+        // question was out. It checks its own incident, so it keeps it.
+        if (skip?.call(incidentId) ?? false) continue;
+        final applied = await host.applyRemoteState(
+          incidentId,
+          HandledElsewhereRule.wireName(ending),
+          generation: generation,
+          openedAt: incident.openedAt,
+        );
+        _log(
+          'ring_handled_elsewhere id=$incidentId state=${incident.state} '
+          'native=${applied.name}',
+        );
+        if (applied.isAccepted) applyIncident?.call(incident);
+      }
+    } on Object catch (_) {
+      // Nothing to do. A ring left alone is the safe side.
     }
   }
 

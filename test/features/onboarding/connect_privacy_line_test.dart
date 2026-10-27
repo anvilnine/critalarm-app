@@ -27,7 +27,7 @@ void main() {
       expect(line, ConnectPrivacyLine.cloudNone);
       expect(
         english(line!.translationKey),
-        'Crit Alarm Cloud stores your messages. The push relay sees ids and '
+        'Our server stores your messages. The push relay sees ids and '
         'the priority, never the text.',
       );
     });
@@ -50,8 +50,8 @@ void main() {
       expect(line, ConnectPrivacyLine.cloudFull);
       expect(
         english(line!.translationKey),
-        'Crit Alarm Cloud stores your messages. Pushes pass through the Crit '
-        'Alarm relay and carry the message text.',
+        'Our server stores your messages. Pushes pass through our relay '
+        'and carry the message text.',
       );
     });
 

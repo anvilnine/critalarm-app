@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
@@ -16,7 +17,7 @@ class LocalReminderSettingsCubit extends Cubit<LocalReminderSettingsState> {
     required LocalReminderScheduler scheduler,
     required Future<ServerMode?> Function() readServerMode,
     required LocalReminderPlanTrigger trigger,
-    Future<bool> Function()? readIsPaid,
+    Future<bool> Function()? readHoldsHosted,
     LocalReminderAnalytics? analytics,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
@@ -37,7 +38,7 @@ class LocalReminderSettingsCubit extends Cubit<LocalReminderSettingsState> {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _readIsPaid = readIsPaid,
+       _readHoldsHosted = readHoldsHosted,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -50,20 +51,20 @@ class LocalReminderSettingsCubit extends Cubit<LocalReminderSettingsState> {
   final LocalReminderPlanTrigger _trigger;
 
   /// Null in tests that do not care, and counts as free.
-  final Future<bool> Function()? _readIsPaid;
+  final Future<bool> Function()? _readHoldsHosted;
   final LocalReminderAnalytics? _analytics;
 
   Future<void> load() async {
     final mode = await _readServerMode();
     final system = await _scheduler.systemState();
-    final isPaid = await _safeIsPaid();
+    final holdsHosted = await _safeHoldsHosted();
     if (isClosed) return;
     emit(
       state.copyWith(
         switches: _store.readSwitches(),
         notificationsAllowed: system.notificationsAllowed,
-        isSelfHosted: mode == ServerMode.selfhosted,
-        isPaid: isPaid,
+        isSelfHosted: isOwnServerMode(mode),
+        holdsHosted: holdsHosted,
         isLoaded: true,
       ),
     );
@@ -80,8 +81,8 @@ class LocalReminderSettingsCubit extends Cubit<LocalReminderSettingsState> {
   }
 
   /// A failed read counts as paid, so the Offers switch stays hidden.
-  Future<bool> _safeIsPaid() async {
-    final read = _readIsPaid;
+  Future<bool> _safeHoldsHosted() async {
+    final read = _readHoldsHosted;
     if (read == null) return false;
     try {
       return await read();

@@ -82,6 +82,14 @@ abstract final class ServerInfoValidation {
     return sha256.convert(bytes).toString();
   }
 
+  /// What a topic's hash is made from (api.md §3.1): its `relay_name` when it
+  /// has one that is not empty, else its name. Create, move and delete all go
+  /// through here so they agree.
+  static String hashSourceFor({required String name, String? relayName}) {
+    final secret = relayName?.trim() ?? '';
+    return secret.isEmpty ? name : secret;
+  }
+
   /// Validates a complete [ServerInfo] model payload.
   static bool isValidServerInfo(
     ServerInfo info, {

@@ -67,6 +67,13 @@ import AlarmKit
     // Shared sound files nobody opened last time. Queued before any scene
     // connects, so it runs before a cold-start share is copied.
     IncomingAudioInbox.startFresh()
+    // A person's own sounds are in no backup. Flagged at import, and again
+    // here for the files that were on the phone before the flag existed.
+    SoundLibrary.workQueue.async {
+      if let directory = SoundLibrary.soundsDirectory {
+        BackupExclusion.excludeOwnSounds(in: directory)
+      }
+    }
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
@@ -114,6 +121,8 @@ import AlarmKit
 
     soundChannel = attachSoundChannel(messenger: messenger)
     soundPackChannel = attachSoundPackChannel(messenger: messenger)
+    UiSoundPlayer.shared.attach(messenger: messenger)
+    MotionSensorChannel.shared.attach(messenger: messenger)
 
     let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
     alarm.setMethodCallHandler { [weak self] call, result in
@@ -126,6 +135,13 @@ import AlarmKit
     )
     identity.setMethodCallHandler { call, result in
       DeviceIdentityKeychain.handle(call, result: result)
+    }
+
+    let backup = FlutterMethodChannel(
+      name: "app.critalarm/backup", binaryMessenger: messenger
+    )
+    backup.setMethodCallHandler { call, result in
+      BackupChannel.handle(call, result: result)
     }
 
     let settings = FlutterMethodChannel(
@@ -190,6 +206,28 @@ import AlarmKit
       }
     }
 
+    // The language picked in the app (lib/core/l10n/native_locale_bridge.dart).
+    // The app group carries it to the extensions; the notification button
+    // and the widgets are redrawn in it at once. An alarm already set keeps
+    // the words it was set with.
+    let locale = FlutterMethodChannel(
+      name: "app.critalarm/locale",
+      binaryMessenger: messenger
+    )
+    locale.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "setAppLocale":
+        let tag = (call.arguments as? [String: Any])?["tag"] as? String
+        NativeL10n.write(tag: tag, to: NativeL10n.groupDefaults)
+        NSLog("CritAlarm: app_locale_set tag=%@", tag ?? "system")
+        self?.registerNotificationCategories()
+        WidgetSnapshotStore.reloadWidgets()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     localReminders.attach(messenger: messenger)
   }
 
@@ -226,9 +264,11 @@ import AlarmKit
   /// because `setNotificationCategories` replaces whatever was there.
   /// `.foreground` opens the app so the user acknowledges inside Crit Alarm.
   func registerNotificationCategories() {
+    // Registered again on a language switch (`setAppLocale`), so the button
+    // follows the language picked in the app.
     let ack = UNNotificationAction(
       identifier: Self.ackAction,
-      title: "I'm up",
+      title: NativeL10n.text(.actionImUp),
       options: [.foreground]
     )
     let incident = UNNotificationCategory(
@@ -324,8 +364,10 @@ import AlarmKit
     // incident. `.customDismissAction` on the INCIDENT category is what makes
     // iOS call us at all; without this branch the dismiss was ignored.
     if response.actionIdentifier == UNNotificationDismissActionIdentifier, let incidentId {
-      Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+      Task { @MainActor in
+        // On AlarmSerial, like Stop's re-arm, so it never lands between a
+        // guarded stop's check and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         NSLog(
           "CritAlarm: notification_dismissed incident_id=%@ rearm_in_s=%d",
           incidentId, seconds ?? -1
@@ -407,6 +449,14 @@ import AlarmKit
         if let activityId { payload["activity_id"] = activityId }
         self?.alarmChannel?.invokeMethod("onActivityToken", arguments: payload)
       }
+      // An incident answered on another device, heard through the Live
+      // Activity or by Stop asking the server. The ring is already stopped;
+      // Dart only updates the screen and the list.
+      IncidentActivityCoordinator.shared.onRemoteState = { [weak self] incidentId, state, openedAt in
+        var payload: [String: Any] = ["incident_id": incidentId, "state": state]
+        if let openedAt { payload["opened_at"] = Int(openedAt.timeIntervalSince1970) }
+        self?.alarmChannel?.invokeMethod("onRemoteState", arguments: payload)
+      }
     }
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
@@ -482,6 +532,51 @@ import AlarmKit
         delaySeconds: args["delay_seconds"] as? Int
       ) { ok in result(ok) }
 
+    case "closeFromDone":
+      // "At my desk" on the screen a Done button opened and could not load.
+      // This is that Done button, pressed late: the same intent, which
+      // queues the close, sends it, and updates the card and the widgets
+      // when the server says the incident is over. Nothing else happens
+      // here. The answer goes back once it is handed over: the intent
+      // writes the queue first and may then wait on the network.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      guard #available(iOS 16.2, *) else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      // The link that brought the app here can be forged, so it is not
+      // what decides. This phone's own record is: only an incident
+      // acknowledged here and quiet has a Done to press. Anything else is
+      // refused before a single thing is touched.
+      var alarmUnderWay = false
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)
+        // Alarms that cannot be read count as one under way.
+        alarmUnderWay = (try? AlarmManager.shared.alarms)?.contains { $0.id == alarmId } ?? true
+      }
+      #endif
+      let mayClose = DoneHandOffRule.mayClose(
+        acked: AckedIncidentStore.contains(incidentId: incidentId),
+        alarmUnderWay: alarmUnderWay,
+        cardState: IncidentActivityCoordinator.shared.cardState(incidentId: incidentId),
+        widgetState: DoneHandOffRule.widgetState(
+          incidentId: incidentId, in: WidgetSnapshotStore.read()
+        )
+      )
+      guard mayClose else {
+        NSLog("CritAlarmAlarm: close_from_done_refused incident_id=%@", incidentId)
+        result(FlutterError(
+          code: "not_acknowledged", message: "not acknowledged on this phone", details: nil
+        ))
+        return
+      }
+      Task { _ = try? await CloseIncidentIntent(incidentId: incidentId).perform() }
+      result(nil)
+
     case "cancelAlarm":
       guard let incidentId = args["incident_id"] as? String else {
         result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
@@ -533,7 +628,9 @@ import AlarmKit
         return
       }
       Task {
-        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        // On AlarmSerial, so it never lands between a guarded stop's check
+        // and its cancel.
+        let seconds = await IncidentRearm.rearmInOrder(incidentId: incidentId)
         if #available(iOS 16.2, *), let seconds {
           await IncidentActivityCoordinator.shared.setRingsAgainIn(seconds, incidentId: incidentId)
         }
@@ -549,6 +646,48 @@ import AlarmKit
         await IncidentRearm.cancel(incidentId: incidentId)
         await MainActor.run { result(nil) }
       }
+
+    case "applyRemoteState":
+      // The server says the incident is acked, closed or expired, in answer
+      // to a question Dart asked under ring generation `generation`. The
+      // check and the cancel run as one step on AlarmSerial, the queue push
+      // arming goes through: a push that armed a ring since the question
+      // went out moves the generation on, and the answer is refused.
+      // Answers "stopped", "nothing" or "refused".
+      guard #available(iOS 16.2, *),
+            let incidentId = args["incident_id"] as? String, !incidentId.isEmpty,
+            let raw = RemoteStateCheck.endingState(args["state"] as? String),
+            let state = IncidentActivityState(rawValue: raw)
+      else {
+        result(RingGeneration.Outcome.refused.rawValue)
+        return
+      }
+      let expected = (args["generation"] as? NSNumber)?.intValue
+      // Launch reconcile: fix the card in the same step when nothing is set,
+      // and for a 404 never stop a ring that is.
+      let applyWhenNothing = (args["apply_when_nothing"] as? Bool) ?? false
+      let keepLive = (args["keep_live"] as? Bool) ?? false
+      Task { @MainActor in
+        let outcome = await RingGeneration.applyIfCurrent(
+          state, incidentId: incidentId, expected: expected,
+          applyWhenNothingSet: applyWhenNothing, keepLive: keepLive
+        )
+        NSLog(
+          "CritAlarmAlarm: remote_state_from_app incident_id=%@ state=%@ outcome=%@",
+          incidentId, raw, outcome.rawValue
+        )
+        result(outcome.rawValue)
+      }
+
+    case "ringGeneration":
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(nil)
+        return
+      }
+      result(RingGeneration.current(incidentId: incidentId))
+
+    case "liveIncidentIds":
+      result(PendingIncidentStore.all().keys.filter { RingGeneration.ringIsSet(incidentId: $0) }.sorted())
 
     case "markAcked":
       // Dart acknowledged this incident (in the app, or from its queue). A
@@ -686,11 +825,13 @@ import AlarmKit
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
       Task {
-        let ok = await IncidentAlarmScheduler.schedule(
-          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
-          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
-          ringUntil: ringUntil
-        )
+        let ok = await AlarmSerial.shared.run {
+          await IncidentAlarmScheduler.schedule(
+            incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
+            delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
+            ringUntil: ringUntil
+          )
+        }
         await MainActor.run {
           if ok {
             self.alarmChannel?.invokeMethod("onAlarmScheduled", arguments: incidentId)
@@ -787,6 +928,10 @@ import AlarmKit
       return
     }
 
+    // The one push arming path. The generation moves on now, before the
+    // arming step is queued, so a stop that asked before this push is
+    // refused, and one already running finishes before the new ring is set.
+    RingGeneration.bump(incidentId: incidentId)
     scheduleAlarm(
       incidentId: incidentId,
       topic: userInfo["topic"] as? String ?? "",
@@ -1128,6 +1273,8 @@ enum SoundLibrary {
       try? FileManager.default.removeItem(at: destination)
       return nil
     }
+    // The conversion wrote a new file, and a new file starts unflagged.
+    BackupExclusion.exclude(destination)
     let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? Int) ?? 0
     NSLog("CritAlarmSound: sound_imported id=%@ path=%@ duration_ms=%d size_bytes=%d", id, destination.path, ms, size)
     return ["path": destination.path, "duration_ms": ms, "size_bytes": size]
@@ -1187,20 +1334,61 @@ enum SoundLibrary {
     return published
   }
 
+  /// Whether [defaults] holds anything Dart wrote. `shared_preferences`
+  /// writes every key with the `flutter.` prefix, and the app has written
+  /// some by the end of its first launch. None at all means the store
+  /// could not be read (the phone has not been unlocked since it started)
+  /// or nothing was ever written, and then there is nothing to publish
+  /// either way.
+  static func defaultsWereRead(_ defaults: UserDefaults) -> Bool {
+    defaults.dictionaryRepresentation().keys.contains { $0.hasPrefix("flutter.") }
+  }
+
   /// Writes the ringable file names into the group for the extension.
-  private static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
-    let defaultFile = defaults.string(forKey: "flutter.alarm_sound_default")
-      .flatMap(ringableFileName(forSoundId:))
-    var perTopic: [String: String] = [:]
+  ///
+  /// The lock flag Dart wrote goes with them. While it is set no own sound
+  /// is published (`SharedSounds.choicesToPublish`), and the saved choices
+  /// stay as they are, so they ring again once the flag clears.
+  ///
+  /// Not private, so the unit tests can hand it two defaults of their own.
+  @discardableResult
+  static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
+    // A launch before the phone's first unlock reads the app's defaults as
+    // empty. Publishing that would wipe the own sound lock and every
+    // challenge flag in the group until the next publish. What could not
+    // be read never replaces what is written: the group stays as it is,
+    // and the caller is told nothing was published so it tries again.
+    guard defaultsWereRead(defaults) else {
+      NSLog("CritAlarmSound: assignments_not_published reason=defaults_unread")
+      return false
+    }
+    var perTopicIds: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),
        let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
-      for (topic, id) in map {
-        if let name = ringableFileName(forSoundId: id) { perTopic[topic] = name }
-      }
+      perTopicIds = map
     }
-    SharedSounds.publish(defaultFile: defaultFile, perTopicFiles: perTopic, to: shared)
-    NSLog("CritAlarmSound: assignments_published topics=%d", perTopic.count)
+    // False when Dart has not written it yet, or it is not a boolean.
+    let ownLocked = defaults.bool(forKey: OwnSoundLock.appKey)
+    let choices = SharedSounds.choicesToPublish(
+      defaultId: defaults.string(forKey: "flutter.alarm_sound_default"),
+      perTopicIds: perTopicIds,
+      ownLocked: ownLocked,
+      ringableFileName: ringableFileName(forSoundId:)
+    )
+    SharedSounds.publish(
+      defaultFile: choices.defaultFile,
+      perTopicFiles: choices.perTopicFiles,
+      ownLocked: ownLocked,
+      to: shared
+    )
+    // The topics that owe a wake-up challenge go the same way, for the
+    // Done button on the Live Activity.
+    ChallengeFlag.publish(from: defaults, to: shared)
+    NSLog(
+      "CritAlarmSound: assignments_published topics=%d own_locked=%@",
+      choices.perTopicFiles.count, ownLocked ? "yes" : "no"
+    )
     return true
   }
 }
@@ -1542,7 +1730,25 @@ enum AlarmSoundPolicy {
 /// flag was true is invisible to a read asking for false. Dart passes "any" to
 /// find both, which is how the old single item is still reachable after the
 /// split. Updates never delete the old secret.
+///
+/// The same channel holds the sign-in session (`identity_session`), an
+/// unsynced item that Dart writes with `this_device_only`. That item never
+/// leaves the phone: no iCloud Keychain, no backup, no phone to phone
+/// transfer.
 enum DeviceIdentityKeychain {
+  /// How readable the item is. Every item is readable after the first unlock,
+  /// because pushes arrive with the phone locked. `this_device_only: true`
+  /// adds ThisDeviceOnly, which an unsynced item needs to stay out of
+  /// backups. A synced item cannot carry it, so the flag is ignored there.
+  static func accessibility(_ arguments: Any?) -> CFString {
+    let args = arguments as? [String: Any]
+    let thisDeviceOnly = args?["this_device_only"] as? Bool ?? false
+    let synced = args?["synchronizable"] as? Bool ?? false
+    return thisDeviceOnly && !synced
+      ? kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+      : kSecAttrAccessibleAfterFirstUnlock
+  }
+
   /// What `synchronizable` may be on a call from Dart: true, false, or the
   /// string "any", which reads a synced and an unsynced copy at once.
   static func syncAttribute(_ value: Any?) -> Any? {
@@ -1596,7 +1802,7 @@ enum DeviceIdentityKeychain {
       }
       let attributes: [String: Any] = [
         kSecValueData as String: data,
-        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        kSecAttrAccessible as String: accessibility(call.arguments),
       ]
       var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
       if status == errSecItemNotFound {
@@ -1616,6 +1822,31 @@ enum DeviceIdentityKeychain {
         return
       }
       result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+}
+
+/// `app.critalarm/backup`: what Dart asks about backups and restores.
+///
+/// - `installMarker` answers `first`, `same`, `moved` or `unknown`
+///   (`InstallMarkerRule.Verdict`).
+/// - `settleInstallMarker` is called once what came from another phone has
+///   been dropped.
+/// - `excludeFromBackup` flags the file or folder at `path`.
+enum BackupChannel {
+  static func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    switch call.method {
+    case "installMarker":
+      result(InstallMarker().check().rawValue)
+    case "settleInstallMarker":
+      result(InstallMarker().settle())
+    case "excludeFromBackup":
+      guard let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String, !path.isEmpty
+      else { result(false); return }
+      result(BackupExclusion.exclude(URL(fileURLWithPath: path)))
     default:
       result(FlutterMethodNotImplemented)
     }

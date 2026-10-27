@@ -2,13 +2,16 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_entrance.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pips.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_stage.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -33,6 +36,7 @@ class HeroLiveStage extends StatelessWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.motion = const HeroMotion(),
     this.swipes = true,
     super.key,
   });
@@ -46,6 +50,7 @@ class HeroLiveStage extends StatelessWidget {
   final HeroSceneBuilder? sceneBuilder;
   final Widget? beside;
   final bool? showsShapes;
+  final HeroMotion motion;
 
   /// False leaves sideways drags to the layout. See [HeroTouchArea].
   final bool swipes;
@@ -74,6 +79,7 @@ class HeroLiveStage extends StatelessWidget {
               sceneBuilder: sceneBuilder,
               beside: beside,
               showsShapes: showsShapes,
+              motion: motion,
             ),
           );
         },
@@ -105,20 +111,31 @@ typedef HeroHeadlineBuilder =
 ///   `prelude` so a beat of the layout's own plays first.
 /// - [arrange], [tone], [sceneBuilder], [beside], [showsShapes]: the
 ///   stage's, see [HeroStage].
+/// - [alsoIncluded], and [showsLeadLine], to group the benefits after a
+///   lead under a label.
+/// - [motion], a [HeroMotion] that names another atmosphere, entrance,
+///   idle or way for a preview to arrive.
 /// - [player], to read the frame from outside: for a backdrop that
 ///   follows the loop.
+/// - [entranceCues] and [turnCue], what the entrance and the loop sound
+///   like. Null [entranceCues] is the approved entrance for [motion]: the
+///   mascot lands and the card slides in. [turnCue] marks a benefit the
+///   loop changed by itself, through its first pass.
 ///
 /// Give the frame `restAt: loop.entranceEnd` ([heroEntranceSeconds] for
 /// the approved loop) and a `tone` that matches [tone].
 ///
-/// At the default text size it fits exactly. Where a large text size
-/// leaves the stage no room, the words scroll in their own box and the
-/// frame still does not.
+/// At the default text size it fits exactly. Where a large text size or a
+/// short phone leaves the stage no room, the words scroll in their own box
+/// and the frame still does not. Every benefit is drawn, whole: a list that
+/// does not fit is never cut or faded, it scrolls.
 class HeroComposition extends StatefulWidget {
   const HeroComposition({
     required this.scope,
     this.headline,
     this.headlineBuilder,
+    this.headlineAt,
+    this.headlineAlternatives = const [],
     this.lines,
     this.loop,
     this.player,
@@ -127,14 +144,53 @@ class HeroComposition extends StatefulWidget {
     this.sceneBuilder,
     this.beside,
     this.showsShapes,
+    this.motion = const HeroMotion(),
+    this.entranceCues,
+    this.turnCue = PaywallCue.next,
+    this.alsoIncluded,
+    this.showsLeadLine = true,
+    this.headlineEndRoom = 0,
     super.key,
   });
+
+  /// How far from the right edge the headline stops, when that is more than
+  /// the side inset: room for a close control the headline would run under.
+  /// Zero keeps the side inset.
+  final double headlineEndRoom;
+
+  /// The words of the small label that groups every benefit but the first
+  /// under it, in a lighter weight. Null is the plain list. It only shows
+  /// with two benefits or more, the first being the lead. Pass it with
+  /// `heroShowsAlsoIncluded` so a paywall with no lead keeps its list.
+  final String? alsoIncluded;
+
+  /// False leaves the lead's own line out when [alsoIncluded] shows: the
+  /// words above the list (a tag, the headline) and the stage already say
+  /// it. The lead is still the first turn, and the others are still lines.
+  final bool showsLeadLine;
+
+  /// The cues of the entrance, by clock second. Null is
+  /// [heroEntranceCues] for [motion].
+  final List<PaywallCueBeat>? entranceCues;
+
+  /// Played when the loop changes the benefit by itself. Null is silent.
+  final PaywallCue? turnCue;
 
   final PaywallLayoutScope scope;
 
   /// Null is the approved headline for the scope's product.
   final String? headline;
   final HeroHeadlineBuilder? headlineBuilder;
+
+  /// The headline for the frame on the stage, for a layout whose headline
+  /// follows the beat. Null keeps [headline] for every frame. It only
+  /// changes the words: no motion goes with the change. The room for the
+  /// headline is the tallest of [headline] and [headlineAlternatives], so
+  /// the stage never moves when the words do.
+  final String Function(HeroFrame frame)? headlineAt;
+
+  /// Every other text [headlineAt] can answer, to measure the room by.
+  final List<String> headlineAlternatives;
 
   /// One short line per benefit. Null is [heroLineFor] each.
   final List<String>? lines;
@@ -149,6 +205,9 @@ class HeroComposition extends StatefulWidget {
   final HeroSceneBuilder? sceneBuilder;
   final Widget? beside;
   final bool? showsShapes;
+
+  /// The stage's motion variants. See [HeroMotion].
+  final HeroMotion motion;
 
   @override
   State<HeroComposition> createState() => _HeroCompositionState();
@@ -181,6 +240,29 @@ class _HeroCompositionState extends State<HeroComposition> {
     super.dispose();
   }
 
+  /// The headline: [fallback] for every frame, or the words
+  /// `headlineAt` gives for the frame on the stage, drawn in a box of the
+  /// measured height.
+  Widget _headlineText(
+    HeroPlayer player,
+    String fallback,
+    TextStyle style,
+    double height,
+  ) {
+    final at = widget.headlineAt;
+    if (at == null) return Text(fallback, style: style);
+    return SizedBox(
+      height: height,
+      child: Align(
+        alignment: AlignmentDirectional.topStart,
+        child: PaywallClockBuilder(
+          clock: scope.clock,
+          builder: (context, t, _) => Text(at(player.frameAt(t)), style: style),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tones = PaywallToneColors.of(context, widget.tone);
@@ -203,15 +285,25 @@ class _HeroCompositionState extends State<HeroComposition> {
       fontSize: sizes.line,
     ).copyWith(height: 1.35);
 
-    final metrics = HeroLinesMetrics.measure(
+    final allLines = widget.lines ?? [for (final b in benefits) heroLineFor(b)];
+    HeroLinesMetrics measure(int shown) => HeroLinesMetrics.measure(
       context,
-      lines: widget.lines ?? [for (final b in benefits) heroLineFor(b)],
+      lines: allLines.take(shown).toList(),
       width: width,
       sizes: sizes,
       tone: widget.tone,
+      alsoIncluded: widget.alsoIncluded,
+      showsLead: widget.showsLeadLine,
     );
-    final lines = metrics.lines;
-    final rowHeights = metrics.rowHeights;
+    final headlineWidth = heroHeadlineWidth(
+      width: width,
+      endRoom: widget.headlineEndRoom,
+    );
+    final headlineHeight = [
+      for (final text in [headline, ...widget.headlineAlternatives])
+        paywallTextHeight(context, text, headlineStyle, headlineWidth),
+    ].reduce(math.max);
+    final sentenceWidth = measure(allLines.length).textWidth;
     final sentence = isOne ? benefits.single.line : null;
     final sentenceHeight = sentence == null
         ? 0.0
@@ -220,20 +312,12 @@ class _HeroCompositionState extends State<HeroComposition> {
                 context,
                 sentence,
                 sentenceStyle,
-                metrics.textWidth,
+                sentenceWidth,
               );
-    final headlineHeight = paywallTextHeight(
-      context,
-      headline,
-      headlineStyle,
-      width,
-    );
+    final metrics = measure(allLines.length);
+    final lines = metrics.lines;
     final words =
-        headlineHeight +
-        sizes.headlineGap +
-        rowHeights.fold(0, (sum, h) => sum + h) +
-        sizes.rowGap * math.max(0, lines.length - 1) +
-        sentenceHeight;
+        headlineHeight + sizes.headlineGap + metrics.height + sentenceHeight;
 
     // Where the middle of each line is, down the block of words. A tap is
     // matched to a line with these.
@@ -255,103 +339,129 @@ class _HeroCompositionState extends State<HeroComposition> {
     _listen();
     final after = player.loop.prelude;
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HeroLiveStage(
-            player: player,
-            size: Size(scope.size.width, room.stage),
-            label: (frame) => frame.activeIndex >= lines.length
-                ? null
-                : LocaleKeys.paywall_hero_stage_label.tr(
-                    namedArgs: {'benefit': lines[frame.activeIndex]},
-                  ),
-            bleedTop: MediaQuery.viewPaddingOf(context).top,
-            arrange: widget.arrange,
-            tone: widget.tone,
-            sceneBuilder: widget.sceneBuilder,
-            beside: widget.beside,
-            showsShapes: widget.showsShapes,
-          ),
-          SizedBox(
-            height: room.gap,
-            child: lines.length < 2
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: heroSideInset,
+    return PaywallCueScore(
+      clock: scope.clock,
+      beats:
+          widget.entranceCues ??
+          heroEntranceCues(widget.motion, prelude: after),
+      player: player,
+      turnCue: widget.turnCue,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HeroLiveStage(
+              player: player,
+              size: Size(scope.size.width, room.stage),
+              label: (frame) => frame.activeIndex >= lines.length
+                  ? null
+                  : LocaleKeys.paywall_hero_stage_label.tr(
+                      namedArgs: {'benefit': lines[frame.activeIndex]},
                     ),
-                    child: HeroPips(
-                      player: player,
-                      count: lines.length,
-                      color: tones.ink,
-                    ),
-                  ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapUp: isOne
-                ? null
-                : (details) {
-                    final line = heroLineAt(details.localPosition.dy, centres);
-                    if (line != null) player.touch(index: line);
-                  },
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: heroSideInset,
-                right: heroSideInset,
-                bottom: room.under,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  HeroRise(
-                    clock: scope.clock,
-                    index: 0,
-                    after: after,
-                    child: Semantics(
-                      header: true,
-                      child:
-                          widget.headlineBuilder?.call(
-                            context,
-                            headline,
-                            headlineStyle,
-                          ) ??
-                          Text(headline, style: headlineStyle),
-                    ),
-                  ),
-                  SizedBox(height: sizes.headlineGap),
-                  HeroBenefitLines(
-                    player: player,
-                    metrics: metrics,
-                    // What the short line leaves out is still said.
-                    labels: [for (final b in benefits) b.line],
-                    isPickable: !isOne,
-                    handlesTaps: false,
-                  ),
-                  if (sentence != null)
-                    HeroRise(
-                      clock: scope.clock,
-                      index: 2,
-                      after: after,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          top: Spacing.s1,
-                          left: sizes.check + HeroSizes.checkGap,
-                        ),
-                        child: Text(sentence, style: sentenceStyle),
+              bleedTop: MediaQuery.viewPaddingOf(context).top,
+              arrange: widget.arrange,
+              tone: widget.tone,
+              sceneBuilder: widget.sceneBuilder,
+              beside: widget.beside,
+              showsShapes: widget.showsShapes,
+              motion: widget.motion,
+            ),
+            SizedBox(
+              height: room.gap,
+              child: lines.length < 2
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: heroSideInset,
+                      ),
+                      child: HeroPips(
+                        player: player,
+                        count: lines.length,
+                        color: tones.ink,
                       ),
                     ),
-                ],
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapUp: isOne
+                  ? null
+                  : (details) {
+                      final line = heroLineAt(
+                        details.localPosition.dy,
+                        centres,
+                      );
+                      if (line != null) player.touch(index: line);
+                    },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: heroSideInset,
+                  right: heroSideInset,
+                  // The last line ends clear of the buy block when the list
+                  // is scrolled to its foot.
+                  bottom: math.max(room.under, sizes.bottomGap),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 0,
+                      after: after,
+                      child: Semantics(
+                        header: true,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: width - headlineWidth,
+                          ),
+                          child:
+                              widget.headlineBuilder?.call(
+                                context,
+                                headline,
+                                headlineStyle,
+                              ) ??
+                              _headlineText(
+                                player,
+                                headline,
+                                headlineStyle,
+                                headlineHeight,
+                              ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: sizes.headlineGap),
+                    HeroBenefitLines(
+                      player: player,
+                      metrics: metrics,
+                      // What the short line leaves out is still said.
+                      labels: [
+                        for (final b in benefits.take(lines.length)) b.line,
+                      ],
+                      isPickable: !isOne,
+                      handlesTaps: false,
+                    ),
+                    if (sentence != null)
+                      HeroRise(
+                        clock: scope.clock,
+                        index: 2,
+                        after: after,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: Spacing.s1,
+                            left: sizes.check + HeroSizes.checkGap,
+                          ),
+                          child: Text(sentence, style: sentenceStyle),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,21 +1,330 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_outro_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:go_router/go_router.dart';
 
-/// Developer options, Paywall layouts: every layout id, once for each
-/// product. The only way into a layout until one is put in front of users.
-class PaywallLayoutsDevScreen extends StatelessWidget {
+/// Developer options, Paywall layouts: what each product's paywall opens,
+/// picked in three steps. An intro, a paywall, then what plays after a
+/// purchase, each from a sheet of small phones that play the real thing.
+/// A fourth row picks the instruments the intros play, for both products.
+/// "Open it" plays all three as a user would see them: in a build that
+/// skips the store its buy button confirms at once. Under them, the
+/// routing choices that are not one named layout, and a list of every
+/// layout id to pin one by its key.
+///
+/// The picks are the developer switches, so what is chosen here is also
+/// what every entry point in this build opens.
+class PaywallLayoutsDevScreen extends StatefulWidget {
   const PaywallLayoutsDevScreen({super.key});
+
+  @override
+  State<PaywallLayoutsDevScreen> createState() =>
+      _PaywallLayoutsDevScreenState();
+}
+
+/// The layouts this build can draw, in the order they are listed.
+List<PaywallLayoutId> get _layouts => [
+  for (final layout in PaywallLayoutId.values)
+    if (paywallLayoutIsBuilt(layout)) layout,
+];
+
+/// The intros this build can play, `none` first.
+List<PaywallIntroId> get _intros => [
+  for (final intro in PaywallIntroId.values)
+    if (paywallIntroIsBuilt(intro)) intro,
+];
+
+/// What this build can play after a purchase, `none` first.
+List<PaywallThanksId> get _allThanks => [
+  for (final thanks in PaywallThanksId.values)
+    if (paywallThanksIsBuilt(thanks)) thanks,
+];
+
+/// What this build can play right after a purchase, `none` first.
+List<PaywallOutroId> get _allOutros => [
+  for (final outro in PaywallOutroId.values)
+    if (paywallOutroIsBuilt(outro)) outro,
+];
+
+String _introLabel(PaywallIntroId intro) => paywallIntroName(intro);
+
+String _soundLabel(IntroSoundFlavour flavour) => switch (flavour) {
+  IntroSoundFlavour.piano => LocaleKeys.paywall_picker_intro_sound_piano.tr(),
+  IntroSoundFlavour.kalimba =>
+    LocaleKeys.paywall_picker_intro_sound_kalimba.tr(),
+};
+
+String _routeLabel(PaywallLayoutSetting? setting) {
+  if (setting == null || setting.isAuto) {
+    return LocaleKeys.settings_developer_paywall_route_auto.tr();
+  }
+  final layout = setting.layout;
+  return layout == null ? setting.storedKey : paywallLayoutName(layout);
+}
+
+class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
+  PaywallProduct _product = PaywallProduct.hosted;
+
+  DevPaywallLayoutSwitches get _switches => getIt<DevPaywallLayoutSwitches>();
+
+  DevPaywallLayoutSwitch get _layoutSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hosted,
+    PaywallProduct.pro => _switches.pro,
+  };
+
+  DevPaywallIntroSwitch get _introSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hostedIntro,
+    PaywallProduct.pro => _switches.proIntro,
+  };
+
+  DevPaywallThanksSwitch get _thanksSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hostedThanks,
+    PaywallProduct.pro => _switches.proThanks,
+  };
+
+  DevPaywallOutroSwitch get _outroSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hostedOutro,
+    PaywallProduct.pro => _switches.proOutro,
+  };
+
+  /// The switch for the intros' instruments, or null in a build that has
+  /// none.
+  DevIntroSoundSwitch? get _soundSwitch =>
+      getIt.isRegistered<DevIntroSoundSwitch>()
+      ? getIt<DevIntroSoundSwitch>()
+      : null;
+
+  /// The layout "Open it" opens: the one pinned, or the fallback while the
+  /// routing is left to something else.
+  PaywallLayoutId get _layout =>
+      _layoutSwitch.value?.layout ?? paywallFallbackLayout;
+
+  Future<void> _pickIntro() async {
+    final product = _product;
+    final introSwitch = _introSwitch;
+    final layout = _layout;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_picker_intro_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto, the coded default, is the first choice.
+          AppButton(
+            label: LocaleKeys.paywall_picker_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(introSwitch.setIntro(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
+          _TileRow(
+            count: _intros.length,
+            selected: _intros.indexOf(introSwitch.value ?? PaywallIntroId.none),
+            tileBuilder: (context, index) {
+              final intro = _intros[index];
+              return PaywallIntroTile(
+                intro: intro,
+                layout: layout,
+                product: product,
+                label: _introLabel(intro),
+                isSelected: intro == introSwitch.value,
+                onTap: () {
+                  unawaited(introSwitch.setIntro(intro));
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickThanks() async {
+    final product = _product;
+    final thanksSwitch = _thanksSwitch;
+    final layout = _layout;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_thanks_picker_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto, the coded default, is the first choice.
+          AppButton(
+            label: LocaleKeys.paywall_picker_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(thanksSwitch.setThanks(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
+          _TileRow(
+            count: _allThanks.length,
+            selected: _allThanks.indexOf(
+              thanksSwitch.value ?? PaywallThanksId.none,
+            ),
+            tileBuilder: (context, index) {
+              final thanks = _allThanks[index];
+              return PaywallThanksTile(
+                thanks: thanks,
+                layout: layout,
+                product: product,
+                label: paywallThanksName(thanks),
+                isSelected: thanks == thanksSwitch.value,
+                onTap: () {
+                  unawaited(thanksSwitch.setThanks(thanks));
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickOutro() async {
+    final outroSwitch = _outroSwitch;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_outro_picker_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto, the coded default, is the first choice.
+          AppButton(
+            label: LocaleKeys.paywall_picker_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(outroSwitch.setOutro(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s2),
+          // An outro needs a paywall under it to mean anything, so a still
+          // row with the name is enough.
+          for (final outro in _allOutros) ...[
+            AppListRow(
+              name: paywallOutroName(outro),
+              meta: '',
+              faceState: null,
+              isSelected: outro == outroSwitch.value,
+              onTap: () {
+                unawaited(outroSwitch.setOutro(outro));
+                Navigator.of(sheetContext).pop();
+              },
+            ),
+            const SizedBox(height: Spacing.s2),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickLayout() async {
+    final product = _product;
+    final layoutSwitch = _layoutSwitch;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_picker_paywall_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto, the place table, is the first choice.
+          AppButton(
+            label: LocaleKeys.settings_developer_paywall_route_auto.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(layoutSwitch.setSetting(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
+          _TileRow(
+            count: _layouts.length,
+            selected: math.max(
+              0,
+              _layouts.indexOf(layoutSwitch.value?.layout ?? _layouts.first),
+            ),
+            tileBuilder: (context, index) {
+              final layout = _layouts[index];
+              return PaywallLayoutTile(
+                layout: layout,
+                product: product,
+                label: paywallLayoutName(layout),
+                isSelected: layout == layoutSwitch.value?.layout,
+                onTap: () {
+                  unawaited(
+                    layoutSwitch.setSetting(
+                      PaywallLayoutSetting.pinned(layout),
+                    ),
+                  );
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _open() => unawaited(
+    context.push(
+      paywallLayoutLocation(
+        _layout,
+        _product,
+        intro: _introSwitch.value ?? PaywallIntroId.none,
+        // Auto plays what a store build plays for this product.
+        thanks: _thanksSwitch.value ?? paywallDefaultThanksFor(_product),
+        outro: _outroSwitch.value ?? paywallDefaultOutroFor(_product),
+        showsUnbuilt: true,
+        isTryOut: true,
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final arrow = AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16);
+    final soundSwitch = _soundSwitch;
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -33,45 +342,233 @@ class PaywallLayoutsDevScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
-            child: AppSheet(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    LocaleKeys.paywall_kit_dev_note.tr(),
-                    style: AppTypography.small(colors.ink3, fontSize: 13),
-                  ),
-                  const SizedBox(height: Spacing.s3),
-                  for (final layout in PaywallLayoutId.values)
-                    for (final product in PaywallProduct.values) ...[
-                      AppListRow(
-                        name: '${layout.key} · ${paywallProductName(product)}',
-                        meta: paywallLayoutIsBuilt(layout)
-                            ? ''
-                            : LocaleKeys.paywall_kit_dev_not_built.tr(),
-                        faceState: null,
-                        trailing: AppGlyph(
-                          GlyphType.arrow,
-                          color: colors.ink3,
-                          size: 16,
-                        ),
-                        onTap: () => context.push(
-                          paywallLayoutLocation(
-                            layout,
-                            product,
-                            showsUnbuilt: true,
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                _switches.hosted,
+                _switches.pro,
+                _switches.hostedIntro,
+                _switches.proIntro,
+                _switches.hostedThanks,
+                _switches.proThanks,
+                _switches.hostedOutro,
+                _switches.proOutro,
+                ?soundSwitch,
+              ]),
+              builder: (context, _) {
+                final setting = _layoutSwitch.value;
+                final intro = _introSwitch.value;
+                final thanks = _thanksSwitch.value;
+                final outro = _outroSwitch.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppSegmentedControl<PaywallProduct>(
+                      items: PaywallProduct.values,
+                      selectedItem: _product,
+                      labelBuilder: paywallProductName,
+                      onChanged: (product) =>
+                          setState(() => _product = product),
+                    ),
+                    const SizedBox(height: Spacing.s3),
+                    AppSheet(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppListRow(
+                            name: LocaleKeys.paywall_picker_intro_row.tr(),
+                            meta: intro == null
+                                ? LocaleKeys.paywall_picker_auto.tr()
+                                : _introLabel(intro),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickIntro,
                           ),
-                        ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_picker_paywall_row.tr(),
+                            meta: _routeLabel(setting),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickLayout,
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_outro_picker_row.tr(),
+                            meta: outro == null
+                                ? LocaleKeys.paywall_picker_auto.tr()
+                                : paywallOutroName(outro),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickOutro,
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_thanks_picker_row.tr(),
+                            meta: thanks == null
+                                ? LocaleKeys.paywall_picker_auto.tr()
+                                : paywallThanksName(thanks),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickThanks,
+                          ),
+                          if (soundSwitch != null) ...[
+                            const SizedBox(height: Spacing.s2),
+                            AppPickerRow<IntroSoundFlavour>(
+                              title: LocaleKeys.paywall_picker_intro_sound_row
+                                  .tr(),
+                              sheetNote: LocaleKeys
+                                  .paywall_picker_intro_sound_note
+                                  .tr(),
+                              selected: soundSwitch.value,
+                              options: [
+                                for (final flavour in IntroSoundFlavour.values)
+                                  AppPickerOption(
+                                    value: flavour,
+                                    label: _soundLabel(flavour),
+                                  ),
+                              ],
+                              onPick: (flavour) => unawaited(
+                                soundSwitch.setFlavour(flavour),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: Spacing.s3),
+                          AppButton(
+                            label: LocaleKeys.paywall_picker_open.tr(),
+                            isFullWidth: true,
+                            onPressed: _open,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: Spacing.s2),
-                    ],
-                ],
-              ),
+                    ),
+                    const SizedBox(height: Spacing.s3),
+                    AppSheet(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            LocaleKeys.paywall_picker_routing_header.tr(),
+                            style: AppTypography.small(
+                              colors.ink3,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          // The one routing choice that is not a named
+                          // layout: the place table, which is what a store
+                          // build opens.
+                          AppListRow(
+                            name: _routeLabel(null),
+                            meta: '',
+                            faceState: null,
+                            trailing: setting == null
+                                ? AppGlyph(
+                                    GlyphType.check,
+                                    color: colors.highlight,
+                                    size: 16,
+                                  )
+                                : null,
+                            onTap: () => unawaited(
+                              _layoutSwitch.setSetting(null),
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.s1),
+                          // Every id, the ones with no layout of their own
+                          // too: the tiles above only list what is built.
+                          AppPickerRow<PaywallLayoutId>(
+                            title: LocaleKeys.developer_options_by_key_title
+                                .tr(),
+                            sheetNote: LocaleKeys.developer_options_by_key_note
+                                .tr(),
+                            isMonoValue: true,
+                            selected: setting?.layout,
+                            hasSelection: setting?.layout != null,
+                            options: [
+                              for (final layout in PaywallLayoutId.values)
+                                AppPickerOption(
+                                  value: layout,
+                                  label: layout.key,
+                                  meta: paywallLayoutIsBuilt(layout)
+                                      ? paywallLayoutName(layout)
+                                      : LocaleKeys
+                                            .developer_options_by_key_unbuilt
+                                            .tr(),
+                                ),
+                            ],
+                            onPick: (layout) => unawaited(
+                              _layoutSwitch.setSetting(
+                                PaywallLayoutSetting.pinned(layout),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A row of tiles to swipe through, opened on the chosen one.
+///
+/// It builds only the tiles on screen, about three on a phone, so at most
+/// that many paywalls play at once however many there are to pick from.
+class _TileRow extends StatefulWidget {
+  const _TileRow({
+    required this.count,
+    required this.selected,
+    required this.tileBuilder,
+  });
+
+  final int count;
+  final int selected;
+  final IndexedWidgetBuilder tileBuilder;
+
+  @override
+  State<_TileRow> createState() => _TileRowState();
+}
+
+class _TileRowState extends State<_TileRow> {
+  static const double _width = PaywallPhoneTile.defaultWidth;
+  static const double _gap = Spacing.s3;
+
+  /// Room above and beside the tiles for the mark on the chosen one.
+  static const double _edge = Spacing.s2;
+
+  late final ScrollController _scroll = ScrollController(
+    // The chosen tile is second from the left when it can be.
+    initialScrollOffset: math.max(0, widget.selected - 1) * (_width + _gap),
+  );
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: PaywallPhoneTile.heightFor(_width) + _edge,
+      child: ListView.separated(
+        controller: _scroll,
+        scrollDirection: Axis.horizontal,
+        // Nothing is built ahead: a tile off screen has no clock.
+        scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+        padding: const EdgeInsets.fromLTRB(_edge, _edge, _edge, 0),
+        itemCount: widget.count,
+        separatorBuilder: (_, _) => const SizedBox(width: _gap),
+        itemBuilder: widget.tileBuilder,
+      ),
     );
   }
 }

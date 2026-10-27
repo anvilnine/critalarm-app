@@ -4,12 +4,16 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.actions.DoneHandOffRule
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.localreminders.LocalReminderReceiver
+import app.critalarm.push.PushRouter
+import app.critalarm.push.RingLocks
+import app.critalarm.push.RemoteStateRule
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -27,7 +31,24 @@ import io.flutter.plugin.common.MethodChannel
  * Only the calls Android can honour are answered. The rest fall through to
  * notImplemented, which Dart already reads as "this platform does not do that".
  */
-class AlarmChannel(private val context: Context) {
+class AlarmChannel(
+    private val context: Context,
+    /**
+     * The window that shows the alarm over the lock screen, when an activity
+     * is attached. See [AlarmLockRule].
+     */
+    private val lockScreen: LockScreen? = null,
+) {
+    /** What MainActivity does for `releaseLockScreen` and `holdLockScreen`. */
+    interface LockScreen {
+        /**
+         * Lets go of [incidentId]. Calls [done] once the window has left the
+         * lock screen, or at once when it stays for another alarm.
+         */
+        fun release(incidentId: String?, done: () -> Unit)
+        fun hold(incidentId: String)
+    }
+
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -71,6 +92,29 @@ class AlarmChannel(private val context: Context) {
 
             "isRinging" -> result.success(AlarmForegroundService.isRinging)
 
+            // The alarm screen was acknowledged, closed or left. The window
+            // stops showing over the lock screen unless another alarm needs it.
+            // Answered once it has left, because the screen keeps its ringing
+            // layout until then.
+            "releaseLockScreen" -> {
+                val screen = lockScreen
+                if (screen == null) {
+                    result.success(null)
+                } else {
+                    screen.release(call.argument<String>("incident_id")) {
+                        result.success(null)
+                    }
+                }
+            }
+
+            // The alarm screen started ringing, or is in front again after
+            // its topic. Refused natively for an incident that owes no ack.
+            "holdLockScreen" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (!incidentId.isNullOrEmpty()) lockScreen?.hold(incidentId)
+                result.success(null)
+            }
+
             "debugSnapshot" -> result.success(AlarmDebug.snapshot(context))
 
             "cancelAllRearms" -> {
@@ -85,6 +129,37 @@ class AlarmChannel(private val context: Context) {
 
             "clearAckedSet" -> {
                 AlarmDebug.clearAckedSet(context)
+                result.success(null)
+            }
+
+            // "At my desk" on the screen a Done button opened and could not
+            // load. This is that Done button, pressed late: the same
+            // broadcast to the same receiver, which sends the close, queues
+            // it with no signal, and clears the card when the server says
+            // the incident is over. Nothing else happens here.
+            "closeFromDone" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.error("bad_args", "incident_id required", null)
+                    return
+                }
+                // The link that brought the app here can be forged, so it is
+                // not what decides. This phone's own record is: only an
+                // incident acknowledged here and quiet has a Done to press.
+                val deliveries = IncidentDeliveryStore(context)
+                val mayClose = DoneHandOffRule.mayClose(
+                    acknowledged = deliveries.isAcknowledged(incidentId),
+                    closed = deliveries.isClosed(incidentId),
+                    active = deliveries.isActive(incidentId),
+                    ringing = AlarmForegroundService.isRinging(incidentId),
+                    rearmPending = deliveries.rearmFiresAtMillis(incidentId) != null,
+                )
+                if (!mayClose) {
+                    Log.w(TAG, "close_from_done_refused incident_id=$incidentId")
+                    result.error(NOT_ACKNOWLEDGED, "not acknowledged on this phone", null)
+                    return
+                }
+                context.sendBroadcast(doneBroadcast(context, incidentId))
                 result.success(null)
             }
 
@@ -123,13 +198,19 @@ class AlarmChannel(private val context: Context) {
                     result.success(null)
                     return
                 }
-                stopService("dart_silence")
-                val seconds = IncidentRearm.rearm(
-                    context = context,
-                    incidentId = incidentId,
-                    title = call.argument<String>("title"),
-                    body = call.argument<String>("body"),
-                )
+                // This incident only. One service holds every un-acked
+                // incident, and stopping it outright silenced the others too.
+                AlarmForegroundService.stopIncident(context, incidentId)
+                // Under the incident's lock, so it never lands between a
+                // guarded stop's check and its cancel.
+                val seconds = synchronized(RingLocks.of(incidentId)) {
+                    IncidentRearm.rearm(
+                        context = context,
+                        incidentId = incidentId,
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                    )
+                }
                 IncidentCards.show(
                     context = context,
                     incidentId = incidentId,
@@ -146,6 +227,46 @@ class AlarmChannel(private val context: Context) {
                 val incidentId = call.argument<String>("incident_id")
                 if (!incidentId.isNullOrEmpty()) IncidentRearm.cancel(context, incidentId)
                 result.success(null)
+            }
+
+            // The server says the incident is acked, closed or expired, and
+            // Dart learned it some way other than a state push. The same as
+            // that push, and only when this phone still rings for it or has a
+            // ring set. Answers whether it stopped anything. Launch
+            // reconcile sends `apply_when_nothing` (fix the card in the same
+            // locked step when nothing is set) and, for a 404, `keep_live`
+            // (never stop a live ring).
+            "applyRemoteState" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(RemoteStateRule.Outcome.REFUSED.wire)
+                    return
+                }
+                result.success(
+                    PushRouter(context).applyRemoteState(
+                        incidentId = incidentId,
+                        state = call.argument<String>("state"),
+                        expectedGeneration = call.argument<Number>("generation")?.toLong(),
+                        applyWhenNothing = call.argument<Boolean>("apply_when_nothing") == true,
+                        keepLive = call.argument<Boolean>("keep_live") == true,
+                    ).wire,
+                )
+            }
+
+            "liveIncidentIds" -> result.success(PushRouter(context).liveIncidentIds())
+
+            // Read before Dart asks the server, handed back with the answer.
+            "ringGeneration" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(null)
+                    return
+                }
+                result.success(
+                    synchronized(RingLocks.of(incidentId)) {
+                        IncidentDeliveryStore(context).ringGeneration(incidentId)
+                    },
+                )
             }
 
             // The acked cards this device still has up. They are plain
@@ -260,6 +381,22 @@ class AlarmChannel(private val context: Context) {
     companion object {
         const val NAME = "app.critalarm/alarm"
         private const val UNSUPPORTED = "unsupported"
+
+        /** Matches AlarmHost.notAcknowledgedCode in Dart and AppDelegate. */
+        private const val NOT_ACKNOWLEDGED = "not_acknowledged"
         private const val TAG = "CritAlarmAlarm"
     }
+
+    /**
+     * The broadcast Done on an acknowledged card sends, as
+     * StatusNotificationFactory and the widgets build it.
+     */
+    private fun doneBroadcast(context: Context, incidentId: String): Intent =
+        Intent(context, IncidentActionReceiver::class.java).apply {
+            action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
+            putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
+            NativeConnectionStore(context).canonicalServer()?.let {
+                putExtra(IncidentActionReceiver.EXTRA_SERVER, it.toString())
+            }
+        }
 }

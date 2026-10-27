@@ -90,3 +90,31 @@ bool routeDotFirstArrivedBetween(
   double b, {
   double firstRunTakes = routeDotTravelTakes,
 }) => a < firstRunTakes && b >= firstRunTakes;
+
+/// Whether the dot keeps its clock when the picture goes from [from] to [to].
+///
+/// Switching between Cloud and your own server changes only the lit route.
+/// The dot then keeps travelling from where it is while the route slides
+/// across, instead of starting over from the tool. A change of status (a
+/// connect starts, lands or fails) starts a new run.
+bool routeDotKeepsClock(ConnectRoutesView from, ConnectRoutesView to) =>
+    from.status == to.status;
+
+/// How much of the picture shows when it is [height] tall.
+///
+/// Fully from [routesPictureFullFrom] up, not at all below
+/// [routesPictureFadeFrom], and a ramp between. A picture that grows from
+/// nothing while the form opens fades in on the way up, instead of appearing
+/// in one frame.
+double routesPictureOpacityAt(double height) {
+  if (height >= routesPictureFullFrom) return 1;
+  if (height <= routesPictureFadeFrom) return 0;
+  return (height - routesPictureFadeFrom) /
+      (routesPictureFullFrom - routesPictureFadeFrom);
+}
+
+/// The height from which the picture is drawn at full strength.
+const double routesPictureFullFrom = 120;
+
+/// The height at which the picture starts to show.
+const double routesPictureFadeFrom = 100;

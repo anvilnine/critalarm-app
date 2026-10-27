@@ -16,6 +16,12 @@ class MemoryAlarmSoundRepository implements AlarmSoundRepository {
       assignments.toSuccess();
 
   @override
+  SoundAssignments assignmentsNow() => assignments;
+
+  @override
+  List<AlarmSound> userSoundsNow() => List<AlarmSound>.of(sounds);
+
+  @override
   Future<AppResult<Unit>> setDefaultSoundId(String soundId) async {
     assignments = assignments.withDefault(soundId);
     return unit.toSuccess();

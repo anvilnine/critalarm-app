@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
-import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -32,14 +31,16 @@ class HistoryCubit extends Cubit<HistoryState> {
     this._incidents, {
     DateTime Function()? now,
     this.identityStore,
-    this.sessionStore,
+    this.featureAccess,
     this.store,
-    this.isSelfHosted = false,
     PlanChanges? planChanges,
   }) : _now = now ?? DateTime.now,
        _planChanges = planChanges ?? appPlanChanges,
        super(const HistoryState()) {
     _planChanges.addListener(_onPlanChanged);
+    _accessSub = featureAccess?.changes
+        .where((feature) => feature == AppFeature.longHistory)
+        .listen((_) => _onPlanChanged());
   }
 
   /// How many alarms one page of the local read holds.
@@ -49,23 +50,22 @@ class HistoryCubit extends Cubit<HistoryState> {
   final DateTime Function() _now;
   final DeviceIdentityStore? identityStore;
 
-  /// Read once per load to tell a self-hosted server from a relay one.
-  final ApiSessionStore? sessionStore;
+  /// Says whether this phone has long history: Hosted, or a server of the
+  /// user's own, which is never sent a tier and has no window. Null in
+  /// tests that do not care, and then the plan's own window applies.
+  final FeatureAccess? featureAccess;
+  StreamSubscription<AppFeature>? _accessSub;
 
   /// The phone's own copy. Null in tests that only exercise the grouping.
   final LocalStore? store;
 
-  /// A self-hosted server is never sent a tier, so it has no window. Read
-  /// again from [sessionStore] on every load.
-  bool isSelfHosted;
-
-  /// Tells this cubit when the plan may have moved, so buying Pro shows the
-  /// older alarms without an app restart.
+  /// Tells this cubit when the caps may have moved, so a new plan shows
+  /// its own window without an app restart.
   final PlanChanges _planChanges;
 
-  /// Whether the account counts as paid. Read from [AccountAccess], so the
-  /// store saying Pro and the developer switch count too.
-  bool _isPaid = false;
+  /// Whether the whole history shows. Read from [featureAccess] on every
+  /// load, so the store saying Hosted and the developer switch count too.
+  bool _hasLongHistory = false;
 
   /// How many pages have been read off disk.
   int _pagesRead = 0;
@@ -107,20 +107,14 @@ class HistoryCubit extends Cubit<HistoryState> {
     final identity = await identityStore?.readOrCreate();
     if (identityStore != null && identity?.accountId == null) return false;
     _caps = identity?.caps ?? AccountCaps.free;
-    _isPaid =
-        identity != null &&
-        AccountAccess(identity, planChanges: _planChanges).isPaid;
-    final session = await sessionStore?.read();
-    if (session != null) {
-      isSelfHosted = session.mode == ServerMode.selfhosted;
-    }
+    _hasLongHistory =
+        await featureAccess?.usableOnceReady(AppFeature.longHistory) ?? false;
     if (!isClosed) {
       emit(
         state.copyWith(
           shownDays: HistoryWindow.shownDays(
-            isPaid: _isPaid,
+            hasLongHistory: _hasLongHistory,
             historyDays: _caps.historyDays ?? 7,
-            isSelfHosted: isSelfHosted,
           ),
         ),
       );
@@ -153,10 +147,9 @@ class HistoryCubit extends Cubit<HistoryState> {
 
   /// The oldest alarm this tier may show, or null for "everything held".
   DateTime? get window => HistoryWindow.lowerBound(
-    isPaid: _isPaid,
+    hasLongHistory: _hasLongHistory,
     historyDays: _caps.historyDays ?? 7,
     now: _now(),
-    isSelfHosted: isSelfHosted,
   );
 
   /// Reads the next page off disk. The list calls this near its end.
@@ -232,6 +225,7 @@ class HistoryCubit extends Cubit<HistoryState> {
   @override
   Future<void> close() async {
     _planChanges.removeListener(_onPlanChanged);
+    await _accessSub?.cancel();
     await _incidentsSub?.cancel();
     return super.close();
   }

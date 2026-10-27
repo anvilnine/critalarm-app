@@ -5,8 +5,8 @@
   "pages": [
     {
       "slug": "ntfy-compatibility",
-      "title": "ntfy Compatibility",
-      "description": "Which ntfy headers, endpoints and options Crit Alarm supports, and where it differs on purpose.",
+      "title": "Publish header reference",
+      "description": "Which publish headers, aliases and options Crit Alarm accepts, ignores or rejects, and where it differs from ntfy on purpose.",
       "group": "Getting Started",
       "url": "https://critalarm.app/ntfy-compatibility/"
     },
@@ -61,8 +61,8 @@
     },
     {
       "slug": "api-publish",
-      "title": "Publish API (ntfy-compatible)",
-      "description": "Specification for the ntfy-compatible message publishing and polling HTTP interface.",
+      "title": "Publish API",
+      "description": "Specification for the HTTP interface that publishes and polls messages.",
       "group": "API Contract",
       "url": "https://critalarm.app/api-publish/"
     },

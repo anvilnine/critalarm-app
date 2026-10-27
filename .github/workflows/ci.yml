@@ -79,6 +79,9 @@ jobs:
       - name: Localization check
         run: sh tool/check_l10n.sh
 
+      - name: Access check
+        run: sh tool/check_access.sh
+
       - name: Test
         run: flutter test
 

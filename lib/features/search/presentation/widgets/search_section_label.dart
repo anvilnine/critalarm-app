@@ -7,7 +7,13 @@ import 'package:flutter/material.dart';
 /// The label over each group of results: the app's [AppSectionHeader], with an
 /// optional link on the right that Recent uses for its clear button.
 class SearchSectionLabel extends StatelessWidget {
-  const SearchSectionLabel(this.title, {this.action, this.onAction, super.key});
+  const SearchSectionLabel(
+    this.title, {
+    this.action,
+    this.onAction,
+    this.padding = _inset,
+    super.key,
+  });
 
   static const double height = 30;
 
@@ -20,6 +26,9 @@ class SearchSectionLabel extends StatelessWidget {
   );
 
   final String title;
+
+  /// Around the title. Inside a card the default is 6 too far in.
+  final EdgeInsets padding;
   final String? action;
   final VoidCallback? onAction;
 
@@ -33,14 +42,14 @@ class SearchSectionLabel extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: height),
       child: Row(
         children: <Widget>[
-          Expanded(child: AppSectionHeader(title, padding: _inset)),
+          Expanded(child: AppSectionHeader(title, padding: padding)),
           if (label != null)
             InkWell(
               onTap: onAction,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.s2,
-                  vertical: Spacing.s1,
+                  horizontal: Spacing.s3,
+                  vertical: Spacing.s2,
                 ),
                 child: Text(
                   label,
@@ -49,7 +58,11 @@ class SearchSectionLabel extends StatelessWidget {
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: colors.highlight,
+                    // Ink with an underline: the blue accent is too dim on the
+                    // dark card.
+                    color: colors.ink,
+                    decoration: TextDecoration.underline,
+                    decorationColor: colors.ink3,
                   ),
                 ),
               ),

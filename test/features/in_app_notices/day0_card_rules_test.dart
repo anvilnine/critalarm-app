@@ -16,7 +16,7 @@ void main() {
   /// Everything true, nothing shown before: the card starts.
   Day0CardDecision decide({
     bool isHosted = true,
-    bool isPaid = false,
+    bool holdsHosted = false,
     bool isSetupDone = true,
     bool isFirstMessageReceived = true,
     DateTime? firstRealAckAt,
@@ -31,7 +31,7 @@ void main() {
     List<DateTime?> otherAskedAt = const [],
   }) => Day0CardRules.decide(
     isHosted: isHosted,
-    isPaid: isPaid,
+    holdsHosted: holdsHosted,
     isSetupDone: isSetupDone,
     isFirstMessageReceived: isFirstMessageReceived,
     firstRealAckAt: hasFirstRealAck
@@ -58,7 +58,7 @@ void main() {
     });
 
     test('a paid account keeps it away', () {
-      expect(decide(isPaid: true), Day0CardDecision.none);
+      expect(decide(holdsHosted: true), Day0CardDecision.none);
     });
 
     test('setup not done keeps it away', () {
@@ -185,7 +185,7 @@ void main() {
 
     test('goes quiet when the user pays, or on web, or in an alarm', () {
       expect(
-        decide(shownAt: shownAt, openCount: 1, isPaid: true),
+        decide(shownAt: shownAt, openCount: 1, holdsHosted: true),
         Day0CardDecision.none,
       );
       expect(
@@ -207,7 +207,7 @@ void main() {
     setUp(() {
       notices = FakeInAppNoticeRepository()..now = () => now;
       account = _MockAccount();
-      when(account.readIsPaid).thenAnswer((_) async => false);
+      when(account.readHoldsHosted).thenAnswer((_) async => false);
       when(account.readServerMode).thenAnswer((_) async => ServerMode.hosted);
       firstMessage = FakeFirstMessageStore()..isReceived = true;
       notices.firstRealAcknowledgedAt = now.subtract(const Duration(days: 1));
@@ -227,7 +227,7 @@ void main() {
     });
 
     test('a failed paid read counts as paid', () async {
-      when(account.readIsPaid).thenThrow(StateError('keychain'));
+      when(account.readHoldsHosted).thenThrow(StateError('keychain'));
       expect(await rules().next(isNewOpen: true), Day0CardDecision.none);
     });
 

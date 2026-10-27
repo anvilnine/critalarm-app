@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
@@ -37,8 +38,8 @@ void main() {
       expect(listed.every((b) => b.inThisBuild), isTrue, reason: product.key);
       expect(listed.every((b) => b.product == product), isTrue);
     }
+    // Nothing waits today. The check stays for the next benefit that does.
     final hidden = allPaywallBenefits.where((b) => !b.inThisBuild);
-    expect(hidden, isNotEmpty);
     final shown = {
       for (final product in PaywallProduct.values)
         ...paywallBenefitsFor(product).map((b) => b.id),
@@ -68,8 +69,8 @@ void main() {
     }
   });
 
-  test('Hosted lists four of the benefits in HostedBenefit.all, in its order: '
-      'widgets are listed under Pro', () {
+  test('Hosted lists the benefits of HostedBenefit.all that have a line '
+      'and a preview for a layout, in its order', () {
     final hosted = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.hosted)
         .toList();
@@ -78,15 +79,36 @@ void main() {
       PaywallBenefitId.pushes,
       PaywallBenefitId.history,
       PaywallBenefitId.appIcons,
+      PaywallBenefitId.reliabilityChecks,
     ]);
+    // The weekly delivery check closes the list, as it does
+    // `HostedBenefit.all`. Every Hosted benefit is listed, in order.
+    expect(HostedBenefit.all.last.id, HostedBenefitId.weeklyCheck);
+    // The weekly check's layout benefit id is the one Pro had for it.
     expect(
-      hosted.map((b) => b.id.name),
-      HostedBenefit.all
-          .where((b) => b.id != HostedBenefitId.widgets)
-          .map((b) => b.id.name),
+      hosted.map((b) => b.feature),
+      HostedBenefit.all.map((b) => b.feature),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
-    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));
+    expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(5));
+  });
+
+  test("the Hosted weekly check has the weekly check screen's line and its "
+      'own preview, and Pro does not list it', () {
+    final weekly = allPaywallBenefits.singleWhere(
+      (b) => b.id == PaywallBenefitId.reliabilityChecks,
+    );
+    expect(weekly.product, PaywallProduct.hosted);
+    expect(weekly.feature, AppFeature.weeklyCheck);
+    expect(weekly.lineKey, 'weekly_check.what_line');
+    expect(weekly.line, strings['weekly_check.what_line']);
+    expect(weekly.previewId, PaywallPreviewId.weeklyCheck);
+    expect(weekly.inThisBuild, isTrue);
+    expect(weekly.title, strings['hosted_benefits.weekly_check.compare_label']);
+    expect(
+      paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id),
+      isNot(contains(PaywallBenefitId.reliabilityChecks)),
+    );
   });
 
   test('Hosted lines read their numbers from the one place', () {
@@ -108,55 +130,58 @@ void main() {
     }
   });
 
-  test('Pro lists five benefits, in the order they are sold', () {
+  test('Pro lists four benefits, in the order they are sold', () {
     final pro = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.pro)
         .toList();
     expect(pro.map((b) => b.id), [
       PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.widgets,
-      PaywallBenefitId.reliabilityChecks,
+      // The weekly check left this list when Hosted began to unlock it.
       PaywallBenefitId.customSounds,
       PaywallBenefitId.customAlarmScreens,
     ]);
   });
 
-  test('a store build lists only the two Pro benefits the app has today', () {
+  test('a store build lists the four Pro benefits the app has today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
+      // Type the topic name, type the alert title, a sum and a scratch
+      // card, each asked before "At my desk".
+      PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.widgets,
-      PaywallBenefitId.reliabilityChecks,
+      // A file picked or a recording, as its line says.
+      PaywallBenefitId.customSounds,
+      // Four fixed looks and the person's own photo are in the app.
+      PaywallBenefitId.customAlarmScreens,
     ]);
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
         .map((b) => b.id);
-    expect(waiting, [
-      PaywallBenefitId.wakeUpChallenges,
-      PaywallBenefitId.customSounds,
-      PaywallBenefitId.customAlarmScreens,
-    ]);
+    expect(waiting, isEmpty);
   });
 
   test('no benefit is listed under both products', () {
     final ids = allPaywallBenefits.map((b) => b.id).toList();
     expect(ids.toSet(), hasLength(ids.length));
+    // Every id is listed once: the weekly check under Hosted only, since
+    // Pro does not unlock it.
     expect(ids.toSet(), PaywallBenefitId.values.toSet());
   });
 
-  test('reliability checks are drawn with the weekly check preview, and '
-      'widgets with the widgets one', () {
-    PaywallPreviewId previewOf(PaywallBenefitId id) =>
-        allPaywallBenefits.firstWhere((b) => b.id == id).previewId;
+  test('widgets are drawn with the widgets preview', () {
     expect(
-      previewOf(PaywallBenefitId.reliabilityChecks),
-      PaywallPreviewId.weeklyCheck,
+      allPaywallBenefits
+          .firstWhere((b) => b.id == PaywallBenefitId.widgets)
+          .previewId,
+      PaywallPreviewId.widgets,
     );
-    expect(previewOf(PaywallBenefitId.widgets), PaywallPreviewId.widgets);
   });
 
   test('every benefit has its own id and its own preview', () {
     final all = allPaywallBenefits;
     expect(all.map((b) => b.id).toSet(), hasLength(all.length));
     expect(all.map((b) => b.previewId).toSet(), hasLength(all.length));
+    // Every preview is drawn by some benefit.
     expect(
       all.map((b) => b.previewId).toSet(),
       PaywallPreviewId.values.toSet(),
@@ -181,7 +206,6 @@ void main() {
       'paywall_kit.button_get',
       'paywall_kit.button_get_price',
       'paywall_kit.not_on_sale',
-      'paywall_kit.plain.headline_pro',
       'paywall_hero.headline_pro',
     ]) {
       expect(banned.hasMatch(strings[key]!), isFalse, reason: key);

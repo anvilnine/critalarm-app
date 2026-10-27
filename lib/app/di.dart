@@ -1,13 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:critalarm/app/access/hosted_holding_source.dart';
+import 'package:critalarm/app/access/observed_api_session_store.dart';
+import 'package:critalarm/app/access/pro_holding_source.dart';
+import 'package:critalarm/app/access/sure_lock.dart';
+import 'package:critalarm/app/account_data.dart';
+import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
+import 'package:critalarm/app/l10n/language_feedback.dart';
+import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/app/sound_lock_sync.dart';
+import 'package:critalarm/app/state/critical_topic_count.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/access_override.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/dev_access_switches.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
@@ -20,7 +38,6 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -28,6 +45,7 @@ import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
@@ -35,15 +53,15 @@ import 'package:critalarm/core/device/os_version_reader.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/l10n/native_locale_bridge.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
-import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
-import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
@@ -54,6 +72,9 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
+import 'package:critalarm/core/sound/share_copy_path.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack_host.dart';
@@ -64,6 +85,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -73,17 +95,27 @@ import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
+import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
+import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
+import 'package:critalarm/features/challenges/presentation/challenge.dart';
 import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
 import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -97,10 +129,17 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
-import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
+import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
+import 'package:critalarm/features/incidents/data/own_look/platform_own_photo_picker.dart';
+import 'package:critalarm/features/incidents/data/own_look/ui_own_photo_codec.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -108,8 +147,10 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
@@ -137,6 +178,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
@@ -157,6 +199,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flo
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -181,11 +224,15 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
+import 'package:critalarm/features/paywall/data/asset_price_book.dart';
+import 'package:critalarm/features/paywall/data/history_own_reader.dart';
+import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
+import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
@@ -209,25 +256,23 @@ import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
-import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart';
 import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_proof_log_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/domain/os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
@@ -275,6 +320,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_useca
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/priorities_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
@@ -285,12 +331,15 @@ import 'package:critalarm/features/topics/data/api_first_message_source.dart';
 import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/data/prefs_setup_checklist_store.dart';
+import 'package:critalarm/features/topics/data/reader_missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/home_card/first_message_expected.dart';
+import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
@@ -302,11 +351,16 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/held_topics.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_card_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
@@ -316,8 +370,11 @@ import 'package:critalarm/firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -332,14 +389,18 @@ const _appIconWelcomedKey = 'app_icon.welcomed';
 Future<void> configureDependencies({
   bool useMockApi = buildUsesMockApi,
   http.Client? httpClient,
+  LocalStore? openedStore,
 }) async {
   final prefs = await SharedPreferences.getInstance();
 
   // The phone's own copy of every incident and message (api.md §4.2, where
   // `history_days` became retention). Web has no sqflite, so the dashboard
   // build keeps reading the server live and every store call is skipped.
-  LocalStore? localStore;
-  if (!kIsWeb) {
+  //
+  // [openedStore] is a store the caller already opened, for a test or a
+  // capture that has no documents directory. It is used as it is.
+  var localStore = openedStore;
+  if (!kIsWeb && localStore == null) {
     try {
       localStore = await LocalStore.open();
     } on Object catch (error, stack) {
@@ -348,6 +409,25 @@ Future<void> configureDependencies({
       debugPrintStack(stackTrace: stack);
     }
   }
+
+  getIt
+    ..registerLazySingleton<NativeLocaleBridge>(
+      () => kIsWeb
+          ? const NoopNativeLocaleBridge()
+          : const MethodChannelNativeLocaleBridge(),
+    )
+    ..registerLazySingleton(() => EasyLocalizationLanguageHost(prefs))
+    ..registerLazySingleton(
+      () => LanguageCubit(
+        host: getIt<EasyLocalizationLanguageHost>(),
+        bridge: getIt<NativeLocaleBridge>(),
+        replanReminders: () => getIt<LocalReminderPlanTrigger>().run(),
+        openReport: LanguageFeedback(
+          readReport: ({required locale}) =>
+              getIt<DeviceReportRepository>().read(locale: locale),
+        ).open,
+      ),
+    );
 
   // The alarm service runs with no Dart engine, so it reads this flag out of
   // the same preferences file rather than asking the app. Written on every
@@ -368,37 +448,36 @@ Future<void> configureDependencies({
   }
 
   if (buildSkipsPaywall) {
+    // The one store behind every developer plan switch: a state per
+    // holding and a server mode, set by the Plans and features lab. The
+    // only place it is handed to the rest of the app. In a store build
+    // appAccessOverride is a NoAccessOverride and this call does nothing.
+    if (!getIt.isRegistered<DevAccessSwitches>()) {
+      getIt.registerSingleton<DevAccessSwitches>(DevAccessSwitches(prefs));
+    }
+    final accessSwitches = getIt<DevAccessSwitches>();
+    appAccessOverride.watch(accessSwitches);
+
+    // The two older toggles are "force held" on that same store. The older
+    // override classes hear it too, for the three readers that are not
+    // Holdings, the Settings plan row among them. In a store build both are
+    // compiled as the No variant.
     if (!getIt.isRegistered<DevProSwitch>()) {
-      getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
+      getIt.registerSingleton<DevProSwitch>(DevProSwitch(accessSwitches));
     }
-    // The only place the switch is handed to the rest of the app. In a store
-    // build appProOverride is a NoProOverride and this call does nothing.
     appProOverride.watch(getIt<DevProSwitch>());
-
-    // The same for the Pro pack: its own switch, its own override. A store
-    // build compiles appProPackOverride as a NoProPackOverride.
     if (!getIt.isRegistered<ProPackDevSwitch>()) {
-      getIt.registerSingleton<ProPackDevSwitch>(PrefsProPackDevSwitch(prefs));
-    }
-    appProPackOverride.watch(getIt<ProPackDevSwitch>());
-  }
-
-  if (buildHasPaywallLab) {
-    if (!getIt.isRegistered<DevPaywallVariantSwitch>()) {
-      getIt.registerSingleton<DevPaywallVariantSwitch>(
-        DevPaywallVariantSwitch(prefs),
+      getIt.registerSingleton<ProPackDevSwitch>(
+        PrefsProPackDevSwitch(accessSwitches),
       );
     }
-    // Same shape as the Force Pro switch. A store build compiles
-    // appPaywallVariantOverride as a NoPaywallVariantOverride, so this call
-    // does nothing and Remote Config stays in charge.
-    appPaywallVariantOverride.watch(getIt<DevPaywallVariantSwitch>());
+    appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
 
   if (buildHasPaywallLayoutSwitch) {
     // What each product's paywall opens, set in Developer options. A store
     // build compiles appPaywallLayoutOverride as a NoPaywallLayoutOverride,
-    // registers nothing here and follows the remote values.
+    // registers nothing here and opens the coded defaults.
     if (!getIt.isRegistered<DevPaywallLayoutSwitches>()) {
       getIt.registerSingleton<DevPaywallLayoutSwitches>(
         DevPaywallLayoutSwitches(
@@ -407,13 +486,42 @@ Future<void> configureDependencies({
             DevPaywallLayoutSwitch.hostedKey,
           ),
           pro: DevPaywallLayoutSwitch(prefs, DevPaywallLayoutSwitch.proKey),
+          hostedIntro: DevPaywallIntroSwitch(
+            prefs,
+            DevPaywallIntroSwitch.hostedKey,
+          ),
+          proIntro: DevPaywallIntroSwitch(prefs, DevPaywallIntroSwitch.proKey),
+          hostedThanks: DevPaywallThanksSwitch(
+            prefs,
+            DevPaywallThanksSwitch.hostedKey,
+          ),
+          proThanks: DevPaywallThanksSwitch(
+            prefs,
+            DevPaywallThanksSwitch.proKey,
+          ),
+          hostedOutro: DevPaywallOutroSwitch(
+            prefs,
+            DevPaywallOutroSwitch.hostedKey,
+          ),
+          proOutro: DevPaywallOutroSwitch(prefs, DevPaywallOutroSwitch.proKey),
         ),
       );
+    }
+    // Which flavour the intro scores play in. A store build has no switch
+    // and plays the first.
+    if (!getIt.isRegistered<DevIntroSoundSwitch>()) {
+      getIt.registerSingleton<DevIntroSoundSwitch>(DevIntroSoundSwitch(prefs));
     }
     final layoutSwitches = getIt<DevPaywallLayoutSwitches>();
     appPaywallLayoutOverride.watch(
       hosted: layoutSwitches.hosted,
       pro: layoutSwitches.pro,
+      hostedIntro: layoutSwitches.hostedIntro,
+      proIntro: layoutSwitches.proIntro,
+      hostedThanks: layoutSwitches.hostedThanks,
+      proThanks: layoutSwitches.proThanks,
+      hostedOutro: layoutSwitches.hostedOutro,
+      proOutro: layoutSwitches.proOutro,
     );
   }
 
@@ -468,6 +576,13 @@ Future<void> configureDependencies({
     getIt.registerSingleton<RevenueCatService>(revenueCatService);
   }
 
+  // The prices a paywall shows when the store sends none, read once.
+  if (!getIt.isRegistered<PriceBook>()) {
+    final priceBook = await AssetPriceBook.load(rootBundle);
+    PriceBookInUse.current = priceBook;
+    getIt.registerSingleton<PriceBook>(priceBook);
+  }
+
   final deviceForm = await DeviceForm.read();
   appEdgeEffect.value = autoEdgeEffect(
     platform: defaultTargetPlatform,
@@ -498,12 +613,30 @@ Future<void> configureDependencies({
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
+    // The accelerometer, for the shake challenge. On the web and in a test
+    // the channel has no native side, the stream says so, and the
+    // challenge offers taps.
+    ..registerLazySingleton<MotionSensor>(MotionSensorHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
+    // The same store as before, wrapped so feature access hears the server
+    // mode of every session that is read or written.
+    ..registerLazySingleton<ObservedApiSessionStore>(
+      () => ObservedApiSessionStore(
+        SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+      ),
+    )
     ..registerLazySingleton<ApiSessionStore>(
-      () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+      getIt.get<ObservedApiSessionStore>,
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => identityStore,
+    )
+    // What the phone's backups do with this app. Only an iPhone restores
+    // anything, so only an iPhone has something to ask.
+    ..registerLazySingleton<BackupHost>(
+      () => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+          ? const ChannelBackupHost()
+          : const NoBackupHost(),
     )
     // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
     // raw APNs token. Android registers the FCM one (§5.2).
@@ -539,6 +672,11 @@ Future<void> configureDependencies({
       final Object api = getIt<ApiClient>();
       return api is WeeklyCheckApi ? api : const NoWeeklyCheckApi();
     })
+    // The phone's own record of the weeks an alarm or a check got through.
+    // Three writers observe into it, and the account's data list drops it.
+    ..registerLazySingleton(
+      () => ProofLog(SharedPrefsProofLogStore(getIt<SharedPreferences>())),
+    )
     ..registerLazySingleton<WeeklyCheckStore>(
       () => SharedPrefsWeeklyCheckStore(getIt<SharedPreferences>()),
     )
@@ -548,22 +686,26 @@ Future<void> configureDependencies({
         store: getIt<WeeklyCheckStore>(),
         readDeviceId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
-        onPackRefused: (packId) => getIt<ProPackAccess>().relayRefused(packId),
+        readAccess: _weeklyCheckAccess,
+        proofLog: getIt<ProofLog>(),
+        // The relay says the account is not on Hosted. A registration
+        // brings the tier the relay holds now, and the Hosted source reads
+        // it from the saved identity.
+        onTierRefused: () async {
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
       );
-      // Gaining or losing the pack changes what the relay answers for the
-      // weekly check, so it is read again at once.
-      getIt<ProPackAccess>().stream.listen(
-        (_) => unawaited(monitor.refresh(force: true)),
-      );
+      // Hosted bought, lapsed or back, or another kind of server: each
+      // changes what the relay sends this phone, so the check is read
+      // again at once. On a server of the user's own this is also what
+      // tells the relay to stop. Nothing waits on it.
+      getIt<FeatureAccess>().changes
+          .where((feature) => feature == AppFeature.weeklyCheck)
+          .listen((_) => unawaited(monitor.accessChanged()));
       return monitor;
     })
     ..registerLazySingleton<WeeklyCheckCubit>(
-      () => WeeklyCheckCubit(
-        monitor: getIt<WeeklyCheckMonitor>(),
-        readIsSelfHosted: () async =>
-            (await getIt<ApiSessionStore>().read())?.mode ==
-            ServerMode.selfhosted,
-      ),
+      () => WeeklyCheckCubit(monitor: getIt<WeeklyCheckMonitor>()),
     )
     ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
     // The pack routes live on the same client. A client swapped in by a test
@@ -588,20 +730,69 @@ Future<void> configureDependencies({
         identityChanges: [appAccountIdentityChanges, appPlanChanges],
       ),
     )
+    // What this install holds. One source per thing a person can buy, and
+    // the sources are the only readers of the store, the relay's answer and
+    // the developer switches.
+    ..registerLazySingleton<HostedHoldingSource>(
+      () => HostedHoldingSource(
+        readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        // The source keeps the last tier it read. Every write to the store
+        // makes it read again, so a sign-out or a deleted account never
+        // leaves the old tier standing.
+        identityChanges: [
+          appAccountIdentityChanges,
+          getIt<DeviceIdentityStore>().changes,
+        ],
+        readStore: buildSkipsPaywall ? null : getIt.get<SubscriptionRepository>,
+        // The developer switch is not read in here. It reaches Holdings
+        // through the wrapper below, so this source says what the server
+        // and the store say.
+        proOverride: const NoProOverride(),
+      ),
+    )
+    // Each source with the developer override in front of it: the one seam
+    // that can force a holding's state, for every holding. A store build
+    // compiles the override as a NoAccessOverride, and each wrapper then
+    // answers with its source's own state.
+    ..registerLazySingleton<List<OverriddenHoldingSource>>(
+      () => [
+        OverriddenHoldingSource(getIt<HostedHoldingSource>()),
+        OverriddenHoldingSource(
+          ProHoldingSource(getIt<ProPackAccess>(), countsDevSwitch: false),
+        ),
+      ],
+    )
+    ..registerLazySingleton<Holdings>(
+      () => Holdings(getIt<List<OverriddenHoldingSource>>()),
+    )
+    // The saved session's server mode, with the same override in front.
+    ..registerLazySingleton<OverriddenServerMode>(
+      () => OverriddenServerMode(getIt<ObservedApiSessionStore>().mode),
+    )
+    // Whether a feature is open. The server mode comes from the saved
+    // session: the one on disk at launch, then every connect that writes a
+    // new one.
+    ..registerLazySingleton<FeatureAccess>(() {
+      final sessions = getIt<ObservedApiSessionStore>();
+      final mode = getIt<OverriddenServerMode>();
+      final access = FeatureAccess(
+        holdings: getIt<Holdings>(),
+        serverMode: mode.value,
+        // `ready` waits for this, so nothing is taken away from a phone on
+        // its own server before the saved session says so.
+        serverModeRead: sessions.read().then<void>(
+          (_) {},
+          onError: (Object _) {},
+        ),
+      );
+      mode.changes.addListener(() => access.setServerMode(mode.value));
+      return access;
+    })
     // A build that skips the store has nothing on sale.
     ..registerLazySingleton<ProPackShop>(
       () => buildSkipsPaywall
           ? const ClosedProPackShop()
           : RevenueCatProPackShop(getIt<RevenueCatService>()),
-    )
-    ..registerFactory(
-      () => ProPackSheetCubit(
-        access: getIt<ProPackAccess>(),
-        shop: getIt<ProPackShop>(),
-        analytics: getIt.isRegistered<TelemetryGate>()
-            ? ProPackAnalytics(getIt<TelemetryGate>())
-            : null,
-      ),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
@@ -732,7 +923,7 @@ Future<void> configureDependencies({
             getIt<ProPackAccess>().relayAnswered(
               accountId: response.accountId,
               packs: response.packs,
-              tier: response.tier,
+              tier: response.tier, // access-ok: hands it to the Pro source
               relay: relayUri,
               request: request,
             ),
@@ -754,6 +945,11 @@ Future<void> configureDependencies({
         sessions: getIt<ApiSessionStore>(),
         prefs: getIt<SharedPreferences>(),
         providers: getIt<ProviderSignIn>(),
+        // iOS preferences go into iCloud and computer backups, so the
+        // session token is a ThisDeviceOnly Keychain item there.
+        tokens: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+            ? KeychainIdentityTokenStore(getIt<SharedPreferences>())
+            : PrefsIdentityTokenStore(getIt<SharedPreferences>()),
         identityChanges: appAccountIdentityChanges,
       ),
     )
@@ -765,13 +961,12 @@ Future<void> configureDependencies({
         register: getIt<RegisterDeviceUsecase>(),
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
-        acks: getIt<AckQueue>(),
-        messageCursors: getIt<MessageSyncService>(),
-        recentSearches: getIt<RecentSearchesRepository>(),
+        forgetAccountData: () => getIt<AccountData>().forget(),
         signOutBilling: buildSkipsPaywall
             ? null
             : () => getIt<RevenueCatService>().logOut(),
         stopAlarm: getIt<AlarmHost>().stopRinging,
+        holdings: getIt<Holdings>(),
       ),
     )
     ..registerLazySingleton<InAppNoticeRepository>(
@@ -817,9 +1012,7 @@ Future<void> configureDependencies({
               since: 'all',
             )).fold((messages) => messages.isNotEmpty, (_) => true),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
-        readIsPaid: () async =>
-            (await getIt<AccountRepository>().readIsPaid()) ||
-            appProOverride.isForcingPro,
+        readHoldsHosted: _holdsHosted,
         readIsSignedIn: () async =>
             (await getIt<IdentityRepository>().readIdentity()) != null,
         proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
@@ -914,6 +1107,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DeviceReportRepository>(
       () => PlatformDeviceReportRepository(
         accountRepository: getIt<AccountRepository>(),
+        holdings: getIt<Holdings>(),
       ),
     )
     ..registerLazySingleton<LaunchCallLog>(LaunchCallLog.new)
@@ -1102,6 +1296,13 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ToolTemplateStore>(
       () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
     )
+    // What the user said they send alarms from. A preference: setup ending
+    // and a sign-out leave it. The replay holder keeps a replay's pick in
+    // memory only.
+    ..registerLazySingleton<SetupUseStore>(
+      () => SharedPrefsSetupUseStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<SetupUseReplay>(SetupUseReplay.new)
     // "A first message arrived", set once, and where each topic's watch
     // for it starts from.
     ..registerLazySingleton<FirstMessageStore>(
@@ -1167,10 +1368,8 @@ Future<void> configureDependencies({
         },
         readAccountId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
-        holdsPro: () => getIt<ProPackAccess>().isHeld,
-        readHoldsHosted: () async =>
-            (await getIt<AccountRepository>().readIsPaid()) ||
-            appProOverride.isForcingPro,
+        holdsPro: () => getIt<Holdings>().holdsConfirmed(Holding.pro),
+        readHoldsHosted: _holdsHosted,
         isSetupComplete: () async =>
             (await getIt<GetOnboardingCompletedUsecase>()(
               const NoParams(),
@@ -1179,6 +1378,30 @@ Future<void> configureDependencies({
         readFlowSteps: () => getIt<OnboardingFlowEngine>().runningFlow().steps,
         readCompletedSteps: () =>
             getIt<OnboardingFlowRepository>().read().completed,
+        readUse: ({required isReplay}) => setupUseFor(
+          isReplay: isReplay,
+          store: getIt<SetupUseStore>(),
+          replay: getIt<SetupUseReplay>(),
+        ),
+        // The topic setup made: in memory while the run lasts, else the
+        // name the phone kept.
+        readTopicName: () =>
+            getIt<FirstTopicHandoff>().entry?.topicName ??
+            getIt<FirstTopicHandoff>().savedTopicName,
+        // The store's answer about the product, asked for when the real
+        // alarm step starts and read by "It works" and by the offer step.
+        readSale: (product) => getIt<OfferSaleProbe>().answerFor(product),
+        startSale: (product) => getIt<OfferSaleProbe>().start(product),
+        // Only a build that skips the store has the made-up buy model, the
+        // one a replay may play the offer on.
+        readUsesDemoStore: () => buildSkipsPaywall,
+      ),
+    )
+    // The one store check of the offer, shared by the gate and the step. It
+    // makes the buy model the paywall route makes.
+    ..registerLazySingleton(
+      () => OfferSaleProbe(
+        makeBuyModel: (product) => getIt<PaywallBuyCubit>(param1: product),
       ),
     )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the
@@ -1345,6 +1568,9 @@ Future<void> configureDependencies({
       () => ImportSoundUsecase(
         getIt<AlarmSoundRepository>(),
         getIt<SoundHost>(),
+        isLocked: () async => ownSoundsLockedBy(
+          await ownSoundsOnceReady(getIt<FeatureAccess>()),
+        ),
       ),
     )
     ..registerLazySingleton(
@@ -1370,12 +1596,10 @@ Future<void> configureDependencies({
                 .getOrNull()
                 ?.serverUrl,
         // A connect to a different server drops what belongs to the old
-        // one: the same four things an account wipe drops, plus the
-        // archive. Settings, sounds, permissions and the rest stay.
+        // one: everything an account wipe drops, plus the archive.
+        // Settings, sounds, permissions and the rest stay.
         forgetServerData: () async {
-          await getIt<AckQueue>().clear();
-          await getIt<MessageSyncService>().resetAllCursors();
-          await getIt<RecentSearchesRepository>().clear();
+          await getIt<AccountData>().forget();
           await localStore?.clearServerData();
         },
       ),
@@ -1409,6 +1633,26 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         deleteTopic: getIt<DeleteTopicUsecase>(),
         incidents: getIt<IncidentsCubit>(),
+        // A deleted topic takes its wake-up challenge and its flag along,
+        // and the look it had picked for its alarm screen.
+        onDeleted: (name) async {
+          await getIt<ChallengeChoices>().forgetTopic(name);
+          await getIt<ChallengeFlagSync>().check();
+          await getIt<AlarmStyleChoices>().forgetTopic(name);
+        },
+        // The list is kept on the phone for the server and account it is on
+        // now. Where the store is not open the list stays in memory only.
+        held: localStore?.topics,
+        heldScope: () async {
+          final connection = (await getIt<GetConnectionUsecase>()(
+            const NoParams(),
+          )).getOrNull();
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          return heldScopeFor(
+            serverUrl: connection?.serverUrl,
+            accountId: identity.accountId,
+          );
+        },
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
@@ -1425,28 +1669,250 @@ Future<void> configureDependencies({
     )
     // The home and lock screen widgets read a snapshot of the two lists
     // above. This writes it whenever either list changes.
-    ..registerLazySingleton(
-      () => WidgetSync(
+    ..registerLazySingleton(() {
+      final sync = WidgetSync(
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
         host: getIt<WidgetHost>(),
         isConnected: () async =>
             (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
-        // Widgets are part of Pro on the hosted plan. A self-hosted server
-        // has no plans, so it never locks.
-        isLocked: () async {
-          final account = getIt<AccountRepository>();
-          return await account.readServerMode() == ServerMode.hosted &&
-              !await account.readIsPaid();
+        // The lock is drawn by the widget itself, outside the app, and a
+        // wrong one takes the widgets away. So this waits until the plan
+        // and the saved server have been read before it answers.
+        isLocked: () async =>
+            !await getIt<FeatureAccess>().canOnceReady(AppFeature.widgets),
+      );
+      // The lock follows the widgets decision: a purchase, a plan that
+      // ended, a server that became known. Neither list changes then, so
+      // this is what writes the snapshot again.
+      getIt<FeatureAccess>().changes
+          .where((feature) => feature == AppFeature.widgets)
+          .listen((_) => sync.rewrite());
+      return sync;
+    })
+    // The one list of what belongs to an account on this phone. A sign-out,
+    // an account delete and a connect to a different server all call it.
+    ..registerLazySingleton(
+      () => AccountData(
+        acks: getIt<AckQueue>(),
+        messageCursors: getIt<MessageSyncService>(),
+        recentSearches: getIt<RecentSearchesRepository>(),
+        challenges: getIt<ChallengeChoices>(),
+        alarmStyles: getIt<AlarmStyleChoices>(),
+        soundLock: getIt<OwnSoundLockFlag>(),
+        ownLook: getIt<OwnLookStore>(),
+        proofLog: getIt<ProofLog>(),
+        heldTopics: localStore?.topics,
+        // Not waited for: each check asks the access layer, and neither a
+        // wipe nor a connect waits on a plan.
+        afterForget: () async {
+          unawaited(getIt<SoundLockSync>().checkAfterWipe());
+          unawaited(getIt<ChallengeFlagSync>().checkAfterWipe());
+          unawaited(getIt<AlarmStyleGate>().check());
         },
+      ),
+    )
+    // An install restored onto another phone starts as a phone the relay
+    // has never seen. Run once at launch, before anything reads the
+    // identity. It drops account data through the list above and nothing
+    // else, then the identity, then connects again as a new device.
+    ..registerLazySingleton(
+      () => MovedPhoneReset(
+        host: getIt<BackupHost>(),
+        forgetAccountData: () => getIt<AccountData>().forget(),
+        forgetRestoredSignIn: () =>
+            getIt<IdentityRepository>().forgetRestoredSignIn(),
+        sessions: getIt<ApiSessionStore>(),
+        connections: getIt<ConnectionRepository>(),
+        devices: getIt<DeviceIdentityStore>(),
+        forgetSentPushToken: () async {
+          final prefs = getIt<SharedPreferences>();
+          await prefs.remove(DeviceTokenRegistry.lastTokenKey);
+          await prefs.remove(DeviceTokenRegistry.lastVersionKey);
+          await prefs.remove(DeviceTokenRegistry.lastKindKey);
+          // The old phone's Live Activity tokens: the ones the relay took,
+          // and any the old phone had not sent yet. iOS keeps the second
+          // list itself (`IncidentActivityCoordinator.pendingTokensKey`).
+          await prefs.remove(LiveActivityTokenRegistry.acceptedKey);
+          await prefs.remove('pending_activity_tokens');
+        },
+        reconnect: (serverUrl) => getIt<BackgroundConnect>().start(serverUrl),
+      ),
+    )
+    // The one flag native code reads to know own sounds are locked. It
+    // follows the own sounds decision: a purchase, a pack that ended, a
+    // server that became known. It is written only on a sure answer, so
+    // this waits for the plan and the saved server to be read, and a plan
+    // that cannot be read leaves the last value alone.
+    //
+    // The flag is kept with the tag of the account it was written for, and
+    // a flag for another account is taken away at the start of every check.
+    ..registerLazySingleton(
+      () => OwnSoundLockFlag(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => SoundLockSync(
+        isLocked: () async =>
+            !await getIt<FeatureAccess>().canOnceReady(AppFeature.ownSounds),
+        changes: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
+        keepOnlyOurs: () async => getIt<OwnSoundLockFlag>().keepOnlyFor(
+          accountTagFor(
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+          ),
+        ),
+        readWritten: () => getIt<OwnSoundLockFlag>().written,
+        write: ({required locked}) =>
+            getIt<OwnSoundLockFlag>().write(locked: locked),
+        // The iOS notification extension reads its own copy of the choices.
+        // Android reads the flag where it is written, so there is nothing
+        // to copy and nothing to retry.
+        publish: () async =>
+            !getIt<PlatformCapabilities>().isIos ||
+            await getIt<SoundHost>().publishSoundAssignments(),
+      ),
+    )
+    // Wake-up challenges: each topic's choice, kept on this phone only; the
+    // gate the alarm screen asks before "At my desk" closes an incident;
+    // and the one flag per topic native code reads for its Done button.
+    // None of it is asked before "I'm up", which stops the ring with one
+    // tap on every plan.
+    ..registerLazySingleton<ChallengeChoices>(
+      () => SharedPrefsChallengeChoices(getIt<SharedPreferences>()),
+    )
+    // Alarm screen looks: the phone's choice and each topic's, kept on this
+    // phone only, and the gate the alarm screen asks which one to draw. A
+    // look changes how the in-app alarm screen is drawn and nothing else.
+    ..registerLazySingleton<AlarmStyleChoices>(
+      () => SharedPrefsAlarmStyleChoices(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => AlarmStyleGate(
+        choices: getIt<AlarmStyleChoices>(),
+        decide: () =>
+            getIt<FeatureAccess>().decide(AppFeature.alarmScreenStyles),
+        decideOnceReady: () => getIt<FeatureAccess>().decideOnceReady(
+          AppFeature.alarmScreenStyles,
+        ),
+        // The note of the last sure answer belongs to one account.
+        readAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+        planRead: getIt<FeatureAccess>().ready,
+        changes: [
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.alarmScreenStyles,
+          ),
+        ],
+        // A field read: the alarm screen asks this while it rings.
+        isOwnLookReady: () => getIt<OwnAlarmLookKeeper>().isReady,
+      ),
+    )
+    // The person's own alarm look: one photo in the app's own storage,
+    // its record and its accent in the preferences. The keeper decodes
+    // the photo at launch and holds it, so an alarm that rings loads
+    // nothing. The photo is sent nowhere and is in no backup: the store
+    // keeps its folder out on an iPhone, and Android backs up nothing.
+    ..registerLazySingleton<OwnLookStore>(
+      () => FileOwnLookStore(
+        getIt<SharedPreferences>(),
+        getApplicationSupportDirectory,
+        excludeFromBackup: getIt<BackupHost>().excludeFromBackup,
+      ),
+    )
+    ..registerLazySingleton(
+      () => OwnAlarmLookKeeper(
+        getIt<OwnLookStore>(),
+        // The picture is in memory only while a paid look may ring. With
+        // looks locked it is let go, and decoded again when that changes.
+        mayHold: () => getIt<AlarmStyleGate>().drawsPaidLooks,
+        recheck: [
+          getIt<AlarmStyleGate>().checked,
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.alarmScreenStyles,
+          ),
+        ],
+      ),
+    )
+    ..registerLazySingleton<OwnPhotoPicker>(PlatformOwnPhotoPicker.new)
+    ..registerLazySingleton(
+      () => ImportOwnPhotoUsecase(
+        const UiOwnPhotoCodec(),
+        getIt<OwnLookStore>(),
+        // The last check that looks are open, as the sound import has for
+        // own sounds. Only a sure lock turns a photo away.
+        isLocked: () async => !await getIt<FeatureAccess>().canOnceReady(
+          AppFeature.alarmScreenStyles,
+        ),
+      ),
+    )
+    ..registerLazySingleton(
+      () => ChallengeGate(
+        choices: getIt<ChallengeChoices>(),
+        decide: () =>
+            getIt<FeatureAccess>().decide(AppFeature.wakeUpChallenges),
+        canRun: (kind, incident) =>
+            challengeOf(kind)?.canRunFor(incident) ?? false,
+        planRead: getIt<FeatureAccess>().ready,
+      ),
+    )
+    // The flag is set only on a sure answer, so this waits for the plan and
+    // the saved server to be read, and a plan that cannot be read leaves
+    // what is written alone. Without the plan no flag is ever set.
+    ..registerLazySingleton(
+      () => ChallengeFlagSync(
+        decide: () => getIt<FeatureAccess>().decideOnceReady(
+          AppFeature.wakeUpChallenges,
+        ),
+        changes: [
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.wakeUpChallenges,
+          ),
+          getIt<ChallengeChoices>().changes,
+        ],
+        // A kind this build has no challenge for asks for nothing.
+        readChoices: () => {
+          for (final MapEntry(:key, :value)
+              in getIt<ChallengeChoices>().choices.entries)
+            if (challengeOf(value) != null) key,
+        },
+        readWritten: () => getIt<ChallengeChoices>().flaggedTopics,
+        write: (topic, {required isOwed}) =>
+            getIt<ChallengeChoices>().writeFlag(topic, isOwed: isOwed),
+        // The iOS Live Activity reads its own copy, made with the sound
+        // choices. Android reads the flag where it is written.
+        publish: () async =>
+            !getIt<PlatformCapabilities>().isIos ||
+            await getIt<SoundHost>().publishSoundAssignments(),
+        // A widget showing an acknowledged incident draws its Done button
+        // from the flag, so it is drawn again when a flag changes. The
+        // snapshot rewrite is the refresh the widgets already have.
+        redraw: () => getIt<WidgetSync>().rewrite(),
+        // The flags are kept with the tag of the account they were written
+        // for, and flags for another account go before any is trusted.
+        keepOnlyOurs: () async => getIt<ChallengeChoices>().keepFlagsOnlyFor(
+          accountTagFor(
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+          ),
+        ),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
     // no alarm is going off.
     ..registerLazySingleton(
       () => IncomingAudio(
+        // Both platforms copy a share into incoming_audio under the app's
+        // cache. Only a file there may be opened, and then deleted.
+        isShareCopy: (path) async => isShareCopyPath(
+          path,
+          folder: p.join(
+            (await getApplicationCacheDirectory()).path,
+            shareCopyFolderName,
+          ),
+        ),
         canImportSounds: () async =>
             (await getIt<SoundHost>().capabilities()).canImportSounds,
+        readOwnSounds: () => ownSoundsOnceReady(getIt<FeatureAccess>()),
         isOnboardingDone: () async =>
             (await getIt<GetOnboardingCompletedUsecase>()(
               const NoParams(),
@@ -1507,6 +1973,8 @@ Future<void> configureDependencies({
           // the first topic.
           await getIt<InAppNoticeRepository>().markFirstTopicOwned();
           unawaited(getIt<LocalReminderPlanTrigger>().run());
+          // The phone's copy of the list gains it before the next answer.
+          getIt<TopicsCubit>().noteCreated(topic);
         },
       ),
     )
@@ -1611,7 +2079,11 @@ Future<void> configureDependencies({
       () => AppIconCubit(
         readCurrent: () => getIt<AppIconHost>().current(),
         apply: (icon) => getIt<AppIconHost>().set(icon),
-        readUnlocked: _proIconsUnlocked,
+        readUnlocked: () =>
+            getIt<FeatureAccess>().canOnceReady(AppFeature.appIcons),
+        unlockChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.appIcons,
+        ),
         readWelcomed: () async =>
             getIt<SharedPreferences>().getBool(_appIconWelcomedKey) ?? false,
         markWelcomed: () async {
@@ -1619,22 +2091,22 @@ Future<void> configureDependencies({
         },
       ),
     )
-    // Puts the default icon back once Pro has ended. Asks the store as well
-    // as the server's tier before it does, because the tier can trail a
-    // purchase by a few seconds and a wrong switch costs the user their icon.
+    ..registerLazySingleton(
+      () => SureLock(
+        access: getIt<FeatureAccess>(),
+        hosted: getIt<HostedHoldingSource>(),
+      ),
+    )
+    // Puts the default icon back once the icons are locked again. The same
+    // rule the picker draws its locks from, asked through SureLock: it
+    // waits for the plan to be read and asks the store as well, because a
+    // wrong switch costs the user their icon.
     ..registerLazySingleton(
       () => AppIconGuard(
         readCurrent: () => getIt<AppIconHost>().current(),
         apply: (icon) => getIt<AppIconHost>().set(icon),
-        readUnlocked: () async {
-          final account = getIt<AccountRepository>();
-          if (await account.readServerMode() != ServerMode.hosted) return true;
-          if (await account.readIsPaid()) return true;
-          if (buildSkipsPaywall) return false;
-          return (await getIt<SubscriptionRepository>().isProActive())
-                  .getOrNull() ??
-              true;
-        },
+        readUnlocked: () async =>
+            !await getIt<SureLock>().isLocked(AppFeature.appIcons),
       ),
     )
     ..registerFactory(
@@ -1676,11 +2148,12 @@ Future<void> configureDependencies({
         // The same reads the create-topic screen makes for its plan line: a
         // paid plan and a server of the user's own have no cap to state.
         readCriticalLimit: () async {
-          final session = await getIt<ApiSessionStore>().read();
           return AccountAccess(
             await getIt<DeviceIdentityStore>().readOrCreate(),
           ).freeCriticalCap(
-            isSelfHosted: session?.mode == ServerMode.selfhosted,
+            isUnlimited: await getIt<FeatureAccess>().usableOnceReady(
+              AppFeature.unlimitedCriticalTopics,
+            ),
           );
         },
         isReplay: isReplay ?? false,
@@ -1732,6 +2205,45 @@ Future<void> configureDependencies({
         null,
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
+        getIt<TopicGlances>(),
+        TopicMessageWindow(
+          identityStore: getIt<DeviceIdentityStore>(),
+          featureAccess: getIt<FeatureAccess>(),
+        ),
+      ),
+    )
+    // The dark card on Home. It follows the screen's own HomeCubit and
+    // HomeSetupCubit, so the screen hands them in:
+    // `getIt<HomeCardCubit>(param1: home, param2: setup)`. The checks and the
+    // missed alarm entry are shared, so they come from here.
+    ..registerFactoryParam<HomeCardCubit, HomeCubit, HomeSetupCubit>(
+      (home, setup) => HomeCardCubit(
+        home: home,
+        reliability: getIt<ReliabilityCubit>(),
+        setup: setup,
+        missed: getIt<MissedAlarmFeed>(),
+        setupUse: getIt<SetupUseStore>(),
+        toolTemplates: getIt<ToolTemplateStore>(),
+        testRouteName: AppRoute.testRing,
+        askPermissionsRouteName: AppRoute.askPermissions,
+        // What the phone itself holds, so the waiting card is drawn on the
+        // first frame and not after the list loads.
+        isSetupOpen: () {
+          final prefs = getIt<SharedPreferences>();
+          bool isSaved(String key) => (prefs.getString(key) ?? '').isNotEmpty;
+          final checklist = getIt<SetupChecklistStore>();
+          return firstMessageExpected(
+            hasServer:
+                isSaved(SharedPrefsConnectionRepository.serverUrlKey) &&
+                isSaved(SharedPrefsConnectionRepository.adminTokenKey),
+            wasSetUpHere: checklist.wasSetUpHere,
+            isChecklistRetired: checklist.isDone,
+            isFirstMessageReceived: getIt<FirstMessageStore>().isReceived,
+          );
+        },
+        // The list the app holds: the one setup's last steps loaded, or the
+        // copy the phone kept at the last answer after a cold start.
+        readHeldTopics: () => heldTopicsFrom(getIt<TopicsCubit>().state),
       ),
     )
     // The setup checklist and the widgets card on Home. Home content: it
@@ -1758,24 +2270,24 @@ Future<void> configureDependencies({
         readSetupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
         isGuideOfferAnswered: () =>
             getIt<FeatureGuideCubit>().hasSeenFirstGuide,
-        // The same line the widgets themselves draw: locked on the hosted
-        // plan without Hosted, open on a server that has no plans.
+        // The same answer the widgets themselves draw their lock from.
         readWidgetsPlan: () async {
-          final account = getIt<AccountRepository>();
-          if (await account.readServerMode() != ServerMode.hosted) {
-            return HomeWidgetsPlan.selfHosted;
-          }
-          return await account.readIsPaid()
-              ? HomeWidgetsPlan.hosted
-              : HomeWidgetsPlan.needsHosted;
+          final access = getIt<FeatureAccess>();
+          return homeWidgetsPlanFor(
+            await access.decideOnceReady(AppFeature.widgets),
+            isOwnServer: access.isOwnServer,
+          );
         },
+        widgetsPlanChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.widgets,
+        ),
         platform: defaultTargetPlatform,
         isWeb: kIsWeb,
       ),
     )
     ..registerFactory(
       () => SearchCubit(
-        identityStore: getIt<DeviceIdentityStore>(),
+        localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
         sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
@@ -1912,6 +2424,22 @@ Future<void> configureDependencies({
             getIt<PlatformCapabilities>().platform == TargetPlatform.android,
       ),
     )
+    // The missed alarm entry for Home's card. It reads the reader and the
+    // record of closed entries the notice reads, so closing it from either
+    // place closes it in both.
+    ..registerLazySingleton<MissedAlarmFeed>(
+      () => ReaderMissedAlarmFeed(
+        readMissed: getIt<MissedAlarmReader>().read,
+        readDismissed: () =>
+            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+        writeDismissed: getIt<MissedAlarmReader>().dismiss,
+        readIncidents: () => getIt<IncidentsCubit>().state.incidents,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
+        // Asked again when an incident runs out, and only then: the list
+        // changes far more often than that.
+        incidentChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
+      ),
+    )
     ..registerLazySingleton(
       () => ReliabilityFixRunner(
         openSystemSettings: (permission) async {
@@ -1979,7 +2507,7 @@ Future<void> configureDependencies({
         // calls the relay: the row's own cubit does that.
         WeeklyCheckSource(
           readCheck: () => getIt<WeeklyCheckMonitor>().check,
-          isPackHeld: () => getIt<ProPackAccess>().isHeld,
+          readAccess: _weeklyCheckAccess,
           readMissedByClock: () =>
               getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
           testRouteName: AppRoute.testRing,
@@ -1990,10 +2518,12 @@ Future<void> configureDependencies({
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
-        sessionStore: getIt<ApiSessionStore>(),
+        featureAccess: getIt<FeatureAccess>(),
         store: localStore,
       ),
     )
+    // Read by the Topic screen before it has read anything of its own.
+    ..registerLazySingleton(TopicGlances.new)
     ..registerFactory(
       () => TopicDetailCubit(
         getIt<IncidentsCubit>(),
@@ -2002,7 +2532,8 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
         identityStore: getIt<DeviceIdentityStore>(),
-        sessionStore: getIt<ApiSessionStore>(),
+        featureAccess: getIt<FeatureAccess>(),
+        glances: getIt<TopicGlances>(),
       ),
     )
     ..registerFactory(
@@ -2012,10 +2543,12 @@ Future<void> configureDependencies({
               getIt<GetConnectionUsecase>(),
               getIt<DeviceIdentityStore>(),
               getIt<GetTopicsUsecase>(),
+              null,
+              getIt<FeatureAccess>(),
             )
             ..alarm = getIt<AlarmHost>()
-            ..sessionStore = getIt<ApiSessionStore>()
             ..toolTemplates = getIt<ToolTemplateStore>()
+            ..applyPhoneDefaults = getIt<ChallengeChoices>().applyDefaultTo
             ..handoff = getIt<FirstTopicHandoff>(),
     )
     ..registerFactory(
@@ -2040,6 +2573,10 @@ Future<void> configureDependencies({
         ),
         getIt<EndSetupTestUsecase>(),
         getIt<SetupTestRing>(),
+        getIt<ProofLog>(),
+        // Setup never rings a real alarm in a replay, so the saved answer is
+        // the one the test alarm was sent for.
+        getIt<SetupUseStore>().read,
       ),
     )
     ..registerFactory(
@@ -2056,6 +2593,7 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SettingsCubit(
+        holdings: getIt<Holdings>(),
         identityStore: getIt<DeviceIdentityStore>(),
         apiSessions: getIt<ApiSessionStore>(),
         getServerInfo: getIt<GetServerInfoUsecase>(),
@@ -2088,7 +2626,7 @@ Future<void> configureDependencies({
         store: getIt<LocalReminderStore>(),
         scheduler: getIt<LocalReminderScheduler>(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
-        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+        readHoldsHosted: () => getIt<AccountRepository>().readHoldsHosted(),
         trigger: getIt<LocalReminderPlanTrigger>(),
         analytics: getIt<LocalReminderAnalytics>(),
       ),
@@ -2104,6 +2642,7 @@ Future<void> configureDependencies({
         store: getIt<LocalReminderStore>(),
         canTestNormalTopics: LocalReminderServerSupport.testsNormalTopics,
         analytics: getIt<LocalReminderAnalytics>(),
+        proofLog: getIt<ProofLog>(),
       ),
     )
     ..registerFactory(
@@ -2144,6 +2683,23 @@ Future<void> configureDependencies({
         getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
         packs: getIt<SoundPackRepository>(),
+        readOwnSounds: () =>
+            getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        // The first answer waits for the plan to be read, so someone who
+        // holds Pro never sees a lock or a paywall at a cold start.
+        readOwnSoundsOnceReady: () =>
+            ownSoundsOnceReady(getIt<FeatureAccess>()),
+        ownSoundsChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
+      ),
+    )
+    ..registerFactory(
+      () => PersonalizeCubit(
+        getIt<AlarmSoundRepository>(),
+        getIt<SoundHost>(),
+        nameOf: (id) => 'sound_library.names.$id'.tr(),
+        packs: getIt<SoundPackRepository>(),
       ),
     )
     ..registerFactory(
@@ -2155,6 +2711,9 @@ Future<void> configureDependencies({
         platform: getIt<PlatformCapabilities>().platform,
         isWeb: getIt<PlatformCapabilities>().isWeb,
         nameOf: (id) => 'sound_library.names.$id'.tr(),
+        ownSoundsLocked: () => ownSoundsLockedBy(
+          getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        ),
       ),
     )
     ..registerFactory(
@@ -2168,9 +2727,6 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => PaywallCubit(
         identityStore: getIt<DeviceIdentityStore>(),
-        telemetryGate: getIt.isRegistered<TelemetryGate>()
-            ? getIt<TelemetryGate>()
-            : null,
         getOfferingsUsecase: getIt<GetOfferingsUsecase>(),
         purchasePackageUsecase: getIt<PurchasePackageUsecase>(),
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
@@ -2188,22 +2744,28 @@ Future<void> configureDependencies({
         },
       ),
     )
-    // The one way into either paywall. With both remote values empty and
-    // nothing set in Developer options it answers with the shipped routes.
+    // The one way into either paywall. It always answers with a layout:
+    // the coded defaults, or what Developer options set in their place.
     ..registerLazySingleton<PaywallDoor>(
       () => PaywallDoor(
-        remoteValue: (product) {
-          if (!getIt.isRegistered<TelemetryGate>()) return '';
-          final gate = getIt<TelemetryGate>();
-          return switch (product) {
-            PaywallProduct.hosted => gate.paywallLayoutKey,
-            PaywallProduct.pro => gate.proPaywallLayoutKey,
-          };
-        },
         developer: (product) => switch (product) {
           PaywallProduct.hosted => appPaywallLayoutOverride.hosted,
           PaywallProduct.pro => appPaywallLayoutOverride.pro,
         },
+        developerIntro: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hostedIntro,
+          PaywallProduct.pro => appPaywallLayoutOverride.proIntro,
+        },
+        developerThanks: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hostedThanks,
+          PaywallProduct.pro => appPaywallLayoutOverride.proThanks,
+        },
+        developerOutro: (product) => switch (product) {
+          PaywallProduct.hosted => appPaywallLayoutOverride.hostedOutro,
+          PaywallProduct.pro => appPaywallLayoutOverride.proOutro,
+        },
+        widgetsDecision: () =>
+            getIt<FeatureAccess>().decide(AppFeature.widgets),
         hasSeenFalseAlarm: () =>
             getIt<SharedPreferences>().getBool(
               PaywallDoor.falseAlarmShownKey,
@@ -2213,33 +2775,77 @@ Future<void> configureDependencies({
           PaywallDoor.falseAlarmShownKey,
           true,
         ),
+        readHistoryOwn: () =>
+            HistoryOwnReader(incidents: localStore?.incidents).read(),
+        readLeavingFacts: () => LeavingFactsReader(
+          incidents: localStore?.incidents,
+          // The app's one topic list: see `readCriticalTopicCount`.
+          readCriticalTopics: () =>
+              readCriticalTopicCount(getIt<TopicsCubit>()),
+          setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        ).read(),
+        leavingShownFor: () =>
+            getIt<SharedPreferences>().getString(PaywallDoor.leavingShownKey),
+        markLeavingShown: (value) => getIt<SharedPreferences>().setString(
+          PaywallDoor.leavingShownKey,
+          value,
+        ),
       ),
     )
-    // The sounds a paywall layout asks for. Silent until a playing one is
-    // registered in its place.
-    ..registerLazySingleton<PaywallCues>(() => const SilentPaywallCues())
+    // The Interface sounds switch in Settings. On until the user turns it off.
+    ..registerLazySingleton<InterfaceSoundsSetting>(
+      () => InterfaceSoundsSetting(getIt<SharedPreferences>()),
+    )
+    // The sounds a paywall layout asks for. They play where the platform has
+    // a player for interface sounds, and stay silent on the web and anywhere
+    // else. Nothing here touches the alarm: it only asks whether one is up.
+    ..registerLazySingleton<PaywallCues>(
+      () => paywallCuesFor(
+        getIt<PlatformCapabilities>(),
+        playing: () => PlayingPaywallCues(
+          player: UiSoundHost(),
+          isSwitchOn: () => getIt<InterfaceSoundsSetting>().isOn,
+          isAlarmUp: () =>
+              getIt<AlarmFocus>().on ||
+              getIt<IncidentAlarmController>().alarmingIncidentIds.isNotEmpty,
+          alarmStarts: [
+            getIt<AlarmArrivals>().incidentIds,
+            getIt<AlarmFocus>().stream.where((isOn) => isOn),
+          ],
+          haptic: getIt<PlatformCapabilities>().hasHaptics
+              ? AppHaptics.play
+              : null,
+          cancelHaptic: AppHaptics.cancelPattern,
+          introFlavour: () => getIt.isRegistered<DevIntroSoundSwitch>()
+              ? getIt<DevIntroSoundSwitch>().value
+              : IntroSoundFlavour.piano,
+        ),
+      ),
+    )
     // What every paywall layout buys through. A build that skips the store
     // gets made-up options, so a layout still has something to draw.
     ..registerFactoryParam<PaywallBuyCubit, PaywallProduct, PaywallBuyStatus?>(
       (product, demoStatus) {
         if (buildSkipsPaywall) {
-          return DemoPaywallBuyCubit(product, startAs: demoStatus);
+          return DemoPaywallBuyCubit(
+            product,
+            startAs: demoStatus,
+            priceBook: getIt<PriceBook>(),
+          );
         }
         return switch (product) {
           PaywallProduct.pro => ProPaywallBuyCubit(
             access: getIt<ProPackAccess>(),
             shop: getIt<ProPackShop>(),
+            priceBook: getIt<PriceBook>(),
           ),
           PaywallProduct.hosted => HostedPaywallBuyCubit(
+            priceBook: getIt<PriceBook>(),
             getOfferings: getIt<GetOfferingsUsecase>(),
             purchasePackage: getIt<PurchasePackageUsecase>(),
             restorePurchases: getIt<RestorePurchasesUsecase>(),
-            readIsPaid: () async => AccountAccess(
-              await getIt<DeviceIdentityStore>().readOrCreate(),
-            ).isPaid,
-            readIsRegisteredPaid: () async => AccountAccess(
-              await getIt<DeviceIdentityStore>().readOrCreate(),
-            ).isRegisteredPaid,
+            readIsPaid: _holdsHosted, // access-ok: the buy cubit's name
+            readIsRegisteredPaid: _hostedByServer, // access-ok: same
             refreshRegistration: () async {
               await getIt<RevenueCatService>().invalidateCustomerInfoCache();
               await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
@@ -2251,7 +2857,8 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => ProStatusCubit(
-        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+        readHoldsHosted: _holdsHosted,
+        holdingChanges: getIt<Holdings>().stream,
       ),
     )
     ..registerLazySingleton(
@@ -2259,6 +2866,7 @@ Future<void> configureDependencies({
         notices: getIt<InAppNoticeRepository>(),
         plan: getIt<PlanStatusSource>(),
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        readServerSaysHosted: _hostedByServer,
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
@@ -2272,45 +2880,15 @@ Future<void> configureDependencies({
         },
       ),
     )
-    ..registerFactoryParam<InAppNoticeCubit, ShellCubit?, void>(
-      (shellCubit, _) => InAppNoticeCubit(
+    ..registerFactory<InAppNoticeCubit>(
+      () => InAppNoticeCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
-        shellCubit: shellCubit ?? getIt<ShellCubit>(),
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         noticeRepository: getIt<InAppNoticeRepository>(),
         readTopics: () async =>
             (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
         proEnding: getIt<ProEnding>(),
-        // The same check the Reliability screen lists. Reading it also
-        // stamps an OS version change.
-        readSystemUpdate: () async {
-          final checks = await getIt<SystemUpdateSource>().read();
-          final needsLook = checks.any(
-            (check) =>
-                check.id == ReliabilityCheckIds.systemUpdate &&
-                check.state == ReliabilityState.needsLook,
-          );
-          return SystemUpdateReading(
-            needsLook: needsLook,
-            osMajor: getIt<OsVersionStore>().read().major,
-          );
-        },
-        readMissedAlarms: getIt<MissedAlarmReader>().read,
-        readDismissedMissedAlarms: () =>
-            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
-        dismissMissedAlarms: getIt<MissedAlarmReader>().dismiss,
-        // Asked again when an incident runs out, and only then: the list
-        // changes far more often than that.
-        missedAlarmChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
-        // Two weekly check rounds missed in a row, by the relay's count or
-        // by this phone's own clock. A card on Home, never a notification.
-        readWeeklyCheckStopped: () async =>
-            getIt<WeeklyCheckMonitor>().shouldShowNotice(
-              isSetupDone: await getIt<SetupGate>().isDone(),
-            ),
-        dismissWeeklyCheck: getIt<WeeklyCheckMonitor>().dismissNotice,
-        weeklyCheckChanges: getIt<WeeklyCheckMonitor>().changes,
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
@@ -2333,6 +2911,17 @@ Future<void> configureDependencies({
 
     devSwitch.addListener(applyToMock);
     applyToMock();
+
+    // The same for Hosted: the mock relay goes by the fixture account's
+    // tier for the weekly check, so the switch sets it.
+    final hostedSwitch = getIt<DevProSwitch>();
+    void applyTierToMock() {
+      getIt<MockServer>().accountTier = hostedSwitch.value ? 'hosted' : 'free';
+      unawaited(getIt<WeeklyCheckMonitor>().refresh(force: true));
+    }
+
+    hostedSwitch.addListener(applyTierToMock);
+    applyTierToMock();
   }
 }
 
@@ -2376,7 +2965,7 @@ Stream<void> _expiredIncidentChanges(IncidentsCubit incidents) {
 }
 
 void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
-  value: info.entitlements.active.containsKey(SubscriptionTier.proEntitlement),
+  value: HostedHoldingSource.storeSaysHosted(info),
 );
 
 Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
@@ -2413,13 +3002,21 @@ Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
   );
 }
 
-/// True when the Pro app icons are open to this device: it is on Pro, or it
-/// talks to a server with no plans. The same line widgets draw, except that a
-/// device not connected anywhere yet also sees them locked.
-Future<bool> _proIconsUnlocked() async {
-  final account = getIt<AccountRepository>();
-  final mode = await account.readServerMode();
-  if (mode == null) return false;
-  if (mode != ServerMode.hosted) return true;
-  return account.readIsPaid();
+/// Whether this install holds Hosted, asked once the sources are current.
+/// For the readers that ask once and do not listen: the reminder inputs,
+/// the onboarding offer, the Pro badge and the buy flow.
+Future<bool> _holdsHosted() => getIt<Holdings>().holdsOnceReady(Holding.hosted);
+
+/// Whether the server's own tier says Hosted, leaving out the store and the
+/// developer switch: the Hosted source's named read, for the two callers
+/// that report what the server did.
+Future<bool> _hostedByServer() {
+  final hosted = getIt<HostedHoldingSource>();
+  return hosted.readHeldByServer(); // access-ok: the named read, passed on
 }
+
+/// What the access layer says for the weekly check, in the words the
+/// weekly check acts on.
+WeeklyCheckAccess _weeklyCheckAccess() => weeklyCheckAccessFor(
+  getIt<FeatureAccess>().decide(AppFeature.weeklyCheck),
+);

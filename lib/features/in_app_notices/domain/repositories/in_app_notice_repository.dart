@@ -29,11 +29,6 @@ abstract class InAppNoticeRepository {
   /// Stamps the first time a topic exists. Does nothing after that.
   Future<void> markFirstTopicOwned();
 
-  /// When the battery optimisation notice was closed on Home. It shows
-  /// once, so any value here keeps it off Home for good.
-  DateTime? getBatteryNoticeDismissedAt();
-  Future<void> dismissBatteryNotice();
-
   DateTime? getLastNoticeResolvedOrDismissedAt();
   Future<void> markNoticeResolvedOrDismissed();
 
@@ -141,11 +136,4 @@ abstract class InAppNoticeRepository {
   /// shown. Any other account sees nothing.
   String? getProEndedSheetDueFor();
   Future<void> setProEndedSheetDueFor(String? accountId);
-
-  /// The OS major version the "your phone was updated" notice was closed for
-  /// (dismissed, or its test button tapped). While the phone still runs that
-  /// version the notice stays gone. A later update is a new version and can
-  /// show it once more.
-  int? getSystemUpdateNoticeDismissedFor();
-  Future<void> dismissSystemUpdateNotice(int osMajor);
 }

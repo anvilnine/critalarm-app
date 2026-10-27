@@ -1,5 +1,6 @@
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_leaving_style.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_composition.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,11 @@ import 'package:flutter/material.dart';
 /// moves it to compare. A benefit is chosen by a tap on its line, and a
 /// tap on the stage plays the current one again.
 ///
+/// A Hosted plan that is ending runs it backwards: the screen opens in full
+/// colour, grey sweeps across the stage and the rows older than the Free
+/// window strike out under it, then the grey pulls back and rests on Crit.
+/// Crit stays yellow, sad and then calm. The sides are named by date.
+///
 /// The stage, the mascot, the loop, the lines and the hand are the kit's
 /// (`kit/paywall_hero.dart`). A product with one benefit draws the kit's
 /// own composition.
@@ -22,10 +28,18 @@ class WipePaywallLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final offer = PaywallOffer.of(context);
+    final reversed = wipeRunsBackwards(
+      isHosted: offer.isHosted,
+      variant: PaywallRouteInfo.headlineOf(context),
+      leaving: PaywallRouteInfo.leavingOf(context),
+      listed: offer.benefits,
+    );
     return PaywallFrame(
       // Free takes the left of the stage, so the cross takes the right.
       closeOnLeft: false,
-      restAt: wipeRestSeconds,
+      restAt: reversed ? wipeBackRestSeconds : wipeRestSeconds,
+      buyStyle: leavingBuyStyle(context),
       builder: (context, scope) => scope.benefits.length < 2
           ? HeroComposition(scope: scope)
           : WipeComposition(scope: scope),

@@ -2,15 +2,19 @@ import 'dart:async';
 import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/moved_phone_reset.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/core/l10n/app_locales.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
+import 'package:critalarm/core/telemetry/crash_hooks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -28,6 +32,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// Registers the bundled font faces' OFL licenses so they surface in
 /// Settings > Acknowledgements (`showLicensePage`). Bundled asset fonts need
@@ -37,7 +42,9 @@ void _registerFontLicenses() {
     for (final entry in const {
       'Anton': 'assets/fonts/Anton-OFL.txt',
       'Archivo': 'assets/fonts/Archivo-OFL.txt',
-      'IBM Plex Mono': 'assets/fonts/IBMPlexMono-OFL.txt',
+      'Bricolage Grotesque': 'assets/fonts/BricolageGrotesque-OFL.txt',
+      'Instrument Sans': 'assets/fonts/InstrumentSans-OFL.txt',
+      'JetBrains Mono': 'assets/fonts/JetBrainsMono-OFL.txt',
     }.entries) {
       final text = await rootBundle.loadString(entry.value);
       yield LicenseEntryWithLineBreaks([entry.key], text);
@@ -59,10 +66,30 @@ void _registerSoundPackCredits() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const pseudoRequested = bool.fromEnvironment('PSEUDO_LOCALE');
+  final supportedLocales = localesForBuild(
+    isDebug: kDebugMode,
+    pseudoRequested: pseudoRequested,
+  );
+  // Load symbols before dependencies or push callbacks can format a date.
+  for (final locale in supportedLocales) {
+    await initializeDateFormatting(locale.toString());
+  }
   _registerFontLicenses();
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  // From here on an error nothing caught is reported, if the user has crash
+  // reporting on. The gate holds that answer and starts every launch at off,
+  // so nothing leaves before the saved choice is put back below.
+  if (getIt.isRegistered<TelemetryGate>()) {
+    installCrashHooks(getIt<TelemetryGate>());
+  }
+  // An install that was restored onto another phone drops what named the
+  // old one. Awaited, and first: everything below reads an identity, a
+  // flag or the acknowledge queue. On a phone that has not moved this is
+  // one question to the phone.
+  await getIt<MovedPhoneReset>().run();
   // The iOS ACK action runs with no engine and writes straight to the queue
   // Dart drains. Listen before asking for the backlog, or the one waiting from
   // a cold launch is missed.
@@ -97,9 +124,10 @@ Future<void> main() async {
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
-  // A locked widget tapped while the app was closed names the shipped
-  // paywall. This is where it learns what that paywall is set to open.
-  final initialLocation = resolvePaywallLocation(
+  // A locked widget tapped while the app was closed names the raw paywall
+  // path. This is where it learns which paywall that is (the widgets
+  // decision picks the product) and which layout it opens.
+  final initialLocation = await resolvePaywallLocationWhenReady(
     await getIt<InitialRouteResolver>()(deepLink: tappedRoute),
   );
   // Crash reporting is put back here as well, so a crash on a launch where
@@ -160,9 +188,26 @@ Future<void> main() async {
   unawaited(alarms.start());
   unawaited(alarms.reconcile());
 
+  // The topic list the phone kept at the last answer, read before the first
+  // frame so Home and the Topic screen open with the topics they already
+  // know. It is a read from the local store; a store that is slow or will not
+  // open costs the first frame at most this wait, and then the list loads
+  // from the server as it always did.
+  try {
+    await getIt<TopicsCubit>().loadHeld().timeout(
+      const Duration(milliseconds: 800),
+    );
+  } on Object catch (_) {
+    // Never stops the app from opening.
+  }
+
   runApp(
     EasyLocalization(
-      supportedLocales: const [Locale('en')],
+      supportedLocales: supportedLocales,
+      startLocale: pseudoStartLocale(
+        isDebug: kDebugMode,
+        pseudoRequested: pseudoRequested,
+      ),
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
       child: CritAlarmApp(initialLocation: initialLocation),

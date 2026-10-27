@@ -142,6 +142,7 @@ final class HttpApiClient
         code: (json['code'] as num?)?.toInt(),
         cap: json['cap']?.toString(),
         pack: json['pack']?.toString(),
+        tier: json['tier']?.toString(),
       );
     }
     return result;

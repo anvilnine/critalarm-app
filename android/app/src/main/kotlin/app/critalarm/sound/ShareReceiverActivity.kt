@@ -41,6 +41,10 @@ class ShareReceiverActivity : Activity() {
         Thread {
             val copied = copy(uri)
             runOnUiThread {
+                // MainActivity takes this path only because it is on the
+                // issued list. Any other app can put the same extra on an
+                // intent, and Dart deletes what it is handed.
+                IncomingAudioHolder.issue(copied.path)
                 startActivity(
                     Intent(this, MainActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -166,22 +170,50 @@ class ShareReceiverActivity : Activity() {
  * Sent live as well; Dart opens each path once.
  */
 object IncomingAudioHolder {
+    private const val TAG = "CritAlarmSound"
+
     @Volatile
     private var pending: Map<String, Any>? = null
 
-    /** Reads the share off [intent] and removes it, so it is read once. */
-    fun read(intent: Intent?): Map<String, Any>? {
+    /**
+     * Paths ShareReceiverActivity handed to MainActivity in this process and
+     * MainActivity has not read yet. A path is taken off when it is read.
+     */
+    private val issued = mutableSetOf<String>()
+
+    /** ShareReceiverActivity is about to send [path] to MainActivity. */
+    fun issue(path: String) {
+        synchronized(issued) { issued.add(path) }
+    }
+
+    /**
+     * Reads the share off [intent] and removes it, so it is read once.
+     *
+     * MainActivity is exported, so the extra can come from any app. Only a
+     * path ShareReceiverActivity issued, naming a file directly inside
+     * [cacheDir]/incoming_audio, gets through ([ShareCopyRule]). Anything
+     * else is dropped without a word: Dart would delete it.
+     */
+    fun read(intent: Intent?, cacheDir: File): Map<String, Any>? {
         if (intent == null) return null
         if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return null
         val path = intent.getStringExtra(ShareReceiverActivity.EXTRA_PATH) ?: return null
-        val file = mapOf(
-            "path" to path,
-            "name" to (intent.getStringExtra(ShareReceiverActivity.EXTRA_NAME) ?: File(path).name),
-            "size_bytes" to intent.getLongExtra(ShareReceiverActivity.EXTRA_SIZE, 0L),
-        )
+        val name = intent.getStringExtra(ShareReceiverActivity.EXTRA_NAME)
+        val size = intent.getLongExtra(ShareReceiverActivity.EXTRA_SIZE, 0L)
         intent.removeExtra(ShareReceiverActivity.EXTRA_PATH)
         intent.removeExtra(ShareReceiverActivity.EXTRA_NAME)
         intent.removeExtra(ShareReceiverActivity.EXTRA_SIZE)
+        val wasIssued = synchronized(issued) { issued.remove(path) }
+        val folder = File(cacheDir, ShareReceiverActivity.FOLDER)
+        if (!ShareCopyRule.accepts(path, folder, wasIssued)) {
+            Log.w(TAG, "incoming_audio_dropped issued=$wasIssued")
+            return null
+        }
+        val file = mapOf(
+            "path" to path,
+            "name" to (name ?: File(path).name),
+            "size_bytes" to size,
+        )
         pending = file
         return file
     }

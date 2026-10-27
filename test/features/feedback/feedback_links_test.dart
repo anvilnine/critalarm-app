@@ -10,6 +10,7 @@ void main() {
     os: 'iOS 26.0',
     server: 'hosted',
     plan: 'free',
+    pro: 'no',
     locale: 'en-PH',
   );
 
@@ -20,7 +21,7 @@ void main() {
         '--\n'
         'App: 0.1.0 (5)\n'
         'Phone: iPhone15,2 · iOS 26.0\n'
-        'Server: hosted · Plan: free\n'
+        'Server: hosted · Plan: free · Pro: no\n'
         'Language: en-PH',
       );
     });
@@ -69,6 +70,7 @@ void main() {
         'version': '0.1.0+5',
         'locale': 'en-PH',
         'plan': 'free',
+        'pro': 'no',
         'os': 'iOS 26.0',
         'device': 'iPhone15,2',
       });

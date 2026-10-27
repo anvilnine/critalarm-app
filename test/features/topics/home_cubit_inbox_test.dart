@@ -5,6 +5,7 @@ import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
@@ -115,7 +116,7 @@ void main() {
       'last', () async {
     await prefs.markRead('prod-db', DateTime.fromMillisecondsSinceEpoch(0));
     await cubit.load();
-    expect(item('prod-db').isLive, isFalse);
+    expect(item('prod-db').rowKind, InboxRowKind.normal);
 
     await cubit.toggleMute('prod-db');
     expect(item('prod-db').isMuted, isTrue);

@@ -1,5 +1,6 @@
 package app.critalarm
 
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -11,19 +12,28 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
+import app.critalarm.alarm.AlarmForegroundService
+import app.critalarm.alarm.AlarmLockRule
+import app.critalarm.alarm.LockReleaseAnswers
 import app.critalarm.appicon.AppIconChannel
+import app.critalarm.l10n.LocaleChannel
 import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderChannel
 import app.critalarm.localreminders.LocalReminderTapIntent
 import app.critalarm.makersettings.MakerSettingsChannel
+import app.critalarm.motion.MotionSensorChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
+import app.critalarm.storage.IncidentDeliveryStore
+import app.critalarm.uisound.UiSoundChannel
 import app.critalarm.widgets.WidgetChannel
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 // FlutterFragmentActivity, not FlutterActivity: flutter_local_notifications
@@ -34,6 +44,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var soundChannel: SoundChannel? = null
     private var soundMethods: MethodChannel? = null
     private var soundPacks: SoundPackChannel? = null
+    private var uiSounds: UiSoundChannel? = null
+    private var motion: MotionSensorChannel? = null
 
     /**
      * A tap the activity has read off an intent but Dart has not taken yet.
@@ -50,6 +62,27 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingReminderTap: Map<String, Any>? = null
 
     private var reminderChannel: MethodChannel? = null
+
+    /**
+     * The alarm this window shows over the lock screen for, or null when it
+     * does not. See [AlarmLockRule].
+     */
+    private var lockIncidentId: String? = null
+
+    /** Bumped on every change, so a late unlock answer changes nothing. */
+    private var lockGeneration = 0
+
+    /** An unlock prompt is up. The window lets go when it answers. */
+    private var unlockPending = false
+
+    /** Releases that wait for the unlock prompt to answer. */
+    private val releaseAnswers = LockReleaseAnswers()
+
+    private val lockScreen = object : AlarmChannel.LockScreen {
+        override fun release(incidentId: String?, done: () -> Unit) =
+            releaseLockScreen(incidentId, done)
+        override fun hold(incidentId: String) = holdLockScreen(incidentId)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -78,7 +111,19 @@ class MainActivity : FlutterFragmentActivity() {
         val packs = SoundPackChannel(applicationContext, packMethods) { this }
         soundPacks = packs
         packMethods.setMethodCallHandler(packs::handle)
-        val alarms = AlarmChannel(applicationContext)
+        val interfaceSounds = UiSoundChannel(applicationContext)
+        uiSounds = interfaceSounds
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UiSoundChannel.NAME)
+            .setMethodCallHandler(interfaceSounds::handle)
+        // The accelerometer for the shake challenge: `start` and `stop`, and
+        // a stream of readings. It needs no permission.
+        val motionSensor = MotionSensorChannel(applicationContext)
+        motion = motionSensor
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MotionSensorChannel.NAME)
+            .setMethodCallHandler(motionSensor::handle)
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, MotionSensorChannel.READINGS_NAME)
+            .setStreamHandler(motionSensor)
+        val alarms = AlarmChannel(applicationContext, lockScreen)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
         val widgets = WidgetChannel(applicationContext)
@@ -90,6 +135,9 @@ class MainActivity : FlutterFragmentActivity() {
         val appIcon = AppIconChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AppIconChannel.NAME)
             .setMethodCallHandler(appIcon::handle)
+        val locale = LocaleChannel(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LocaleChannel.NAME)
+            .setMethodCallHandler(locale::handle)
         val reminders = LocalReminderChannel(applicationContext) {
             val tap = pendingReminderTap
             pendingReminderTap = null
@@ -283,13 +331,144 @@ class MainActivity : FlutterFragmentActivity() {
         soundMethods = null
         soundPacks?.dispose()
         soundPacks = null
+        uiSounds?.stop()
+        uiSounds = null
+        motion?.dispose()
+        motion = null
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onStart() {
+        checkLockScreen()
+        super.onStart()
+    }
+
+    override fun onResume() {
+        checkLockScreen()
+        // First, so a start Dart sends as the Flutter fragment resumes is
+        // not refused.
+        motion?.appCameToFront()
+        super.onResume()
+    }
+
+    override fun onPause() {
+        // The accelerometer never runs behind another app or a locked screen.
+        motion?.appLeftFront()
+        super.onPause()
     }
 
     override fun onStop() {
         // Leaving the picker on screen must not leave a preview ringing.
         soundChannel?.endPreview()
+        uiSounds?.stop()
+        checkLockScreen()
         super.onStop()
+    }
+
+    /**
+     * True while [incidentId] still needs its alarm screen: the service holds
+     * it, ringing or waiting its turn, or it is open and not acknowledged.
+     */
+    private fun owesAck(incidentId: String): Boolean {
+        if (AlarmForegroundService.isHolding(incidentId)) return true
+        val deliveries = IncidentDeliveryStore(this)
+        return deliveries.isActive(incidentId) && !deliveries.isAcknowledged(incidentId)
+    }
+
+    /**
+     * An alarm start shows this window over the lock screen. Only for an
+     * incident that rings or owes an ack, because any app can start this
+     * activity with the extra. Read before [readTap] takes the extra off.
+     */
+    private fun showOverLockFor(intent: Intent?) {
+        if (intent == null) return
+        if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return
+        val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) ?: return
+        if (!AlarmLockRule.showsFor(incidentId, owesAck(incidentId))) {
+            Log.w(TAG, "lock_screen_refused incident_id=$incidentId")
+            return
+        }
+        setOverLock(incidentId)
+    }
+
+    private fun setOverLock(incidentId: String?) {
+        lockIncidentId = incidentId
+        lockGeneration += 1
+        unlockPending = false
+        val on = incidentId != null
+        setShowWhenLocked(on)
+        setTurnScreenOn(on)
+    }
+
+    /**
+     * Dart: the alarm screen let go of [incidentId]. With the phone locked,
+     * the unlock prompt comes up, and the window leaves the lock screen
+     * whatever the answer. Without a lock it leaves at once. [done] is
+     * called once the window has left, or at once when it stays: Dart keeps
+     * the ringing layout until then.
+     */
+    private fun releaseLockScreen(incidentId: String?, done: () -> Unit) {
+        val shown = lockIncidentId
+        if (shown == null) {
+            done()
+            return
+        }
+        if (unlockPending) {
+            releaseAnswers.add(done)
+            return
+        }
+        val keeps = AlarmLockRule.keepsOnRelease(
+            released = incidentId ?: shown,
+            shownFor = shown,
+            ringingNow = AlarmForegroundService.ringingNow,
+            shownForOwesAck = owesAck(shown),
+        )
+        if (keeps) {
+            done()
+            return
+        }
+        Log.i(TAG, "lock_screen_released incident_id=$shown")
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (keyguard == null || !keyguard.isKeyguardLocked) {
+            setOverLock(null)
+            done()
+            return
+        }
+        unlockPending = true
+        releaseAnswers.add(done)
+        val generation = lockGeneration
+        val settle = {
+            if (generation == lockGeneration) setOverLock(null)
+            releaseAnswers.answerAll()
+        }
+        keyguard.requestDismissKeyguard(
+            this,
+            object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() = settle()
+                override fun onDismissCancelled() = settle()
+                override fun onDismissError() = settle()
+            },
+        )
+    }
+
+    /**
+     * Dart: the alarm screen for [incidentId] rings, or is in front again. An
+     * alarm that reached the app while it was in front came through no
+     * alarm start, so this is what lets its screen show over the lock.
+     */
+    private fun holdLockScreen(incidentId: String) {
+        if (lockIncidentId == incidentId && !unlockPending) return
+        if (!AlarmLockRule.showsFor(incidentId, owesAck(incidentId))) return
+        setOverLock(incidentId)
+    }
+
+    /** An alarm answered where Dart did not see it, such as the notification. */
+    private fun checkLockScreen() {
+        val shown = lockIncidentId ?: return
+        if (unlockPending) return
+        if (AlarmLockRule.keepsOnCheck(AlarmForegroundService.ringingNow, owesAck(shown))) return
+        Log.i(TAG, "lock_screen_released incident_id=$shown reason=answered")
+        setOverLock(null)
     }
 
     /**
@@ -298,6 +477,9 @@ class MainActivity : FlutterFragmentActivity() {
      * `getInitialRoute` never sees it. iOS hands a warm tap over the same way.
      */
     override fun onNewIntent(intent: Intent) {
+        // A second alarm reaches a running activity here, and the window has
+        // to come over the lock screen for it as well.
+        showOverLockFor(intent)
         val reminderTap = LocalReminderTapIntent.read(this, intent)
         val tap = readTap(intent)
         readIncomingAudio(intent)
@@ -335,11 +517,7 @@ class MainActivity : FlutterFragmentActivity() {
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
         pendingReminderTap = LocalReminderTapIntent.read(this, intent)
-        val alarmLaunch = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) != null
-        if (alarmLaunch && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        }
+        showOverLockFor(intent)
         // Read once, before Flutter asks for the initial route. Dart's
         // takePending at startup gets the same tap; its tap_id is what stops
         // the resume that follows from opening the screen a second time.
@@ -358,7 +536,7 @@ class MainActivity : FlutterFragmentActivity() {
      * `takeIncomingAudio` and sent live as well, the same way a tap is.
      */
     private fun readIncomingAudio(intent: Intent?): Map<String, Any>? {
-        val file = IncomingAudioHolder.read(intent) ?: return null
+        val file = IncomingAudioHolder.read(intent, cacheDir) ?: return null
         soundMethods?.invokeMethod("incomingAudio", file)
         return file
     }
@@ -388,17 +566,21 @@ class MainActivity : FlutterFragmentActivity() {
         val topic = intent.getStringExtra(EXTRA_TOPIC)
         val open = intent.getStringExtra(EXTRA_OPEN)
         val link = intent.getStringExtra(EXTRA_LINK)
+        val from = intent.getStringExtra(EXTRA_FROM)
         if (incidentId == null && topic == null && open == null && link == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)
         intent.removeExtra(EXTRA_TOPIC)
         intent.removeExtra(EXTRA_OPEN)
         intent.removeExtra(EXTRA_LINK)
+        intent.removeExtra(EXTRA_FROM)
         tapSequence += 1
-        return TapRoute.tapFor(tapSequence, incidentId, topic, open, link)
+        return TapRoute.tapFor(tapSequence, incidentId, topic, open, link, from)
     }
 
     companion object {
+        private const val TAG = "CritAlarmLock"
+
         const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_TOPIC = "topic"
@@ -413,6 +595,18 @@ class MainActivity : FlutterFragmentActivity() {
          * Matches PushHost.linkKey in Dart.
          */
         const val EXTRA_LINK = "link"
+
+        /**
+         * `from=done` rides on an incident tap that a Done button made: the
+         * Done on an acknowledged card or widget whose topic owes a wake-up
+         * challenge, which opens the app where it used to close. Done is
+         * only ever drawn on an acknowledged incident, so the marker tells
+         * Dart "native holds this one as acknowledged". A plain tap on a
+         * card never carries it. Matches PushDeepLink.fromKey and fromDone
+         * in Dart.
+         */
+        const val EXTRA_FROM = "from"
+        const val FROM_DONE = "done"
 
         /** open=paywall comes from a locked widget. */
         const val OPEN_PAYWALL = "paywall"

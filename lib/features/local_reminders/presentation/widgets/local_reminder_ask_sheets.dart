@@ -1,5 +1,5 @@
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
@@ -16,13 +16,13 @@ import 'package:flutter/widgets.dart';
 Future<void> askLocalRemindersSheet(BuildContext context) async {
   final account = getIt<AccountRepository>();
   final mode = await account.readServerMode();
-  final isPaid = await _readIsPaid(account);
+  final holdsHosted = await _readHoldsHosted(account);
   if (!context.mounted) return;
   await showLocalRemindersSheet(
     context: context,
     store: getIt<LocalReminderStore>(),
-    isSelfHosted: mode == ServerMode.selfhosted,
-    isPaid: isPaid,
+    isSelfHosted: isOwnServerMode(mode),
+    holdsHosted: holdsHosted,
     onAnswered: getIt<LocalReminderPlanTrigger>().run,
   );
 }
@@ -44,9 +44,9 @@ Future<void> askProSheet(
 }
 
 /// A failed read counts as paid, so a paying user never sees an offer.
-Future<bool> _readIsPaid(AccountRepository account) async {
+Future<bool> _readHoldsHosted(AccountRepository account) async {
   try {
-    return await account.readIsPaid();
+    return await account.readHoldsHosted();
   } on Object {
     return true;
   }

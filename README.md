@@ -76,7 +76,7 @@ Telemetry collection is strictly opt-in:
 - **Disabled by default**: Analytics and Crashlytics collection are explicitly disabled at startup before any events or metrics can be transmitted (`setAnalyticsCollectionEnabled(false)` and `setCrashlyticsCollectionEnabled(false)`).
 - **Explicit user consent**: Telemetry collection is only enabled when the user explicitly toggles Analytics or Crash Reporting ON in **Settings > Privacy**.
 - **Instant disable & purge**: Toggling Analytics OFF immediately halts collection and invokes `resetAnalyticsData()` to purge cached client-side analytics identifiers.
-- **Remote Config defaults**: Remote Config runs with a 1-hour fetch interval (`minimumFetchInterval: const Duration(hours: 1)`) and safe typed defaults (`paywall_enabled: false`).
+- **Remote Config defaults**: Remote Config runs with a 1-hour fetch interval (`minimumFetchInterval: const Duration(hours: 1)`) and typed defaults for its two keys, `onboarding_flow` and `onboarding_offer`, both empty. No paywall value is remote: the paywall layouts and what plays around them are coded in the app.
 
 ## Security
 

@@ -1,5 +1,4 @@
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending_rule.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -30,15 +29,16 @@ final class ProEndingView {
 /// Answers what the home screen shows about Pro ending: the "Pro ends" sheet,
 /// the pill that follows it, or the "Pro ended" sheet.
 ///
-/// Paid or free always comes from the server's tier
-/// ([AccountAccess.isRegisteredPaid]), never the developer Force Pro switch,
-/// so turning that switch off never shows "Pro ended". The store only says
-/// whether Pro will renew and when it ends.
+/// Held or not always comes from the server's own tier
+/// (the Hosted source), never the developer Force Pro
+/// switch, so turning that switch off never shows "Pro ended". The store
+/// only says whether Pro will renew and when it ends.
 class ProEnding {
   ProEnding({
     required this._notices,
     required this._plan,
     required this._readIdentity,
+    required this._readServerSaysHosted,
     required this._readServerMode,
     required this._refreshRegistration,
     this._onPaidChanged,
@@ -54,6 +54,9 @@ class ProEnding {
   final InAppNoticeRepository _notices;
   final PlanStatusSource _plan;
   final Future<DeviceIdentity> Function() _readIdentity;
+
+  /// Whether the server's tier says Hosted, read from storage each time.
+  final Future<bool> Function() _readServerSaysHosted;
   final Future<ServerMode?> Function() _readServerMode;
   final Future<void> Function() _refreshRegistration;
   final void Function()? _onPaidChanged;
@@ -70,17 +73,20 @@ class ProEnding {
   String? _cachedPlanAccount;
 
   Future<ProEndingView> read() async {
-    if (await _readServerMode() != ServerMode.hosted) {
-      return ProEndingView.nothing;
-    }
+    // About what the server is: the store subscription this reports on
+    // is sold on Crit Alarm Cloud alone. Any other server, and a phone
+    // connected to nothing, has no plan that can end.
+    final mode = await _readServerMode();
+    final isCloud = mode == ServerMode.hosted; // access-ok: cloud only
+    if (!isCloud) return ProEndingView.nothing;
     final now = _now();
     var identity = await _readIdentity();
-    var isPaid = AccountAccess(identity).isRegisteredPaid;
+    var isHeld = await _readServerSaysHosted();
 
     // The server drops the tier when the store says Pro expired. Until the
     // app registers again it still holds the old tier.
     final known = _notices.getProKnownExpiry();
-    if (isPaid && known != null && !now.isBefore(known) && _mayRefresh(now)) {
+    if (isHeld && known != null && !now.isBefore(known) && _mayRefresh(now)) {
       _lastRefreshAt = now;
       try {
         await _refreshRegistration();
@@ -88,12 +94,12 @@ class ProEnding {
         // Offline or refused. The next resume tries again.
       }
       identity = await _readIdentity();
-      isPaid = AccountAccess(identity).isRegisteredPaid;
+      isHeld = await _readServerSaysHosted();
     }
 
-    await _notePaid(identity, isPaid);
+    await _notePaid(identity, isHeld);
 
-    if (!isPaid) {
+    if (!isHeld) {
       final dueFor = _notices.getProEndedSheetDueFor();
       return dueFor != null && dueFor == identity.accountId
           ? const ProEndingView(sheet: ProPlanSheet.ended)
@@ -161,9 +167,9 @@ class ProEnding {
   /// Remembers which account was on Pro, so Pro ending on that account shows
   /// the "Pro ended" sheet, and signing in to a different free account does
   /// not.
-  Future<void> _notePaid(DeviceIdentity identity, bool isPaid) async {
+  Future<void> _notePaid(DeviceIdentity identity, bool isHeld) async {
     final accountId = identity.accountId;
-    if (isPaid) {
+    if (isHeld) {
       if (_notices.getProEndedSheetDueFor() != null) {
         await _notices.setProEndedSheetDueFor(null);
       }
@@ -177,7 +183,7 @@ class ProEnding {
         await _notices.setProPaidAccountId(null);
       }
     }
-    if (_lastPaid != null && _lastPaid != isPaid) _onPaidChanged?.call();
-    _lastPaid = isPaid;
+    if (_lastPaid != null && _lastPaid != isHeld) _onPaidChanged?.call();
+    _lastPaid = isHeld;
   }
 }

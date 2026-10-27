@@ -9,14 +9,16 @@ import 'package:flutter/material.dart';
 
 /// Flutter widget that renders the Crit Alarm face character at any size,
 /// with support for live animations (alarmed shake, watching look drift).
+///
+/// The head is always brand yellow, with a dark outline and dark features,
+/// in the light theme, the dark theme and on every canvas. The page around
+/// the face changes colour. The face does not, so this widget takes no
+/// colour for the head, the outline or the features.
 class FaceWidget extends StatefulWidget {
   const FaceWidget({
     required this.state,
     this.size = 120.0,
     this.isLive = false,
-    this.overrideFillColor,
-    this.overrideStrokeColor,
-    this.overrideInkColor,
     this.overrideTongueColor,
     this.tiltAngle,
     this.shape,
@@ -26,9 +28,8 @@ class FaceWidget extends StatefulWidget {
   final FaceState state;
   final double size;
   final bool isLive;
-  final Color? overrideFillColor;
-  final Color? overrideStrokeColor;
-  final Color? overrideInkColor;
+
+  /// Fills an open mouth that does not name its own colour. Coral when null.
   final Color? overrideTongueColor;
 
   /// Optional tilt angle in radians.
@@ -37,7 +38,7 @@ class FaceWidget extends StatefulWidget {
   final double? tiltAngle;
 
   /// Draws this shape instead of [state]'s own brows, eyes and mouth,
-  /// standing still. The head colours still follow [state].
+  /// standing still.
   final FaceShape? shape;
 
   @override
@@ -170,21 +171,13 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
-    // Resolve default colors based on state
-    final fill = widget.overrideFillColor ?? colors.faceFill;
-    final stroke =
-        widget.overrideStrokeColor ??
-        switch (widget.state) {
-          FaceState.worried => colors.high,
-          FaceState.alarmed => colors.crit,
-          FaceState.acked => colors.cobalt,
-          _ => colors.faceStroke,
-        };
-    final ink = widget.overrideInkColor ?? colors.faceInk;
+    // The light palette's face colours are the face's colours in every theme.
+    final fill = AppColors.light.faceFill;
+    final stroke = AppColors.light.faceStroke;
+    final ink = AppColors.light.faceInk;
     final tongue = widget.overrideTongueColor;
 
     // A shape can turn and shift the whole head. That happens out here

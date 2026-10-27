@@ -15,7 +15,6 @@ class SettingsDestination {
     required this.parentTitleKey,
     this.keywords = const <String>[],
     this.devOnly = false,
-    this.needsStorageSection = false,
     this.hiddenWhenSelfHosted = false,
   });
 
@@ -36,10 +35,6 @@ class SettingsDestination {
 
   /// Only in a build that skips the paywall, matching the Settings screen.
   final bool devOnly;
-
-  /// Lives in the Storage section, which Settings only draws on a paid plan
-  /// or a self-hosted server. Search must not find a row that is not there.
-  final bool needsStorageSection;
 
   /// Leads to a plan or a purchase. A self-hosted server has no plans, so
   /// Settings does not draw the row and search must not find it.
@@ -106,6 +101,14 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['privacy', 'analytics', 'crash', 'telemetry', 'data'],
     ),
+    // The docs list under Help. The About screen keeps its own docs link.
+    const SettingsDestination(
+      id: 'docs',
+      routePath: '/settings/docs',
+      titleKey: LocaleKeys.docs_list_title,
+      parentTitleKey: LocaleKeys.settings_help_header,
+      keywords: <String>['docs', 'documentation', 'help', 'guide', 'manual'],
+    ),
     const SettingsDestination(
       id: 'about',
       routePath: '/settings/about',
@@ -120,6 +123,25 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['developer', 'debug'],
       devOnly: true,
+    ),
+
+    const SettingsDestination(
+      id: 'personalize',
+      routePath: '/settings/personalize',
+      titleKey: LocaleKeys.personalize_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'personalize',
+        'personalise',
+        'customize',
+        'customise',
+        'preview',
+        'alarm screen',
+        'sound',
+        'widgets',
+        'app icon',
+        'look',
+      ],
     ),
 
     // Rows that live inside one of those screens.
@@ -212,6 +234,7 @@ abstract final class SettingsSearchIndex {
         'home screen',
         'crown',
         'shades',
+        'cloud',
         'hosted',
       ],
     ),
@@ -228,7 +251,6 @@ abstract final class SettingsSearchIndex {
         'history',
         'space',
       ],
-      needsStorageSection: true,
     ),
     const SettingsDestination(
       id: 'storage-keep-critical',
@@ -242,7 +264,6 @@ abstract final class SettingsSearchIndex {
         'keep forever',
         'storage',
       ],
-      needsStorageSection: true,
     ),
     SettingsDestination(
       id: 'plan',
@@ -251,6 +272,7 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: const <String>[
         'plan',
+        'cloud',
         'hosted',
         'free',
         'upgrade',
@@ -259,6 +281,23 @@ abstract final class SettingsSearchIndex {
         'pay',
       ],
       hiddenWhenSelfHosted: true,
+    ),
+    // The Pro row sits under the plan card on the Settings tab. Pro is bought
+    // in the app, so an own server finds it too.
+    const SettingsDestination(
+      id: 'pro',
+      routePath: '/settings',
+      titleKey: LocaleKeys.settings_pro_title,
+      parentTitleKey: LocaleKeys.settings_plan_header,
+      keywords: <String>[
+        'pro',
+        'looks',
+        'own sound',
+        'widgets',
+        'one time',
+        'purchase',
+        'buy',
+      ],
     ),
     const SettingsDestination(
       id: 'version',
@@ -308,18 +347,14 @@ abstract final class SettingsSearchIndex {
   /// The rows a given build should search. A release build never offers the
   /// developer screen, so it must never find it either.
   ///
-  /// [showsStorage] matches `SettingsState.hasStorageSection`: true on a paid
-  /// plan or a self-hosted server. Without it the Storage rows are left out.
   /// [isSelfHosted] leaves out the rows that lead to a plan.
   static List<SettingsDestination> forBuild({
     required bool includeDevOnly,
-    required bool showsStorage,
     bool isSelfHosted = false,
   }) {
     return <SettingsDestination>[
       for (final destination in all)
         if ((includeDevOnly || !destination.devOnly) &&
-            (showsStorage || !destination.needsStorageSection) &&
             !(isSelfHosted && destination.hiddenWhenSelfHosted))
           destination,
     ];

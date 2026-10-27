@@ -44,7 +44,7 @@ void main() {
 
   /// A loaded cubit over a repository the test can look at afterwards.
   Future<(AccountCubit, FakeAccountRepository)> loaded({
-    bool isPaid = false,
+    bool holdsHosted = false,
     bool signedIn = false,
     ServerMode mode = ServerMode.hosted,
     List<AccountDeleteResult> deleteAnswers = const [
@@ -52,7 +52,7 @@ void main() {
     ],
   }) async {
     final account = FakeAccountRepository(linkAnswers: const [])
-      ..isPaid = isPaid
+      ..holdsHosted = holdsHosted
       ..mode = mode
       ..deleteAnswers = deleteAnswers;
     if (signedIn) {
@@ -75,7 +75,7 @@ void main() {
   testWidgets('a paid tier reads the billing warning and can act on it', (
     tester,
   ) async {
-    final (cubit, _) = await loaded(isPaid: true);
+    final (cubit, _) = await loaded(holdsHosted: true);
     addTearDown(cubit.close);
     var manageTaps = 0;
 

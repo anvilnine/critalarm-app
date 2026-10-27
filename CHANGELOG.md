@@ -3,6 +3,49 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ## Unreleased
 ### Added
+- Crit Alarm now speaks German and Japanese. Pick a language in Settings under Language, or keep System default to follow your phone. The alarm screen, notifications and widgets switch too.
+- The translations were made with AI. The Language screen and About have a link to tell us about a mistake.
+
+### Changed
+- Dates and times follow the format of the language you use.
+- When the server refuses something, the app explains it in its own words in your language.
+
+### Fixed
+- After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
+
+### Security
+- On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
+
+## 1.0.0+15 - 2026-10-16
+### Added
+- Setup asks what you want to be woken for and fills in your first topic to match.
+- After your first test alarm, setup shows what Hosted adds, or the Pro pack if you use Crit Alarm for your home, before it moves on to hooking up your tool. Close it at any time, and nothing rings falsely.
+- Settings shows whether you have Pro, and has a See Pro button if you do not.
+- Wake-up challenges are on the Pro page, and a locked challenge opens a page about challenges.
+
+### Changed
+- The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
+- Every locked feature now opens the same full-screen plans page, for Hosted and for Pro. The small Pro sheet is gone.
+- After you buy Hosted or Pro, the app plays a short thank-you before it takes you back.
+- The Android back button during a Feature Guide now asks whether to leave it, with a switch to stop guides showing by themselves
+- The paid plan is now called Cloud everywhere in the app.
+- The server Crit Alarm runs is now called our server, so Cloud only ever means the paid plan.
+- Search results look like the screen they come from: topics as face cards, past alarms as History rows, settings as Settings rows, and documentation on its own sheet with an arrow that shows it opens in your browser.
+
+### Fixed
+- With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
+- Setup no longer says the test message rings this phone when the topic has Critical delivery off. It says the message lands on the phone.
+- At the largest text sizes on a small phone, the alarm's message card stays above I'm up and Silence and scrolls when the message is long.
+- An alarm sent without tags no longer shows a stray slash after the time.
+- The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
+- A long topic name no longer gets cut off in the name field during setup at a large text size.
+- The keyboard no longer opens over a Feature Guide on Search and on the new topic screen
+- On small phones the plans sheet no longer drops what Cloud or Pro includes. The list scrolls above the button instead.
+- Buying Pro when the payment still needs approval, such as Ask to Buy, now says the payment is pending and checks again, instead of saying the purchase failed.
+- Search section titles sit above their results again, with the best section still nearest the search bar.
+
+## 1.0.0+13 - 2026-10-10
+### Added
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
 - The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
 - The connect step says what the push relay can see, taken from the server's own answer
@@ -27,6 +70,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
 - Setup shows where you are with three bars, and Back takes you one step back until your first topic is made
 - Setup now shows your first topic landing on the Topics screen, then points at it once when setup ends.
+- A new token is named in a sheet first, and its value and curl line are shown once when it is made.
+- A topic's tokens have their own page with a New token button.
+- Will it wake me shows the last eight weeks of tests and weekly checks as dots.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -55,6 +101,27 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 - The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
 - A connect link only connects to a server you host yourself.
+- The Topics screen has a new look: one card answers whether your alarms will wake you, and your topics sit below it in one list.
+- History opens on a week at a glance: a small face over a card with your alarms per day and the longest one you answered, and each alarm shows a tick when answered or a red mark when nobody answered
+- Settings opens with a dark card that shows how many of your phone's checks pass, names the one that needs a fix, and has a Fix this button. Rows show what they are set to, and the plan sits on its own card.
+- Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
+- On Android, Crit Alarm is in no phone backup and no phone to phone transfer. A new or reset phone starts with setup, with nothing carried over from the old one.
+- Locked options on a topic's page and the weekly check show what they are first, and the plan page opens only when you try to use one
+- Personalize is a stack of colour cards, and Look, Sound, Wake-up challenge, Widgets and App icon each open into their own page.
+- The Look page shows your alarm looks as a deck of phones, you can swipe to try any, and you pay only when you choose to use one.
+- The sound picker has a new look with the wave of the sound that rings, and the sounds are listed on a white page.
+- Wake-up challenges are a shelf of tiles you can try, and you pay only when you choose to keep one.
+- The Widgets page shows the three home screen widgets, and how to add one is open to everyone.
+- On Personalize, the Wake-up challenge card says default until you pick a challenge, then shows a small picture of it.
+- The weekly delivery check row shows a See Hosted button in place of a switch when Hosted is not held. Only that button opens the paywall.
+- Add your photo on the Look page is now a try open to everyone: pick, crop and colour a photo to see it as your alarm. It stays in memory for that visit and nothing is saved until you press Use this look.
+- Personalize pages use fewer words: the Look, Wake-up challenge and Widgets pages lose lines the pictures already say, and a few labels are shorter.
+- A topic's look and wake-up challenge can be changed on the same pages Personalize uses.
+- The first welcome page is a big Welcome to Crit Alarm that shakes its last word and shouts.
+- Will it wake me answers Yes, Maybe or No, shows where an alarm would stop, and lists what to fix.
+- A topic's look, sound, wake-up challenge and tokens are four colour cards that open their own pages.
+- The welcome now has three pages: the word page, the curl that rings your phone, and the home screen widgets. The background shapes move with your swipe.
+- A topic's messages page shows how many messages there are with the last seven days as bars, and lists them by day. A message that rang has a red mark and says how long it rang and how it ended.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -74,10 +141,21 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Android back button closes search instead of leaving the app.
 - Connecting to your own server checks the admin token first. A token the server does not accept is no longer saved, and the server you were connected to stays connected.
 - Editing your server in Settings checks the server and the admin token before it saves. If the check fails, the sheet says why and the server you were connected to stays connected.
+- The Topics card says when your last alarm rang instead of no alarm yet. Topic messages show newest first. Settings shows Crit Alarm Cloud in full.
+- A long topic name and message title now show in full, dates read the same on every screen, Settings rows line up and stay clear of the title when scrolled, faces keep their dark outline on orange and red, and Delete topic and the Critical delivery switch are easier to see.
+- The sound picker shows an own sound as locked when Pro is not held, with the mark on the sound that rings
+- The App icon screen no longer hits a layout error on the first visit with reduce motion on
+- An iPhone set up from a backup of another iPhone registers as a new device. It used to keep talking to the server as the old phone.
+- Personalize: a one word value no longer breaks in the middle at the largest text size, and the cards are no longer cut while a page opens or closes.
+- The Look page keeps its action in view at large text and on a phone on its side, where the phones now stay upright.
+- The App icon page fits small and short screens: the icon shrinks so its name, badge and button stay in view, and on a phone on its side the name sits beside the icons.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
 - Setup no longer shows a Stop animation button on the welcome screen or a close button on the first topic step.
+
+### Security
+- Your own alarm photo and your own alarm sounds are kept out of iCloud and computer backups. After a restore, pick the photo and add the sounds again.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

@@ -66,7 +66,25 @@ void main() {
         ),
       );
 
-      expect((await h.engine.resume()).route, '/onboarding/first-topic');
+      // The use step is next. Nothing says it is already true.
+      expect((await h.engine.resume()).route, '/onboarding/use');
+    });
+
+    test('the use step is skipped for a user who owns a topic', () async {
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(
+          connected: true,
+          permissions: true,
+          ownsTopic: true,
+        ),
+        repository: FakeOnboardingFlowRepository(
+          pinned: flow,
+          completed: {'welcome', 'how_it_rings'},
+        ),
+      );
+
+      // The first topic is already true as well, so setup goes on to the ring.
+      expect((await h.engine.resume()).route, '/onboarding/real-ring');
     });
 
     test('an unavailable step is skipped', () async {
@@ -80,7 +98,7 @@ void main() {
         ),
       );
 
-      expect((await h.engine.resume()).stepId, 'first_topic');
+      expect((await h.engine.resume()).stepId, 'use');
     });
 
     test('hook_up in a custom list is shown in its place', () async {
@@ -178,6 +196,7 @@ void main() {
         '/onboarding/welcome',
         '/onboarding/connect',
         '/onboarding',
+        '/onboarding/use',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
         '/onboarding/offer',
@@ -195,6 +214,7 @@ void main() {
             'how_it_rings',
             'connect',
             'permissions',
+            'use',
             'first_topic',
           },
         ),
@@ -214,18 +234,16 @@ void main() {
       );
       final seen = <String>[(await h.engine.resume()).route!];
 
-      for (final step in ['welcome', 'how_it_rings', 'permissions']) {
+      for (final step in ['welcome', 'permissions']) {
         seen.add((await h.engine.finishStep(step)).route!);
       }
-      seen
-        ..add((await h.engine.finishStep('widgets')).route!)
-        ..add((await h.engine.finishStep('connect')).route!);
+      seen.add((await h.engine.finishStep('connect')).route!);
 
+      // The curl and the widgets are pages of the welcome, so this order
+      // goes from the welcome straight to the permissions.
       expect(seen, [
         '/onboarding/welcome',
-        '/onboarding/how-it-rings',
         '/onboarding',
-        '/onboarding/widgets',
         '/onboarding/connect',
         '/onboarding/test',
       ]);
@@ -254,8 +272,8 @@ void main() {
       expect(
         h.events.map((e) => (e.kind, e.stepId, e.flowId, e.isReplay)),
         [
-          (OnboardingStepEventKind.finished, 'welcome', '2026-10-b', false),
-          (OnboardingStepEventKind.entered, 'connect', '2026-10-b', false),
+          (OnboardingStepEventKind.finished, 'welcome', '2026-10-c', false),
+          (OnboardingStepEventKind.entered, 'connect', '2026-10-c', false),
         ],
       );
     });
@@ -281,6 +299,7 @@ void main() {
       expect(seen, [
         '/onboarding/connect',
         '/onboarding',
+        '/onboarding/use',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
         // A replay opens the offer step too. Its screen moves on by itself.
@@ -298,7 +317,7 @@ void main() {
 
       final next = await h.engine.finishStep('connect', isReplay: true);
 
-      expect(next.stepId, 'first_topic');
+      expect(next.stepId, 'use');
     });
 
     test('does not disturb a run that is pinned and in progress', () async {
@@ -662,9 +681,9 @@ void main() {
       expect((await h.engine.resume()).route, '/onboarding');
     });
 
-    test('Android resumes at the first topic with both granted', () async {
+    test('Android resumes at the use step with both granted', () async {
       final h = connected(androidPhone, permissions: true);
-      expect((await h.engine.resume()).route, '/onboarding/first-topic');
+      expect((await h.engine.resume()).route, '/onboarding/use');
     });
   });
 }

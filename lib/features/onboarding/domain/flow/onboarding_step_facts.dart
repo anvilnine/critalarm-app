@@ -32,7 +32,8 @@ abstract interface class OnboardingStepFacts {
   Future<bool> hasReceivedFirstMessage();
 
   /// The offer step would show nothing to this user right now: it is
-  /// switched off, or one of its skip reasons holds.
+  /// switched off, one of its skip reasons holds, or the store already said
+  /// nothing is on sale.
   Future<bool> hasNoOfferToShow();
 }
 
@@ -71,6 +72,5 @@ class DeviceOnboardingStepFacts implements OnboardingStepFacts {
   Future<bool> hasReceivedFirstMessage() async => firstMessage.isReceived;
 
   @override
-  Future<bool> hasNoOfferToShow() async =>
-      !(await offer.decide(isReplay: false)).isShown;
+  Future<bool> hasNoOfferToShow() => offer.hasNoOffer();
 }

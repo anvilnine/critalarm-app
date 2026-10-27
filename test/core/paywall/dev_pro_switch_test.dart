@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   Future<DevProSwitch> makeSwitch([Map<String, Object> seed = const {}]) async {
     SharedPreferences.setMockInitialValues(seed);
-    return DevProSwitch(await SharedPreferences.getInstance());
+    return DevProSwitch(
+      DevAccessSwitches(await SharedPreferences.getInstance()),
+    );
   }
 
   group('DevProSwitch', () {
@@ -16,16 +19,26 @@ void main() {
     });
 
     test('reads the saved choice on the next launch', () async {
+      final proSwitch = await makeSwitch({'dev.access.hosted': 'held'});
+      expect(proSwitch.value, isTrue);
+    });
+
+    test('reads a choice saved before the switches moved', () async {
       final proSwitch = await makeSwitch({'dev.pro_mode': true});
       expect(proSwitch.value, isTrue);
     });
 
     test('setPro writes the choice through to storage', () async {
-      final proSwitch = await makeSwitch();
+      final proSwitch = await makeSwitch({'dev.pro_mode': false});
       await proSwitch.setPro(isPro: true);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('dev.pro_mode'), isTrue);
+      expect(prefs.getString('dev.access.hosted'), 'held');
+      // The old key is gone, so it can never bring a choice back.
+      expect(prefs.containsKey('dev.pro_mode'), isFalse);
+
+      await proSwitch.setPro(isPro: false);
+      expect(prefs.containsKey('dev.access.hosted'), isFalse);
     });
 
     test('setPro tells listeners', () async {

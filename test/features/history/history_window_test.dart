@@ -1,4 +1,6 @@
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -11,6 +13,9 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../app/access/store_access.dart';
+import '../../core/access/access_fakes.dart';
 
 /// A server with nothing new to add, so the cubit only ever sees local rows.
 class _QuietIncidents implements IncidentRepository {
@@ -37,25 +42,34 @@ void main() {
   group('HistoryWindow.lowerBound', () {
     test('free stops at now minus history_days', () {
       expect(
-        HistoryWindow.lowerBound(isPaid: false, historyDays: 7, now: now),
+        HistoryWindow.lowerBound(
+          hasLongHistory: false,
+          historyDays: 7,
+          now: now,
+        ),
         now.subtract(const Duration(days: 7)),
       );
     });
 
     test('a paid account has no lower bound', () {
       expect(
-        HistoryWindow.lowerBound(isPaid: true, historyDays: 90, now: now),
+        HistoryWindow.lowerBound(
+          hasLongHistory: true,
+          historyDays: 90,
+          now: now,
+        ),
         isNull,
       );
     });
 
     test('self-hosted has no lower bound, even when not paid', () {
+      final access = TestAccess(serverMode: ServerMode.selfhosted);
+      addTearDown(access.dispose);
       expect(
         HistoryWindow.lowerBound(
-          isPaid: false,
+          hasLongHistory: access.features.can(AppFeature.longHistory),
           historyDays: 7,
           now: now,
-          isSelfHosted: true,
         ),
         isNull,
       );
@@ -108,6 +122,7 @@ void main() {
         shared,
         now: () => now,
         identityStore: identity,
+        featureAccess: accessOver(identity).features,
         store: store,
       );
       addTearDown(history.close);

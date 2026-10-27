@@ -34,9 +34,47 @@ enum SharedSounds {
 
     static func ringsOnIphone(durationMs: Int) -> Bool { durationMs < maxRingMs }
 
+    /// What to publish for the saved choices.
+    ///
+    /// [ringableFileName] turns a sound id into the file name to publish, or
+    /// nil for one that cannot ring (no id, or too long for iOS).
+    ///
+    /// While own sounds are locked no own file is published:
+    /// - a topic on an own sound is left out, so it rings the default;
+    /// - a default that is an own sound becomes the bundled classic siren.
+    ///
+    /// The same rule as `OwnSoundRule` in lib/core/sound/own_sound_rule.dart
+    /// and `AlarmSoundStore.resolveChain` on Android. The ids handed in are
+    /// the saved ones and are not changed.
+    static func choicesToPublish(
+        defaultId: String?,
+        perTopicIds: [String: String],
+        ownLocked: Bool,
+        ringableFileName: (String) -> String?
+    ) -> (defaultFile: String?, perTopicFiles: [String: String]) {
+        var defaultFile = defaultId.flatMap(ringableFileName)
+        if ownLocked, let id = defaultId, OwnSoundLock.isOwn(id) {
+            defaultFile = packFallbackFile
+        }
+        var perTopic: [String: String] = [:]
+        for (topic, id) in perTopicIds {
+            if ownLocked && OwnSoundLock.isOwn(id) { continue }
+            if let name = ringableFileName(id) { perTopic[topic] = name }
+        }
+        return (defaultFile, perTopic)
+    }
+
     /// Writes the current choices where the extension reads them. A nil
-    /// default clears it, so the payload's own sound plays.
-    static func publish(defaultFile: String?, perTopicFiles: [String: String], to defaults: UserDefaults) {
+    /// default clears it, so the payload's own sound plays. [ownLocked] goes
+    /// with them, so the extension and the alarm scheduler can tell. Left
+    /// out, the flag already there stays as it is.
+    static func publish(
+        defaultFile: String?,
+        perTopicFiles: [String: String],
+        ownLocked: Bool? = nil,
+        to defaults: UserDefaults
+    ) {
+        if let ownLocked { defaults.set(ownLocked, forKey: OwnSoundLock.groupKey) }
         if let defaultFile {
             defaults.set(defaultFile, forKey: defaultFileKey)
         } else {
@@ -62,6 +100,11 @@ enum SharedSounds {
     /// The topic's own choice comes first, then the default, the same order
     /// as the Android alarm and the picker. When the choices that are left
     /// include a pack sound whose file is gone, [packFallbackFile] plays.
+    ///
+    /// While own sounds are locked an own file is never the answer, even if
+    /// one is still published from before the lock and still on disk. The
+    /// next choice plays, then [packFallbackFile], then the payload's own
+    /// `alarm.caf`, which ships in the app.
     static func fileName(
         forTopic topic: String?,
         defaults: UserDefaults?,
@@ -69,12 +112,16 @@ enum SharedSounds {
     ) -> String? {
         guard let defaults else { return nil }
         let perTopic = defaults.dictionary(forKey: perTopicFilesKey) as? [String: String] ?? [:]
-        let picks = [
+        let saved = [
             topic.flatMap { perTopic[$0] },
             defaults.string(forKey: defaultFileKey),
         ].compactMap { $0 }.filter { !$0.isEmpty }
+        let ownLocked = OwnSoundLock.isLocked(in: defaults)
+        let picks = ownLocked ? saved.filter { !OwnSoundLock.isOwn($0) } : saved
         if let found = picks.first(where: fileExists) { return found }
-        if picks.contains(where: { $0.hasPrefix(packSoundPrefix) }), fileExists(packFallbackFile) {
+        let skippedOwn = picks.count != saved.count
+        if skippedOwn || picks.contains(where: { $0.hasPrefix(packSoundPrefix) }),
+           fileExists(packFallbackFile) {
             return packFallbackFile
         }
         return nil

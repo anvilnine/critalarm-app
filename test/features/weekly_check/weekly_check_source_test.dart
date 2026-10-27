@@ -4,6 +4,7 @@ import 'package:critalarm/features/reliability/domain/entities/reliability_fix.d
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/overall_state.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,50 +29,90 @@ const _off = WeeklyCheck(
   reason: WeeklyCheckOffReason.disabled,
   lastSentAt: 100,
 );
-const _packLost = WeeklyCheck(
+
+/// What the relay answers for an enrolled device while the account is not
+/// on Hosted (api.md §4.5, "When the tier changes").
+const _tierAway = WeeklyCheck(
   enabled: true,
   state: WeeklyCheckState.off,
-  reason: WeeklyCheckOffReason.pack,
+  reason: WeeklyCheckOffReason.tier,
   lastSentAt: 100,
 );
 
+/// The same answer as a relay before 1.19.0 worded it. `pack` is a reason
+/// this build does not know, so it reads as none.
+final _packFrom118 = WeeklyCheck.fromJson(const {
+  'enabled': true,
+  'state': 'off',
+  'reason': 'pack',
+  'last_sent_at': 100,
+});
+
+const _everyCheck = <WeeklyCheck?>[null, _neverOn, _off, _tierAway];
+
 WeeklyCheckStanding _standing(
   WeeklyCheck? check, {
-  bool isPackHeld = true,
+  WeeklyCheckAccess access = WeeklyCheckAccess.open,
   bool missedByClock = false,
 }) => weeklyCheckStanding(
   check: check,
-  isPackHeld: isPackHeld,
+  access: access,
   missedByClock: missedByClock,
 );
 
 Future<ReliabilityCheck> _read(
   WeeklyCheck? check, {
-  bool isPackHeld = true,
+  WeeklyCheckAccess access = WeeklyCheckAccess.open,
   bool missedByClock = false,
 }) async => (await WeeklyCheckSource(
   readCheck: () => check,
-  isPackHeld: () => isPackHeld,
+  readAccess: () => access,
   readMissedByClock: () async => missedByClock,
   testRouteName: _route,
 ).read()).single;
 
 void main() {
   group('how the check stands', () {
-    test('without the pack it is locked, whatever the relay said', () {
+    test('without Hosted it is locked, whatever the relay said', () {
       for (final check in [
-        null,
-        _neverOn,
-        _off,
+        ..._everyCheck,
         _on(WeeklyCheckState.received),
         _on(WeeklyCheckState.missedRepeatedly, misses: 3),
         _on(WeeklyCheckState.tokenRefused),
       ]) {
+        for (final access in [
+          WeeklyCheckAccess.locked,
+          // A purchase being confirmed, or a plan that could not be read:
+          // the relay would refuse the check, so the row stays locked.
+          WeeklyCheckAccess.unsure,
+        ]) {
+          expect(
+            _standing(check, access: access, missedByClock: true),
+            WeeklyCheckStanding.locked,
+            reason: '$check, ${access.name}',
+          );
+        }
+      }
+    });
+
+    test('on a server of the user own it is not offered, whatever the '
+        'relay said', () {
+      for (final check in [
+        ..._everyCheck,
+        _on(WeeklyCheckState.received),
+        _on(WeeklyCheckState.missedRepeatedly, misses: 3),
+      ]) {
         expect(
-          _standing(check, isPackHeld: false, missedByClock: true),
-          WeeklyCheckStanding.locked,
+          _standing(
+            check,
+            access: WeeklyCheckAccess.notOffered,
+            missedByClock: true,
+          ),
+          WeeklyCheckStanding.notOffered,
         );
       }
+      expect(WeeklyCheckStanding.notOffered.isOn, isFalse);
+      expect(WeeklyCheckStanding.notOffered.needsLook, isFalse);
     });
 
     test('before the relay has answered it was never on', () {
@@ -86,9 +127,38 @@ void main() {
       expect(_standing(_off, missedByClock: true), WeeklyCheckStanding.off);
     });
 
-    test('a pack the relay says is gone locks the row at once', () {
-      // The packs list still says held: it has not been read again yet.
-      expect(_standing(_packLost), WeeklyCheckStanding.locked);
+    test('a lapse: what is held locks the row, and the switch the person '
+        'chose is kept for the return', () {
+      // Hosted is gone: locked, with the relay still holding the device as
+      // enrolled.
+      expect(
+        _standing(_tierAway, access: WeeklyCheckAccess.locked),
+        WeeklyCheckStanding.locked,
+      );
+      expect(_tierAway.enabled, isTrue);
+
+      // Hosted is back and the relay's answer is still the one from the
+      // lapse: the row is on, as the person left it, with no new tap. It
+      // is not locked, and not trouble.
+      final back = _standing(_tierAway, missedByClock: true);
+      expect(back, WeeklyCheckStanding.on);
+      expect(back.isOn, isTrue);
+      expect(back.needsLook, isFalse);
+
+      // The relay's next answer says how the rounds stand.
+      expect(
+        _standing(_on(WeeklyCheckState.received)),
+        WeeklyCheckStanding.received,
+      );
+    });
+
+    test('a reason this build does not know is no reason: `pack` from a '
+        'relay before 1.19.0 is plain off', () {
+      expect(_packFrom118.reason, isNull);
+      expect(_packFrom118.state, WeeklyCheckState.off);
+      // Off with a round sent before: "off", and never "on".
+      expect(_standing(_packFrom118), WeeklyCheckStanding.off);
+      expect(_standing(_packFrom118).isOn, isFalse);
     });
 
     test('each state the relay reports', () {
@@ -177,8 +247,9 @@ void main() {
       }
     });
 
-    test('locked, never on and off are not on this phone', () {
+    test('not offered, locked, never on and off are not on this phone', () {
       for (final standing in [
+        WeeklyCheckStanding.notOffered,
         WeeklyCheckStanding.locked,
         WeeklyCheckStanding.neverOn,
         WeeklyCheckStanding.off,
@@ -248,9 +319,27 @@ void main() {
       );
       expect((await _read(_neverOn)).state, ReliabilityState.notOnThisPhone);
       expect((await _read(_off)).state, ReliabilityState.notOnThisPhone);
-      expect((await _read(_packLost)).state, ReliabilityState.notOnThisPhone);
       expect(
-        (await _read(_on(WeeklyCheckState.received), isPackHeld: false)).state,
+        (await _read(_tierAway, access: WeeklyCheckAccess.locked)).state,
+        ReliabilityState.notOnThisPhone,
+      );
+      expect(
+        (await _read(
+          _on(WeeklyCheckState.missedRepeatedly, misses: 2),
+          access: WeeklyCheckAccess.notOffered,
+          missedByClock: true,
+        )).state,
+        ReliabilityState.notOnThisPhone,
+      );
+      expect(
+        (await _read(_packFrom118)).state,
+        ReliabilityState.notOnThisPhone,
+      );
+      expect(
+        (await _read(
+          _on(WeeklyCheckState.received),
+          access: WeeklyCheckAccess.locked,
+        )).state,
         ReliabilityState.notOnThisPhone,
       );
       expect(
@@ -304,7 +393,8 @@ void main() {
       ]) {
         await WeeklyCheckSource(
           readCheck: () => check,
-          isPackHeld: () => held,
+          readAccess: () =>
+              held ? WeeklyCheckAccess.open : WeeklyCheckAccess.locked,
           readMissedByClock: clock,
           testRouteName: _route,
         ).read();
@@ -315,7 +405,7 @@ void main() {
     test('a clock read that throws is no', () async {
       final check = (await WeeklyCheckSource(
         readCheck: () => _on(WeeklyCheckState.received),
-        isPackHeld: () => true,
+        readAccess: () => WeeklyCheckAccess.open,
         readMissedByClock: () async => throw StateError('disk'),
         testRouteName: _route,
       ).read()).single;
@@ -331,11 +421,11 @@ void main() {
 
     Future<List<ReliabilityCheck>> withWeekly(
       WeeklyCheck? check, {
-      bool isPackHeld = true,
+      WeeklyCheckAccess access = WeeklyCheckAccess.open,
     }) async => [
       fine,
       // What `ReliabilityCubit` does with a check not on this phone.
-      for (final weekly in [await _read(check, isPackHeld: isPackHeld)])
+      for (final weekly in [await _read(check, access: access)])
         if (weekly.state != ReliabilityState.notOnThisPhone) weekly,
     ];
 
@@ -362,10 +452,16 @@ void main() {
         await withWeekly(null),
         await withWeekly(_neverOn),
         await withWeekly(_off),
-        await withWeekly(_packLost),
+        await withWeekly(_tierAway),
+        await withWeekly(_tierAway, access: WeeklyCheckAccess.locked),
+        await withWeekly(_packFrom118),
         await withWeekly(
           _on(WeeklyCheckState.missedRepeatedly, misses: 2),
-          isPackHeld: false,
+          access: WeeklyCheckAccess.notOffered,
+        ),
+        await withWeekly(
+          _on(WeeklyCheckState.missedRepeatedly, misses: 2),
+          access: WeeklyCheckAccess.locked,
         ),
       ]) {
         expect(overallReliabilityState(checks), ReliabilityState.fine);

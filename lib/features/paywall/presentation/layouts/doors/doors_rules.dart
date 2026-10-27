@@ -1,28 +1,41 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
+import 'package:flutter/animation.dart';
 
-// The two doors as numbers: when the right one opens, where both stand on
-// a stage, and what the headline says. No widget is in here, so each rule
-// has a test.
+// The door as numbers: when it opens, how far it stands open for each
+// benefit, where the doorway is on a stage, and what the headline says. No
+// widget is in here, so each rule has a test.
+//
+// The timeline, in seconds since the layout appeared:
+//
+// | From | To   | What the stage shows                                    |
+// |------|------|---------------------------------------------------------|
+// | 0    | 0.14 | The app's own wall and one shut door                    |
+// | 0.14 | 0.4  | The door gives a little, as if pushed, and falls back   |
+// | 0.4  | 1.15 | It swings open: light and rays in the doorway           |
+// | 0.4  | 1.4  | The mascot looks up over the foot, then comes all the   |
+// |      |      | way up. The preview and the words follow it in          |
+// | 1.4  |      | Rest: the door open, the first benefit in the doorway   |
+//
+// After that the door opens a little wider for each benefit and swings
+// back to where it began when the loop comes round.
 
-/// When the right door opens, in seconds since the layout appeared.
-///
-/// Both doors stand shut from the first frame. The right one gives a
-/// little, as if pushed from inside, then swings open while the mascot
-/// pops up in the doorway. The approved entrance plays behind the door as
-/// it opens, so the stage and the words arrive with the light.
+/// When the door opens, in seconds since the layout appeared.
 abstract final class DoorsTimeline {
-  /// The first push: the door gives a few degrees and falls back.
+  /// The first push: the door gives a little and falls back.
   static const double nudgeStart = 0.14;
   static const double nudgeEnd = 0.4;
 
-  /// How far the first push opens the door, as a share of fully open.
-  static const double nudgeReach = 0.09;
+  /// How far the first push opens the door, as a share of its first rest.
+  static const double nudgeReach = 0.2;
 
   /// The swing starts here. It is also the loop's prelude: the mascot and
   /// the words start their entrance as the door starts to open.
@@ -32,7 +45,8 @@ abstract final class DoorsTimeline {
   /// The second every part has settled, and the frame nothing moves on.
   static const double restAt = prelude + heroEntranceSeconds;
 
-  /// How far open the right door is at [t]: 0 shut, 1 square to the wall.
+  /// How far through its opening the door is at [t]: 0 shut, 1 standing
+  /// open where it rests for the first benefit.
   static double open(double t) {
     if (t >= swingEnd) return 1;
     if (t >= prelude) {
@@ -45,151 +59,173 @@ abstract final class DoorsTimeline {
   }
 }
 
-/// The door leaf at one point of its swing, as the eye sees it.
-class DoorsLeafShape {
-  const DoorsLeafShape({required this.width, required this.taper});
+/// How the stage moves in the doorway: rays turn in the light behind the
+/// preview, the mascot looks up over the foot of the stage before it comes
+/// all the way, it leans toward the doorway every few seconds, and each
+/// new preview turns over like a door.
+const HeroMotion doorsMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rays,
+  entrance: HeroEntranceStyle.peek,
+  idle: HeroIdleStyle.lean,
+  arrival: HeroCardArrival.flip,
+);
 
-  /// The leaf's width on screen, from the hinge.
-  final double width;
+/// How many seconds of the entrance are skipped when an intro has just
+/// handed over: the door is already on its way open.
+const double doorsIntroHeadStart = 0.5;
+
+/// The head start of a layout that does or does not follow an intro.
+double doorsLeadFor({required bool followsIntro}) =>
+    followsIntro ? doorsIntroHeadStart : 0;
+
+/// What the entrance sounds like, by clock second: a knock as the door
+/// gives, a whoosh as it starts to swing, the mascot's landing, and a
+/// snap as the door ends square. [lead] is the head start after an intro
+/// (see [doorsLeadFor]), which every moment is that much sooner by.
+List<PaywallCueBeat> doorsCues({double lead = 0}) => [
+  PaywallCueBeat(DoorsTimeline.nudgeStart - lead, PaywallCue.introKnock),
+  PaywallCueBeat(DoorsTimeline.prelude - lead, PaywallCue.whoosh),
+  heroLandingBeat(
+    doorsMotion.entrance,
+    prelude: DoorsTimeline.prelude - lead,
+  ),
+  PaywallCueBeat(DoorsTimeline.swingEnd - lead, PaywallCue.snap),
+];
+
+/// How far the open door lies out over the wall, as a share of its own
+/// width, for the first benefit and for the last. Each benefit between
+/// them opens it a step wider.
+const double doorsFirstReach = 0.26;
+const double doorsLastReach = 0.6;
+
+/// How far round the door has swung when it rests for benefit [index] of
+/// [count], in radians. Zero is shut, a quarter turn is edge on, and past
+/// that it lies out over the wall on the far side of its hinge.
+///
+/// [maxReach] is the widest the wall has room for, as a share of the
+/// door's width.
+double doorsRestAngle(int index, int count, {double maxReach = 1}) {
+  final step = count < 2 ? 0.0 : index.clamp(0, count - 1) / (count - 1);
+  final reach = math.min(
+    doorsFirstReach + (doorsLastReach - doorsFirstReach) * step,
+    maxReach.clamp(0.0, 1.0),
+  );
+  return math.pi / 2 + math.asin(reach);
+}
+
+/// How far round the door is, in radians.
+///
+/// During the entrance it is [open] of the way to its first rest (see
+/// [DoorsTimeline.open]). After that it rests where benefit [index] has
+/// it. While the stage changes to that benefit from [previous] it swings
+/// between the two, [enter] of the way, 0 to 1: wider for a later
+/// benefit, back again when the loop comes round.
+double doorsAngleAt({
+  required double open,
+  required int index,
+  required int count,
+  int? previous,
+  double enter = 1,
+  double maxReach = 1,
+}) {
+  final rest = doorsRestAngle(index, count, maxReach: maxReach);
+  if (open < 1) {
+    return open.clamp(0.0, 1.0) * doorsRestAngle(0, count, maxReach: maxReach);
+  }
+  if (previous == null || previous == index || enter >= 1) return rest;
+  final from = doorsRestAngle(previous, count, maxReach: maxReach);
+  final p = Curves.easeInOutCubic.transform(enter.clamp(0.0, 1.0));
+  return from + (rest - from) * p;
+}
+
+/// How far through a swing the door is, 0 to 1, for the taper of its
+/// free edge: 0 and 1 are a door at rest.
+double doorsSwingAt({
+  required double open,
+  required int index,
+  int? previous,
+  double enter = 1,
+}) {
+  if (open < 1) return open.clamp(0.0, 1.0);
+  if (previous == null || previous == index) return 1;
+  return enter.clamp(0.0, 1.0);
+}
+
+/// The door leaf at one point of its swing, as the eye sees it from the
+/// front.
+class DoorsLeafShape {
+  const DoorsLeafShape({required this.extent, required this.taper});
+
+  /// How far the leaf reaches from its hinge, in points. Over zero it
+  /// covers the doorway. Under zero it lies out over the wall.
+  final double extent;
 
   /// How far its free edge is drawn in from the top and from the bottom.
-  /// Zero when shut and when fully open, so both are square.
+  /// Zero whenever the door is at rest, so it is square.
   final double taper;
 }
 
 /// The thickness of a door seen edge on, in points.
 const double doorsLeafEdge = 8;
 
-/// The shape of a leaf [open] of the way open (0 to 1) across a doorway
-/// [width] wide and [height] tall.
+/// The shape of a leaf [width] wide and [height] tall that has swung
+/// [angle] radians round, [swing] of the way through its move.
 DoorsLeafShape doorsLeafShapeFor({
-  required double open,
+  required double angle,
   required double width,
   required double height,
+  double swing = 1,
 }) {
-  final angle = open.clamp(0.0, 1.0) * math.pi / 2;
   return DoorsLeafShape(
-    width: doorsLeafEdge + (width - doorsLeafEdge) * math.cos(angle),
-    taper: height * 0.06 * math.sin(2 * angle),
+    extent: width * math.cos(angle),
+    taper: height * 0.045 * math.sin(math.pi * swing.clamp(0.0, 1.0)),
   );
 }
 
-/// Where the doors, the mascot and the preview stand on a stage.
+/// Where the doorway, the mascot and the preview stand on a stage.
 class DoorsGeometry {
-  const DoorsGeometry({
-    required this.arrangement,
-    required this.doorway,
-    required this.freeDoor,
-  });
+  const DoorsGeometry({required this.arrangement, required this.doorway});
 
-  /// The mascot and the preview, for the stage.
+  /// The mascot and the preview, as the approved stage places them: the
+  /// mascot is as large here as it is there.
   final HeroArrangement arrangement;
 
-  /// The open doorway. The preview is inside it and the mascot stands on
-  /// its left edge. The leaf hinges on its right edge.
+  /// The open doorway, around the preview and up to the top of the stage.
+  /// The leaf hinges on its left edge, behind the mascot.
   final Rect doorway;
 
-  /// The shut door at the left edge.
-  final Rect freeDoor;
+  /// The widest the leaf may lie out over the wall, as a share of its
+  /// width, so it stays on the screen.
+  double get maxReach => doorway.width <= 0
+      ? 0
+      : ((doorway.left - doorsWallRoom) / doorway.width).clamp(0.0, 1.0);
 }
 
-/// The shut door's width, and the room either side of it. Its left edge
-/// is the left edge of the words under the stage.
-const double doorsFreeWidth = 38;
-const double doorsFreeLeft = 20;
-const double doorsFreeGap = 4;
+/// Room between the doorway's left edge and the preview inside it.
+const double doorsPad = 10;
 
-/// Room between the doorway and the preview inside it.
-const double doorsPad = 12;
+/// Room right of the doorway and above it. The close cross sits inside
+/// the doorway's top corner, clear of its frame.
+const double doorsRightRoom = 6;
+const double doorsTopRoom = 6;
 
-/// Room right of the doorway, and above it when it stands under the cross.
-const double doorsRightRoom = 12;
-const double doorsCrossRoom = 50;
+/// Room kept between the open leaf and the left edge of the screen.
+const double doorsWallRoom = 10;
 
-/// Room under the doors, so a bob does not touch the pips.
-const double doorsFloorRoom = 8;
-
-/// The mascot's edge against the preview's, and how much of it lies over
-/// the preview's corner.
-const double doorsMascotShare = 0.7;
-const double doorsOverlapX = 0.2;
-const double doorsOverlapY = 0.3;
-
-/// The smallest mascot the doors are drawn around.
-const double doorsMascotMin = 72;
-
-/// Places the doors on a stage of [stage] points, or null when the stage
-/// is too small for a preview in a doorway. The layout then draws the
-/// approved stage with no doors.
-///
-/// The doorway is tried two ways: under the close cross, as wide as the
-/// stage allows, and beside the cross, as tall as the stage allows. The
-/// one with the larger mascot wins. Everything stands on one floor.
+/// Places the doorway on a stage of [stage] points, or null when the
+/// stage is too small for the mascot and a preview together. The layout
+/// then draws the approved stage with no door.
 DoorsGeometry? doorsGeometryFor(Size stage) {
-  final under = _place(
-    stage,
-    top: doorsCrossRoom,
-    right: stage.width - doorsRightRoom,
-  );
-  final beside = _place(
-    stage,
-    top: heroTopRoom,
-    right: stage.width - doorsCrossRoom,
-  );
-  if (under == null) return beside;
-  if (beside == null) return under;
-  return beside.arrangement.mascot.width > under.arrangement.mascot.width
-      ? beside
-      : under;
-}
-
-DoorsGeometry? _place(
-  Size stage, {
-  required double top,
-  required double right,
-}) {
-  final floor = stage.height - doorsFloorRoom;
-  const left = doorsFreeLeft + doorsFreeWidth + doorsFreeGap;
-  // What the mascot and the preview share, across and down.
-  final across = right - left - doorsPad - doorsLeafEdge;
-  final down = floor - top - doorsPad;
-
-  var card = math.min(
-    heroCardMax,
-    math.min(
-      across / (1 + doorsMascotShare * (1 - doorsOverlapX)),
-      down / (1 + doorsMascotShare * (1 - doorsOverlapY)),
-    ),
-  );
-  var mascot = card * doorsMascotShare;
-  if (card < heroCardMin) {
-    // The preview keeps its smallest edge and the mascot gives.
-    card = heroCardMin;
-    mascot = math.min(
-      (across - card) / (1 - doorsOverlapX),
-      (down - card) / (1 - doorsOverlapY),
-    );
-  }
-  if (mascot < doorsMascotMin) return null;
-
-  final cardRight = right - doorsLeafEdge - doorsPad;
-  final cardLeft = cardRight - card;
-  final mascotLeft = cardLeft + mascot * doorsOverlapX - mascot;
-  final mascotTop = floor - mascot;
-  final cardTop = mascotTop + mascot * doorsOverlapY - card;
-
+  final arrangement = heroArrangementFor(stage);
+  if (arrangement.kind != HeroStageKind.pair) return null;
   return DoorsGeometry(
-    arrangement: HeroArrangement(
-      kind: HeroStageKind.pair,
-      mascot: Rect.fromLTWH(mascotLeft, mascotTop, mascot, mascot),
-      card: Rect.fromLTWH(cardLeft, cardTop, card, card),
-    ),
-    doorway: Rect.fromLTRB(cardLeft - doorsPad, top, right, floor),
-    freeDoor: Rect.fromLTRB(
-      doorsFreeLeft,
-      top,
-      doorsFreeLeft + doorsFreeWidth,
-      floor,
+    arrangement: arrangement,
+    doorway: Rect.fromLTRB(
+      arrangement.card.left - doorsPad,
+      doorsTopRoom,
+      stage.width - doorsRightRoom,
+      // Down to the floor: the foot of the stage.
+      stage.height,
     ),
   );
 }

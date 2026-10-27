@@ -1,4 +1,5 @@
 import 'package:critalarm/core/models/weekly_check.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 
 /// How the weekly check stands on this phone, decided once.
 ///
@@ -7,8 +8,13 @@ import 'package:critalarm/core/models/weekly_check.dart';
 /// one answer, so the header can never say one thing above a row that says
 /// another.
 enum WeeklyCheckStanding {
-  /// The install does not hold the pack, or the relay says the account
-  /// lost it. The row is locked.
+  /// The phone is on a server of the user's own, where the check does not
+  /// exist. The row says so and offers nothing.
+  notOffered,
+
+  /// The install does not hold Hosted, or that is not sure yet. The row is
+  /// locked and offers Hosted. What the person chose on the switch is kept
+  /// by the relay and shows again when Hosted is back.
   locked,
 
   /// Held, and never switched on. The relay has sent no round.
@@ -36,7 +42,9 @@ enum WeeklyCheckStanding {
   /// On, and the relay holds no push token for this phone.
   noToken,
 
-  /// On, in a state a newer relay sends and this build has no words for.
+  /// On, with no words for how the rounds went: a state a newer relay
+  /// sends, or the relay still answering that the account is not on Hosted
+  /// while this phone holds it, which lasts until the next read.
   on;
 
   /// Whether this standing is trouble the user can act on. One miss is not:
@@ -44,9 +52,9 @@ enum WeeklyCheckStanding {
   bool get needsLook =>
       this == missedRepeatedly || this == tokenRefused || this == noToken;
 
-  /// Whether the check is switched on and the pack is held.
+  /// Whether the check is switched on and Hosted is held.
   bool get isOn => switch (this) {
-    locked || neverOn || off => false,
+    notOffered || locked || neverOn || off => false,
     waiting ||
     received ||
     missedOnce ||
@@ -66,17 +74,26 @@ enum WeeklyCheckStanding {
 /// is what raises the notice on Home when the relay cannot be reached.
 WeeklyCheckStanding weeklyCheckStanding({
   required WeeklyCheck? check,
-  required bool isPackHeld,
+  required WeeklyCheckAccess access,
   required bool missedByClock,
 }) {
-  if (!isPackHeld) return WeeklyCheckStanding.locked;
+  switch (access) {
+    case WeeklyCheckAccess.notOffered:
+      return WeeklyCheckStanding.notOffered;
+    case WeeklyCheckAccess.locked || WeeklyCheckAccess.unsure:
+      return WeeklyCheckStanding.locked;
+    case WeeklyCheckAccess.open:
+      break;
+  }
   if (check == null) return WeeklyCheckStanding.neverOn;
   final state = check.state;
   if (state == WeeklyCheckState.off || !check.enabled) {
-    // The relay says the pack is gone. The row locks at once, before the
-    // packs list has been read again.
-    if (check.reason == WeeklyCheckOffReason.pack) {
-      return WeeklyCheckStanding.locked;
+    // Still enrolled, and the relay says the account is not on Hosted,
+    // while this phone holds Hosted: the relay's answer is the older one.
+    // The switch stays where the person left it (api.md §4.5, "When the
+    // tier changes"). What is held decides the lock, never this answer.
+    if (check.enabled && check.reason == WeeklyCheckOffReason.tier) {
+      return WeeklyCheckStanding.on;
     }
     return check.lastSentAt == null
         ? WeeklyCheckStanding.neverOn

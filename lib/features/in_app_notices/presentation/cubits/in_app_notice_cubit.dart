@@ -1,61 +1,43 @@
 import 'dart:async';
 
-import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
-import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
-import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
-import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Runs home alerts, warnings, and growth notices following the priority
-/// hierarchy, anti-fatigue cooldowns, and 7-day snoozing rules:
-/// 1. No server connected (Crit blocker error)
-/// 2. Critical health issues (Crit blocker error)
-/// 3. This phone missed an alarm in the last week (shown until closed, and
-///    a closed one never comes back)
-/// 4. Weekly checks stopped arriving (two rounds in a row, shown until
-///    closed, and back only for a later run of misses)
-/// 5. Battery optimization off (Warning, Android, shown once, only after a
-///    critical topic exists)
-/// 6. Phone updated since the last test alarm (shown until closed, once
-///    per OS version)
-/// 7. Pro ends soon (cancelled plan, 5-day snooze)
-/// 8. Account backup prompt (Engagement, 7-day snooze, only once the user
+/// Picks the one reminder Home pins above the tab bar, following the
+/// anti-fatigue cooldown and the 7-day snoozing rules:
+/// 1. Pro ends soon (cancelled plan, 5-day snooze)
+/// 2. Account backup prompt (Engagement, 7-day snooze, only once the user
 ///    owns a topic and a day has passed since the first one)
+///
+/// Anything that says an alarm may not ring (no server, a missing
+/// permission, a missed alarm, a stopped weekly check, a phone update) is
+/// the status card's job and never a notice.
 ///
 /// Nothing shows before setup is done (`SetupGate`): onboarding finished,
 /// including the create-your-first-topic screens, and the Topics Feature
-/// Guide seen or skipped. Home loads again when a guide ends.
+/// Guide seen or skipped. Home loads again when a guide ends. Nothing shows
+/// with no server saved either.
 ///
-/// Pro is not on this list. It is a sheet now, asked for by `ProAskRules`
-/// in `lib/features/in_app_notices/domain/pro_ask_rules.dart` at a moment that
-/// earns the ask, never a card sitting on the home screen.
+/// Pro is not only a reminder. It is also a sheet, asked for by `ProAskRules`
+/// in `lib/features/in_app_notices/domain/pro_ask_rules.dart` at a moment
+/// that earns the ask.
 class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   InAppNoticeCubit({
     required this.getConnectionUsecase,
-    required this.shellCubit,
     required this.identityRepository,
     required this.accountRepository,
     required this.noticeRepository,
     required Future<List<Topic>?> Function() readTopics,
     this.proEnding,
-    Future<SystemUpdateReading?> Function()? readSystemUpdate,
-    Future<List<MissedAlarm>?> Function()? readMissedAlarms,
-    Set<String> Function()? readDismissedMissedAlarms,
-    Future<void> Function(List<String> incidentIds)? dismissMissedAlarms,
-    Stream<void>? missedAlarmChanges,
-    Future<bool> Function()? readWeeklyCheckStopped,
-    Future<void> Function()? dismissWeeklyCheck,
-    Stream<void>? weeklyCheckChanges,
     AccountIdentityChanges? identityChanges,
     Future<bool> Function()? isSetupDone,
     DateTime Function()? clock,
@@ -64,24 +46,6 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
        _readTopics = readTopics,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _readSystemUpdate = readSystemUpdate,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _readMissedAlarms = readMissedAlarms,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _readDismissedMissedAlarms = readDismissedMissedAlarms,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _dismissMissedAlarms = dismissMissedAlarms,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _readWeeklyCheckStopped = readWeeklyCheckStopped,
-       // Same reason as above.
-       // ignore: prefer_initializing_formals
-       _dismissWeeklyCheck = dismissWeeklyCheck,
        _clock = clock ?? DateTime.now,
        _identityChanges = identityChanges ?? appAccountIdentityChanges,
        // The field is private and the parameter is public, so it cannot be
@@ -89,16 +53,10 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
        // ignore: prefer_initializing_formals
        _isSetupDone = isSetupDone,
        super(const InAppNoticeState()) {
-    _shellSub = shellCubit.stream.listen((health) {
-      unawaited(_evaluate(health: health));
-    });
     _identityChanges.addListener(_onIdentityChanged);
-    _missedSub = missedAlarmChanges?.listen((_) => unawaited(_evaluate()));
-    _weeklySub = weeklyCheckChanges?.listen((_) => unawaited(_evaluate()));
   }
 
   final GetConnectionUsecase getConnectionUsecase;
-  final ShellCubit shellCubit;
   final IdentityRepository identityRepository;
   final AccountRepository accountRepository;
   final InAppNoticeRepository noticeRepository;
@@ -109,28 +67,6 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   /// The topics on the connected server, or null when the read failed.
   final Future<List<Topic>?> Function() _readTopics;
 
-  /// What the system update check says, or null when it is not wired (tests
-  /// that do not care) or could not be read.
-  final Future<SystemUpdateReading?> Function()? _readSystemUpdate;
-
-  /// Every alarm this phone missed, or null when it is not wired (tests that
-  /// do not care) or could not be read. Reads what the app already holds.
-  final Future<List<MissedAlarm>?> Function()? _readMissedAlarms;
-
-  /// The incidents whose missed alarm entry was closed.
-  final Set<String> Function()? _readDismissedMissedAlarms;
-
-  /// Stores closed entries, so they never show again.
-  final Future<void> Function(List<String> incidentIds)? _dismissMissedAlarms;
-
-  /// Whether weekly checks stopped arriving: two rounds missed in a row, by
-  /// the relay's count or by this phone's own clock. Null when it is not
-  /// wired (tests that do not care). It is told whether setup is done by
-  /// the caller that wires it.
-  final Future<bool> Function()? _readWeeklyCheckStopped;
-
-  /// Closes the weekly check notice for this run of misses.
-  final Future<void> Function()? _dismissWeeklyCheck;
   final DateTime Function() _clock;
 
   /// How long the backup notice waits after the user's first topic.
@@ -140,19 +76,12 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   /// counts as done.
   final Future<bool> Function()? _isSetupDone;
 
-  StreamSubscription<ShellHealth>? _shellSub;
-  StreamSubscription<void>? _missedSub;
-  StreamSubscription<void>? _weeklySub;
   Timer? _cooldownTimer;
   DateTime? _lastResolvedOrDismissedAt;
 
-  /// The OS version the notice on screen is for, so closing it stores the
-  /// right one.
-  int? _systemUpdateMajor;
-
   /// Somebody signed in, signed out, linked another provider or deleted the
-  /// account. Priority 8 reads the identity, so ask again right away instead
-  /// of waiting for a resume or a pull to refresh.
+  /// account. The backup notice reads the identity, so ask again right away
+  /// instead of waiting for a resume or a pull to refresh.
   void _onIdentityChanged() {
     if (isClosed) return;
     unawaited(_evaluate());
@@ -169,66 +98,28 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   }
 
   Future<void> refresh() async {
-    await shellCubit.refresh();
     await _evaluate();
   }
 
-  Future<void> _evaluate({ShellHealth? health, bool isResumed = false}) async {
+  Future<void> _evaluate({bool isResumed = false}) async {
     if (isClosed || state.isDismissing) return;
 
     // Nothing before setup is done: not during onboarding, and not before
     // the Topics guide has been seen. The state is left as it is rather than
     // set to none: before the Topics guide it is still the first none, and
-    // while a later guide is up Home hides the notice itself. Keeping it
-    // lets the pass after the guide see a cleared blocker and start the
-    // cooldown.
+    // while a later guide is up Home hides the notice itself.
     final isSetupDone =
         await (_isSetupDone?.call() ?? Future<bool>.value(true));
     if (isClosed || !isSetupDone) return;
 
-    // Priority 1: Server connection check
+    // With no server saved there is nothing to remind about. The status card
+    // says so.
     final connResult = await getConnectionUsecase(const NoParams());
     if (isClosed) return;
     final conn = connResult.getOrNull();
     final hasServer = conn != null && conn.serverUrl.trim().isNotEmpty;
-
     if (!hasServer) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.noServer,
-          missingPermissions: const [],
-        ),
-      );
-      return;
-    }
-
-    // Priority 2 & 3: Device permissions / health
-    final currentHealth = health ?? shellCubit.state;
-    if (currentHealth.hasCriticalErrors) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.criticalHealth,
-          missingPermissions: currentHealth.criticalMissing,
-        ),
-      );
-      return;
-    }
-
-    // Operational errors are clear. Check anti-daisy-chaining:
-    final wasOperationalIssue =
-        state.noticeType == InAppNoticeType.noServer ||
-        state.noticeType == InAppNoticeType.criticalHealth;
-
-    if (wasOperationalIssue && !isResumed) {
-      _lastResolvedOrDismissedAt = DateTime.now();
-      await noticeRepository.markNoticeResolvedOrDismissed();
-      _startCooldownTimer();
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.none,
-          missingPermissions: const [],
-        ),
-      );
+      emit(state.copyWith(noticeType: InAppNoticeType.none));
       return;
     }
 
@@ -236,12 +127,7 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     if (!isResumed && _lastResolvedOrDismissedAt != null) {
       final elapsed = DateTime.now().difference(_lastResolvedOrDismissedAt!);
       if (elapsed < cooldownDuration) {
-        emit(
-          state.copyWith(
-            noticeType: InAppNoticeType.none,
-            missingPermissions: const [],
-          ),
-        );
+        emit(state.copyWith(noticeType: InAppNoticeType.none));
         final remaining = cooldownDuration - elapsed;
         _cooldownTimer?.cancel();
         _cooldownTimer = Timer(remaining, () {
@@ -253,56 +139,8 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
       }
     }
 
-    // Priority 3: this phone missed an alarm. A card on Home and nothing
-    // else: it posts no notification and rings nothing.
-    List<MissedAlarm>? missed;
-    try {
-      missed = await _readMissedAlarms?.call();
-    } on Object {
-      // A failed read is "nothing to say", never an error on Home.
-      missed = null;
-    }
-    if (isClosed) return;
-    final missedNotice = MissedAlarmNoticeRule.noticeFor(
-      isSetupDone: isSetupDone,
-      missed: missed,
-      dismissedIds: _readDismissedMissedAlarms?.call() ?? const {},
-      now: _clock(),
-    );
-    if (missedNotice != null) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.missedAlarm,
-          missedAlarm: missedNotice,
-          missingPermissions: const [],
-        ),
-      );
-      return;
-    }
-
-    // Priority 4: weekly checks stopped arriving. A card on Home and
-    // nothing else. One missed round never gets here: it shows on the
-    // Reliability screen alone.
-    var weeklyStopped = false;
-    try {
-      weeklyStopped = await _readWeeklyCheckStopped?.call() ?? false;
-    } on Object {
-      // A failed read is "nothing to say", never an error on Home.
-      weeklyStopped = false;
-    }
-    if (isClosed) return;
-    if (weeklyStopped) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.weeklyCheck,
-          missingPermissions: const [],
-        ),
-      );
-      return;
-    }
-
-    // The topic list feeds the battery and backup notices. A failed read
-    // (null) counts as unknown, so neither shows and nothing is stamped.
+    // The topic list feeds the backup notice. A failed read (null) counts as
+    // unknown, so it does not show and nothing is stamped.
     final topics = await _readTopics();
     if (isClosed) return;
     final ownsTopic = topics != null && topics.isNotEmpty;
@@ -310,51 +148,7 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     // install that already has topics gets the stamp on its first pass.
     if (ownsTopic) await noticeRepository.markFirstTopicOwned();
 
-    // Priority 5: battery optimisation. Android only, because only Android
-    // lists the row in the health state. It is a warning, so it waits for a
-    // critical topic: before that nothing is waiting on a page. It shows once;
-    // after a dismiss it lives on the Health page alone.
-    final batteryOff = currentHealth.warningMissing.isNotEmpty;
-    final hasCriticalTopic = topics?.any((t) => t.critical) ?? false;
-    if (batteryOff &&
-        hasCriticalTopic &&
-        noticeRepository.getBatteryNoticeDismissedAt() == null) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.batteryOptimization,
-          missingPermissions: currentHealth.warningMissing,
-        ),
-      );
-      return;
-    }
-
-    // Priority 6: the phone was updated and no test alarm has rung since.
-    // One notice per OS version: closing it, or tapping its button, keeps it
-    // gone until the next update.
-    SystemUpdateReading? update;
-    try {
-      update = await _readSystemUpdate?.call();
-    } on Object {
-      // A failed read is "nothing to say", never an error on Home.
-      update = null;
-    }
-    if (isClosed) return;
-    if (SystemUpdateNoticeRule.shouldShow(
-      isSetupDone: isSetupDone,
-      reading: update,
-      dismissedForMajor: noticeRepository.getSystemUpdateNoticeDismissedFor(),
-    )) {
-      _systemUpdateMajor = update?.osMajor;
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.systemUpdate,
-          missingPermissions: const [],
-        ),
-      );
-      return;
-    }
-
-    // Priority 7: a cancelled Pro plan that has not ended yet.
+    // Pro ends soon: a cancelled Pro plan that has not ended yet.
     final ending = await proEnding?.read();
     if (isClosed) return;
     if (ending != null && ending.showPill) {
@@ -362,15 +156,17 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
         state.copyWith(
           noticeType: InAppNoticeType.proEnding,
           proEndsAt: ending.endsAt,
-          missingPermissions: const [],
         ),
       );
       return;
     }
 
-    // Priority 8: Account Backup Notice
-    final serverMode = await accountRepository.readServerMode();
-    final canHaveAccounts = serverMode != ServerMode.selfhosted;
+    // Account backup.
+    // About what the server is, not about plans: a self-hosted server has
+    // no accounts to back topics up to.
+    final mode = await accountRepository.readServerMode();
+    final canHaveAccounts =
+        mode != ServerMode.selfhosted; // access-ok: accounts exist
     final firstTopicAt = noticeRepository.getFirstTopicOwnedAt();
     final waitedLongEnough =
         firstTopicAt != null && _clock().difference(firstTopicAt) >= backupWait;
@@ -383,23 +179,13 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
             accountDismissedAt != null &&
             _clock().difference(accountDismissedAt).inDays < 7;
         if (!isAccountSnoozed) {
-          emit(
-            state.copyWith(
-              noticeType: InAppNoticeType.accountBackup,
-              missingPermissions: const [],
-            ),
-          );
+          emit(state.copyWith(noticeType: InAppNoticeType.accountBackup));
           return;
         }
       }
     }
 
-    emit(
-      state.copyWith(
-        noticeType: InAppNoticeType.none,
-        missingPermissions: const [],
-      ),
-    );
+    emit(state.copyWith(noticeType: InAppNoticeType.none));
   }
 
   void _startCooldownTimer() {
@@ -419,26 +205,9 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
 
     if (current == InAppNoticeType.accountBackup) {
       await noticeRepository.dismissAccountNotice();
-    } else if (current == InAppNoticeType.batteryOptimization) {
-      await noticeRepository.dismissBatteryNotice();
-    } else if (current == InAppNoticeType.systemUpdate) {
-      final major = _systemUpdateMajor;
-      if (major != null) {
-        await noticeRepository.dismissSystemUpdateNotice(major);
-      }
-      await noticeRepository.markNoticeResolvedOrDismissed();
-    } else if (current == InAppNoticeType.missedAlarm) {
-      final ids = state.missedAlarm?.incidentIds;
-      if (ids != null) await _dismissMissedAlarms?.call(ids);
-      await noticeRepository.markNoticeResolvedOrDismissed();
-    } else if (current == InAppNoticeType.weeklyCheck) {
-      await _dismissWeeklyCheck?.call();
-      await noticeRepository.markNoticeResolvedOrDismissed();
     } else if (current == InAppNoticeType.proEnding) {
       final endsAt = state.proEndsAt;
       if (endsAt != null) await proEnding?.dismissPill(endsAt);
-      await noticeRepository.markNoticeResolvedOrDismissed();
-    } else {
       await noticeRepository.markNoticeResolvedOrDismissed();
     }
 
@@ -451,7 +220,6 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
         state.copyWith(
           noticeType: InAppNoticeType.none,
           isDismissing: false,
-          missingPermissions: const [],
         ),
       );
       _startCooldownTimer();
@@ -460,9 +228,6 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
 
   @override
   Future<void> close() {
-    unawaited(_shellSub?.cancel());
-    unawaited(_missedSub?.cancel());
-    unawaited(_weeklySub?.cancel());
     _cooldownTimer?.cancel();
     _identityChanges.removeListener(_onIdentityChanged);
     return super.close();

@@ -9,6 +9,16 @@ abstract final class AppDurations {
   /// Slow transition: sheet slide up, screen change (400ms).
   static const Duration slow = Duration(milliseconds: 400);
 
+  /// One breath of the hero scene's disc: the slowest loop in the app (9s).
+  static const Duration ambient = Duration(seconds: 9);
+
+  /// A pass card growing into its page, and the way back (520ms).
+  static const Duration pass = Duration(milliseconds: 520);
+
+  /// The route that opens a pass page: the grow plus the body fading in
+  /// behind it (600ms).
+  static const Duration passPage = Duration(milliseconds: 600);
+
   /// Alarm ring pulse duration (900ms).
   static const Duration ring = Duration(milliseconds: 900);
 

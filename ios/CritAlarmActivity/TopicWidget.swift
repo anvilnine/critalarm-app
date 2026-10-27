@@ -12,8 +12,8 @@ struct TopicWidget: Widget {
         AppIntentConfiguration(kind: Self.kind, intent: SelectTopicIntent.self, provider: TopicProvider()) { entry in
             TopicWidgetView(snapshot: entry.snapshot, topicName: entry.topic)
         }
-        .configurationDisplayName("Topic")
-        .description("One topic, with I'm up and Done buttons.")
+        .configurationDisplayName(NativeL10n.text(.widgetTopicName))
+        .description(NativeL10n.text(.widgetTopicDescription))
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -41,7 +41,16 @@ struct TopicWidgetView: View {
                             MediumTopic(topic: topic)
                         }
                     }
-                    .widgetURL(WidgetLink.url(topic: topic.name))
+                    .widgetURL(
+                        family == .systemSmall
+                            ? WidgetLink.smallTopicURL(
+                                topic: topic.name,
+                                ackedIncidentId: topic.incident?.state == WidgetIncident.acked
+                                    ? topic.incident?.id : nil,
+                                shared: ChallengeFlag.groupDefaults
+                            )
+                            : WidgetLink.url(topic: topic.name)
+                    )
                 } else {
                     EmptyState(face: .worried, message: WidgetCopy.topicNotFound)
                         .widgetURL(WidgetLink.homeURL)
@@ -95,7 +104,7 @@ private struct SmallTopic: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if let incident = topic.incident {
-                IncidentActionButton(incident: incident)
+                IncidentActionButton(incident: incident, topic: topic.name)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -122,7 +131,7 @@ private struct MediumTopic: View {
                     HStack(alignment: .center) {
                         RunningTime(incident: incident)
                         Spacer(minLength: 8)
-                        IncidentActionButton(incident: incident)
+                        IncidentActionButton(incident: incident, topic: topic.name)
                     }
                 }
             }

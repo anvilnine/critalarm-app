@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
+import app.critalarm.alarm.ScheduledAlarmReceiver
 import app.critalarm.check.CheckPush
 import app.critalarm.check.WeeklyCheckResponder
 import app.critalarm.notifications.AlarmNotificationFactory
@@ -19,8 +20,10 @@ import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
+import app.critalarm.l10n.NativeWords
 import app.critalarm.widgets.WidgetSnapshotPatch
 import app.critalarm.widgets.WidgetSnapshotStore
+import java.net.URI
 
 /**
  * One card per incident, never two.
@@ -140,6 +143,12 @@ class PushRouter(private val context: Context) {
 
     private fun handleAlarm(payload: FcmIncidentPayload) {
         val incidentId = payload.incidentId ?: return
+        // Arming and every guarded stop take the same lock, so a stop that
+        // read the generation before this push cannot cancel what it arms.
+        synchronized(RingLocks.of(incidentId)) { armFromPush(payload, incidentId) }
+    }
+
+    private fun armFromPush(payload: FcmIncidentPayload, incidentId: String) {
         val store = IncidentDeliveryStore(context)
         if (payload.kind == IncidentPushKind.REPEAT && store.isAcknowledged(incidentId)) {
             Log.i(TAG, "push_dropped reason=already_acked incident_id=$incidentId")
@@ -148,6 +157,9 @@ class PushRouter(private val context: Context) {
         }
         val alreadyActive = store.isActive(incidentId)
         val reopen = payload.kind == IncidentPushKind.REOPEN
+        // The stage mark. An answer asked for under an older generation can
+        // no longer end the ring (RemoteStateRule.decide).
+        store.bumpRingGeneration(incidentId)
         store.activate(incidentId, reopen = reopen)
         patchWidgets(payload, incidentId, store)
         // Written before anything is posted, because a Stop can land seconds
@@ -178,7 +190,7 @@ class PushRouter(private val context: Context) {
                     AlarmNotificationFactory.create(
                         context,
                         payload,
-                        IncidentContentFetcher.fallback(payload),
+                        IncidentContentFetcher.fallback(payload, NativeWords.of(context)),
                     ),
                 )
             }
@@ -197,12 +209,113 @@ class PushRouter(private val context: Context) {
 
     /**
      * `ack`, `close` or `expire` (api.md §5.2). The incident was answered
-     * somewhere else, so this device stops ringing for it, drops the ring it
-     * had set for itself, and either hands the card to the acked state or
-     * takes it down.
+     * somewhere else, as far as this push knows.
+     *
+     * A phone with nothing ringing and nothing set only fixes the card, at
+     * once, under the incident's lock. A phone that rings or has a ring set
+     * does not trust the push: it may be late, and a reopen may have armed
+     * the ring going now ([StatePushRule]). It reads the ring generation,
+     * asks the server once off this thread under the action deadline, and
+     * stops only through [applyRemoteState]. No answer, an error or an open
+     * incident leaves the ring alone.
      */
     private fun handleStateChange(payload: FcmIncidentPayload) {
         val incidentId = payload.incidentId ?: return
+        val generation = synchronized(RingLocks.of(incidentId)) {
+            when (StatePushRule.onArrival(isLiveHere(incidentId, System.currentTimeMillis()))) {
+                StatePushRule.Step.APPLY_NOW -> {
+                    applyStateChange(incidentId, payload.server, payload.kind)
+                    return
+                }
+                StatePushRule.Step.ASK_SERVER ->
+                    IncidentDeliveryStore(context).ringGeneration(incidentId)
+            }
+        }
+        Log.i(TAG, "state_push_checking kind=${payload.kind.wireValue} incident_id=$incidentId")
+        Thread {
+            try {
+                val state = IncidentContentFetcher.fetchState(context, payload.server, incidentId)
+                val outcome = applyRemoteState(
+                    incidentId,
+                    state,
+                    generation,
+                    applyWhenNothing = true,
+                )
+                Log.i(TAG, "state_push_checked incident_id=$incidentId state=$state outcome=${outcome.wire}")
+            } catch (error: Exception) {
+                Log.w(TAG, "state_push_check_failed incident_id=$incidentId reason=${error.javaClass.simpleName}")
+            }
+        }.start()
+    }
+
+    /**
+     * The server said, through something other than a state push, that
+     * [incidentId] is [state] (`acked`, `closed` or `expired`). Does exactly
+     * what that state push would have done, and only when this phone is
+     * ringing for the incident or has a ring set for it ([RemoteStateRule]).
+     * Answers what it did; see [RemoteStateRule.Outcome].
+     *
+     * Dart calls this once it has the server's answer, and Stop calls it after
+     * asking the server once. Either way a push that went missing no longer
+     * leaves the phone ringing every repeat interval until `ring_until`.
+     *
+     * [applyWhenNothing] also fixes the card for an accepted answer when
+     * nothing was set to ring, in the same locked step. [keepLive] refuses
+     * an answer that would stop a live ring (see [RemoteStateRule.decide]).
+     */
+    fun applyRemoteState(
+        incidentId: String,
+        state: String?,
+        expectedGeneration: Long?,
+        nowMillis: Long = System.currentTimeMillis(),
+        applyWhenNothing: Boolean = false,
+        keepLive: Boolean = false,
+    ): RemoteStateRule.Outcome {
+        val kind = RemoteStateRule.kindForState(state) ?: return RemoteStateRule.Outcome.REFUSED
+        val server = NativeConnectionStore(context).canonicalServer()
+            ?: return RemoteStateRule.Outcome.REFUSED
+        // Read, decide and cancel as one step under the lock push arming
+        // takes, so no push can arm a ring in between.
+        synchronized(RingLocks.of(incidentId)) {
+            val outcome = RemoteStateRule.decide(
+                expectedGeneration = expectedGeneration,
+                currentGeneration = IncidentDeliveryStore(context).ringGeneration(incidentId),
+                live = isLiveHere(incidentId, nowMillis),
+                keepLive = keepLive,
+            )
+            if (outcome == RemoteStateRule.Outcome.REFUSED) {
+                Log.i(TAG, "remote_state_refused incident_id=$incidentId keep_live=$keepLive")
+                return outcome
+            }
+            if (outcome == RemoteStateRule.Outcome.NOTHING && !applyWhenNothing) return outcome
+            applyStateChange(incidentId, server, kind)
+            events.record("remote_state_applied", mapOf("kind" to kind.wireValue))
+            return outcome
+        }
+    }
+
+    /** Incidents this phone is ringing for, holds, or has a ring set for. */
+    fun liveIncidentIds(nowMillis: Long = System.currentTimeMillis()): List<String> =
+        IncidentDeliveryStore(context).debugEntries()
+            .map { it.incidentId }
+            .filter { isLiveHere(it, nowMillis) }
+
+    private fun isLiveHere(incidentId: String, nowMillis: Long): Boolean {
+        val store = IncidentDeliveryStore(context)
+        val rearmAt = store.rearmFiresAtMillis(incidentId)
+        return RemoteStateRule.isLiveHere(
+            holding = AlarmForegroundService.isHolding(incidentId),
+            rearmPending = rearmAt != null &&
+                ScheduledAlarmReceiver.isScheduled(context, incidentId, rearmAt),
+            active = store.isActive(incidentId),
+            acknowledged = store.isAcknowledged(incidentId),
+            closed = store.isClosed(incidentId),
+            ringUntilMillis = store.ringUntilMillis(incidentId),
+            nowMillis = nowMillis,
+        )
+    }
+
+    private fun applyStateChange(incidentId: String, server: URI, kind: IncidentPushKind) {
         val store = IncidentDeliveryStore(context)
         val manager = context.getSystemService(NotificationManager::class.java)
 
@@ -211,7 +324,7 @@ class PushRouter(private val context: Context) {
         manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
         manager.cancel(MessageNotificationFactory.notificationId(incidentId))
 
-        when (StateKindRule.cardFor(payload.kind)) {
+        when (StateKindRule.cardFor(kind)) {
             StateKindRule.Card.ACKED -> {
                 val ackedAt = store.acknowledgedAtMillis(incidentId) ?: System.currentTimeMillis()
                 store.markAcknowledged(incidentId, ackedAt)
@@ -221,7 +334,7 @@ class PushRouter(private val context: Context) {
                 IncidentActionReceiver.postStatusCard(
                     context = context,
                     incidentId = incidentId,
-                    server = payload.server,
+                    server = server,
                     title = null,
                     body = null,
                     content = null,
@@ -237,7 +350,7 @@ class PushRouter(private val context: Context) {
                 IncidentCards.show(
                     context = context,
                     incidentId = incidentId,
-                    state = if (payload.kind == IncidentPushKind.EXPIRE) {
+                    state = if (kind == IncidentPushKind.EXPIRE) {
                         IncidentPhoneState.Expired
                     } else {
                         IncidentPhoneState.Closed
@@ -249,8 +362,8 @@ class PushRouter(private val context: Context) {
         // and an expire end it as surely as an ack does, and neither brings an
         // ack with it.
         LocalReminderReceiver.releaseHeld(context)
-        events.record("push_state_change", mapOf("kind" to payload.kind.wireValue))
-        Log.i(TAG, "incident_state_applied kind=${payload.kind.wireValue} incident_id=$incidentId")
+        events.record("push_state_change", mapOf("kind" to kind.wireValue))
+        Log.i(TAG, "incident_state_applied kind=${kind.wireValue} incident_id=$incidentId")
     }
 
     private fun handleMessage(payload: FcmIncidentPayload, channelId: String) {
@@ -262,7 +375,7 @@ class PushRouter(private val context: Context) {
         // throws NetworkOnMainThreadException. Even off the main thread,
         // holding a heads-up for up to ten seconds is worse than showing it
         // twice.
-        postMessage(payload, IncidentContentFetcher.fallback(payload), channelId, withAck)
+        postMessage(payload, IncidentContentFetcher.fallback(payload, NativeWords.of(context)), channelId, withAck)
         if (payload.needsContentFetch) enrichMessageLater(payload, channelId, withAck)
     }
 

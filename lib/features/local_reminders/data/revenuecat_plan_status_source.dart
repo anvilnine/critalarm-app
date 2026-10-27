@@ -37,7 +37,10 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
     required Map<String, String> pricesByProduct,
     required DeviceTimeZone timeZone,
   }) {
-    final pro = info.entitlements.active[SubscriptionTier.proEntitlement];
+    // Not a gate: this reads when the plan renews or ends, for the wording
+    // of the "plan is ending" notice.
+    final active = info.entitlements.active; // access-ok: reads end dates
+    final pro = active[SubscriptionTier.proEntitlement];
     if (pro == null) return null;
     final product = pro.productIdentifier.toLowerCase();
     // App Store products carry the period in the id (`...annual`); Play

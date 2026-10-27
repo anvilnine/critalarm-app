@@ -17,6 +17,13 @@ class DeviceIdentityStore {
       : DeviceIdentityStore(prefs);
 
   final SharedPreferences _prefs;
+  final _written = _Written();
+
+  /// Fires after every write: a registration saved, the identity reset or
+  /// cleared. The Hosted holding keeps the last tier it read, and reads it
+  /// again on this, so it never answers from an identity that is gone.
+  Listenable get changes => _written;
+
   static const legacyKeys = [
     'device_id',
     'device_token',
@@ -71,6 +78,7 @@ class DeviceIdentityStore {
     await _forgetRelayConfirmation();
     final identity = DeviceIdentity(deviceId: 'dev_${const Uuid().v4()}');
     await _prefs.setString('device_id', identity.deviceId);
+    _written.ring();
     return identity;
   }
 
@@ -88,6 +96,7 @@ class DeviceIdentityStore {
       await _prefs.remove(key);
     }
     await _forgetRelayConfirmation();
+    _written.ring();
   }
 
   /// [relay] is the relay that answered. It is kept beside the token as its
@@ -116,6 +125,7 @@ class DeviceIdentityStore {
     // stored one still stands. An empty string is never a token.
     final join = _nonEmpty(accountJoinToken);
     if (join != null) await _prefs.setString('account_join_token', join);
+    _written.ring();
   }
 
   /// Writes down where the held device token belongs: the [relay] that
@@ -380,6 +390,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     }
     await _forgetRelayConfirmation();
     _current = identity;
+    _written.ring();
     return identity;
   }
 
@@ -391,6 +402,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     await _delete(deviceService, false);
     await super.clear();
     _current = null;
+    _written.ring();
   }
 
   @override
@@ -435,6 +447,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       await _delete(deviceService, true);
     }
     _current = saved;
+    _written.ring();
   }
 
   @override
@@ -510,4 +523,9 @@ final class _AccountItem {
   const _AccountItem({required this.accountId, this.joinToken});
   final String accountId;
   final String? joinToken;
+}
+
+/// Tells its listeners something was written and carries no value.
+final class _Written extends ChangeNotifier {
+  void ring() => notifyListeners();
 }

@@ -41,6 +41,16 @@ final class NotificationService: UNNotificationServiceExtension {
             push.needsContentFetch ? "yes" : "no"
         )
 
+        // A reopen starts a new stage, so the mark an earlier "I'm up" left is
+        // stale. The app drops it in its background push handler, which does
+        // not run for an app that was force-quit or not woken. This extension
+        // is then the only code that sees the reopen, so it drops the mark
+        // too, before the sound of this or any later push is decided.
+        if AlarmScheduleRule.clearsAck(kind: push.kind), let incidentId = push.incidentId {
+            AckedIncidentStore.clear(incidentId: incidentId)
+            NSLog("CritAlarmNSE ack_mark_cleared reason=reopen incident_id=%@", incidentId)
+        }
+
         // A repeat for an incident the user already stopped on this phone
         // keeps its banner and loses its sound. The alarm itself is skipped
         // in AppDelegate; this is the notification that rides beside it.
@@ -57,9 +67,14 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         // SPIKE (docs/specs/remote-alarm-ios-spike.md): can a Notification
-        // Service Extension schedule an AlarmKit alarm? Everything else in
-        // Part A hangs off the answer.
-        scheduleAlarmSpike(push)
+        // Service Extension schedule an AlarmKit alarm? The spike chose the
+        // app's background push (AlarmTriggerPath.chosen), so this runs only
+        // if that choice is ever reversed. Left on, it armed a second alarm
+        // from every push that no ring generation tracked and no Stop,
+        // acknowledge or state change cancelled.
+        if AlarmTriggerPath.chosen == .notificationServiceExtension {
+            scheduleAlarmSpike(push)
+        }
 
         // The fetch has to finish inside the budget or the placeholder wins.
         let timeout = DispatchWorkItem { [weak self] in
@@ -118,6 +133,11 @@ final class NotificationService: UNNotificationServiceExtension {
             if let topic = resolved.topic { info["topic"] = topic }
             if let id = push?.incidentId { info["incident_id"] = id }
             content.userInfo = info
+        } else {
+            // Out of time with nothing fetched: the payload's own text goes
+            // up, with the server's English placeholder put in the picked
+            // language. Any other text is left exactly as it came.
+            content.body = IncidentContentFetcher.localizedPlaceholder(content.body)
         }
 
         applyPickedSound(to: content, topic: resolved?.topic)

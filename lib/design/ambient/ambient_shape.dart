@@ -10,7 +10,11 @@ class AmbientShape {
     required this.scale,
     required this.turns,
     required this.depth,
+    this.ring = 0,
   });
+
+  /// Stroke width of a shape drawn as an outline, in points.
+  static const double ringWidth = 3;
 
   /// Base color of the shape.
   final Color color;
@@ -21,8 +25,13 @@ class AmbientShape {
   /// Anchor position in normalized coordinates (-1.0 to 1.0).
   final Alignment anchor;
 
-  /// Scale relative to screen shortest side (0.0 to 1.0).
+  /// Size relative to the screen's shortest side: the diameter of a circle.
+  /// Above 1 is a shape wider than the screen, which a big backdrop disc
+  /// is. The most it takes is [maxScale].
   final double scale;
+
+  /// The most [scale] can be.
+  static const double maxScale = 2;
 
   /// Rotation in turns (1.0 = 360 degrees).
   final double turns;
@@ -30,6 +39,12 @@ class AmbientShape {
   /// Depth coefficient (0.0 foreground to 1.0 background) controlling parallax
   /// displacement speed and response during transitions.
   final double depth;
+
+  /// How much of the shape is an outline of [ringWidth] points rather than a
+  /// fill, from 0 (filled) to 1 (outline only). In between, the fill and the
+  /// outline cross-fade, so a blob can turn into a ring while a profile
+  /// lerps.
+  final double ring;
 
   /// Interpolates linearly between two ambient shapes.
   // ignore: prefer_constructors_over_static_methods
@@ -40,9 +55,10 @@ class AmbientShape {
       color: Color.lerp(a.color, b.color, progress)!,
       opacity: _lerp(a.opacity, b.opacity, progress).clamp(0.0, 1.0),
       anchor: Alignment.lerp(a.anchor, b.anchor, progress)!,
-      scale: _lerp(a.scale, b.scale, progress).clamp(0.0, 1.0),
+      scale: _lerp(a.scale, b.scale, progress).clamp(0.0, maxScale),
       turns: _lerp(a.turns, b.turns, progress),
       depth: _lerp(a.depth, b.depth, progress).clamp(0.0, 1.0),
+      ring: _lerp(a.ring, b.ring, progress).clamp(0.0, 1.0),
     );
   }
 
@@ -54,11 +70,13 @@ class AmbientShape {
         anchor == other.anchor &&
         scale == other.scale &&
         turns == other.turns &&
-        depth == other.depth;
+        depth == other.depth &&
+        ring == other.ring;
   }
 
   @override
-  int get hashCode => Object.hash(color, opacity, anchor, scale, turns, depth);
+  int get hashCode =>
+      Object.hash(color, opacity, anchor, scale, turns, depth, ring);
 }
 
 double _lerp(double a, double b, double t) => a + (b - a) * t;

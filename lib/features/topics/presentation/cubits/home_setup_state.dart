@@ -26,7 +26,7 @@ class HomeSetupState {
     this.checklist = SetupChecklist.hidden,
     this.firstTopic,
     this.watchedTopic,
-    this.widgetsPlan = HomeWidgetsPlan.needsHosted,
+    this.widgetsPlan = HomeWidgetsPlan.needsPro,
   });
 
   final HomeSetupPhase phase;

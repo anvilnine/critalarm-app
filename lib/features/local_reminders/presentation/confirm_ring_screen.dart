@@ -105,19 +105,27 @@ class _ConfirmRingContent extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Live regions: the result lands under a button the
+                    // reader just pressed, so it is said when it appears.
                     if (state.failure case final failure?) ...[
-                      Text(
-                        _failureText(failure),
-                        textAlign: TextAlign.center,
-                        style: AppTypography.small(colors.crit),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _failureText(failure),
+                          textAlign: TextAlign.center,
+                          style: AppTypography.small(colors.crit),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
                     if (state.status == ConfirmRingStatus.sent) ...[
-                      Text(
-                        LocaleKeys.local_reminders_ring_sent.tr(),
-                        textAlign: TextAlign.center,
-                        style: AppTypography.small(colors.ink2),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          LocaleKeys.local_reminders_ring_sent.tr(),
+                          textAlign: TextAlign.center,
+                          style: AppTypography.small(colors.ink2),
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],

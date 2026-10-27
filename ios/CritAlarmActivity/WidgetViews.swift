@@ -178,24 +178,32 @@ struct LockedState: View {
     }
 }
 
-/// The copy the empty states use.
+/// The copy the empty states use, in the language picked in the app.
 enum WidgetCopy {
-    static let locked = "Widgets are part of Pro. Tap to see plans."
-    static let lockedShort = "Pro"
-    static let connect = "Open Crit Alarm to connect"
-    static let allQuiet = "All quiet"
-    static let noTopics = "No topics yet"
-    static let topicNotFound = "Topic not found"
-    static let chooseTopic = "Choose a topic"
+    static var locked: String { NativeL10n.text(.widgetLocked) }
+    static var lockedShort: String { NativeL10n.text(.widgetLockedShort) }
+    static var connect: String { NativeL10n.text(.widgetConnect) }
+    static var allQuiet: String { NativeL10n.text(.widgetAllQuiet) }
+    static var noTopics: String { NativeL10n.text(.widgetNoTopics) }
+    static var topicNotFound: String { NativeL10n.text(.widgetTopicNotFound) }
+    static var chooseTopic: String { NativeL10n.text(.widgetChooseTopic) }
+    static var openWord: String { NativeL10n.text(.widgetOpenWord) }
 
-    static func more(_ count: Int) -> String { "+\(count) more" }
-    static func open(_ count: Int) -> String { "\(count) open" }
+    static func more(_ count: Int) -> String { NativeL10n.text(.widgetMore, ["count": "\(count)"]) }
+    static func open(_ count: Int) -> String { NativeL10n.text(.widgetOpenCount, ["count": "\(count)"]) }
+    static func open(topic: String) -> String { NativeL10n.text(.widgetOpenTopic, ["topic": topic]) }
 }
 
 /// "I'm up" or "Done", the same capsules and the same intents as the live
 /// card. Nothing here talks to the server itself.
+///
+/// "Done" asks the one rule the live card asks: a topic that owes a wake-up
+/// challenge gets a Done that opens the app on the incident and closes
+/// nothing here. "I'm up" never asks anything.
 struct IncidentActionButton: View {
     let incident: WidgetIncident
+    /// The name of the topic the incident is on.
+    let topic: String
     @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
@@ -206,7 +214,7 @@ struct IncidentActionButton: View {
                     if incident.state == WidgetIncident.open {
                         Button(intent: AckAlarmIntent(incidentId: incident.id)) { label(title) }
                     } else {
-                        Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
+                        done(title)
                     }
                 }
                 .buttonStyle(.plain)
@@ -218,11 +226,24 @@ struct IncidentActionButton: View {
                     .background(CritAlarmFace.alarmed.canvas, in: Capsule())
                     .foregroundStyle(CritAlarmFace.alarmed.stroke)
             } else {
-                Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
+                done(title)
                     .buttonStyle(.plain)
                     .background(CritAlarmPalette.cobalt, in: Capsule())
                     .foregroundStyle(CritAlarmPalette.onHighlight)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func done(_ title: String) -> some View {
+        if let url = WidgetLink.doneURL(
+            incidentId: incident.id, topic: topic, shared: ChallengeFlag.groupDefaults
+        ) {
+            // A deep link, the way the locked widget goes into the app. In
+            // the small widget the whole face carries the same link.
+            Link(destination: url) { label(title) }
+        } else {
+            Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
         }
     }
 

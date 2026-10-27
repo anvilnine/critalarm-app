@@ -1,78 +1,70 @@
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// What one product's paywall is set to open: the surface that ships today,
-/// a layout picked by entry point, or one named layout.
+/// What one product's paywall is set to open: a layout picked by the place
+/// that opened it, or one named layout.
 ///
-/// Remote Config holds one of these per product, as a string, under
-/// `paywall_layout` (Hosted) and `pro_paywall_layout` (Pro).
+/// Nothing remote holds one of these. The place table in
+/// `paywall_routing.dart` is what a store build opens, and [auto] is its
+/// name here. Developer options can pin one layout in its place. The intro
+/// that plays first is a second value beside it: see `PaywallIntroId`. What
+/// plays after a confirmed purchase is a third: see `PaywallThanksId`. The
+/// outro between the two is a fourth: see `PaywallOutroId`.
 @immutable
 final class PaywallLayoutSetting {
-  const PaywallLayoutSetting._(this._key, this.layout);
+  const PaywallLayoutSetting._(this.layout);
 
   /// Pins every entry point to [layout].
-  const PaywallLayoutSetting.pinned(PaywallLayoutId this.layout) : _key = null;
+  const PaywallLayoutSetting.pinned(PaywallLayoutId this.layout);
 
-  /// Reads a Remote Config value. Empty means [shipped], and so does a
-  /// value this build does not know, so a typo in the console cannot leave
-  /// a device with no paywall.
-  factory PaywallLayoutSetting.parse(String? value) {
-    final key = value?.trim() ?? '';
-    if (key == autoKey) return auto;
-    final layout = PaywallLayoutId.fromKey(key);
-    return layout == null ? shipped : PaywallLayoutSetting.pinned(layout);
-  }
+  /// A layout picked by what opened the paywall. What a build with nothing
+  /// set in Developer options opens.
+  static const auto = PaywallLayoutSetting._(null);
 
-  /// The surface that ships today. What an empty value means.
-  static const shipped = PaywallLayoutSetting._(_shippedKey, null);
-
-  /// A layout picked by what opened the paywall.
-  static const auto = PaywallLayoutSetting._(autoKey, null);
-
-  /// The remote value that picks by entry point.
+  /// The word for [auto]. Older builds saved it, and `shipped`, from the
+  /// developer control: both read as nothing saved.
   static const String autoKey = 'auto';
 
-  /// Only the developer control saves this word. The remote value for the
-  /// shipped surface is the empty string.
-  static const String _shippedKey = 'shipped';
-
-  final String? _key;
-
-  /// The pinned layout, or null for [shipped] and [auto].
+  /// The pinned layout, or null for [auto].
   final PaywallLayoutId? layout;
 
-  bool get isShipped => _key == _shippedKey;
-  bool get isAuto => _key == autoKey;
+  bool get isAuto => layout == null;
 
   /// What the developer control saves for this setting.
-  String get storedKey => layout?.key ?? _key!;
+  String get storedKey => layout?.key ?? autoKey;
 
-  /// Reads what the developer control saved. Null, for nothing saved or a
-  /// word this build does not know, means "follow the remote value".
+  /// Reads what the developer control saved. Null means nothing is pinned,
+  /// so the place table decides. That is the answer for nothing saved, for
+  /// `auto`, for the `shipped` word an older build saved, and for a word
+  /// this build does not know.
   static PaywallLayoutSetting? fromStored(String? stored) {
-    if (stored == null || stored.isEmpty) return null;
-    if (stored == _shippedKey) return shipped;
-    final setting = PaywallLayoutSetting.parse(stored);
-    return setting.isShipped ? null : setting;
+    final key = stored?.trim() ?? '';
+    // The joke was a layout once. Its key still opens `hero`.
+    if (key == paywallFalseAlarmLayoutKey) {
+      return const PaywallLayoutSetting.pinned(PaywallLayoutId.hero);
+    }
+    final layout = PaywallLayoutId.fromKey(key);
+    return layout == null ? null : PaywallLayoutSetting.pinned(layout);
   }
 
   @override
   bool operator ==(Object other) =>
-      other is PaywallLayoutSetting &&
-      other._key == _key &&
-      other.layout == layout;
+      other is PaywallLayoutSetting && other.layout == layout;
 
   @override
-  int get hashCode => Object.hash(_key, layout);
+  int get hashCode => layout.hashCode;
 
   @override
   String toString() => 'PaywallLayoutSetting($storedKey)';
 }
 
-/// The developer control for one product: follow the remote value (null),
-/// or one setting that outranks it. Saved in prefs under [_key].
+/// The developer control for one product: the place table (null), or one
+/// pinned layout that outranks it. Saved in prefs under [_key].
 class DevPaywallLayoutSwitch extends ValueNotifier<PaywallLayoutSetting?> {
   DevPaywallLayoutSwitch(this._prefs, this._key)
     : super(PaywallLayoutSetting.fromStored(_prefs.getString(_key)));
@@ -83,44 +75,163 @@ class DevPaywallLayoutSwitch extends ValueNotifier<PaywallLayoutSetting?> {
   final SharedPreferences _prefs;
   final String _key;
 
-  /// Sets what outranks the remote value, or hands the choice back to it
-  /// when [setting] is null. Remembered across launches.
+  /// Pins a layout, or hands the choice back to the place table when
+  /// [setting] is null or [PaywallLayoutSetting.auto]. Remembered across
+  /// launches.
   Future<void> setSetting(PaywallLayoutSetting? setting) async {
-    value = setting;
-    if (setting == null) {
+    final pinned = setting == null || setting.isAuto ? null : setting;
+    value = pinned;
+    if (pinned == null) {
       await _prefs.remove(_key);
       return;
     }
-    await _prefs.setString(_key, setting.storedKey);
+    await _prefs.setString(_key, pinned.storedKey);
   }
 }
 
-/// The two developer controls, one per product.
+/// The developer control for one product's intro: the coded default
+/// (null), or one intro that outranks it, `none` among them. Saved in prefs
+/// under [_key].
+class DevPaywallIntroSwitch extends ValueNotifier<PaywallIntroId?> {
+  DevPaywallIntroSwitch(this._prefs, this._key)
+    : super(PaywallIntroId.fromKey(_prefs.getString(_key)));
+
+  static const hostedKey = 'dev.paywall_intro';
+  static const proKey = 'dev.pro_paywall_intro';
+
+  final SharedPreferences _prefs;
+  final String _key;
+
+  /// Sets what outranks the coded default, or hands the choice back to it
+  /// when [intro] is null. Remembered across launches.
+  Future<void> setIntro(PaywallIntroId? intro) async {
+    value = intro;
+    if (intro == null) {
+      await _prefs.remove(_key);
+      return;
+    }
+    await _prefs.setString(_key, intro.key);
+  }
+}
+
+/// The developer control for one product's thanks: the coded default
+/// (null), or one thanks that outranks it, `none` among them. Saved in
+/// prefs under [_key].
+class DevPaywallThanksSwitch extends ValueNotifier<PaywallThanksId?> {
+  DevPaywallThanksSwitch(this._prefs, this._key)
+    : super(PaywallThanksId.fromKey(_prefs.getString(_key)));
+
+  static const hostedKey = 'dev.paywall_thanks';
+  static const proKey = 'dev.pro_paywall_thanks';
+
+  final SharedPreferences _prefs;
+  final String _key;
+
+  /// Sets what outranks the coded default, or hands the choice back to it
+  /// when [thanks] is null. Remembered across launches.
+  Future<void> setThanks(PaywallThanksId? thanks) async {
+    value = thanks;
+    if (thanks == null) {
+      await _prefs.remove(_key);
+      return;
+    }
+    await _prefs.setString(_key, thanks.key);
+  }
+}
+
+/// The developer control for one product's success outro: the coded
+/// default (null), or one outro that outranks it, `none` among them.
+/// Saved in prefs under [_key].
+class DevPaywallOutroSwitch extends ValueNotifier<PaywallOutroId?> {
+  DevPaywallOutroSwitch(this._prefs, this._key)
+    : super(PaywallOutroId.fromKey(_prefs.getString(_key)));
+
+  static const hostedKey = 'dev.paywall_outro';
+  static const proKey = 'dev.pro_paywall_outro';
+
+  final SharedPreferences _prefs;
+  final String _key;
+
+  /// Sets what outranks the coded default, or hands the choice back to it
+  /// when [outro] is null. Remembered across launches.
+  Future<void> setOutro(PaywallOutroId? outro) async {
+    value = outro;
+    if (outro == null) {
+      await _prefs.remove(_key);
+      return;
+    }
+    await _prefs.setString(_key, outro.key);
+  }
+}
+
+/// The developer controls: a layout, an intro, a thanks and a success
+/// outro per product.
 class DevPaywallLayoutSwitches {
-  const DevPaywallLayoutSwitches({required this.hosted, required this.pro});
+  const DevPaywallLayoutSwitches({
+    required this.hosted,
+    required this.pro,
+    required this.hostedIntro,
+    required this.proIntro,
+    required this.hostedThanks,
+    required this.proThanks,
+    required this.hostedOutro,
+    required this.proOutro,
+  });
 
   final DevPaywallLayoutSwitch hosted;
   final DevPaywallLayoutSwitch pro;
+  final DevPaywallIntroSwitch hostedIntro;
+  final DevPaywallIntroSwitch proIntro;
+  final DevPaywallThanksSwitch hostedThanks;
+  final DevPaywallThanksSwitch proThanks;
+  final DevPaywallOutroSwitch hostedOutro;
+  final DevPaywallOutroSwitch proOutro;
 }
 
 /// Lets a developer build choose what each product's paywall opens.
 ///
-/// Settled when the app is compiled, the same way the paywall variant
-/// override is. A store build is compiled with [NoPaywallLayoutOverride],
-/// which has nowhere to keep a switch and always answers null, so the
-/// remote value decides.
+/// Settled when the app is compiled. A store build is compiled with
+/// [NoPaywallLayoutOverride], which has nowhere to keep a switch and always
+/// answers null, so the coded defaults decide.
 abstract interface class PaywallLayoutOverride {
-  /// What a developer set for Hosted, or null to follow the remote value.
+  /// What a developer set for Hosted, or null for the place table.
   PaywallLayoutSetting? get hosted;
 
   /// The same for Pro.
   PaywallLayoutSetting? get pro;
 
-  /// Starts reporting the two switches. Does nothing in a build with no
+  /// The intro a developer set for Hosted, or null for the coded
+  /// default.
+  PaywallIntroId? get hostedIntro;
+
+  /// The same for Pro.
+  PaywallIntroId? get proIntro;
+
+  /// The thanks a developer set for Hosted, or null for the coded
+  /// default.
+  PaywallThanksId? get hostedThanks;
+
+  /// The same for Pro.
+  PaywallThanksId? get proThanks;
+
+  /// The success outro a developer set for Hosted, or null for the coded
+  /// default.
+  PaywallOutroId? get hostedOutro;
+
+  /// The same for Pro.
+  PaywallOutroId? get proOutro;
+
+  /// Starts reporting the switches. Does nothing in a build with no
   /// override.
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
+    ValueListenable<PaywallThanksId?>? hostedThanks,
+    ValueListenable<PaywallThanksId?>? proThanks,
+    ValueListenable<PaywallOutroId?>? hostedOutro,
+    ValueListenable<PaywallOutroId?>? proOutro,
   });
 }
 
@@ -135,9 +246,33 @@ class NoPaywallLayoutOverride implements PaywallLayoutOverride {
   PaywallLayoutSetting? get pro => null;
 
   @override
+  PaywallIntroId? get hostedIntro => null;
+
+  @override
+  PaywallIntroId? get proIntro => null;
+
+  @override
+  PaywallThanksId? get hostedThanks => null;
+
+  @override
+  PaywallThanksId? get proThanks => null;
+
+  @override
+  PaywallOutroId? get hostedOutro => null;
+
+  @override
+  PaywallOutroId? get proOutro => null;
+
+  @override
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
+    ValueListenable<PaywallThanksId?>? hostedThanks,
+    ValueListenable<PaywallThanksId?>? proThanks,
+    ValueListenable<PaywallOutroId?>? hostedOutro,
+    ValueListenable<PaywallOutroId?>? proOutro,
   }) {}
 }
 
@@ -145,6 +280,12 @@ class NoPaywallLayoutOverride implements PaywallLayoutOverride {
 class DevPaywallLayoutOverride implements PaywallLayoutOverride {
   ValueListenable<PaywallLayoutSetting?>? _hosted;
   ValueListenable<PaywallLayoutSetting?>? _pro;
+  ValueListenable<PaywallIntroId?>? _hostedIntro;
+  ValueListenable<PaywallIntroId?>? _proIntro;
+  ValueListenable<PaywallThanksId?>? _hostedThanks;
+  ValueListenable<PaywallThanksId?>? _proThanks;
+  ValueListenable<PaywallOutroId?>? _hostedOutro;
+  ValueListenable<PaywallOutroId?>? _proOutro;
 
   @override
   PaywallLayoutSetting? get hosted => _hosted?.value;
@@ -153,12 +294,42 @@ class DevPaywallLayoutOverride implements PaywallLayoutOverride {
   PaywallLayoutSetting? get pro => _pro?.value;
 
   @override
+  PaywallIntroId? get hostedIntro => _hostedIntro?.value;
+
+  @override
+  PaywallIntroId? get proIntro => _proIntro?.value;
+
+  @override
+  PaywallThanksId? get hostedThanks => _hostedThanks?.value;
+
+  @override
+  PaywallThanksId? get proThanks => _proThanks?.value;
+
+  @override
+  PaywallOutroId? get hostedOutro => _hostedOutro?.value;
+
+  @override
+  PaywallOutroId? get proOutro => _proOutro?.value;
+
+  @override
   void watch({
     required ValueListenable<PaywallLayoutSetting?> hosted,
     required ValueListenable<PaywallLayoutSetting?> pro,
+    ValueListenable<PaywallIntroId?>? hostedIntro,
+    ValueListenable<PaywallIntroId?>? proIntro,
+    ValueListenable<PaywallThanksId?>? hostedThanks,
+    ValueListenable<PaywallThanksId?>? proThanks,
+    ValueListenable<PaywallOutroId?>? hostedOutro,
+    ValueListenable<PaywallOutroId?>? proOutro,
   }) {
     _hosted = hosted;
     _pro = pro;
+    _hostedIntro = hostedIntro;
+    _proIntro = proIntro;
+    _hostedThanks = hostedThanks;
+    _proThanks = proThanks;
+    _hostedOutro = hostedOutro;
+    _proOutro = proOutro;
   }
 }
 

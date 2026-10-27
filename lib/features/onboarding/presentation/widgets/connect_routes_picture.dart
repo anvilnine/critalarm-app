@@ -27,11 +27,16 @@ class ConnectStepRoutes extends StatelessWidget {
     required this.state,
     this.background,
     this.isHeader = false,
+    this.fadesIn = false,
     super.key,
   });
 
   final OnboardingConnectState state;
   final BackgroundConnect? background;
+
+  /// True where the picture's height changes while it is on screen. See
+  /// [ConnectRoutesPicture.fadesIn].
+  final bool fadesIn;
 
   /// True where the picture sits over a title in place of a face. See
   /// [ConnectRoutesHeader].
@@ -54,7 +59,7 @@ class ConnectStepRoutes extends StatelessWidget {
         );
         return isHeader
             ? ConnectRoutesHeader(view: view)
-            : ConnectRoutesPicture(view: view);
+            : ConnectRoutesPicture(view: view, fadesIn: fadesIn);
       },
     );
   }
@@ -68,7 +73,13 @@ class ConnectRoutesHeader extends StatelessWidget {
 
   final ConnectRoutesView view;
 
-  static const double _height = 148;
+  /// How tall the picture is over a title.
+  static const double height = 148;
+
+  /// The height the picture takes over a title here: [height], or 0 where
+  /// the face would go away.
+  static double heightFor(BuildContext context) =>
+      setupFaceSizeOf(context) == 0 ? 0 : height;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +87,7 @@ class ConnectRoutesHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.s4),
       child: SizedBox(
-        height: _height,
+        height: height,
         child: ConnectRoutesPicture(view: view),
       ),
     );
@@ -91,9 +102,18 @@ class ConnectRoutesHeader extends StatelessWidget {
 /// whole and still, and a broken one stops at the server. The dot is the one
 /// thing that moves, and with animations switched off it is not drawn.
 class ConnectRoutesPicture extends StatefulWidget {
-  const ConnectRoutesPicture({required this.view, super.key});
+  const ConnectRoutesPicture({
+    required this.view,
+    this.fadesIn = false,
+    super.key,
+  });
 
   final ConnectRoutesView view;
+
+  /// True where the picture's height changes while it is on screen. It then
+  /// fades in over the last stretch before it is tall enough to be drawn,
+  /// instead of appearing in one frame.
+  final bool fadesIn;
 
   @override
   State<ConnectRoutesPicture> createState() => _ConnectRoutesPictureState();
@@ -163,6 +183,9 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
   void didUpdateWidget(ConnectRoutesPicture old) {
     super.didUpdateWidget(old);
     if (old.view == widget.view) return;
+    // Only the lit route changed: the dot keeps travelling from where it is
+    // and the route slides across under it.
+    if (routeDotKeepsClock(old.view, widget.view)) return;
     final hasJustStarted =
         widget.view.status == ConnectRouteStatus.connecting &&
         old.view.status != ConnectRouteStatus.connecting;
@@ -266,7 +289,10 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
     final w = box.maxWidth;
     final h = box.maxHeight;
     // Too little room for it to read: it goes.
-    if (!introHeroFits(h) || !w.isFinite) return const SizedBox.shrink();
+    final shown = widget.fadesIn ? routesPictureOpacityAt(h) : null;
+    if (!w.isFinite || (shown == null ? !introHeroFits(h) : shown <= 0)) {
+      return const SizedBox.shrink();
+    }
 
     final colors = context.appColors;
     final isBroken = widget.view.status == ConnectRouteStatus.broken;
@@ -296,24 +322,41 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
     );
 
     Widget label(String text, Offset centre, double lit, {bool above = false}) {
-      const width = 132.0;
+      final width = math.min<double>(132, w);
+      final style = AppTypography.small(
+        colors.onCanvas,
+        fontSize: 12,
+      ).copyWith(fontWeight: FontWeight.w700, height: 1.3);
+      // The box is centred on the node. A label that would run past either
+      // edge of the picture moves in, and one wider than the box scales down.
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        locale: Localizations.maybeLocaleOf(context),
+        maxLines: 1,
+      )..layout();
+      final half = math.min(painter.width, width) / 2;
+      painter.dispose();
+      final middle = centre.dx.clamp(half, math.max(half, w - half));
       return Positioned(
-        left: centre.dx - width / 2,
+        left: middle - width / 2,
         width: width,
         top: above ? centre.dy - _labelHeight : centre.dy,
-        height: _labelHeight,
         child: Opacity(
           opacity: 0.45 + 0.55 * lit,
-          child: Text(
-            text,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.visible,
-            softWrap: false,
-            style: AppTypography.small(
-              colors.onCanvas,
-              fontSize: 12,
-            ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              text,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              softWrap: false,
+              style: style,
+            ),
           ),
         ),
       );
@@ -452,7 +495,7 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
       ),
     );
 
-    return Stack(
+    final drawing = Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
@@ -497,6 +540,9 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
         ),
       ],
     );
+    return shown == null || shown >= 1
+        ? drawing
+        : Opacity(opacity: shown, child: drawing);
   }
 }
 
@@ -622,7 +668,9 @@ class _RoutesPainter extends CustomPainter {
     if (since == null) return;
     final progress = routeDotProgressAt(since, firstRunTakes: firstRunTakes);
     if (progress == null) return;
-    final y = own > 0.5 ? geometry.ownY : geometry.cloudY;
+    // The dot rides the route that is lit. While the lit route slides from
+    // one server to the other, so does the dot.
+    final y = geometry.cloudY + (geometry.ownY - geometry.cloudY) * own;
     // One line from the tool, through the server, to the phone. The server
     // is drawn over it, so the dot goes in one side and out the other.
     final whole = geometry.legIn(y)

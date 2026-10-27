@@ -17,6 +17,7 @@ class ProofTag extends StatelessWidget {
     required this.frame,
     required this.isCompact,
     this.entrance = 1,
+    this.swell = 1,
     super.key,
   });
 
@@ -25,6 +26,10 @@ class ProofTag extends StatelessWidget {
   final ProofTagFrame frame;
   final bool isCompact;
   final double entrance;
+
+  /// How large against its own size, for the pop at the lift. It rests
+  /// at 1.
+  final double swell;
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +45,8 @@ class ProofTag extends StatelessWidget {
           // The flip closes the tag to an edge and opens it again. It is
           // never thinner than a line, and it rests flat.
           transform: Matrix4.diagonal3Values(
-            0.7 + 0.3 * pop,
-            (0.7 + 0.3 * pop) * (0.06 + 0.94 * frame.flat),
+            (0.7 + 0.3 * pop) * swell,
+            (0.7 + 0.3 * pop) * swell * (0.06 + 0.94 * frame.flat),
             1,
           ),
           child: DecoratedBox(
@@ -116,6 +121,54 @@ class _Side extends StatelessWidget {
                 decorationColor: ink,
                 decorationThickness: 2,
               ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One name in the Proof tag's outline: a single filled pill. For a card
+/// that needs a date or a name on its corner and has no second side to
+/// flip to. [entrance] pops it in, 0 to 1.
+class ProofLabelTag extends StatelessWidget {
+  const ProofLabelTag({
+    required this.text,
+    required this.isCompact,
+    this.entrance = 1,
+    super.key,
+  });
+
+  final String text;
+  final bool isCompact;
+  final double entrance;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final pop = AppCurves.easeBack.transform(entrance.clamp(0, 1));
+
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Opacity(
+        opacity: (entrance * 3).clamp(0, 1),
+        child: Transform.scale(
+          scale: 0.7 + 0.3 * pop,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.canvas,
+              borderRadius: BorderRadius.circular(Radii.pill),
+              border: Border.all(color: colors.onCanvas, width: 2),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: _Side(
+                text: text,
+                isOn: true,
+                isStruck: false,
+                isCompact: isCompact,
+              ),
+            ),
+          ),
         ),
       ),
     );

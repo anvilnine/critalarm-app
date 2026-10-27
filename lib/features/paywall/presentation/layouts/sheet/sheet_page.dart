@@ -14,6 +14,9 @@ enum SheetPageKind {
   widgets,
   reliability,
 
+  /// The Wake-up challenge page: the shelf of challenges, one row each.
+  challenge,
+
   /// A plain settings list, for a benefit with no screen of its own here.
   settings,
 }
@@ -24,9 +27,9 @@ SheetPageKind sheetPageKindFor(PaywallBenefitId? benefit) => switch (benefit) {
   PaywallBenefitId.history => SheetPageKind.history,
   PaywallBenefitId.widgets => SheetPageKind.widgets,
   PaywallBenefitId.reliabilityChecks => SheetPageKind.reliability,
+  PaywallBenefitId.wakeUpChallenges => SheetPageKind.challenge,
   PaywallBenefitId.pushes ||
   PaywallBenefitId.appIcons ||
-  PaywallBenefitId.wakeUpChallenges ||
   PaywallBenefitId.customSounds ||
   PaywallBenefitId.customAlarmScreens ||
   null => SheetPageKind.settings,
@@ -96,6 +99,19 @@ _Row _log(String topic, String time) => (
         _log('prod-db', '04:52'),
       ],
     ),
+    // The shelf the Wake-up challenge page draws, named as the app names
+    // its challenges. The lit row stands where the pick control is.
+    SheetPageKind.challenge => (
+      above: [
+        _link(LocaleKeys.personalize_passes_challenge_tile_off_name.tr()),
+        _link(LocaleKeys.challenges_type_topic_name_name.tr()),
+      ],
+      below: [
+        _link(LocaleKeys.challenges_type_alert_title_name.tr()),
+        _link(LocaleKeys.challenges_ops_math_name.tr()),
+        _link(LocaleKeys.challenges_scratch_card_name.tr()),
+      ],
+    ),
     SheetPageKind.widgets ||
     SheetPageKind.reliability ||
     SheetPageKind.settings => (
@@ -144,6 +160,10 @@ class SheetPage extends StatelessWidget {
       SheetPageKind.reliability => (
         LocaleKeys.paywall_sheet_page_back_settings.tr(),
         LocaleKeys.paywall_sheet_page_title_reliability.tr(),
+      ),
+      SheetPageKind.challenge => (
+        LocaleKeys.paywall_sheet_page_back_settings.tr(),
+        LocaleKeys.challenges_strip_title.tr(),
       ),
       SheetPageKind.settings => (
         null,
@@ -350,14 +370,20 @@ class SheetLitRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.small(
-                    colors.ink,
-                    fontSize: 16,
-                  ).copyWith(fontWeight: FontWeight.w700, height: 1.25),
+                // A title that is too long for a narrow phone shrinks a
+                // little and keeps all its words.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTypography.small(
+                      colors.ink,
+                      fontSize: 16,
+                    ).copyWith(fontWeight: FontWeight.w700, height: 1.25),
+                  ),
                 ),
                 if (line != null)
                   Text(

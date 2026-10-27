@@ -4,32 +4,39 @@ import 'dart:io';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/models/topic.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-/// The phone's own copy of every incident and message it has ever seen.
+/// The phone's own copy of every incident and message it has ever seen, and
+/// the last topic list the server gave.
 ///
 /// api.md §4.2: a hosted or relay server deletes rows older than the
 /// account's `history_days` and stops returning them. That makes this file
 /// the archive, not a cache: nothing here is dropped because a plan changed,
 /// and only the user asking for auto-delete ever removes a row.
 ///
+/// The topic list is the exception. It is a copy the server replaces on
+/// every answer, kept so the app opens with the topics it already knows.
+///
 /// Times are stored as whole seconds since the epoch, the same unit the
 /// contract uses on the wire.
 class LocalStore {
   LocalStore(this.db)
     : incidents = IncidentStore(db),
-      messages = MessageStore(db);
+      messages = MessageStore(db),
+      topics = TopicStore(db);
 
   /// Bumped whenever a table changes, with a matching step in [_upgrade].
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   static const fileName = 'critalarm.db';
 
   final Database db;
   final IncidentStore incidents;
   final MessageStore messages;
+  final TopicStore topics;
   String? _lastSinceSent;
 
   /// Opens `critalarm.db` in the app documents directory.
@@ -64,7 +71,8 @@ class LocalStore {
         : '${since.toUtc().millisecondsSinceEpoch ~/ 1000}';
   }
 
-  /// Deletes every incident and message, and forgets the `since` cursor.
+  /// Deletes every incident, message and held topic, and forgets the
+  /// `since` cursor.
   ///
   /// For a phone that connects to a different server: what is held belongs
   /// to the old one, and the incident cursor is the newest timestamp the old
@@ -73,6 +81,7 @@ class LocalStore {
     await db.transaction((txn) async {
       await txn.delete('messages');
       await txn.delete('incidents');
+      await txn.delete('topics');
     });
     _lastSinceSent = null;
   }
@@ -137,7 +146,19 @@ class LocalStore {
         'ON messages(topic, created_at DESC)',
       );
     await batch.commit(noResult: true);
+    await _createTopics(db);
   }
+
+  static Future<void> _createTopics(Database db) => db.execute('''
+    CREATE TABLE topics (
+      scope TEXT NOT NULL, position INTEGER NOT NULL, name TEXT NOT NULL,
+      critical INTEGER NOT NULL DEFAULT 0, repeat_interval_s INTEGER NOT NULL,
+      max_ring_s INTEGER NOT NULL, desk_timer_s INTEGER NOT NULL,
+      relay_content TEXT NOT NULL, created_at_ms INTEGER,
+      synced_at INTEGER NOT NULL,
+      PRIMARY KEY (scope, name)
+    )
+  ''');
 
   static Future<void> _upgrade(Database db, int from, int to) async {
     if (from < 2) {
@@ -147,6 +168,7 @@ class LocalStore {
         'SET updated_at = COALESCE(closed_at, acked_at, opened_at)',
       );
     }
+    if (from < 3) await _createTopics(db);
   }
 }
 
@@ -218,6 +240,79 @@ class IncidentStore {
       'SELECT MAX(opened_at) AS newest FROM incidents',
     );
     return _time(rows.first['newest']);
+  }
+
+  /// The oldest `opened_at` held, or null when the store is empty.
+  Future<DateTime?> oldestOpenedAt() async {
+    final rows = await _db.rawQuery(
+      'SELECT MIN(opened_at) AS oldest FROM incidents',
+    );
+    return _time(rows.first['oldest']);
+  }
+
+  /// Every incident that opened at or after [since], newest first, with
+  /// only what a count needs. Times are UTC, as the store holds them.
+  ///
+  /// Reads the whole table, like [page] and [newestOpenedAt]: the table
+  /// holds the rows of one server (`LocalStore.clearServerData` empties it
+  /// on a change of server) and has no scope column to filter on.
+  Future<List<({String id, DateTime openedAt, bool isAcked})>> openedSince(
+    DateTime since,
+  ) async {
+    final rows = await _db.query(
+      'incidents',
+      columns: const ['id', 'opened_at', 'acked_at'],
+      where: 'opened_at >= ?',
+      whereArgs: [_epoch(since)],
+      orderBy: 'opened_at DESC, id DESC',
+    );
+    return [
+      for (final row in rows)
+        (
+          id: row['id']! as String,
+          openedAt: _time(row['opened_at'])!,
+          isAcked: row['acked_at'] != null,
+        ),
+    ];
+  }
+
+  /// The incidents that opened at or after [from], newest first, as a topic
+  /// and a time, at most [limit]. Times are UTC. For the history picture on
+  /// a paywall.
+  ///
+  /// Reads the whole table, like [openedSince]: it holds the rows of one
+  /// server and has no scope column. Scoping by account would apply here,
+  /// once the table gains one.
+  Future<List<({String topic, DateTime openedAt})>> newestSince(
+    DateTime from, {
+    int limit = 200,
+  }) => _topicRows('opened_at >= ?', from, limit);
+
+  /// The incidents that opened before [before], newest first, as a topic
+  /// and a time, at most [limit]. The same table and the same scope note as
+  /// [newestSince].
+  Future<List<({String topic, DateTime openedAt})>> newestBefore(
+    DateTime before, {
+    int limit = 200,
+  }) => _topicRows('opened_at < ?', before, limit);
+
+  Future<List<({String topic, DateTime openedAt})>> _topicRows(
+    String where,
+    DateTime at,
+    int limit,
+  ) async {
+    final rows = await _db.query(
+      'incidents',
+      columns: const ['topic', 'opened_at'],
+      where: where,
+      whereArgs: [_epoch(at)],
+      orderBy: 'opened_at DESC, id DESC',
+      limit: limit,
+    );
+    return [
+      for (final row in rows)
+        (topic: row['topic']! as String, openedAt: _time(row['opened_at'])!),
+    ];
   }
 
   /// The newest `updated_at` held, or null when the store is empty.
@@ -470,6 +565,93 @@ class MessageStore {
       click: row['click'] as String?,
       markdown: (row['markdown']! as int) == 1,
       incidentId: row['incident_id'] as String?,
+    );
+  }
+}
+
+/// The topic list the server last gave, for one server and one account.
+///
+/// Every row carries a `scope`: a hash of the server and the account the list
+/// was read for (`heldScopeFor`). A read names the scope it wants and gets
+/// nothing for any other, so a list from another account or server is never
+/// handed back, whatever else is in the table.
+///
+/// Only what the list route returns is stored: the name, Critical delivery,
+/// the three timers, the relay content setting and when the topic was made.
+/// A topic token, its id and its name are never written. The server shows a
+/// token once, on creation, and the phone does not keep it.
+///
+/// An empty list is stored as no rows, which reads as "nothing held". The app
+/// then asks the server before it says a person has no topics.
+class TopicStore {
+  TopicStore(this._db);
+
+  final Database _db;
+
+  /// Replaces everything held with [topics] for [scope], in order.
+  ///
+  /// The server's list is the whole truth, so a topic missing from it is
+  /// deleted here. Rows of any other scope go too: only one list is kept.
+  Future<void> replaceAll(String scope, Iterable<Topic> topics) async {
+    final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    await _db.transaction((txn) async {
+      await txn.delete('topics');
+      var position = 0;
+      for (final topic in topics) {
+        await txn.insert('topics', {
+          'scope': scope,
+          'position': position++,
+          'name': topic.name,
+          'critical': topic.critical ? 1 : 0,
+          'repeat_interval_s': topic.repeatIntervalS,
+          'max_ring_s': topic.maxRingS,
+          'desk_timer_s': topic.deskTimerS,
+          'relay_content': topic.relayContent,
+          'created_at_ms': topic.createdAt?.toUtc().millisecondsSinceEpoch,
+          'synced_at': syncedAt,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
+  }
+
+  /// The list held for [scope], or null when none is held for it.
+  ///
+  /// Rows of another scope are deleted on the way, so a list that belonged to
+  /// somebody else does not sit on the phone once it is known to be theirs.
+  Future<List<Topic>?> read(String scope) async {
+    final rows = await _db.query(
+      'topics',
+      where: 'scope = ?',
+      whereArgs: [scope],
+      orderBy: 'position ASC',
+    );
+    if (rows.isEmpty) {
+      await _db.delete('topics');
+      return null;
+    }
+    await _db.delete('topics', where: 'scope <> ?', whereArgs: [scope]);
+    return [for (final row in rows) _toTopic(row)];
+  }
+
+  /// Deletes every held topic.
+  Future<void> clear() => _db.delete('topics');
+
+  Future<int> count() async => Sqflite.firstIntValue(
+    await _db.rawQuery('SELECT COUNT(*) FROM topics'),
+  )!;
+
+  Topic _toTopic(Map<String, Object?> row) {
+    final createdMs = row['created_at_ms'] as int?;
+    return Topic(
+      name: row['name']! as String,
+      critical: (row['critical']! as int) == 1,
+      repeatIntervalS: row['repeat_interval_s']! as int,
+      maxRingS: row['max_ring_s']! as int,
+      deskTimerS: row['desk_timer_s']! as int,
+      relayContent: row['relay_content']! as String,
+      createdAt: createdMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(createdMs, isUtc: true),
     );
   }
 }

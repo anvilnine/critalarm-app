@@ -1,21 +1,28 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel/reel_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// The one short line a scene says for [benefit], in display type.
-String reelHeadlineFor(PaywallBenefit benefit) {
+/// The one short line a scene says for [benefit], in display type. With
+/// a [lead] that has a headline, that is the line instead: pass the lead
+/// of the first scene only (`reelLeadAt`).
+String reelHeadlineFor(PaywallBenefit benefit, {PaywallLead? lead}) {
+  final own = lead?.headlineKey;
+  if (own != null) return own.tr(namedArgs: HostedBenefit.args);
   final key = switch (benefit.id) {
     PaywallBenefitId.topics => LocaleKeys.paywall_reel_headlines_topics,
     PaywallBenefitId.pushes => LocaleKeys.paywall_reel_headlines_pushes,
@@ -33,6 +40,22 @@ String reelHeadlineFor(PaywallBenefit benefit) {
   };
   return key.tr(namedArgs: HostedBenefit.args);
 }
+
+/// The small line over a scene's headline: "With Hosted" or "With Pro", or
+/// the [lead]'s own when it has one.
+String reelEyebrowFor({required bool isHosted, PaywallLead? lead}) {
+  final name = isHosted
+      ? LocaleKeys.paywall_kit_name_hosted.tr()
+      : LocaleKeys.paywall_kit_name_pro.tr();
+  return (lead?.eyebrowKey ?? LocaleKeys.paywall_reel_eyebrow).tr(
+    namedArgs: {...HostedBenefit.args, 'name': name},
+  );
+}
+
+/// The line under a scene's picture. Only a [lead] gives one: a scene with
+/// none says nothing there.
+String? reelLineFor(PaywallLead? lead) =>
+    lead?.lineKey?.tr(namedArgs: HostedBenefit.args);
 
 /// The colours of one [ReelTone] in the current theme.
 @immutable
@@ -90,16 +113,27 @@ class ReelToneColors {
 /// half to the previous one, a sideways swipe does the same, and a finger
 /// held down pauses the reel until it lifts.
 class ReelComposition extends StatefulWidget {
-  const ReelComposition({required this.scope, super.key});
+  const ReelComposition({required this.scope, this.closeInk, super.key});
 
   final PaywallLayoutScope scope;
+
+  /// Told the colour of the story bars as they change, so the frame's close
+  /// cross can wear it: a bare cross in the ink of the scene under it.
+  final ValueNotifier<Color?>? closeInk;
 
   @override
   State<ReelComposition> createState() => _ReelCompositionState();
 }
 
 class _ReelCompositionState extends State<ReelComposition> {
-  late final HeroPlayer _player = HeroPlayer(clock: widget.scope.clock);
+  late final HeroPlayer _player = HeroPlayer(
+    clock: widget.scope.clock,
+    // The hand turns the page.
+    onChange: () => playPaywallCue(PaywallCue.page),
+  );
+
+  /// Runs out when a finger has been down long enough to be a hold.
+  Timer? _holdTimer;
 
   /// When the finger on the scene went down, and how long the last one
   /// stayed.
@@ -114,17 +148,36 @@ class _ReelCompositionState extends State<ReelComposition> {
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _player.dispose();
     super.dispose();
+  }
+
+  // The cross is the frame's, bare, and it takes the ink of the bars so it
+  // reads on every scene. It is told after the frame is built, since the
+  // cross sits above this build in the tree.
+  void _passInkOn(Color ink) {
+    final target = widget.closeInk;
+    if (target == null || target.value == ink) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) target.value = ink;
+    });
   }
 
   void _down(PointerDownEvent event) {
     _downAt = event.timeStamp;
     _held = Duration.zero;
     _player.fingerDown(event);
+    // One tick of the ratchet as the press becomes a hold: the reel is
+    // held. Touch only, and once for each hold.
+    _holdTimer?.cancel();
+    _holdTimer = Timer(reelHoldAfter, () {
+      if (mounted) playPaywallCue(PaywallCue.ratchet);
+    });
   }
 
   void _up(PointerEvent event) {
+    _holdTimer?.cancel();
     _held = event.timeStamp - _downAt;
     _player.fingerUp(event);
   }
@@ -146,14 +199,18 @@ class _ReelCompositionState extends State<ReelComposition> {
   Widget build(BuildContext context) {
     final sizes = ReelSizes.of(isCompact: scope.isCompact);
     final benefits = scope.benefits;
-    final headlines = [for (final b in benefits) reelHeadlineFor(b)];
-    final eyebrow = LocaleKeys.paywall_reel_eyebrow.tr(
-      namedArgs: {
-        'name': scope.isHosted
-            ? LocaleKeys.paywall_kit_name_hosted.tr()
-            : LocaleKeys.paywall_kit_name_pro.tr(),
-      },
-    );
+    // The route's lead is the first scene's: its words, its line, and the
+    // topic name its picture shows. The offer puts its benefit first.
+    final lead = scope.lead?.benefit == benefits.first.id ? scope.lead : null;
+    final headlines = [
+      for (final (i, b) in benefits.indexed)
+        reelHeadlineFor(b, lead: reelLeadAt(i, lead)),
+    ];
+    final eyebrows = [
+      for (var i = 0; i < benefits.length; i++)
+        reelEyebrowFor(isHosted: scope.isHosted, lead: reelLeadAt(i, lead)),
+    ];
+    final line = reelLineFor(lead);
     final width = scope.size.width - heroSideInset * 2;
     // Colour is set per scene.
     final headlineStyle = AppTypography.headline(
@@ -164,33 +221,54 @@ class _ReelCompositionState extends State<ReelComposition> {
       const Color(0x00000000),
       fontSize: 12,
     );
-    // Every scene keeps the room of the tallest headline, so the stage
+    final lineStyle = AppTypography.small(
+      const Color(0x00000000),
+      fontSize: HeroSizes.of(isCompact: scope.isCompact).line,
+    ).copyWith(fontWeight: FontWeight.w500, height: 1.3);
+    // Every scene keeps the room of the tallest words, so the stage
     // stands in one place from scene to scene.
-    final words =
-        paywallTextHeight(context, eyebrow, eyebrowStyle, width) +
-        sizes.eyebrowGap +
-        headlines.fold<double>(
-          0,
-          (tallest, line) => math.max(
-            tallest,
-            paywallTextHeight(context, line, headlineStyle, width),
-          ),
-        );
+    final words = [
+      for (var i = 0; i < benefits.length; i++)
+        paywallTextHeight(context, eyebrows[i], eyebrowStyle, width) +
+            sizes.eyebrowGap +
+            paywallTextHeight(context, headlines[i], headlineStyle, width),
+    ].fold<double>(0, math.max);
+    // The lead's line stands under the picture, and every scene keeps its
+    // room for the same reason.
+    // A Text takes what the theme leaves unset (its letter spacing), so the
+    // line is measured with the same merge.
+    final lineHeight = line == null
+        ? 0.0
+        : paywallTextHeight(
+            context,
+            line,
+            DefaultTextStyle.of(context).style.merge(lineStyle),
+            width,
+          );
+    final lineRoom = line == null ? 0.0 : lineHeight + reelLineGap;
     final stage = Size(
       scope.size.width,
-      reelStageHeight(height: scope.size.height, words: words, sizes: sizes),
+      reelStageHeight(
+        height: scope.size.height,
+        words: words,
+        sizes: sizes,
+        line: lineRoom,
+      ),
     );
     // The frame's safe area has taken the status bar out of the media
     // query, so its height is read from the view: the scene runs under it.
     final view = View.of(context);
     final bleedTop = view.viewPadding.top / view.devicePixelRatio;
-    final chip = PaywallToneColors.of(context, PaywallTone.canvas).background;
 
     final player = _player
       ..clock = scope.clock
-      ..loop = HeroLoop([
-        for (final b in benefits) b.previewId,
-      ], holdSeconds: reelHoldSeconds);
+      ..loop = HeroLoop(
+        [
+          for (final b in benefits) b.previewId,
+        ],
+        prelude: reelPreludeFor(followsIntro: scope.followsIntro),
+        holdSeconds: reelHoldSeconds,
+      );
 
     Widget panel(
       HeroFrame frame,
@@ -207,21 +285,46 @@ class _ReelCompositionState extends State<ReelComposition> {
         words: words,
         sizes: sizes,
         eyebrow: Text(
-          eyebrow,
+          eyebrows[index],
           style: eyebrowStyle.copyWith(color: colors.muted),
         ),
         headline: Text(
           headlines[index],
           style: headlineStyle.copyWith(color: colors.ink),
         ),
+        line: index == 0 && line != null
+            ? Text(line, style: lineStyle.copyWith(color: colors.muted))
+            : null,
+        lineHeight: lineHeight,
         rise: isLeaving ? null : scope.clock,
+        riseAfter: player.loop.prelude,
         pull: pull,
-        stage: HeroStage(
-          size: stage,
-          frame: frame,
-          seconds: player.stageSeconds(t),
-          tone: reelAirFor(tone),
-        ),
+        // Too little room for a picture that reads: none is drawn, and not
+        // a placeholder either.
+        stage: stage.isEmpty
+            ? null
+            : HeroStage(
+                size: stage,
+                frame: frame,
+                seconds: player.stageSeconds(t),
+                tone: reelAirFor(tone),
+                motion: reelMotion,
+                sceneBuilder: lead?.topicName == null
+                    ? null
+                    : (context, scene, size, playFrom) {
+                        final preview = scene.preview;
+                        if (preview == null) {
+                          return SizedBox.fromSize(size: size);
+                        }
+                        return PaywallPreview(
+                          preview,
+                          sizeClass: PaywallPreviewClass.large,
+                          size: size,
+                          playFrom: playFrom,
+                          topicName: lead!.topicName,
+                        );
+                      },
+              ),
       );
     }
 
@@ -233,157 +336,163 @@ class _ReelCompositionState extends State<ReelComposition> {
       },
     );
 
-    return ListenableBuilder(
-      listenable: player,
-      builder: (context, _) => Semantics(
-        container: true,
-        label: '$eyebrow. ${headlines[player.frame.activeIndex]}',
-        value: position(player.frame.activeIndex),
-        increasedValue: position(player.frame.activeIndex + 1),
-        decreasedValue: position(player.frame.activeIndex - 1),
-        onIncrease: () => player.touch(step: 1),
-        onDecrease: () => player.touch(step: -1),
-        child: Listener(
-          onPointerDown: _down,
-          onPointerUp: _up,
-          onPointerCancel: _up,
-          child: RawGestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            gestures: {
-              TapGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                    TapGestureRecognizer.new,
-                    (tap) =>
-                        tap.onTapUp = (details) =>
-                            _tap(details.localPosition.dx),
-                  ),
-              HeroStageDragRecognizer:
-                  GestureRecognizerFactoryWithHandlers<HeroStageDragRecognizer>(
-                    HeroStageDragRecognizer.new,
-                    (drag) => drag
-                      ..onStart = player.dragStart
-                      ..onUpdate = (details) {
-                        _dragged += details.primaryDelta ?? 0;
-                        player.dragUpdate(details);
-                      }
-                      ..onEnd = _dragEnd
-                      ..onCancel = player.dragCancel,
-                  ),
-            },
-            child: ExcludeSemantics(
-              child: RepaintBoundary(
-                child: PaywallClockBuilder(
-                  clock: scope.clock,
-                  builder: (context, t, _) {
-                    final frame = player.frameAt(t);
-                    final leaving = reelLeaving(frame);
-                    final eased = AppCurves.easeOut.transform(frame.cardEnter);
-                    final push = leaving == null
-                        ? const ReelPush(into: 0, out: 0)
-                        : reelPushAt(eased, frame.direction);
-                    final ink = ReelToneColors.of(
-                      context,
-                      reelToneFor(frame.activeIndex),
-                    ).ink;
-                    final barInk = leaving == null
-                        ? ink
-                        : Color.lerp(
-                            ReelToneColors.of(
-                              context,
-                              reelToneFor(leaving.activeIndex),
-                            ).ink,
-                            ink,
-                            eased,
-                          )!;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // The scenes run up under the status bar and end
-                        // on the buy block with a round lower edge.
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: -bleedTop,
-                          bottom: reelSceneGap,
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(Radii.xl),
-                            ),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                if (leaving != null)
+    return PaywallCueScore(
+      clock: scope.clock,
+      beats: reelCues(prelude: player.loop.prelude),
+      player: player,
+      // A page the reel turns by itself, through its first pass.
+      turnCue: PaywallCue.page,
+      child: ListenableBuilder(
+        listenable: player,
+        builder: (context, _) => Semantics(
+          container: true,
+          label: [
+            eyebrows[player.frame.activeIndex],
+            headlines[player.frame.activeIndex],
+            if (player.frame.activeIndex == 0) ?line,
+          ].join('. '),
+          value: position(player.frame.activeIndex),
+          increasedValue: position(player.frame.activeIndex + 1),
+          decreasedValue: position(player.frame.activeIndex - 1),
+          onIncrease: () => player.touch(step: 1),
+          onDecrease: () => player.touch(step: -1),
+          child: Listener(
+            onPointerDown: _down,
+            onPointerUp: _up,
+            onPointerCancel: _up,
+            child: RawGestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              gestures: {
+                TapGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                      TapGestureRecognizer.new,
+                      (tap) =>
+                          tap.onTapUp = (details) =>
+                              _tap(details.localPosition.dx),
+                    ),
+                HeroStageDragRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      HeroStageDragRecognizer
+                    >(
+                      HeroStageDragRecognizer.new,
+                      (drag) => drag
+                        ..onStart = player.dragStart
+                        ..onUpdate = (details) {
+                          _dragged += details.primaryDelta ?? 0;
+                          // A finger that moves is swiping, not holding.
+                          if (_dragged.abs() >= kTouchSlop) {
+                            _holdTimer?.cancel();
+                          }
+                          player.dragUpdate(details);
+                        }
+                        ..onEnd = _dragEnd
+                        ..onCancel = player.dragCancel,
+                    ),
+              },
+              child: ExcludeSemantics(
+                child: RepaintBoundary(
+                  child: PaywallClockBuilder(
+                    clock: scope.clock,
+                    builder: (context, t, _) {
+                      final frame = player.frameAt(t);
+                      final leaving = reelLeaving(frame);
+                      final eased = Curves.easeInOutCubic.transform(
+                        frame.cardEnter,
+                      );
+                      final push = leaving == null
+                          ? const ReelPush(into: 0, out: 0)
+                          : reelPushAt(eased, frame.direction);
+                      final ink = ReelToneColors.of(
+                        context,
+                        reelToneFor(frame.activeIndex),
+                      ).ink;
+                      final barInk = leaving == null
+                          ? ink
+                          : Color.lerp(
+                              ReelToneColors.of(
+                                context,
+                                reelToneFor(leaving.activeIndex),
+                              ).ink,
+                              ink,
+                              eased,
+                            )!;
+                      _passInkOn(barInk);
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // The scenes run up under the status bar and end
+                          // on the buy block with a round lower edge.
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: -bleedTop,
+                            bottom: reelSceneGap,
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(Radii.xl),
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  if (leaving != null)
+                                    Transform.translate(
+                                      key: ValueKey(frame.previousTurn),
+                                      offset: Offset(
+                                        push.out * scope.size.width,
+                                        0,
+                                      ),
+                                      child: panel(
+                                        leaving,
+                                        t,
+                                        isLeaving: true,
+                                        // It leaves from where the finger
+                                        // let go of it.
+                                        pull: frame.pull * (1 - eased),
+                                      ),
+                                    ),
                                   Transform.translate(
-                                    key: ValueKey(frame.previousTurn),
+                                    key: ValueKey(frame.turn),
                                     offset: Offset(
-                                      push.out * scope.size.width,
+                                      push.into * scope.size.width,
                                       0,
                                     ),
                                     child: panel(
-                                      leaving,
+                                      reelSettled(frame),
                                       t,
-                                      isLeaving: true,
-                                      // It leaves from where the finger
-                                      // let go of it.
-                                      pull: frame.pull * (1 - eased),
+                                      isLeaving: false,
+                                      pull: player.pullAt(t),
                                     ),
                                   ),
-                                Transform.translate(
-                                  key: ValueKey(frame.turn),
-                                  offset: Offset(
-                                    push.into * scope.size.width,
-                                    0,
-                                  ),
-                                  child: panel(
-                                    reelSettled(frame),
-                                    t,
-                                    isLeaving: false,
-                                    pull: player.pullAt(t),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: heroSideInset,
-                          right: reelCrossRoom,
-                          top: 0,
-                          height: reelBarsHeight,
-                          child: CustomPaint(
-                            painter: ReelBarsPainter(
-                              count: benefits.length,
-                              active: frame.activeIndex,
-                              progress: frame.progress,
-                              show: player.isStill
-                                  ? 1
-                                  : phase(t, 0.2, heroEntranceSeconds * 0.7),
-                              color: barInk,
-                            ),
-                          ),
-                        ),
-                        // The cross is the frame's, in the frame's ink. A
-                        // disc of the frame's own ground keeps it readable
-                        // on every scene.
-                        Positioned(
-                          top: (reelBarsHeight - _chip) / 2,
-                          right:
-                              PaywallLayoutScope.closeCrossInset +
-                              (AppDismissCross.hitSize - _chip) / 2,
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: chip,
-                                shape: BoxShape.circle,
+                                ],
                               ),
-                              child: const SizedBox.square(dimension: _chip),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                          Positioned(
+                            left: heroSideInset,
+                            right: reelCrossRoom,
+                            top: 0,
+                            height: reelBarsHeight,
+                            child: CustomPaint(
+                              painter: ReelBarsPainter(
+                                count: benefits.length,
+                                active: frame.activeIndex,
+                                progress: frame.progress,
+                                show: player.isStill
+                                    ? 1
+                                    : phase(
+                                        t - player.loop.prelude,
+                                        0.2,
+                                        heroEntranceSeconds * 0.7,
+                                      ),
+                                color: barInk,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -394,8 +503,6 @@ class _ReelCompositionState extends State<ReelComposition> {
   }
 }
 
-const double _chip = 30;
-
 /// One scene: its ground, its words, and the stage under them.
 class _ReelPanel extends StatelessWidget {
   const _ReelPanel({
@@ -405,8 +512,11 @@ class _ReelPanel extends StatelessWidget {
     required this.sizes,
     required this.eyebrow,
     required this.headline,
+    required this.line,
+    required this.lineHeight,
     required this.stage,
     required this.rise,
+    required this.riseAfter,
     required this.pull,
   });
 
@@ -420,11 +530,22 @@ class _ReelPanel extends StatelessWidget {
   final ReelSizes sizes;
   final Widget eyebrow;
   final Widget headline;
-  final Widget stage;
+
+  /// The lead's line under the picture. Null for a scene that has none.
+  final Widget? line;
+
+  /// The height the line is laid out at, measured for the lead's line.
+  final double lineHeight;
+
+  /// The picture. Null when the scene has no room for one that reads.
+  final Widget? stage;
 
   /// The clock the words rise on during the entrance. Null for a scene on
   /// its way out, whose words are already there.
   final PaywallClock? rise;
+
+  /// The loop's prelude: how long the words wait before they rise.
+  final double riseAfter;
 
   /// How far the finger holds the scene's content off its place, in
   /// points. The ground stays where it is.
@@ -442,6 +563,8 @@ class _ReelPanel extends StatelessWidget {
       ],
     );
     final clock = rise;
+    final under = line;
+    final picture = stage;
     return ColoredBox(
       color: colors.background,
       child: Transform.translate(
@@ -450,18 +573,42 @@ class _ReelPanel extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // The stage first, so its disc never paints over the words.
-            Positioned(
-              left: 0,
-              top: top + words + sizes.stageGap,
-              child: stage,
-            ),
+            if (picture != null)
+              Positioned(
+                left: 0,
+                top: top + words + sizes.stageGap,
+                child: picture,
+              ),
+            if (under != null)
+              Positioned(
+                left: heroSideInset,
+                right: heroSideInset,
+                // Under the picture, or straight under the words when there
+                // is none.
+                top: picture == null ? top + words + sizes.stageGap : null,
+                bottom: picture == null ? null : sizes.foot,
+                height: lineHeight,
+                child: clock == null
+                    ? under
+                    : HeroRise(
+                        clock: clock,
+                        index: 1,
+                        after: riseAfter,
+                        child: under,
+                      ),
+              ),
             Positioned(
               left: heroSideInset,
               right: heroSideInset,
               top: top,
               child: clock == null
                   ? text
-                  : HeroRise(clock: clock, index: 0, child: text),
+                  : HeroRise(
+                      clock: clock,
+                      index: 0,
+                      after: riseAfter,
+                      child: text,
+                    ),
             ),
           ],
         ),

@@ -13,6 +13,8 @@ final class WeeklyCheckNoticeFacts {
     this.noticeAfterSeenAt,
     this.lastArrivalAt,
     this.dismissedAt,
+    this.isPlanAway = false,
+    this.planAwaySeenAt,
   });
 
   /// The relay's last answer.
@@ -31,6 +33,15 @@ final class WeeklyCheckNoticeFacts {
 
   /// When the notice was last closed.
   final int? dismissedAt;
+
+  /// The relay is sending this phone no check right now because of the
+  /// plan or the server: Hosted is not held, or the phone is on a server
+  /// of the user's own (`WeeklyCheckAccess.isPlanAway`).
+  final bool isPlanAway;
+
+  /// When this phone last saw [isPlanAway] true, or null when it never
+  /// did.
+  final int? planAwaySeenAt;
 }
 
 /// Answers "should Home say that weekly checks stopped arriving".
@@ -38,7 +49,8 @@ final class WeeklyCheckNoticeFacts {
 /// It shows when every one of these holds:
 ///
 /// - setup is done (`SetupGate`), like every other notice;
-/// - the device is enrolled and the account still holds the pack;
+/// - the device is enrolled, and the relay is sending it checks: Hosted is
+///   held and the phone is not on a server of the user's own;
 /// - two rounds in a row were missed, by one of the two ways below;
 /// - the notice was not closed for this run of misses.
 ///
@@ -53,6 +65,14 @@ final class WeeklyCheckNoticeFacts {
 /// When it was not, the phone has no newer answer, so it counts from the
 /// arrival: two windows of [missWindow] with nothing arriving are two
 /// rounds missed. An arrival never switches the notice off for good.
+///
+/// A plan that lapsed is not a miss. While Hosted is away the relay sends
+/// nothing and writes each round as skipped (api.md §4.5, "When the tier
+/// changes"), so the answer is no. When Hosted comes back, what the phone
+/// held from before it saw the lapse is set aside too: a `notice_after`, a
+/// count of misses and an arrival from then describe a schedule the relay
+/// stopped, and a clock that ran past them during the lapse proves
+/// nothing. The phone waits for the relay's next answer or the next check.
 ///
 /// One missed round shows nothing here. Closing the notice keeps it gone
 /// until a check arrives and a later run of misses begins.
@@ -96,13 +116,20 @@ abstract final class WeeklyCheckNoticeRule {
     required WeeklyCheckNoticeFacts? facts,
     required int now,
   }) {
-    if (facts == null) return false;
+    if (facts == null || facts.isPlanAway) return false;
     final check = facts.check;
     if (!check.enabled || check.state == WeeklyCheckState.off) return false;
 
+    // Whatever the phone learned up to the last moment it saw the plan
+    // away is from before a lapse.
+    final planAwayAt = facts.planAwaySeenAt;
+    bool isSinceLapse(int? at) =>
+        planAwayAt == null || (at != null && at > planAwayAt);
+
     // An arrival the phone cannot place counts as none: it must neither
     // raise the notice nor hide a run of misses the relay reported.
-    final arrival = _arrival(facts, now);
+    final placed = _arrival(facts, now);
+    final arrival = isSinceLapse(placed) ? placed : null;
     bool arrivedSince(int? at) => arrival != null && at != null && arrival > at;
 
     if (arrival != null && arrivedSince(facts.noticeAfterSeenAt)) {
@@ -111,8 +138,14 @@ abstract final class WeeklyCheckNoticeRule {
       // ended. The phone counts on from the arrival by itself.
       return now >= deadlineAfterArrival(arrival);
     }
-    final missedTwice = check.misses >= 2 && !arrivedSince(facts.checkSeenAt);
-    final noticeAfter = facts.noticeAfter;
+    final missedTwice =
+        isSinceLapse(facts.checkSeenAt) &&
+        check.misses >= 2 &&
+        !arrivedSince(facts.checkSeenAt);
+    final noticeAfter =
+        isSinceLapse(facts.noticeAfterSeenAt ?? facts.checkSeenAt)
+        ? facts.noticeAfter
+        : null;
     return missedTwice || (noticeAfter != null && now >= noticeAfter);
   }
 

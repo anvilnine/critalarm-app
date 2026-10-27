@@ -3,6 +3,107 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ## Unreleased
 ### Added
+- assets/translations has de.json and ja.json. make check-l10n runs tool/l10n\_parity.dart and checks the native strings tool/l10n\_native.dart generates.
+- make l10n-pseudo writes a debug-only en-XA pseudo-locale, loaded with --dart-define=PSEUDO\_LOCALE=true.
+- DateLabel in lib/core/format/date\_label.dart formats every date label for the current locale and keeps the English patterns unchanged.
+
+### Changed
+- IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
+- The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+
+### Fixed
+- MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
+- IncomingAudio answers a shared path that fails isShareCopyPath with the unreadable rejection, so an iOS share copy that could not be made shows the could not read message. The path is still never opened or deleted.
+
+### Security
+- Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
+- Android: MainActivity shows over the lock screen only for an alarm\_incident\_id the alarm service holds or the delivery store has open and unacknowledged (AlarmLockRule), on a cold start and on onNewIntent. The alarm screen calls AlarmHost.releaseLockScreen when it stops ringing, opens the topic or goes away (LockScreenHold), and the window then asks for the unlock and stops showing over the lock screen. onStart, onResume and onStop let go of an alarm answered from the notification.
+- iOS: the sign-in session token (identity\_session\_token) moved from the preferences to an unsynced, ThisDeviceOnly Keychain item, service app.critalarm.identity\_session (KeychainIdentityTokenStore). The first read moves an existing token and removes the old key once the Keychain write succeeds. DeviceIdentityKeychain takes a this\_device\_only flag on write. Android keeps the preferences key, which no backup carries.
+- iOS: MovedPhoneReset deletes the flutter.identity\_session\_token preferences key that a backup made before the Keychain move still carries, and never moves it into the Keychain (IdentityTokenStore.readAfterMove). The one-time move on the same phone is unchanged.
+- Android: the alarm screen keeps its ringing layout until releaseLockScreen answers (LockScreenHold.mayShowOverLock), and MainActivity answers it only once the window has left the lock screen, after the unlock prompt on a locked phone (LockReleaseAnswers). The acknowledged, answered elsewhere and failure layouts no longer draw over the lock screen.
+
+## 1.0.0+15 - 2026-10-16
+### Added
+- Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
+- TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
+- tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
+- AppTextField.fitText steps the typed text down to the default size before the line scrolls, and keeps the box height; setup's topic name field uses it.
+- LocalStore schema version 3 adds a topics table (TopicStore, scoped by a hash of the saved server and the account id with heldScopeFor, no token columns, no row for an empty list). TopicsCubit.loadHeld reads it before runApp and sets TopicsState.isKept until the first server answer. Every list change is written back, AccountData.forget and LocalStore.clearServerData clear it, and HomeCubit and TopicDetailCubit wait for the server's list before their full build. configureDependencies takes an openedStore for tests and captures, and tool/capture\_home\_waiting.dart has two scenes that start from a stored list.
+- OfferSaleProbe starts the offer's store check when the real alarm step opens and caches the answer. OnboardingOfferGate.outlook() (coming, none, unsure) and hasNoOffer() read it without waiting, and the offer step takes the loaded buy model with takeOnSale. The It works screen now throws its confetti unless the offer follows and the store said on sale (ackConfettiMayFly takes an OfferOutlook), so a session is never left with no celebration. A cached not on sale answer also makes the engine skip the step.
+- Each success outro can name a score (PaywallOutro.score, scoreSeconds): one m4a that the host starts with the outro clock in place of PaywallCue.bought, plays the purchase cue if the outro is given up first, stops on a skip before the swap, and keeps end state sounds out of its tail.
+- PaywallOutroId.breakLift (key break\_lift), Break and lift: a calm success outro that breaks the paywall and rises into the night in one eased move, with no flash, rings or popping words. Its pieces of the wall are shared with Break, lift, ring through outros/break\_pieces.dart.
+- Break and lift has its own score, PaywallCue.scoreBreakLift (ui\_score\_break\_lift.m4a, 3.698 s, 0.9 s tail past the swap), and its backdrop now eases from the screen's colour into the night with no paper step, under a soft yellow glow instead of a trail.
+- Topics on a self-hosted server subscribe by the server's relay\_name when it sends one, and a device already subscribed by name moves over once (add the new hash, then remove the old). Without one, nothing changes. The done mark (prefs key relay\_hash\_moved.<server>\|<topic>) names the device id and the hash, so a phone that registers again or a topic made again under the same name subscribes again.
+- Paywalls route by place: PaywallPlace and paywallRowFor pick the layout, the lead benefit and the intro, and the location carries lead, headline, the person's own facts and history rows.
+- Sheet and Proof draw the lead on its own and the other benefits under paywall\_also.label. The Sheet shows the person's own critical topic count, and Proof and Wipe show their own older alarms, hidden on Free.
+- A Hosted plan that is ending opens a leaving Receipt or a Wipe run backwards, picked on the phone by LeavingNumbers and leaving\_floors.dart. HeroFace gains sad and calm.
+- A paywall with no outro set takes its product's own: cloudClimb for Hosted, breakLiftRing for Pro. It still plays only when a thanks is set.
+- Display prices come from assets/config/price\_book.json through PriceBook. The store's price wins when the store returns the plan. Buying a plan the store did not return fails with a plain message.
+- StoreCatalog and RevenueCatStoreCatalog: read plans, buy and restore over the RevenueCat API in app types. Tested, not registered.
+- Settings plan section has a Pro row (SettingsProRow) that follows Holdings. ProPackSheetSource.settingsPlan maps to the plan place.
+- tool/capture\_paywall\_walk.dart captures what each paywall place opens with no settings.
+- make run-store and make build-store-apk build a release that sells through the real store with the RevenueCat keys in .env, for a sandbox or licence tester purchase. make run-release still passes SKIP\_PAYWALL and buys nothing.
+- ProPackStoreResult.pending: RevenueCatProPackShop maps paymentPendingError to it, and ProPaywallBuyCubit rests on a paused check with the pending line and keeps the purchase written down. paywall\_store\_wiring\_test.dart runs both buy models over the real RevenueCat repository and Pro shop with a faked RevenueCatService.
+- tool/capture\_search\_panel.dart draws the search panel with every result kind, light and dark, into build/search\_shots.
+
+### Changed
+- The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.
+- release --bump runs the gates first, commits the new build number, and a finished upload tags the commit. --upload-only refuses a build whose stamp does not match pubspec.yaml. The gates also run check-l10n and check-access. release-android.sh refuses a bundle signed with the debug key.
+- Added the setup answer data: a SetupUse enum, its per-answer table, a prefs store with an in-memory replay holder, and curl as a tool template with no snippet.
+- The setup test's It works screen throws no confetti and plays no success haptic when the offer step follows.
+- The alarm screen of the setup test shows a sample message for the answer picked on the use step. The title and body the server sent stay in the history, the notification and the extension cache.
+- Paywall pieces for a lead benefit: a route lead on the reel, the Hosted weekly check as a fifth benefit, a topic name on the topics picture, a thanks button label and an intro hint line.
+- Setup has a use step between permissions and the first topic (What should wake you?), on a new flow 2026-10-c that is now the default. One tap saves the answer on the phone, a skip saves Something else, and a pick event (onboarding\_use\_picked) goes through the same consent buffer as the other setup events. Phones pinned to 2026-10-b keep running it.
+- The hook-up step leads with numbered steps, Copy URL, Copy token and a curl chip when the saved tool is Uptime Kuma, Healthchecks or Home Assistant (toolStepsFor, maskToken, HookUpStepsLayout). Any other tool keeps the curl screen, and the replay reads ?use=<wire id> in a developer build.
+- The Home card that waits for the first message names the step for the saved answer and tool, and its line can wrap to three lines.
+- The first topic in setup arrives filled from the answer to the question step, with other names and the tools as one-line chips that scroll sideways, and the Terms and Privacy links sit at the end of the page so rows no longer run under them.
+- The offer setup step plays the false alarm, a reel that opens on the answer from the use step and the confetti thanks, and its thanks button opens hook up. It asks the store what is on sale first and skips with no intro when nothing is. cloud\_product takes auto, the bundled layout is reel, the three offer funnel events carry use, and Developer options replay the step on one answer.
+- Setup stats line on the hook-up step now names the answer to the question step. The hero, receipt, reel and sentence paywall layouts and the thanks tick call the Hosted weekly check Weekly delivery check, the name Settings uses.
+- tool/capture\_works\_screen.dart fails on an overflow at 320 wide and text scale 2.0 like every other size, instead of printing it.
+- The alarm screen's three error strings (acknowledge failed on a topic and on the alarm, and the alarm failing to load) say the alarm is still open, not the page.
+- Settings analytics line also names the setup answer, which the same switch sends.
+- capture\_home\_waiting.dart writes the first frame, 16 ms and 120 ms frames, fails on overflow for the walkthrough sheet at every size, and has scenes for a phone the checklist has not looked at and for a card that changes its words.
+- Setup steps with no top bar of their own now back the tracker with the app's default bar backing (AppBarBackingScope.barOverTop), and the shell no longer paints its own gradient.
+- The Crit face is yellow with a dark outline and dark features in every theme and on every canvas. AppColors.dark has the light face tokens, withSeverity leaves them alone, and FaceWidget and RingingFaceWidget no longer take a fill, stroke or ink colour.
+- FaceRipple draws only yellow heads and tells them apart with rippleCellLook (size, tilt and a ring), so the It works wall of faces is not one flat block.
+- The offer setup step ships switched on: OnboardingOfferConfig.bundled has enabled true, so a remote value that leaves enabled out keeps it on and only enabled false switches it off. Remote Config and the developer value still override it.
+- The offer setup step no longer plays the false alarm intro, its tag or its skip hint, and no longer writes paywall.false\_alarm\_shown, so the Settings plan row keeps its false alarm. The reel rises over the setup step, opaque, from the bottom edge in 400 ms (buildOfferLayerTransition). The kit keeps the intro, the tag rule and the hint parameter for other triggers. Removed offerIntro, offerUsesUpFalseAlarm and OnboardingOfferGate.markFalseAlarmShown.
+- Older strings that used page for an alarm say alarm, ring or wake instead (create\_critical\_body, critical\_alarm fallback title and body, no\_alarm\_body, the disconnect and server stage lines, the permission descriptions and the battery explanation).
+- tool/capture\_offer\_sequence.dart captures the new sequence (It works, Continue, the rise in four frames, thanks, hook up) and no longer captures the intro or tag. tool/capture\_works\_screen.dart has a works\_store\_unsure scene.
+- Redo onboarding in a build that skips the store plays on through the offer, on the answer picked in that replay, with the made-up buy model, and saves nothing. A build with the real store skips the offer in a replay as before.
+- The face in the iOS Live Activity, the iOS widgets and the Android widgets is brand yellow with ink features in every state. The surface around it keeps the state colour.
+- Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
+- Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
+- The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
+- Paywall defaults: Hosted ends on Cloud climb then Receipt party, Pro on Break, lift, ring then Stamp. Developer options pickers start at Auto. paywall\_\* events no longer carry variant.
+- Pro lists four benefits with wake-up challenges first. A place whose lead the product has no benefit for opens the product's plan place.
+- FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
+- The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
+- Display word for the paid plan is Cloud (paywall\_kit.name\_hosted and every plan string). Code names, keys, routes, analytics and store ids keep hosted. plan\_name\_copy\_test fails on a visible Hosted or a server called Crit Alarm Cloud.
+- Every paywall draws PaywallCloseCross: the bare cross with a 48 point tap area. The Sheet and Reel lost the disc behind it. The Reel passes its ink through PaywallFrameController.closeInk.
+- Problem reports send plan as cloud or free, and a separate pro field as yes, no or unknown.
+- tool/capture\_paywall\_walk.dart takes TEXT\_SCALE and NARROW. Sheets need SETTLE=40 to capture after their entrance.
+
+### Fixed
+- toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
+- The reel draws no picture and no placeholder when the stage is under reelStageMinHeight, and the lead line stands under the headline, so a lead at 320 wide and text scale 2.0 no longer leaves a grey dot.
+- The setup test's acknowledged screen steps its title down until the longest word fits (AppFittedTitle at setupTitleMinFontSize) and scrolls its words above the pinned button when they are taller than the room, so Continue and Finish stay on screen at 320 wide and text scale 2.0. ackedDemoRippleHeightFor gives the ripple what is left.
+- RingingScreen scrolls the message card inside the room above the pinned buttons once the face is gone and the card is still too tall (ringingCardScrollRoomFor, ringingCardMinRoom). Cards that fit are drawn as before.
+- alarmMetaLine joins the time and the tags with a slash only when the message has tags.
+- The intro's tag stands where paywallIntroTagPlace finds room clear of the layout's paragraphs, previews and buttons (it slides along the mascot, tries both sides) and is left out where there is none. IntroHost collects those rects a few times a second.
+- Home's status card draws the waiting card on its first frame when the phone's own records say setup waits on the first message (firstMessageExpected), and AppStatusCard fades the old label and foot out before the new ones fade in, so two texts are never drawn over each other.
+- Home's status card picks the waiting card or the setup card for its first frame from the topic list the app already holds in memory (expectedSetupFor), so a first topic with Critical delivery off starts on the setup card. Without a held list the waiting card stays the guess.
+
+### Removed
+- Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
+- Paywalls are coded. Removed Remote Config keys paywall\_layout, pro\_paywall\_layout, paywall\_intro, pro\_paywall\_intro, paywall\_thanks, pro\_paywall\_thanks, paywall\_outro, pro\_paywall\_outro, paywall\_variant, paywall\_enabled. onboarding\_flow and onboarding\_offer stay.
+- Route /pro, ProPackSheet, HostedPaywallScreen, PaywallScreen, PaywallVariant and PaywallCubit.presentNativePaywall. /paywall?source= redirects to /plans/<layout>.
+- The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
+- The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
+- HeroComposition no longer drops whole lines (showsWholeLinesOnly, heroWholeLinesFor). Words that do not fit scroll above the buy block.
+
+## 1.0.0+13 - 2026-10-10
+### Added
 - Setup flow engine in `lib/features/onboarding/domain/flow/`: a flow is an id plus a list of step ids, checked by `validateOnboardingFlow`, chosen from ordered `OnboardingFlowSource`s and pinned when the user taps Get started. `OnboardingStepRegistry` holds one entry per step (route, screen, `isAvailable`, `isSatisfied`, `requires`, canvas step) and the router builds the step routes from it. Screens call `finishOnboardingStep(context, stepId)` and no longer name the next step.
 - Prefs keys `onboarding_flow_id`, `onboarding_flow_steps` and `onboarding_flow_completed` hold the pinned setup flow and the steps finished in it. All three are cleared when setup completes.
 - Routes `/onboarding/first-topic`, `/onboarding/real-ring` and `/onboarding/test`. `CreateTopicScreen` takes an optional `onDone` callback that replaces its three exits, and `OnboardingConnectScreen` takes a `part` (connect or test).
@@ -68,9 +169,36 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup funnel events onboarding\_offer\_shown, onboarding\_offer\_closed and onboarding\_offer\_bought, each with product, layout and flow\_id. PaywallSource.onboardingOffer names the offer step. AfterAckDecider gives no follow-up while the offer step is still to come. Developer options, Setup flow, has the four offer switches.
 - Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
 - Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
+- Paywall intros are their own step: PaywallIntroId (none, false\_alarm, snooze, wake\_up, curtain, countdown), paywallIntroBuilders, remote values paywall\_intro and pro\_paywall\_intro, prefs dev.paywall\_intro and dev.pro\_paywall\_intro. The layout value false\_alarm reads as hero with that intro. paywallLayoutFor became paywallOpeningFor. Layout events carry intro.
+- Paywall layouts: plain is removed, bento is built, and each layout picks its own HeroMotion (atmosphere, entrance, idle, card arrival). Doors is redrawn on the canvas colour.
+- The developer page for paywall layouts is a two step picker, intro then paywall, with live tiles (PaywallLayoutTile, PaywallIntroTile).
+- Interface sounds: PaywallCues.play(PaywallCue) gives a sound and a haptic together from one table, 33 cues, HapticPattern and AppHaptics.play, a Settings switch. Silent while an alarm is up.
+- The step after a purchase: PaywallThanksId (none, confetti, unlock, stamp, limits, key, lights), paywallThanksBuilders, PaywallThanksHost, remote values paywall\_thanks and pro\_paywall\_thanks, prefs dev.paywall\_thanks and dev.pro\_paywall\_thanks, events paywall\_thanks\_shown and paywall\_thanks\_left. It starts only on a confirmed purchase. With a version set, a Hosted purchase on a layout paywall no longer opens the welcome page. The developer picker has a third row.
 - A motion skill and rule for custom animation: one living hero per screen.
 - The relay that issued the device token is kept beside it: prefs key device\_token\_relay on Android and the same field in the iOS Keychain device item. deviceTokenRelayTrust in lib/core/push/device\_token\_relay.dart is the rule RegisterDeviceUsecase and EstablishApiSessionUsecase follow.
 - The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
+- Two more versions of the step after a purchase, Key and Lights on, and five interface cues for it: settle, lock, key, cord and bulb. Confetti plays the settle as its last piece lands.
+- Arriving at a paywall, buying and leaving without buying each have their own sound. The arrival is one tine strike left open, the purchase is the only celebration, and leaving plays a soft falling slide with HapticPattern.fallingPair. The frame plays the leaving cue as the route starts to go (PopScope), by the rule paywallSaysClose.
+- Each intro plays one score from its first frame (PaywallIntro.score): a set up, a turn and an arrival, in a piano and a kalimba flavour (IntroSoundFlavour, developer row Intro sound, pref dev.paywall\_intro\_sound). A skipped intro plays introArrive. The gag, kidding and intro one shot cues are gone, intro beats are haptics alone, and the Crit call plays on a purchase alone.
+- The Alarm Snack intro (PaywallIntroId.alarmSnack) joins the fake alarm screen with the dodging Snooze button. The Countdown intro is gone; a stored or remote value countdown reads as no intro. Leaving a paywall without buying plays three music box notes that fall and lift.
+- The Receipt party step after a purchase (PaywallThanksId.receiptParty, key party): a slip of the lifted limits, a stamp and confetti. Lights on and its cord and bulb cues are gone; a value lights reads as no step. Limits lifted shows its before values as limits. Confetti, slip and limit row parts moved to thanks\_parts.dart.
+- Design system: AppHeroScene, AppStatusCard (full and strip), AppReadinessPips, AppInboxSheet and AppInboxRow, AppCreamCard, AppStatCard and the HeroDisc painter, each with a gallery section, a reduce motion switch and tool/capture\_topics\_components.dart.
+- AppDurations.ambient (9 s) for the slowest loop, and GlyphType.moon.
+- HomeCardCubit, HomeFacts and a missed alarm feed give Home the data for its status card. The feed reads the missed alarm record without the notice slot, and closing an entry from either place closes it in both.
+- home\_list\_rules.dart holds the cream card order, the one-topic card rule (prefs key home\_one\_topic\_card\_closed) and nextGlanceCount, which decides when the face glances at the list. /topics/new takes an optional tool=<ToolTemplate id> query that preselects the chip. tool/capture\_topics\_screen.dart captures the real Topics screen against the mock server.
+- AmbientShape gains ring (fill to outline) and scales up to 2, AmbientController gains per-route profiles, and the capture tool steps the canvas through a tab change and a push.
+- AppSwitch takes a panel variant for the dark status card: 56 by 32, a panelLine outline and a 44 point touch target. It is in the status card gallery.
+- topicHeroCardFor and topicSummaryFor are the pure rules behind the Topic card and the line under the topic name. heroDiscSpotOf takes an above height for a screen with a header over its scene.
+- tool/capture\_topic\_screen.dart captures the Topic screen on the mock server: on, off, empty, many messages, long name, warning, pane, guide example, resting frame and page end.
+- MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
+- Pass card, pass stack, pass page and the grow route in the design system, with gallery entries and a capture tool.
+- One rule decides what a tap on a locked option does, the lock draws its badge only once the plan is read, option sheets can carry a badge, and the Plans and features lab has a Plan still being read preset
+- Widgets page of Personalize: `HomeScreenWidgets` draws the Open incidents, Topic and Topics widgets upright, `widgetsRingAngle` is the one ring of the Open incidents face, `widgetsPageButtonsFor` and `widgetsSheetPlanFor` pick the buttons and the steps sheet's plan, and `tool/capture_pass_widgets.dart` captures it.
+- AppPassBands, a compact pass stack with no header or scroll, built from AppPassCard, plus a Tokens pass tone (PassId.tokens)
+- Proof log: a small local record of the weeks a test alarm or a weekly check got through (prefs key proof\_log, newest 12 weeks, cleared with the account's local data)
+- tool/capture\_screen\_nav.dart captures a Topic and Settings sub screens at 0, 25, 50, 75 and 100 percent of the page change
+- AppScrollBarTitle is the bar title that comes in once a header has scrolled under the bar, shared by Will it wake me and the messages page. Day bars, day grouping and the ring line are pure functions in topic\_messages\_page.dart, and tool/capture\_messages\_page.dart captures the page.
+- Two other first welcome pages (night falls, stays silent), built behind welcomeFirstPage (default word) and opened from Developer options, Setup flow, Open a step as a replay with first=night or first=silent. tool/capture\_welcome\_first\_pages.dart captures them.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -120,6 +248,40 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
 - ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RelayUnchecked.
 - SettingsCubit.saveConnection goes through ConnectToServerUsecase and answers a ConnectOutcome. The proof and the relay check are built into ConnectToServerUsecase (GetServerInfoUsecase.proveAdminToken, EstablishApiSessionUsecase.relayTrust) and no longer need wiring. ConnectTransportError keeps a NetworkFault (the kind of error) in place of the thrown object.
+- Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
+- Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
+- The animation clock moved to lib/design\_system/screen\_clock.dart and now stops while the app is not resumed. The paywall's paywall\_clock.dart re-exports it.
+- Home orders its topic rows with the inbox rule: rows that need you, pinned, unread, the rest, then muted. HomeTopicItem gains lastMessageAt and rowKind, and HomeState gains facts.
+- The Reliability screen and the Home card pick the first check to name and fix with one rule in reliability/domain/attention\_order.dart. The handled window lives in home\_card/handled\_window.dart.
+- Home draws AppHeroScene with an AppStatusCard built from HomeCardState.model, then one AppInboxSheet of AppInboxRow. The notice slot, the setup pill, the delivery and priority chips and AppStage are no longer drawn there, and their code stays for a later cleanup. Strings are in the home\_card object of en.json.
+- PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
+- Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
+- The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
+- InAppNoticeCubit picks only the Hosted ending and the account backup reminder, and no longer takes a ShellCubit. Pull to refresh on Home refreshes the shell health itself. HomeState drops the face, word, sub line and severity, and HomeTopicItem drops meta, priority, face, isCrit, isQuiet and isLive. resolveHomeFace and orderTopics are removed: HomeFacts, rowKindFor and orderInbox replace them.
+- History screen rebuilt on the Topics design language: still refresh face over AppStatCard, week rule in week\_bars.dart, flat rows with answered and not answered marks, historyHero ambient profile registered through AmbientRouteProfile, history\_hero strings, and history.meta\_expired now says Nobody answered
+- AppStatCard puts the numbers in a column on the left and the bars on the right, stacks them on a narrow card or large text, and takes isHidden days with no bar
+- Settings drops the Will it wake me? row for AppStatusCard.strip, fed by ReadinessSummary, the same rule the Topics card reads. The count, pips, check lines and fix come from reliability, and tool/capture\_settings\_screen.dart captures every state.
+- The Topic screen uses the Topics hero: the face looks at a dark Critical delivery card with the switch in it, and the messages sit on a white sheet under it. The disc behind the face is drawn by the ambient canvas through an AmbientOverride.
+- Review fixes on the redesigned screens: formatWhen (lib/core/format/when\_label.dart) is the one date rule, TopicHeader sets a long name on two lines and steps its type down (topicHeaderHeight takes the name and the width), AppScreenScaffold topBackingPlateau, FaceWidget draws the canvas face stroke in every state, AppColors.critText, and the panel switch off track is the muted panel colour at 0.55.
+- Topic message rows always show the time (Yesterday 00:45, 8 Oct 00:45), the token line reads Made yesterday, and History keeps its title clear of scrolled rows.
+- FeatureLock can seat its badge above the option's edge (FeatureLockSeat.above) or leave it to the child (drawsBadge: false). Personalize strips and rows use both, so a badge covers no label and no picture.
+- Personalize: challenge chips are a picture and one word, a tried option has a dashed outline, the picked look has a ring clear of its picture, look thumbnails hold one expression, a lapsed Yours tile shows the saved photo, Widgets shows the widget small, and the wide page uses more width (AppScreenScaffold.contentMaxWidth).
+- Locked app icons draw at full colour, and the locked App icon screen has one Unlock button
+- Wake-up challenges give one instruction each, and the line under a challenge field stays above the way out on a small phone at a large text size
+- A challenge try is drawn in the phone's saved alarm look
+- Plans and features lab shows each feature note whole and uses the app's names for Look and Wake-up challenge
+- Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
+- Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
+- FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
+- Personalize root rebuilt on the pass stack: a summary rule for each card, a look tone read from the look registry, thumbnails for the five passes with the Look and Sound ones on one clock, routes and stub pages for Look, Wake-up challenge and Widgets, and the old strips, rows and chips removed.
+- The Look page is a deck of phones with its own look\_deck\_rules, a LookFade between two looks, a try bar that hands its button to the page, and no picture slot on RingingPreviewFrame.
+- The Wake-up challenge page is a shelf of tiles. challenge\_shelf\_rules.dart holds the tile list, the column count, the pick control state and the answer to each tap through lockTapFor. ChallengePicture, challenge\_chip\_picture.dart and the strip states of tool/capture\_challenge.dart are gone. tool/capture\_pass\_challenge.dart captures the page and checks every tap.
+- The App icon page has the shared Personalize header and the pass colour.
+- The Look deck lays phones out for an upright screen through RingingPreview.screenSize, centres on wide displays, keeps inactive dots at 3 to 1, and draws an empty Yours cream with a dashed outline.
+- Pass pages use the standard bar blur and fade, their header collapses into the bar as you scroll, and closing a page no longer leaves a slab under the card
+- The plan tag on a pass card and page header is a small lock badge, yellow where it reads on the ground and the card's own ink where it does not, and a long label is cut with an ellipsis before it
+- Every setup step has its own ambient canvas step and arrangement (the offer and the legacy test no longer share one), and the canvas takes a live profile so a pager can drag the shapes. The bundled flows no longer list how\_it\_rings or widgets, since the welcome shows both.
+- The Pick a server step is one layout for Crit Alarm Cloud and your own server: the routes picture, titles, card and pinned bar follow one clock (ConnectMorphLayout), so switching grows and fades the parts that differ and keeps the dot travelling. AppButton gains animatesLabel.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -132,6 +294,15 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
 - Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
+- Phone defects: the Topics card foot reads the newest alarm held (HomeFacts drops the setup incident ids), Settings row values show in full, the Topic screen sorts messages with newestFirst, and AppStatusCard.strip stacks its numeral under a title that does not fit.
+- Pass pages: the card thumbnail is gone before the page body starts, the other cards are pushed by the page edge instead of being cut by it, a one word value steps its size down before it breaks, the last card of a short stack stops at card height, the challenge thumbnail is readable when Off, the widgets thumbnail drops its tiny words, and reduce motion fades the cards out before the page in.
+- Bottom sheets from showAppSheet and showExpandingSheet open with no slide under reduce motion, the proof card has a hairline on the dark theme, the path stop names never break inside a word, the pass page fades its label while it grows out of a card
+- A one word value on a pass card steps its size down before it breaks inside the word
+- The first welcome page no longer shows its face or title cut by the page edge during a swipe: they fade and travel clear of it, driven by the pager's page value.
+- The label on the Look page button sits in the middle of the button in every state (it sat near the top)
+- Settings screens open and close with the same slide and fade as a Topic: the tab shell now fades and drifts out under them (TabShellPage, AmbientPage.leavesTabBehind)
+- The Topic screen opens with Critical delivery, the canvas behind the hero and the sound already right, built from the lists the app holds, so the card no longer shows dots and the canvas no longer changes a moment after the screen opens.
+- Messages page: the count stands alone and the 7 day caption sits with the bars, and a message is linked to its alarm by id instead of by matching its words
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
@@ -139,6 +310,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
+- Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
+- AppScreenScaffold.topBackingPlateau. Settings and History use the default bar backing like every other screen.
+- Unused strings personalize.challenge\_chips.\*, personalize.sound\_yours, personalize.sound\_more, settings.app\_icon\_title, settings.app\_icon\_header and settings.app\_icon\_in\_use\_tag. App icon body sizing lives in app\_icon\_fit.dart.
+- Removed the old ring story hero, the old weekly check rows and the Reliability group list, which nothing draws any more
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
