@@ -111,6 +111,9 @@ class TopicDetailState {
     this.messageTimes = const [],
     this.areMessageTimesKnown = true,
     this.lastAlarmAt,
+    this.flashOn = false,
+    this.strongVibrationOn = false,
+    this.hasTorch = false,
   });
 
   /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
@@ -153,6 +156,17 @@ class TopicDetailState {
   /// When this topic last raised an alarm, or null if it never has.
   final DateTime? lastAlarmAt;
 
+  /// Whether this topic's ring also blinks the camera flash. Kept on this
+  /// phone only, and off until the user turns it on.
+  final bool flashOn;
+
+  /// Whether this topic's ring also runs the strong vibration pattern. Kept
+  /// on this phone only, and off until the user turns it on.
+  final bool strongVibrationOn;
+
+  /// Whether this phone has a camera flash. No flash, no flash row.
+  final bool hasTorch;
+
   /// Whether messages are currently being polled or loaded.
   final bool isMessagesLoading;
 
@@ -184,6 +198,9 @@ class TopicDetailState {
     List<DateTime>? messageTimes,
     bool? areMessageTimesKnown,
     DateTime? lastAlarmAt,
+    bool? flashOn,
+    bool? strongVibrationOn,
+    bool? hasTorch,
     bool clearError = false,
   }) {
     return TopicDetailState(
@@ -205,6 +222,9 @@ class TopicDetailState {
       messageTimes: messageTimes ?? this.messageTimes,
       areMessageTimesKnown: areMessageTimesKnown ?? this.areMessageTimesKnown,
       lastAlarmAt: lastAlarmAt ?? this.lastAlarmAt,
+      flashOn: flashOn ?? this.flashOn,
+      strongVibrationOn: strongVibrationOn ?? this.strongVibrationOn,
+      hasTorch: hasTorch ?? this.hasTorch,
     );
   }
 
@@ -230,7 +250,10 @@ class TopicDetailState {
           isMessagesLoading == other.isMessagesLoading &&
           listEquals(messageTimes, other.messageTimes) &&
           areMessageTimesKnown == other.areMessageTimesKnown &&
-          lastAlarmAt == other.lastAlarmAt;
+          lastAlarmAt == other.lastAlarmAt &&
+          flashOn == other.flashOn &&
+          strongVibrationOn == other.strongVibrationOn &&
+          hasTorch == other.hasTorch;
 
   @override
   int get hashCode => Object.hash(
@@ -252,5 +275,7 @@ class TopicDetailState {
     Object.hashAll(messageTimes),
     areMessageTimesKnown,
     lastAlarmAt,
+    // One slot for the three switches: Object.hash takes 20 at most.
+    Object.hash(flashOn, strongVibrationOn, hasTorch),
   );
 }

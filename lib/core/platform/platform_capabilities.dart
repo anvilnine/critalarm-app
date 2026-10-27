@@ -42,6 +42,17 @@ class PlatformCapabilities {
   /// Whether the build can play haptics. Web cannot.
   bool get hasHaptics => !isWeb;
 
+  /// Whether the app itself runs a vibration pattern while an alarm rings.
+  /// Android only: its alarm is the app's own service. An iPhone alarm is
+  /// rung by the system, and the app cannot add a vibration to it.
+  bool get hasStrongAlarmVibration =>
+      !isWeb && platform == TargetPlatform.android;
+
+  /// True where the camera flash can only blink while the app's own alarm
+  /// screen is open, which is the iPhone. On Android the alarm service
+  /// blinks it with the app closed.
+  bool get flashNeedsAlarmScreen => isIos;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
