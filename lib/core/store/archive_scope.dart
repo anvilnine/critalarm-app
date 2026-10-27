@@ -32,6 +32,11 @@ class ArchiveScope {
 
   void _onIdentityChanged() => _generation++;
 
+  /// Makes every write that started before now drop itself. A delete calls it
+  /// before it queues, so a write that has not reached the database yet
+  /// cannot land after the delete and bring the rows back.
+  void invalidate() => _generation++;
+
   /// Stops listening. The store calls it when it closes.
   void dispose() => _changes.removeListener(_onIdentityChanged);
 
@@ -57,7 +62,7 @@ class ArchiveScope {
 ///
 /// It settles to the scope to write under, or to null when the write must not
 /// be stored: no scope was known when it started, the identity changed since,
-/// or the phone is on another scope now. An alarm is rung before any of this
+/// or the phone is on another scope now. An alarm rings before any of this
 /// runs, so a dropped write costs a row in the archive and nothing else. The
 /// next sync fetches the incident again for the account it belongs to.
 class ArchiveTicket {
@@ -66,6 +71,12 @@ class ArchiveTicket {
   final ArchiveScope _scope;
   final int _generation;
   final Future<String?> _started;
+
+  /// True while nothing has changed since the write started. Checked inside
+  /// the write's transaction, with no wait between the check and the first
+  /// insert, so a delete that follows is queued after the write and removes
+  /// what it wrote.
+  bool get holds => _scope._generation == _generation;
 
   Future<String?> settle() async {
     final startedAs = await _started;

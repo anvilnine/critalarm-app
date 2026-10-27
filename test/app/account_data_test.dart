@@ -606,8 +606,8 @@ void main() {
       expect(await store.messages.count(), 1);
     });
 
-    test('an archive that will not clear stops an account delete from '
-        'dropping the rest of the list', () async {
+    test('an archive that will not clear does not stop an account delete '
+        'from dropping the rest of the list', () async {
       final list = _List();
       final store = await LocalStore.open(
         factory: databaseFactoryFfi,

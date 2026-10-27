@@ -218,6 +218,15 @@ class _Quiet implements IncidentRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
+Future<String> _scopeOf(LocalStore store, String incidentId) async =>
+    (await store.db.query(
+          'incidents',
+          columns: const ['scope'],
+          where: 'id = ?',
+          whereArgs: [incidentId],
+        )).first['scope']!
+        as String;
+
 Future<void> _settle(bool Function() isDone) async {
   for (var i = 0; i < 50 && !isDone(); i++) {
     await pumpEventQueue();
@@ -417,6 +426,53 @@ void main() {
     );
   });
 
+  group('delete and merge', () {
+    test('a write that is still on its way when the account is deleted does '
+        'not bring the rows back', () async {
+      final ticket = store.incidents.beginWrite();
+      final writing = store.incidents.upsertAll([
+        _incident('inc_late', daysAgo: 1),
+      ], ticket: ticket);
+      final deleting = store.deleteCurrentArchive();
+      await Future.wait([writing, deleting]);
+
+      expect(await store.incidents.count(), 0);
+      expect(await store.messages.count(), 0);
+    });
+
+    test('merging moves incidents and messages to the account they were '
+        'folded into and keep the copy already there of a shared id', () async {
+      await store.incidents.upsertAll([
+        _incident('inc_a', daysAgo: 3),
+        _incident('shared', daysAgo: 4, topic: 'old'),
+      ]);
+      phone.moveTo('acc_b');
+      await store.incidents.upsertAll([
+        _incident('inc_b', daysAgo: 2),
+        _incident('shared', daysAgo: 1, topic: 'kept'),
+      ]);
+      final b = await _scopeOf(store, 'inc_b');
+      phone.moveTo('acc_a');
+      final a = await _scopeOf(store, 'inc_a');
+
+      await store.mergeArchive(from: a, into: b);
+      phone.moveTo('acc_b');
+
+      expect(
+        (await store.incidents.page()).map((i) => i.id).toSet(),
+        {'inc_a', 'inc_b', 'shared'},
+      );
+      final shared = (await store.incidents.page()).firstWhere(
+        (i) => i.id == 'shared',
+      );
+      expect(shared.topic, 'kept');
+      expect(await store.messages.count(), 3);
+      phone.moveTo('acc_a');
+      expect(await store.incidents.count(), 0);
+      expect(await store.messages.count(), 0);
+    });
+  });
+
   group('the migration', () {
     test('a file from before scopes keeps every row for the account the '
         'phone is on', () async {
@@ -577,6 +633,35 @@ void main() {
       expect((await upgraded.incidents.page()).single.id, 'inc_1');
       phone.moveTo('acc_b');
       expect(await upgraded.incidents.page(), isEmpty);
+    });
+
+    test('a file taken back to the old version and upgraded again keeps '
+        'the scopes it has', () async {
+      final dir = await Directory.systemTemp.createTemp('critalarm_scope');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = p.join(dir.path, 'critalarm.db');
+      final first = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: path,
+        scope: phone.scope,
+        identityChanges: phone.changes,
+      );
+      await first.incidents.upsertAll([_incident('inc_a', daysAgo: 1)]);
+      await first.db.execute('PRAGMA user_version = 3');
+      await first.close();
+
+      phone.moveTo('acc_b');
+      final again = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: path,
+        scope: phone.scope,
+        identityChanges: phone.changes,
+      );
+      addTearDown(again.close);
+
+      expect(await again.incidents.count(), 0);
+      phone.moveTo('acc_a');
+      expect(await again.incidents.count(), 1);
     });
 
     test('a fresh install is on the scoped tables', () async {
