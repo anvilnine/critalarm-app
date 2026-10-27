@@ -55,6 +55,20 @@ void main() {
       expect(historyPaneEntry(days, 'last-week'), isNull);
     });
 
+    test('the incident the pane opened on stays when a newer one lands', () {
+      final days = [
+        _day([newest, earlier]),
+      ];
+      expect(historyPaneEntry(days, null, openedId: 'earlier'), earlier);
+    });
+
+    test('an opened incident that has gone falls back to the newest', () {
+      final days = [
+        _day([newest]),
+      ];
+      expect(historyPaneEntry(days, null, openedId: 'earlier'), newest);
+    });
+
     test('no incidents, nothing to show', () {
       expect(historyPaneEntry(const [], null), isNull);
     });
@@ -70,6 +84,10 @@ void main() {
       expect(historyHeroFaceSize(const AppSize(390, 844)), 60);
       expect(historyHeroFaceSize(const AppSize(404, 701)), 60);
       expect(historyHeroFaceSize(const AppSize(841, 342)), 60);
+    });
+
+    test('120 beside the card in a tabletop stage', () {
+      expect(historyHeroFaceSize(const AppSize(841, 342), isBeside: true), 120);
     });
 
     test('72 on a cover screen', () {
