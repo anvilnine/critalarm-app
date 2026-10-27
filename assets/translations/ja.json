@@ -651,9 +651,9 @@
     "reason_broken": "不具合があった",
     "reason_other": "その他",
     "explain_hint": "メモ（任意）。返信はできません。",
-    "send": "送信",
+    "send": "メモを送信",
     "thanks_title": "ありがとうございます。参考になります。",
-    "keeps": "Cloudは{date}まで有効です。"
+    "keeps": "Cloudは{date}まで使えます。アラームはこれからも鳴ります。"
   },
   "asks": {
     "pro_title": "Cloudで追加:",
