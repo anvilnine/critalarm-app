@@ -5,7 +5,9 @@
 //
 // - New topic (07 and wp6_07_*): the close control is a bare cross with no
 //   circle; on a medium or expanded window with no fold, Next sits within 48
-//   of the card's bottom edge and is 480 wide or less.
+//   of the card's bottom edge and is 480 wide or less. On the Razr cover the
+//   name label, Paste and the field are on screen in full and nothing covers
+//   them; on a tabletop fold the ring card's title and its switch are.
 // - Permission denial (13): the headline and the body line are on screen in
 //   full, under the top bar and above the first button, with no overlap.
 //
@@ -18,8 +20,10 @@ import 'package:critalarm/design/components/dismiss_cross.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/components/sheets.dart';
+import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -37,14 +41,29 @@ List<Rect> _painted(Finder finder) => [
     if (e.renderObject case final RenderBox box) ?paintedRect(box),
 ];
 
+/// True when [box] is on screen in full and no box in [over] overlaps it.
+bool _clearAtRest(Rect box, Size window, Iterable<Rect> over) =>
+    box.top >= -0.5 &&
+    box.left >= -0.5 &&
+    box.bottom <= window.height + 0.5 &&
+    box.right <= window.width + 0.5 &&
+    over.every((o) => !o.deflate(0.5).overlaps(box));
+
 /// The checks for [screenId] on a window of [window] with [fold].
+///
+/// [sizeId] is the matrix size id. A `desktop-*` id is the web build, which
+/// has no permissions step. Without it, a macOS target stands for the web.
 List<(String, bool)> wp6Measure(
   WidgetTester tester,
   String screenId, {
   required Size window,
   required AppSize size,
   required AppFold fold,
+  String? sizeId,
 }) {
+  final isWeb =
+      sizeId?.startsWith('desktop-') ??
+      defaultTargetPlatform == TargetPlatform.macOS;
   final lines = <(String, bool)>[];
   if (screenId == '07_create_topic' || screenId.startsWith('wp6_07')) {
     final circles = find.byWidgetPredicate(
@@ -98,6 +117,70 @@ List<(String, bool)> wp6Measure(
         !ok,
       ));
     }
+    // The Razr cover: what names the topic is readable and usable at rest,
+    // with Next scrolling after the card instead of pinned over the field.
+    if (size.isCover && fold.isNone) {
+      final label = _painted(
+        find.text(LocaleKeys.create_topic_name_label.tr()),
+      );
+      final paste = isSetup
+          ? <Rect>[]
+          : _painted(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is AppButton &&
+                    w.label == LocaleKeys.create_topic_paste_button.tr(),
+              ),
+            );
+      final field = _painted(find.byType(EditableText));
+      if (label.isEmpty || field.isEmpty || (!isSetup && paste.isEmpty)) {
+        lines.add((
+          'FAIL cover: name label ${label.length}, Paste ${paste.length}, '
+              'field ${field.length} painted',
+          true,
+        ));
+      } else {
+        final boxes = [label.first, ...paste.take(1), field.first];
+        final ok = boxes.every((b) => _clearAtRest(b, window, [next]));
+        lines.add((
+          '${ok ? 'PASS' : 'FAIL'} cover: name label ${_r(label.first)}, '
+              'Paste ${paste.isEmpty ? 'none' : _r(paste.first)} and field '
+              '${_r(field.first)} on screen at rest, clear of Next',
+          !ok,
+        ));
+      }
+    }
+    // A tabletop fold: the ring card's title and its switch are on screen
+    // in the bottom half, with Next after the card instead of over it.
+    if (fold.isTabletop) {
+      final switches = _painted(find.byType(AppSwitch));
+      final titles = _painted(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is FirstTopicCriticalCard || w is AppToggleRow,
+          ),
+          matching: find.byType(Text),
+        ),
+      )..sort((a, b) => a.top.compareTo(b.top));
+      if (switches.isEmpty || titles.isEmpty) {
+        lines.add((
+          'FAIL tabletop: ring card switch ${switches.length}, '
+              'title ${titles.length} painted',
+          true,
+        ));
+      } else {
+        final title = titles.first;
+        final toggle = switches.first;
+        final ok =
+            _clearAtRest(title, window, [next]) &&
+            _clearAtRest(toggle, window, [next]);
+        lines.add((
+          '${ok ? 'PASS' : 'FAIL'} tabletop: ring card title ${_r(title)} '
+              'and switch ${_r(toggle)} on screen at rest, clear of Next',
+          !ok,
+        ));
+      }
+    }
   }
   if (screenId == '13_permission_denial') {
     final title = _painted(
@@ -110,7 +193,7 @@ List<(String, bool)> wp6Measure(
       ..sort((a, b) => a.top.compareTo(b.top));
     // The web build has no permissions step: the route opens the welcome
     // pages there instead.
-    if (title.isEmpty && defaultTargetPlatform == TargetPlatform.macOS) {
+    if (title.isEmpty && isWeb) {
       lines.add(('no denial on the web build, the route opens welcome', false));
       return lines;
     }
