@@ -22,6 +22,7 @@ final class ApiAccountRepository implements AccountRepository {
     required this.identities,
     required this.connections,
     this.forgetAccountData,
+    this.forgetDeletedAccountData,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -41,6 +42,11 @@ final class ApiAccountRepository implements AccountRepository {
   /// `lib/app/account_data.dart`, which a connect to a different server
   /// calls too.
   final Future<void> Function()? forgetAccountData;
+
+  /// [forgetAccountData], and the phone's copy of the account's alarm
+  /// history, for an account that was deleted. Falls back to
+  /// [forgetAccountData] when not given.
+  final Future<void> Function()? forgetDeletedAccountData;
 
   /// Drops the store's idea of who this is, back to an anonymous user.
   ///
@@ -124,7 +130,11 @@ final class ApiAccountRepository implements AccountRepository {
       api.deleteAccount(identityToken: identityToken);
 
   @override
-  Future<void> wipeAfterDelete() async {
+  Future<void> wipeAfterDelete() => _wipe(
+    forget: forgetDeletedAccountData ?? forgetAccountData,
+  );
+
+  Future<void> _wipe({required Future<void> Function()? forget}) async {
     // The store knows this phone as the account id that has just gone, so it
     // goes back to an anonymous user before anything else. It is not a
     // failure when it was anonymous already: the store answers
@@ -135,7 +145,7 @@ final class ApiAccountRepository implements AccountRepository {
     // Everything here names something on the account that is gone: an
     // incident to acknowledge, a message id to poll since, a topic somebody
     // searched for.
-    await forgetAccountData?.call();
+    await forget?.call();
     await _startOverOnFreshAccount();
   }
 
@@ -147,7 +157,8 @@ final class ApiAccountRepository implements AccountRepository {
       // Whatever is ringing belongs to an incident on an account that no
       // longer exists, so there is nobody left to acknowledge it to.
       await stopAlarm?.call();
-      await wipeAfterDelete();
+      // The credential is dead, not the account, so the history stays.
+      await _wipe(forget: forgetAccountData);
     } finally {
       _recovering = false;
     }

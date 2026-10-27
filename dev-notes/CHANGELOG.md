@@ -10,6 +10,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+- The incidents and messages tables carry a scope column, the primary key is scope and id, and the local store is at schema version 4. IncidentStore and MessageStore read the current scope only, and ArchiveScope drops a write that lands after an account change. AccountData.forgetDeleted removes an account's rows on delete.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.

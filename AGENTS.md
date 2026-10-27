@@ -1243,13 +1243,34 @@ never seen, and a person's own alarm photo and own sounds are in no backup.
   treats as nothing to draw and nothing to ring.
 
 **Local store and the held topic list.** `LocalStore` (`lib/core/store/local_store.dart`,
-`critalarm.db`, schema version 3) holds three tables. `incidents` and `messages` are the
-archive: the user's own copy, deleted only by the auto-delete setting. `topics` is the last list
-the server gave, kept so the app opens with the topics it already knows. It is a copy the server
-replaces on every answer, not an archive.
+`critalarm.db`, schema version 4) holds three tables. `incidents` and `messages` are the
+archive: the user's own copy, deleted by the auto-delete setting and by an account delete.
+`topics` is the last list the server gave, kept so the app opens with the topics it already
+knows. It is a copy the server replaces on every answer, not an archive.
 
 - A table change bumps `LocalStore.schemaVersion` and adds a step in `_upgrade`. A test builds
   the previous version's file by hand and checks the old rows survive (`test/core/store/`).
+- Archive rows are scoped by account, like topics. `incidents` and `messages` carry a `scope`
+  column (the same `heldScopeFor` hash) and the primary key is `(scope, id)`. Every read in
+  `IncidentStore` and `MessageStore` asks for the current scope inside the store, so no caller
+  can forget to filter, and a read for no scope returns nothing. This includes the `since`
+  cursor (`newestUpdatedAt`): an account that signs in on a phone another account used asks the
+  server for its whole window.
+- A sign-out keeps the archive rows, so the same account finds its history again. They are never
+  shown to another account. An account delete removes that account's rows
+  (`AccountData.forgetDeleted`, called by `wipeAfterDelete` only; a dead credential and a sign-out
+  call `forget`). A connect to a different server (`clearServerData`) and the auto-delete setting
+  cover every scope.
+- Archive writes use a ticket (`beginWrite`, `ArchiveScope` in `lib/core/store/archive_scope.dart`)
+  taken before the request or event the data came from. A write is stored only when the account
+  has not changed since, the identity bell (`AccountIdentityChanges`) has not rung, and the scope
+  is known. Otherwise it is dropped, never stored under the next account. Alarms are received,
+  sounded and acknowledged before and without this, so a dropped write costs a row and nothing
+  else; the next sync fetches the incident again.
+- The upgrade to version 4 stamps every existing incident and message with the scope the phone is
+  on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
+  database). With no saved server the rows get the empty scope, which no read asks for. A
+  `LocalStore` opened with no `scope` (unit tests, capture tools) keeps every row under one scope.
 - What a `topics` row holds: name, Critical delivery, the three timers, the relay content
   setting, when the topic was made (milliseconds, because the Topic screen matches what it
   remembered about a topic by that exact time) and the order the server gave. A topic token, its

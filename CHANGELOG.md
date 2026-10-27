@@ -12,6 +12,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
+- Signing in as a different account on the same phone no longer shows the alarm history of the account before it. Signing back in to the first account brings its history back.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
