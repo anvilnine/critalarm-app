@@ -1334,6 +1334,30 @@ knows. It is a copy the server replaces on every answer, not an archive.
   setup's real ring step), a delete the server took, and `noteCreated`, which
   `CreateTopicUsecase.onCreated` calls for a new topic (stored without its token, memory left
   to the next refresh). Nothing is written before a list is loaded.
+- **Held rows.** `HeldRows` (`lib/app/state/held_rows.dart`) reads the current scope's incidents and
+  each held topic's messages once at launch, through `HeldArchive` (the incident repository reads the
+  stores; no raw SQL), right after `loadHeld()` and inside the same 800 ms limit. The plan
+  (`HeldPlan`) is read first and a snapshot is never taken without it, because the history window
+  decides which rows show. It also notes each topic's rows in `TopicGlances`. Home (`_seedFromHeld`),
+  History (`_seedFromHeld`) and the Topic screen (`seedFor`) draw their first frame from the
+  snapshot and make no request; the full build, which polls each topic, still waits for the server's
+  lists and runs once.
+- The snapshot is never put in `IncidentsCubit`. Everything that rings, badges, hands over to the
+  alarm screen or syncs widgets reads that list, so a stored open alarm there could act. Home
+  keeps `ringingIncidentId` null while its rows are the phone's copy (`_fromPhone`, also on the
+  timer's repaints) unless the shared list holds that incident, shows them as old when the server
+  never answers, and the first answer replaces every row. The snapshot is dropped by any change
+  of the shared incident list (an alarm the alarm screen applies before the first answer counts)
+  and by any change of account (`AccountIdentityChanges`). While rows are still the copy, Home
+  (`_reseedFromShared`) and the Topic screen (`_applySharedToCopy`) lay the shared list over it,
+  before the answer and after it while the topic list is still the stored one, so a real alarm is
+  never shown as calm. The Topic screen applies an update that came during its own change when
+  that change ends. A new reader of stored alarms at launch goes through
+  `HeldRows`, never through `IncidentsCubit`.
+- Launch cost: `main` skips the `HeldRows` read when the first location is an alarm screen
+  (`HeldRows.skipsLaunchAt`), `heldPlanFrom` answers from the plan already read and never waits
+  for it (no plan, no snapshot), and a read that outlives the 800 ms limit is abandoned
+  (`HeldRows.abandon`) so it builds nothing under the first frames.
 - Where the store is not open (the web build, or `local_store_open_failed` at launch) the list
   stays in memory and the app behaves as it did before the copy existed. Push, alarms and
   incident handling never read the `topics` table.

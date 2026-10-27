@@ -7,6 +7,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
+import 'package:critalarm/features/incidents/domain/repositories/held_archive.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 
 /// [IncidentRepository] backed by [ApiClient], with the phone's own copy in
@@ -17,13 +18,46 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 /// [LocalStore] and the network call only adds what the phone has not seen.
 /// Without a store it behaves exactly as it did before, which is what the
 /// tests that build it with an [ApiClient] alone rely on.
-class InMemoryIncidentRepository implements IncidentRepository {
+class InMemoryIncidentRepository implements IncidentRepository, HeldArchive {
   InMemoryIncidentRepository(this._client, {this.store});
 
   final ApiClient _client;
 
   /// The phone's copy. Null in the tests that only exercise the wire.
   final LocalStore? store;
+
+  @override
+  Future<List<Incident>> heldIncidents({required int limit}) async {
+    final store = this.store;
+    if (store == null) return const [];
+    try {
+      return await store.incidents.page(limit: limit);
+    } on Object catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<int> heldIncidentsBefore(DateTime? bound) async {
+    final store = this.store;
+    if (store == null || bound == null) return 0;
+    try {
+      return await store.incidents.countOlderThan(bound);
+    } on Object catch (_) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<List<Message>> heldMessages(String topic, {required int limit}) async {
+    final store = this.store;
+    if (store == null) return const [];
+    try {
+      return await store.messages.page(topic: topic, limit: limit);
+    } on Object catch (_) {
+      return const [];
+    }
+  }
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({

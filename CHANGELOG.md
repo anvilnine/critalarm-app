@@ -10,6 +10,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Changed
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
+- Topics, History and a topic's messages open with the alarms and messages already on your phone, then update from the server.
 - A connect link only connects to a server you host yourself.
 
 ### Fixed
