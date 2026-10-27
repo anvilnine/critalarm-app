@@ -4,7 +4,6 @@ import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame_geometry.dart';
-import 'package:flutter/painting.dart' show TextDirection;
 import 'package:flutter_test/flutter_test.dart';
 
 class _Fold implements DisplayFeature {
