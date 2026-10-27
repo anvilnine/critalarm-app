@@ -1,12 +1,20 @@
 import 'package:critalarm/core/format/when_label.dart';
+import 'package:critalarm/design/ambient/hero_disc.dart';
+import 'package:critalarm/design/components/hero_scene.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/components/switches.dart';
+import 'package:critalarm/design/fold.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/topics/domain/topic_hero_card.dart';
 import 'package:critalarm/features/topics/domain/topic_summary.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 
 /// The name's size and line height. A name that does not fit on two lines at
@@ -294,6 +302,248 @@ class _TopicCriticalCardState extends State<TopicCriticalCard> {
         onChanged: widget.onChanged,
         semanticLabel: LocaleKeys.topic_detail_critical_toggle_title.tr(),
         semanticHint: foot == null ? null : topicFootText(foot),
+      ),
+    );
+  }
+}
+
+/// The column a fold stage lays its hero in, worked out the way the scaffold
+/// lines up the stage's top bar: the stage pane's own size, no rail. With
+/// [boxWidth] the stage pane's width.
+AppScreenColumns foldStageColumnsFor(BuildContext context, double boxWidth) =>
+    AppScreenColumns.resolve(
+      boxWidth: boxWidth,
+      size: AppSize.of(context),
+      padding: MediaQuery.paddingOf(context),
+      hasTabBar: false,
+    );
+
+/// What a screen hands `AppScreenScaffold.foldStage`: [children] stacked at
+/// the top of the stage pane, in the same column as the stage's top bar.
+///
+/// The stage holds still. Nothing in it scrolls, because a vertical scroll
+/// view there would also drive the shared refresh face. A stage taller than
+/// its pane (very large text) is cut at the pane's foot instead.
+class FoldStageColumn extends StatelessWidget {
+  const FoldStageColumn({required this.children, super.key});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = foldStageColumnsFor(context, constraints.maxWidth);
+      return ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          minHeight: 0,
+          maxHeight: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: columns.gutter),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// Where the stage pane of the window [context] is drawn on puts the top of
+/// its content, and the column it uses: the start pane in book posture, the
+/// top half in tabletop. In window coordinates. [above] is the room between
+/// the top bar and the hero (a topic's name, for one).
+({Offset origin, double width}) foldStageHeroSpot(
+  BuildContext context, {
+  double above = 0,
+}) {
+  final window = MediaQuery.sizeOf(context);
+  final padding = MediaQuery.paddingOf(context);
+  final pane = AppFold.of(context)
+      .panes(
+        window,
+        direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      )
+      .first;
+  final paneMedia = foldPaneMediaQuery(
+    MediaQueryData(size: window, padding: padding),
+    pane,
+  );
+  final columns = AppScreenColumns.resolve(
+    boxWidth: pane.width,
+    size: AppSize.from(pane.size, isIphone: AppDeviceScope.isIphoneOf(context)),
+    padding: paneMedia.padding,
+    hasTabBar: false,
+  );
+  return (
+    origin: Offset(
+      pane.left + columns.contentLeft,
+      pane.top +
+          paneMedia.padding.top +
+          AppScreenScaffold.topBarHeight +
+          Spacing.s3 +
+          above,
+    ),
+    width: columns.contentWidth,
+  );
+}
+
+/// The ambient disc behind a hero face drawn in a fold stage. The scaffold's
+/// own [heroDiscSpotOf] follows the list, which on a fold is in the other
+/// pane.
+HeroDiscSpot foldStageDiscSpotOf(BuildContext context, {double above = 0}) {
+  final spot = foldStageHeroSpot(context, above: above);
+  return heroDiscSpot(
+    screen: MediaQuery.sizeOf(context),
+    sceneOrigin: spot.origin,
+    sceneWidth: spot.width,
+    textScale: MediaQuery.textScalerOf(context).scale(16) / 16,
+  );
+}
+
+/// How a part of a [HeroLinePanel] is set.
+enum HeroLineText {
+  /// The status card's mono caps label.
+  label,
+
+  /// A plain caption, the stat card's.
+  caption,
+}
+
+/// One value in a [HeroLinePanel], with its words before or after it.
+@immutable
+class HeroLinePart {
+  const HeroLinePart({
+    required this.value,
+    this.words,
+    this.wordsFirst = false,
+    this.wordsStyle = HeroLineText.caption,
+    this.tone = AppStatusTone.yellow,
+  });
+
+  final String value;
+  final String? words;
+  final bool wordsFirst;
+  final HeroLineText wordsStyle;
+  final AppStatusTone tone;
+}
+
+/// The dark hero panel cut to one line, for a cover screen: the words and the
+/// value it answers with, nothing under them. Beside a 72 face it leaves the
+/// list room for two rows above the tab bar.
+///
+/// A tap runs [onTap], so a card whose full version has a button keeps it:
+/// the screen hands the button's action here.
+class HeroLinePanel extends StatelessWidget {
+  const HeroLinePanel({
+    required this.parts,
+    this.onTap,
+    this.semanticsLabel,
+    super.key,
+  });
+
+  final List<HeroLinePart> parts;
+  final VoidCallback? onTap;
+
+  /// What a screen reader says for the panel. Defaults to the parts' words.
+  final String? semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final brightness = Theme.of(context).brightness;
+    final surface = statusCardSurface(colors, brightness);
+    final isDark = brightness == Brightness.dark;
+
+    TextStyle words(HeroLineText style) => switch (style) {
+      HeroLineText.label => TextStyle(
+        fontFamily: AppTypography.fontMono,
+        fontFamilyFallback: AppTypography.fontMonoFallbacks,
+        fontWeight: FontWeight.w700,
+        fontSize: 11,
+        height: 1.2,
+        letterSpacing: 0.88,
+        color: colors.onPanelMuted,
+      ),
+      HeroLineText.caption => TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontSize: 13,
+        height: 1.25,
+        color: colors.onPanelMuted,
+      ),
+    };
+    TextStyle value(AppStatusTone tone) => TextStyle(
+      fontFamily: AppTypography.fontDisplay,
+      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+      fontWeight: FontWeight.w800,
+      fontSize: 24,
+      height: 1.05,
+      letterSpacing: -0.03 * 24,
+      color: tone.color(colors),
+    );
+
+    final spoken = [
+      for (final part in parts)
+        part.wordsFirst
+            ? '${part.words ?? ''} ${part.value}'
+            : '${part.value} ${part.words ?? ''}',
+    ].join(', ');
+
+    final line = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0) const SizedBox(width: 18),
+          if (parts[i].wordsFirst && parts[i].words != null) ...[
+            Text(parts[i].words!, style: words(parts[i].wordsStyle)),
+            const SizedBox(width: 10),
+          ],
+          Text(parts[i].value, maxLines: 1, style: value(parts[i].tone)),
+          if (!parts[i].wordsFirst && parts[i].words != null) ...[
+            const SizedBox(width: 6),
+            Text(parts[i].words!, style: words(parts[i].wordsStyle)),
+          ],
+        ],
+      ],
+    );
+
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      label: semanticsLabel ?? spoken,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: surface.fill,
+              borderRadius: Radii.xlAll,
+              border: surface.line == null
+                  ? null
+                  : Border.all(color: surface.line!),
+              boxShadow: isDark ? const [] : AppShadows.lightMd,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                heightFactor: 1,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: line,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
