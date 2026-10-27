@@ -16,6 +16,7 @@ import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_answer_list.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_preview_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -128,6 +129,20 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     with WidgetsBindingObserver {
   /// The face every onboarding screen shares, so it flies between them.
   static const _faceHeroTag = 'onboarding-face';
+
+  /// The words, measured, and the room they have, so a tablet or desktop
+  /// window can tell whether the buttons still fit right under them. See
+  /// [actionsInlineFor].
+  double _groupHeight = 0;
+  double? _actionsHeight;
+  double _groupRoom = double.infinity;
+
+  /// Room between the words and the buttons under them.
+  static const double _actionsGap = Spacing.s5;
+
+  void _setMeasure(void Function() change) {
+    if (mounted) setState(change);
+  }
 
   @override
   void initState() {
@@ -276,6 +291,206 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         // top corner, the dots give it the corner.
         final cornerIsTaken = OnboardingAmbientScope.hasQuietLineOf(context);
 
+        // Where the step sits: a phone column, a centred group on a tablet
+        // or desktop window, or split at the fold of a half-open foldable.
+        final frame = ScreenFrame.of(context);
+        final splits = frame.splitsAtFold;
+        final centresGroup =
+            frame == ScreenFrame.centred || frame == ScreenFrame.book;
+        final isInline = actionsInlineFor(
+          frame,
+          hasKeyboard: false,
+          fits: groupFits(
+            group: _groupHeight,
+            actions:
+                _actionsHeight ??
+                MediaQuery.textScalerOf(context).scale(60 + 12 + 48),
+            gap: _actionsGap,
+            available: _groupRoom,
+          ),
+        );
+        final buttons = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: state.isDenied
+              ? [
+                  AppButton(
+                    label: LocaleKeys
+                        .onboarding_permissions_denied_open_settings
+                        .tr(),
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: cubit.openSettings,
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                  // Never a wall. A user who says no still gets into the
+                  // app; the health banner keeps asking afterwards.
+                  AppButton(
+                    label: LocaleKeys.onboarding_permissions_denied_skip.tr(),
+                    variant: AppButtonVariant.paper,
+                    isFullWidth: true,
+                    onPressed: cubit.continueWithout,
+                  ),
+                ]
+              : [
+                  if (view != null)
+                    AppButton(
+                      label: view.button,
+                      size: AppButtonSize.lg,
+                      isFullWidth: true,
+                      isLoading: state.isRequesting,
+                      onPressed: allowedView != null
+                          ? null
+                          : cubit.allowCurrentStep,
+                    ),
+                  // The way forward is there before the first step is: a
+                  // status read that hangs must not hold the user here.
+                  if (view == null || view.canSkip) ...[
+                    const SizedBox(height: Spacing.s3),
+                    AppButton(
+                      label: LocaleKeys.onboarding_permissions_not_now.tr(),
+                      variant: AppButtonVariant.paper,
+                      isFullWidth: true,
+                      onPressed: state.isRequesting || allowedView != null
+                          ? null
+                          : view == null
+                          ? cubit.continueWithout
+                          : cubit.skipStep,
+                    ),
+                  ],
+                ],
+        );
+
+        // The face of a step, and its words and the picture of its prompt.
+        // One column on a phone or a wide window; split at a fold.
+        List<Widget> stepFace(PermissionStepView view) => [
+          // Glad for one beat after the user allows.
+          SetupFace(
+            state: allowedView != null ? view.grantedFace : view.face,
+            base: frame == ScreenFrame.centred ? 120 : 80,
+          ),
+          if (badge != null) ...[
+            const SizedBox(height: Spacing.s3),
+            AppBadge(text: badge, faceState: view.face),
+          ],
+        ];
+        List<Widget> stepWords(PermissionStepView view) => [
+          // One title style for every task screen in setup.
+          AppFittedTitle(
+            view.title,
+            minFontSize: setupTitleMinFontSize,
+            style: AppTypography.headline(
+              colors.onCanvas,
+              fontSize: 30,
+            ),
+          ),
+          const SizedBox(height: Spacing.s2),
+          Text(
+            view.subtitle,
+            textAlign: TextAlign.center,
+            style: AppTypography.body(colors.onCanvasMuted),
+          ),
+
+          // A step with no prompt coming has no prompt to
+          // draw.
+          if (preview != null) ...[
+            const SizedBox(height: Spacing.s5),
+            PermissionPreviewFrame(
+              semanticLabel: hint == null
+                  ? preview.title
+                  : '${preview.title}. $hint',
+              onTap: state.isRequesting || allowedView != null
+                  ? null
+                  : cubit.allowCurrentStep,
+              child: preview.child,
+            ),
+            // Only a Settings switch needs telling what to
+            // do. A drawn dialog shows its own Allow.
+            if (hint != null) ...[
+              const SizedBox(height: Spacing.s3),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: AppTypography.small(
+                  colors.onCanvasMuted,
+                ),
+              ),
+            ],
+          ],
+        ];
+
+        // The face that waits while the answers are read.
+        Widget waiting() => Center(
+          child: AppWaitingFace(
+            message: LocaleKeys.onboarding_permissions_checking.tr(),
+            faceSize: SetupFace.waitingSizeOf(context),
+            heroTag: _faceHeroTag,
+          ),
+        );
+
+        // The step as one piece: face, words and the picture of the prompt.
+        Widget whole() {
+          if (state.isDenied) {
+            return frame == ScreenFrame.cover
+                ? _CoverDenial(
+                    title: LocaleKeys.onboarding_permissions_denied_title.tr(),
+                    description: LocaleKeys
+                        .onboarding_permissions_denied_description
+                        .tr(),
+                  )
+                : Semantics(
+                    liveRegion: true,
+                    child: MergeSemantics(
+                      child: AppEmptyState(
+                        // Softer than an error: nothing broke.
+                        faceState: FaceState.concerned,
+                        title: LocaleKeys.onboarding_permissions_denied_title
+                            .tr(),
+                        description: LocaleKeys
+                            .onboarding_permissions_denied_description
+                            .tr(),
+                      ),
+                    ),
+                  );
+          }
+          if (view == null) return waiting();
+          return Column(
+            children: [
+              ...stepFace(view),
+              const SizedBox(height: Spacing.s4),
+              ...stepWords(view),
+            ],
+          );
+        }
+
+        // On a fold: what holds still beside or above the fold.
+        Widget stage() {
+          if (state.isDenied) {
+            return const ExcludeSemantics(
+              child: FaceWidget(state: FaceState.concerned),
+            );
+          }
+          if (view == null) return waiting();
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: stepFace(view),
+          );
+        }
+
+        // On a fold: the words, in the other pane.
+        Widget words() {
+          if (state.isDenied) {
+            return _DenialWords(
+              title: LocaleKeys.onboarding_permissions_denied_title.tr(),
+              description: LocaleKeys.onboarding_permissions_denied_description
+                  .tr(),
+            );
+          }
+          if (view == null) return const SizedBox.shrink();
+          return Column(children: stepWords(view));
+        }
+
+        final body = splits ? words() : whole();
+
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
           // canvas, so it paints its own background.
@@ -285,10 +500,12 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           hasTabBar: false,
           topBar: AppTopBar(
             title: setupTopBarTitle(context),
+            // The house close: a bare x, no circle.
             leading: widget.standalone
-                ? AppIconButton(
-                    glyph: GlyphType.close,
-                    ariaLabel: LocaleKeys.common_back.tr(),
+                ? AppDismissCross(
+                    label: LocaleKeys.common_back.tr(),
+                    color: colors.onCanvas,
+                    tapSize: kMinTapTarget,
                     onPressed: () => _close(context),
                   )
                 : null,
@@ -311,154 +528,60 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                   )
                 : null,
           ),
-          bottomBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: state.isDenied
-                ? [
-                    AppButton(
-                      label: LocaleKeys
-                          .onboarding_permissions_denied_open_settings
-                          .tr(),
-                      size: AppButtonSize.lg,
-                      isFullWidth: true,
-                      onPressed: cubit.openSettings,
-                    ),
-                    const SizedBox(height: Spacing.s3),
-                    // Never a wall. A user who says no still gets into the
-                    // app; the health banner keeps asking afterwards.
-                    AppButton(
-                      label: LocaleKeys.onboarding_permissions_denied_skip.tr(),
-                      variant: AppButtonVariant.paper,
-                      isFullWidth: true,
-                      onPressed: cubit.continueWithout,
-                    ),
-                  ]
-                : [
-                    if (view != null)
-                      AppButton(
-                        label: view.button,
-                        size: AppButtonSize.lg,
-                        isFullWidth: true,
-                        isLoading: state.isRequesting,
-                        onPressed: allowedView != null
-                            ? null
-                            : cubit.allowCurrentStep,
-                      ),
-                    // The way forward is there before the first step is: a
-                    // status read that hangs must not hold the user here.
-                    if (view == null || view.canSkip) ...[
-                      const SizedBox(height: Spacing.s3),
-                      AppButton(
-                        label: LocaleKeys.onboarding_permissions_not_now.tr(),
-                        variant: AppButtonVariant.paper,
-                        isFullWidth: true,
-                        onPressed: state.isRequesting || allowedView != null
-                            ? null
-                            : view == null
-                            ? cubit.continueWithout
-                            : cubit.skipStep,
-                      ),
-                    ],
-                  ],
-          ),
+          bottomBar: isInline ? null : buttons,
+          // On a half-open foldable the face holds still in one pane and the
+          // words and buttons sit in the other.
+          foldStage: splits ? FoldStageBox(child: stage()) : null,
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.s5,
-                Spacing.s4,
-                Spacing.s5,
-                0,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: state.isDenied
-                    // Replaces the step the user just answered, so it is said
-                    // as it lands.
-                    ? Semantics(
-                        liveRegion: true,
-                        child: MergeSemantics(
-                          child: AppEmptyState(
-                            // Softer than an error: nothing broke.
-                            faceState: FaceState.concerned,
-                            title: LocaleKeys
-                                .onboarding_permissions_denied_title
-                                .tr(),
-                            description: LocaleKeys
-                                .onboarding_permissions_denied_description
-                                .tr(),
-                          ),
-                        ),
-                      )
-                    : view == null
-                    // The statuses are still being read. The face sits
-                    // where a step's face will, so nothing jumps when the
-                    // first step arrives.
-                    ? Center(
-                        child: AppWaitingFace(
-                          message: LocaleKeys.onboarding_permissions_checking
-                              .tr(),
-                          faceSize: SetupFace.waitingSizeOf(context),
-                          heroTag: _faceHeroTag,
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          // Glad for one beat after the user allows.
-                          SetupFace(
-                            state: allowedView != null
-                                ? view.grantedFace
-                                : view.face,
-                          ),
-                          if (badge != null) ...[
-                            const SizedBox(height: Spacing.s3),
-                            AppBadge(text: badge, faceState: view.face),
-                          ],
-                          const SizedBox(height: Spacing.s4),
-                          // One title style for every task screen in setup.
-                          AppFittedTitle(
-                            view.title,
-                            minFontSize: setupTitleMinFontSize,
-                            style: AppTypography.headline(
-                              colors.onCanvas,
-                              fontSize: 30,
-                            ),
-                          ),
-                          const SizedBox(height: Spacing.s2),
-                          Text(
-                            view.subtitle,
-                            textAlign: TextAlign.center,
-                            style: AppTypography.body(colors.onCanvasMuted),
-                          ),
-
-                          // A step with no prompt coming has no prompt to
-                          // draw.
-                          if (preview != null) ...[
-                            const SizedBox(height: Spacing.s5),
-                            PermissionPreviewFrame(
-                              semanticLabel: hint == null
-                                  ? preview.title
-                                  : '${preview.title}. $hint',
-                              onTap: state.isRequesting || allowedView != null
-                                  ? null
-                                  : cubit.allowCurrentStep,
-                              child: preview.child,
-                            ),
-                            // Only a Settings switch needs telling what to
-                            // do. A drawn dialog shows its own Allow.
-                            if (hint != null) ...[
-                              const SizedBox(height: Spacing.s3),
-                              Text(
-                                hint,
-                                textAlign: TextAlign.center,
-                                style: AppTypography.small(
-                                  colors.onCanvasMuted,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ],
+            if (centresGroup)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
+                sliver: CentredGroupSliver(
+                  onAvailable: (room) {
+                    if ((room - _groupRoom).abs() > 0.5) {
+                      _setMeasure(() => _groupRoom = room);
+                    }
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ReportSize(
+                        onSize: (size) {
+                          if ((size.height - _groupHeight).abs() > 0.5) {
+                            _setMeasure(() => _groupHeight = size.height);
+                          }
+                        },
+                        child: body,
                       ),
+                      if (isInline)
+                        Padding(
+                          padding: const EdgeInsets.only(top: _actionsGap),
+                          child: ReportSize(
+                            onSize: (size) {
+                              if ((size.height - (_actionsHeight ?? 0)).abs() >
+                                  0.5) {
+                                _setMeasure(
+                                  () => _actionsHeight = size.height,
+                                );
+                              }
+                            },
+                            child: InlineActions(child: buttons),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.s5,
+                  Spacing.s4,
+                  Spacing.s5,
+                  0,
+                ),
+                sliver: SliverToBoxAdapter(child: body),
               ),
-            ),
           ],
         );
       },
@@ -526,5 +649,94 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     } else {
       context.go('/settings/permissions');
     }
+  }
+}
+
+/// The denial words on their own, for the pane beside or under the fold where
+/// the face is not: the headline and the line under it, centred.
+class _DenialWords extends StatelessWidget {
+  const _DenialWords({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    // Replaces the step the user just answered, so it is said as it lands.
+    return Semantics(
+      liveRegion: true,
+      child: MergeSemantics(
+        child: Column(
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+              ),
+            ),
+            const SizedBox(height: Spacing.s2),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: AppTypography.body(colors.onCanvasMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The denial on a cover screen (both sides under 500). The face drops to 72
+/// and sits beside the headline, so the headline and the line under it fit
+/// above the two buttons with nothing behind them.
+class _CoverDenial extends StatelessWidget {
+  const _CoverDenial({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    // Replaces the step the user just answered, so it is said as it lands.
+    return Semantics(
+      liveRegion: true,
+      child: MergeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const ExcludeSemantics(
+                  child: FaceWidget(
+                    state: FaceState.concerned,
+                    size: kHeroCoverFaceSize,
+                  ),
+                ),
+                const SizedBox(width: Spacing.s3),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTypography.headline(
+                      colors.onCanvas,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Spacing.s2),
+            Text(
+              description,
+              style: AppTypography.body(colors.onCanvasMuted),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
