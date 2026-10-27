@@ -410,12 +410,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                             ).routerDelegate.currentConfiguration.matches,
                           ),
                         )) {
-                      return CustomTransitionPage<void>(
+                      return PaneHandOffPage<void>(
                         key: state.pageKey,
-                        opaque: false,
-                        transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero,
-                        transitionsBuilder: (_, _, _, child) => child,
                         child: HomePaneHandOff(topicName: name),
                       );
                     }
@@ -1132,3 +1128,59 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
   ],
 );
+
+/// The page `/topics/<name>` puts on the Home branch while it hands the topic
+/// to Home's detail pane: see-through, with no transition of its own, and
+/// one Home never transitions to. See [PaneHandOffRoute].
+class PaneHandOffPage<T> extends Page<T> {
+  const PaneHandOffPage({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) =>
+      PaneHandOffRoute<T>(settings: this, child: child);
+}
+
+/// The route of a [PaneHandOffPage]. It lives for a frame or two and draws
+/// nothing, so the page under it must not move for it. A page route under
+/// a new page route runs its exit transition (Home's fade and drift) on the
+/// new route's clock, and with no transition that clock jumps to the end
+/// for a frame: Home would blink out. Saying no to [canTransitionFrom] keeps
+/// that clock at rest for the route below.
+class PaneHandOffRoute<T> extends PageRoute<T> {
+  PaneHandOffRoute({required this.child, super.settings});
+
+  final Widget child;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  bool canTransitionFrom(TransitionRoute<dynamic> previousRoute) => false;
+
+  @override
+  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => child;
+}
