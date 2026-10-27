@@ -28,7 +28,7 @@
 // History with an entry picked (only where AppSize gives two panes), plain
 // History, and the web message composer on the desktop sizes.
 //
-// Each size boots the app's dependencies again and then registers the
+// Each capture boots the app's dependencies again and then registers the
 // PlatformCapabilities that size renders as, the value lib/app/di.dart builds
 // on that platform. A web size gets `isWeb: true` (no push, no alarm, compose
 // on). Other `kIsWeb` reads in lib/app/di.dart (the local store, the native
@@ -299,8 +299,13 @@ Future<void> _boot(_Size size) async {
     'tour_guides_seen': '["topics","topic","settings","history"]',
     'has_completed_showcase_tour': true,
   });
-  // A fresh phone store per size, on a real SQLite file. Without it History
-  // has nothing to list.
+  // A fresh phone store per capture, on a real SQLite file. Without it History
+  // has nothing to list. The last capture's folder goes first.
+  if (_docsPath.isNotEmpty) {
+    try {
+      Directory(_docsPath).deleteSync(recursive: true);
+    } on FileSystemException catch (_) {}
+  }
   _docsPath = Directory.systemTemp.createTempSync('critalarm_matrix_').path;
   await configureDependencies(useMockApi: true);
   // What lib/app/di.dart registers on the platform this size renders as.
@@ -570,8 +575,6 @@ void main() {
 
   for (final size in sizes) {
     group(size.id, () {
-      setUpAll(() => _boot(size));
-
       for (final theme in themes) {
         for (final screen in screens) {
           final rel = _cell(size.id, theme.name, screen.id);
@@ -585,125 +588,133 @@ void main() {
             _broken[screen.id] = screen.missing!;
             continue;
           }
-          testWidgets('capture $rel', (tester) async {
-            final messages = <String>{};
-            void record(String message) {
-              final first = message.trim().split('\n').first;
-              if (messages.add(first)) {
-                _errors.add((
-                  size: size.id,
-                  theme: theme.name,
-                  screen: screen.id,
-                  message: first,
-                ));
+          // A fresh boot per capture, in a group of its own so it runs in
+          // real time. Shared singletons outlive a screen: once the alarm
+          // screen has rung, every later tab screen hands over to it.
+          group(rel, () {
+            setUpAll(() => _boot(size));
+            testWidgets('capture', (tester) async {
+              final messages = <String>{};
+              void record(String message) {
+                final first = message.trim().split('\n').first;
+                if (messages.add(first)) {
+                  _errors.add((
+                    size: size.id,
+                    theme: theme.name,
+                    screen: screen.id,
+                    message: first,
+                  ));
+                }
               }
-            }
 
-            final oldHandler = FlutterError.onError;
-            FlutterError.onError = (d) => record(d.exceptionAsString());
-            debugDefaultTargetPlatformOverride = size.platform;
-            try {
-              getIt<MockServer>().loadFixture(screen.fixture);
-              tester.view
-                ..physicalSize = Size(size.width, size.height) * _ratio
-                ..devicePixelRatio = _ratio
-                ..displayFeatures = size.displayFeatures;
-              tester.platformDispatcher.textScaleFactorTestValue =
-                  size.textScale;
-              addTearDown(tester.view.reset);
-              addTearDown(
-                tester.platformDispatcher.clearTextScaleFactorTestValue,
-              );
+              final oldHandler = FlutterError.onError;
+              FlutterError.onError = (d) => record(d.exceptionAsString());
+              debugDefaultTargetPlatformOverride = size.platform;
+              try {
+                getIt<MockServer>().loadFixture(screen.fixture);
+                tester.view
+                  ..physicalSize = Size(size.width, size.height) * _ratio
+                  ..devicePixelRatio = _ratio
+                  ..displayFeatures = size.displayFeatures;
+                tester.platformDispatcher.textScaleFactorTestValue =
+                    size.textScale;
+                addTearDown(tester.view.reset);
+                addTearDown(
+                  tester.platformDispatcher.clearTextScaleFactorTestValue,
+                );
 
-              // The shared cubits outlive one capture, so they reload from
-              // the freshly seeded mock before the screen reads them.
-              await tester.runAsync(() async {
-                await getIt<TopicsCubit>().refresh();
-                await getIt<IncidentsCubit>().refresh(full: true);
-              });
+                // The shared cubits outlive one capture, so they reload from
+                // the freshly seeded mock before the screen reads them.
+                await tester.runAsync(() async {
+                  await getIt<TopicsCubit>().refresh();
+                  await getIt<IncidentsCubit>().refresh(full: true);
+                });
 
-              final boundary = GlobalKey();
-              final router = screen.pinned == null
-                  ? buildRouter()
-                  : buildRouter(initialLocation: screen.path);
+                final boundary = GlobalKey();
+                final router = screen.pinned == null
+                    ? buildRouter()
+                    : buildRouter(initialLocation: screen.path);
 
-              // The same cubits and scopes lib/app/app.dart puts above its
-              // router.
-              await tester.pumpWidget(
-                MultiBlocProvider(
-                  providers: [
-                    BlocProvider<IncidentsCubit>.value(
-                      value: getIt<IncidentsCubit>(),
-                    ),
-                    BlocProvider<TopicsCubit>.value(
-                      value: getIt<TopicsCubit>(),
-                    ),
-                    BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
-                    BlocProvider<AppearanceCubit>.value(
-                      value: getIt<AppearanceCubit>(),
-                    ),
-                  ],
-                  child: MaterialApp.router(
-                    debugShowCheckedModeBanner: false,
-                    theme: buildLightTheme(),
-                    darkTheme: buildDarkTheme(),
-                    themeMode: theme,
-                    routerConfig: router,
-                    builder: (context, child) => RepaintBoundary(
-                      key: boundary,
-                      child: AppDeviceScope(
-                        isIphone: size.isIphone,
-                        child: AppAmbientShell(
-                          router: router,
-                          child: child ?? const SizedBox.shrink(),
+                // The same cubits and scopes lib/app/app.dart puts above its
+                // router.
+                await tester.pumpWidget(
+                  MultiBlocProvider(
+                    providers: [
+                      BlocProvider<IncidentsCubit>.value(
+                        value: getIt<IncidentsCubit>(),
+                      ),
+                      BlocProvider<TopicsCubit>.value(
+                        value: getIt<TopicsCubit>(),
+                      ),
+                      BlocProvider<ThemeCubit>.value(
+                        value: getIt<ThemeCubit>(),
+                      ),
+                      BlocProvider<AppearanceCubit>.value(
+                        value: getIt<AppearanceCubit>(),
+                      ),
+                    ],
+                    child: MaterialApp.router(
+                      debugShowCheckedModeBanner: false,
+                      theme: buildLightTheme(),
+                      darkTheme: buildDarkTheme(),
+                      themeMode: theme,
+                      routerConfig: router,
+                      builder: (context, child) => RepaintBoundary(
+                        key: boundary,
+                        child: AppDeviceScope(
+                          isIphone: size.isIphone,
+                          child: AppAmbientShell(
+                            router: router,
+                            child: child ?? const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              );
-              if (screen.pinned == null) router.go(screen.path);
-              await _settle(tester);
-              final pickProblem = await _tapPick(tester, screen.pick);
-              if (pickProblem != null) record('capture note: $pickProblem');
-
-              await tester.runAsync(() async {
-                final render =
-                    boundary.currentContext!.findRenderObject()
-                        as RenderRepaintBoundary;
-                final image = await render.toImage(pixelRatio: _ratio);
-                final data = await image.toByteData(
-                  format: ui.ImageByteFormat.png,
                 );
-                final file = File('${out.path}/$rel.png');
-                await file.parent.create(recursive: true);
-                await file.writeAsBytes(data!.buffer.asUint8List());
-              });
-              _captured.add(rel);
-              _log.add(
-                '${messages.isEmpty ? 'ok      ' : 'errors  '} $rel'
-                '${messages.isEmpty ? '' : ' (${messages.length})'}',
-              );
-              print('captured $rel${messages.isEmpty ? '' : ' with errors'}');
+                if (screen.pinned == null) router.go(screen.path);
+                await _settle(tester);
+                final pickProblem = await _tapPick(tester, screen.pick);
+                if (pickProblem != null) record('capture note: $pickProblem');
 
-              // A screen can start a timer as it closes. Take the tree down
-              // and let those run out, or the test ends with one pending.
-              await tester.pumpWidget(const SizedBox.shrink());
-              await tester.pump(const Duration(seconds: 1));
-            } on Object catch (e) {
-              record('capture failed: $e');
-              _broken.putIfAbsent(
-                screen.id,
-                () => '$e'.split('\n').first,
-              );
-              _log.add('failed   $rel: ${'$e'.split('\n').first}');
-              print('FAILED $rel: $e');
-            } finally {
-              FlutterError.onError = oldHandler;
-              // Reset inside the test body: the framework checks this before
-              // any tear-down callback runs.
-              debugDefaultTargetPlatformOverride = null;
-            }
+                await tester.runAsync(() async {
+                  final render =
+                      boundary.currentContext!.findRenderObject()
+                          as RenderRepaintBoundary;
+                  final image = await render.toImage(pixelRatio: _ratio);
+                  final data = await image.toByteData(
+                    format: ui.ImageByteFormat.png,
+                  );
+                  final file = File('${out.path}/$rel.png');
+                  await file.parent.create(recursive: true);
+                  await file.writeAsBytes(data!.buffer.asUint8List());
+                });
+                _captured.add(rel);
+                _log.add(
+                  '${messages.isEmpty ? 'ok      ' : 'errors  '} $rel'
+                  '${messages.isEmpty ? '' : ' (${messages.length})'}',
+                );
+                print('captured $rel${messages.isEmpty ? '' : ' with errors'}');
+
+                // A screen can start a timer as it closes. Take the tree down
+                // and let those run out, or the test ends with one pending.
+                await tester.pumpWidget(const SizedBox.shrink());
+                await tester.pump(const Duration(seconds: 1));
+              } on Object catch (e) {
+                record('capture failed: $e');
+                _broken.putIfAbsent(
+                  screen.id,
+                  () => '$e'.split('\n').first,
+                );
+                _log.add('failed   $rel: ${'$e'.split('\n').first}');
+                print('FAILED $rel: $e');
+              } finally {
+                FlutterError.onError = oldHandler;
+                // Reset inside the test body: the framework checks this before
+                // any tear-down callback runs.
+                debugDefaultTargetPlatformOverride = null;
+              }
+            });
           });
         }
       }
