@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
@@ -561,6 +562,21 @@ class MainActivity : FlutterFragmentActivity() {
      * any app can set, so a start without a tap opens Home.
      */
     override fun getInitialRoute(): String = TapRoute.initialRoute(launchRoute)
+
+    // The four below are Flutter's own start options, which the default reads
+    // off the intent. The app uses none of them: no cached engine, an opaque
+    // window, a `main` that takes no arguments. Any app can set the extras,
+    // and a bad value throws inside onCreate, which takes down the whole
+    // process, the ringing alarm service with it. Each answers the app's
+    // fixed choice and never reads the intent.
+
+    override fun getCachedEngineId(): String? = null
+
+    override fun getCachedEngineGroupId(): String? = null
+
+    override fun getBackgroundMode(): BackgroundMode = BackgroundMode.opaque
+
+    override fun getDartEntrypointArgs(): List<String>? = null
 
     /**
      * The tap a notification put on an intent, read once.
