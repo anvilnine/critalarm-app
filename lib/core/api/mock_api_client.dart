@@ -1,10 +1,12 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
 import 'package:critalarm/core/api/management_credential_probe.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -16,7 +18,12 @@ import 'package:critalarm/core/models/weekly_check.dart';
 
 /// In-memory implementation of [ApiClient] backed by [MockServer].
 class MockApiClient
-    implements ApiClient, PacksApi, WeeklyCheckApi, ManagementCredentialProbe {
+    implements
+        ApiClient,
+        PacksApi,
+        WeeklyCheckApi,
+        ManagementCredentialProbe,
+        CancelReasonApi {
   MockApiClient([MockServer? server]) : server = server ?? MockServer();
 
   final MockServer server;
@@ -27,6 +34,19 @@ class MockApiClient
     Uri baseUri,
     String credential,
   ) async {}
+
+  @override
+  Future<void> sendCancelReason({
+    required CancelReason reason,
+    required String appVersion,
+    required String platform,
+    String? text,
+  }) async => server.recordCancelReason(
+    reason: reason,
+    text: text,
+    appVersion: appVersion,
+    platform: platform,
+  );
 
   @override
   Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async {

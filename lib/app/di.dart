@@ -40,6 +40,7 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -738,6 +739,11 @@ Future<void> configureDependencies({
     ..registerLazySingleton<PacksApi>(() {
       final Object api = getIt<ApiClient>();
       return api is PacksApi ? api : const NoPacksApi();
+    })
+    // The cancel reason route lives on the same client too.
+    ..registerLazySingleton<CancelReasonApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is CancelReasonApi ? api : const NoCancelReasonApi();
     })
     ..registerLazySingleton<ProPackStore>(
       () => SharedPrefsProPackStore(getIt<SharedPreferences>()),
