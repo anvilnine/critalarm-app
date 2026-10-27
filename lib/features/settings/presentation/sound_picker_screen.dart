@@ -228,14 +228,17 @@ class _SoundPickerViewState extends State<_SoundPickerView>
     BuildContext context, {
     required SoundPickerState state,
     required PassTone tone,
-    required String label,
     required String value,
     required Widget circle,
   }) {
     return AppScreenScaffold(
       hasTabBar: false,
       scrollController: _scroll,
-      topBar: AppTopBar(title: label),
+      // Named as the row beside it is: the pane only ever shows the
+      // default sound, never one topic's.
+      topBar: AppTopBar(
+        title: LocaleKeys.settings_alarm_sound_row_title.tr(),
+      ),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
@@ -370,7 +373,6 @@ class _SoundPickerViewState extends State<_SoundPickerView>
             context,
             state: state,
             tone: tone,
-            label: label,
             value: value,
             circle: circle,
           );
