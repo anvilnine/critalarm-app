@@ -93,13 +93,11 @@ class _HomePaneHandOffState extends State<HomePaneHandOff> {
   void _handOver() {
     if (!mounted) return;
     homePaneRequest.value = widget.topicName;
-    // Pop rather than go: a go would drop anything else on the stack.
+    // Pop and never go: a go would drop anything else on the stack, the
+    // ringing alarm included. The page sits above Home on the Home branch
+    // navigator, so there is always something to pop to.
     final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-    } else {
-      GoRouter.of(context).go('/');
-    }
+    if (navigator.canPop()) navigator.pop();
   }
 
   @override
@@ -898,6 +896,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       key: ValueKey(selected),
                       topicName: selected,
                       isPane: true,
+                      heroFace: card.face,
                     )),
         slivers: [
           // The hero and the sheet are one box, so the sheet paints over
@@ -961,7 +960,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         context.appColors,
         spot: heroOnStage
             ? foldStageDiscSpotOf(context)
-            : heroDiscSpotOf(context),
+            : heroDiscSpotOf(context, hasDetail: hasDetail),
       ),
       child: content,
     );
