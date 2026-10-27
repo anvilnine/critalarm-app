@@ -62,6 +62,7 @@
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // ignore_for_file: avoid_print, cast_nullable_to_non_nullable
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -202,6 +203,14 @@ const List<_Size> _sizes = [
   _Size('galaxy-fold-inner-portrait', 690, 829, _Renders.android),
   _Size('galaxy-fold-inner-landscape', 829, 690, _Renders.android),
   _Size('galaxy-fold-book', 690, 829, _Renders.android, hingeX: 345),
+  _Size(
+    'galaxy-fold-book-text13',
+    690,
+    829,
+    _Renders.android,
+    hingeX: 345,
+    textScale: 1.3,
+  ),
   _Size('pixel-fold-cover', 411, 797, _Renders.android),
   _Size('pixel-fold-inner', 841, 701, _Renders.android),
   _Size('pixel-fold-tabletop', 841, 701, _Renders.android, hingeY: 350),
@@ -232,7 +241,16 @@ class _Screen {
     this.pick = _Pick.none,
     this.webOnly = false,
     this.missing,
+    this.pushAfter,
+    this.popAfter = false,
   });
+
+  /// A location pushed once [path] has drawn, the way a button on that
+  /// screen would push it.
+  final String? pushAfter;
+
+  /// Pops the top page once [pushAfter] has drawn: the back button.
+  final bool popAfter;
 
   final String id;
   final String path;
@@ -279,6 +297,23 @@ final List<_Screen> _screens = [
     '/history',
     FaceState.acked,
     pick: _Pick.firstHistoryEntry,
+  ),
+  // Read message on the ringing alarm pushes the topic: on an expanded
+  // window the alarm must stay on the stack under it.
+  const _Screen(
+    'wp3_alarm_read_message',
+    '/alarm',
+    FaceState.alarmed,
+    pushAfter: '/topics/nas-backup',
+  ),
+  // All messages from Home's pane (prod-db, the first topic), then back:
+  // Home with the pane, never a lone topic page.
+  const _Screen(
+    'wp3_messages_back',
+    '/',
+    FaceState.calm,
+    pushAfter: '/topics/prod-db/messages',
+    popAfter: true,
   ),
   const _Screen(
     '19_message_composer',
@@ -758,6 +793,14 @@ void main() {
                 );
                 if (screen.pinned == null) router.go(screen.path);
                 await _settle(tester);
+                if (screen.pushAfter case final pushed?) {
+                  unawaited(router.push<void>(pushed));
+                  await _settle(tester);
+                  if (screen.popAfter) {
+                    router.pop();
+                    await _settle(tester);
+                  }
+                }
                 // The fold must reach the screens where the size puts it.
                 final line = size.hingeLine;
                 if (line != null) {
