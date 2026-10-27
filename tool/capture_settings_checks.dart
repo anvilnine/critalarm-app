@@ -7,6 +7,7 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
@@ -216,6 +217,26 @@ const Map<String, (Type, String, String)> _tapTargets = {
   ),
 };
 
+/// The one list value a pane tap capture changes, as `LocaleKeys` keys: the
+/// value at rest and the value after the tap on the page in the pane. See
+/// `paneTapRoutes` in tool/capture_routes.dart.
+const Map<String, (String, String)> _paneTapChanges = {
+  'wp4_settings_tap_storage': (
+    LocaleKeys.settings_card_value_keep_all,
+    LocaleKeys.settings_storage_delete_1m,
+  ),
+};
+
+/// The retention the Storage page in the pane has selected, or null when
+/// the pane holds no Storage page.
+HistoryRetention? _paneRetention() {
+  final found = _inPane(find.byType(AppSegmentedControl<HistoryRetention>));
+  if (found.evaluate().isEmpty) return null;
+  return (found.evaluate().first.widget
+          as AppSegmentedControl<HistoryRetention>)
+      .selectedItem;
+}
+
 /// Whether the page of [type] in the pane was handed the Settings screen's
 /// own cubit, or null for a page that reads none.
 bool? _sharesCubit(WidgetTester tester, Type type) {
@@ -256,6 +277,46 @@ List<(String, bool)> settingsChecksAfterTap(
         after.length == _listTextsAtRest.length &&
         gone.isEmpty &&
         added.isEmpty;
+    final change = _paneTapChanges[screenId];
+    String listDiff() =>
+        '(${_listTextsAtRest.length} then ${after.length} texts'
+        '${gone.isEmpty ? '' : ', gone $gone'}'
+        '${added.isEmpty ? '' : ', new $added'})';
+    if (change != null) {
+      final (from, to) = change;
+      final retention = _paneRetention();
+      return [
+        _check(
+          _inPane(page).evaluate().isNotEmpty,
+          'after the tap the $name is in the pane',
+        ),
+        if (shares != null)
+          _check(shares, "the $name reads the Settings screen's own cubit"),
+        _check(
+          _listTextsAtRest.contains(from.tr()),
+          'at rest the list reads "${from.tr()}"',
+        ),
+        _check(
+          retention == HistoryRetention.oneMonth,
+          'the $name in the pane has "${to.tr()}" picked after the tap '
+          'on it (${retention?.name ?? 'no Storage page'})',
+        ),
+        _check(
+          after.length == _listTextsAtRest.length &&
+              gone.length == 1 &&
+              gone.single == from.tr() &&
+              added.length == 1 &&
+              added.single == to.tr(),
+          'the row beside it follows: "${from.tr()}" became "${to.tr()}" '
+          'and nothing else in the list moved ${listDiff()}',
+        ),
+        _check(_backInPane().evaluate().isEmpty, 'no back button in the pane'),
+        _check(
+          location == _locationAtRest,
+          'top route unchanged after the taps ($location)',
+        ),
+      ];
+    }
     return [
       _check(
         _inPane(page).evaluate().isNotEmpty,

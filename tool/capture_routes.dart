@@ -95,3 +95,14 @@ const List<CaptureTapRoute> tapScreenRoutes = [
     LocaleKeys.settings_storage_row_title,
   ),
 ];
+
+/// A second tap some tap captures make inside the Settings detail pane,
+/// once the first tap has opened a page there: the capture id and the
+/// `LocaleKeys` key of the text tapped on that page. It is the tap a person
+/// would make next. Where there is no pane the capture stops after the
+/// first tap, so the phone captures stay as they were.
+const Map<String, String> paneTapRoutes = {
+  // WP4: a new retention picked on the Storage page in the pane shows in the
+  // Storage row beside it at once (Keep all, then 1 month).
+  'wp4_settings_tap_storage': LocaleKeys.settings_storage_delete_1m,
+};

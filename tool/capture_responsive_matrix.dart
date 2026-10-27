@@ -236,6 +236,7 @@ class _Screen {
     this.webOnly = false,
     this.missing,
     this.tapKey,
+    this.paneTapKey,
   });
 
   final String id;
@@ -256,6 +257,10 @@ class _Screen {
   /// The `LocaleKeys` key of the text a [_Pick.text] screen taps.
   final String? tapKey;
 
+  /// The `LocaleKeys` key of the text tapped next, inside the detail pane,
+  /// where there is one. See `paneTapRoutes`.
+  final String? paneTapKey;
+
   /// Why this cell is left out at [size], or null when it is captured.
   String? skipAt(_Size size) {
     if (webOnly && size.renders != _Renders.web) {
@@ -275,7 +280,14 @@ final List<_Screen> _screens = [
   for (final (id, path, fixture, pinned) in allScreenRoutes)
     _Screen(id, path, fixture, pinned: pinned),
   for (final (id, path, fixture, tapKey) in tapScreenRoutes)
-    _Screen(id, path, fixture, pick: _Pick.text, tapKey: tapKey),
+    _Screen(
+      id,
+      path,
+      fixture,
+      pick: _Pick.text,
+      tapKey: tapKey,
+      paneTapKey: paneTapRoutes[id],
+    ),
   const _Screen(
     '16_home_topic_selected',
     '/',
@@ -396,6 +408,7 @@ Future<String?> _tapPick(
   WidgetTester tester,
   _Pick pick, {
   String? tapKey,
+  bool inPane = false,
 }) async {
   final finder = switch (pick) {
     _Pick.none => null,
@@ -408,13 +421,17 @@ Future<String?> _tapPick(
   var target = finder.first;
   if (pick == _Pick.text) {
     // The text of a row in the list on top, not the same words on a page
-    // beside it in a detail pane or on a screen under the top route.
+    // beside it in a detail pane or on a screen under the top route. With
+    // [inPane], the other way round: the words on the page in the pane.
     final inList = finder.evaluate().where(
       (e) =>
-          e.findAncestorWidgetOfExactType<AppDetailPane>() == null &&
+          (e.findAncestorWidgetOfExactType<AppDetailPane>() != null) ==
+              inPane &&
           (ModalRoute.of(e)?.isCurrent ?? true),
     );
-    if (inList.isEmpty) return 'no row on screen to pick';
+    if (inList.isEmpty) {
+      return inPane ? 'no text in the pane to tap' : 'no row on screen to pick';
+    }
     final chosen = inList.first;
     target = find.byElementPredicate((e) => e == chosen);
     // A small screen can hold the text below the fold of the list. Bring it
@@ -883,6 +900,19 @@ void main() {
                 );
                 if (pickProblem != null) {
                   record('capture note: $pickProblem', kind: _note);
+                }
+                // The next tap, on the page the first tap opened in the pane.
+                if (screen.paneTapKey != null &&
+                    AppScreenScaffold.showsDetailFor(appSize, windowFold)) {
+                  final paneProblem = await _tapPick(
+                    tester,
+                    _Pick.text,
+                    tapKey: screen.paneTapKey,
+                    inPane: true,
+                  );
+                  if (paneProblem != null) {
+                    record('capture note: $paneProblem', kind: _note);
+                  }
                 }
                 for (final (line, failed) in settingsChecksAfterTap(
                   tester,
