@@ -9,6 +9,7 @@ import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
@@ -465,6 +466,25 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           final didFail =
               !isLoading && (state.errorMessage != null || doneId != null);
 
+          final emptyState = AppEmptyState(
+            title: isLoading
+                ? LocaleKeys.critical_alarm_loading_title.tr()
+                : isHandedOff
+                ? LocaleKeys.critical_alarm_close_queued_title.tr()
+                : didFail
+                ? LocaleKeys.critical_alarm_load_failed_title.tr()
+                : LocaleKeys.critical_alarm_no_alarm_title.tr(),
+            description: isHandedOff
+                ? LocaleKeys.critical_alarm_close_queued_body.tr()
+                : didFail
+                ? LocaleKeys.critical_alarm_load_failed_body.tr()
+                : isLoading
+                ? ''
+                : LocaleKeys.critical_alarm_no_alarm_body.tr(),
+            faceState: didFail ? FaceState.worried : FaceState.calm,
+            isLive: isLoading,
+          );
+
           content = AppScreenScaffold(
             hasTabBar: false,
             topBar: AppTopBar(
@@ -566,30 +586,24 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                     ],
                   )
                 : null,
+            // On a half-open foldable the note holds still in the start pane
+            // or the top half, off the fold, and the buttons go in the other.
+            foldStage: AppFold.of(context).isNone
+                ? null
+                : Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                      child: emptyState,
+                    ),
+                  ),
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: AppEmptyState(
-                    title: isLoading
-                        ? LocaleKeys.critical_alarm_loading_title.tr()
-                        : isHandedOff
-                        ? LocaleKeys.critical_alarm_close_queued_title.tr()
-                        : didFail
-                        ? LocaleKeys.critical_alarm_load_failed_title.tr()
-                        : LocaleKeys.critical_alarm_no_alarm_title.tr(),
-                    description: isHandedOff
-                        ? LocaleKeys.critical_alarm_close_queued_body.tr()
-                        : didFail
-                        ? LocaleKeys.critical_alarm_load_failed_body.tr()
-                        : isLoading
-                        ? ''
-                        : LocaleKeys.critical_alarm_no_alarm_body.tr(),
-                    faceState: didFail ? FaceState.worried : FaceState.calm,
-                    isLive: isLoading,
+              if (AppFold.of(context).isNone)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: emptyState,
                   ),
                 ),
-              ),
             ],
           );
         } else {
@@ -950,7 +964,10 @@ class AcknowledgedScreen extends StatelessWidget {
     final look = style.acknowledged;
 
     final size = AppSize.of(context);
-    final isWide = size.isExpanded || size.isShort;
+    // A fold splits the screen at the fold instead, so neither the wide row
+    // nor the upright column runs across it.
+    final fold = AppFold.of(context);
+    final isWide = fold.isNone && (size.isExpanded || size.isShort);
     final isClosed = state.status == CriticalAlarmStatus.closed;
     // The hint is pinned over At my desk. At a large text size it runs to
     // several lines and the pinned block would take half a small screen,
@@ -1133,6 +1150,19 @@ class AcknowledgedScreen extends StatelessWidget {
       );
     }
 
+    if (!fold.isNone) {
+      return _folded(
+        context,
+        fold,
+        look,
+        bottomBar,
+        ackedSub: ackedSub,
+        startedLabel: startedLabel,
+        ackedLabel: ackedLabel,
+        hintInList: hintInList,
+      );
+    }
+
     if (isWide) {
       // The row sits in the middle of the room above the pinned buttons,
       // and scrolls when it is taller than that room. It is laid out at
@@ -1273,6 +1303,88 @@ class AcknowledgedScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 0),
+            child: _detailSheet(startedLabel, ackedLabel),
+          ),
+        ),
+        if (hintInList)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
+              child: _sub(look, TextAlign.center, _deskTimerHint(context)),
+            ),
+          ),
+      ],
+      bottomBar: bottomBar,
+    );
+  }
+
+  /// A half-open foldable. The face, title, topic and ring time hold still
+  /// in the start pane (book) or the top half (tabletop). The card and the
+  /// pinned buttons go in the other pane, so nothing sits on the fold.
+  Widget _folded(
+    BuildContext context,
+    AppFold fold,
+    AlarmAcknowledgedLook look,
+    Widget bottomBar, {
+    required String ackedSub,
+    required String startedLabel,
+    required String ackedLabel,
+    required bool hintInList,
+  }) {
+    final face = Hero(
+      tag: 'alarm-face-${state.incident?.id}',
+      flightShuttleBuilder: faceFlightShuttleBuilder,
+      child: FaceWidget(
+        state: state.faceState,
+        size: math.min(fold.isBook ? 200 : 120, look.maxFace),
+      ),
+    );
+    Widget lines(TextAlign align) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: align == TextAlign.center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        _title(look, align),
+        const SizedBox(height: Spacing.s2 - 2),
+        _topic(context),
+        const SizedBox(height: Spacing.s2 - 2),
+        _sub(look, align, ackedSub),
+      ],
+    );
+    final stage = SafeArea(
+      bottom: fold.isBook,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: fold.isBook
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    face,
+                    const SizedBox(height: Spacing.s4),
+                    lines(TextAlign.center),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    face,
+                    const SizedBox(width: Spacing.s5),
+                    Flexible(child: lines(TextAlign.left)),
+                  ],
+                ),
+        ),
+      ),
+    );
+    return AppScreenScaffold(
+      hasTabBar: false,
+      barBacking: colors.canvas,
+      foldStage: stage,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, Spacing.s5, 16, 0),
             child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
