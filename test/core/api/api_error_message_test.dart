@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -268,6 +269,38 @@ void main() {
       expect(
         failureMessage(const Failure.database()),
         'Something went wrong on the server. Try again.',
+      );
+    });
+  });
+
+  group('a server error kept by a network fault', () {
+    test('every word it keeps has a line of its own', () {
+      for (final word in NetworkFault.knownWireErrors) {
+        expect(
+          apiErrorMessage(word, cap: word == 'cap' ? 'topics' : null),
+          isNot(LocaleKeys.api_errors_unknown.tr()),
+          reason: word,
+        );
+      }
+    });
+
+    test('reads with the same line as the server error itself', () {
+      const error = ApiException(
+        statusCode: 429,
+        message: 'rate limited',
+        code: 42901,
+      );
+      expect(
+        networkFailureMessage(NetworkFault.of(error)),
+        networkFailureMessage(error),
+      );
+      expect(
+        networkFailureMessage(
+          NetworkFault.of(
+            const ApiException(statusCode: 500, message: 'Some prose'),
+          ),
+        ),
+        LocaleKeys.api_errors_unknown.tr(),
       );
     });
   });

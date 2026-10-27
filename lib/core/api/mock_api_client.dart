@@ -1,5 +1,6 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/management_credential_probe.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
@@ -14,10 +15,18 @@ import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
 
 /// In-memory implementation of [ApiClient] backed by [MockServer].
-class MockApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
+class MockApiClient
+    implements ApiClient, PacksApi, WeeklyCheckApi, ManagementCredentialProbe {
   MockApiClient([MockServer? server]) : server = server ?? MockServer();
 
   final MockServer server;
+
+  /// The mock server takes any credential.
+  @override
+  Future<void> checkManagementCredential(
+    Uri baseUri,
+    String credential,
+  ) async {}
 
   @override
   Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async {

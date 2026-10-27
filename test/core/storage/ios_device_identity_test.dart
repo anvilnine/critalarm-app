@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
@@ -107,7 +108,12 @@ void main() {
         store,
         _Tokens(),
         platform: () => 'ios',
-      )(appVersion: '1.0.0', pushToken: 'apns_token');
+        // Crit Alarm Cloud, where the synced account item belongs.
+      )(
+        appVersion: '1.0.0',
+        pushToken: 'apns_token',
+        relayUri: Uri.parse(hostedRelayUrl),
+      );
 
   test('a first install writes both items and creates one account', () async {
     await register(await newStore());
