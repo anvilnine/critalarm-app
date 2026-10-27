@@ -46,10 +46,20 @@ void main() {
       expect(paywallColumnHeightFor(width: 390, height: 932), 932);
     });
 
-    test('is 560 wide from the medium size class up', () {
+    test('is 520 wide from the medium size class up', () {
       expect(paywallColumnWidthFor(834), paywallColumnMaxWidth);
       expect(paywallColumnWidthFor(600), paywallColumnMaxWidth);
-      expect(paywallColumnMaxWidth, 560);
+      expect(paywallColumnMaxWidth, 520);
+    });
+
+    test('its words and its buy block share one width', () {
+      // The words keep 20 at each side of the column, and the buy block
+      // caps the plans and the button at 480 inside the same 20.
+      expect(
+        paywallBuyBlockMaxWidthFor(width: 834, padding: paywallColumnPadding),
+        paywallColumnMaxWidth,
+      );
+      expect(paywallColumnMaxWidth - 2 * paywallColumnPadding, 480);
     });
 
     test('stops at 900 tall on a tablet held upright', () {
