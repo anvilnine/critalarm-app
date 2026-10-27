@@ -62,6 +62,7 @@
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // ignore_for_file: avoid_print, cast_nullable_to_non_nullable
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -85,6 +86,8 @@ import 'package:critalarm/features/history/presentation/widgets/history_row.dart
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:easy_localization/easy_localization.dart'
+    show StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -97,6 +100,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
+import 'capture_settings_checks.dart';
 import 'fold_clearance.dart';
 
 const _defaultOut =
@@ -220,7 +224,7 @@ const List<_Size> _sizes = [
 // Screens
 // ---------------------------------------------------------------------------
 
-enum _Pick { none, firstTopic, firstHistoryEntry }
+enum _Pick { none, firstTopic, firstHistoryEntry, text }
 
 class _Screen {
   const _Screen(
@@ -231,6 +235,7 @@ class _Screen {
     this.pick = _Pick.none,
     this.webOnly = false,
     this.missing,
+    this.tapKey,
   });
 
   final String id;
@@ -248,6 +253,9 @@ class _Screen {
   /// Why this screen cannot be drawn in this build. Logged, never captured.
   final String? missing;
 
+  /// The `LocaleKeys` key of the text a [_Pick.text] screen taps.
+  final String? tapKey;
+
   /// Why this cell is left out at [size], or null when it is captured.
   String? skipAt(_Size size) {
     if (webOnly && size.renders != _Renders.web) {
@@ -256,7 +264,7 @@ class _Screen {
     if (pinned != null && pinned != size.platform) {
       return 'pinned to ${pinned!.name}, captured only at those sizes';
     }
-    if (pick != _Pick.none && !size.isTwoPane) {
+    if (pick != _Pick.none && pick != _Pick.text && !size.isTwoPane) {
       return 'one pane at this size, a tap opens the full screen';
     }
     return null;
@@ -266,6 +274,8 @@ class _Screen {
 final List<_Screen> _screens = [
   for (final (id, path, fixture, pinned) in allScreenRoutes)
     _Screen(id, path, fixture, pinned: pinned),
+  for (final (id, path, fixture, tapKey) in tapScreenRoutes)
+    _Screen(id, path, fixture, pick: _Pick.text, tapKey: tapKey),
   const _Screen(
     '16_home_topic_selected',
     '/',
@@ -382,14 +392,27 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-Future<String?> _tapPick(WidgetTester tester, _Pick pick) async {
+Future<String?> _tapPick(
+  WidgetTester tester,
+  _Pick pick, {
+  String? tapKey,
+}) async {
   final finder = switch (pick) {
     _Pick.none => null,
     _Pick.firstTopic => find.byType(AppInboxRow),
     _Pick.firstHistoryEntry => find.byType(HistoryRow),
+    _Pick.text => find.text(tapKey!.tr()),
   };
   if (finder == null) return null;
   if (finder.evaluate().isEmpty) return 'no row on screen to pick';
+  if (pick == _Pick.text) {
+    // A small screen can hold the text below the fold of the list. Bring it
+    // to the middle, clear of the bars that float over the list's edges.
+    unawaited(
+      Scrollable.ensureVisible(finder.first.evaluate().first, alignment: 0.5),
+    );
+    await tester.pump();
+  }
   await tester.tap(finder.first, warnIfMissed: false);
   await _settle(tester);
   return null;
@@ -773,7 +796,32 @@ void main() {
                 }
                 // The geometry the layout rules promise, read off the render
                 // tree rather than judged by eye.
-                for (final (line, failed) in _measure(tester, size, screen)) {
+                final appSize = AppSize(
+                  size.width,
+                  size.height,
+                  isIphone: size.isIphone,
+                );
+                final windowFold = AppFold.fromFeatures(
+                  size.displayFeatures,
+                  Size(size.width, size.height),
+                );
+                // The route on top: a pushed page's own location, or the
+                // tab's when nothing is pushed.
+                String location() => router
+                    .routerDelegate
+                    .currentConfiguration
+                    .last
+                    .matchedLocation;
+                for (final (line, failed) in [
+                  ..._measure(tester, size, screen),
+                  ...settingsChecksAtRest(
+                    tester,
+                    screenId: screen.id,
+                    size: appSize,
+                    fold: windowFold,
+                    location: location(),
+                  ),
+                ]) {
                   print('geometry $rel: $line');
                   _log.add('geometry $rel: $line');
                   if (failed) {
@@ -819,9 +867,26 @@ void main() {
 
                 // After the walk: the walk reads the screen at scroll 0, and a
                 // pick can scroll or open something.
-                final pickProblem = await _tapPick(tester, screen.pick);
+                final pickProblem = await _tapPick(
+                  tester,
+                  screen.pick,
+                  tapKey: screen.tapKey,
+                );
                 if (pickProblem != null) {
                   record('capture note: $pickProblem', kind: _note);
+                }
+                for (final (line, failed) in settingsChecksAfterTap(
+                  tester,
+                  screenId: screen.id,
+                  size: appSize,
+                  fold: windowFold,
+                  location: location(),
+                )) {
+                  print('geometry $rel: $line');
+                  _log.add('geometry $rel: $line');
+                  if (failed) {
+                    record('geometry check failed: $line', kind: _note);
+                  }
                 }
 
                 await tester.runAsync(() async {

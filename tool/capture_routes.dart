@@ -1,6 +1,7 @@
 // Shared by the capture tools under tool/. Not part of the app.
 
 import 'package:critalarm/design/faces/faces.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
 /// One screen a capture tool opens: the file name it is saved under, the
@@ -45,5 +46,36 @@ const List<CaptureRoute> allScreenRoutes = [
     '/sounds',
     FaceState.calm,
     TargetPlatform.iOS,
+  ),
+];
+
+/// A screen captured after one tap: the file name, the route, the fixture,
+/// and the `LocaleKeys` key of the text the tool taps once the screen has
+/// drawn. Unlike the picks in `tool/capture_responsive_matrix.dart`, it is
+/// captured at every size, so the same tap shows what one pane and two panes
+/// each do with it.
+typedef CaptureTapRoute = (
+  String id,
+  String path,
+  FaceState fixture,
+  String tapKey,
+);
+
+/// The tap captures `tool/capture_responsive_matrix.dart` adds to its list.
+const List<CaptureTapRoute> tapScreenRoutes = [
+  // WP4: Server opens in the Settings detail pane with the URL unchanged
+  // where there is a pane, and pushes /settings/server where there is none.
+  (
+    'wp4_settings_tap_server',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.settings_server_row_title,
+  ),
+  // WP4: the Personalize pass stack in the pane, with no back ring.
+  (
+    'wp4_settings_tap_personalize',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.personalize_title,
   ),
 ];
