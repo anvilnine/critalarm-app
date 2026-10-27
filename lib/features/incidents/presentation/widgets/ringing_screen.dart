@@ -12,7 +12,7 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -71,6 +71,14 @@ const double ringingExpandedEdge = 24;
 /// The face on a cover screen.
 const double ringingCoverFaceSize = 88;
 
+/// How much further in the cover's header row starts than the card, so
+/// the face's pulse ring is whole on screen.
+const double ringingCoverRingInset = 4;
+
+/// Between the cover face's box and the word, wide enough that the word
+/// stays clear of the pulse ring.
+const double ringingCoverWordGap = 20;
+
 /// The height the word gets on a cover screen. It scales down into it.
 const double ringingCoverWordHeight = 40;
 
@@ -107,6 +115,35 @@ double ringingPaneFaceSizeFor({
   final size = math.min(math.min(byWidth, byHeight), ringingFaceMax);
   if (size < ringingFaceFloor) return 0;
   return math.min(size, maxFace);
+}
+
+/// The face in the start pane of a book [fold] in a window described by
+/// [window], or 0 when the pane is too short for one.
+///
+/// The pane is the fold's start pane inside its own safe area, the way
+/// `AppFoldSplit` and the scaffold's fold stage lay it out. The ringing
+/// screen draws this face, and the canvas owner asks the same sum through
+/// `RingingScreen.drawsFace`, so the two always agree.
+double ringingBookFaceSizeFor({
+  required MediaQueryData window,
+  required AppFold fold,
+  required int openAlarms,
+  TextDirection direction = TextDirection.ltr,
+  double maxFace = double.infinity,
+}) {
+  if (!fold.isBook) return 0;
+  final pane = fold.panes(window.size, direction: direction).first;
+  final media = foldPaneMediaQuery(window, pane);
+  final textScale = media.textScaler.scale(16) / 16;
+  return ringingPaneFaceSizeFor(
+    paneWidth: media.size.width - media.padding.horizontal,
+    paneHeight: media.size.height - media.padding.vertical,
+    headerHeight: ringingHeaderHeightFor(
+      textScale: textScale,
+      openAlarms: openAlarms,
+    ),
+    maxFace: maxFace,
+  );
 }
 
 /// The ringing takeover: pulse rings, face, incident detail, and the two
@@ -199,7 +236,7 @@ class RingingScreen extends StatelessWidget {
         RingingLayout.sideways => _wide(context, look, bottomBar),
         RingingLayout.expanded => _expanded(context, look, bottomBar),
         RingingLayout.cover => _cover(look, bottomBar),
-        RingingLayout.book => _book(look, bottomBar),
+        RingingLayout.book => _book(context, look, bottomBar),
         RingingLayout.tabletop => _tabletop(look, bottomBar),
       },
     );
@@ -392,6 +429,7 @@ class RingingScreen extends StatelessWidget {
                             Flexible(
                               child: Semantics(
                                 container: true,
+                                explicitChildNodes: true,
                                 sortKey: _orderContent,
                                 child: _linesAndCard(context, look),
                               ),
@@ -442,8 +480,11 @@ class RingingScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Builder(
             builder: (context) => Padding(
+              // The face's pulse ring reaches past its box, so the row
+              // starts a little further in and leaves the word more room,
+              // and the ring is whole and clear of the word.
               padding: const EdgeInsets.fromLTRB(
-                _cardInset,
+                _cardInset + ringingCoverRingInset,
                 Spacing.s3,
                 _cardInset,
                 0,
@@ -451,7 +492,7 @@ class RingingScreen extends StatelessWidget {
               child: Row(
                 children: [
                   _face(look, math.min(ringingCoverFaceSize, look.maxFace)),
-                  const SizedBox(width: Spacing.s3),
+                  const SizedBox(width: ringingCoverWordGap),
                   Expanded(
                     child: _header(
                       context,
@@ -486,26 +527,19 @@ class RingingScreen extends StatelessWidget {
   /// lines, the end pane the card with the buttons pinned to its foot.
   /// Nothing sits on the fold. Each pane lays out at its own size, so the
   /// end pane's buttons keep the phone's widths.
-  Widget _book(AlarmRingingLook look, Widget buttons) {
+  Widget _book(BuildContext context, AlarmRingingLook look, Widget buttons) {
+    // The same sum the canvas owner makes through [drawsFace].
+    final faceSize = _bookFaceSize(context, state, look);
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderCard,
       foldStage: Semantics(
         container: true,
+        explicitChildNodes: true,
         sortKey: _orderContent,
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
-              final faceSize = ringingPaneFaceSizeFor(
-                paneWidth: constraints.maxWidth,
-                paneHeight: constraints.maxHeight,
-                headerHeight: ringingHeaderHeightFor(
-                  textScale: textScale,
-                  openAlarms: state.openIncidents.length,
-                ),
-                maxFace: look.maxFace,
-              );
+          child: Builder(
+            builder: (context) {
               return Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -571,8 +605,12 @@ class RingingScreen extends StatelessWidget {
   Widget _tabletop(AlarmRingingLook look, Widget buttons) {
     return AppScreenScaffold(
       hasTabBar: false,
+      // The empty list in the bottom half still has a node of its own. With
+      // a key it joins the order the keys set, so "I'm up" stays first.
+      contentSortKey: _orderCard,
       foldStage: Semantics(
         container: true,
+        explicitChildNodes: true,
         sortKey: _orderContent,
         child: SafeArea(
           bottom: false,
@@ -606,36 +644,30 @@ class RingingScreen extends StatelessWidget {
           ),
         ),
       ),
-      slivers: [
-        // Built in the bottom half, so the room is the half's. The buttons
-        // centre in it, at most a phone's width across.
-        SliverToBoxAdapter(
-          child: Builder(
-            builder: (context) {
-              final media = MediaQuery.of(context);
-              final room = math
-                  .max(0, media.size.height - media.padding.vertical - 16)
-                  .toDouble();
-              return SizedBox(
-                height: room,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppSize.actionMaxWidth,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: _cardInset,
-                      ),
-                      child: buttons,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+      slivers: const [],
+      // Pinned, so a screen reader still reaches "I'm up" first and Silence
+      // and Read after the message. Built in the bottom half, where it is
+      // lifted to sit in the middle of the half rather than at its foot.
+      bottomBar: Builder(
+        builder: (context) {
+          final media = MediaQuery.of(context);
+          final bar = ringingBarHeightFor(
+            textScale: media.textScaler.scale(16) / 16,
+            pinnedButtons: state.ackedExits.isSetupTest ? 2 : 3,
+          );
+          final lift = math
+              .max(
+                0,
+                (media.size.height - media.padding.vertical - bar) / 2 -
+                    AppScreenScaffold.bottomBarGap,
+              )
+              .toDouble();
+          return Padding(
+            padding: EdgeInsets.only(bottom: lift),
+            child: buttons,
+          );
+        },
+      ),
     );
   }
 
@@ -745,10 +777,18 @@ class RingingScreen extends StatelessWidget {
     required AlarmRingingLook look,
   }) {
     final size = AppSize.of(context);
-    // Every layout but the upright phone keeps a place for the face.
-    if (ringingLayoutFor(size, AppFold.of(context).posture) !=
-        RingingLayout.tall) {
-      return true;
+    switch (ringingLayoutFor(size, AppFold.of(context).posture)) {
+      case RingingLayout.tall:
+        break;
+      // A short start pane at a large text size leaves the face out.
+      case RingingLayout.book:
+        return _bookFaceSize(context, state, look) > 0;
+      // The other layouts always keep a place for the face.
+      case RingingLayout.sideways:
+      case RingingLayout.expanded:
+      case RingingLayout.cover:
+      case RingingLayout.tabletop:
+        return true;
     }
     final layout = _tallLayoutFor(
       context,
@@ -760,6 +800,23 @@ class RingingScreen extends StatelessWidget {
           DefaultTextStyle.of(context).style,
     );
     return math.min(layout.faceSize, look.maxFace) > 0;
+  }
+
+  /// The face in the start pane of a book fold, read from the window
+  /// [context] is drawn in, or 0 when the pane is too short for one.
+  static double _bookFaceSize(
+    BuildContext context,
+    CriticalAlarmState state,
+    AlarmRingingLook look,
+  ) {
+    final media = MediaQuery.of(context);
+    return ringingBookFaceSizeFor(
+      window: media,
+      fold: AppFold.of(context),
+      direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      openAlarms: state.openIncidents.length,
+      maxFace: look.maxFace,
+    );
   }
 
   /// The upright phone: everything in one column over the pinned buttons.

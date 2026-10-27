@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The rules that pick the ringing screen's layout and size its face on
@@ -105,6 +108,55 @@ void main() {
           maxFace: 120,
         ),
         120,
+      );
+    });
+  });
+
+  group('ringingBookFaceSizeFor', () {
+    AppFold bookAt(double x, Size window) => AppFold.fromFeatures([
+      DisplayFeature(
+        bounds: Rect.fromLTWH(x, 0, 0, window.height),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ], window);
+
+    test('the Galaxy Fold start pane, 329 wide, keeps the ring in it', () {
+      const window = Size(690, 829);
+      expect(
+        ringingBookFaceSizeFor(
+          window: const MediaQueryData(size: window),
+          fold: bookAt(345, window),
+          openAlarms: 1,
+        ),
+        closeTo((329 - 48) / ringingPulseRingScale, 0.001),
+      );
+    });
+
+    test('is 0 in a start pane too short for the face, so drawsFace is '
+        'false there', () {
+      const window = Size(690, 300);
+      expect(
+        ringingBookFaceSizeFor(
+          window: const MediaQueryData(
+            size: window,
+            textScaler: TextScaler.linear(2),
+          ),
+          fold: bookAt(345, window),
+          openAlarms: 1,
+        ),
+        0,
+      );
+    });
+
+    test('is 0 with no book fold', () {
+      expect(
+        ringingBookFaceSizeFor(
+          window: const MediaQueryData(size: Size(690, 829)),
+          fold: AppFold.none,
+          openAlarms: 1,
+        ),
+        0,
       );
     });
   });
