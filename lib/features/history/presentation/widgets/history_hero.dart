@@ -6,19 +6,24 @@ import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
+import 'package:critalarm/design/fold.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/history/presentation/history_pane.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 
-/// The top of History: a small still face perched on a wide dark card that
-/// holds the week's bars and two numbers.
+/// The top of History: a face perched on a wide dark card that holds the
+/// week's bars and two numbers.
 ///
-/// The face is 60 points, under the size where a face moves, so it stands
-/// still. It is still the refresh face: a pull to refresh plays working,
-/// success and failed on it, and the line beside it says what is going on
-/// while that runs.
+/// The face is 60 points on a phone and 120 on a tablet or a wide window
+/// ([historyHeroFaceSize]). It is the refresh face: a pull to refresh plays
+/// working, success and failed on it, and the line beside it says what is
+/// going on while that runs. On a cover screen the face is 72 beside a
+/// one-line panel with the two numbers, and the week's bars drop.
 class HistoryHero extends StatefulWidget {
   const HistoryHero({
     required this.week,
@@ -32,7 +37,7 @@ class HistoryHero extends StatefulWidget {
   /// claim about the week.
   final bool isFiltered;
 
-  /// The face's width and height.
+  /// The face's width and height on a phone. See [historyHeroFaceSize].
   static const double faceSize = 60;
 
   /// How far the card reaches up under the face.
@@ -122,20 +127,70 @@ class _HistoryHeroState extends State<HistoryHero> {
     final week = widget.week;
     final longest = week.longestAnswered;
     final status = _status;
+    final size = AppSize.of(context);
+    final faceSize = historyHeroFaceSize(size);
+    final firstValue = '${week.alarms}${week.mayBeShort ? '+' : ''}';
+    final firstCaption = widget.isFiltered
+        ? LocaleKeys.history_hero_alarms_filtered.plural(week.alarms)
+        : LocaleKeys.history_hero_alarms_days.plural(
+            week.alarms,
+            namedArgs: {'days': '${week.visibleDays}'},
+          );
+    final secondValue = longest == null
+        ? LocaleKeys.history_hero_none.tr()
+        : formatCompactDuration(longest);
+    final secondCaption = LocaleKeys.history_hero_longest_answered.tr();
+
+    final face = ExcludeSemantics(
+      child: stageFace(
+        context,
+        state: week.face,
+        size: faceSize,
+        isLive: false,
+      ),
+    );
+
+    if (size.isCover) {
+      // The face beside one line: the count and the longest answer. The
+      // refresh still plays on the face.
+      return SizedBox(
+        height: faceSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 8 + faceSize - HistoryHero.overlap,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  HeroLinePanel(
+                    parts: [
+                      HeroLinePart(value: firstValue, words: firstCaption),
+                      HeroLinePart(value: secondValue, words: secondCaption),
+                    ],
+                    semanticsLabel:
+                        '$firstValue $firstCaption, '
+                        '$secondValue $secondCaption',
+                  ),
+                ],
+              ),
+            ),
+            Positioned(left: 8, top: 0, child: face),
+          ],
+        ),
+      );
+    }
 
     final card = AppStatCard(
       days: [for (final day in week.days) _day(day)],
-      firstValue: '${week.alarms}${week.mayBeShort ? '+' : ''}',
-      firstCaption: widget.isFiltered
-          ? LocaleKeys.history_hero_alarms_filtered.plural(week.alarms)
-          : LocaleKeys.history_hero_alarms_days.plural(
-              week.alarms,
-              namedArgs: {'days': '${week.visibleDays}'},
-            ),
-      secondValue: longest == null
-          ? LocaleKeys.history_hero_none.tr()
-          : formatCompactDuration(longest),
-      secondCaption: LocaleKeys.history_hero_longest_answered.tr(),
+      firstValue: firstValue,
+      firstCaption: firstCaption,
+      secondValue: secondValue,
+      secondCaption: secondCaption,
       semanticsLabel: widget.isFiltered
           ? LocaleKeys.history_hero_chart_label_filtered.tr()
           : LocaleKeys.history_hero_chart_label.tr(
@@ -143,29 +198,18 @@ class _HistoryHeroState extends State<HistoryHero> {
             ),
     );
 
-    const lift = HistoryHero.faceSize - HistoryHero.overlap;
+    final lift = faceSize - HistoryHero.overlap;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: lift),
+          padding: EdgeInsets.only(top: lift),
           child: card,
         ),
-        Positioned(
-          left: 8,
-          top: 0,
-          child: ExcludeSemantics(
-            child: stageFace(
-              context,
-              state: week.face,
-              size: HistoryHero.faceSize,
-              isLive: false,
-            ),
-          ),
-        ),
+        Positioned(left: 8, top: 0, child: face),
         if (status != null)
           Positioned(
-            left: 8 + HistoryHero.faceSize + 12,
+            left: 8 + faceSize + 12,
             right: 8,
             top: 0,
             height: lift,
@@ -194,17 +238,43 @@ const double _kDiscDiameter = 340;
 ///
 /// It follows the scaffold's column rules through [AppScreenColumns] (a
 /// capped, centred column on a medium display, a list pane inside the frame
-/// on an expanded one), the way the Topics hero does, so the disc stays
-/// behind the face.
-HeroDiscSpot historyDiscSpotOf(BuildContext context) {
+/// on an expanded one, the start pane in book posture), the way the Topics
+/// hero does, so the disc stays behind the face. With [onStage] the hero is
+/// in the fold stage (the top half in tabletop posture).
+HeroDiscSpot historyDiscSpotOf(BuildContext context, {bool onStage = false}) {
   final screen = MediaQuery.sizeOf(context);
   final padding = MediaQuery.paddingOf(context);
-  final columns = AppScreenColumns.of(context, hasDetail: true);
-  const half = HistoryHero.faceSize / 2;
-  final centre = Offset(
-    columns.contentLeft + 12 + 8 + half,
-    padding.top + AppScreenScaffold.topBarHeight + Spacing.s3 + half,
+  final fold = AppFold.of(context);
+  final panes = fold.panes(
+    screen,
+    direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
   );
+  final Offset faceTopLeft;
+  final double face;
+  if (onStage) {
+    final spot = foldStageHeroSpot(context);
+    face = historyHeroFaceSize(
+      AppSize.from(
+        panes.first.size,
+        isIphone: AppDeviceScope.isIphoneOf(context),
+      ),
+    );
+    faceTopLeft = spot.origin + const Offset(12 + 8, 0);
+  } else {
+    final columns = AppScreenColumns.of(context, hasDetail: true);
+    // The list's own box: the start pane in book posture, else the window.
+    final listBox = fold.isBook ? panes.first.size : screen;
+    face = historyHeroFaceSize(
+      AppSize.from(listBox, isIphone: AppDeviceScope.isIphoneOf(context)),
+    );
+    // History trims the room over the hero on a cover screen.
+    final above = AppSize.of(context).isCover ? Spacing.s2 : Spacing.s3;
+    faceTopLeft = Offset(
+      columns.contentLeft + 12 + 8,
+      padding.top + AppScreenScaffold.topBarHeight + above,
+    );
+  }
+  final centre = faceTopLeft + Offset(face / 2, face / 2);
   return HeroDiscSpot(
     anchor: Alignment(
       centre.dx / screen.width * 2 - 1,

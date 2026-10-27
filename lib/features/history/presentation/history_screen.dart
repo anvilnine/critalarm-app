@@ -6,7 +6,9 @@ import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
@@ -14,12 +16,15 @@ import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/history/presentation/history_pane.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_hero.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +56,9 @@ class _HistoryScreenContent extends StatefulWidget {
 }
 
 class _HistoryScreenContentState extends State<_HistoryScreenContent> {
-  HistoryEntry? _selected;
+  /// The incident the person tapped. Null until then, and the pane shows the
+  /// newest one. See [historyPaneEntry].
+  String? _pickedId;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +82,27 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               ? null
               : state.entries.last.startedAt,
         );
+        final selected = historyPaneEntry(state.days, _pickedId);
+        final hasDetail = !state.isEmpty;
+        // On a fold the hero holds still in its own pane and only the list
+        // scrolls. Read off the window: inside the stage the fold is gone.
+        final heroOnStage =
+            hasHero &&
+            heroOnFoldStage(AppFold.of(context), hasDetail: hasDetail);
+        // A cover screen trims the room around the hero so two rows fit
+        // above the tab bar.
+        final isCover = AppSize.of(context).isCover;
+        final hero = Padding(
+          padding: EdgeInsets.fromLTRB(
+            12,
+            isCover ? Spacing.s2 : Spacing.s3,
+            12,
+            isCover ? Spacing.s3 : Spacing.s4,
+          ),
+          child: hasHero
+              ? HistoryHero(week: week, isFiltered: state.filter.isActive)
+              : const SizedBox(height: Spacing.s2),
+        );
 
         // The canvas behind the screen is the ambient one. It gets the disc
         // behind the face, and morphs to the next tab's profile on a change.
@@ -82,7 +110,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           path: '/history',
           profile: AmbientAppProfiles.historyHero(
             context.appColors,
-            spot: historyDiscSpotOf(context),
+            spot: historyDiscSpotOf(context, onStage: heroOnStage),
           ),
           child: NotificationListener<ScrollNotification>(
             // Reads the next page off the phone as the list nears its end.
@@ -113,33 +141,23 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   ],
                 ),
               ),
-              detail: state.isEmpty
+              foldStage: heroOnStage ? FoldStageColumn(children: [hero]) : null,
+              detail: !hasDetail
                   ? null
-                  : _selected == null
+                  : selected == null
                   ? AppEmptyState(
                       title: LocaleKeys.history_detail_empty_title.tr(),
                       description: LocaleKeys.history_detail_empty_body.tr(),
                     )
                   : _IncidentDetail(
-                      key: ValueKey(_selected?.id),
-                      entry: _selected!,
+                      key: ValueKey(selected.id),
+                      entry: selected,
                     ),
               slivers: [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      12,
-                      Spacing.s3,
-                      12,
-                      Spacing.s4,
-                    ),
-                    child: hasHero
-                        ? HistoryHero(
-                            week: week,
-                            isFiltered: state.filter.isActive,
-                          )
-                        : const SizedBox(height: Spacing.s2),
-                  ),
+                  child: heroOnStage
+                      ? const SizedBox(height: Spacing.s3)
+                      : hero,
                 ),
                 // Loading and failure both used to fall through to the list
                 // branch, which drew an empty card with no spinner, no message
@@ -221,11 +239,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                           for (final day in state.days)
                             _DaySection(
                               day: day,
-                              selectedId: showsDetail ? _selected?.id : null,
+                              selectedId: showsDetail ? selected?.id : null,
                               onTap: (entry) {
                                 if (showsDetail) {
                                   AppHaptics.selection();
-                                  setState(() => _selected = entry);
+                                  setState(() => _pickedId = entry.id);
                                 } else {
                                   primeTopicCanvas(context, entry.topic);
                                   unawaited(
@@ -479,7 +497,8 @@ class _IncidentDetail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FaceWidget(state: entry.faceState, size: 96),
+          // How the incident ended, at the hero size.
+          FaceWidget(state: entry.faceState),
           const SizedBox(height: Spacing.s4),
           Text(
             entry.topic,
