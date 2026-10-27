@@ -21,6 +21,11 @@ String networkFailureMessage(Object error) {
         LocaleKeys.onboarding_connect_connect_timeout.tr(),
       NetworkFaultKind.unreachable =>
         LocaleKeys.onboarding_connect_network_unreachable.tr(),
+      NetworkFaultKind.server => apiErrorMessage(
+        error.server?.message,
+        code: error.server?.code,
+        cap: error.server?.cap,
+      ),
       NetworkFaultKind.other => LocaleKeys.api_errors_unknown.tr(),
     };
   }
