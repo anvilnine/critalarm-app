@@ -40,7 +40,32 @@ void main() {
       expect(paneSelection<String>(items: const [], picked: null), isNull);
     });
 
-    test('the first item follows the list while nothing is picked', () {
+    test('the item the pane opened on stays while the list reorders', () {
+      expect(
+        paneSelection(
+          items: const ['web', 'prod-db'],
+          picked: null,
+          latched: 'prod-db',
+        ),
+        'prod-db',
+      );
+    });
+
+    test('a latched item that has gone falls back to the first item', () {
+      expect(
+        paneSelection(items: const ['web'], picked: null, latched: 'prod-db'),
+        'web',
+      );
+    });
+
+    test('a pick wins over the latched item', () {
+      expect(
+        paneSelection(items: topics, picked: 'web', latched: 'prod-db'),
+        'web',
+      );
+    });
+
+    test('the first item follows the list while nothing is latched', () {
       expect(
         paneSelection(items: const ['web', 'prod-db'], picked: null),
         'web',
@@ -71,29 +96,70 @@ void main() {
   group('opensTopicInHomePane', () {
     test('an expanded window with no fold opens the topic in the pane', () {
       expect(
-        opensTopicInHomePane(const AppSize(1440, 900), AppFold.none),
+        opensTopicInHomePane(
+          const AppSize(1440, 900),
+          AppFold.none,
+          hasPageAboveShell: false,
+        ),
         isTrue,
       );
       expect(
-        opensTopicInHomePane(const AppSize(841, 701), AppFold.none),
+        opensTopicInHomePane(
+          const AppSize(841, 701),
+          AppFold.none,
+          hasPageAboveShell: false,
+        ),
         isTrue,
       );
     });
 
     test('compact and medium open the topic screen', () {
       expect(
-        opensTopicInHomePane(const AppSize(390, 844), AppFold.none),
+        opensTopicInHomePane(
+          const AppSize(390, 844),
+          AppFold.none,
+          hasPageAboveShell: false,
+        ),
         isFalse,
       );
       expect(
-        opensTopicInHomePane(const AppSize(834, 1194), AppFold.none),
+        opensTopicInHomePane(
+          const AppSize(834, 1194),
+          AppFold.none,
+          hasPageAboveShell: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a page over the tabs (the ringing alarm) keeps the topic page', () {
+      expect(
+        opensTopicInHomePane(
+          const AppSize(1440, 900),
+          AppFold.none,
+          hasPageAboveShell: true,
+        ),
         isFalse,
       );
     });
 
     test('book and tabletop open the topic screen split at the fold', () {
-      expect(opensTopicInHomePane(const AppSize(841, 701), book), isFalse);
-      expect(opensTopicInHomePane(const AppSize(841, 701), tabletop), isFalse);
+      expect(
+        opensTopicInHomePane(
+          const AppSize(841, 701),
+          book,
+          hasPageAboveShell: false,
+        ),
+        isFalse,
+      );
+      expect(
+        opensTopicInHomePane(
+          const AppSize(841, 701),
+          tabletop,
+          hasPageAboveShell: false,
+        ),
+        isFalse,
+      );
     });
   });
 }
