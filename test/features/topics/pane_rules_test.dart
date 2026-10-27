@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/topics/presentation/pane_rules.dart';
@@ -160,6 +161,28 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('paneFaceFor', () {
+    test('a pane draws no face when the hero already wears it', () {
+      expect(paneFaceFor(FaceState.acked, hero: FaceState.acked), isNull);
+      expect(paneFaceFor(FaceState.calm, hero: FaceState.calm), isNull);
+    });
+
+    test('a pane draws its own state when the hero wears another', () {
+      expect(
+        paneFaceFor(FaceState.calm, hero: FaceState.acked),
+        FaceState.calm,
+      );
+      expect(
+        paneFaceFor(FaceState.worried, hero: FaceState.calm),
+        FaceState.worried,
+      );
+    });
+
+    test('with no hero face on screen the pane keeps its own', () {
+      expect(paneFaceFor(FaceState.acked, hero: null), FaceState.acked);
     });
   });
 }

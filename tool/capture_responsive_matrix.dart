@@ -25,9 +25,11 @@
 // subset run into the same folder updates only its own rows. The contact
 // sheet is drawn from the PNGs on disk, so it shows earlier captures too.
 //
-// The screens are the list in tool/capture_routes.dart, which
-// tool/capture_all_screens.dart also draws, plus Home with a topic picked and
-// History with an entry picked (only where AppSize gives two panes), plain
+// The screens are allScreenRoutes in tool/capture_routes.dart, which
+// tool/capture_all_screens.dart also draws, then responsiveScreenRoutes and
+// the tap routes from the same file, which only this tool draws, plus Home
+// with a topic picked and History with an entry picked (only where the
+// scaffold shows a detail pane: AppScreenScaffold.showsDetailFor), plain
 // History, and the web message composer on the desktop sizes.
 //
 // Each capture boots the app's dependencies again and then registers the
@@ -156,7 +158,13 @@ class _Size {
     _Renders.web => TargetPlatform.macOS,
   };
 
-  bool get isTwoPane => AppSize(width, height, isIphone: isIphone).isExpanded;
+  /// True where a screen with a detail shows it beside the list, by the
+  /// scaffold's own rule: book posture at any width, or an expanded window
+  /// that is not in tabletop posture.
+  bool get isTwoPane => AppScreenScaffold.showsDetailFor(
+    AppSize(width, height, isIphone: isIphone),
+    AppFold.fromFeatures(displayFeatures, Size(width, height)),
+  );
 
   /// The fold as the platform reports it: zero thickness, in logical pixels
   /// (the engine divides by the device pixel ratio before Flutter sees it).
@@ -306,7 +314,10 @@ class _Screen {
 }
 
 final List<_Screen> _screens = [
-  for (final (id, path, fixture, pinned) in allScreenRoutes)
+  for (final (id, path, fixture, pinned) in [
+    ...allScreenRoutes,
+    ...responsiveScreenRoutes,
+  ])
     _Screen(id, path, fixture, pinned: pinned),
   for (final (id, path, fixture, tapKey) in tapScreenRoutes)
     _Screen(
@@ -1111,6 +1122,7 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
     window: window,
     size: appSize,
     fold: fold,
+    textScale: size.textScale,
   );
   if (bar == null && rail == null) {
     return [...lines, ('no tab bar or rail on screen', false), ...wp3];

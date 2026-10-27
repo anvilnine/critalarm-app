@@ -20,7 +20,7 @@ typedef CaptureRoute = (
 
 /// Every screen `tool/capture_all_screens.dart` captures, in file order.
 /// `tool/capture_responsive_matrix.dart` captures the same list at tablet,
-/// foldable and desktop sizes.
+/// foldable and desktop sizes, and [responsiveScreenRoutes] after it.
 const List<CaptureRoute> allScreenRoutes = [
   ('01_gallery', '/gallery', FaceState.calm, null),
   ('02_onboarding_welcome', '/onboarding', FaceState.calm, null),
@@ -47,6 +47,12 @@ const List<CaptureRoute> allScreenRoutes = [
     FaceState.calm,
     TargetPlatform.iOS,
   ),
+];
+
+/// The screens only `tool/capture_responsive_matrix.dart` captures, after
+/// [allScreenRoutes]: the extra routes the tablet, foldable and desktop
+/// layout work checks. The phone capture tool leaves them out.
+const List<CaptureRoute> responsiveScreenRoutes = [
   // WP6. The welcome pages themselves: on a phone /onboarding is the
   // permissions step, which waits on the phone's answers in a capture.
   ('wp6_02_welcome_pages', '/onboarding/welcome', FaceState.calm, null),
