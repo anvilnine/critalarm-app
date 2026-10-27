@@ -3,6 +3,7 @@ import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
@@ -193,10 +194,16 @@ Future<void> main() async {
   // know. It is a read from the local store; a store that is slow or will not
   // open costs the first frame at most this wait, and then the list loads
   // from the server as it always did.
+  //
+  // The alarms and messages the phone holds are read right behind it, inside
+  // the same limit, so Home's rows, History and a topic's messages open with
+  // them too. Each is a read of the phone's own archive for the account it is
+  // on; nothing is asked of the server.
   try {
-    await getIt<TopicsCubit>().loadHeld().timeout(
-      const Duration(milliseconds: 800),
-    );
+    await (() async {
+      await getIt<TopicsCubit>().loadHeld();
+      await getIt<HeldRows>().load();
+    })().timeout(const Duration(milliseconds: 800));
   } on Object catch (_) {
     // Never stops the app from opening.
   }

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
@@ -35,6 +37,7 @@ class HomeCubit extends Cubit<HomeState> {
     this._listPrefs,
     this._glances,
     this._window,
+    this._held,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -68,6 +71,11 @@ class HomeCubit extends Cubit<HomeState> {
   /// topic matches what the screen builds. Null shows everything held.
   final TopicMessageWindow? _window;
 
+  /// What the phone held at launch. Draws the rows before the server has
+  /// answered, without asking the server anything. Null in tests that do not
+  /// care, and then the rows wait for the server as they always did.
+  final HeldRows? _held;
+
   /// How often the state is worked out again from the lists already held, so
   /// an acknowledged alarm's countdown or a close that only lasts a while
   /// ends without a reload. A test passes something short so it does not have
@@ -93,6 +101,12 @@ class HomeCubit extends Cubit<HomeState> {
   List<Incident>? _builtFromIncidents;
   List<Topic>? _builtFromTopics;
 
+  /// The rows on screen are the phone's own copy, drawn before the server
+  /// answered. Nothing in them is live: a sounding alarm in that copy is a
+  /// card, never a hand-over to the alarm screen. Cleared by the first build
+  /// from the server's lists.
+  bool _fromPhone = false;
+
   /// Only the newest build may emit. An earlier one that finishes late would
   /// put a stale list back on screen.
   int _buildId = 0;
@@ -108,11 +122,70 @@ class HomeCubit extends Cubit<HomeState> {
 
   Future<void> load() async {
     _listenToAppState();
+    _seedFromHeld();
     if (state.topicItems.isEmpty) {
       emit(state.copyWith(status: HomeStatus.loading));
     }
     await Future.wait([_incidents.ensureLoaded(), _topics.ensureLoaded()]);
     await _rebuildIfChanged();
+  }
+
+  /// Draws the rows from what the phone held at launch, in this frame, with
+  /// no request. Only until the server has answered for the incidents (the
+  /// copy is dropped then): the full build below takes over, and it is the
+  /// only thing that asks each topic for its messages.
+  ///
+  /// A stored open alarm is shown as the phone stored it and no more. The
+  /// state carries no ringing incident, so the screen never hands over to the
+  /// alarm screen from a copy, and the first answer from the server replaces
+  /// every row.
+  void _seedFromHeld() {
+    final held = _held?.snapshot;
+    if (held == null || isClosed || state.status != HomeStatus.initial) return;
+    final topics = _topics.state;
+    if (!topics.isReady || topics.topics.isEmpty) return;
+
+    final now = _now();
+    final digest = _digest(
+      topics.topics,
+      (t) => held.messages[t.name] ?? const <Message>[],
+      held.incidents,
+      held.bound,
+      now: now,
+      remember: false,
+    );
+    _lastIncidents = held.incidents;
+    _lastTopics = topics.topics;
+    _lastWarningTopics = digest.warningTopics;
+    _lastMessageTimes = digest.messageTimes;
+    _lastPreviews = digest.previews;
+    _fromPhone = true;
+
+    final facts = homeFactsFrom(
+      topics: topics.topics,
+      incidents: held.incidents,
+      warningTopics: digest.warningTopics,
+      messageTimes: digest.messageTimes,
+      now: now,
+    );
+    _syncTimer(_needsTick(facts));
+    emit(
+      state.copyWith(
+        status: HomeStatus.success,
+        topicItems: _buildTopicItems(
+          topics.topics,
+          digest.messageTimes,
+          digest.previews,
+          incidents: held.incidents,
+          warningTopics: digest.warningTopics,
+          now: now,
+        ),
+        clearRinging: true,
+        clearError: true,
+        hasServer: true,
+        facts: facts,
+      ),
+    );
   }
 
   void _listenToAppState() {
@@ -178,8 +251,8 @@ class HomeCubit extends Cubit<HomeState> {
     );
     emit(
       state.copyWith(
-        ringingIncidentId: facts.ringing?.incidentId,
-        clearRinging: facts.ringing == null,
+        ringingIncidentId: _fromPhone ? null : facts.ringing?.incidentId,
+        clearRinging: _fromPhone || facts.ringing == null,
         topicItems: items,
         facts: facts,
       ),
@@ -282,6 +355,7 @@ class HomeCubit extends Cubit<HomeState> {
   /// only old. Keep them, mark them old, and say when they were last true.
   Future<HomeState> _failureState(String? message) async {
     if (!await _hasServer()) {
+      _fromPhone = false;
       return state.copyWith(
         status: HomeStatus.failure,
         errorMessage: message,
@@ -299,7 +373,8 @@ class HomeCubit extends Cubit<HomeState> {
       status: HomeStatus.failure,
       errorMessage: message,
       clearRinging: true,
-      isStale: seenAt != null,
+      // The phone's own copy is old by definition: the server never answered.
+      isStale: seenAt != null || _fromPhone,
       hasServer: true,
       // An old copy says nothing about what is live now.
       facts: state.facts.withoutLive(),
@@ -326,6 +401,7 @@ class HomeCubit extends Cubit<HomeState> {
       _lastWarningTopics = const {};
       _lastMessageTimes = const {};
       _lastPreviews = const {};
+      _fromPhone = false;
       _syncTimer(false);
       final now = _now();
       return state.copyWith(
@@ -349,15 +425,8 @@ class HomeCubit extends Cubit<HomeState> {
     await _messageSync?.syncAll(topics.map((t) => t.name));
 
     final now = _now();
-    final openIncidentIds = incidents
-        .where((i) => i.state == 'open')
-        .map((i) => i.id)
-        .toSet();
-
     final bound = await _window?.lowerBound();
-    final warningTopics = <String>{};
-    final messageTimes = <String, List<int>>{};
-    final previews = <String, String>{};
+    final polled = <String, List<Message>>{};
     for (final t in topics) {
       final pollResult = await _incidentRepository.pollMessages(
         t.name,
@@ -368,26 +437,19 @@ class HomeCubit extends Cubit<HomeState> {
         _builtFromTopics = null;
         return _failureState(pollResult.exceptionOrNull()?.message);
       }
-      final msgs = pollResult.getOrNull() ?? [];
-      final latest = msgs.isEmpty
-          ? null
-          : msgs.reduce((a, b) => a.time > b.time ? a : b);
-      messageTimes[t.name] = [for (final m in msgs) m.time];
-      _glances?.remember(t.name, topicGlanceOf(t, msgs, bound, now: now));
-      if (latest != null) previews[t.name] = topicPreview(latest);
-      if (msgs.any((m) {
-        final isP4OrWarning =
-            m.priority == 4 || (m.tags.contains('warning') && m.priority != 5);
-        if (!isP4OrWarning) return false;
-        if (m.incidentId != null) {
-          return openIncidentIds.contains(m.incidentId);
-        }
-        final msgTime = DateTime.fromMillisecondsSinceEpoch(m.time * 1000);
-        return now.difference(msgTime).inSeconds < 1800;
-      })) {
-        warningTopics.add(t.name);
-      }
+      polled[t.name] = pollResult.getOrNull() ?? [];
     }
+    final digest = _digest(
+      topics,
+      (t) => polled[t.name]!,
+      incidents,
+      bound,
+      now: now,
+      remember: true,
+    );
+    final warningTopics = digest.warningTopics;
+    final messageTimes = digest.messageTimes;
+    final previews = digest.previews;
 
     final items = _buildTopicItems(
       topics,
@@ -416,6 +478,7 @@ class HomeCubit extends Cubit<HomeState> {
       }
     }
 
+    _fromPhone = false;
     _lastIncidents = incidents;
     _lastTopics = topics;
     _lastWarningTopics = warningTopics;
@@ -442,6 +505,49 @@ class HomeCubit extends Cubit<HomeState> {
       hasServer: true,
       facts: facts,
     );
+  }
+
+  /// What the rows and the card need from each topic's messages: when they
+  /// came, the newest one as a line, and which topics carry a live warning.
+  /// One rule for the build from the server and the build from the phone's
+  /// copy, so the two cannot disagree about a row.
+  _Digest _digest(
+    List<Topic> topics,
+    List<Message> Function(Topic topic) messagesOf,
+    List<Incident> incidents,
+    DateTime? bound, {
+    required DateTime now,
+    required bool remember,
+  }) {
+    final openIncidentIds = incidents
+        .where((i) => i.state == 'open')
+        .map((i) => i.id)
+        .toSet();
+    final digest = _Digest();
+    for (final t in topics) {
+      final msgs = messagesOf(t);
+      final latest = msgs.isEmpty
+          ? null
+          : msgs.reduce((a, b) => a.time > b.time ? a : b);
+      digest.messageTimes[t.name] = [for (final m in msgs) m.time];
+      if (remember) {
+        _glances?.remember(t.name, topicGlanceOf(t, msgs, bound, now: now));
+      }
+      if (latest != null) digest.previews[t.name] = topicPreview(latest);
+      if (msgs.any((m) {
+        final isP4OrWarning =
+            m.priority == 4 || (m.tags.contains('warning') && m.priority != 5);
+        if (!isP4OrWarning) return false;
+        if (m.incidentId != null) {
+          return openIncidentIds.contains(m.incidentId);
+        }
+        final msgTime = DateTime.fromMillisecondsSinceEpoch(m.time * 1000);
+        return now.difference(msgTime).inSeconds < 1800;
+      })) {
+        digest.warningTopics.add(t.name);
+      }
+    }
+    return digest;
   }
 
   List<HomeTopicItem> _buildTopicItems(
@@ -500,4 +606,13 @@ class HomeCubit extends Cubit<HomeState> {
     ]);
     return [for (final name in order) byName[name]!];
   }
+}
+
+/// What [HomeCubit] works out of each topic's messages.
+class _Digest {
+  final Set<String> warningTopics = {};
+
+  /// Epoch seconds of every message, per topic.
+  final Map<String, List<int>> messageTimes = {};
+  final Map<String, String> previews = {};
 }

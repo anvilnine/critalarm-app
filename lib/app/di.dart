@@ -16,6 +16,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/app/state/critical_topic_count.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
@@ -144,6 +145,7 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
+import 'package:critalarm/features/incidents/domain/repositories/held_archive.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -831,6 +833,11 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<IncidentRepository>(
+      () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
+    )
+    // The phone's own alarms and messages, read with no request. The same
+    // store the repository above reads and writes.
+    ..registerLazySingleton<HeldArchive>(
       () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
     )
     ..registerLazySingleton<StorageSettingsRepository>(
@@ -1690,6 +1697,27 @@ Future<void> configureDependencies({
         heldScope: heldScope.call,
       ),
     )
+    // The alarms and messages the phone held at launch, for the screens that
+    // open before the server has answered. Read by `main` after the topic
+    // list. Not the shared list: nothing that rings reads it.
+    ..registerLazySingleton(
+      () => HeldRows(
+        getIt<HeldArchive>(),
+        getIt<TopicsCubit>(),
+        getIt<IncidentsCubit>(),
+        glances: getIt<TopicGlances>(),
+        readPlan: () async {
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          if (identity.accountId == null) return null;
+          return HeldPlan(
+            hasLongHistory: await getIt<FeatureAccess>().usableOnceReady(
+              AppFeature.longHistory,
+            ),
+            historyDays: identity.caps.historyDays ?? 7,
+          );
+        },
+      ),
+    )
     // "Is an alarm under way on this phone", read off the shared list. Every
     // guard that keeps sheets, notices and navigation away from an alarm
     // asks this one object.
@@ -2246,6 +2274,7 @@ Future<void> configureDependencies({
           identityStore: getIt<DeviceIdentityStore>(),
           featureAccess: getIt<FeatureAccess>(),
         ),
+        getIt<HeldRows>(),
       ),
     )
     // The dark card on Home. It follows the screen's own HomeCubit and
@@ -2556,6 +2585,7 @@ Future<void> configureDependencies({
         identityStore: getIt<DeviceIdentityStore>(),
         featureAccess: getIt<FeatureAccess>(),
         store: localStore,
+        held: getIt<HeldRows>(),
       ),
     )
     // Read by the Topic screen before it has read anything of its own.
@@ -2571,6 +2601,7 @@ Future<void> configureDependencies({
         featureAccess: getIt<FeatureAccess>(),
         glances: getIt<TopicGlances>(),
         signalStore: getIt<AlarmSignalStore>(),
+        held: getIt<HeldRows>(),
       ),
     )
     ..registerFactory(

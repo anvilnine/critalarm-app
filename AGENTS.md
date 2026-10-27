@@ -1321,6 +1321,21 @@ knows. It is a copy the server replaces on every answer, not an archive.
   setup's real ring step), a delete the server took, and `noteCreated`, which
   `CreateTopicUsecase.onCreated` calls for a new topic (stored without its token, memory left
   to the next refresh). Nothing is written before a list is loaded.
+- **Held rows.** `HeldRows` (`lib/app/state/held_rows.dart`) reads the current scope's incidents and
+  each held topic's messages once at launch, through `HeldArchive` (the incident repository reads the
+  stores; no raw SQL), right after `loadHeld()` and inside the same 800 ms limit. The plan
+  (`HeldPlan`) is read first and a snapshot is never taken without it, because the history window
+  decides which rows show. It also notes each topic's rows in `TopicGlances`. Home (`_seedFromHeld`),
+  History (`_seedFromHeld`) and the Topic screen (`seedFor`) draw their first frame from the
+  snapshot and make no request; the full build, which polls each topic, still waits for the server's
+  lists and runs once.
+- The snapshot is never put in `IncidentsCubit`. Everything that rings, badges, hands over to the
+  alarm screen or syncs widgets reads that list, so a stored open alarm there could act. Home
+  keeps `ringingIncidentId` null while its rows are the phone's copy (`_fromPhone`, also on the
+  timer's repaints), shows them as old when the server never answers, and the first answer
+  replaces every row. The snapshot is dropped by the first incident answer and by any change of
+  account (`AccountIdentityChanges`). A new reader of stored alarms at launch goes through
+  `HeldRows`, never through `IncidentsCubit`.
 - Where the store is not open (the web build, or `local_store_open_failed` at launch) the list
   stays in memory and the app behaves as it did before the copy existed. Push, alarms and
   incident handling never read the `topics` table.
