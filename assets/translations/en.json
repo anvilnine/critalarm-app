@@ -736,6 +736,11 @@
       "other": "{count} messages. Rings at {priority} priority."
     },
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it an alarm arrives as a quiet notification.",
+    "flash_row_title": "Flash the camera light",
+    "flash_row_subtitle": "Blinks once a second while this topic rings",
+    "flash_row_subtitle_ios": "Blinks once a second while the alarm screen is open",
+    "vibration_row_title": "Strong vibration",
+    "vibration_row_subtitle": "Vibrates hard while this topic rings",
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
