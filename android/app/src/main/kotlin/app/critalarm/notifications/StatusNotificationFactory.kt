@@ -25,6 +25,7 @@ import app.critalarm.storage.DoneButtonRule
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.TopicTimerStore
 import app.critalarm.storage.TopicTimers
+import app.critalarm.taps.TapGate
 
 object StatusNotificationFactory {
     /** The face is drawn at this many pixels. Large enough for the shade. */
@@ -164,6 +165,7 @@ object StatusNotificationFactory {
                     incidentLaunchIntent(context, incidentId).apply {
                         data = Uri.parse(TapRoute.doneLink(Uri.encode(incidentId)))
                         putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
+                        TapGate.sign(context, this)
                     },
                     immutable,
                 )
@@ -194,6 +196,8 @@ object StatusNotificationFactory {
             data = Uri.parse("critalarm://incidents/${Uri.encode(incidentId)}")
             putExtra(MainActivity.EXTRA_INCIDENT_ID, incidentId)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            // Signed for these extras. A caller that adds one signs again.
+            TapGate.sign(context, this)
         }
 
     /**

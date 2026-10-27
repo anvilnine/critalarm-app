@@ -50,10 +50,20 @@ object TapRoute {
             return "/incidents/${encode(it)}" + if (fromDone) "?from=done" else ""
         }
         tap[MainActivity.EXTRA_TOPIC]?.let { return "/topics/${encode(it)}" }
-        if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_HOME) return "/"
+        if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_HOME) return HOME
         if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_PAYWALL) return "/paywall"
         return null
     }
+
+    /** Where the app starts when no tap gave a route: Home, as a plain launch. */
+    const val HOME = "/"
+
+    /**
+     * The route MainActivity hands Flutter at start: the tap's, or [HOME].
+     * It takes no intent, so nothing else on one (Flutter's own `route`
+     * extra included) can reach it.
+     */
+    fun initialRoute(launchRoute: String?): String = launchRoute ?: HOME
 
     // API 1 overload. See MinSdkApiTest: the Charset one is API 33.
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")

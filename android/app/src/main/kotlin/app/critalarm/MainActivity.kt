@@ -32,6 +32,8 @@ import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
 import app.critalarm.storage.IncidentDeliveryStore
+import app.critalarm.taps.TapGate
+import app.critalarm.taps.TapLockRule
 import app.critalarm.uisound.UiSoundChannel
 import app.critalarm.widgets.WidgetChannel
 import io.flutter.plugin.common.EventChannel
@@ -378,14 +380,15 @@ class MainActivity : FlutterFragmentActivity() {
 
     /**
      * An alarm start shows this window over the lock screen. Only for an
-     * incident that rings or owes an ack, because any app can start this
-     * activity with the extra. Read before [readTap] takes the extra off.
+     * intent the app built ([signed], from [TapGate.admit]) and an incident
+     * that rings or owes an ack, because any app can start this activity
+     * with the extra. Read before [readTap] takes the extra off.
      */
-    private fun showOverLockFor(intent: Intent?) {
-        if (intent == null) return
+    private fun showOverLockFor(intent: Intent?, signed: Boolean) {
+        if (intent == null || !signed) return
         if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return
         val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) ?: return
-        if (!AlarmLockRule.showsFor(incidentId, owesAck(incidentId))) {
+        if (!TapLockRule.showsFor(signed, incidentId, ::owesAck)) {
             Log.w(TAG, "lock_screen_refused incident_id=$incidentId")
             return
         }
@@ -478,11 +481,14 @@ class MainActivity : FlutterFragmentActivity() {
      * `getInitialRoute` never sees it. iOS hands a warm tap over the same way.
      */
     override fun onNewIntent(intent: Intent) {
+        // Before anything reads the intent. Another app's intent loses its
+        // routing extras here and goes on as a plain launch.
+        val signed = TapGate.admit(this, intent)
         // A second alarm reaches a running activity here, and the window has
         // to come over the lock screen for it as well.
-        showOverLockFor(intent)
-        val reminderTap = LocalReminderTapIntent.read(this, intent)
-        val tap = readTap(intent)
+        showOverLockFor(intent, signed)
+        val reminderTap = LocalReminderTapIntent.read(this, intent, signed)
+        val tap = readTap(intent, signed)
         readIncomingAudio(intent)
         setIntent(intent)
         super.onNewIntent(intent)
@@ -517,12 +523,15 @@ class MainActivity : FlutterFragmentActivity() {
         // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
-        pendingReminderTap = LocalReminderTapIntent.read(this, intent)
-        showOverLockFor(intent)
+        // Before anything reads the intent. Another app's intent loses its
+        // routing extras here and goes on as a plain launch.
+        val signed = TapGate.admit(this, intent)
+        pendingReminderTap = LocalReminderTapIntent.read(this, intent, signed)
+        showOverLockFor(intent, signed)
         // Read once, before Flutter asks for the initial route. Dart's
         // takePending at startup gets the same tap; its tap_id is what stops
         // the resume that follows from opening the screen a second time.
-        val launch = LaunchTap { readTap(intent) }
+        val launch = LaunchTap { readTap(intent, signed) }
         pendingTap = launch.tap
         launchRoute = launch.route
         super.onCreate(savedInstanceState)
@@ -547,31 +556,36 @@ class MainActivity : FlutterFragmentActivity() {
      * message has no incident (api.md §1.7), so its notification carries the
      * topic and opens that instead. Flutter asks more than once, so this
      * never reads the intent itself: [onCreate] already did.
+     *
+     * Never the default either. That one reads Flutter's `route` extra, which
+     * any app can set, so a start without a tap opens Home.
      */
-    override fun getInitialRoute(): String? = launchRoute ?: super.getInitialRoute()
+    override fun getInitialRoute(): String = TapRoute.initialRoute(launchRoute)
 
     /**
      * The tap a notification put on an intent, read once.
      *
      * The extras come off as they are read and the activity keeps the intent
-     * without them, so nothing reopens the same screen later. A link opened
-     * from outside the app is held by [LinkHandover], and [EXTRA_LINK] carries
-     * the pass for it. Any other value there gives no link. An intent the
-     * system replayed out of the recents list is ignored outright: the user
-     * asked for the app, not for a notification they already dealt with.
+     * without them, so nothing reopens the same screen later. The routing
+     * extras count only on an intent the app built ([signed], from
+     * [TapGate.admit]). A link opened from outside the app is held by
+     * [LinkHandover], and [EXTRA_LINK] carries the pass for it. Any other
+     * value there gives no link. An intent the system replayed out of the
+     * recents list is ignored outright: the user asked for the app, not for
+     * a notification they already dealt with.
      */
-    private fun readTap(intent: Intent?): Map<String, String>? {
+    private fun readTap(intent: Intent?, signed: Boolean): Map<String, String>? {
         if (intent == null) return null
         if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return null
-        val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID)
-            ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
-        val topic = intent.getStringExtra(EXTRA_TOPIC)
-        val open = intent.getStringExtra(EXTRA_OPEN)
+        fun routing(name: String): String? = if (signed) intent.getStringExtra(name) else null
+        val incidentId = routing(EXTRA_ALARM_INCIDENT_ID) ?: routing(EXTRA_INCIDENT_ID)
+        val topic = routing(EXTRA_TOPIC)
+        val open = routing(EXTRA_OPEN)
         // Off the intent whether or not it gives a link.
         val pass = intent.getStringExtra(EXTRA_LINK)
         intent.removeExtra(EXTRA_LINK)
         val link = LinkHandover.take(pass)
-        val from = intent.getStringExtra(EXTRA_FROM)
+        val from = routing(EXTRA_FROM)
         if (incidentId == null && topic == null && open == null && link == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)

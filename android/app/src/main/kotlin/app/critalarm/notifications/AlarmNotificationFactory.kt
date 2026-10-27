@@ -17,6 +17,7 @@ import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.taps.TapGate
 
 object AlarmNotificationFactory {
     /** The face is drawn at this many pixels, the same size the status card uses. */
@@ -65,6 +66,10 @@ object AlarmNotificationFactory {
             putExtra(MainActivity.EXTRA_INCIDENT_ID, incidentId)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
+        // Marked as the app's own before the copy below, so the tap and the
+        // full-screen start both carry it. Only a marked start shows over the
+        // lock screen.
+        TapGate.sign(context, launch)
         // The lock-screen takeover is a one-off surface. Leaving it in the
         // recents list after the alarm stops gives the user a second copy of a
         // screen that is already gone.

@@ -19,6 +19,7 @@ import app.critalarm.storage.ChallengeFlagStore
 import app.critalarm.storage.DoneButton
 import app.critalarm.storage.DoneButtonRule
 import app.critalarm.storage.NativeConnectionStore
+import app.critalarm.taps.TapGate
 
 /**
  * Builds the RemoteViews for the three widgets from the snapshot. The words
@@ -229,7 +230,7 @@ object WidgetViews {
             putExtra(MainActivity.EXTRA_TOPIC, topic)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        return PendingIntent.getActivity(context, requestCode("topic:$topic"), intent, FLAGS)
+        return PendingIntent.getActivity(context, requestCode("topic:$topic"), TapGate.sign(context, intent), FLAGS)
     }
 
     private fun homeIntent(context: Context): PendingIntent {
@@ -238,7 +239,7 @@ object WidgetViews {
             putExtra(MainActivity.EXTRA_OPEN, MainActivity.OPEN_HOME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        return PendingIntent.getActivity(context, requestCode("home"), intent, FLAGS)
+        return PendingIntent.getActivity(context, requestCode("home"), TapGate.sign(context, intent), FLAGS)
     }
 
     private fun paywallIntent(context: Context): PendingIntent {
@@ -247,7 +248,7 @@ object WidgetViews {
             putExtra(MainActivity.EXTRA_OPEN, MainActivity.OPEN_PAYWALL)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        return PendingIntent.getActivity(context, requestCode("paywall"), intent, FLAGS)
+        return PendingIntent.getActivity(context, requestCode("paywall"), TapGate.sign(context, intent), FLAGS)
     }
 
     /**
@@ -273,7 +274,12 @@ object WidgetViews {
                 putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
-            return PendingIntent.getActivity(context, requestCode("challenge:$appWidgetId"), open, FLAGS)
+            return PendingIntent.getActivity(
+                context,
+                requestCode("challenge:$appWidgetId"),
+                TapGate.sign(context, open),
+                FLAGS,
+            )
         }
         val intent = Intent(context, IncidentActionReceiver::class.java).apply {
             action = if (ack) IncidentActionReceiver.ACTION_STOP else IncidentActionReceiver.ACTION_ACKNOWLEDGE
