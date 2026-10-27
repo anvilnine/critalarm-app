@@ -11,6 +11,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+- Android: TapKeyFile makes a key only when tap\_mark\_key is missing. A failed read keeps the file and signs with a key for that process only, so marks already posted stay good after a restart.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
@@ -23,6 +24,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - iOS: MovedPhoneReset deletes the flutter.identity\_session\_token preferences key that a backup made before the Keychain move still carries, and never moves it into the Keychain (IdentityTokenStore.readAfterMove). The one-time move on the same phone is unchanged.
 - Android: the alarm screen keeps its ringing layout until releaseLockScreen answers (LockScreenHold.mayShowOverLock), and MainActivity answers it only once the window has left the lock screen, after the unlock prompt on a locked phone (LockReleaseAnswers). The acknowledged, answered elsewhere and failure layouts no longer draw over the lock screen.
 - Android: every intent the app builds for MainActivity (notifications, widgets, reminders) carries tap\_mark, an HMAC-SHA256 of its routing extras under a per-install key in no\_backup/tap\_mark\_key (TapSignature, TapGate). MainActivity checks it before reading anything: a missing or wrong mark drops alarm\_incident\_id, incident\_id, topic, open, from and the reminder extras, so the start opens Home and never shows over the lock screen. getInitialRoute no longer falls back to Flutter's route extra. A notification posted by an older build has no mark and opens Home.
+- Android: MainActivity answers Flutter's start options itself (no cached engine or engine group, opaque window, no Dart entrypoint arguments) and no longer reads cached\_engine\_id, cached\_engine\_group\_id, background\_mode or dart\_entrypoint\_args off the intent, where a bad value from another app crashed the process. The home screen shortcuts' quick\_actions extra is not covered by tap\_mark: any app can still open a shortcut's screen (/ring, /history, /topics/new).
 
 ## 1.0.0+15 - 2026-10-16
 ### Added
