@@ -3,6 +3,7 @@ import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
@@ -32,6 +33,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// 9. The topic list the phone kept to open with (the `topics` table of the
 ///    local store). It is also read only for the account and server it was
 ///    written for, so a copy that survives a failed drop is still never shown.
+/// 10. Cancel answers still waiting for a retry. Each names the account that
+///    is going.
 ///
 /// The archive of incidents and messages is not on the list, on purpose. Its
 /// rows carry the scope of the account they were read for and every read asks
@@ -62,6 +65,7 @@ class AccountData {
     required this._soundLock,
     required this._ownLook,
     this._proofLog,
+    this._cancelAnswers,
     this._heldTopics,
     this._archive,
     this._afterForget,
@@ -75,6 +79,9 @@ class AccountData {
   final OwnSoundLockFlag _soundLock;
   final OwnLookStore _ownLook;
   final ProofLog? _proofLog;
+
+  /// The cancel answers still waiting for a retry.
+  final CancelAnswerSender? _cancelAnswers;
 
   /// The topic list kept on the phone. Null where the local store is not
   /// open: the web build, or a store that would not open.
@@ -120,6 +127,8 @@ class AccountData {
     await _quietly(_soundLock.clear);
     final proofLog = _proofLog;
     if (proofLog != null) await _quietly(proofLog.clear);
+    final cancelAnswers = _cancelAnswers;
+    if (cancelAnswers != null) await _quietly(cancelAnswers.clear);
     final heldTopics = _heldTopics;
     if (heldTopics != null) await _quietly(heldTopics.clear);
     final after = _afterForget;
