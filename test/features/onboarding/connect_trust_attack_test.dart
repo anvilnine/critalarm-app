@@ -23,6 +23,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/fake_device_keychain.dart';
+
 /// Attack tests for the connect checks. Every test here is written to fail
 /// while the hole it names is open. Same harness as connect_trust_test.dart:
 /// the real use cases, stores and HTTP client over a fake network.
@@ -33,6 +35,7 @@ const _evil = 'https://evil.example.net';
 const _evilRelay = 'https://relay.evil.example.net';
 const _deviceToken = 'dv_issued_by_the_home_relay';
 const _adminToken = 'ad_the_working_one';
+const _joinToken = 'aj_of_the_cloud_account';
 
 final class _PushTokens implements PushTokenProvider {
   @override
@@ -215,6 +218,9 @@ const _onCloud = <String, Object>{
   'server_url': _homeRelay,
   'admin_token': _deviceToken,
 };
+
+/// Why the tests in 'a relay credential of unknown issue' are skipped.
+const _openQuestion = 'Open: where a relay credential of unknown issue may go';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -434,5 +440,116 @@ void main() {
       expect(connectOutcomeMessage(outcome), isNot(contains(_adminToken)));
       expect(phone.stores, before);
     });
+  });
+
+  // Each of these sends a relay credential of unknown issue to a relay the
+  // phone cannot vouch for. What the phone should do with such a credential
+  // is still open, so they are skipped rather than left failing.
+  group('a relay credential of unknown issue', () {
+    test('typed by hand on a phone whose device token has no recorded '
+        'issuer and no session, a self-hosted server with a relay of its '
+        'own never gets the token', () async {
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: _evilRelay),
+          'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
+          'PATCH $_evilRelay/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_x'),
+        },
+        isConnected: false,
+        saved: {
+          'device_id': 'dev_this_phone',
+          'device_token': _deviceToken,
+          'account_id': 'acc_home',
+        },
+      );
+
+      await phone.connect(serverUrl: _evil, adminToken: 'x');
+      // The next launch or resume.
+      try {
+        await phone.register(appVersion: '1.0.0');
+      } on Object catch (_) {}
+
+      expect(phone.carrying(_deviceToken), isEmpty);
+    }, skip: _openQuestion);
+
+    test('a link on an iPhone that holds a synced join token and no device '
+        'token never sends the join token to the relay the link server '
+        'names', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedAccount(accountId: 'acc_cloud', joinToken: _joinToken);
+      addTearDown(keychain.remove);
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: _evilRelay),
+          'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
+          'POST $_evilRelay/relay/v1/devices': (_) => _registered(),
+        },
+        isConnected: false,
+        useKeychain: true,
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _evil,
+        adminToken: 'x',
+        pinToAddress: true,
+      );
+      // The next launch or resume registers on the relay of the session.
+      if (outcome is Connected) {
+        try {
+          await phone.register(appVersion: '1.0.0');
+        } on Object catch (_) {}
+      }
+
+      expect(
+        phone.carrying(_joinToken).map((r) => '${r.method} ${r.url}'),
+        isEmpty,
+      );
+    }, skip: _openQuestion);
+
+    test('a link on an iPhone still carrying the old shared device row '
+        "never sends that row's device token to the relay the link "
+        'server names', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedCombined(
+          deviceId: 'dev_shared',
+          deviceToken: _deviceToken,
+          accountId: 'acc_cloud',
+          accountJoinToken: _joinToken,
+        );
+      addTearDown(keychain.remove);
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: _evilRelay),
+          'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
+          'POST $_evilRelay/relay/v1/devices': (_) => _registered(),
+          'DELETE $_evilRelay/relay/v1/devices/dev_shared': (_) =>
+              http.Response('', 204),
+        },
+        isConnected: false,
+        useKeychain: true,
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _evil,
+        adminToken: 'x',
+        pinToAddress: true,
+      );
+      if (outcome is Connected) {
+        try {
+          await phone.register(appVersion: '1.0.0');
+        } on Object catch (_) {}
+      }
+
+      expect(
+        phone.carrying(_deviceToken).map((r) => '${r.method} ${r.url}'),
+        isEmpty,
+      );
+    }, skip: _openQuestion);
   });
 }
