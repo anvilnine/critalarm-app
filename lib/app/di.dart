@@ -41,6 +41,8 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -93,6 +95,7 @@ import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
+import 'package:critalarm/core/telemetry/cancel_reason_analytics.dart';
 import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
@@ -127,6 +130,10 @@ import 'package:critalarm/features/feedback/data/platform_device_report_reposito
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/data/shared_prefs_cancel_answer_store.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_store.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_question.dart';
 import 'package:critalarm/features/in_app_notices/domain/day0_card_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
@@ -378,6 +385,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
@@ -741,6 +749,11 @@ Future<void> configureDependencies({
       final Object api = getIt<ApiClient>();
       return api is PacksApi ? api : const NoPacksApi();
     })
+    // The cancel reason route lives on the same client too.
+    ..registerLazySingleton<CancelReasonApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is CancelReasonApi ? api : const NoCancelReasonApi();
+    })
     ..registerLazySingleton<ProPackStore>(
       () => SharedPrefsProPackStore(getIt<SharedPreferences>()),
     )
@@ -1022,6 +1035,40 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<InAppNoticeRepository>(
       () => SharedPrefsInAppNoticeRepository(getIt<SharedPreferences>()),
+    )
+    // The cancel question keeps its own store, apart from the notice
+    // repository, so that repository and its fakes stay as they are.
+    ..registerLazySingleton<CancelAnswerStore>(
+      () => SharedPrefsCancelAnswerStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => CancelAnswerSender(
+        store: getIt<CancelAnswerStore>(),
+        api: getIt<CancelReasonApi>(),
+        analytics: getIt.isRegistered<TelemetryGate>()
+            ? CancelReasonAnalytics(getIt<TelemetryGate>())
+            : null,
+        readContext: () async {
+          final mode = await getIt<AccountRepository>().readServerMode();
+          // Only Crit Alarm Cloud sells the plan, so only it takes an answer.
+          final isCloud = mode == ServerMode.hosted; // access-ok: cloud only
+          if (!isCloud) return null;
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          final accountId = identity.accountId;
+          if (accountId == null) return null;
+          final package = await PackageInfo.fromPlatform();
+          return CancelSendContext(
+            accountId: accountId,
+            appVersion: package.buildNumber.isEmpty
+                ? package.version
+                : '${package.version}+${package.buildNumber}',
+            platform: defaultPushPlatform(),
+          );
+        },
+      ),
+    )
+    ..registerLazySingleton(
+      () => CancelQuestion(store: getIt<CancelAnswerStore>()),
     )
     ..registerLazySingleton<LocalReminderStore>(
       () => SharedPrefsLocalReminderStore(getIt<SharedPreferences>()),
@@ -1766,6 +1813,7 @@ Future<void> configureDependencies({
         soundLock: getIt<OwnSoundLockFlag>(),
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
+        cancelAnswers: getIt<CancelAnswerSender>(),
         heldTopics: localStore?.topics,
         archive: localStore,
         // Not waited for: each check asks the access layer, and neither a

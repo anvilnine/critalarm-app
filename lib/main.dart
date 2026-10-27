@@ -20,6 +20,7 @@ import 'package:critalarm/core/telemetry/crash_hooks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -151,6 +152,10 @@ Future<void> main() async {
 
   // Acks queued offline go out as soon as the network is back.
   unawaited(getIt<AckQueue>().start());
+
+  // A cancel answer that did not get through goes out once more per launch,
+  // three launches at most. It waits on nothing and posts nothing.
+  unawaited(getIt<CancelAnswerSender>().retryPending());
 
   // The first tool alarm's own acknowledged screen is owed once. If it was
   // acknowledged in an earlier run, that moment is over. Awaited, so no

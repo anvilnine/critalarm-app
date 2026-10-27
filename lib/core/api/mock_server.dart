@@ -4,6 +4,7 @@ import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -15,6 +16,23 @@ import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+/// One answer the mock holds, as the server would store it.
+final class MockCancelAnswer {
+  MockCancelAnswer({
+    required this.createdAt,
+    required this.reason,
+    required this.appVersion,
+    required this.platform,
+    this.text,
+  });
+
+  final DateTime createdAt;
+  final CancelReason reason;
+  final String appVersion;
+  final String platform;
+  String? text;
+}
 
 /// One token this fake server holds: the name it shows and when it was made.
 typedef _HeldToken = ({String name, DateTime createdAt});
@@ -123,6 +141,33 @@ class MockServer {
   /// The relay's clock for the weekly check. A test swaps it.
   DateTime Function() weeklyCheckClock = DateTime.now;
 
+  /// Answers to "What made you cancel?", oldest first (api.md §3.9). An
+  /// account has at most one in any rolling 30 days.
+  final List<MockCancelAnswer> cancelAnswers = [];
+
+  /// The mock's clock for the 30 day window and the hourly call limit. A test
+  /// swaps it.
+  DateTime Function() cancelAnswerClock = DateTime.now;
+
+  /// Whether the fixture account was ever assigned `hosted`. With
+  /// [accountTier] not `hosted` and this false, the route answers 403.
+  bool everHeldHosted = false;
+
+  /// The next this many cancel answers fail with 503.
+  int failNextCancelAnswers = 0;
+
+  /// How many cancel answers were attempted, failed ones included.
+  int cancelAnswerAttempts = 0;
+
+  /// When each call the request limit counted was made (api.md §3.9).
+  final List<DateTime> _cancelAnswerCalls = [];
+
+  /// The most calls the route takes from one account in a rolling hour.
+  static const cancelAnswerCallLimit = 30;
+
+  /// The raw body size the route reads, in bytes (api.md §1.8).
+  static const cancelAnswerBodyLimit = 8192;
+
   int _counter = 1000;
 
   /// Makes `GET /v1/incidents/{id}` answer 503, so the app's fallback path can
@@ -162,6 +207,12 @@ class MockServer {
     weeklyCheckHasToken = true;
     weeklyCheckEnrolledAt = null;
     weeklyCheckClock = DateTime.now;
+    cancelAnswers.clear();
+    cancelAnswerClock = DateTime.now;
+    everHeldHosted = false;
+    failNextCancelAnswers = 0;
+    cancelAnswerAttempts = 0;
+    _cancelAnswerCalls.clear();
     _answeredChecks.clear();
     _counter = 1000;
     failIncidentFetch = false;
@@ -1223,6 +1274,145 @@ class MockServer {
         !_devices.values.any((device) => device.deviceToken == token)) {
       throw const ApiException(statusCode: 401, message: 'unauthorized');
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cancel reason (api.md §3.9)
+  // ---------------------------------------------------------------------------
+
+  static final RegExp _cancelAppVersion = RegExp(r'^[A-Za-z0-9.+_-]{1,32}$');
+
+  static bool _cancelShapeOk(String? appVersion, String? platform) =>
+      appVersion != null &&
+      _cancelAppVersion.hasMatch(appVersion) &&
+      (platform == 'ios' || platform == 'android');
+
+  /// The checks that come before the body, in the order of the contract: the
+  /// mode, then the request limit, then the tier. The mock holds one fixture
+  /// account and a credential it always accepts, so the 401 is not here.
+  /// [failNextCancelAnswers] stands in for a server that is down.
+  void _admitCancelAnswer() {
+    cancelAnswerAttempts += 1;
+    if (failNextCancelAnswers > 0) {
+      failNextCancelAnswers -= 1;
+      throw const ApiException(statusCode: 503, message: 'unavailable');
+    }
+    if (serverInfo.mode != ServerModes.hosted) {
+      throw ApiException(
+        statusCode: 501,
+        message: 'not supported in ${serverInfo.mode} mode',
+      );
+    }
+    final now = cancelAnswerClock();
+    final hourAgo = now.subtract(const Duration(hours: 1));
+    _cancelAnswerCalls.removeWhere((at) => !at.isAfter(hourAgo));
+    if (_cancelAnswerCalls.length >= cancelAnswerCallLimit) {
+      throw const ApiException(statusCode: 429, message: 'rate limited');
+    }
+    _cancelAnswerCalls.add(now);
+    if (accountTier != 'hosted' && !everHeldHosted) {
+      throw const ApiException(
+        statusCode: 403,
+        message: 'tier',
+        tier: 'hosted',
+      );
+    }
+  }
+
+  /// Keeps an answer the way api.md §3.9 says. The current answer is the
+  /// newest one first stored within the last 30 days. A call while there is
+  /// one is a repeat: reason, version and platform never change and an empty
+  /// text is filled once, never replaced. A call with none creates one. Every
+  /// accepted call returns normally, as the route answers 204.
+  void _storeCancelAnswer({
+    required CancelReason reason,
+    required String? text,
+    required String appVersion,
+    required String platform,
+  }) {
+    final trimmed = text == null ? '' : trimCancelText(text);
+    if (trimmed.runes.length > kCancelTextMaxChars) {
+      throw const ApiException(statusCode: 400, message: 'text too long');
+    }
+    final stored = trimmed.isEmpty ? null : trimmed;
+    final now = cancelAnswerClock();
+    final windowStart = now.subtract(const Duration(days: 30));
+    MockCancelAnswer? current;
+    for (final answer in cancelAnswers) {
+      if (answer.createdAt.isAfter(windowStart)) current = answer;
+    }
+    if (current == null) {
+      cancelAnswers.add(
+        MockCancelAnswer(
+          createdAt: now,
+          reason: reason,
+          appVersion: appVersion,
+          platform: platform,
+          text: stored,
+        ),
+      );
+    } else if (current.text == null && stored != null) {
+      current.text = stored;
+    }
+  }
+
+  /// POST /v1/account/cancel-reason, for a caller that already holds typed
+  /// values. A raw request goes through [_handleCancelReasonRequest], which
+  /// also checks the size and the shape of the body.
+  void recordCancelReason({
+    required CancelReason reason,
+    required String appVersion,
+    required String platform,
+    String? text,
+  }) {
+    _admitCancelAnswer();
+    if (!_cancelShapeOk(appVersion, platform)) {
+      throw const ApiException(statusCode: 400, message: 'invalid request');
+    }
+    _storeCancelAnswer(
+      reason: reason,
+      text: text,
+      appVersion: appVersion,
+      platform: platform,
+    );
+  }
+
+  /// The route as a server runs it: the checks before the body, then the size
+  /// of the raw bytes, the shape, the reason, the text, and the store.
+  void _handleCancelReasonRequest(String rawBody) {
+    _admitCancelAnswer();
+    if (utf8.encode(rawBody).length > cancelAnswerBodyLimit) {
+      throw const ApiException(statusCode: 413, message: 'request too large');
+    }
+    const invalid = ApiException(statusCode: 400, message: 'invalid request');
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(rawBody);
+    } on FormatException {
+      throw invalid;
+    }
+    if (decoded is! Map<String, dynamic>) throw invalid;
+    final reasonValue = decoded['reason'];
+    final textValue = decoded['text'];
+    final appVersion = decoded['app_version'];
+    final platform = decoded['platform'];
+    if (reasonValue is! String ||
+        (textValue != null && textValue is! String) ||
+        appVersion is! String ||
+        platform is! String ||
+        !_cancelShapeOk(appVersion, platform)) {
+      throw invalid;
+    }
+    final reason = CancelReason.fromWire(reasonValue);
+    if (reason == null) {
+      throw const ApiException(statusCode: 400, message: 'invalid reason');
+    }
+    _storeCancelAnswer(
+      reason: reason,
+      text: textValue as String?,
+      appVersion: appVersion,
+      platform: platform,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -2349,6 +2539,12 @@ class MockServer {
         );
 
         return _jsonResponse(published.toJson(), 200);
+      }
+
+      // POST /v1/account/cancel-reason
+      if (method == 'POST' && path == '/v1/account/cancel-reason') {
+        _handleCancelReasonRequest(bodyString);
+        return http.Response('', 204);
       }
 
       return _jsonResponse({'error': 'not found'}, 404);

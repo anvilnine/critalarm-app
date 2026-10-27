@@ -642,6 +642,19 @@
     "pro_ended_action": "See plans",
     "pro_ended_dismiss": "OK"
   },
+  "cancel_question": {
+    "title": "What made you cancel?",
+    "reason_price": "Costs too much",
+    "reason_unused": "Not using it enough",
+    "reason_selfhost": "Moving to my own server",
+    "reason_missing": "Missing a feature",
+    "reason_broken": "Something broke",
+    "reason_other": "Other",
+    "explain_hint": "Optional note. We can't reply.",
+    "send": "Send note",
+    "thanks_title": "Thanks. That helps.",
+    "keeps": "Cloud stays on until {date}. Your alarms keep ringing."
+  },
   "asks": {
     "pro_title": "Cloud adds:",
     "pro_cap_refused": "Free allows {free_critical_topics} critical topics. This one was not created. What you typed is still there.",
