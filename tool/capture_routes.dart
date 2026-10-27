@@ -46,4 +46,8 @@ const List<CaptureRoute> allScreenRoutes = [
     FaceState.calm,
     TargetPlatform.iOS,
   ),
+  // WP2: the lock screen with no alarm over it, and the alarm route with
+  // nothing ringing.
+  ('wp2_09_lock_screen_quiet', '/lockscreen', FaceState.calm, null),
+  ('wp2_08_no_alarm', '/alarm', FaceState.acked, null),
 ];
