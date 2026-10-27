@@ -10,7 +10,6 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Changed
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
-- Tablets, foldables and wide windows get a new frame: on a half-open foldable the tab bar and lists stay clear of the fold, wide windows keep the rail and both panes in a centred frame, and a small cover screen gets a compact tab bar.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
