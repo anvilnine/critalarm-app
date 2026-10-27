@@ -197,6 +197,40 @@ void main() {
     }
   });
 
+  test('a server error on the way keeps the words the app has for it and '
+      'drops any other text', () async {
+    when(() => establish(any(), any())).thenThrow(
+      const ApiException(
+        statusCode: 429,
+        message: 'Rate limited',
+        code: 42901,
+        cap: 'devices',
+      ),
+    );
+    final known = await connect(
+      serverUrl: 'https://alarm.example.com',
+      adminToken: 'tk_one',
+    );
+    final fault = (known as ConnectTransportError).error;
+    expect(fault.kind, NetworkFaultKind.server);
+    expect(fault.server?.statusCode, 429);
+    expect(fault.server?.code, 42901);
+    expect(fault.server?.cap, 'devices');
+    expect(fault.server?.message, 'rate limited');
+
+    when(() => establish(any(), any())).thenThrow(
+      const ApiException(statusCode: 400, message: 'bad bearer tk_one'),
+    );
+    final unknown = await connect(
+      serverUrl: 'https://alarm.example.com',
+      adminToken: 'tk_one',
+    );
+    final dropped = (unknown as ConnectTransportError).error;
+    expect(dropped.kind, NetworkFaultKind.server);
+    expect(dropped.server?.message, isEmpty);
+    expect('${dropped.server}', isNot(contains('tk_one')));
+  });
+
   test('a throw on the way is a transport error', () async {
     when(() => establish(any(), any())).thenThrow(Exception('socket'));
     final outcome = await connect(
