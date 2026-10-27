@@ -45,11 +45,16 @@ class HeroPips extends StatelessWidget {
   );
 }
 
-/// The room above a row of pips [gap] tall that opens a column with no
-/// stage, so the pips start 16 under [safeTop]. The pips are
-/// [HeroPipsPainter.thickness] thick and centred in their row.
-double heroPipsTopInsetFor({required double safeTop, required double gap}) {
-  final pipsTop = (gap - HeroPipsPainter.thickness) / 2;
+/// The room to add above a row of pips [gap] tall that sits [above] from
+/// the top of its column, so the pips start at least 16 under [safeTop].
+/// 0 under a stage tall enough. The pips are [HeroPipsPainter.thickness]
+/// thick and centred in their row.
+double heroPipsTopInsetFor({
+  required double safeTop,
+  required double gap,
+  double above = 0,
+}) {
+  final pipsTop = above + (gap - HeroPipsPainter.thickness) / 2;
   final inset = safeTop + 16 - pipsTop;
   return inset < 0 ? 0 : inset;
 }

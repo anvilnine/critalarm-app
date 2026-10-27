@@ -17,5 +17,15 @@ void main() {
     test('adds nothing when the row already reaches past 16', () {
       expect(heroPipsTopInsetFor(safeTop: 0, gap: 60), 0);
     });
+
+    test('counts a stage too small to draw above the row', () {
+      // The Razr cover: 7 of stage, a 16 row, pips 12.5 down.
+      final inset = heroPipsTopInsetFor(safeTop: 0, gap: 16, above: 7);
+      expect(7 + inset + (16 - HeroPipsPainter.thickness) / 2, 16);
+    });
+
+    test('adds nothing under a phone stage', () {
+      expect(heroPipsTopInsetFor(safeTop: 47, gap: 24, above: 300), 0);
+    });
   });
 }
