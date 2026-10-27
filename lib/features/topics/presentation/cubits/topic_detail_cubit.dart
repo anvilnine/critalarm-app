@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
@@ -24,6 +25,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart
 import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for TopicDetailScreen.
@@ -41,6 +43,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this.featureAccess,
     this.glances,
     this.signalStore,
+    this.held,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -76,10 +79,19 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// tests that do not care, and then both read off and neither saves.
   final AlarmSignalStore? signalStore;
 
+  /// What the phone held at launch. Lets the first frame of a topic opened
+  /// before the server has answered carry its alarms and messages. Null in
+  /// tests that do not care.
+  final HeldRows? held;
+
   final DateTime Function() _now;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
+
+  /// The open incidents of this topic in the phone's copy the first frame was
+  /// drawn from. Empty once the shared list is what the screen reads.
+  List<Incident> _copyOpen = const [];
 
   List<Incident>? _builtFromIncidents;
   List<Topic>? _builtFromTopics;
@@ -104,9 +116,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       _acking || state.isMarkingAsRead || state.isUpdatingCritical;
 
   Future<void> load(String topicName) async {
-    _incidentsSub ??= _incidents.stream.listen(
-      (_) => unawaited(_rebuildIfChanged()),
-    );
+    _incidentsSub ??= _incidents.stream.listen((_) {
+      _applySharedToCopy();
+      unawaited(_rebuildIfChanged());
+    });
     _topicsSub ??= _topics.stream.listen(
       (_) => unawaited(_rebuildIfChanged()),
     );
@@ -168,8 +181,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// depend on it. Without it the card stays on its dots.
   TopicDetailState? seedFor(String topicName) {
     final topics = _topics.state;
-    final incidents = _incidents.state;
-    if (!topics.isReady || !incidents.isReady) return null;
+    if (!topics.isReady) return null;
+    final incidents = _incidentsOf();
+    if (incidents == null) return null;
     final topic = topics.named(topicName);
     if (topic == null) return null;
 
@@ -179,9 +193,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         : host.lastKnownAuthorization;
     final glance = glances?.of(topic.name, createdAt: topic.createdAt);
     final openIncidents = incidents
-        .forTopic(topic.name)
-        .where((i) => i.state == 'open')
+        .where((i) => i.topic == topic.name && i.state == 'open')
         .toList();
+    _copyOpen = _incidents.state.isReady ? const [] : openIncidents;
     final stage = _stageOf(
       topic: topic,
       openIncidents: openIncidents,
@@ -204,13 +218,87 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       isMessagesLoading: rows == null,
       messageTimes: glance?.messageTimes ?? const [],
       areMessageTimesKnown: glance != null,
-      lastAlarmAt: _lastAlarmOf(topic.name),
+      lastAlarmAt: _lastAlarmOf(topic.name, incidents),
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       // Read here too, so a seed for another topic never shows the switches
       // of the topic drawn before it.
       flashOn: signals?.flashFor(topic.name) ?? false,
       strongVibrationOn: signals?.vibrationFor(topic.name) ?? false,
       clearError: true,
+    );
+  }
+
+  /// The incidents the first frame is drawn from: the shared list once it has
+  /// loaded, otherwise the phone's own copy from launch, which is good until
+  /// the server has answered for incidents. Null when neither exists.
+  List<Incident>? _incidentsOf() {
+    final shared = _incidents.state;
+    if (shared.isReady) return shared.incidents;
+    return held?.snapshot?.incidents;
+  }
+
+  /// An update of the shared list that arrived while this screen was making
+  /// its own change, applied when that change is over.
+  bool _sharedPending = false;
+
+  /// The shared list moved while the screen still shows the phone's copy: an
+  /// alarm landed on this topic, or one the copy held open was closed. This
+  /// covers two moments: before the server's answer (the list holds only what
+  /// was applied to it, so the copy's other alarms stay), and after it while
+  /// the topic list is still the phone's copy (the list is whole, so it
+  /// replaces the copy). Once the topic list has answered too, the full build
+  /// takes over. What the shared list says wins over the stored copy, so a
+  /// real alarm is never shown as calm.
+  void _applySharedToCopy() {
+    final shared = _incidents.state;
+    if (isClosed) return;
+    if (_busy) {
+      _sharedPending = true;
+      return;
+    }
+    final whole = shared.isReady;
+    if (whole && !_topics.state.isKept) return;
+    if (!whole && shared.incidents.isEmpty) return;
+    if (state.topicName.isEmpty || state.status != TopicDetailStatus.success) {
+      return;
+    }
+    final topic = _topics.state.named(state.topicName);
+    if (topic == null) return;
+    final ofTopic = shared.forTopic(state.topicName);
+    final ids = {for (final i in shared.incidents) i.id};
+    final open = [
+      if (!whole)
+        for (final i in _copyOpen)
+          if (!ids.contains(i.id)) i,
+      for (final i in ofTopic)
+        if (i.state == 'open') i,
+    ];
+    final openIds = [for (final i in open) i.id];
+    if (listEquals(openIds, state.openIncidentIds)) return;
+    _copyOpen = whole
+        ? const []
+        : [
+            for (final i in open)
+              if (!ids.contains(i.id)) i,
+          ];
+    final stage = _stageOf(
+      topic: topic,
+      openIncidents: open,
+      hasHighMessage:
+          glances?.of(topic.name, createdAt: topic.createdAt)?.hasHighMessage ??
+          false,
+    );
+    emit(
+      state.copyWith(
+        severity: stage.severity,
+        faceState: stage.face,
+        word: stage.word,
+        subText: _subTextOf(state.messages.length, stage.priority),
+        openIncidentIds: openIds,
+        lastAlarmAt:
+            _lastAlarmOf(topic.name, [...shared.incidents]) ??
+            state.lastAlarmAt,
+      ),
     );
   }
 
@@ -358,7 +446,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       isMessagesLoading: false,
       messageTimes: messageTimes,
       areMessageTimesKnown: true,
-      lastAlarmAt: _lastAlarmOf(topic.name),
+      lastAlarmAt: _lastAlarmOf(topic.name, _incidents.state.incidents),
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       clearError: true,
     );
@@ -415,9 +503,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   }
 
   /// When the newest incident on [topicName] opened, or null if none has.
-  DateTime? _lastAlarmOf(String topicName) {
+  DateTime? _lastAlarmOf(String topicName, List<Incident> incidents) {
     DateTime? last;
-    for (final incident in _incidents.state.forTopic(topicName)) {
+    for (final incident in incidents) {
+      if (incident.topic != topicName) continue;
       final opened = incident.openedAt;
       if (opened == null) continue;
       if (last == null || opened.isAfter(last)) last = opened;
@@ -487,6 +576,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         );
       },
     );
+    _applyPendingShared();
   }
 
   /// Acknowledge every open incident on this topic, and stop the noise first.
@@ -556,6 +646,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         ),
       );
     }
+    _applyPendingShared();
+  }
+
+  /// Applies what the shared list did while a change of this screen's own was
+  /// running.
+  void _applyPendingShared() {
+    if (!_sharedPending || isClosed) return;
+    _sharedPending = false;
+    _applySharedToCopy();
   }
 
   /// Marks each of [ids] acknowledged in the shared list, before any request
