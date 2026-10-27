@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -81,6 +82,12 @@ class DeviceIdentityStore {
     _written.ring();
     return identity;
   }
+
+  /// Drops the device token for a registration on a relay that did not
+  /// issue it, and gives this phone a new device id. The phone registers
+  /// there as a new device. Here that is [resetIdentity]; on an iPhone the
+  /// synced account item stays.
+  Future<DeviceIdentity> startFresh() => resetIdentity();
 
   /// What the relay accepted was accepted for the identity that is going. The
   /// record is scoped to a device id as well, so it would not match the new
@@ -397,6 +404,29 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     return identity;
   }
 
+  /// A new device item with a new id and no token. The synced account item
+  /// is left alone, since other handsets on the Apple ID read it, and the
+  /// shared row still owed a release stays beside the new id.
+  @override
+  Future<DeviceIdentity> startFresh() async {
+    final old = await readOrCreate();
+    final account = await _readAccount();
+    final identity = DeviceIdentity(
+      deviceId: 'dev_${const Uuid().v4()}',
+      accountJoinToken: account?.joinToken,
+      retiredDeviceId: old.retiredDeviceId,
+      retiredDeviceToken: old.retiredDeviceToken,
+    );
+    await _writeDevice(identity);
+    for (final key in DeviceIdentityStore.legacyKeys) {
+      await _prefs.remove(key);
+    }
+    await _forgetRelayConfirmation();
+    _current = identity;
+    _written.ring();
+    return identity;
+  }
+
   /// Only the device item goes. The synced account item stays where it is:
   /// whether disconnect should take that too is a question for A14, and
   /// deleting it here would sync the delete to every other handset.
@@ -424,7 +454,10 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     final join =
         DeviceIdentityStore._nonEmpty(accountJoinToken) ??
         identity.accountJoinToken;
+    // The synced item has no issuer written beside it, so what it holds
+    // counts as the hosted relay's. Another relay's account never goes in.
     if (join != null &&
+        (relay == null || isHostedRelay(relay)) &&
         (join != identity.accountJoinToken ||
             accountId != identity.accountId)) {
       await _writeAccount(accountId: accountId, joinToken: join);

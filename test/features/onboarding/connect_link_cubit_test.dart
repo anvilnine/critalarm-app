@@ -441,9 +441,6 @@ void main() {
       RelayDiffers():
           'This server uses another relay than the one this phone is '
           'registered with. Disconnect first, then connect again.',
-      RelayUnchecked():
-          "This phone cannot check this server's relay. Enter the address "
-          'by hand instead.',
     };
 
     for (final MapEntry(key: outcome, value: line) in lines.entries) {
@@ -488,7 +485,6 @@ void main() {
         const LinkServerNotSelfHosted(),
         const AdminTokenRefused(),
         const RelayDiffers(),
-        const RelayUnchecked(),
         const RegisteredElsewhere(),
       ]) {
         when(

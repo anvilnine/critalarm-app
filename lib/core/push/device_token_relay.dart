@@ -1,6 +1,16 @@
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 
+/// The Crit Alarm Cloud relay. A relay credential this phone holds with no
+/// relay written beside it counts as issued here: a device token saved by an
+/// older version, the `aj_` join token in the synced iPhone account item, and
+/// the device token of the old shared iPhone row.
+const hostedRelayUrl = 'https://relay.critalarm.app';
+
+/// True when [relay] is [hostedRelayUrl].
+bool isHostedRelay(Uri relay) =>
+    ServerInfoValidation.isSameAddress(hostedRelayUrl, relay.toString());
+
 /// What a relay is to the device token this phone holds.
 enum DeviceTokenRelayTrust {
   /// The phone holds no device token, so there is nothing to keep back.
@@ -9,10 +19,12 @@ enum DeviceTokenRelayTrust {
   /// The relay issued the token.
   issuer,
 
-  /// The phone holds a token and nothing says which relay issued it.
+  /// The token has no issuer written beside it, so it counts as issued by
+  /// the hosted relay, and this relay is another one. The token is not sent
+  /// here. A registration here starts fresh.
   unknownIssuer,
 
-  /// Another relay issued the token.
+  /// The relay written beside the token is another one.
   otherRelay,
 }
 
@@ -20,18 +32,25 @@ enum DeviceTokenRelayTrust {
 /// it goes to that relay and to no other.
 ///
 /// The issuer is the relay saved beside the token. A token saved by an
-/// older version has none, and counts as issued by [sessionRelay], the relay
-/// of the saved session.
+/// older version has none and counts as issued by [hostedRelayUrl].
 DeviceTokenRelayTrust deviceTokenRelayTrust({
   required DeviceIdentity? identity,
-  required Uri? sessionRelay,
   required Uri relay,
-}) => _trust(
-  token: identity?.deviceToken,
-  recorded: identity?.tokenRelay,
-  fallback: sessionRelay,
-  asked: relay,
-);
+}) {
+  final token = identity?.deviceToken;
+  if (token == null || token.trim().isEmpty) {
+    return DeviceTokenRelayTrust.noToken;
+  }
+  final recorded = identity?.tokenRelay;
+  if (recorded == null || recorded.trim().isEmpty) {
+    return isHostedRelay(relay)
+        ? DeviceTokenRelayTrust.issuer
+        : DeviceTokenRelayTrust.unknownIssuer;
+  }
+  return ServerInfoValidation.isSameAddress(recorded, relay.toString())
+      ? DeviceTokenRelayTrust.issuer
+      : DeviceTokenRelayTrust.otherRelay;
+}
 
 /// On a server that is not self-hosted the device token is the management
 /// credential, so it is that for one server address and for no other.
@@ -43,27 +62,16 @@ DeviceTokenRelayTrust deviceTokenServerTrust({
   required DeviceIdentity? identity,
   required Uri? sessionServer,
   required Uri server,
-}) => _trust(
-  token: identity?.deviceToken,
-  recorded: identity?.tokenServer,
-  fallback: sessionServer,
-  asked: server,
-);
-
-DeviceTokenRelayTrust _trust({
-  required String? token,
-  required String? recorded,
-  required Uri? fallback,
-  required Uri asked,
 }) {
+  final token = identity?.deviceToken;
   if (token == null || token.trim().isEmpty) {
     return DeviceTokenRelayTrust.noToken;
   }
-  final owner = recorded ?? fallback?.toString();
+  final owner = identity?.tokenServer ?? sessionServer?.toString();
   if (owner == null || owner.trim().isEmpty) {
     return DeviceTokenRelayTrust.unknownIssuer;
   }
-  return ServerInfoValidation.isSameAddress(owner, asked.toString())
+  return ServerInfoValidation.isSameAddress(owner, server.toString())
       ? DeviceTokenRelayTrust.issuer
       : DeviceTokenRelayTrust.otherRelay;
 }

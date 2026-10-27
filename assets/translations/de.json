@@ -288,7 +288,6 @@
     "address_differs": "Dieser Server gibt {host} als seine Adresse an. Nicht verbunden.",
     "downgrade": "Dieser Server hat mit einer unverschlüsselten Adresse geantwortet. Nicht verbunden.",
     "not_self_hosted": "Ein Link verbindet nur mit einem selbstgehosteten Server. Nicht verbunden.",
-    "relay_unchecked": "Dieses Handy kann das Relay dieses Servers nicht prüfen. Gib die Adresse stattdessen von Hand ein.",
     "close": "Schließen"
   },
   "onboarding_real_ring": {

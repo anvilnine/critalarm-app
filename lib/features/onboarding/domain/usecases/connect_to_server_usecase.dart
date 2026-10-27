@@ -84,12 +84,6 @@ final class RelayDiffers extends ConnectOutcome {
   const RelayDiffers();
 }
 
-/// A link named a server and nothing on the phone says whether its relay is
-/// the one this phone is registered with.
-final class RelayUnchecked extends ConnectOutcome {
-  const RelayUnchecked();
-}
-
 /// The server would take this phone's device token as its credential, and
 /// that token is the credential for another server.
 final class RegisteredElsewhere extends ConnectOutcome {
@@ -215,11 +209,6 @@ class ConnectToServerUsecase {
       );
       if (trust == DeviceTokenRelayTrust.otherRelay) {
         return const RelayDiffers();
-      }
-      // Typed by hand, the server is the person's own choice and its relay
-      // is taken as the issuer, as it was before the issuer was kept.
-      if (pinToAddress && trust == DeviceTokenRelayTrust.unknownIssuer) {
-        return const RelayUnchecked();
       }
       if (isSelfHosted) {
         final refusedToken = await _refuseToken(Uri.parse(info.baseUrl), token);

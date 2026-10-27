@@ -143,7 +143,6 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
         LinkServerNotSelfHosted() ||
         AdminTokenRefused() ||
         RelayDiffers() ||
-        RelayUnchecked() ||
         RegisteredElsewhere() => false,
         _ => true,
       },

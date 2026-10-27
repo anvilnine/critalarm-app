@@ -61,20 +61,27 @@ final class RegisterDeviceUsecase {
     String? pushToken,
     Uri? relayUri,
   }) async {
-    final sessionRelay = await readSessionRelay?.call();
-    final target = relayUri ?? sessionRelay;
+    final target = relayUri ?? await readSessionRelay?.call();
     // A held device token goes to the relay that issued it and to no other.
     // Checked before anything is read for sending or written.
-    if (target != null &&
-        deviceTokenRelayTrust(
-              identity: await _identity.read(),
-              sessionRelay: sessionRelay,
-              relay: target,
-            ) ==
-            DeviceTokenRelayTrust.otherRelay) {
+    final trust = target == null
+        ? null
+        : deviceTokenRelayTrust(
+            identity: await _identity.read(),
+            relay: target,
+          );
+    if (trust == DeviceTokenRelayTrust.otherRelay) {
       throw const DeviceTokenRelayMismatch();
     }
-    final identity = await _identity.readOrCreate();
+    // A token with no issuer written down counts as the hosted relay's. On
+    // any other relay this phone registers as a new device, and the old
+    // token is not sent.
+    final identity = trust == DeviceTokenRelayTrust.unknownIssuer
+        ? await _identity.startFresh()
+        : await _identity.readOrCreate();
+    // The join token and the shared row's token were never written down
+    // with an issuer, so they count as the hosted relay's too.
+    final isHosted = target != null && isHostedRelay(target);
     final registration = DeviceRegistration(
       deviceId: identity.deviceId,
       platform: _platform(),
@@ -85,7 +92,12 @@ final class RegisterDeviceUsecase {
     // api.md §4.2: the first call mints the device token, later calls PATCH the
     // same device id with the new push token. Re-POSTing would answer 401.
     final response = identity.deviceToken == null
-        ? await _firstRegistration(registration, identity, relayUri)
+        ? await _firstRegistration(
+            registration,
+            identity,
+            relayUri,
+            mayJoin: isHosted,
+          )
         : await _api.refreshDevice(
             registration,
             identity.deviceToken!,
@@ -119,7 +131,7 @@ final class RegisterDeviceUsecase {
       // Keeping the packs is not part of registering. A phone that could not
       // save them is still registered.
     }
-    await _releaseRetiredDevice(identity, relayUri);
+    if (isHosted) await _releaseRetiredDevice(identity, relayUri);
     await identifyAccount?.call(response.accountId);
     return response;
   }
@@ -128,13 +140,15 @@ final class RegisterDeviceUsecase {
   ///
   /// With a join token in hand the device attaches to an account another
   /// handset on the same Apple ID already made. Without one it creates its
-  /// own account, which is what every device did before.
+  /// own account, which is what every device did before. [mayJoin] is false
+  /// on a relay other than the hosted one, which never gets the join token.
   Future<DeviceRegistrationResponse> _firstRegistration(
     DeviceRegistration registration,
     DeviceIdentity identity,
-    Uri? relayUri,
-  ) async {
-    final join = identity.accountJoinToken;
+    Uri? relayUri, {
+    required bool mayJoin,
+  }) async {
+    final join = mayJoin ? identity.accountJoinToken : null;
     if (join == null) {
       return _api.registerDevice(registration, relayUri: relayUri);
     }
@@ -157,8 +171,9 @@ final class RegisterDeviceUsecase {
   /// Retires the row an iPhone and an iPad shared before the Keychain split.
   ///
   /// Runs only once this handset has a row of its own, so nothing is released
-  /// before its replacement exists. A call that fails leaves the pair on disk
-  /// and the next launch tries again (api.md §4.2).
+  /// before its replacement exists, and only on the hosted relay, where the
+  /// shared row lived. A call that fails leaves the pair on disk and the next
+  /// launch tries again (api.md §4.2).
   Future<void> _releaseRetiredDevice(
     DeviceIdentity identity,
     Uri? relayUri,

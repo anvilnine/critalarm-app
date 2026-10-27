@@ -241,6 +241,59 @@ void main() {
     }
   });
 
+  test('starting fresh drops the device token and the device id, and on an '
+      'iPhone leaves the synced account item and the shared row owed a '
+      'release', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final android = DeviceIdentityStore(prefs);
+    await android.readOrCreate();
+    await android.saveRegistration(
+      deviceToken: 'dv_old',
+      accountId: 'acc_old',
+      tier: 'free',
+    );
+    final oldId = (await android.read())!.deviceId;
+    final fresh = await android.startFresh();
+    expect(fresh.deviceId, isNot(oldId));
+    expect(fresh.deviceToken, isNull);
+    expect(prefs.getString('device_token'), isNull);
+    expect(prefs.getString('device_id'), fresh.deviceId);
+    await android.clear();
+
+    keychain
+      ..seedAccount(accountId: 'acc_cloud', joinToken: 'aj_cloud')
+      ..seedCombined(
+        deviceId: 'dev_shared',
+        deviceToken: 'dv_shared',
+        accountId: 'acc_cloud',
+        accountJoinToken: 'aj_cloud',
+      );
+    final iphone = KeychainDeviceIdentityStore(prefs);
+    final started = await iphone.startFresh();
+    expect(started.deviceToken, isNull);
+    expect(keychain.account, {
+      'account_id': 'acc_cloud',
+      'account_join_token': 'aj_cloud',
+    });
+    expect(keychain.device?['device_id'], started.deviceId);
+    expect(keychain.device?['device_token'], isNull);
+    expect(keychain.device?['retired_device_id'], 'dev_shared');
+    expect(keychain.device?['retired_device_token'], 'dv_shared');
+
+    // An account from another relay never lands in the synced item.
+    await iphone.saveRegistration(
+      deviceToken: 'dv_elsewhere',
+      accountId: 'acc_elsewhere',
+      tier: 'free',
+      accountJoinToken: 'aj_elsewhere',
+      relay: Uri.parse('https://relay.example.net'),
+    );
+    expect(keychain.account, {
+      'account_id': 'acc_cloud',
+      'account_join_token': 'aj_cloud',
+    });
+  });
+
   test('a phone that holds nothing reads as nothing and mints no id', () async {
     final prefs = await SharedPreferences.getInstance();
     expect(await DeviceIdentityStore(prefs).read(), isNull);

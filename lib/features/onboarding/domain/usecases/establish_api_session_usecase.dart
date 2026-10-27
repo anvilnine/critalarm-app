@@ -33,14 +33,31 @@ class EstablishApiSessionUsecase {
   final RegisterDeviceUsecase _register;
   final DeviceIdentityStore _identity;
 
-  /// What [relay] is to the device token this phone holds. Reads only: it
-  /// mints no identity.
-  Future<DeviceTokenRelayTrust> relayTrust(Uri relay) async =>
-      deviceTokenRelayTrust(
-        identity: await _identity.read(),
-        sessionRelay: (await _sessions.read())?.relayUri,
-        relay: relay,
-      );
+  /// What [relay] is to the device token this phone holds, for a connect.
+  /// Reads only: it mints no identity.
+  ///
+  /// A token with no issuer written beside it counts as issued by the hosted
+  /// relay. Another relay gets a fresh registration and never the token, but
+  /// a connect only lets that happen where it replaces nothing: with no
+  /// server saved, or with the saved session already on [relay]. Otherwise
+  /// the answer is [DeviceTokenRelayTrust.otherRelay], as for a token whose
+  /// issuer is written down.
+  Future<DeviceTokenRelayTrust> relayTrust(Uri relay) async {
+    final trust = deviceTokenRelayTrust(
+      identity: await _identity.read(),
+      relay: relay,
+    );
+    if (trust != DeviceTokenRelayTrust.unknownIssuer) return trust;
+    final session = await _sessions.read();
+    if (session == null ||
+        ServerInfoValidation.isSameAddress(
+          session.relayUri.toString(),
+          relay.toString(),
+        )) {
+      return trust;
+    }
+    return DeviceTokenRelayTrust.otherRelay;
+  }
 
   /// What the session and the identity hold now.
   Future<SessionCheckpoint> checkpoint() async =>
@@ -77,12 +94,7 @@ class EstablishApiSessionUsecase {
     // The relay of the saved session is where the device token goes from
     // then on, whatever the mode. So a session never names a relay that did
     // not issue the token this phone holds.
-    if (deviceTokenRelayTrust(
-          identity: held,
-          sessionRelay: previous?.relayUri,
-          relay: relay,
-        ) ==
-        DeviceTokenRelayTrust.otherRelay) {
+    if (await relayTrust(relay) == DeviceTokenRelayTrust.otherRelay) {
       throw const DeviceTokenRelayMismatch();
     }
     // Where the device token is the credential, it is that for one server.
@@ -97,13 +109,13 @@ class EstablishApiSessionUsecase {
     }
     final before = await checkpoint();
     try {
-      // The session is about to change. A token whose relay or server was
-      // only known from the session gets both written down first.
-      if (held?.deviceToken != null && previous != null) {
-        await _identity.saveTokenOrigin(
-          relay: held?.tokenRelay == null ? previous.relayUri : null,
-          server: held?.tokenServer == null ? previous.baseUri : null,
-        );
+      // The session is about to change. A token whose server was only known
+      // from the session gets it written down first. Its relay is not: one
+      // with none written down counts as issued by the hosted relay.
+      if (held?.deviceToken != null &&
+          held?.tokenServer == null &&
+          previous != null) {
+        await _identity.saveTokenOrigin(server: previous.baseUri);
       }
       var credential = adminToken;
       if (usesDeviceToken) {

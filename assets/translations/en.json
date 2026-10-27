@@ -288,7 +288,6 @@
     "address_differs": "This server says its address is {host}. Not connected.",
     "downgrade": "This server answered with an unencrypted address. Not connected.",
     "not_self_hosted": "A link only connects to a server you host yourself. Not connected.",
-    "relay_unchecked": "This phone cannot check this server's relay. Enter the address by hand instead.",
     "close": "Close"
   },
   "onboarding_real_ring": {

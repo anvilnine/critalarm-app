@@ -16,6 +16,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
 - Connecting to your own server checks the admin token first. A token the server does not accept is no longer saved, and the server you were connected to stays connected.
 - Editing your server in Settings checks the server and the admin token before it saves. If the check fails, the sheet says why and the server you were connected to stays connected.
+- Your Crit Alarm Cloud device credential is sent to Crit Alarm Cloud only. On another relay the phone registers as a new device.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
