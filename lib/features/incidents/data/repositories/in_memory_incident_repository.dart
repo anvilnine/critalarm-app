@@ -1,5 +1,6 @@
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -17,7 +18,7 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 /// Without a store it behaves exactly as it did before, which is what the
 /// tests that build it with an [ApiClient] alone rely on.
 class InMemoryIncidentRepository implements IncidentRepository {
-  const InMemoryIncidentRepository(this._client, {this.store});
+  InMemoryIncidentRepository(this._client, {this.store});
 
   final ApiClient _client;
 
@@ -54,6 +55,9 @@ class InMemoryIncidentRepository implements IncidentRepository {
     Future<List<Incident>> local() =>
         store.incidents.page(limit: limit, topic: topic);
 
+    // Taken before the request, so an answer that lands after the account
+    // changed is shown at most and never stored under the new account.
+    final ticket = store.incidents.beginWrite();
     final askFor = fullRefresh
         ? null
         : (since ?? await store.incidents.newestUpdatedAt());
@@ -66,7 +70,11 @@ class InMemoryIncidentRepository implements IncidentRepository {
         topic: topic,
         since: askFor,
       );
-      await store.incidents.upsertAll(fresh);
+      await store.incidents.upsertAll(fresh, ticket: ticket);
+    } on StaleAccountException {
+      // The answer is for the account the phone left. It is dropped, and the
+      // caller is handed what the phone holds for the account it is on now.
+      return (await local()).toSuccess();
     } on Exception catch (e) {
       // The server being down is not an empty history any more.
       final held = await local();
@@ -105,9 +113,10 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
   @override
   Future<AppResult<Incident>> ackIncident(String id) async {
+    final ticket = store?.incidents.beginWrite();
     try {
       final incident = await _client.ackIncident(id);
-      await store?.incidents.upsertAll([incident]);
+      await store?.incidents.upsertAll([incident], ticket: ticket);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -123,9 +132,10 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
   @override
   Future<AppResult<Incident>> closeIncident(String id) async {
+    final ticket = store?.incidents.beginWrite();
     try {
       final incident = await _client.closeIncident(id);
-      await store?.incidents.upsertAll([incident]);
+      await store?.incidents.upsertAll([incident], ticket: ticket);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -201,6 +211,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
       Future<List<Message>> local() =>
           store.messages.page(topic: topic, limit: maxIncidentLimit);
 
+      final ticket = store.messages.beginWrite();
       final askFor = since ?? await store.messages.newestMessageId(topic);
       try {
         final fresh = await _client.pollMessages(
@@ -208,7 +219,9 @@ class InMemoryIncidentRepository implements IncidentRepository {
           poll: poll,
           since: askFor,
         );
-        await store.messages.upsertAll(fresh);
+        await store.messages.upsertAll(fresh, ticket: ticket);
+      } on StaleAccountException {
+        return (await local()).toSuccess();
       } on Exception catch (e) {
         final held = await local();
         if (held.isNotEmpty) return held.toSuccess();

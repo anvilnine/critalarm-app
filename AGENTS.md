@@ -1243,13 +1243,59 @@ never seen, and a person's own alarm photo and own sounds are in no backup.
   treats as nothing to draw and nothing to ring.
 
 **Local store and the held topic list.** `LocalStore` (`lib/core/store/local_store.dart`,
-`critalarm.db`, schema version 3) holds three tables. `incidents` and `messages` are the
-archive: the user's own copy, deleted only by the auto-delete setting. `topics` is the last list
-the server gave, kept so the app opens with the topics it already knows. It is a copy the server
-replaces on every answer, not an archive.
+`critalarm.db`, schema version 4) holds three tables. `incidents` and `messages` are the
+archive: the user's own copy, deleted by the auto-delete setting and by an account delete.
+`topics` is the last list the server gave, kept so the app opens with the topics it already
+knows. It is a copy the server replaces on every answer, not an archive.
 
 - A table change bumps `LocalStore.schemaVersion` and adds a step in `_upgrade`. A test builds
   the previous version's file by hand and checks the old rows survive (`test/core/store/`).
+- Archive rows are scoped by account, like topics. `incidents` and `messages` carry a `scope`
+  column (the same `heldScopeFor` hash) and the primary key is `(scope, id)`. Every read in
+  `IncidentStore` and `MessageStore` asks for the current scope inside the store, so no caller
+  can forget to filter, and a read for no scope returns nothing. This includes the `since`
+  cursor (`newestUpdatedAt`): an account that signs in on a phone another account used asks the
+  server for its whole window.
+- The scope comes from `HeldAccountScope` (`lib/app/held_account_scope.dart`), which the topic
+  list uses too. The account is the one the person signed in to (`identity_account_id`) and, when
+  nobody is, the device's own. The device's account id is saved only at a registration, so after a
+  link, a switch or a merge it still names the old anonymous account until the next launch. Never
+  build a scope from the device's account id alone.
+- A merge ("keep both") moves the old account's archive rows to the new account
+  (`LocalStore.mergeArchive`, called from `ApiAccountRepository.merge`). A row the new account
+  already holds under the same id stays.
+- A sign-out keeps the archive rows, so the same account finds its history again. They are never
+  shown to another account. An account delete removes that account's rows
+  (`AccountData.forgetDeleted`, called by `wipeAfterDelete` only; a dead credential and a sign-out
+  call `forget`). A connect to a different server (`clearServerData`) and the auto-delete setting
+  cover every scope.
+- Every answer that carries incidents or messages is checked against the account that asked.
+  `ScopedApiClient` (`lib/core/api/scoped_api_client.dart`, wraps `HttpApiClient` in `di.dart`)
+  reads the scope (`HeldAccountScope`, server and account) when `getIncidents`, `getIncident`,
+  `ackIncident`, `closeIncident`, `publishMessage` or `pollMessages` starts and again when the
+  answer or the error arrives. If the two differ it throws `StaleAccountException`. Only the
+  scopes are compared, so a sign-in, a purchase or a connect that leaves the account as it was
+  changes nothing, and an account that was left and came back keeps its answer. Every caller
+  treats the exception as "nothing happened": the repository hands back what the phone holds
+  for the account it is on (lists, polls) or a failure (single incidents), the ack queue counts
+  the send as done, and the alarm controller, the first message watcher and the message sync
+  skip the item. A new direct read of those routes belongs on this client, never on
+  `HttpApiClient`.
+- Archive writes use a ticket as a second guard (`beginWrite`, `ArchiveScope` in
+  `lib/core/store/archive_scope.dart`) taken before the request or event the data came from.
+  The write is stored under the scope it started with, and only when the phone is still on that
+  scope. The check runs inside the write's transaction, and every delete or merge invalidates
+  open tickets first, so a late write cannot bring deleted rows back. Otherwise the write is
+  dropped and never stored under the next account. Alarms are received, sounded and
+  acknowledged before and without this, so a dropped write costs a row and nothing else. The
+  next sync fetches the incident again.
+- `AccountCubit.deleteAccount` reads the account it is deleting at the start and passes it to
+  `wipeAfterDelete(accountId:)`. The repository holds no state about it.
+- The upgrade to version 4 stamps every existing incident and message with the scope the phone
+  is on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
+  database). A file whose tables already have the column is left as it is. With no saved server
+  the rows get the empty scope, which no read asks for. A `LocalStore` opened with no `scope`
+  (unit tests, capture tools) keeps every row under one scope.
 - What a `topics` row holds: name, Critical delivery, the three timers, the relay content
   setting, when the topic was made (milliseconds, because the Topic screen matches what it
   remembered about a topic by that exact time) and the order the server gave. A topic token, its

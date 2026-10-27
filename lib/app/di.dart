@@ -7,6 +7,7 @@ import 'package:critalarm/app/access/pro_holding_source.dart';
 import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
+import 'package:critalarm/app/held_account_scope.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/l10n/language_feedback.dart';
@@ -43,6 +44,8 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/scoped_api_client.dart';
+import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
@@ -86,7 +89,6 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
-import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -401,9 +403,25 @@ Future<void> configureDependencies({
   // [openedStore] is a store the caller already opened, for a test or a
   // capture that has no documents directory. It is used as it is.
   var localStore = openedStore;
+  final identityStore = DeviceIdentityStore.forPlatform(prefs);
+  // The server and account the held data (the topic list, the archive)
+  // belongs to. Nothing is registered yet, so it reads the saved connection
+  // and identity from the preferences directly, which is where the
+  // registered repositories keep them.
+  final heldScope = HeldAccountScope(
+    prefs: prefs,
+    devices: identityStore,
+    serverUrl: () async => (await SharedPrefsConnectionRepository(
+      prefs,
+    ).getConnection()).getOrNull()?.serverUrl,
+  );
   if (!kIsWeb && localStore == null) {
     try {
-      localStore = await LocalStore.open();
+      // The scope also stamps the rows already on the phone, once, when a file
+      // from before rows were scoped is upgraded.
+      localStore = await LocalStore.open(
+        scope: heldScope.call,
+      );
     } on Object catch (error, stack) {
       // A database that will not open must not stop the app from ringing.
       debugPrint('local_store_open_failed error=$error');
@@ -525,8 +543,6 @@ Future<void> configureDependencies({
       proOutro: layoutSwitches.proOutro,
     );
   }
-
-  final identityStore = DeviceIdentityStore.forPlatform(prefs);
 
   if (!getIt.isRegistered<RevenueCatService>()) {
     final revenueCatService = RevenueCatService();
@@ -650,22 +666,30 @@ Future<void> configureDependencies({
     ..registerLazySingleton<MockApiClient>(
       () => MockApiClient(getIt<MockServer>()),
     )
+    // Every answer that carries incidents or messages is checked against the
+    // account that asked: if the phone moved to another account while the
+    // request was out, the call throws instead of handing it back.
     ..registerLazySingleton<ApiClient>(
       () => useMockApi
           ? getIt<MockApiClient>()
-          : HttpApiClient(
-              httpClient ?? http.Client(),
-              getIt<ApiSessionStore>(),
-              // A 401 on this phone's own credential means somebody deleted
-              // the account from another handset (api.md §3.7). Resolved
-              // inside the closure, because the repository needs this client.
-              onDeadCredential: () =>
-                  getIt<AccountRepository>().recoverFromDeadCredential(),
-              readDeviceToken: () async =>
-                  (await getIt<DeviceIdentityStore>().readOrCreate())
-                      .deviceToken,
-              readDeviceId: () async =>
-                  (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
+          : ScopedApiClient(
+              HttpApiClient(
+                httpClient ?? http.Client(),
+                getIt<ApiSessionStore>(),
+                // A 401 on this phone's own credential means somebody deleted
+                // the account from another handset (api.md §3.7). Resolved
+                // inside the closure, because the repository needs this
+                // client.
+                onDeadCredential: () =>
+                    getIt<AccountRepository>().recoverFromDeadCredential(),
+                readDeviceToken: () async =>
+                    (await getIt<DeviceIdentityStore>().readOrCreate())
+                        .deviceToken,
+                readDeviceId: () async =>
+                    (await getIt<DeviceIdentityStore>().readOrCreate())
+                        .deviceId,
+              ),
+              readScope: heldScope.call,
             ),
     )
     // The weekly check routes live on the same client too.
@@ -964,6 +988,22 @@ Future<void> configureDependencies({
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
         forgetAccountData: () => getIt<AccountData>().forget(),
+        forgetDeletedAccountData: (accountId) async {
+          await getIt<AccountData>().forgetDeleted(
+            scope: accountId == null
+                ? null
+                : await heldScope.forAccount(accountId),
+          );
+        },
+        readAccountId: heldScope.accountId,
+        // A merge folds the phone's account into another, so the history
+        // kept under the old one moves to the new one.
+        forgetMergedAccount: (from, into) async {
+          final fromScope = await heldScope.forAccount(from);
+          final intoScope = await heldScope.forAccount(into);
+          if (fromScope == null || intoScope == null) return;
+          await localStore?.mergeArchive(from: fromScope, into: intoScope);
+        },
         signOutBilling: buildSkipsPaywall
             ? null
             : () => getIt<RevenueCatService>().logOut(),
@@ -1277,6 +1317,8 @@ Future<void> configureDependencies({
             return incident.messages.any(
               (message) => message.title != IncidentKinds.testAlarmTitle,
             );
+          } on StaleAccountException {
+            return null;
           } on ApiException catch (error) {
             // Gone from the server: nothing of the user's is in it.
             return error.statusCode == 404 ? false : null;
@@ -1648,16 +1690,7 @@ Future<void> configureDependencies({
         // The list is kept on the phone for the server and account it is on
         // now. Where the store is not open the list stays in memory only.
         held: localStore?.topics,
-        heldScope: () async {
-          final connection = (await getIt<GetConnectionUsecase>()(
-            const NoParams(),
-          )).getOrNull();
-          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
-          return heldScopeFor(
-            serverUrl: connection?.serverUrl,
-            accountId: identity.accountId,
-          );
-        },
+        heldScope: heldScope.call,
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
@@ -1708,6 +1741,7 @@ Future<void> configureDependencies({
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
         heldTopics: localStore?.topics,
+        archive: localStore,
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {

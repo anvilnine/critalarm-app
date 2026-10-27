@@ -128,12 +128,12 @@ void main() {
         );
         addTearDown(upgraded.close);
 
-        expect(LocalStore.schemaVersion, 3);
+        expect(LocalStore.schemaVersion, 4);
         expect(
           Sqflite.firstIntValue(
             await upgraded.db.rawQuery('PRAGMA user_version'),
           ),
-          3,
+          4,
         );
 
         // The old rows are untouched.
