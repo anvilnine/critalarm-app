@@ -18,7 +18,7 @@ import 'package:critalarm/core/models/weekly_check.dart';
 /// Every call that returns incidents or messages reads the scope (server and
 /// account) when it starts and again when the answer arrives. If the two
 /// differ, the call throws [StaleAccountException] and the answer goes no
-/// further, whether it was an answer or an error. The scopes are compared and
+/// further. An error is passed on unchanged. The scopes are compared and
 /// nothing else, so a sign-in that changes nothing about the account, or an
 /// account that was left and came back, leaves the answer standing.
 ///
@@ -42,15 +42,10 @@ final class ScopedApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
 
   Future<T> _guard<T>(Future<T> Function() request) async {
     final started = await _scope();
-    final T answer;
-    try {
-      answer = await request();
-    } on Object {
-      if (started != null && await _scope() != started) {
-        throw const StaleAccountException();
-      }
-      rethrow;
-    }
+    // An error carries nothing that could land under the wrong account, so it
+    // goes to the caller as it is. A caller that retries (the ack queue) must
+    // see the real failure and try again, not a stale answer it counts as done.
+    final answer = await request();
     if (started != null && await _scope() != started) {
       throw const StaleAccountException();
     }
