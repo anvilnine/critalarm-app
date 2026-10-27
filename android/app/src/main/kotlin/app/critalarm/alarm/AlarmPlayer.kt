@@ -11,7 +11,15 @@ import app.critalarm.sound.AlarmSoundSource
 import app.critalarm.sound.AlarmSoundStore
 import app.critalarm.sound.PcmDecoder
 
-class AlarmPlayer(private val context: Context) {
+/**
+ * [onRingTimedOut] runs on the main thread when a ring stops by itself, which
+ * only the quiet build's ring does. Whatever runs alongside the sound stops
+ * there too.
+ */
+class AlarmPlayer(
+    private val context: Context,
+    private val onRingTimedOut: () -> Unit = {},
+) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private var previousVolume: Int? = null
@@ -104,7 +112,10 @@ class AlarmPlayer(private val context: Context) {
         started.start { PcmDecoder.decode(context, source) }
         if (quiet) {
             stopTimer = Handler(Looper.getMainLooper()).also { handler ->
-                handler.postDelayed({ stop() }, QuietAlarm.RING_SECONDS * 1000L)
+                handler.postDelayed({
+                    stop()
+                    onRingTimedOut()
+                }, QuietAlarm.RING_SECONDS * 1000L)
             }
         }
     }

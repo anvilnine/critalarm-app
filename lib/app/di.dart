@@ -32,6 +32,7 @@ import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/alarm_signal_store.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
@@ -1132,6 +1133,9 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
+    ..registerLazySingleton<AlarmSignalStore>(
+      () => AlarmSignalStore(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton(
       () => LiveActivityTokenRegistry(
         prefs: getIt<SharedPreferences>(),
@@ -2532,6 +2536,7 @@ Future<void> configureDependencies({
         identityStore: getIt<DeviceIdentityStore>(),
         featureAccess: getIt<FeatureAccess>(),
         glances: getIt<TopicGlances>(),
+        signalStore: getIt<AlarmSignalStore>(),
       ),
     )
     ..registerFactory(
@@ -2575,6 +2580,11 @@ Future<void> configureDependencies({
         // Setup never rings a real alarm in a replay, so the saved answer is
         // the one the test alarm was sent for.
         getIt<SetupUseStore>().read,
+        // Only the iPhone flashes from the alarm screen. Android flashes
+        // from its alarm service, with or without the screen.
+        getIt<PlatformCapabilities>().flashNeedsAlarmScreen
+            ? getIt<AlarmSignalStore>().read
+            : null,
       ),
     )
     ..registerFactory(
