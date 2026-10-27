@@ -60,6 +60,7 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
       isYearly: isYearly,
       willRenew: pro.willRenew,
       expiresAt: wall(pro.expirationDate),
+      expiresAtInstant: DateTime.tryParse(pro.expirationDate ?? '')?.toUtc(),
       billingIssueAt: wall(pro.billingIssueDetectedAt),
       priceString: isYearly ? _priceOf(pro, pricesByProduct) : null,
       managementUrl: info.managementURL,

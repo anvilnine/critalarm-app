@@ -148,7 +148,7 @@ names in code, strings, comments and PRs, and never one for another.
   of them: the Cloud plan ending and "back up your topics". A notice sits
   there until its condition clears or the user dismisses it. An **ask** is
   different: an interruptive sheet or popup (the Pro ask, the consent ask,
-  the Local reminders sheet, the store review), governed by `HomeAskRules`
+  the Local reminders sheet, the cancel question, the store review), governed by `HomeAskRules`
   and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
   `home_prompt_*` prefs keys and the `pro_prompt_answered` analytics event
   keep their names.
@@ -1059,6 +1059,19 @@ The Feature Guide offer is raised after the frame in which the route
 changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
 page that was leaving, went down with it, and was read as "not now". An
 offer whose screen went away under it is not counted as declined.
+
+**Cancel question.** An ask, not a notice, and not a notification or an alarm:
+a sheet the person sees by opening Home, and it schedules nothing.
+`CancelQuestion.dueFor` reads `ProEndingView.endsAt` (not the sheet, so the
+pill still counts) and asks once per end date. The local key is the UTC date of
+`ProEndingView.endsAtInstant`, the store's expiry instant, never through
+`DeviceTimeZone`. The mark is written when the sheet opens, so any way of
+closing it counts as asked. A billing issue skips it. It shows before the Cloud
+ends sheet. The answer goes through `CancelAnswerSender`: the chip at once, the
+text second, a failed send tried on three later launches, then dropped (at once
+on another account, off Cloud or on a 403). `AccountData.forget` clears the
+queue. The `cancel_reason` event carries the wire name only. Prefs keys:
+`cancel_question_asked_for` and `cancel_question_pending_v1`.
 
 **Pro pack.** A pack is an add-on an account holds beside its tier
 (api.md §4.2). The only one is `pro`. The code is in `lib/features/pro_pack/`.

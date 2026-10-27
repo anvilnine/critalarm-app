@@ -1,9 +1,11 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -23,7 +25,8 @@ import 'package:critalarm/core/models/weekly_check.dart';
 /// account that was left and came back, leaves the answer standing.
 ///
 /// Every other call passes straight through.
-final class ScopedApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
+final class ScopedApiClient
+    implements ApiClient, PacksApi, WeeklyCheckApi, CancelReasonApi {
   ScopedApiClient(this._inner, {required this._readScope});
 
   final ApiClient _inner;
@@ -31,6 +34,7 @@ final class ScopedApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
 
   PacksApi get _packs => _inner as PacksApi;
   WeeklyCheckApi get _weekly => _inner as WeeklyCheckApi;
+  CancelReasonApi get _cancelReason => _inner as CancelReasonApi;
 
   Future<String?> _scope() async {
     try {
@@ -270,6 +274,21 @@ final class ScopedApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
     token: token,
     incidentId: incidentId,
     activityId: activityId,
+  );
+
+  // A plain pass-through: the route returns no incidents or messages, so there
+  // is no answer to hold against the account that asked.
+  @override
+  Future<void> sendCancelReason({
+    required CancelReason reason,
+    required String appVersion,
+    required String platform,
+    String? text,
+  }) => _cancelReason.sendCancelReason(
+    reason: reason,
+    text: text,
+    appVersion: appVersion,
+    platform: platform,
   );
 
   @override
