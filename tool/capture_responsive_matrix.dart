@@ -405,15 +405,24 @@ Future<String?> _tapPick(
   };
   if (finder == null) return null;
   if (finder.evaluate().isEmpty) return 'no row on screen to pick';
+  var target = finder.first;
   if (pick == _Pick.text) {
+    // The text of a row in the list on top, not the same words on a page
+    // beside it in a detail pane or on a screen under the top route.
+    final inList = finder.evaluate().where(
+      (e) =>
+          e.findAncestorWidgetOfExactType<AppDetailPane>() == null &&
+          (ModalRoute.of(e)?.isCurrent ?? true),
+    );
+    if (inList.isEmpty) return 'no row on screen to pick';
+    final chosen = inList.first;
+    target = find.byElementPredicate((e) => e == chosen);
     // A small screen can hold the text below the fold of the list. Bring it
     // to the middle, clear of the bars that float over the list's edges.
-    unawaited(
-      Scrollable.ensureVisible(finder.first.evaluate().first, alignment: 0.5),
-    );
+    unawaited(Scrollable.ensureVisible(chosen, alignment: 0.5));
     await tester.pump();
   }
-  await tester.tap(finder.first, warnIfMissed: false);
+  await tester.tap(target, warnIfMissed: false);
   await _settle(tester);
   return null;
 }
