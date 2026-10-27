@@ -1,4 +1,6 @@
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -35,6 +37,19 @@ void main() {
 
     test('an iPad Pro 11 on its side is expanded', () {
       expect(const AppSize(1210, 834).sizeClass, AppSizeClass.expanded);
+    });
+
+    test('the Pixel Fold inner screen is expanded at the 840 step', () {
+      expect(const AppSize(841, 701).isExpanded, isTrue);
+    });
+
+    test('an iPad 11 upright stays medium, under the 840 step', () {
+      expect(const AppSize(834, 1194).isMedium, isTrue);
+    });
+
+    test('the Galaxy Fold inner screen stays medium', () {
+      expect(const AppSize(690, 829).isMedium, isTrue);
+      expect(const AppSize(829, 690).isMedium, isTrue);
     });
 
     test('a big phone on its side is wide but too short for two panes', () {
@@ -99,6 +114,82 @@ void main() {
 
     test('an iPad mini upright centres a 560 column', () {
       expect(const AppSize(744, 1133).sideGutter, 92);
+    });
+  });
+
+  group('AppSize cover', () {
+    test('the Razr cover is a cover screen', () {
+      expect(const AppSize(384, 388).isCover, isTrue);
+    });
+
+    test('a phone on its side is short but not a cover screen', () {
+      const size = AppSize(844, 390);
+      expect(size.isShort, isTrue);
+      expect(size.isCover, isFalse);
+    });
+
+    test('a phone upright is not a cover screen', () {
+      expect(const AppSize(390, 844).isCover, isFalse);
+    });
+  });
+
+  group('AppSize frame', () {
+    test('a window up to 1600 wide has no canvas outside the frame', () {
+      expect(const AppSize(1440, 900).frameInset, 0);
+      expect(const AppSize(1600, 900).frameInset, 0);
+    });
+
+    test('a 1920 window centres the 1600 frame', () {
+      expect(const AppSize(1920, 1080).frameInset, 160);
+    });
+  });
+
+  group('AppScreenColumns', () {
+    test('a 1920 window keeps the rail and both panes inside the frame', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: 1920,
+        size: const AppSize(1920, 1080),
+        padding: EdgeInsets.zero,
+        hasDetail: true,
+      );
+      expect(columns.twoPane, isTrue);
+      // 160 of canvas, then the rail's room, then the list.
+      expect(columns.listLeft, 160 + 88);
+      expect(columns.detailLeft + columns.detailWidth, 1920 - 160);
+    });
+
+    test('the Pixel Fold inner screen gets list and detail', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: 841,
+        size: const AppSize(841, 701),
+        padding: EdgeInsets.zero,
+        hasDetail: true,
+      );
+      expect(columns.twoPane, isTrue);
+      expect(columns.listWidth, 340);
+    });
+
+    test('one column on a 1920 window still centres at 560', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: 1920,
+        size: const AppSize(1920, 1080),
+        padding: EdgeInsets.zero,
+      );
+      expect(columns.twoPane, isFalse);
+      expect(columns.contentWidth, AppSize.contentMaxWidth);
+      expect(columns.contentLeft, (1920 - 560) / 2);
+    });
+
+    test('a phone fills the box', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: 390,
+        size: const AppSize(390, 844),
+        padding: EdgeInsets.zero,
+        hasDetail: true,
+      );
+      expect(columns.twoPane, isFalse);
+      expect(columns.contentLeft, 0);
+      expect(columns.contentWidth, 390);
     });
   });
 }

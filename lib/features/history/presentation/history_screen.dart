@@ -7,7 +7,6 @@ import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
@@ -56,7 +55,8 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
 
   @override
   Widget build(BuildContext context) {
-    final size = AppSize.of(context);
+    // Book posture shows the pane at any width, tabletop shows none.
+    final showsDetail = AppScreenScaffold.showsDetail(context);
 
     return BlocBuilder<HistoryCubit, HistoryState>(
       builder: (context, state) {
@@ -221,11 +221,9 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                           for (final day in state.days)
                             _DaySection(
                               day: day,
-                              selectedId: size.isExpanded
-                                  ? _selected?.id
-                                  : null,
+                              selectedId: showsDetail ? _selected?.id : null,
                               onTap: (entry) {
-                                if (size.isExpanded) {
+                                if (showsDetail) {
                                   AppHaptics.selection();
                                   setState(() => _selected = entry);
                                 } else {

@@ -9,6 +9,7 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -292,13 +293,31 @@ class _AppShellContentState extends State<_AppShellContent>
     final bottomInset = padding.bottom;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
 
+    // On a folding display the bar never crosses the fold. In book posture
+    // it floats at the foot of the start pane, in tabletop posture in the
+    // bottom half, and search opens in that same pane.
+    final fold = AppFold.of(context);
+    final panes = fold.panes(screen, direction: Directionality.of(context));
+    final navArea = fold.isBook
+        ? panes.first
+        : fold.isTabletop
+        ? panes.second
+        : Offset.zero & screen;
+    final hasRail = size.hasRail && !fold.isBook;
+
     // The bar rides above the keyboard while searching, the way the pill in
     // ProblemStack does, so the field is never hidden behind it.
     final barBottom = keyboard > 0
         ? keyboard + _panelGap
-        : bottomInset + AppFloatingTabBar.edgeGap;
+        : bottomInset + AppFloatingTabBar.edgeGapFor(size);
     final panelBottom = barBottom + AppFloatingTabBar.height + _panelGap;
-    final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
+    final width = (navArea.width - _gutter * 2).clamp(0.0, _maxWidth);
+    final navLeft = navArea.left;
+    final navRight = screen.width - navArea.right;
+    // Icons only where three tab names do not fit: a narrow display, a cover
+    // screen, or the start pane of a book fold.
+    final iconsOnly =
+        size.isNarrow || size.isCover || navArea.width < AppSize.narrowMaxWidth;
 
     final currentPath = GoRouterState.of(context).uri.path;
     final hideTabBar =
@@ -341,14 +360,16 @@ class _AppShellContentState extends State<_AppShellContent>
                 // row above the bar, and scrolls under both rather than being
                 // cut off short of them.
                 Positioned(
-                  left: 0,
-                  right: 0,
+                  left: navLeft,
+                  right: navRight,
                   bottom: 0,
                   child: _panel(
                     width,
-                    screen.height,
+                    screen.height - navArea.top,
                     panelBottom,
                     screen.width,
+                    // Below the fold the status bar is not in the way.
+                    navArea.top > 0 ? 0 : padding.top,
                   ),
                 ),
                 // iOS has no system back for an overlay, so the left edge
@@ -379,14 +400,14 @@ class _AppShellContentState extends State<_AppShellContent>
               // down one edge and leaves the content the full height of the
               // display. The search bar still comes up at the bottom, where the
               // thumb is.
-              if (size.hasRail && !_isSearching)
-                _rail(items, size, padding, hideTabBar)
+              if (hasRail && !_isSearching)
+                _rail(items, size, padding, navArea, hideTabBar)
               else
                 AnimatedPositioned(
                   duration: context.motion(AppDurations.slow),
                   curve: AppCurves.easeOut,
-                  left: 0,
-                  right: 0,
+                  left: navLeft,
+                  right: navRight,
                   bottom: hideTabBar ? -100 : barBottom,
                   child: Center(
                     child: IgnorePointer(
@@ -395,7 +416,7 @@ class _AppShellContentState extends State<_AppShellContent>
                         duration: context.motion(AppDurations.slow),
                         curve: AppCurves.easeOut,
                         opacity: hideTabBar ? 0.0 : 1.0,
-                        child: _bar(items, size, width),
+                        child: _bar(items, width, iconsOnly: iconsOnly),
                       ),
                     ),
                   ),
@@ -409,24 +430,34 @@ class _AppShellContentState extends State<_AppShellContent>
 
   /// The rail slides off its own edge on a pushed screen, the way the bar
   /// drops off the bottom.
+  ///
+  /// It sits at the edge of the frame, [AppSize.frameInset] in from the
+  /// window edge on a very wide window, and centres down the height of
+  /// [area]: the bottom half in tabletop posture, the window otherwise.
   Widget _rail(
     List<AppTabItem> items,
     AppSize size,
     EdgeInsets padding,
+    Rect area,
     bool hide,
   ) {
     final onRight = size.navPlacement == AppNavPlacement.right;
     final inset =
-        AppNavRail.edgeInset + (onRight ? padding.right : padding.left);
+        size.frameInset +
+        AppNavRail.edgeInset +
+        (onRight ? padding.right : padding.left);
     final offset = hide ? -(AppNavRail.width + inset + 20) : inset;
+    final screenHeight = MediaQuery.sizeOf(context).height;
 
     return AnimatedPositioned(
       duration: context.motion(AppDurations.slow),
       curve: AppCurves.easeOut,
       left: onRight ? null : offset,
       right: onRight ? offset : null,
-      top: padding.top,
-      bottom: padding.bottom,
+      top: area.top > 0 ? area.top : padding.top,
+      bottom: area.bottom < screenHeight
+          ? screenHeight - area.bottom
+          : padding.bottom,
       child: Center(
         child: IgnorePointer(
           ignoring: hide,
@@ -480,6 +511,7 @@ class _AppShellContentState extends State<_AppShellContent>
     double maxHeight,
     double bottomInset,
     double screenWidth,
+    double topInset,
   ) {
     return BlocBuilder<SearchCubit, SearchState>(
       bloc: _search,
@@ -510,7 +542,7 @@ class _AppShellContentState extends State<_AppShellContent>
               child: SearchPanel(
                 state: state,
                 maxHeight: maxHeight < 0 ? 0 : maxHeight,
-                topInset: MediaQuery.paddingOf(context).top,
+                topInset: topInset,
                 bottomInset: bottomInset,
                 onTapResult: (result) => unawaited(_openResult(result)),
                 onTapRecent: _fillFromRecent,
@@ -539,10 +571,14 @@ class _AppShellContentState extends State<_AppShellContent>
         child: child,
       );
 
-  Widget _bar(List<AppTabItem> items, AppSize size, double width) {
+  Widget _bar(
+    List<AppTabItem> items,
+    double width, {
+    required bool iconsOnly,
+  }) {
     final bar = AppFloatingTabBar(
       currentIndex: widget.navigationShell.currentIndex,
-      iconsOnly: size.isNarrow,
+      iconsOnly: iconsOnly,
       items: items,
       onSelect: _goBranch,
       composeLabel: LocaleKeys.nav_new_topic.tr(),

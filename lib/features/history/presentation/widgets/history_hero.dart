@@ -6,7 +6,6 @@ import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
-import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -193,28 +192,17 @@ const double _kDiscDiameter = 340;
 
 /// Where the ambient canvas draws the disc behind the face on this display.
 ///
-/// It follows the scaffold's column rules (a capped, centred column on a
-/// medium display, a list pane beside the detail on an expanded one), the way
-/// the Topics hero does, so the disc stays behind the face.
+/// It follows the scaffold's column rules through [AppScreenColumns] (a
+/// capped, centred column on a medium display, a list pane inside the frame
+/// on an expanded one), the way the Topics hero does, so the disc stays
+/// behind the face.
 HeroDiscSpot historyDiscSpotOf(BuildContext context) {
   final screen = MediaQuery.sizeOf(context);
   final padding = MediaQuery.paddingOf(context);
-  final size = AppSize.of(context);
-  final isPane = size.isExpanded;
-  final railOnRight = size.navPlacement == AppNavPlacement.right;
-  final railGap = size.hasRail
-      ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
-      : 0.0;
-  final available = screen.width - railGap;
-  final paneWidth = isPane
-      ? AppScreenScaffold.listPaneWidth(available)
-      : screen.width;
-  final gutter = isPane
-      ? 0.0
-      : math.max(railGap, (paneWidth - AppSize.contentMaxWidth) / 2);
+  final columns = AppScreenColumns.of(context, hasDetail: true);
   const half = HistoryHero.faceSize / 2;
   final centre = Offset(
-    gutter + (isPane && !railOnRight ? railGap : 0) + 12 + 8 + half,
+    columns.contentLeft + 12 + 8 + half,
     padding.top + AppScreenScaffold.topBarHeight + Spacing.s3 + half,
   );
   return HeroDiscSpot(
