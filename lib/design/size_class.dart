@@ -12,7 +12,9 @@ enum AppSizeClass {
   /// One column capped at [AppSize.contentMaxWidth] and centred.
   medium,
 
-  /// Two panes, list beside detail, tab bar stood up as a rail.
+  /// Two panes, list beside detail, tab bar stood up as a rail. A desktop
+  /// window is expanded too: past [AppSize.frameMaxWidth] the frame stops
+  /// growing and centres instead.
   expanded,
 }
 
@@ -71,8 +73,10 @@ class AppSize {
   static const double mediumMinWidth = 600;
 
   /// Two panes need this much width and this much height. A big phone on its
-  /// side is wide enough but far too short, so it stays on one column.
-  static const double expandedMinWidth = 900;
+  /// side is wide enough but far too short, so it stays on one column. 840 is
+  /// the Material 3 expanded step: the 841 inner screen of a Pixel Fold gets
+  /// two panes, an iPad 11 upright (834) stays on one column.
+  static const double expandedMinWidth = 840;
   static const double expandedMinHeight = 600;
 
   /// A folded Razr cover screen and any phone on its side land here.
@@ -81,8 +85,24 @@ class AppSize {
   /// A Galaxy Fold cover screen lands here.
   static const double narrowMaxWidth = 360;
 
+  /// Both sides under this is a cover screen, such as the Razr cover. A phone
+  /// on its side is short but much wider than this, so it is not a cover.
+  static const double coverMaxSide = 500;
+
   /// How wide a single column of content is allowed to get.
   static const double contentMaxWidth = 560;
+
+  /// How wide the content inside an expanded detail pane gets. It centres in
+  /// the pane.
+  static const double detailMaxWidth = 680;
+
+  /// How wide the rail and both panes get together. Past it the canvas shows
+  /// on both sides and the frame centres in the window.
+  static const double frameMaxWidth = 1600;
+
+  /// How wide a pinned action (Next, I'm up, Get Cloud) and the quiet buttons
+  /// beside or under it get on medium and expanded displays.
+  static const double actionMaxWidth = 480;
 
   /// No iPhone that does not fold has a short side this long, so an iPhone
   /// display past it is an unfolded iPhone Fold. The biggest Pro Max is 440.
@@ -113,6 +133,11 @@ class AppSize {
   /// Too narrow to spell out the tab labels.
   bool get isNarrow => width < narrowMaxWidth;
 
+  /// A small cover screen, short and narrow at once (the Razr cover). The tab
+  /// bar goes icons-only and sits closer to the edge, and hero faces shrink
+  /// to 72, so the list keeps two rows in view.
+  bool get isCover => width < coverMaxSide && height < coverMaxSide;
+
   /// An iPhone Fold opened up.
   bool get isUnfoldedIphone =>
       isIphone && (width < height ? width : height) >= foldMinShortSide;
@@ -133,6 +158,12 @@ class AppSize {
   /// Empty space to leave either side so the column sits in the middle.
   double get sideGutter =>
       width <= contentMaxWidth ? 0 : (width - contentMaxWidth) / 2;
+
+  /// Canvas either side of the frame on a window wider than
+  /// [frameMaxWidth], 0 otherwise. The rail sits this far in from the window
+  /// edge, and two panes sit inside what is left.
+  double get frameInset =>
+      width <= frameMaxWidth ? 0 : (width - frameMaxWidth) / 2;
 
   @override
   bool operator ==(Object other) =>
