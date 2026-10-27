@@ -71,7 +71,7 @@ class SettingsScreen extends StatelessWidget {
         unawaited(cubit.load(forceDisconnected: forceDisconnected));
         return cubit;
       },
-      child: const _SettingsScreenContent(),
+      child: _SettingsScreenContent(forceDisconnected: forceDisconnected),
     );
   }
 }
@@ -85,7 +85,10 @@ const EdgeInsets _kSheetPadding = EdgeInsets.fromLTRB(6, 10, 6, 10);
 const EdgeInsets _kLabelPadding = EdgeInsets.fromLTRB(14, 10, 14, 6);
 
 class _SettingsScreenContent extends StatefulWidget {
-  const _SettingsScreenContent();
+  const _SettingsScreenContent({required this.forceDisconnected});
+
+  /// The lost-server screen. Its pane opens on Server from the first frame.
+  final bool forceDisconnected;
 
   @override
   State<_SettingsScreenContent> createState() => _SettingsScreenContentState();
@@ -93,8 +96,8 @@ class _SettingsScreenContent extends StatefulWidget {
 
 class _SettingsScreenContentState extends State<_SettingsScreenContent> {
   /// The row whose page the detail pane shows. Null until a row is tapped
-  /// or Settings has loaded, and the pane opens on [_paneSelection] until
-  /// then.
+  /// or the saved connection has been read, and the pane opens on
+  /// [_paneSelection] until then.
   SettingsPage? _selected;
 
   /// The pages the rows lead to on this phone, in row order.
@@ -109,13 +112,14 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
   }
 
   /// The page the pane shows for [state]. A phone that has lost its server
-  /// opens on Server, the page that can fix it.
-  SettingsPage? _paneSelection(SettingsState state) => settingsPaneSelection(
+  /// opens on Server, the page that can fix it. Null while the pane waits
+  /// for the connection read.
+  SettingsPage? _paneSelection(SettingsState state) => settingsPaneOpening(
     selected: _selected,
     shown: _pagesShown(state),
-    preferred: state.status == SettingsStatus.success && !state.isConnected
-        ? SettingsPage.server
-        : null,
+    connectionKnown: state.connectionKnown,
+    isConnected: state.isConnected,
+    forceDisconnected: widget.forceDisconnected,
   );
 
   /// The page of [page] as it draws in the detail pane. The pages that read
@@ -291,12 +295,10 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<SettingsCubit, SettingsState>(
-      // Once Settings has loaded, the page the pane opened on stays put: a
-      // phone that opened on Server because it had lost its server keeps
-      // Server when it connects again from that page.
-      listenWhen: (was, now) =>
-          was.status != SettingsStatus.success &&
-          now.status == SettingsStatus.success,
+      // Once the saved connection has been read, the page the pane opened
+      // on stays put: a phone that opened on Server because it had lost its
+      // server keeps Server when it connects again from that page.
+      listenWhen: (was, now) => !was.connectionKnown && now.connectionKnown,
       listener: (context, state) {
         if (_selected == null) {
           setState(() => _selected = _paneSelection(state));
@@ -327,6 +329,14 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                   key: ValueKey(shown),
                   child: _panePage(context, shown),
                 )
+              // Nothing tapped and the connection not read yet: the pane's
+              // own quiet surface with no page in it, so the first row's
+              // page is never drawn and then swapped for Server, and the
+              // list does not move when the page arrives.
+              : showsDetail &&
+                    !widget.forceDisconnected &&
+                    !state.connectionKnown
+              ? const SizedBox.shrink()
               : null,
           // The card keeps the width of the rows' column below the fold and
           // rests in the middle of the half under the title.

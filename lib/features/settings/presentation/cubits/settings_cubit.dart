@@ -227,6 +227,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           isConnected: false,
+          connectionKnown: true,
           serverUrl: '',
           adminToken: '',
         ),
@@ -240,11 +241,12 @@ class SettingsCubit extends Cubit<SettingsState> {
               serverUrl: conn.serverUrl,
               adminToken: conn.adminToken,
               isConnected: true,
+              connectionKnown: true,
             ),
           );
         },
         (_) {
-          emit(state.copyWith(isConnected: false));
+          emit(state.copyWith(isConnected: false, connectionKnown: true));
         },
       );
     } else if (connectionRepository != null) {
@@ -256,11 +258,12 @@ class SettingsCubit extends Cubit<SettingsState> {
               serverUrl: conn.serverUrl,
               adminToken: conn.adminToken,
               isConnected: true,
+              connectionKnown: true,
             ),
           );
         },
         (_) {
-          emit(state.copyWith(isConnected: false));
+          emit(state.copyWith(isConnected: false, connectionKnown: true));
         },
       );
     }
@@ -320,6 +323,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         status: SettingsStatus.success,
+        // A cubit with no connection source has nothing to read, so the
+        // connection counts as read once the load is done.
+        connectionKnown: true,
         access: _access(identity),
         holdsHosted: _holdsHosted,
         topics: result?.getOrNull() ?? [],

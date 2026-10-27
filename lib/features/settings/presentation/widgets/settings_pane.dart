@@ -70,6 +70,33 @@ SettingsPage? settingsPaneSelection({
   return null;
 }
 
+/// The page the Settings detail pane shows, from what the screen knows about
+/// the connection. A phone that lost its server opens on Server.
+///
+/// Until a row is tapped, the pane waits for the saved connection to be read
+/// ([connectionKnown]) and returns null, so it never draws the first row's
+/// page and then swaps it for Server a moment later. [forceDisconnected] is
+/// the lost-server screen, which knows the answer from its first frame and
+/// does not wait.
+SettingsPage? settingsPaneOpening({
+  required SettingsPage? selected,
+  required List<SettingsPage> shown,
+  required bool connectionKnown,
+  required bool isConnected,
+  bool forceDisconnected = false,
+}) {
+  if (!forceDisconnected && !connectionKnown) {
+    final tapped =
+        selected != null && selected.opensInPane && shown.contains(selected);
+    return tapped ? selected : null;
+  }
+  return settingsPaneSelection(
+    selected: selected,
+    shown: shown,
+    preferred: forceDisconnected || !isConnected ? SettingsPage.server : null,
+  );
+}
+
 /// What a tap on a Settings row does.
 enum SettingsRowTap {
   /// Show the page in the detail pane. Nothing is pushed and the URL stays.
