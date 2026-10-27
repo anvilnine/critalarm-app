@@ -132,6 +132,7 @@ import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs
 import 'package:critalarm/features/in_app_notices/data/shared_prefs_cancel_answer_store.dart';
 import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_store.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_question.dart';
 import 'package:critalarm/features/in_app_notices/domain/day0_card_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
@@ -1056,6 +1057,9 @@ Future<void> configureDependencies({
           );
         },
       ),
+    )
+    ..registerLazySingleton(
+      () => CancelQuestion(store: getIt<CancelAnswerStore>()),
     )
     ..registerLazySingleton<LocalReminderStore>(
       () => SharedPrefsLocalReminderStore(getIt<SharedPreferences>()),
