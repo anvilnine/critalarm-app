@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:critalarm/core/api/http_api_client.dart';
@@ -11,10 +12,14 @@ import 'package:critalarm/features/onboarding/domain/usecases/establish_api_sess
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/model/connect_outcome_message.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../helpers/fake_device_keychain.dart';
 
 /// The real use cases, the real stores and the real HTTP client, over a
 /// fake network that keeps every request it is sent.
@@ -69,10 +74,11 @@ http.Response _refreshed(String accountId) => _json({
 });
 
 final class _Phone {
-  _Phone(this.prefs, this.requests, this.connect, this.register);
+  _Phone(this.prefs, this.requests, this.client, this.connect, this.register);
 
   final SharedPreferences prefs;
   final List<http.Request> requests;
+  final HttpApiClient client;
   final ConnectToServerUsecase connect;
   final RegisterDeviceUsecase register;
 
@@ -99,6 +105,7 @@ Future<_Phone> _connectedPhone(
   Map<String, http.Response Function(http.Request request)> routes, {
   Map<String, Object> saved = const {},
   bool isConnected = true,
+  bool useKeychain = false,
 }) async {
   SharedPreferences.setMockInitialValues({
     if (isConnected) ...{
@@ -115,7 +122,9 @@ Future<_Phone> _connectedPhone(
   final prefs = await SharedPreferences.getInstance();
   final requests = <http.Request>[];
   final sessions = SharedPrefsApiSessionStore(prefs);
-  final identity = DeviceIdentityStore(prefs);
+  final identity = useKeychain
+      ? KeychainDeviceIdentityStore(prefs)
+      : DeviceIdentityStore(prefs);
   final client = HttpApiClient(
     MockClient((request) async {
       requests.add(request);
@@ -130,7 +139,7 @@ Future<_Phone> _connectedPhone(
     client,
     identity,
     _PushTokens(),
-    platform: () => 'android',
+    platform: () => useKeychain ? 'ios' : 'android',
     readSessionRelay: () async => (await sessions.read())?.relayUri,
   );
   final establish = EstablishApiSessionUsecase(sessions, register, identity);
@@ -144,8 +153,10 @@ Future<_Phone> _connectedPhone(
     proveAdminToken: client.checkManagementCredential,
     readRelayTrust: establish.relayTrust,
   );
-  return _Phone(prefs, requests, connect, register);
+  return _Phone(prefs, requests, client, connect, register);
 }
+
+typedef _Route = http.Response Function(http.Request request);
 
 void main() {
   group('a link', () {
@@ -216,6 +227,10 @@ void main() {
             request.headers['authorization'] == 'Bearer $_adminToken'
             ? _json(<dynamic>[])
             : _json({'error': 'unauthorized'}, 401),
+        'GET $_home/v1/topics': (request) =>
+            request.headers['authorization'] == 'Bearer $_adminToken'
+            ? _json(<dynamic>[])
+            : _json({'error': 'unauthorized'}, 401),
       });
       final before = phone.stores;
 
@@ -233,6 +248,15 @@ void main() {
         endsWith('|$_adminToken'),
       );
       expect(phone.carrying(_deviceToken), isEmpty);
+
+      // The next management call goes out with the old token and the
+      // server takes it.
+      phone.requests.clear();
+      expect(await phone.client.getTopics(), isEmpty);
+      expect(
+        phone.requests.single.headers['authorization'],
+        'Bearer $_adminToken',
+      );
     });
 
     test('with a token that begins like a device token and is refused '
@@ -509,6 +533,42 @@ void main() {
       expect(phone.prefs.getString('device_token_relay'), _homeRelay);
     });
 
+    test('on an iPhone, keeps the token from its Keychain item, refreshes '
+        'on the saved relay and now knows the issuer', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedDevice(
+          deviceId: 'dev_this_phone',
+          deviceToken: _deviceToken,
+          accountId: 'acc_home',
+        );
+      addTearDown(keychain.remove);
+      final phone = await _connectedPhone(
+        {
+          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_home'),
+        },
+        useKeychain: true,
+        isConnected: false,
+        saved: {
+          'api_session': '$_home|$_homeRelay|selfhosted|$_adminToken',
+          'server_url': _home,
+          'admin_token': _adminToken,
+        },
+      );
+
+      await phone.register(appVersion: '1.0.0');
+
+      expect(phone.requests.single.method, 'PATCH');
+      expect(
+        phone.requests.single.headers['authorization'],
+        'Bearer $_deviceToken',
+      );
+      expect(keychain.device?['device_token'], _deviceToken);
+      expect(keychain.device?['device_id'], 'dev_this_phone');
+      expect(keychain.device?['device_token_relay'], _homeRelay);
+    });
+
     test('its token still goes nowhere but the saved relay', () async {
       final phone = await _connectedPhone({
         'PATCH $_otherRelay/relay/v1/devices/dev_this_phone': (_) =>
@@ -524,6 +584,110 @@ void main() {
 
       expect(phone.requests, isEmpty);
       expect(phone.stores, before);
+    });
+  });
+
+  group('neither token', () {
+    test('is in a log line, an outcome or its message, through every '
+        'refused connect', () async {
+      const linkToken = 'ad_from_the_link';
+      final scenarios = <String, (Map<String, _Route>, String, bool)>{
+        'a link to a hosted server': (
+          {
+            'GET $_other/v1/info': (_) =>
+                _info(baseUrl: _other, relayUrl: _otherRelay, mode: 'hosted'),
+          },
+          _other,
+          true,
+        ),
+        'a link to a server on another relay': (
+          {
+            'GET $_other/v1/info': (_) =>
+                _info(baseUrl: _other, relayUrl: _otherRelay),
+          },
+          _other,
+          true,
+        ),
+        'a link with a token the server refuses and echoes': (
+          {
+            'GET $_home/v1/info': (_) =>
+                _info(baseUrl: _home, relayUrl: _homeRelay),
+            'GET $_home/v1/incidents': (request) => _json({
+              'error': 'bad ${request.headers['authorization']}',
+            }, 401),
+          },
+          _home,
+          true,
+        ),
+        'a server that fails the proof and echoes the token': (
+          {
+            'GET $_home/v1/info': (_) =>
+                _info(baseUrl: _home, relayUrl: _homeRelay),
+            'GET $_home/v1/incidents': (request) => _json({
+              'error': 'bad ${request.headers['authorization']}',
+            }, 500),
+          },
+          _home,
+          false,
+        ),
+        'a typed hosted server that would take the device token': (
+          {
+            'GET $_other/v1/info': (_) =>
+                _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
+          },
+          _other,
+          false,
+        ),
+        'a relay that refuses the refresh and echoes the device token': (
+          {
+            'GET $_home/v1/info': (_) =>
+                _info(baseUrl: _home, relayUrl: _homeRelay, mode: 'hosted'),
+            'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (request) =>
+                _json({
+                  'error': 'bad ${request.headers['authorization']}',
+                }, 400),
+          },
+          _home,
+          false,
+        ),
+      };
+      for (final MapEntry(key: name, value: (routes, url, isLink))
+          in scenarios.entries) {
+        final printed = <String>[];
+        final realDebugPrint = debugPrint;
+        debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+        try {
+          final phone = await _connectedPhone(routes);
+          final before = phone.stores;
+          final outcome = await runZoned(
+            () => phone.connect(
+              serverUrl: url,
+              adminToken: linkToken,
+              pinToAddress: isLink,
+            ),
+            zoneSpecification: ZoneSpecification(
+              print: (_, _, _, line) => printed.add(line),
+            ),
+          );
+          expect(outcome, isNot(isA<Connected>()), reason: name);
+          expect(phone.stores, before, reason: name);
+          final seen = [
+            ...printed,
+            '$outcome',
+            if (outcome is ConnectTransportError) ...[
+              '${outcome.error}',
+              '${outcome.error.server}',
+            ],
+            if (outcome is ServerUnreachable) '${outcome.failure}',
+            connectOutcomeMessage(outcome) ?? '',
+          ].join('\n');
+          expect(seen, isNot(contains(linkToken)), reason: name);
+          expect(seen, isNot(contains(_adminToken)), reason: name);
+          expect(seen, isNot(contains(_deviceToken)), reason: name);
+        } finally {
+          debugPrint = realDebugPrint;
+        }
+      }
     });
   });
 }
