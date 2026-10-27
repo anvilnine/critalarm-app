@@ -27,4 +27,21 @@ final class ApiSession {
   final Uri relayUri;
   final ServerMode mode;
   final String managementCredential;
+
+  /// What parts the four fields where the session is saved. The native
+  /// readers split on it too, so no field may hold it.
+  static const fieldSeparator = '|';
+
+  /// The four fields in the order they are saved.
+  List<String> get fields => [
+    baseUri.toString(),
+    relayUri.toString(),
+    mode.wireValue,
+    managementCredential,
+  ];
+
+  /// False when a field holds [fieldSeparator]. Saved, such a session could
+  /// never be read back.
+  bool get canBeSaved =>
+      fields.every((field) => !field.contains(fieldSeparator));
 }

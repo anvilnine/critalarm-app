@@ -5,6 +5,7 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
@@ -12,6 +13,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -38,6 +40,8 @@ class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
 
+class MockConnectToServer extends Mock implements ConnectToServerUsecase {}
+
 class MockGetTopics extends Mock implements GetTopicsUsecase {}
 
 class MockBackgroundConnect extends Mock implements BackgroundConnect {}
@@ -58,6 +62,7 @@ void main() {
       ),
     );
     registerFallbackValue(const NoParams());
+    registerFallbackValue(const SessionCheckpoint(null, <String, String?>{}));
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
@@ -65,6 +70,15 @@ void main() {
 
   setUp(() {
     mockEstablishSession = MockEstablishSession();
+    when(
+      () => mockEstablishSession.relayTrust(any()),
+    ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+    when(
+      () => mockEstablishSession.checkpoint(),
+    ).thenAnswer(
+      (_) async => const SessionCheckpoint(null, <String, String?>{}),
+    );
+    when(() => mockEstablishSession.rollBack(any())).thenAnswer((_) async {});
     when(() => mockEstablishSession(any(), any())).thenAnswer((
       invocation,
     ) async {
@@ -77,6 +91,9 @@ void main() {
       );
     });
     mockGetServerInfo = MockGetServerInfoUsecase();
+    when(
+      () => mockGetServerInfo.proveAdminToken(any(), any()),
+    ).thenAnswer((_) async {});
     mockSaveConnection = MockSaveConnectionUsecase();
     mockCompleteOnboarding = MockCompleteOnboardingUsecase();
     when(() => mockGetServerInfo(any())).thenAnswer(
@@ -290,6 +307,44 @@ void main() {
           adminToken: '   ',
           requiresAdminToken: true,
           adminTokenError: 'Admin token cannot be empty',
+        ),
+      ],
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'a token the server refuses is said under the token field, and the '
+      'form stays open',
+      build: () {
+        final connect = MockConnectToServer();
+        when(
+          () => connect(
+            serverUrl: any(named: 'serverUrl'),
+            adminToken: any(named: 'adminToken'),
+          ),
+        ).thenAnswer((_) async => const AdminTokenRefused());
+        return OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          establishSession: mockEstablishSession,
+          connectToServer: connect,
+        );
+      },
+      seed: () => const OnboardingConnectState(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'ad_mistyped',
+      ),
+      act: (cubit) => cubit.connect(),
+      expect: () => [
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          status: OnboardingConnectStatus.connecting,
+        ),
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          adminTokenError:
+              'The server did not accept this admin token. Not connected.',
         ),
       ],
     );

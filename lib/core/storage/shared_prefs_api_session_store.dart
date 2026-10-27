@@ -7,12 +7,13 @@ final class SharedPrefsApiSessionStore implements ApiSessionStore {
   final SharedPreferences _prefs;
 
   static const _key = 'api_session';
+  static const String _separator = ApiSession.fieldSeparator;
 
   @override
   Future<ApiSession?> read() async {
     final raw = _prefs.getString(_key);
     if (raw == null) return null;
-    final parts = raw.split('|');
+    final parts = raw.split(_separator);
     if (parts.length != 4) return null;
     return ApiSession(
       baseUri: Uri.parse(parts[0]),
@@ -24,15 +25,10 @@ final class SharedPrefsApiSessionStore implements ApiSessionStore {
 
   @override
   Future<void> write(ApiSession session) async {
-    await _prefs.setString(
-      _key,
-      [
-        session.baseUri,
-        session.relayUri,
-        session.mode.wireValue,
-        session.managementCredential,
-      ].join('|'),
-    );
+    if (!session.canBeSaved) {
+      throw ArgumentError('A session field holds the separator');
+    }
+    await _prefs.setString(_key, session.fields.join(_separator));
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/links/app_link.dart';
@@ -135,7 +136,16 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
           LocaleKeys.onboarding_connect_admin_token_error_empty.tr(),
       token,
       // Asking the same server again gets the same answer.
-      canRetry: outcome is! ServerAddressDiffers && outcome is! ServerDowngrade,
+      canRetry: switch (outcome) {
+        ServerAddressDiffers() ||
+        ServerDowngrade() ||
+        ServerAnswerInvalid() ||
+        LinkServerNotSelfHosted() ||
+        AdminTokenRefused() ||
+        RelayDiffers() ||
+        RegisteredElsewhere() => false,
+        _ => true,
+      },
     );
   }
 
@@ -155,9 +165,9 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   }
 
   /// True when [message] holds [token] in any form an error could echo it:
-  /// as the link gave it, as the request sent it (trimmed), and percent
-  /// encoded either way. Case is ignored, because `%2F` and `%2f` are one
-  /// thing.
+  /// as the link gave it, as the request sent it (trimmed), percent encoded
+  /// either way, and escaped the way a quoted value is. Case is ignored,
+  /// because `%2F` and `%2f` are one thing.
   static bool _holdsToken(String message, String token) {
     final text = message.toLowerCase();
     final plain = {token, token.trim()}..removeWhere((form) => form.isEmpty);
@@ -166,9 +176,18 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
         form,
         Uri.encodeComponent(form),
         Uri.encodeQueryComponent(form),
+        // An error that quotes a value writes a line break as two
+        // characters.
+        _quoted(form),
       ],
     };
     return forms.any((form) => text.contains(form.toLowerCase()));
+  }
+
+  /// [value] as JSON writes it inside a string, without the quotes.
+  static String _quoted(String value) {
+    final encoded = jsonEncode(value);
+    return encoded.substring(1, encoded.length - 1);
   }
 
   /// The person answered Not now, or swiped the sheet away.

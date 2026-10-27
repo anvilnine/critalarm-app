@@ -1,7 +1,10 @@
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -58,6 +61,35 @@ final class ServerDowngrade extends ConnectOutcome {
   const ServerDowngrade();
 }
 
+/// The answer to `/v1/info` is not one this app can connect to: an address
+/// that is not an `http` or `https` address, or a mode it does not know.
+final class ServerAnswerInvalid extends ConnectOutcome {
+  const ServerAnswerInvalid();
+}
+
+/// A link named a server that is not self-hosted. A link carries an admin
+/// token, and only a self-hosted server takes one.
+final class LinkServerNotSelfHosted extends ConnectOutcome {
+  const LinkServerNotSelfHosted();
+}
+
+/// The server did not accept the admin token. Nothing saved was changed.
+final class AdminTokenRefused extends ConnectOutcome {
+  const AdminTokenRefused();
+}
+
+/// The server names a relay other than the one this phone is registered
+/// with. The phone's registration stays where it is.
+final class RelayDiffers extends ConnectOutcome {
+  const RelayDiffers();
+}
+
+/// The server would take this phone's device token as its credential, and
+/// that token is the credential for another server.
+final class RegisteredElsewhere extends ConnectOutcome {
+  const RegisteredElsewhere();
+}
+
 /// The server answered but the connection could not be saved.
 final class ConnectionNotSaved extends ConnectOutcome {
   const ConnectionNotSaved(this.failure);
@@ -66,14 +98,20 @@ final class ConnectionNotSaved extends ConnectOutcome {
 }
 
 /// The connect threw on the way, which is a transport error.
+///
+/// Only the kind of error is kept. The text of what was thrown is dropped
+/// here, because it can quote what was being sent.
 final class ConnectTransportError extends ConnectOutcome {
-  const ConnectTransportError(this.error);
+  ConnectTransportError(Object error) : error = NetworkFault.of(error);
 
-  final Object error;
+  final NetworkFault error;
 }
 
-/// Connects the phone to a server: asks it who it is, checks the version,
-/// sets up the session and saves the connection.
+/// Connects the phone to a server: asks it who it is, checks the whole
+/// answer, proves the admin token on a self-hosted server, and only then
+/// sets up the session and saves the connection. A connect that is refused
+/// leaves the saved session, the saved connection and the device identity
+/// as they were.
 ///
 /// The setup connect step and a connect link both call this, so a server is
 /// connected one way only. It does not touch the form, a draft, or what
@@ -86,6 +124,8 @@ class ConnectToServerUsecase {
     this.cancelPendingConnect,
     this.readSavedServerUrl,
     this.forgetServerData,
+    this.proveAdminToken,
+    this.readRelayTrust,
   });
 
   final GetServerInfoUsecase _getServerInfo;
@@ -105,6 +145,16 @@ class ConnectToServerUsecase {
   /// be sent and the recent searches. Runs when the new connection names a
   /// different server than the saved one, after it is saved.
   final Future<void> Function()? forgetServerData;
+
+  /// Makes one authenticated read on the server at `baseUri` with the admin
+  /// token, and throws an [ApiException] carrying the status when the
+  /// server refuses it. Runs before anything is saved. Left out, the read
+  /// goes through the same repository `/v1/info` does.
+  final Future<void> Function(Uri baseUri, String adminToken)? proveAdminToken;
+
+  /// What the relay a server names is to the device token this phone holds.
+  /// Left out, the session use case answers.
+  final Future<DeviceTokenRelayTrust> Function(Uri relay)? readRelayTrust;
 
   /// [serverUrl] and [adminToken] are trimmed here. The token is only
   /// handed to the session store and the saved connection, and it is in no
@@ -137,32 +187,126 @@ class ConnectToServerUsecase {
       pin: pinToAddress,
     );
     if (refused != null) return refused;
-    final mode = ServerMode.fromWireValue(info.mode);
+    final mode = _modeOf(info);
+    final relay = _relayOf(info);
+    if (mode == null ||
+        relay == null ||
+        !ServerInfoValidation.isValidServerInfo(info)) {
+      return const ServerAnswerInvalid();
+    }
     // How to connect, not a plan: a self-hosted server wants its token.
-    final needsToken = mode == ServerMode.selfhosted; // access-ok: connect
-    if (needsToken && token.isEmpty) {
-      return AdminTokenMissing(info);
+    final isSelfHosted = mode == ServerMode.selfhosted; // access-ok: connect
+    // A link carries an admin token, and only a self-hosted server takes
+    // one. Nothing is registered anywhere for a link.
+    if (pinToAddress && !isSelfHosted) return const LinkServerNotSelfHosted();
+    if (isSelfHosted && token.isEmpty) return AdminTokenMissing(info);
+    // A token an HTTP header cannot carry, or the saved session cannot
+    // hold, is one no server issued. It is sent nowhere.
+    if (isSelfHosted && !_canBeSent(token)) return const AdminTokenRefused();
+    try {
+      final trust = await (readRelayTrust ?? _establishSession.relayTrust)(
+        relay,
+      );
+      if (trust == DeviceTokenRelayTrust.otherRelay) {
+        return const RelayDiffers();
+      }
+      if (isSelfHosted) {
+        final refusedToken = await _refuseToken(Uri.parse(info.baseUrl), token);
+        if (refusedToken != null) return refusedToken;
+      }
+    } on Object catch (error) {
+      return ConnectTransportError(error);
+    }
+    // Every check that needs no write has passed. From here a failure puts
+    // the session and the identity back as they were.
+    final SessionCheckpoint before;
+    try {
+      before = await _establishSession.checkpoint();
+    } on Object catch (error) {
+      return ConnectTransportError(error);
     }
     try {
       final savedUrl = await readSavedServerUrl?.call();
+      // Refuses another relay or another server before it sends or writes
+      // anything, and undoes its own writes when it throws.
       final session = await _establishSession(info, token);
-      final saved = await _saveConnection(
-        ServerConnection(
-          serverUrl: info.baseUrl,
-          adminToken: session.managementCredential,
-        ),
-      );
-      final saveFailure = saved.exceptionOrNull();
-      if (saveFailure != null) return ConnectionNotSaved(saveFailure);
+      final Failure? saveFailure;
+      try {
+        final saved = await _saveConnection(
+          ServerConnection(
+            serverUrl: info.baseUrl,
+            adminToken: session.managementCredential,
+          ),
+        );
+        saveFailure = saved.exceptionOrNull();
+      } on Object {
+        await _establishSession.rollBack(before);
+        rethrow;
+      }
+      if (saveFailure != null) {
+        await _establishSession.rollBack(before);
+        return ConnectionNotSaved(saveFailure);
+      }
       // Before anything loads from the new server: its incidents must not
       // be asked for from the old server's newest timestamp.
       if (readSavedServerUrl != null && !_sameServer(savedUrl, info.baseUrl)) {
         await forgetServerData?.call();
       }
       return Connected(info);
+    } on DeviceTokenRelayMismatch {
+      return const RelayDiffers();
+    } on DeviceTokenServerMismatch {
+      return const RegisteredElsewhere();
     } on Object catch (error) {
       return ConnectTransportError(error);
     }
+  }
+
+  /// Every character is one an `Authorization` header can carry and the
+  /// saved session can hold: visible ASCII, and not the session's separator.
+  static bool _canBeSent(String token) =>
+      !token.contains(ApiSession.fieldSeparator) &&
+      token.codeUnits.every((unit) => unit > 0x20 && unit < 0x7F);
+
+  /// Null when the server accepts [token].
+  /// A `401` or `403` is a wrong token. Any other answer is a server that
+  /// could not be asked.
+  Future<ConnectOutcome?> _refuseToken(Uri baseUri, String token) async {
+    final prove = proveAdminToken ?? _getServerInfo.proveAdminToken;
+    try {
+      await prove(baseUri, token);
+      return null;
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        return const AdminTokenRefused();
+      }
+      // Only the status is kept. The server wrote the rest of its answer,
+      // and it may have written the token into it.
+      return ServerUnreachable(Failure.api(statusCode: error.statusCode));
+    }
+  }
+
+  /// The mode exactly as api.md §3.4 spells it, or null for anything else.
+  static ServerMode? _modeOf(ServerInfo info) {
+    try {
+      return ServerMode.fromWireValue(info.mode);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// The relay address, or null when it is not a plain `http` or `https`
+  /// address: one with a user name, a query or a fragment is refused.
+  static Uri? _relayOf(ServerInfo info) {
+    final relay = Uri.tryParse(info.relayUrl.trim());
+    if (relay == null ||
+        relay.host.isEmpty ||
+        relay.userInfo.isNotEmpty ||
+        relay.hasQuery ||
+        relay.hasFragment) {
+      return null;
+    }
+    return relay;
   }
 
   ConnectOutcome? _refuseAddress({
@@ -232,11 +376,6 @@ class ConnectToServerUsecase {
   /// trailing slashes, spaces and the letter case of scheme and host.
   static bool _sameServer(String? saved, String reported) {
     if (saved == null || saved.trim().isEmpty) return false;
-    String norm(String url) {
-      final trimmed = ServerInfoValidation.normalizeBaseUrl(url);
-      return Uri.tryParse(trimmed)?.toString() ?? trimmed;
-    }
-
-    return norm(saved) == norm(reported);
+    return ServerInfoValidation.isSameAddress(saved, reported);
   }
 }
