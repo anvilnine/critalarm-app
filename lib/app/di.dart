@@ -975,7 +975,14 @@ Future<void> configureDependencies({
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
         forgetAccountData: () => getIt<AccountData>().forget(),
-        forgetDeletedAccountData: () => getIt<AccountData>().forgetDeleted(),
+        forgetDeletedAccountData: (accountId) async {
+          await getIt<AccountData>().forgetDeleted(
+            scope: accountId == null
+                ? null
+                : await heldScope.forAccount(accountId),
+          );
+        },
+        readAccountId: heldScope.accountId,
         // A merge folds the phone's account into another, so the history
         // kept under the old one moves to the new one.
         forgetMergedAccount: (from, into) async {
@@ -1648,6 +1655,11 @@ Future<void> configureDependencies({
         getIt<GetIncidentsUsecase>(),
         badge: getIt<AppBadge>(),
         saveIncident: getIt<IncidentRepository>().saveIncident,
+        isLeftBehind: (id) {
+          final repository = getIt<IncidentRepository>();
+          return repository is InMemoryIncidentRepository &&
+              repository.isLeftBehind(id);
+        },
       ),
     )
     ..registerLazySingleton(

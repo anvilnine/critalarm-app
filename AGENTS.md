@@ -1271,15 +1271,21 @@ knows. It is a copy the server replaces on every answer, not an archive.
   cover every scope.
 - Archive writes use a ticket (`beginWrite`, `ArchiveScope` in `lib/core/store/archive_scope.dart`)
   taken before the request or event the data came from. A write is stored only when the account
-  has not changed since, the identity bell (`AccountIdentityChanges`) has not sounded, and the scope
-  is known. The check runs inside the write's transaction, and every delete or merge invalidates
-  open tickets first, so a late write cannot bring deleted rows back. Otherwise it is dropped, never stored under the next account. Alarms are received,
-  sounded and acknowledged before and without this, so a dropped write costs a row and nothing
-  else; the next sync fetches the incident again.
-- The upgrade to version 4 stamps every existing incident and message with the scope the phone is
-  on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
-  database). A file whose tables already have the column is left as it is. With no saved server the rows get the empty scope, which no read asks for. A
-  `LocalStore` opened with no `scope` (unit tests, capture tools) keeps every row under one scope.
+  has not changed since, the identity bell (`AccountIdentityChanges`) has not sounded, and the
+  scope is known. The check runs inside the write's transaction, and every delete or merge
+  invalidates open tickets first, so a late write cannot bring deleted rows back. Otherwise the
+  write is dropped and never stored under the next account. Alarms are received, sounded and
+  acknowledged before and without this, so a dropped write costs a row and nothing else. The next
+  sync fetches the incident again.
+- An answer to an acknowledge, a close or a lookup that comes back after the account changed
+  belongs to the account that asked. `InMemoryIncidentRepository` marks it
+  (`isLeftBehind`), and `IncidentsCubit` neither draws nor stores a marked incident, whichever
+  caller hands it in. A list read that returns the incident again clears the mark.
+- The upgrade to version 4 stamps every existing incident and message with the scope the phone
+  is on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
+  database). A file whose tables already have the column is left as it is. With no saved server
+  the rows get the empty scope, which no read asks for. A `LocalStore` opened with no `scope`
+  (unit tests, capture tools) keeps every row under one scope.
 - What a `topics` row holds: name, Critical delivery, the three timers, the relay content
   setting, when the topic was made (milliseconds, because the Topic screen matches what it
   remembered about a topic by that exact time) and the order the server gave. A topic token, its

@@ -24,6 +24,7 @@ final class ApiAccountRepository implements AccountRepository {
     this.forgetAccountData,
     this.forgetDeletedAccountData,
     this.forgetMergedAccount,
+    this.readAccountId,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -47,7 +48,15 @@ final class ApiAccountRepository implements AccountRepository {
   /// [forgetAccountData], and the phone's copy of the account's alarm
   /// history, for an account that was deleted. Falls back to
   /// [forgetAccountData] when not given.
-  final Future<void> Function()? forgetDeletedAccountData;
+  ///
+  /// Called with the account that was deleted, as [readAccountId] named it
+  /// when the delete started, or null when that is not known.
+  final Future<void> Function(String? accountId)? forgetDeletedAccountData;
+
+  /// The account this phone is on now: the one the person signed in to, or
+  /// the device's own. A delete reads it before anything is signed out, so the
+  /// archive of the account that went is the one removed.
+  final Future<String?> Function()? readAccountId;
 
   /// Called with the account folded away and the one it went into once the
   /// server has merged, so what the phone kept for the first moves to the
@@ -73,6 +82,12 @@ final class ApiAccountRepository implements AccountRepository {
   /// once, and two recoveries racing would register twice.
   bool _recovering = false;
 
+  /// The account a delete is about, read when the delete started. A delete
+  /// that is refused as unauthorized signs the person in again and sends it a
+  /// second time, and by then the sign-in is gone, so the phone no longer
+  /// names that account. Held across that one retry only.
+  String? _deleting;
+
   @override
   Future<AccountLinkResult> link(
     String identityToken, {
@@ -91,9 +106,26 @@ final class ApiAccountRepository implements AccountRepository {
       identityToken: identityToken,
       intoAccount: intoAccount,
     );
-    if (result case AccountMerged(:final accountId, :final mergedFrom)) {
+    String? from;
+    String? into;
+    switch (result) {
+      case AccountMerged(:final accountId, :final mergedFrom):
+        from = mergedFrom;
+        into = accountId;
+      case AccountMergeAlreadyMerged():
+        // A retry after a reply that never arrived: the server merged the
+        // first time. The phone still names its own account until the next
+        // registration, so that is the one that was folded in.
+        try {
+          from = await readAccountId?.call();
+        } on Object catch (_) {}
+        into = intoAccount;
+      case _:
+        break;
+    }
+    if (from != null && into != null && from != into) {
       try {
-        await forgetMergedAccount?.call(mergedFrom, accountId);
+        await forgetMergedAccount?.call(from, into);
       } on Object catch (_) {}
     }
     return result;
@@ -140,13 +172,38 @@ final class ApiAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountDeleteResult> deleteAccount({String? identityToken}) =>
-      api.deleteAccount(identityToken: identityToken);
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
+    if (_deleting == null) {
+      try {
+        _deleting = await readAccountId?.call();
+      } on Object catch (_) {}
+    }
+    final AccountDeleteResult result;
+    try {
+      result = await api.deleteAccount(identityToken: identityToken);
+    } on Object {
+      _deleting = null;
+      rethrow;
+    }
+    // Kept only while a delete went through, or a retry is about to follow a
+    // refused one. Any other answer ends the attempt.
+    final retryFollows =
+        result is AccountDeleteUnauthorized && identityToken != null;
+    if (result is! AccountDeleted && !retryFollows) _deleting = null;
+    return result;
+  }
 
   @override
-  Future<void> wipeAfterDelete() => _wipe(
-    forget: forgetDeletedAccountData ?? forgetAccountData,
-  );
+  Future<void> wipeAfterDelete() {
+    final deleted = _deleting;
+    _deleting = null;
+    final forgetDeleted = forgetDeletedAccountData;
+    return _wipe(
+      forget: forgetDeleted == null
+          ? forgetAccountData
+          : () => forgetDeleted(deleted),
+    );
+  }
 
   Future<void> _wipe({required Future<void> Function()? forget}) async {
     // The store knows this phone as the account id that has just gone, so it

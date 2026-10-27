@@ -3,6 +3,7 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/store/archive_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
@@ -17,12 +18,45 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 /// Without a store it behaves exactly as it did before, which is what the
 /// tests that build it with an [ApiClient] alone rely on.
 class InMemoryIncidentRepository implements IncidentRepository {
-  const InMemoryIncidentRepository(this._client, {this.store});
+  InMemoryIncidentRepository(this._client, {this.store});
 
   final ApiClient _client;
 
   /// The phone's copy. Null in the tests that only exercise the wire.
   final LocalStore? store;
+
+  /// Incidents an answer came back for after the account had changed. The
+  /// answer belongs to the account that asked, so it is neither stored nor
+  /// drawn for the one the phone is on now. Newest last, and short: a refresh
+  /// that lists the incident again takes it off.
+  final _leftBehind = <String>{};
+  static const _leftBehindCap = 100;
+
+  /// True when the last answer for [incidentId] came after the account
+  /// changed. The shared incident list asks before it draws an incident it
+  /// was handed.
+  bool isLeftBehind(String incidentId) => _leftBehind.contains(incidentId);
+
+  void _leave(String incidentId) {
+    _leftBehind
+      ..remove(incidentId)
+      ..add(incidentId);
+    if (_leftBehind.length > _leftBehindCap) {
+      _leftBehind.remove(_leftBehind.first);
+    }
+  }
+
+  /// Stores [incident] under the account that asked, or marks it left behind
+  /// when the account changed while the request was out.
+  Future<void> _keep(Incident incident, ArchiveTicket? ticket) async {
+    final store = this.store;
+    if (store == null || ticket == null) return;
+    if (await ticket.isStale()) {
+      _leave(incident.id);
+      return;
+    }
+    await store.incidents.upsertAll([incident], ticket: ticket);
+  }
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
@@ -70,6 +104,10 @@ class InMemoryIncidentRepository implements IncidentRepository {
         since: askFor,
       );
       await store.incidents.upsertAll(fresh, ticket: ticket);
+      // Listed again for the account the phone is on, so it is its own.
+      if (!await ticket.isStale()) {
+        _leftBehind.removeAll(fresh.map((incident) => incident.id));
+      }
     } on Exception catch (e) {
       // The server being down is not an empty history any more.
       final held = await local();
@@ -91,8 +129,10 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
   @override
   Future<AppResult<Incident>> getIncident(String id) async {
+    final ticket = store?.incidents.beginWrite();
     try {
       final incident = await _client.getIncident(id);
+      if (ticket != null && await ticket.isStale()) _leave(incident.id);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -111,7 +151,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
     final ticket = store?.incidents.beginWrite();
     try {
       final incident = await _client.ackIncident(id);
-      await store?.incidents.upsertAll([incident], ticket: ticket);
+      await _keep(incident, ticket);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -130,7 +170,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
     final ticket = store?.incidents.beginWrite();
     try {
       final incident = await _client.closeIncident(id);
-      await store?.incidents.upsertAll([incident], ticket: ticket);
+      await _keep(incident, ticket);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -146,6 +186,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
   @override
   Future<void> saveIncident(Incident incident) async {
+    if (_leftBehind.contains(incident.id)) return;
     await store?.incidents.upsertAll([incident]);
   }
 

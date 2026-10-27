@@ -61,6 +61,7 @@ final class _ScriptedApi extends MockApiClient {
   final links = <AccountLinkResult>[];
   final merges = <AccountMergeResult>[];
   final switches = <AccountSwitchResult>[];
+  final deletes = <AccountDeleteResult>[];
 
   @override
   Future<AccountLinkResult> linkAccount({
@@ -73,6 +74,10 @@ final class _ScriptedApi extends MockApiClient {
     required String identityToken,
     required String intoAccount,
   }) async => merges.removeAt(0);
+
+  @override
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async =>
+      deletes.removeAt(0);
 
   @override
   Future<AccountSwitchResult> switchAccount({
@@ -167,6 +172,13 @@ final class _Phone {
       register: RegisterDeviceUsecase(api, devices, _PushToken()),
       identities: identities,
       connections: SharedPrefsConnectionRepository(prefs),
+      readAccountId: scope.accountId,
+      forgetDeletedAccountData: (accountId) async {
+        final deleted = accountId == null
+            ? null
+            : await scope.forAccount(accountId);
+        if (deleted != null) await store.deleteArchiveOf(deleted);
+      },
       forgetMergedAccount: (from, into) async {
         final fromScope = await scope.forAccount(from);
         final intoScope = await scope.forAccount(into);
@@ -342,6 +354,52 @@ void main() {
         expect(both.state, 'closed');
       },
     );
+
+    test('keep both again after a reply that never arrived still moves the '
+        'history', () async {
+      final phone = _Phone();
+      await phone.start();
+      await phone.seed('acc_anon', 'anon_old');
+      await phone.seed('acc_x', 'x_old');
+      phone.api
+        ..links.add(
+          const AccountLinkResult.choose(
+            intoAccount: 'acc_x',
+            topics: 1,
+            incidents: 1,
+          ),
+        )
+        ..merges.add(const AccountMergeResult.alreadyMerged());
+
+      await phone.cubit.signIn(IdentityProvider.google);
+      await phone.cubit.keepBoth();
+
+      expect(phone.cubit.state.status, AccountStatus.signedIn);
+      expect(await phone.visible(), ['anon_old', 'x_old']);
+      expect(await phone.rowsOf('acc_anon'), 0);
+    });
+
+    test('a delete refused as unauthorized signs in again, and the archive '
+        'removed is still the one of the deleted account', () async {
+      final phone = _Phone();
+      await phone.start();
+      await phone.seed('acc_anon', 'anon_old');
+      await phone.seed('acc_x', 'x_old');
+      phone.api
+        ..links.add(const AccountLinkResult.claimed(accountId: 'acc_x'))
+        ..deletes.addAll(const [
+          AccountDeleteResult.unauthorized(),
+          AccountDeleteResult.deleted(),
+        ]);
+      await phone.cubit.signIn(IdentityProvider.google);
+      expect(await phone.visible(), ['x_old']);
+
+      await phone.cubit.deleteAccount();
+
+      expect(phone.cubit.state.status, AccountStatus.deleted);
+      expect(await phone.rowsOf('acc_x'), 0);
+      expect(await phone.rowsOf('acc_anon'), 1);
+    });
 
     test(
       'a file from before scopes keeps its history for the account the '

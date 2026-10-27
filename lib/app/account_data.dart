@@ -130,14 +130,20 @@ class AccountData {
     }
   }
 
-  /// [forget], and the archive rows of the account the phone is on now.
+  /// [forget], and the archive rows of the account that was deleted: the one
+  /// named by [scope], or the account the phone is on now when none is given.
   ///
-  /// For an account that was deleted: nobody can sign in to it again, so the
-  /// copy of its history goes. Call it before the identity changes, while the
-  /// phone still names the account. A sign-out calls [forget] alone.
-  Future<void> forgetDeleted() async {
+  /// Nobody can sign in to a deleted account again, so the copy of its
+  /// history goes. A sign-out calls [forget] alone.
+  Future<void> forgetDeleted({String? scope}) async {
     final archive = _archive;
-    if (archive != null) await _quietly(archive.deleteCurrentArchive);
+    if (archive != null) {
+      await _quietly(
+        scope == null
+            ? archive.deleteCurrentArchive
+            : () => archive.deleteArchiveOf(scope),
+      );
+    }
     await forget();
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
@@ -175,6 +176,30 @@ class _Spy extends MockApiClient {
   /// Runs inside the next list read, before it answers.
   void Function()? duringRead;
 
+  /// Held open by a test that wants an acknowledge to answer late.
+  Completer<void>? ackGate;
+
+  /// Held open by a test that wants a lookup to answer late.
+  Completer<void>? lookupGate;
+
+  @override
+  Future<Incident> getIncident(String id) async {
+    final gate = lookupGate;
+    if (gate != null) await gate.future;
+    return super.getIncident(id);
+  }
+
+  /// Makes list reads answer with nothing, the way a second account that has
+  /// no alarms yet would see the server.
+  bool listsNothing = false;
+
+  @override
+  Future<Incident> ackIncident(String id) async {
+    final gate = ackGate;
+    if (gate != null) await gate.future;
+    return super.ackIncident(id);
+  }
+
   @override
   Future<List<Incident>> getIncidents({
     required int limit,
@@ -184,6 +209,7 @@ class _Spy extends MockApiClient {
   }) async {
     sinceSeen.add(since);
     duringRead?.call();
+    if (listsNothing) return const [];
     return super.getIncidents(
       limit: limit,
       state: state,
@@ -812,6 +838,89 @@ void main() {
       await history.load();
       await _settle(() => history.state.entries.length == 4);
       expect(history.state.entries, hasLength(4));
+    });
+
+    // The cubits that acknowledge mark the shared list first, send the
+    // request, and hand the answer back to the shared list, which stores it.
+    // Both halves are driven here the way they do.
+    Future<
+      ({
+        InMemoryIncidentRepository repository,
+        IncidentsCubit shared,
+        _Spy api,
+      })
+    >
+    alarmedPhone() async {
+      final api = _Spy(MockServer())..server.seedAlarmed();
+      final repository = InMemoryIncidentRepository(api, store: store);
+      final shared = IncidentsCubit(
+        GetIncidentsUsecase(repository),
+        saveIncident: repository.saveIncident,
+        isLeftBehind: repository.isLeftBehind,
+        identityChanges: phone.changes,
+      );
+      addTearDown(shared.close);
+      await shared.refresh();
+      expect(shared.state.incidents.map((i) => i.id), ['inc_alarmed_proddb']);
+      return (repository: repository, shared: shared, api: api);
+    }
+
+    test('an acknowledge answered in time is stored and drawn', () async {
+      final made = await alarmedPhone();
+      made.shared.acknowledgeNow(made.shared.state.incidents.single);
+
+      final result = await made.repository.ackIncident('inc_alarmed_proddb');
+      made.shared.applyIncident(result.getOrNull()!);
+      await pumpEventQueue();
+
+      expect(made.shared.state.incidents.single.state, IncidentStates.acked);
+      expect(
+        (await store.incidents.page()).single.state,
+        IncidentStates.acked,
+      );
+    });
+
+    test('an acknowledge that answers after the account switched is neither '
+        'stored nor drawn for the new account', () async {
+      final made = await alarmedPhone();
+      made.shared.acknowledgeNow(made.shared.state.incidents.single);
+      made.api.ackGate = Completer<void>();
+      final answering = made.repository.ackIncident('inc_alarmed_proddb');
+
+      phone.moveTo('acc_b');
+      made.api.listsNothing = true;
+      await made.shared.refresh();
+      expect(made.shared.state.incidents, isEmpty);
+
+      made.api.ackGate!.complete();
+      final result = await answering;
+      // The cubit's own apply, as every acknowledge path makes it.
+      made.shared.applyIncident(result.getOrNull()!);
+      await pumpEventQueue();
+
+      expect(made.shared.state.incidents, isEmpty);
+      expect(await store.incidents.count(), 0);
+      expect(await store.messages.count(), 0);
+      // Nothing of it was kept for the account that asked either; its next
+      // list read brings the acknowledged copy.
+      phone.moveTo('acc_a');
+      expect((await store.incidents.page()).single.state, isNot('acked'));
+    });
+
+    test('a lookup that answers after the switch is neither stored nor drawn '
+        'for the new account', () async {
+      final made = await alarmedPhone();
+      made.api.lookupGate = Completer<void>();
+      final late = made.repository.getIncident('inc_alarmed_proddb');
+      phone.moveTo('acc_b');
+      made.api.listsNothing = true;
+      await made.shared.refresh();
+      made.api.lookupGate!.complete();
+
+      made.shared.applyIncidents([(await late).getOrNull()!]);
+      await pumpEventQueue();
+      expect(made.shared.state.incidents, isEmpty);
+      expect(await store.incidents.count(), 0);
     });
 
     test('the shared incident list and a topic screen read nothing of the '
