@@ -5,6 +5,7 @@ import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
@@ -260,7 +261,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           emit(
             state.copyWith(
               serverUrl: conn.serverUrl,
-              adminToken: conn.adminToken,
+              adminToken: _formToken(conn.adminToken, session?.mode),
               isConnected: true,
             ),
           );
@@ -276,7 +277,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           emit(
             state.copyWith(
               serverUrl: conn.serverUrl,
-              adminToken: conn.adminToken,
+              adminToken: _formToken(conn.adminToken, session?.mode),
               isConnected: true,
             ),
           );
@@ -479,12 +480,29 @@ class SettingsCubit extends Cubit<SettingsState> {
         isSavingConnection: false,
         isConnected: true,
         serverUrl: outcome.info.baseUrl,
-        adminToken: session?.managementCredential ?? adminToken.trim(),
+        adminToken: _formToken(
+          session?.managementCredential ?? adminToken.trim(),
+          session?.mode,
+        ),
         serverMode: session?.mode,
       ),
     );
     await onConnectionChanged?.call();
     return outcome;
+  }
+
+  /// What the Edit server form may be filled with. Only a self-hosted
+  /// server's credential is an admin token the person typed. On any other
+  /// server it is the device token, which is never shown, so the form gets
+  /// nothing. With no session to say which, a device token is still kept
+  /// out by its prefix.
+  static String _formToken(String credential, ServerMode? mode) {
+    if (mode == null) return credential.startsWith('dv_') ? '' : credential;
+    return mode ==
+            ServerMode
+                .selfhosted // access-ok: which credential this is
+        ? credential
+        : '';
   }
 
   Future<void> _saveUnchecked(String serverUrl, String adminToken) async {
