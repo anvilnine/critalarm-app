@@ -156,8 +156,6 @@ Future<_Phone> _connectedPhone(
   return _Phone(prefs, requests, client, connect, register);
 }
 
-typedef _Route = http.Response Function(http.Request request);
-
 void main() {
   group('a link', () {
     test('to a server that answers hosted with a relay of its own sends the '
@@ -591,66 +589,80 @@ void main() {
     test('is in a log line, an outcome or its message, through every '
         'refused connect', () async {
       const linkToken = 'ad_from_the_link';
-      final scenarios = <String, (Map<String, _Route>, String, bool)>{
-        'a link to a hosted server': (
-          {
-            'GET $_other/v1/info': (_) =>
-                _info(baseUrl: _other, relayUrl: _otherRelay, mode: 'hosted'),
-          },
-          _other,
-          true,
-        ),
-        'a link to a server on another relay': (
-          {
-            'GET $_other/v1/info': (_) =>
-                _info(baseUrl: _other, relayUrl: _otherRelay),
-          },
-          _other,
-          true,
-        ),
-        'a link with a token the server refuses and echoes': (
-          {
-            'GET $_home/v1/info': (_) =>
-                _info(baseUrl: _home, relayUrl: _homeRelay),
-            'GET $_home/v1/incidents': (request) => _json({
-              'error': 'bad ${request.headers['authorization']}',
-            }, 401),
-          },
-          _home,
-          true,
-        ),
-        'a server that fails the proof and echoes the token': (
-          {
-            'GET $_home/v1/info': (_) =>
-                _info(baseUrl: _home, relayUrl: _homeRelay),
-            'GET $_home/v1/incidents': (request) => _json({
-              'error': 'bad ${request.headers['authorization']}',
-            }, 500),
-          },
-          _home,
-          false,
-        ),
-        'a typed hosted server that would take the device token': (
-          {
-            'GET $_other/v1/info': (_) =>
-                _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
-          },
-          _other,
-          false,
-        ),
-        'a relay that refuses the refresh and echoes the device token': (
-          {
-            'GET $_home/v1/info': (_) =>
-                _info(baseUrl: _home, relayUrl: _homeRelay, mode: 'hosted'),
-            'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (request) =>
-                _json({
+      final scenarios =
+          <
+            String,
+            (
+              Map<String, http.Response Function(http.Request request)>,
+              String,
+              bool,
+            )
+          >{
+            'a link to a hosted server': (
+              {
+                'GET $_other/v1/info': (_) => _info(
+                  baseUrl: _other,
+                  relayUrl: _otherRelay,
+                  mode: 'hosted',
+                ),
+              },
+              _other,
+              true,
+            ),
+            'a link to a server on another relay': (
+              {
+                'GET $_other/v1/info': (_) =>
+                    _info(baseUrl: _other, relayUrl: _otherRelay),
+              },
+              _other,
+              true,
+            ),
+            'a link with a token the server refuses and echoes': (
+              {
+                'GET $_home/v1/info': (_) =>
+                    _info(baseUrl: _home, relayUrl: _homeRelay),
+                'GET $_home/v1/incidents': (request) => _json({
                   'error': 'bad ${request.headers['authorization']}',
-                }, 400),
-          },
-          _home,
-          false,
-        ),
-      };
+                }, 401),
+              },
+              _home,
+              true,
+            ),
+            'a server that fails the proof and echoes the token': (
+              {
+                'GET $_home/v1/info': (_) =>
+                    _info(baseUrl: _home, relayUrl: _homeRelay),
+                'GET $_home/v1/incidents': (request) => _json({
+                  'error': 'bad ${request.headers['authorization']}',
+                }, 500),
+              },
+              _home,
+              false,
+            ),
+            'a typed hosted server that would take the device token': (
+              {
+                'GET $_other/v1/info': (_) => _info(
+                  baseUrl: _other,
+                  relayUrl: _homeRelay,
+                  mode: 'hosted',
+                ),
+              },
+              _other,
+              false,
+            ),
+            'a relay that refuses the refresh and echoes the device token': (
+              {
+                'GET $_home/v1/info': (_) =>
+                    _info(baseUrl: _home, relayUrl: _homeRelay, mode: 'hosted'),
+                'PATCH $_homeRelay/relay/v1/devices/dev_this_phone':
+                    (request) => _json({
+                      'error': 'bad ${request.headers['authorization']}',
+                    }, 400),
+              },
+              _home,
+              false,
+            ),
+          };
       for (final MapEntry(key: name, value: (routes, url, isLink))
           in scenarios.entries) {
         final printed = <String>[];
