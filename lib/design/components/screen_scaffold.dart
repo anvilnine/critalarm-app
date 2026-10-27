@@ -1282,7 +1282,13 @@ class AppDetailPane extends StatelessWidget {
             constraints: const BoxConstraints(
               maxWidth: AppSize.detailMaxWidth,
             ),
-            child: child,
+            // The margin above already clears the status bar, so the page
+            // in the pane must not leave room for it a second time.
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: child,
+            ),
           ),
         ),
       ),
