@@ -163,6 +163,21 @@ abstract final class AppRoute {
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+/// Whether [matches] put a page on the root navigator, above the tabs: a
+/// top-level route such as the ringing alarm, pushed or gone to. The tabs
+/// themselves are a shell match, and a page pushed onto a tab is an
+/// imperative match that holds a shell match.
+bool _hasPageAboveShell(List<RouteMatchBase> matches) {
+  for (final match in matches) {
+    if (match is ImperativeRouteMatch) {
+      if (_hasPageAboveShell(match.matches.matches)) return true;
+    } else if (match is RouteMatch) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// The card a Personalize pass page grows from: the `PassOrigin` the root
 /// passed as `extra`, or null when the page was opened another way (a deep
 /// link, a restored route, a topic's own sound).
@@ -371,25 +386,39 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   name: AppRoute.topicDetail,
                   pageBuilder: (context, state) {
                     final name = state.pathParameters['name'] ?? '';
-                    // On an expanded window the topic opens in Home's detail
-                    // pane, beside the list. Only the topic itself: a page
-                    // under it (messages, tokens) or `?curl=1` still opens
-                    // as a page.
-                    if (state.uri.path == state.matchedLocation &&
-                        state.uri.queryParameters.isEmpty &&
-                        opensTopicInHomePane(
-                          AppSize.of(context),
-                          AppFold.of(context),
-                        )) {
-                      return NoTransitionPage<void>(
-                        key: state.pageKey,
-                        child: HomePaneHandOff(topicName: name),
-                      );
-                    }
                     // `?curl=1` comes from the silent topic reminder's "Get
                     // curl line": the token sheet opens as the screen does.
                     final startCurlFlow =
                         state.uri.queryParameters['curl'] == '1';
+                    // On an expanded window the topic opens in Home's detail
+                    // pane, beside the list: this page is a see-through
+                    // stand-in that hands the topic to the pane once it is
+                    // the page in front (at once, or on the way back from
+                    // Messages or Tokens). With a page over the tabs, such
+                    // as the ringing alarm, the topic opens as a page of its
+                    // own and the alarm stays put.
+                    final isCurlTopic =
+                        startCurlFlow &&
+                        state.uri.path == state.matchedLocation;
+                    if (!isCurlTopic &&
+                        opensTopicInHomePane(
+                          AppSize.of(context),
+                          AppFold.of(context),
+                          hasPageAboveShell: _hasPageAboveShell(
+                            GoRouter.of(
+                              context,
+                            ).routerDelegate.currentConfiguration.matches,
+                          ),
+                        )) {
+                      return CustomTransitionPage<void>(
+                        key: state.pageKey,
+                        opaque: false,
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                        transitionsBuilder: (_, _, _, child) => child,
+                        child: HomePaneHandOff(topicName: name),
+                      );
+                    }
                     return AmbientPage(
                       key: state.pageKey,
                       child: TopicDetailScreen(

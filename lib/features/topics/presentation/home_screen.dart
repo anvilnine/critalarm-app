@@ -72,10 +72,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// [HomePaneHandOff]. Home takes the name and sets this back to null.
 final ValueNotifier<String?> homePaneRequest = ValueNotifier<String?>(null);
 
-/// What `/topics/<name>` draws on an expanded window with no fold: nothing.
-/// After its first frame it asks Home for [topicName] in the detail pane
-/// and goes back to `/`, so the topic opens beside the list and never as a
-/// lone column. A push from a notification lands there too.
+/// What `/topics/<name>` draws on an expanded window with no fold: nothing,
+/// on a see-through page with no transition, so Home shows through it. Once
+/// it is the page in front (at once for the topic itself, on the way back
+/// for Messages or Tokens pushed above it) it asks Home for [topicName] in
+/// the detail pane and takes itself off the stack. The topic then opens
+/// beside the list and never as a lone column.
 class HomePaneHandOff extends StatefulWidget {
   const HomePaneHandOff({required this.topicName, super.key});
 
@@ -86,18 +88,30 @@ class HomePaneHandOff extends StatefulWidget {
 }
 
 class _HomePaneHandOffState extends State<HomePaneHandOff> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      homePaneRequest.value = widget.topicName;
+  bool _isHandedOver = false;
+
+  void _handOver() {
+    if (!mounted) return;
+    homePaneRequest.value = widget.topicName;
+    // Pop rather than go: a go would drop anything else on the stack.
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
       GoRouter.of(context).go('/');
-    });
+    }
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    // Rebuilds when the page above it goes, so the hand-off waits for that.
+    final isInFront = ModalRoute.of(context)?.isCurrent ?? true;
+    if (isInFront && !_isHandedOver) {
+      _isHandedOver = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handOver());
+    }
+    return const SizedBox.shrink();
+  }
 }
 
 /// HomeScreen matching docs/design-system/index.html mobile mockup.
@@ -150,17 +164,22 @@ class _HomeScreenContent extends StatefulWidget {
 class _HomeScreenContentState extends State<_HomeScreenContent>
     with RouteAware, WidgetsBindingObserver {
   /// The topic the person picked for the detail pane: a tap, or a link to
-  /// it. Null until then, and the pane shows the first topic. See
+  /// it. Null until then, and the pane shows [_openedTopic]. See
   /// [paneSelection].
   String? _selectedTopic;
 
-  /// Takes a topic a link asked for. See [HomePaneHandOff].
+  /// The topic the pane opened on while nothing is picked: the first one,
+  /// held while it is listed so a message on another topic does not move
+  /// the pane. It is not marked read.
+  String? _openedTopic;
+
+  /// Takes a topic a link asked for. See [HomePaneHandOff]. A link does not
+  /// mark the topic read, the same as on a phone: only a tap on its row does.
   void _takePaneRequest() {
     final name = homePaneRequest.value;
     if (name == null) return;
     homePaneRequest.value = null;
     if (!mounted) return;
-    unawaited(context.read<HomeCubit>().markRead(name));
     setState(() => _selectedTopic = name);
   }
 
@@ -753,7 +772,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final selected = paneSelection(
       items: [for (final topic in state.topicItems) topic.name],
       picked: _selectedTopic,
+      latched: _openedTopic,
     );
+    if (_selectedTopic == null) _openedTopic = selected;
     final hasDetail = state.topicItems.isNotEmpty;
     // On a fold the hero holds still in its own pane and only the list
     // scrolls. Read off the window: inside the stage the fold is gone.
@@ -1239,6 +1260,7 @@ class _HeroBlockState extends State<_HeroBlock> {
                 ),
               ],
               onTap: runAction ?? onTapBody,
+              liveRegion: view.isLive,
               semanticsLabel: [
                 ?view.label,
                 view.numeral,
