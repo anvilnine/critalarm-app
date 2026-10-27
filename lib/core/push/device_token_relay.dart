@@ -11,6 +11,14 @@ const hostedRelayUrl = 'https://relay.critalarm.app';
 bool isHostedRelay(Uri relay) =>
     ServerInfoValidation.isSameAddress(hostedRelayUrl, relay.toString());
 
+/// The Crit Alarm Cloud server. A device token with no server written beside
+/// it counts as the management credential for this server and no other.
+const hostedServerUrl = 'https://api.critalarm.app';
+
+/// True when [server] is [hostedServerUrl].
+bool isHostedServer(Uri server) =>
+    ServerInfoValidation.isSameAddress(hostedServerUrl, server.toString());
+
 /// What a relay is to the device token this phone holds.
 enum DeviceTokenRelayTrust {
   /// The phone holds no device token, so there is nothing to keep back.
@@ -55,23 +63,26 @@ DeviceTokenRelayTrust deviceTokenRelayTrust({
 /// On a server that is not self-hosted the device token is the management
 /// credential, so it is that for one server address and for no other.
 ///
-/// The address is the one saved beside the token. A token with none belongs
-/// to [sessionServer], the server of the saved session. The answer reads as
-/// [deviceTokenRelayTrust] does, with the server in the relay's place.
+/// The address is the one saved beside the token. A token with none counts
+/// as [hostedServerUrl]'s. The answer reads as [deviceTokenRelayTrust] does,
+/// with the server in the relay's place: [DeviceTokenRelayTrust.unknownIssuer]
+/// is a token with no server written down and a server that is not the
+/// hosted one.
 DeviceTokenRelayTrust deviceTokenServerTrust({
   required DeviceIdentity? identity,
-  required Uri? sessionServer,
   required Uri server,
 }) {
   final token = identity?.deviceToken;
   if (token == null || token.trim().isEmpty) {
     return DeviceTokenRelayTrust.noToken;
   }
-  final owner = identity?.tokenServer ?? sessionServer?.toString();
-  if (owner == null || owner.trim().isEmpty) {
-    return DeviceTokenRelayTrust.unknownIssuer;
+  final recorded = identity?.tokenServer;
+  if (recorded == null || recorded.trim().isEmpty) {
+    return isHostedServer(server)
+        ? DeviceTokenRelayTrust.issuer
+        : DeviceTokenRelayTrust.unknownIssuer;
   }
-  return ServerInfoValidation.isSameAddress(owner, server.toString())
+  return ServerInfoValidation.isSameAddress(recorded, server.toString())
       ? DeviceTokenRelayTrust.issuer
       : DeviceTokenRelayTrust.otherRelay;
 }

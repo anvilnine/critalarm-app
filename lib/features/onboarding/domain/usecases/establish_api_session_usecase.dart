@@ -1,4 +1,5 @@
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/push/device_token_relay.dart';
@@ -36,27 +37,36 @@ class EstablishApiSessionUsecase {
   /// What [relay] is to the device token this phone holds, for a connect.
   /// Reads only: it mints no identity.
   ///
-  /// A token with no issuer written beside it counts as issued by the hosted
-  /// relay. Another relay gets a fresh registration and never the token, but
-  /// a connect only lets that happen where it replaces nothing: with no
-  /// server saved, or with the saved session already on [relay]. Otherwise
-  /// the answer is [DeviceTokenRelayTrust.otherRelay], as for a token whose
-  /// issuer is written down.
-  Future<DeviceTokenRelayTrust> relayTrust(Uri relay) async {
-    final trust = deviceTokenRelayTrust(
-      identity: await _identity.read(),
-      relay: relay,
-    );
-    if (trust != DeviceTokenRelayTrust.unknownIssuer) return trust;
-    final session = await _sessions.read();
-    if (session == null ||
-        ServerInfoValidation.isSameAddress(
+  /// [DeviceTokenRelayTrust.otherRelay] means the connect is refused: the
+  /// token belongs to another relay and a server is saved on a relay of its
+  /// own, so going ahead would replace a working connection.
+  Future<DeviceTokenRelayTrust> relayTrust(Uri relay) async =>
+      _relayPlan(await _identity.read(), await _sessions.read(), relay);
+
+  /// [DeviceTokenRelayTrust.unknownIssuer] means the phone starts fresh on
+  /// [relay]: it holds a token that relay did not issue, and nothing saved
+  /// would be replaced. That is the case with no session saved, or, for a
+  /// token with no issuer written down, with the session already on [relay].
+  static DeviceTokenRelayTrust _relayPlan(
+    DeviceIdentity? held,
+    ApiSession? session,
+    Uri relay,
+  ) {
+    final trust = deviceTokenRelayTrust(identity: held, relay: relay);
+    switch (trust) {
+      case DeviceTokenRelayTrust.noToken || DeviceTokenRelayTrust.issuer:
+        return trust;
+      case DeviceTokenRelayTrust.unknownIssuer ||
+          DeviceTokenRelayTrust.otherRelay:
+        if (session == null) return DeviceTokenRelayTrust.unknownIssuer;
+        final onThisRelay = ServerInfoValidation.isSameAddress(
           session.relayUri.toString(),
           relay.toString(),
-        )) {
-      return trust;
+        );
+        return trust == DeviceTokenRelayTrust.unknownIssuer && onThisRelay
+            ? DeviceTokenRelayTrust.unknownIssuer
+            : DeviceTokenRelayTrust.otherRelay;
     }
-    return DeviceTokenRelayTrust.otherRelay;
   }
 
   /// What the session and the identity hold now.
@@ -92,37 +102,38 @@ class EstablishApiSessionUsecase {
     final previous = await _sessions.read();
     final held = await _identity.read();
     // The relay of the saved session is where the device token goes from
-    // then on, whatever the mode. So a session never names a relay that did
-    // not issue the token this phone holds.
-    if (await relayTrust(relay) == DeviceTokenRelayTrust.otherRelay) {
+    // then on, whatever the mode, the native weekly check receipt included.
+    // So a session never names a relay that did not issue the token this
+    // phone holds: the phone starts fresh there, or the connect is refused.
+    final relayPlan = _relayPlan(held, previous, relay);
+    if (relayPlan == DeviceTokenRelayTrust.otherRelay) {
       throw const DeviceTokenRelayMismatch();
     }
+    var startsFresh = relayPlan == DeviceTokenRelayTrust.unknownIssuer;
     // Where the device token is the credential, it is that for one server.
-    if (usesDeviceToken &&
-        deviceTokenServerTrust(
-              identity: held,
-              sessionServer: previous?.baseUri,
-              server: server,
-            ) ==
-            DeviceTokenRelayTrust.otherRelay) {
-      throw const DeviceTokenServerMismatch();
+    if (usesDeviceToken && !startsFresh) {
+      final serverTrust = deviceTokenServerTrust(
+        identity: held,
+        server: server,
+      );
+      if (serverTrust == DeviceTokenRelayTrust.otherRelay ||
+          serverTrust == DeviceTokenRelayTrust.unknownIssuer) {
+        // With nothing saved there is no working connection to keep, so the
+        // phone starts fresh. Otherwise the connect is refused.
+        if (previous != null) throw const DeviceTokenServerMismatch();
+        startsFresh = true;
+      }
     }
     final before = await checkpoint();
     try {
-      // The session is about to change. A token whose server was only known
-      // from the session gets it written down first. Its relay is not: one
-      // with none written down counts as issued by the hosted relay.
-      if (held?.deviceToken != null &&
-          held?.tokenServer == null &&
-          previous != null) {
-        await _identity.saveTokenOrigin(server: previous.baseUri);
-      }
+      if (startsFresh) await _identity.startFresh();
       var credential = adminToken;
       if (usesDeviceToken) {
         await _register(
           appVersion: appVersion,
           pushToken: pushToken,
           relayUri: relay,
+          forServer: server,
         );
         final identity = await _identity.readOrCreate();
         final issuer = identity.tokenRelay;

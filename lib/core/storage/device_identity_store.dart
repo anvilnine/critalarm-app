@@ -107,7 +107,9 @@ class DeviceIdentityStore {
   }
 
   /// [relay] is the relay that answered. It is kept beside the token as its
-  /// issuer. Left out, the issuer already saved stands.
+  /// issuer. Left out, the issuer already saved stands. [isHostedAccount] is
+  /// false when the token is for a server other than the hosted one; on an
+  /// iPhone such an account never goes in the synced item.
   Future<void> saveRegistration({
     required String deviceToken,
     required String accountId,
@@ -115,6 +117,7 @@ class DeviceIdentityStore {
     AccountCaps caps = const AccountCaps(),
     String? accountJoinToken,
     Uri? relay,
+    bool isHostedAccount = true,
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     // A new token belongs to no server yet.
@@ -446,6 +449,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     AccountCaps caps = const AccountCaps(),
     String? accountJoinToken,
     Uri? relay,
+    bool isHostedAccount = true,
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     final identity = await readOrCreate();
@@ -455,8 +459,10 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
         DeviceIdentityStore._nonEmpty(accountJoinToken) ??
         identity.accountJoinToken;
     // The synced item has no issuer written beside it, so what it holds
-    // counts as the hosted relay's. Another relay's account never goes in.
+    // counts as the hosted relay's and the hosted server's. Another relay's
+    // or another server's account never goes in.
     if (join != null &&
+        isHostedAccount &&
         (relay == null || isHostedRelay(relay)) &&
         (join != identity.accountJoinToken ||
             accountId != identity.accountId)) {

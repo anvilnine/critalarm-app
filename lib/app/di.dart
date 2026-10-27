@@ -920,6 +920,7 @@ Future<void> configureDependencies({
         beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
         readSessionRelay: () async =>
             (await getIt<ApiSessionStore>().read())?.relayUri,
+        readSession: () => getIt<ApiSessionStore>().read(),
         onPacks: (response, {relayUri, request}) =>
             getIt<ProPackAccess>().relayAnswered(
               accountId: response.accountId,
