@@ -4,11 +4,11 @@ import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/language/presentation/language_mistake_line.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Which build this is, what licence it ships under, and where the code and
@@ -22,17 +22,8 @@ class AboutScreen extends StatelessWidget {
       hasTabBar: false,
       topBar: AppTopBar(
         title: LocaleKeys.settings_about_header.tr(),
-        leading: AppIconButton(
-          glyph: GlyphType.back,
-          ariaLabel: LocaleKeys.common_back.tr(),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/settings');
-            }
-          },
-        ),
+        // Beside the Settings rows, in the detail pane, there is no back.
+        leading: settingsBackButton(context),
       ),
       slivers: [
         SliverToBoxAdapter(

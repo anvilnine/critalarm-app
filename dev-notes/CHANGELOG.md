@@ -7,6 +7,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - make l10n-pseudo writes a debug-only en-XA pseudo-locale, loaded with --dart-define=PSEUDO\_LOCALE=true.
 - DateLabel in lib/core/format/date\_label.dart formats every date label for the current locale and keeps the English patterns unchanged.
 - Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
+- Settings detail pane: SettingsPage, settingsPaneSelection, settingsRowTapFor and SettingsPaneScope in settings\_pane.dart, AppPassStack.showsBack, and tap captures in the responsive capture matrix (tapScreenRoutes, capture\_settings\_checks.dart).
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.

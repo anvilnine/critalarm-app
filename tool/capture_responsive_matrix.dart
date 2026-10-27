@@ -102,6 +102,7 @@ import '../test/helpers/load_translations.dart';
 import 'alarm_geometry.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
+import 'capture_settings_checks.dart';
 import 'fold_clearance.dart';
 import 'paywall_geometry.dart';
 import 'wp3_geometry.dart';
@@ -237,7 +238,7 @@ const List<_Size> _sizes = [
 // Screens
 // ---------------------------------------------------------------------------
 
-enum _Pick { none, firstTopic, firstHistoryEntry, acknowledge }
+enum _Pick { none, firstTopic, firstHistoryEntry, acknowledge, text }
 
 class _Screen {
   const _Screen(
@@ -251,6 +252,8 @@ class _Screen {
     this.pickBeforeChecks = false,
     this.pushAfter,
     this.popAfter = false,
+    this.tapKey,
+    this.paneTapKey,
   });
 
   /// A location pushed once [path] has drawn, the way a button on that
@@ -279,6 +282,13 @@ class _Screen {
   /// fold walk run after it instead of before.
   final bool pickBeforeChecks;
 
+  /// The `LocaleKeys` key of the text a [_Pick.text] screen taps.
+  final String? tapKey;
+
+  /// The `LocaleKeys` key of the text tapped next, inside the detail pane,
+  /// where there is one. See `paneTapRoutes`.
+  final String? paneTapKey;
+
   /// Why this cell is left out at [size], or null when it is captured.
   String? skipAt(_Size size) {
     if (webOnly && size.renders != _Renders.web) {
@@ -298,6 +308,15 @@ class _Screen {
 final List<_Screen> _screens = [
   for (final (id, path, fixture, pinned) in allScreenRoutes)
     _Screen(id, path, fixture, pinned: pinned),
+  for (final (id, path, fixture, tapKey) in tapScreenRoutes)
+    _Screen(
+      id,
+      path,
+      fixture,
+      pick: _Pick.text,
+      tapKey: tapKey,
+      paneTapKey: paneTapRoutes[id],
+    ),
   const _Screen(
     '16_home_topic_selected',
     '/',
@@ -439,7 +458,12 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-Future<String?> _tapPick(WidgetTester tester, _Pick pick) async {
+Future<String?> _tapPick(
+  WidgetTester tester,
+  _Pick pick, {
+  String? tapKey,
+  bool inPane = false,
+}) async {
   final finder = switch (pick) {
     _Pick.none => null,
     _Pick.firstTopic => find.byType(AppInboxRow),
@@ -448,10 +472,32 @@ Future<String?> _tapPick(WidgetTester tester, _Pick pick) async {
       AppButton,
       LocaleKeys.critical_alarm_acknowledge_button.tr(),
     ),
+    _Pick.text => find.text(tapKey!.tr()),
   };
   if (finder == null) return null;
   if (finder.evaluate().isEmpty) return 'no row on screen to pick';
-  await tester.tap(finder.first, warnIfMissed: false);
+  var target = finder.first;
+  if (pick == _Pick.text) {
+    // The text of a row in the list on top, not the same words on a page
+    // beside it in a detail pane or on a screen under the top route. With
+    // [inPane], the other way round: the words on the page in the pane.
+    final inList = finder.evaluate().where(
+      (e) =>
+          (e.findAncestorWidgetOfExactType<AppDetailPane>() != null) ==
+              inPane &&
+          (ModalRoute.of(e)?.isCurrent ?? true),
+    );
+    if (inList.isEmpty) {
+      return inPane ? 'no text in the pane to tap' : 'no row on screen to pick';
+    }
+    final chosen = inList.first;
+    target = find.byElementPredicate((e) => e == chosen);
+    // A small screen can hold the text below the fold of the list. Bring it
+    // to the middle, clear of the bars that float over the list's edges.
+    unawaited(Scrollable.ensureVisible(chosen, alignment: 0.5));
+    await tester.pump();
+  }
+  await tester.tap(target, warnIfMissed: false);
   await _settle(tester);
   return null;
 }
@@ -849,7 +895,32 @@ void main() {
                 }
                 // The geometry the layout rules promise, read off the render
                 // tree rather than judged by eye.
-                for (final (line, failed) in _measure(tester, size, screen)) {
+                final appSize = AppSize(
+                  size.width,
+                  size.height,
+                  isIphone: size.isIphone,
+                );
+                final windowFold = AppFold.fromFeatures(
+                  size.displayFeatures,
+                  Size(size.width, size.height),
+                );
+                // The route on top: a pushed page's own location, or the
+                // tab's when nothing is pushed.
+                String location() => router
+                    .routerDelegate
+                    .currentConfiguration
+                    .last
+                    .matchedLocation;
+                for (final (line, failed) in [
+                  ..._measure(tester, size, screen),
+                  ...settingsChecksAtRest(
+                    tester,
+                    screenId: screen.id,
+                    size: appSize,
+                    fold: windowFold,
+                    location: location(),
+                  ),
+                ]) {
                   print('geometry $rel: $line');
                   _log.add('geometry $rel: $line');
                   if (failed) {
@@ -909,9 +980,39 @@ void main() {
                 // After the walk: the walk reads the screen at scroll 0, and a
                 // pick can scroll or open something.
                 if (!screen.pickBeforeChecks) {
-                  final pickProblem = await _tapPick(tester, screen.pick);
+                  final pickProblem = await _tapPick(
+                    tester,
+                    screen.pick,
+                    tapKey: screen.tapKey,
+                  );
                   if (pickProblem != null) {
                     record('capture note: $pickProblem', kind: _note);
+                  }
+                }
+                // The next tap, on the page the first tap opened in the pane.
+                if (screen.paneTapKey != null &&
+                    AppScreenScaffold.showsDetailFor(appSize, windowFold)) {
+                  final paneProblem = await _tapPick(
+                    tester,
+                    _Pick.text,
+                    tapKey: screen.paneTapKey,
+                    inPane: true,
+                  );
+                  if (paneProblem != null) {
+                    record('capture note: $paneProblem', kind: _note);
+                  }
+                }
+                for (final (line, failed) in settingsChecksAfterTap(
+                  tester,
+                  screenId: screen.id,
+                  size: appSize,
+                  fold: windowFold,
+                  location: location(),
+                )) {
+                  print('geometry $rel: $line');
+                  _log.add('geometry $rel: $line');
+                  if (failed) {
+                    record('geometry check failed: $line', kind: _note);
                   }
                 }
 

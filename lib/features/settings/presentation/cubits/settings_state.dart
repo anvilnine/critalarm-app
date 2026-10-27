@@ -27,6 +27,7 @@ class SettingsState {
     this.serverUrl = '',
     this.adminToken,
     this.isConnected = false,
+    this.connectionKnown = false,
     this.analyticsEnabled = false,
     this.crashReportingEnabled = false,
     this.isDisconnecting = false,
@@ -63,6 +64,12 @@ class SettingsState {
   final String serverUrl;
   final String? adminToken;
   final bool isConnected;
+
+  /// Whether the saved connection has been read, so [isConnected] is the
+  /// answer and not the default. It comes before the network calls that
+  /// finish the load, so the Settings pane can open on Server for a phone
+  /// that lost its server without drawing another page first.
+  final bool connectionKnown;
   final bool analyticsEnabled;
   final bool crashReportingEnabled;
   final bool isDisconnecting;
@@ -98,6 +105,7 @@ class SettingsState {
     String? serverUrl,
     String? adminToken,
     bool? isConnected,
+    bool? connectionKnown,
     bool? analyticsEnabled,
     bool? crashReportingEnabled,
     bool? isDisconnecting,
@@ -124,6 +132,7 @@ class SettingsState {
       serverUrl: serverUrl ?? this.serverUrl,
       adminToken: adminToken ?? this.adminToken,
       isConnected: isConnected ?? this.isConnected,
+      connectionKnown: connectionKnown ?? this.connectionKnown,
       analyticsEnabled: analyticsEnabled ?? this.analyticsEnabled,
       crashReportingEnabled:
           crashReportingEnabled ?? this.crashReportingEnabled,
@@ -153,15 +162,17 @@ class SettingsState {
           serverUrl == other.serverUrl &&
           adminToken == other.adminToken &&
           isConnected == other.isConnected &&
+          connectionKnown == other.connectionKnown &&
           analyticsEnabled == other.analyticsEnabled &&
           crashReportingEnabled == other.crashReportingEnabled &&
           isDisconnecting == other.isDisconnecting &&
           isSavingConnection == other.isSavingConnection &&
           errorMessage == other.errorMessage &&
-          serverMode == other.serverMode;
+          serverMode == other.serverMode &&
+          storage == other.storage;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     access,
     topics,
     status,
@@ -173,6 +184,7 @@ class SettingsState {
     serverUrl,
     adminToken,
     isConnected,
+    connectionKnown,
     analyticsEnabled,
     crashReportingEnabled,
     isDisconnecting,
@@ -181,5 +193,6 @@ class SettingsState {
     serverMode,
     holdsHosted,
     proState,
-  );
+    storage,
+  ]);
 }

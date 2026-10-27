@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
@@ -146,19 +147,33 @@ class _SettingsReadinessCardState extends State<SettingsReadinessCard>
             : view.titleIsMissingCheck
             ? sentenceCase(LocaleKeys.home_card_foot_check_could_not_run.tr())
             : sentenceCase(readinessCheckLine(view.titleCheck));
+        final numeralLabel = view.kind == ReadinessKind.loading
+            ? null
+            : LocaleKeys.settings_card_numeral_label.tr(
+                namedArgs: {
+                  'fine': '${summary.count.fine}',
+                  'total': '${summary.count.total}',
+                },
+              );
+        // A cover screen keeps the card to one line, so the rows under it
+        // still show: the face, the title and the count. The pips and the
+        // fix button wait on the Reliability screen the card opens.
+        if (AppSize.of(context).isCover) {
+          return SettingsReadinessLine(
+            face: view.face,
+            title: title,
+            numeral: summary.numeralText,
+            numeralTone: readinessNumeralTone(view.kind),
+            spokenNumeral: numeralLabel,
+            onTap: () => unawaited(_open()),
+          );
+        }
         return AppStatusCard.strip(
           face: view.face,
           label: LocaleKeys.home_card_label_will_it_wake_me.tr().toUpperCase(),
           title: title,
           numeral: summary.numeralText,
-          numeralLabel: view.kind == ReadinessKind.loading
-              ? null
-              : LocaleKeys.settings_card_numeral_label.tr(
-                  namedArgs: {
-                    'fine': '${summary.count.fine}',
-                    'total': '${summary.count.total}',
-                  },
-                ),
+          numeralLabel: numeralLabel,
           numeralTone: readinessNumeralTone(view.kind),
           pips: summary.pips.isEmpty
               ? null
@@ -171,6 +186,110 @@ class _SettingsReadinessCardState extends State<SettingsReadinessCard>
           liveRegion: true,
         );
       },
+    );
+  }
+}
+
+/// The readiness card on a cover screen: one line of face, title and count on
+/// the same dark surface as the full card, [height] tall.
+class SettingsReadinessLine extends StatelessWidget {
+  const SettingsReadinessLine({
+    required this.face,
+    required this.title,
+    required this.numeral,
+    required this.numeralTone,
+    required this.onTap,
+    this.spokenNumeral,
+    super.key,
+  });
+
+  /// The whole line, padding included. The rows need the room more than the
+  /// card needs the full card's 16 above and below.
+  static const double height = 64;
+
+  final FaceState face;
+  final String title;
+  final String numeral;
+  final AppStatusTone numeralTone;
+  final VoidCallback onTap;
+
+  /// What a screen reader says for [numeral], such as "2 of 2 fine".
+  final String? spokenNumeral;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final brightness = Theme.of(context).brightness;
+    final surface = statusCardSurface(colors, brightness);
+    // The line is chrome sized to fit: the words stop growing at the chrome
+    // limit and end in an ellipsis rather than make the line taller.
+    final scaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: kChromeMaxTextScale);
+    return Semantics(
+      container: true,
+      button: true,
+      liveRegion: true,
+      label: [title, spokenNumeral ?? numeral].join(', '),
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            height: height,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: surface.fill,
+              borderRadius: Radii.xlAll,
+              border: surface.line == null
+                  ? null
+                  : Border.all(color: surface.line!),
+              boxShadow: brightness == Brightness.dark
+                  ? const []
+                  : AppShadows.lightMd,
+            ),
+            child: Row(
+              children: [
+                FaceWidget(state: face, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textScaler: scaler,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      height: 1.25,
+                      color: colors.onPanel,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  numeral,
+                  maxLines: 1,
+                  softWrap: false,
+                  textScaler: scaler,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontDisplay,
+                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 28,
+                    height: 1.05,
+                    letterSpacing: -0.84,
+                    color: numeralTone.color(colors),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
