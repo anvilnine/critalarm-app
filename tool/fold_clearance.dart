@@ -10,6 +10,7 @@ import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/highlight_card.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
+import 'package:critalarm/design/components/pass_card.dart';
 import 'package:critalarm/design/components/stat_card.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -129,4 +130,6 @@ const List<Type> darkPanelTypes = [
   AppStatCard,
   AppHighlightCard,
   SettingsReadinessCard,
+  // The Look, Sound and Wake-up challenge passes on the Topic screen.
+  AppPassCard,
 ];
