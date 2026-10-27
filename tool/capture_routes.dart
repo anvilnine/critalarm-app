@@ -46,4 +46,9 @@ const List<CaptureRoute> allScreenRoutes = [
     FaceState.calm,
     TargetPlatform.iOS,
   ),
+  // WP6. The welcome pages themselves: on a phone /onboarding is the
+  // permissions step, which waits on the phone's answers in a capture.
+  ('wp6_02_welcome_pages', '/onboarding/welcome', FaceState.calm, null),
+  // WP6. New topic as the first_topic setup step.
+  ('wp6_07_first_topic', '/onboarding/first-topic', FaceState.calm, null),
 ];
