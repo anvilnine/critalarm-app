@@ -217,6 +217,30 @@ void main() {
     expect((await iphone.readOrCreate()).deviceToken, 'dv_old');
   });
 
+  test('putting an identity back tells whoever reads the identity, on '
+      'Android and in the iOS Keychain', () async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final store in [
+      DeviceIdentityStore(prefs),
+      KeychainDeviceIdentityStore(prefs),
+    ]) {
+      final snapshot = await store.snapshot();
+      await store.readOrCreate();
+      await store.saveRegistration(
+        deviceToken: 'dv_new',
+        accountId: 'acc_new',
+        tier: 'hosted',
+      );
+      var rings = 0;
+      void count() => rings++;
+      store.changes.addListener(count);
+      await store.restore(snapshot);
+      store.changes.removeListener(count);
+      expect(rings, greaterThan(0), reason: '${store.runtimeType}');
+      await store.clear();
+    }
+  });
+
   test('a phone that holds nothing reads as nothing and mints no id', () async {
     final prefs = await SharedPreferences.getInstance();
     expect(await DeviceIdentityStore(prefs).read(), isNull);
