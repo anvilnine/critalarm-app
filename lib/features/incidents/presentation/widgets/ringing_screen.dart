@@ -146,6 +146,27 @@ double ringingBookFaceSizeFor({
   );
 }
 
+/// How far the buttons rise off the foot of the end pane of a book fold, so
+/// the card and the buttons sit as one group in the middle of the pane, the
+/// card's top across from the face in the start pane.
+///
+/// [paneHeight] is the end pane inside its safe area and [cardHeight] how
+/// tall the card comes out with this message at this text size. 0 when the
+/// card fills the room above the buttons.
+double ringingBookLiftFor({
+  required double paneHeight,
+  required double textScale,
+  required double cardHeight,
+  int pinnedButtons = 3,
+}) {
+  final room =
+      paneHeight -
+      ringingBarHeightFor(textScale: textScale, pinnedButtons: pinnedButtons) -
+      ringingBarClearance -
+      16;
+  return math.max(0, (room - cardHeight) / 2).toDouble();
+}
+
 /// The ringing takeover: pulse rings, face, incident detail, and the two
 /// pinned actions (acknowledge and snooze).
 ///
@@ -530,6 +551,7 @@ class RingingScreen extends StatelessWidget {
   Widget _book(BuildContext context, AlarmRingingLook look, Widget buttons) {
     // The same sum the canvas owner makes through [drawsFace].
     final faceSize = _bookFaceSize(context, state, look);
+    final lift = _bookLift(context, look);
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderCard,
@@ -575,7 +597,8 @@ class RingingScreen extends StatelessWidget {
                           pinnedButtons: state.ackedExits.isSetupTest ? 2 : 3,
                         ) -
                         ringingBarClearance -
-                        16,
+                        16 -
+                        lift,
                   )
                   .toDouble();
               // At the foot of the room, right over "I'm up", so the answer
@@ -594,7 +617,40 @@ class RingingScreen extends StatelessWidget {
           ),
         ),
       ],
-      bottomBar: buttons,
+      // Still pinned, lifted so the card and the buttons sit in the middle
+      // of the pane as one group instead of in its bottom part.
+      bottomBar: Padding(
+        padding: EdgeInsets.only(bottom: lift),
+        child: buttons,
+      ),
+    );
+  }
+
+  /// How far the book layout lifts its buttons, read from the window
+  /// [context] is drawn in. See [ringingBookLiftFor].
+  double _bookLift(BuildContext context, AlarmRingingLook look) {
+    final window = MediaQuery.of(context);
+    final fold = AppFold.of(context);
+    if (!fold.isBook) return 0;
+    final pane = fold
+        .panes(
+          window.size,
+          direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
+        )
+        .second;
+    final media = foldPaneMediaQuery(window, pane);
+    final card = _measureCard(
+      context,
+      state,
+      look,
+      media.size.width,
+      inherited: DefaultTextStyle.of(context).style,
+    );
+    return ringingBookLiftFor(
+      paneHeight: media.size.height - media.padding.vertical,
+      textScale: media.textScaler.scale(16) / 16,
+      cardHeight: card.height,
+      pinnedButtons: state.ackedExits.isSetupTest ? 2 : 3,
     );
   }
 
@@ -964,31 +1020,13 @@ class RingingScreen extends StatelessWidget {
   }) {
     final media = MediaQuery.of(context);
     final textScale = media.textScaler.scale(16) / 16;
-    final textWidth = width - 2 * _cardInset - _cardPadding.horizontal;
-    double lines(String text, TextStyle style) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: inherited.merge(style),
-        ),
-        textDirection: Directionality.of(context),
-        textScaler: media.textScaler,
-        locale: Localizations.maybeLocaleOf(context),
-      )..layout(maxWidth: math.max(0, textWidth));
-      final height = painter.height;
-      painter.dispose();
-      return height;
-    }
-
-    final titleBottom =
-        _cardPadding.top + lines(state.title, look.type.messageTitle);
-    final cardHeight =
-        titleBottom +
-        _titleGap +
-        lines(state.body, look.type.messageBody) +
-        _bodyGap +
-        lines(state.meta, look.type.messageMeta) +
-        _cardPadding.bottom;
+    final (:titleBottom, height: cardHeight) = _measureCard(
+      context,
+      state,
+      look,
+      width,
+      inherited: inherited,
+    );
     final viewportHeight = media.size.height - media.padding.vertical;
     // A setup test has no Read the full message button.
     final pinnedButtons = state.ackedExits.isSetupTest ? 2 : 3;
@@ -1017,6 +1055,47 @@ class RingingScreen extends StatelessWidget {
         isCompact: isCompact,
         pinnedButtons: pinnedButtons,
       ),
+    );
+  }
+
+  /// How tall the card comes out with this message on a page [width] wide,
+  /// and how far below its top the title ends. The text size is the one
+  /// [context] has. [inherited] is the text style the card's lines inherit.
+  static ({double titleBottom, double height}) _measureCard(
+    BuildContext context,
+    CriticalAlarmState state,
+    AlarmRingingLook look,
+    double width, {
+    required TextStyle inherited,
+  }) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textWidth = width - 2 * _cardInset - _cardPadding.horizontal;
+    double lines(String text, TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: inherited.merge(style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: textScaler,
+        locale: Localizations.maybeLocaleOf(context),
+      )..layout(maxWidth: math.max(0, textWidth));
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final titleBottom =
+        _cardPadding.top + lines(state.title, look.type.messageTitle);
+    return (
+      titleBottom: titleBottom,
+      height:
+          titleBottom +
+          _titleGap +
+          lines(state.body, look.type.messageBody) +
+          _bodyGap +
+          lines(state.meta, look.type.messageMeta) +
+          _cardPadding.bottom,
     );
   }
 
