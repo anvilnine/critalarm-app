@@ -46,4 +46,11 @@ const List<CaptureRoute> allScreenRoutes = [
     FaceState.calm,
     TargetPlatform.iOS,
   ),
+  // WP5: the other paywall layouts a place opens, to check the one column
+  // and the frame on wide windows.
+  ('wp5_paywall_sheet', '/plans/sheet?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_proof', '/plans/proof?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_reel', '/plans/reel?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_wipe', '/plans/wipe?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_pro', '/plans/hero?product=pro', FaceState.acked, null),
 ];
