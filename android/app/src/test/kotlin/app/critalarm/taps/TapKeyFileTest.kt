@@ -6,6 +6,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -55,6 +56,37 @@ class TapKeyFileTest {
         val key = TapKeyFile(file).load()
         assertEquals(TapKeyFile.SIZE, key.size)
         assertArrayEquals(key, file.readBytes())
+    }
+
+    @Test
+    fun `a key file that cannot be read is kept for the next process`() {
+        val file = File(folder.root, TapKeyFile.NAME)
+        val saved = TapKeyFile(file).load()
+        val mark = TapSignature.sign(saved, alarm)
+        assertTrue(file.setReadable(false))
+        // Running as a user that reads anything, the failure cannot be made.
+        assumeFalse(file.canRead())
+        try {
+            val stopgap = TapKeyFile(file).load()
+            assertEquals(TapKeyFile.SIZE, stopgap.size)
+            assertFalse(stopgap.contentEquals(saved))
+        } finally {
+            file.setReadable(true)
+        }
+        // Not overwritten: the next process reads the same key and the mark
+        // made before the failed read still matches.
+        assertArrayEquals(saved, file.readBytes())
+        val next = TapKeyFile(file).load()
+        assertEquals(TapVerdict.SIGNED, TapSignature.verdict(alarm, mark) { next })
+        assertFalse(File(file.parentFile, file.name + ".new").exists())
+    }
+
+    @Test
+    fun `an existing key is never replaced`() {
+        val file = File(folder.root, TapKeyFile.NAME)
+        val first = TapKeyFile(file).load()
+        repeat(3) { assertArrayEquals(first, TapKeyFile(file).load()) }
+        assertArrayEquals(first, file.readBytes())
     }
 
     @Test
