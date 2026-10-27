@@ -172,6 +172,10 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   : _IncidentDetail(
                       key: ValueKey(selected.id),
                       entry: selected,
+                      face: paneFaceFor(
+                        selected.faceState,
+                        hero: hasHero ? week.face : null,
+                      ),
                     ),
               slivers: [
                 SliverToBoxAdapter(
@@ -504,9 +508,17 @@ class _FilterButton extends StatelessWidget {
 
 /// The right pane on an expanded display: one picked incident, full detail.
 class _IncidentDetail extends StatelessWidget {
-  const _IncidentDetail({required this.entry, super.key});
+  const _IncidentDetail({
+    required this.entry,
+    required this.face,
+    super.key,
+  });
 
   final HistoryEntry entry;
+
+  /// How the incident ended, or null when the hero beside the pane already
+  /// shows that face. See [paneFaceFor].
+  final FaceState? face;
 
   @override
   Widget build(BuildContext context) {
@@ -517,9 +529,12 @@ class _IncidentDetail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // How the incident ended, at the hero size.
-          FaceWidget(state: entry.faceState),
-          const SizedBox(height: Spacing.s4),
+          // How the incident ended, at the hero size, unless the hero
+          // already wears that face.
+          if (face case final face?) ...[
+            FaceWidget(state: face),
+            const SizedBox(height: Spacing.s4),
+          ],
           Text(
             entry.topic,
             style: AppTypography.monoBold(colors.ink, fontSize: 22),

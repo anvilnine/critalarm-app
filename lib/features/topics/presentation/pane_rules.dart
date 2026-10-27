@@ -1,3 +1,4 @@
+import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 
@@ -19,6 +20,14 @@ K? paneSelection<K>({required List<K> items, required K? picked, K? latched}) {
   if (latched != null && items.contains(latched)) return latched;
   return items.isEmpty ? null : items.first;
 }
+
+/// The face a detail pane draws for its item: the item's own state [item]
+/// (a History incident's end state, a Home topic's state), or null when the
+/// list's hero beside the pane already shows that state ([hero]). A screen
+/// never shows two copies of one face side by side. Null [hero] means no
+/// hero face is on screen, so the pane keeps its own.
+FaceState? paneFaceFor(FaceState item, {required FaceState? hero}) =>
+    item == hero ? null : item;
 
 /// True when a screen draws its hero in the scaffold's `foldStage` and leaves
 /// it out of its slivers: tabletop always, book only when the screen has no
