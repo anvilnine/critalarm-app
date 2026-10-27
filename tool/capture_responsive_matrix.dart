@@ -9,13 +9,13 @@
 //
 //   SIZES=ipad-11-landscape,desktop-1440   only these size ids (see _sizes)
 //   SCREENS=04_home_face,10_settings       only these screen ids
-//   THEMES=light                           light, dark or both
+//   THEMES=light                           light or dark (unset: both)
 //   OUT=/abs/dir                           where the files go (default below)
 //
 // Output:
 //
 //   <OUT>/<size-id>/<theme>/<screen>.png   one capture, device pixel ratio 2
-//   <OUT>/errors.json                      every FlutterError, first line only
+//   <OUT>/errors.json                      every FlutterError, note and failure
 //   <OUT>/run-log.txt                      what was captured, skipped, broken
 //   <OUT>/index.html                       the contact sheet
 //
@@ -33,7 +33,17 @@
 // on that platform. A web size gets `isWeb: true` (no push, no alarm, compose
 // on). Other `kIsWeb` reads in lib/app/di.dart (the local store, the native
 // locale bridge, the onboarding platform) still see a native build, because
-// a widget test cannot change that constant.
+// a widget test cannot change that constant. The override also comes after
+// configureDependencies, so anything that build resolved already, such as
+// the ReliabilityCubit and the services it reads, keeps the native value.
+//
+// Each errors.json entry has a `kind`: `flutter_error` (a FlutterError the
+// screen raised), `note` (the tool could not do a step, such as finding a row
+// to pick) or `failed` (the capture threw). Notes show in grey on the sheet.
+//
+// The clock is not pinned. Screens and the mock fixtures read DateTime.now()
+// and lib/ has no clock to swap, so times, "Today" labels and relative ages
+// change from run to run. A comparison between two runs must ignore them.
 //
 // Developer tool.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
@@ -121,14 +131,16 @@ class _Size {
 
   bool get isTwoPane => AppSize(width, height, isIphone: isIphone).isExpanded;
 
-  /// The fold as the platform reports it: physical pixels, zero thickness.
+  /// The fold as the platform reports it: zero thickness, in logical pixels
+  /// (the engine divides by the device pixel ratio before Flutter sees it).
+  Rect? get hingeLine {
+    if (hingeX != null) return Rect.fromLTWH(hingeX!, 0, 0, height);
+    if (hingeY != null) return Rect.fromLTWH(0, hingeY!, width, 0);
+    return null;
+  }
+
   List<ui.DisplayFeature> get displayFeatures {
-    Rect? line;
-    if (hingeX != null) {
-      line = Rect.fromLTWH(hingeX! * _ratio, 0, 0, height * _ratio);
-    } else if (hingeY != null) {
-      line = Rect.fromLTWH(0, hingeY! * _ratio, width * _ratio, 0);
-    }
+    final line = hingeLine;
     if (line == null) return const [];
     return [
       ui.DisplayFeature(
@@ -222,6 +234,9 @@ class _Screen {
     if (webOnly && size.renders != _Renders.web) {
       return 'web only, captured at the desktop sizes';
     }
+    if (pinned != null && pinned != size.platform) {
+      return 'pinned to ${pinned!.name}, captured only at those sizes';
+    }
     if (pick != _Pick.none && !size.isTwoPane) {
       return 'one pane at this size, a tap opens the full screen';
     }
@@ -267,7 +282,17 @@ Set<String> _list(String key) => _env(
   key,
 ).split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
 
-typedef _Err = ({String size, String theme, String screen, String message});
+typedef _Err = ({
+  String size,
+  String theme,
+  String screen,
+  String kind,
+  String message,
+});
+
+const _flutterError = 'flutter_error';
+const _note = 'note';
+const _failed = 'failed';
 
 final _errors = <_Err>[];
 final _captured = <String>{};
@@ -373,6 +398,7 @@ void _writeErrors(Directory out) {
             'size': e.size,
             'theme': e.theme,
             'screen': e.screen,
+            'kind': e.kind,
             'message': e.message,
           },
       ]..sort(
@@ -407,12 +433,13 @@ figcaption{font-size:12px;margin-top:4px;max-width:340px}
 figcaption b{font-weight:600}
 .meta{color:#666}
 .err{color:#c00;margin-top:2px;word-break:break-word}
+.note{color:#777;margin-top:2px;word-break:break-word}
 nav a{margin-right:10px}
 ''';
 
 void _writeIndex(Directory out) {
   final errorsFile = File('${out.path}/errors.json');
-  final errors = <String, List<String>>{};
+  final errors = <String, List<(String, String)>>{};
   if (errorsFile.existsSync()) {
     final list = jsonDecode(errorsFile.readAsStringSync()) as List<dynamic>;
     for (final e in list.cast<Map<String, dynamic>>()) {
@@ -421,7 +448,7 @@ void _writeIndex(Directory out) {
             _cell('${e['size']}', '${e['theme']}', '${e['screen']}'),
             () => [],
           )
-          .add('${e['message']}');
+          .add(('${e['kind'] ?? _flutterError}', '${e['message']}'));
     }
   }
 
@@ -439,7 +466,8 @@ void _writeIndex(Directory out) {
       '<p class="meta">Generated ${DateTime.now().toUtc().toIso8601String()} '
       'by tool/capture_responsive_matrix.dart. Device pixel ratio 2. '
       'Click an image for the full-size file. Red lines are FlutterErrors '
-      'from errors.json.</p>',
+      'and failed captures from errors.json. Grey lines are tool notes. '
+      'Times on screen are the run time, not pinned.</p>',
     )
     ..write('<nav>');
   for (final s in _screens) {
@@ -477,9 +505,11 @@ void _writeIndex(Directory out) {
             'src="${_esc(rel)}" alt="${_esc(alt)}"></a>$label',
           );
           final cellErrors =
-              errors[_cell(size.id, theme, screen.id)] ?? const <String>[];
-          for (final m in cellErrors) {
-            b.write('<div class="err">${_esc(m)}</div>');
+              errors[_cell(size.id, theme, screen.id)] ??
+              const <(String, String)>[];
+          for (final (kind, m) in cellErrors) {
+            final css = kind == _note ? 'note' : 'err';
+            b.write('<div class="$css">${_esc(m)}</div>');
           }
           b.writeln('</figcaption></figure>');
         } else if (skip != null) {
@@ -561,13 +591,16 @@ void main() {
     }
     _writeErrors(out);
     _writeIndex(out);
+    final flutterErrors = _errors.where((e) => e.kind == _flutterError);
     final withErrors = {
-      for (final e in _errors) _cell(e.size, e.theme, e.screen),
+      for (final e in flutterErrors) _cell(e.size, e.theme, e.screen),
     };
     final summary = [
       'captures written: ${_captured.length}',
       'captures with errors: ${withErrors.length}',
-      'FlutterErrors recorded: ${_errors.length}',
+      'FlutterErrors recorded: ${flutterErrors.length}',
+      'notes: ${_errors.where((e) => e.kind == _note).length}',
+      'failed captures: ${_errors.where((e) => e.kind == _failed).length}',
       'routes that could not render: ${_broken.length}',
       for (final MapEntry(:key, :value) in _broken.entries) '  $key: $value',
       'wall time: ${clock.elapsed.inSeconds} s',
@@ -600,13 +633,14 @@ void main() {
             setUpAll(() => _boot(size));
             testWidgets('capture', (tester) async {
               final messages = <String>{};
-              void record(String message) {
+              void record(String message, {String kind = _flutterError}) {
                 final first = message.trim().split('\n').first;
                 if (messages.add(first)) {
                   _errors.add((
                     size: size.id,
                     theme: theme.name,
                     screen: screen.id,
+                    kind: kind,
                     message: first,
                   ));
                 }
@@ -679,8 +713,24 @@ void main() {
                 );
                 if (screen.pinned == null) router.go(screen.path);
                 await _settle(tester);
+                // The fold must reach the screens where the size puts it.
+                final line = size.hingeLine;
+                if (line != null) {
+                  final seen = MediaQuery.of(
+                    boundary.currentContext!,
+                  ).displayFeatures.map((f) => f.bounds).toList();
+                  print('hinge $rel: MediaQuery displayFeatures $seen');
+                  if (seen.length != 1 || seen.single != line) {
+                    record(
+                      'capture note: fold expected at $line, got $seen',
+                      kind: _note,
+                    );
+                  }
+                }
                 final pickProblem = await _tapPick(tester, screen.pick);
-                if (pickProblem != null) record('capture note: $pickProblem');
+                if (pickProblem != null) {
+                  record('capture note: $pickProblem', kind: _note);
+                }
 
                 await tester.runAsync(() async {
                   final render =
@@ -696,7 +746,7 @@ void main() {
                 });
                 _captured.add(rel);
                 _log.add(
-                  '${messages.isEmpty ? 'ok      ' : 'errors  '} $rel'
+                  '${messages.isEmpty ? 'ok      ' : 'issues  '} $rel'
                   '${messages.isEmpty ? '' : ' (${messages.length})'}',
                 );
                 print('captured $rel${messages.isEmpty ? '' : ' with errors'}');
@@ -706,7 +756,7 @@ void main() {
                 await tester.pumpWidget(const SizedBox.shrink());
                 await tester.pump(const Duration(seconds: 1));
               } on Object catch (e) {
-                record('capture failed: $e');
+                record('capture failed: $e', kind: _failed);
                 _broken.putIfAbsent(
                   screen.id,
                   () => '$e'.split('\n').first,
