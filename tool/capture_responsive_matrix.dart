@@ -73,6 +73,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
@@ -85,6 +86,8 @@ import 'package:critalarm/features/history/presentation/widgets/history_row.dart
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -95,6 +98,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../test/helpers/load_translations.dart';
+import 'alarm_geometry.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
 import 'fold_clearance.dart';
@@ -207,6 +211,7 @@ const List<_Size> _sizes = [
   _Size('pixel-fold-tabletop', 841, 701, _Renders.android, hingeY: 350),
   _Size('pixel-fold-inner-book', 841, 701, _Renders.android, hingeX: 420),
   _Size('razr-cover', 384, 388, _Renders.android),
+  _Size('razr-cover-text13', 384, 388, _Renders.android, textScale: 1.3),
   _Size(
     'iphone-fold-unfolded',
     720,
@@ -221,7 +226,7 @@ const List<_Size> _sizes = [
 // Screens
 // ---------------------------------------------------------------------------
 
-enum _Pick { none, firstTopic, firstHistoryEntry }
+enum _Pick { none, firstTopic, firstHistoryEntry, acknowledge }
 
 class _Screen {
   const _Screen(
@@ -232,6 +237,7 @@ class _Screen {
     this.pick = _Pick.none,
     this.webOnly = false,
     this.missing,
+    this.pickBeforeChecks = false,
   });
 
   final String id;
@@ -249,6 +255,10 @@ class _Screen {
   /// Why this screen cannot be drawn in this build. Logged, never captured.
   final String? missing;
 
+  /// The tap opens the screen this cell is about, so the measuring and the
+  /// fold walk run after it instead of before.
+  final bool pickBeforeChecks;
+
   /// Why this cell is left out at [size], or null when it is captured.
   String? skipAt(_Size size) {
     if (webOnly && size.renders != _Renders.web) {
@@ -257,7 +267,8 @@ class _Screen {
     if (pinned != null && pinned != size.platform) {
       return 'pinned to ${pinned!.name}, captured only at those sizes';
     }
-    if (pick != _Pick.none && !size.isTwoPane) {
+    if ((pick == _Pick.firstTopic || pick == _Pick.firstHistoryEntry) &&
+        !size.isTwoPane) {
       return 'one pane at this size, a tap opens the full screen';
     }
     return null;
@@ -290,6 +301,14 @@ final List<_Screen> _screens = [
         'PlatformCapabilities.canComposeMessages exists, but no screen or '
         'route uses it, and the compose button opens /topics/new',
   ),
+  for (final (id, path, fixture) in acknowledgedCaptureRoutes)
+    _Screen(
+      id,
+      path,
+      fixture,
+      pick: _Pick.acknowledge,
+      pickBeforeChecks: true,
+    ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -388,6 +407,10 @@ Future<String?> _tapPick(WidgetTester tester, _Pick pick) async {
     _Pick.none => null,
     _Pick.firstTopic => find.byType(AppInboxRow),
     _Pick.firstHistoryEntry => find.byType(HistoryRow),
+    _Pick.acknowledge => find.widgetWithText(
+      AppButton,
+      LocaleKeys.critical_alarm_acknowledge_button.tr(),
+    ),
   };
   if (finder == null) return null;
   if (finder.evaluate().isEmpty) return 'no row on screen to pick';
@@ -772,6 +795,13 @@ void main() {
                     );
                   }
                 }
+                // A tap that opens the screen under test goes first.
+                if (screen.pickBeforeChecks) {
+                  final pickProblem = await _tapPick(tester, screen.pick);
+                  if (pickProblem != null) {
+                    record('capture note: $pickProblem', kind: _note);
+                  }
+                }
                 // The geometry the layout rules promise, read off the render
                 // tree rather than judged by eye.
                 for (final (line, failed) in _measure(tester, size, screen)) {
@@ -818,11 +848,26 @@ void main() {
                   _log.add('fold     $rel: $summary');
                 }
 
+                // The order a screen reader walks the ringing alarm (WP2).
+                if (screen.id == '08_critical_alarm') {
+                  for (final (line, failed) in await ringingReadingOrder(
+                    tester,
+                  )) {
+                    print('reading  $rel: $line');
+                    _log.add('reading  $rel: $line');
+                    if (failed) {
+                      record('geometry check failed: $line', kind: _note);
+                    }
+                  }
+                }
+
                 // After the walk: the walk reads the screen at scroll 0, and a
                 // pick can scroll or open something.
-                final pickProblem = await _tapPick(tester, screen.pick);
-                if (pickProblem != null) {
-                  record('capture note: $pickProblem', kind: _note);
+                if (!screen.pickBeforeChecks) {
+                  final pickProblem = await _tapPick(tester, screen.pick);
+                  if (pickProblem != null) {
+                    record('capture note: $pickProblem', kind: _note);
+                  }
                 }
 
                 await tester.runAsync(() async {
@@ -901,6 +946,9 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
   final lines = <(String, bool)>[
     // WP6: onboarding and New topic. See tool/wp6_geometry.dart.
     ...wp6Measure(tester, screen.id, window: window, size: appSize, fold: fold),
+    // The ringing alarm (WP2): "I'm up" on screen at rest, and the rules of
+    // the cover and wide layouts. Nothing when no alarm is on screen.
+    ...measureRingingAlarm(tester, window: window, size: appSize, fold: fold),
   ];
   if (bar == null && rail == null) {
     return [...lines, ('no tab bar or rail on screen', false)];
