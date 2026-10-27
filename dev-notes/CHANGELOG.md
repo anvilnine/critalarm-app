@@ -9,13 +9,15 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The relay that issued the device token is kept beside it: prefs key device\_token\_relay on Android and the same field in the iOS Keychain device item. deviceTokenRelayTrust in lib/core/push/device\_token\_relay.dart is the rule RegisterDeviceUsecase and EstablishApiSessionUsecase follow.
 - The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
 - Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
+- test/core/links/android\_link\_filters\_test.dart fails when an Android manifest gains a scheme other than https, a critalarm:// one included.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
 - A server error during a connect becomes NetworkFaultKind.server and keeps its status, numeric code, cap and a known error word (NetworkFault.knownWireErrors), so it reads with the same line as elsewhere. DeviceIdentityStore.restore notifies changes listeners.
-- ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RelayUnchecked.
+- ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RegisteredElsewhere.
 - SettingsCubit.saveConnection goes through ConnectToServerUsecase and answers a ConnectOutcome. The proof and the relay check are built into ConnectToServerUsecase (GetServerInfoUsecase.proveAdminToken, EstablishApiSessionUsecase.relayTrust) and no longer need wiring. ConnectTransportError keeps a NetworkFault (the kind of error) in place of the thrown object.
+- A relay credential with no relay written beside it (a device token from an older version, the synced iPhone join token, the old shared iPhone row) counts as issued by hostedRelayUrl in lib/core/push/device\_token\_relay.dart and goes only there. On any other relay RegisterDeviceUsecase calls DeviceIdentityStore.startFresh and registers as a new device. The join token and the shared row release go to the hosted relay only, and the iPhone synced account item is written only from it. The relay of the saved session no longer stands in for a missing issuer.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.

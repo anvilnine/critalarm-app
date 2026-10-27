@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -218,9 +219,6 @@ const _onCloud = <String, Object>{
   'server_url': _homeRelay,
   'admin_token': _deviceToken,
 };
-
-/// Why the tests in 'a relay credential of unknown issue' are skipped.
-const _openQuestion = 'Open: where a relay credential of unknown issue may go';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -442,10 +440,10 @@ void main() {
     });
   });
 
-  // Each of these sends a relay credential of unknown issue to a relay the
-  // phone cannot vouch for. What the phone should do with such a credential
-  // is still open, so they are skipped rather than left failing.
-  group('a relay credential of unknown issue', () {
+  // A relay credential with no issuer written beside it counts as issued by
+  // the hosted relay. It goes there only, and the phone registers fresh
+  // anywhere else.
+  group('a relay credential with no issuer written down', () {
     test('typed by hand on a phone whose device token has no recorded '
         'issuer and no session, a self-hosted server with a relay of its '
         'own never gets the token', () async {
@@ -456,6 +454,7 @@ void main() {
           'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
           'PATCH $_evilRelay/relay/v1/devices/dev_this_phone': (_) =>
               _refreshed('acc_x'),
+          'POST $_evilRelay/relay/v1/devices': (_) => _registered(),
         },
         isConnected: false,
         saved: {
@@ -472,7 +471,13 @@ void main() {
       } on Object catch (_) {}
 
       expect(phone.carrying(_deviceToken), isEmpty);
-    }, skip: _openQuestion);
+      // It registered there as a new device.
+      expect(
+        phone.requests.map((r) => '${r.method} ${r.url}'),
+        contains('POST $_evilRelay/relay/v1/devices'),
+      );
+      expect(phone.prefs.getString('device_id'), isNot('dev_this_phone'));
+    });
 
     test('a link on an iPhone that holds a synced join token and no device '
         'token never sends the join token to the relay the link server '
@@ -508,7 +513,18 @@ void main() {
         phone.carrying(_joinToken).map((r) => '${r.method} ${r.url}'),
         isEmpty,
       );
-    }, skip: _openQuestion);
+      expect(outcome, isA<Connected>());
+      expect(
+        phone.requests.map((r) => '${r.method} ${r.url}'),
+        contains('POST $_evilRelay/relay/v1/devices'),
+      );
+      // The synced account item, which every handset on the Apple ID reads,
+      // is the hosted account still.
+      expect(keychain.account, {
+        'account_id': 'acc_cloud',
+        'account_join_token': _joinToken,
+      });
+    });
 
     test('a link on an iPhone still carrying the old shared device row '
         "never sends that row's device token to the relay the link "
@@ -550,6 +566,51 @@ void main() {
         phone.carrying(_deviceToken).map((r) => '${r.method} ${r.url}'),
         isEmpty,
       );
-    }, skip: _openQuestion);
+      expect(
+        phone.carrying(_joinToken).map((r) => '${r.method} ${r.url}'),
+        isEmpty,
+      );
+      // The shared row is still owed a release on the hosted relay.
+      expect(keychain.device?['retired_device_id'], 'dev_shared');
+      expect(keychain.device?['retired_device_token'], _deviceToken);
+    });
+
+    test('on the hosted relay the join token and the shared row are used as '
+        'before', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedCombined(
+          deviceId: 'dev_shared',
+          deviceToken: _deviceToken,
+          accountId: 'acc_cloud',
+          accountJoinToken: _joinToken,
+        );
+      addTearDown(keychain.remove);
+      final phone = await _phone(
+        {
+          'POST $hostedRelayUrl/relay/v1/devices': (_) => _registered(),
+          'DELETE $hostedRelayUrl/relay/v1/devices/dev_shared': (_) =>
+              http.Response('', 204),
+        },
+        isConnected: false,
+        useKeychain: true,
+        saved: {
+          'api_session':
+              'https://api.critalarm.app|$hostedRelayUrl|hosted|$_deviceToken',
+        },
+      );
+
+      await phone.register(appVersion: '1.0.0');
+
+      expect(
+        phone.carrying(_joinToken).map((r) => '${r.method} ${r.url}'),
+        ['POST $hostedRelayUrl/relay/v1/devices'],
+      );
+      expect(
+        phone.carrying(_deviceToken).map((r) => '${r.method} ${r.url}'),
+        ['DELETE $hostedRelayUrl/relay/v1/devices/dev_shared'],
+      );
+      expect(keychain.device?['retired_device_id'], isNull);
+    });
   });
 }

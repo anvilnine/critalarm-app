@@ -755,23 +755,16 @@ void main() {
       verifyNever(() => save(any()));
     });
 
-    test('a token with no known issuer refuses a link', () async {
-      final outcome = await trusting(DeviceTokenRelayTrust.unknownIssuer)(
-        serverUrl: 'https://alarm.example.com',
-        adminToken: 'tk_one',
-        pinToAddress: true,
-      );
-      expect(outcome, isA<RelayUnchecked>());
-      verifyNever(() => establish(any(), any()));
-      verifyNever(() => save(any()));
-    });
-
-    test('a token with no known issuer still connects when typed', () async {
-      final outcome = await trusting(DeviceTokenRelayTrust.unknownIssuer)(
-        serverUrl: 'https://alarm.example.com',
-        adminToken: 'tk_one',
-      );
-      expect(outcome, isA<Connected>());
+    test('a token that registers fresh on this relay connects, by link or '
+        'typed', () async {
+      for (final pin in [false, true]) {
+        final outcome = await trusting(DeviceTokenRelayTrust.unknownIssuer)(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'tk_one',
+          pinToAddress: pin,
+        );
+        expect(outcome, isA<Connected>());
+      }
     });
 
     test('a phone with no device token connects', () async {

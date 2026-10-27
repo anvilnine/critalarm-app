@@ -501,7 +501,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           ServerAnswerInvalid() ||
           LinkServerNotSelfHosted() ||
           RelayDiffers() ||
-          RelayUnchecked() ||
           RegisteredElsewhere() ||
           ServerIncompatible() ||
           ConnectionNotSaved() ||

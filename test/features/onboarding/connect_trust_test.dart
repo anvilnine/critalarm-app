@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:critalarm/core/api/http_api_client.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
@@ -298,7 +299,39 @@ void main() {
       expect(phone.carrying(_deviceToken), isEmpty);
     });
 
-    test('on a phone whose device token has no known issuer is refused '
+    test('on a phone whose device token has no issuer written down and no '
+        'saved server connects, and the phone registers fresh on the '
+        "server's relay without the old token", () async {
+      final phone = await _connectedPhone(
+        {
+          'GET $_other/v1/info': (_) =>
+              _info(baseUrl: _other, relayUrl: _otherRelay),
+          'GET $_other/v1/incidents': (_) => _json(<dynamic>[]),
+          'POST $_otherRelay/relay/v1/devices': (_) => _registered(),
+        },
+        isConnected: false,
+        saved: {'device_id': 'dev_this_phone', 'device_token': _deviceToken},
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _other,
+        adminToken: 'x',
+        pinToAddress: true,
+      );
+      expect(outcome, isA<Connected>());
+      await phone.register(appVersion: '1.0.0');
+
+      expect(phone.carrying(_deviceToken), isEmpty);
+      expect(
+        phone.requests.map((r) => '${r.method} ${r.url.origin}'),
+        contains('POST $_otherRelay'),
+      );
+      expect(phone.prefs.getString('device_id'), isNot('dev_this_phone'));
+      expect(phone.prefs.getString('device_token_relay'), _otherRelay);
+    });
+
+    test('on a connected phone whose device token has no issuer written '
+        'down, to a server on a relay other than the hosted one, is refused '
         'and changes nothing', () async {
       final phone = await _connectedPhone(
         {
@@ -306,9 +339,11 @@ void main() {
               _info(baseUrl: _other, relayUrl: _otherRelay),
           'GET $_other/v1/incidents': (_) => _json(<dynamic>[]),
         },
-        isConnected: false,
-        saved: {'device_id': 'dev_this_phone', 'device_token': _deviceToken},
+        saved: {
+          'api_session': '$_home|$hostedRelayUrl|selfhosted|$_adminToken',
+        },
       );
+      await phone.prefs.remove('device_token_relay');
       final before = phone.stores;
 
       final outcome = await phone.connect(
@@ -317,7 +352,7 @@ void main() {
         pinToAddress: true,
       );
 
-      expect(outcome, isA<RelayUnchecked>());
+      expect(outcome, isA<RelayDiffers>());
       expect(phone.stores, before);
       expect(phone.carrying(_deviceToken), isEmpty);
     });
@@ -472,15 +507,15 @@ void main() {
       final phone = await _connectedPhone(
         {
           'GET $_other/v1/info': (_) =>
-              _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
+              _info(baseUrl: _other, relayUrl: hostedRelayUrl, mode: 'hosted'),
           'GET $_home/v1/info': (_) =>
-              _info(baseUrl: _home, relayUrl: _homeRelay),
+              _info(baseUrl: _home, relayUrl: hostedRelayUrl),
           'GET $_home/v1/incidents': (_) => _json(<dynamic>[]),
-          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+          'PATCH $hostedRelayUrl/relay/v1/devices/dev_this_phone': (_) =>
               _refreshed('acc_home'),
         },
         saved: {
-          'api_session': '$_other|$_homeRelay|hosted|$_deviceToken',
+          'api_session': '$_other|$hostedRelayUrl|hosted|$_deviceToken',
           'server_url': _other,
           'admin_token': _deviceToken,
         },
@@ -494,7 +529,8 @@ void main() {
         isA<Connected>(),
       );
       expect(phone.prefs.getString('device_token_server'), _other);
-      expect(phone.prefs.getString('device_token_relay'), _homeRelay);
+      // Its relay stays unwritten: one with none counts as the hosted one.
+      expect(phone.prefs.getString('device_token_relay'), isNull);
       expect(
         await phone.connect(serverUrl: _other, adminToken: ''),
         isA<Connected>(),
@@ -502,37 +538,55 @@ void main() {
 
       expect(phone.prefs.getString('device_token'), _deviceToken);
       expect(phone.prefs.getString('account_id'), 'acc_home');
+      expect(phone.prefs.getString('device_token_relay'), hostedRelayUrl);
       expect(
         phone.prefs.getString('api_session'),
-        '$_other|$_homeRelay|hosted|$_deviceToken',
+        '$_other|$hostedRelayUrl|hosted|$_deviceToken',
       );
     });
   });
 
   group('a phone that updates with a device token saved before the issuer '
       'was kept', () {
-    test('keeps the token, refreshes on the saved relay and now knows the '
-        'issuer', () async {
-      final phone = await _connectedPhone({
-        'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
-            _refreshed('acc_home'),
-      });
-      await phone.prefs.remove('device_token_relay');
+    const session = '$_home|$hostedRelayUrl|selfhosted|$_adminToken';
+
+    test('on the hosted relay keeps the token and its registration, and now '
+        'knows the issuer', () async {
+      final phone = await _connectedPhone(
+        {
+          'PATCH $hostedRelayUrl/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_home'),
+        },
+        isConnected: false,
+        saved: {
+          'api_session': session,
+          'server_url': _home,
+          'admin_token': _adminToken,
+          'device_id': 'dev_this_phone',
+          'device_token': _deviceToken,
+          'account_id': 'acc_home',
+        },
+      );
 
       await phone.register(appVersion: '1.0.0');
 
       expect(phone.requests.single.method, 'PATCH');
+      expect(
+        phone.requests.single.url.toString(),
+        '$hostedRelayUrl/relay/v1/devices/dev_this_phone',
+      );
       expect(
         phone.requests.single.headers['authorization'],
         'Bearer $_deviceToken',
       );
       expect(phone.prefs.getString('device_token'), _deviceToken);
       expect(phone.prefs.getString('device_id'), 'dev_this_phone');
-      expect(phone.prefs.getString('device_token_relay'), _homeRelay);
+      expect(phone.prefs.getString('account_id'), 'acc_home');
+      expect(phone.prefs.getString('device_token_relay'), hostedRelayUrl);
     });
 
-    test('on an iPhone, keeps the token from its Keychain item, refreshes '
-        'on the saved relay and now knows the issuer', () async {
+    test('on the hosted relay, an iPhone keeps the token from its Keychain '
+        'item and its registration', () async {
       final keychain = FakeDeviceKeychain()
         ..install()
         ..seedDevice(
@@ -543,13 +597,13 @@ void main() {
       addTearDown(keychain.remove);
       final phone = await _connectedPhone(
         {
-          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+          'PATCH $hostedRelayUrl/relay/v1/devices/dev_this_phone': (_) =>
               _refreshed('acc_home'),
         },
         useKeychain: true,
         isConnected: false,
         saved: {
-          'api_session': '$_home|$_homeRelay|selfhosted|$_adminToken',
+          'api_session': session,
           'server_url': _home,
           'admin_token': _adminToken,
         },
@@ -564,24 +618,29 @@ void main() {
       );
       expect(keychain.device?['device_token'], _deviceToken);
       expect(keychain.device?['device_id'], 'dev_this_phone');
-      expect(keychain.device?['device_token_relay'], _homeRelay);
+      expect(keychain.device?['device_token_relay'], hostedRelayUrl);
     });
 
-    test('its token still goes nowhere but the saved relay', () async {
+    test('on another relay registers there as a new device, and the old '
+        'token goes nowhere', () async {
       final phone = await _connectedPhone({
-        'PATCH $_otherRelay/relay/v1/devices/dev_this_phone': (_) =>
-            _refreshed('acc_x'),
+        'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+            _refreshed('acc_home'),
+        'POST $_homeRelay/relay/v1/devices': (_) => _registered(),
       });
       await phone.prefs.remove('device_token_relay');
-      final before = phone.stores;
 
-      await expectLater(
-        phone.register(appVersion: '1.0.0', relayUri: Uri.parse(_otherRelay)),
-        throwsA(isA<Exception>()),
-      );
+      await phone.register(appVersion: '1.0.0');
 
-      expect(phone.requests, isEmpty);
-      expect(phone.stores, before);
+      expect(phone.carrying(_deviceToken), isEmpty);
+      final post = phone.requests.single;
+      expect('${post.method} ${post.url}', 'POST $_homeRelay/relay/v1/devices');
+      expect(post.headers['authorization'], isNull);
+      final newId = phone.prefs.getString('device_id');
+      expect(newId, isNot('dev_this_phone'));
+      expect(post.body, contains('$newId'));
+      expect(phone.prefs.getString('device_token'), 'dv_from_this_relay');
+      expect(phone.prefs.getString('device_token_relay'), _homeRelay);
     });
   });
 

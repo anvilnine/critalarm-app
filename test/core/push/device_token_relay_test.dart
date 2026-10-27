@@ -9,20 +9,18 @@ void main() {
     required String relay,
     String? token = 'dv_1',
     String? issuer,
-    Uri? session,
   }) => deviceTokenRelayTrust(
     identity: DeviceIdentity(
       deviceId: 'dev_1',
       deviceToken: token,
       tokenRelay: issuer,
     ),
-    sessionRelay: session,
     relay: Uri.parse(relay),
   );
 
   test('a phone with no identity or no token holds nothing back', () {
     expect(
-      deviceTokenRelayTrust(identity: null, sessionRelay: home, relay: home),
+      deviceTokenRelayTrust(identity: null, relay: home),
       DeviceTokenRelayTrust.noToken,
     );
     expect(
@@ -46,29 +44,45 @@ void main() {
     );
   });
 
-  test('the saved issuer wins over the saved session', () {
-    expect(
-      trust(
-        issuer: '$home',
-        session: Uri.parse('https://other.example.net'),
-        relay: 'https://other.example.net',
-      ),
-      DeviceTokenRelayTrust.otherRelay,
-    );
+  test('a token with no saved issuer counts as issued by the hosted relay', () {
+    for (final written in [
+      hostedRelayUrl,
+      'https://relay.critalarm.app/',
+      'HTTPS://Relay.Critalarm.App',
+      'https://relay.critalarm.app:443',
+    ]) {
+      expect(
+        trust(relay: written),
+        DeviceTokenRelayTrust.issuer,
+        reason: written,
+      );
+    }
   });
 
-  test('a token with no saved issuer was issued by the relay of the saved '
-      'session', () {
-    expect(trust(session: home, relay: '$home'), DeviceTokenRelayTrust.issuer);
-    expect(
-      trust(session: home, relay: 'https://other.example.net'),
-      DeviceTokenRelayTrust.otherRelay,
-    );
+  test('a token with no saved issuer is kept from every other relay, the '
+      'one a saved session names included', () {
+    for (final written in [
+      '$home',
+      'http://relay.critalarm.app',
+      'https://relay.critalarm.app.',
+      'https://relay.critalarm.app:8443',
+      'https://user@relay.critalarm.app',
+      'https://relay.critalarm.app.evil.example.net',
+      'https://evil.example.net/relay.critalarm.app',
+    ]) {
+      expect(
+        trust(relay: written),
+        DeviceTokenRelayTrust.unknownIssuer,
+        reason: written,
+      );
+    }
   });
 
-  test('a token with no saved issuer and no saved session has no known '
-      'issuer', () {
-    expect(trust(relay: '$home'), DeviceTokenRelayTrust.unknownIssuer);
+  test('a saved issuer is never the hosted relay by default', () {
+    expect(
+      trust(issuer: '$home', relay: hostedRelayUrl),
+      DeviceTokenRelayTrust.otherRelay,
+    );
   });
 
   test('the same relay written another way is still the issuer', () {

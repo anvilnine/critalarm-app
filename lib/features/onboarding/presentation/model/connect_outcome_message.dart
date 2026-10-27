@@ -18,7 +18,6 @@ String? connectOutcomeMessage(ConnectOutcome outcome) => switch (outcome) {
   AdminTokenRefused() =>
     LocaleKeys.onboarding_connect_admin_token_error_wrong.tr(),
   RelayDiffers() => LocaleKeys.onboarding_connect_relay_differs.tr(),
-  RelayUnchecked() => LocaleKeys.connect_link_relay_unchecked.tr(),
   RegisteredElsewhere() =>
     LocaleKeys.onboarding_connect_registered_elsewhere.tr(),
   ServerIncompatible(:final version) =>
