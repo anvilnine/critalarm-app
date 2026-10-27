@@ -51,7 +51,7 @@ class _GatedTopics implements TopicRepository {
 
 /// Counts the per-topic message polls a build makes.
 class _CountingIncidents extends InMemoryIncidentRepository {
-  const _CountingIncidents(super._client, this.counter);
+  _CountingIncidents(super._client, this.counter);
 
   final List<String> counter;
 
