@@ -25,6 +25,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart
 import 'package:critalarm/features/topics/presentation/cubits/topic_message_rows.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for TopicDetailScreen.
@@ -88,6 +89,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
 
+  /// The open incidents of this topic in the phone's copy the first frame was
+  /// drawn from. Empty once the shared list is what the screen reads.
+  List<Incident> _copyOpen = const [];
+
   List<Incident>? _builtFromIncidents;
   List<Topic>? _builtFromTopics;
 
@@ -111,9 +116,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       _acking || state.isMarkingAsRead || state.isUpdatingCritical;
 
   Future<void> load(String topicName) async {
-    _incidentsSub ??= _incidents.stream.listen(
-      (_) => unawaited(_rebuildIfChanged()),
-    );
+    _incidentsSub ??= _incidents.stream.listen((_) {
+      _applySharedToCopy();
+      unawaited(_rebuildIfChanged());
+    });
     _topicsSub ??= _topics.stream.listen(
       (_) => unawaited(_rebuildIfChanged()),
     );
@@ -189,6 +195,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     final openIncidents = incidents
         .where((i) => i.topic == topic.name && i.state == 'open')
         .toList();
+    _copyOpen = _incidents.state.isReady ? const [] : openIncidents;
     final stage = _stageOf(
       topic: topic,
       openIncidents: openIncidents,
@@ -228,6 +235,53 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     final shared = _incidents.state;
     if (shared.isReady) return shared.incidents;
     return held?.snapshot?.incidents;
+  }
+
+  /// The shared list moved before the server's answer made it the whole list:
+  /// an alarm landed on this topic, or one the phone's copy held open was
+  /// closed. What the shared list says wins over the stored copy, so a real
+  /// alarm is never shown as calm.
+  void _applySharedToCopy() {
+    final shared = _incidents.state;
+    if (isClosed || _busy || shared.isReady || shared.incidents.isEmpty) return;
+    if (state.topicName.isEmpty || state.status != TopicDetailStatus.success) {
+      return;
+    }
+    final topic = _topics.state.named(state.topicName);
+    if (topic == null) return;
+    final ofTopic = shared.forTopic(state.topicName);
+    final ids = {for (final i in shared.incidents) i.id};
+    final open = [
+      for (final i in _copyOpen)
+        if (!ids.contains(i.id)) i,
+      for (final i in ofTopic)
+        if (i.state == 'open') i,
+    ];
+    final openIds = [for (final i in open) i.id];
+    if (listEquals(openIds, state.openIncidentIds)) return;
+    _copyOpen = [
+      for (final i in open)
+        if (!ids.contains(i.id)) i,
+    ];
+    final stage = _stageOf(
+      topic: topic,
+      openIncidents: open,
+      hasHighMessage:
+          glances?.of(topic.name, createdAt: topic.createdAt)?.hasHighMessage ??
+          false,
+    );
+    emit(
+      state.copyWith(
+        severity: stage.severity,
+        faceState: stage.face,
+        word: stage.word,
+        subText: _subTextOf(state.messages.length, stage.priority),
+        openIncidentIds: openIds,
+        lastAlarmAt:
+            _lastAlarmOf(topic.name, [...shared.incidents]) ??
+            state.lastAlarmAt,
+      ),
+    );
   }
 
   /// Turns the camera flash for this topic's ring on or off. Saved on this

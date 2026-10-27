@@ -837,9 +837,11 @@ Future<void> configureDependencies({
     )
     // The phone's own alarms and messages, read with no request. The same
     // store the repository above reads and writes.
-    ..registerLazySingleton<HeldArchive>(
-      () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
-    )
+    ..registerLazySingleton<HeldArchive>(() {
+      final repository = getIt<IncidentRepository>();
+      if (repository is HeldArchive) return repository as HeldArchive;
+      return InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore);
+    })
     ..registerLazySingleton<StorageSettingsRepository>(
       () => SharedPrefsStorageSettingsRepository(getIt<SharedPreferences>()),
     )
@@ -1709,16 +1711,12 @@ Future<void> configureDependencies({
         getIt<TopicsCubit>(),
         getIt<IncidentsCubit>(),
         glances: getIt<TopicGlances>(),
-        readPlan: () async {
-          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
-          if (identity.accountId == null) return null;
-          return HeldPlan(
-            hasLongHistory: await getIt<FeatureAccess>().usableOnceReady(
-              AppFeature.longHistory,
-            ),
-            historyDays: identity.caps.historyDays ?? 7,
-          );
-        },
+        // Answers from what is already read, and never waits on the plan: a
+        // launch that does not know it yet draws no copy.
+        readPlan: () => heldPlanFrom(
+          access: getIt<FeatureAccess>(),
+          identities: getIt<DeviceIdentityStore>(),
+        ),
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every

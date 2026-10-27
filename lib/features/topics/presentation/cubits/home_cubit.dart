@@ -106,6 +106,12 @@ class HomeCubit extends Cubit<HomeState> {
   /// card, never a hand-over to the alarm screen. Cleared by the first build
   /// from the server's lists.
   bool _fromPhone = false;
+  List<Incident> _copyIncidents = const [];
+  Map<String, List<Message>> _copyMessages = const {};
+  DateTime? _copyBound;
+
+  /// Ids the shared incident list holds while the rows are the phone's copy.
+  Set<String> _liveIds = const {};
 
   /// Only the newest build may emit. An earlier one that finishes late would
   /// put a stale list back on screen.
@@ -136,39 +142,76 @@ class HomeCubit extends Cubit<HomeState> {
   /// only thing that asks each topic for its messages.
   ///
   /// A stored open alarm is shown as the phone stored it and no more. The
-  /// state carries no ringing incident, so the screen never hands over to the
-  /// alarm screen from a copy, and the first answer from the server replaces
-  /// every row.
+  /// state carries no ringing incident the shared list does not hold, so the
+  /// screen never hands over to the alarm screen from a copy, and the first
+  /// answer from the server replaces every row.
   void _seedFromHeld() {
     final held = _held?.snapshot;
     if (held == null || isClosed || state.status != HomeStatus.initial) return;
     final topics = _topics.state;
     if (!topics.isReady || topics.topics.isEmpty) return;
+    _copyIncidents = held.incidents;
+    _copyMessages = held.messages;
+    _copyBound = held.bound;
+    _fromPhone = true;
+    _drawCopy();
+  }
+
+  /// The shared incident list moved while the rows are still the phone's
+  /// copy: an alarm landed (the alarm screen applies it) before the first
+  /// answer, or the answer itself came while the topic list is still the
+  /// phone's. Whatever the shared list says wins over the stored copy, so a
+  /// real alarm is never hidden behind a calm one.
+  void _reseedFromShared() {
+    if (!_fromPhone || isClosed) return;
+    final shared = _incidents.state;
+    if (shared.incidents.isEmpty && !shared.isReady) return;
+    // The full build takes over from the server's lists.
+    if (shared.isReady && !_topics.state.isKept) return;
+    _drawCopy();
+  }
+
+  /// Draws the phone's copy, with the shared list laid over it. A ringing
+  /// incident is handed to the screen only when the shared list holds it:
+  /// the copy alone never is.
+  void _drawCopy() {
+    final topics = _topics.state;
+    if (!topics.isReady || topics.topics.isEmpty) return;
+    final shared = _incidents.state;
+    final ids = {for (final i in shared.incidents) i.id};
+    final incidents = shared.isReady
+        ? shared.incidents
+        : [
+            ...shared.incidents,
+            for (final i in _copyIncidents)
+              if (!ids.contains(i.id)) i,
+          ];
+    _liveIds = ids;
 
     final now = _now();
     final digest = _digest(
       topics.topics,
-      (t) => held.messages[t.name] ?? const <Message>[],
-      held.incidents,
-      held.bound,
+      (t) => _copyMessages[t.name] ?? const <Message>[],
+      incidents,
+      _copyBound,
       now: now,
       remember: false,
     );
-    _lastIncidents = held.incidents;
+    _lastIncidents = incidents;
     _lastTopics = topics.topics;
     _lastWarningTopics = digest.warningTopics;
     _lastMessageTimes = digest.messageTimes;
     _lastPreviews = digest.previews;
-    _fromPhone = true;
 
     final facts = homeFactsFrom(
       topics: topics.topics,
-      incidents: held.incidents,
+      incidents: incidents,
       warningTopics: digest.warningTopics,
       messageTimes: digest.messageTimes,
       now: now,
     );
     _syncTimer(_needsTick(facts));
+    final ringing = _ringingIdFor(facts);
     emit(
       state.copyWith(
         status: HomeStatus.success,
@@ -176,11 +219,12 @@ class HomeCubit extends Cubit<HomeState> {
           topics.topics,
           digest.messageTimes,
           digest.previews,
-          incidents: held.incidents,
+          incidents: incidents,
           warningTopics: digest.warningTopics,
           now: now,
         ),
-        clearRinging: true,
+        ringingIncidentId: ringing,
+        clearRinging: ringing == null,
         clearError: true,
         hasServer: true,
         facts: facts,
@@ -188,10 +232,19 @@ class HomeCubit extends Cubit<HomeState> {
     );
   }
 
+  /// The incident to hand over to, or null. While the rows are the phone's
+  /// copy only an incident the shared list holds counts.
+  String? _ringingIdFor(HomeFacts facts) {
+    final id = facts.ringing?.incidentId;
+    if (id == null) return null;
+    return _fromPhone && !_liveIds.contains(id) ? null : id;
+  }
+
   void _listenToAppState() {
-    _incidentsSub ??= _incidents.stream.listen(
-      (_) => unawaited(_rebuildIfChanged()),
-    );
+    _incidentsSub ??= _incidents.stream.listen((_) {
+      _reseedFromShared();
+      unawaited(_rebuildIfChanged());
+    });
     _topicsSub ??= _topics.stream.listen(
       (_) => unawaited(_rebuildIfChanged()),
     );
@@ -251,8 +304,8 @@ class HomeCubit extends Cubit<HomeState> {
     );
     emit(
       state.copyWith(
-        ringingIncidentId: _fromPhone ? null : facts.ringing?.incidentId,
-        clearRinging: _fromPhone || facts.ringing == null,
+        ringingIncidentId: _ringingIdFor(facts),
+        clearRinging: _ringingIdFor(facts) == null,
         topicItems: items,
         facts: facts,
       ),
