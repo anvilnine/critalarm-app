@@ -1,4 +1,5 @@
 import 'package:critalarm/app/account_data.dart';
+import 'package:critalarm/app/held_account_scope.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
@@ -17,6 +18,7 @@ import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
+import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
@@ -124,6 +126,7 @@ final class _Harness {
   /// The phone's alarm history, with one alarm of the account that is
   /// registered at the start.
   late final LocalStore archive;
+  late final HeldAccountScope heldScope;
 
   /// Alarms held on the phone, for every account.
   Future<int> get archivedAlarms async => Sqflite.firstIntValue(
@@ -180,10 +183,15 @@ final class _Harness {
     // And what the paid features keep for this account, next to the
     // person's own sounds.
     await writeAll(prefs, accountDataFor(registered.accountId!));
+    heldScope = HeldAccountScope(
+      prefs: prefs,
+      devices: devices,
+      serverUrl: () async => 'https://server.example',
+    );
     archive = await LocalStore.open(
       factory: databaseFactoryFfi,
       path: inMemoryDatabasePath,
-      scope: () async => (await devices.readOrCreate()).accountId,
+      scope: heldScope.call,
       identityChanges: AccountIdentityChanges(),
     );
     addTearDown(archive.close);
@@ -269,6 +277,46 @@ void main() {
       expectOwnSoundsKept(harness.prefs);
       // The account is gone, so its alarm history goes too.
       expect(await harness.archivedAlarms, 0);
+    });
+
+    // A sign-in that attaches or switches the account saves it with the
+    // identity at once, while the device registration still names the
+    // anonymous account it had.
+    test('deleting a signed-in account takes the archive of that account, '
+        'not the anonymous one the device still names', () async {
+      final harness = _Harness(failDelete: false);
+      await harness.start();
+      await harness.prefs.setString(
+        HttpIdentityRepository.accountIdKey,
+        'acc_x',
+      );
+      await harness.archive.incidents.upsertAll([
+        Incident(
+          id: 'inc_x',
+          topic: 'prod',
+          openedAt: DateTime.utc(2026, 9, 20, 12),
+          lastMessageAt: DateTime.utc(2026, 9, 20, 12),
+        ),
+      ]);
+      expect(await harness.archivedAlarms, 2);
+      final cubit = harness.cubit;
+      addTearDown(cubit.close);
+      await cubit.load();
+
+      await cubit.deleteAccount();
+
+      expect(cubit.state.status, AccountStatus.deleted);
+      expect(
+        Sqflite.firstIntValue(
+          await harness.archive.db.rawQuery(
+            'SELECT COUNT(*) FROM incidents WHERE id = ?',
+            ['inc_x'],
+          ),
+        ),
+        0,
+      );
+      // The anonymous account's own row is not the deleted account's.
+      expect(await harness.archivedAlarms, 1);
     });
 
     test('a 5xx leaves every local credential exactly as it was', () async {

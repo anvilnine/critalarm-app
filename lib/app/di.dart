@@ -7,6 +7,7 @@ import 'package:critalarm/app/access/pro_holding_source.dart';
 import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
+import 'package:critalarm/app/held_account_scope.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/l10n/language_feedback.dart';
@@ -85,7 +86,6 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
-import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -401,18 +401,23 @@ Future<void> configureDependencies({
   // capture that has no documents directory. It is used as it is.
   var localStore = openedStore;
   final identityStore = DeviceIdentityStore.forPlatform(prefs);
+  // The server and account the held data (the topic list, the archive)
+  // belongs to. Nothing is registered yet, so it reads the saved connection
+  // and identity from the preferences directly, which is where the
+  // registered repositories keep them.
+  final heldScope = HeldAccountScope(
+    prefs: prefs,
+    devices: identityStore,
+    serverUrl: () async => (await SharedPrefsConnectionRepository(
+      prefs,
+    ).getConnection()).getOrNull()?.serverUrl,
+  );
   if (!kIsWeb && localStore == null) {
     try {
-      // The scope of the rows already on the phone, read once when a file
-      // from before rows were scoped is upgraded. Nothing is registered yet,
-      // so it reads the saved connection and identity directly.
+      // The scope also stamps the rows already on the phone, once, when a file
+      // from before rows were scoped is upgraded.
       localStore = await LocalStore.open(
-        scope: () async => heldScopeFor(
-          serverUrl: (await SharedPrefsConnectionRepository(
-            prefs,
-          ).getConnection()).getOrNull()?.serverUrl,
-          accountId: (await identityStore.readOrCreate()).accountId,
-        ),
+        scope: heldScope.call,
         identityChanges: appAccountIdentityChanges,
       );
     } on Object catch (error, stack) {
@@ -971,6 +976,14 @@ Future<void> configureDependencies({
         connections: getIt<ConnectionRepository>(),
         forgetAccountData: () => getIt<AccountData>().forget(),
         forgetDeletedAccountData: () => getIt<AccountData>().forgetDeleted(),
+        // A merge folds the phone's account into another, so the history
+        // kept under the old one moves to the new one.
+        forgetMergedAccount: (from, into) async {
+          final fromScope = await heldScope.forAccount(from);
+          final intoScope = await heldScope.forAccount(into);
+          if (fromScope == null || intoScope == null) return;
+          await localStore?.mergeArchive(from: fromScope, into: intoScope);
+        },
         signOutBilling: buildSkipsPaywall
             ? null
             : () => getIt<RevenueCatService>().logOut(),
@@ -1652,16 +1665,7 @@ Future<void> configureDependencies({
         // The list is kept on the phone for the server and account it is on
         // now. Where the store is not open the list stays in memory only.
         held: localStore?.topics,
-        heldScope: () async {
-          final connection = (await getIt<GetConnectionUsecase>()(
-            const NoParams(),
-          )).getOrNull();
-          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
-          return heldScopeFor(
-            serverUrl: connection?.serverUrl,
-            accountId: identity.accountId,
-          );
-        },
+        heldScope: heldScope.call,
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every

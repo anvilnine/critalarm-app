@@ -116,6 +116,7 @@ class LocalStore {
   /// to the old one, and the incident cursor is the newest timestamp the old
   /// one gave. Nothing else on the phone is touched.
   Future<void> clearServerData() async {
+    _scope.invalidate();
     await db.transaction((txn) async {
       await txn.delete('messages');
       await txn.delete('incidents');
@@ -130,9 +131,33 @@ class LocalStore {
   /// goes with it. A sign-out does not call this, because the same account
   /// can sign in again.
   Future<void> deleteArchiveOf(String scope) async {
+    _scope.invalidate();
     await db.transaction((txn) async {
       await txn.delete('messages', where: 'scope = ?', whereArgs: [scope]);
       await txn.delete('incidents', where: 'scope = ?', whereArgs: [scope]);
+    });
+  }
+
+  /// Moves the incidents and messages kept for [from] to [into].
+  ///
+  /// For a merge: the phone's account was folded into another, so its history
+  /// belongs there now and nothing reads [from] again. A row that [into]
+  /// already holds under the same id stays as it is, and the copy under
+  /// [from] is dropped.
+  Future<void> mergeArchive({
+    required String from,
+    required String into,
+  }) async {
+    if (from == into) return;
+    _scope.invalidate();
+    await db.transaction((txn) async {
+      for (final table in const ['incidents', 'messages']) {
+        await txn.rawUpdate(
+          'UPDATE OR IGNORE $table SET scope = ? WHERE scope = ?',
+          [into, from],
+        );
+        await txn.delete(table, where: 'scope = ?', whereArgs: [from]);
+      }
     });
   }
 
@@ -263,7 +288,12 @@ class LocalStore {
   ///
   /// A phone with no saved server at the upgrade has no account to give the
   /// rows to. They keep the empty scope, which no read ever asks for.
+  ///
+  /// Tables that already have the column are left alone. A file that was taken
+  /// back to an older version and upgraded again keeps the scopes it has.
   static Future<void> _scopeArchive(Database db, String? scope) async {
+    final columns = await db.rawQuery('PRAGMA table_info(incidents)');
+    if (columns.any((column) => column['name'] == 'scope')) return;
     final stamp = scope ?? '';
     await db.execute('DROP INDEX IF EXISTS incidents_opened');
     await db.execute('DROP INDEX IF EXISTS messages_topic_created');
@@ -351,34 +381,39 @@ class IncidentStore {
     ArchiveTicket? ticket,
   }) async {
     if (incidents.isEmpty) return;
-    final scope = await (ticket ?? _scope.begin()).settle();
+    final claim = ticket ?? _scope.begin();
+    final scope = await claim.settle();
     if (scope == null) return;
     final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final batch = _db.batch();
-    final messages = <Message>[];
 
-    for (final incident in incidents) {
-      final openedAt = _epoch(incident.openedAt ?? incident.lastMessageAt);
-      batch.insert('incidents', {
-        'scope': scope,
-        'id': incident.id,
-        'topic': incident.topic,
-        'state': incident.state,
-        'opened_at': openedAt ?? syncedAt,
-        'acked_at': _epoch(incident.ackedAt),
-        'closed_at': _epoch(incident.closedAt),
-        'updated_at': _epoch(incident.updatedAt),
-        'last_message_at':
-            _epoch(incident.lastMessageAt) ?? openedAt ?? syncedAt,
-        'max_ring_s': null,
-        'priority': incidentPriority(incident),
-        'synced_at': syncedAt,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-      messages.addAll(incident.messages);
-    }
-
-    await batch.commit(noResult: true);
-    await MessageStore(_db, _scope)._write(scope, messages);
+    // The check and the inserts share one transaction, so a delete of this
+    // scope that follows the check waits for the inserts and removes them.
+    await _db.transaction((txn) async {
+      if (!claim.holds) return;
+      final batch = txn.batch();
+      final messages = <Message>[];
+      for (final incident in incidents) {
+        final openedAt = _epoch(incident.openedAt ?? incident.lastMessageAt);
+        batch.insert('incidents', {
+          'scope': scope,
+          'id': incident.id,
+          'topic': incident.topic,
+          'state': incident.state,
+          'opened_at': openedAt ?? syncedAt,
+          'acked_at': _epoch(incident.ackedAt),
+          'closed_at': _epoch(incident.closedAt),
+          'updated_at': _epoch(incident.updatedAt),
+          'last_message_at':
+              _epoch(incident.lastMessageAt) ?? openedAt ?? syncedAt,
+          'max_ring_s': null,
+          'priority': incidentPriority(incident),
+          'synced_at': syncedAt,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        messages.addAll(incident.messages);
+      }
+      MessageStore._add(batch, scope, messages, syncedAt);
+      await batch.commit(noResult: true);
+    });
   }
 
   /// The newest `opened_at` held, or null when the store is empty.
@@ -614,15 +649,24 @@ class MessageStore {
     ArchiveTicket? ticket,
   }) async {
     if (messages.isEmpty) return;
-    final scope = await (ticket ?? _scope.begin()).settle();
+    final claim = ticket ?? _scope.begin();
+    final scope = await claim.settle();
     if (scope == null) return;
-    await _write(scope, messages);
+    final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    await _db.transaction((txn) async {
+      if (!claim.holds) return;
+      final batch = txn.batch();
+      _add(batch, scope, messages, syncedAt);
+      await batch.commit(noResult: true);
+    });
   }
 
-  Future<void> _write(String scope, Iterable<Message> messages) async {
-    if (messages.isEmpty) return;
-    final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final batch = _db.batch();
+  static void _add(
+    Batch batch,
+    String scope,
+    Iterable<Message> messages,
+    int syncedAt,
+  ) {
     for (final message in messages) {
       batch.insert('messages', {
         'scope': scope,
@@ -639,7 +683,6 @@ class MessageStore {
         'synced_at': syncedAt,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    await batch.commit(noResult: true);
   }
 
   /// The id of the newest message held on [topic], or null when there is

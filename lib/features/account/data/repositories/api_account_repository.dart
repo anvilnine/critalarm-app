@@ -23,6 +23,7 @@ final class ApiAccountRepository implements AccountRepository {
     required this.connections,
     this.forgetAccountData,
     this.forgetDeletedAccountData,
+    this.forgetMergedAccount,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -47,6 +48,11 @@ final class ApiAccountRepository implements AccountRepository {
   /// history, for an account that was deleted. Falls back to
   /// [forgetAccountData] when not given.
   final Future<void> Function()? forgetDeletedAccountData;
+
+  /// Called with the account folded away and the one it went into once the
+  /// server has merged, so what the phone kept for the first moves to the
+  /// second. A failure here never turns a merge into an error.
+  final Future<void> Function(String from, String into)? forgetMergedAccount;
 
   /// Drops the store's idea of who this is, back to an anonymous user.
   ///
@@ -80,10 +86,18 @@ final class ApiAccountRepository implements AccountRepository {
   Future<AccountMergeResult> merge({
     required String identityToken,
     required String intoAccount,
-  }) => api.mergeAccount(
-    identityToken: identityToken,
-    intoAccount: intoAccount,
-  );
+  }) async {
+    final result = await api.mergeAccount(
+      identityToken: identityToken,
+      intoAccount: intoAccount,
+    );
+    if (result case AccountMerged(:final accountId, :final mergedFrom)) {
+      try {
+        await forgetMergedAccount?.call(mergedFrom, accountId);
+      } on Object catch (_) {}
+    }
+    return result;
+  }
 
   @override
   Future<AccountSwitchResult> switchTo({
