@@ -46,4 +46,8 @@ const List<CaptureRoute> allScreenRoutes = [
     FaceState.calm,
     TargetPlatform.iOS,
   ),
+  // The topic link on an expanded window opens Home with the topic in the
+  // pane. The calm fixture lists prod-db first, so a pane on nas-backup is
+  // the link's doing.
+  ('wp3_topic_deep_link', '/topics/nas-backup', FaceState.calm, null),
 ];
