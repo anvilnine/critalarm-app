@@ -16,6 +16,7 @@ abstract final class AnalyticsEvents {
   static const paywallPurchaseFailed = 'paywall_purchase_failed';
   static const onboardingStepViewed = 'onboarding_step_viewed';
   static const onboardingStepCompleted = 'onboarding_step_completed';
+  static const onboardingUsePicked = 'onboarding_use_picked';
   static const onboardingOfferShown = 'onboarding_offer_shown';
   static const onboardingOfferClosed = 'onboarding_offer_closed';
   static const onboardingOfferBought = 'onboarding_offer_bought';
@@ -25,12 +26,13 @@ abstract final class AnalyticsEvents {
   static const proPackPurchaseFinished = 'pro_pack_purchase_finished';
   static const proPackRestoreFinished = 'pro_pack_restore_finished';
 
-  // Sent by the paywall layouts alone. The shipped paywall and the Pro
-  // sheet have no event for these moments.
+  // Moments the surfaces before the paywall layouts had no event for.
   static const paywallRestoreFinished = 'paywall_restore_finished';
   static const paywallClosed = 'paywall_closed';
   static const proPackPurchaseStarted = 'pro_pack_purchase_started';
   static const proPackClosed = 'pro_pack_closed';
+  static const paywallThanksShown = 'paywall_thanks_shown';
+  static const paywallThanksLeft = 'paywall_thanks_left';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.
@@ -101,39 +103,52 @@ final class OnboardingAnalytics {
   ) => {'step': step, 'flow_id': flowId, 'ms_since_previous': msSincePrevious};
 
   /// The three events of the offer step. Each carries the product on offer,
-  /// the layout that drew it and the flow id, and nothing else.
+  /// the layout that drew it, the user's answer on the use step as one word
+  /// and the flow id, and nothing else.
   Future<void> offerShown({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
   }) => _gate.logEvent(
     AnalyticsEvents.onboardingOfferShown,
-    _offerParams(product, layout, flowId),
+    _offerParams(product, layout, use, flowId),
   );
 
   Future<void> offerClosed({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
   }) => _gate.logEvent(
     AnalyticsEvents.onboardingOfferClosed,
-    _offerParams(product, layout, flowId),
+    _offerParams(product, layout, use, flowId),
   );
 
   Future<void> offerBought({
     required String product,
     required String layout,
+    required String use,
     required String flowId,
   }) => _gate.logEvent(
     AnalyticsEvents.onboardingOfferBought,
-    _offerParams(product, layout, flowId),
+    _offerParams(product, layout, use, flowId),
   );
+
+  /// The use step's answer. Carries the answer as one word and the flow id,
+  /// and nothing else.
+  Future<void> usePicked({required String use, required String flowId}) =>
+      _gate.logEvent(AnalyticsEvents.onboardingUsePicked, {
+        'use': use,
+        'flow_id': flowId,
+      });
 
   static Map<String, Object?> _offerParams(
     String product,
     String layout,
+    String use,
     String flowId,
-  ) => {'product': product, 'layout': layout, 'flow_id': flowId};
+  ) => {'product': product, 'layout': layout, 'use': use, 'flow_id': flowId};
 }
 
 /// The two events of the day-0 card on Home. They carry no parameters. The

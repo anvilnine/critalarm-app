@@ -17,6 +17,7 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 /// Runs the Feature Guides over the whole app.
@@ -34,7 +35,9 @@ import 'package:go_router/go_router.dart';
 ///
 /// While the guide is up, every tap on the app is swallowed. Only the card's
 /// own buttons work, so tapping a spotlit button can never navigate away in
-/// the middle of a step.
+/// the middle of a step. The Android back button does not move the app
+/// either: it asks whether to leave the guide. And no screen under the guide
+/// keeps the keyboard, which would cover the spot a step points at.
 class FeatureGuideHost extends StatefulWidget {
   const FeatureGuideHost({
     required this.router,
@@ -87,6 +90,20 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
 
   /// The screen a single guide was asked for on. Leaving it ends the guide.
   String _guidePath = '';
+
+  /// True while the card asks whether to leave, after the Android back
+  /// button.
+  bool _askingLeave = false;
+
+  /// The switch on the leave card: show no guide unasked again.
+  bool _stopAllGuides = false;
+
+  /// True while this has told Android that back is the app's to handle.
+  bool _holdsBack = false;
+
+  /// What the screens underneath last said about back: true when one of
+  /// them has something to pop. Null until the first one speaks.
+  bool? _appHandlesBack;
 
   /// True while the offer sheet is up.
   bool _offerOpen = false;
@@ -161,29 +178,98 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
   }
 
   void _onGuide(FeatureGuideState guide) {
+    _holdBack(hold: guide.isRunning);
     switch (guide.status) {
       case FeatureGuideStatus.offering:
         unawaited(_offer());
       case FeatureGuideStatus.requested:
         _closeOffer();
+        _closeKeyboard();
         unawaited(_begin());
       case FeatureGuideStatus.running:
+        _closeKeyboard();
         unawaited(_showStep(guide.stepIndex));
       case FeatureGuideStatus.idle:
         _closeOffer();
         _run++;
         _moving = false;
-        if (mounted) setState(() => _hole = null);
+        if (mounted) {
+          setState(() {
+            _hole = null;
+            _askingLeave = false;
+            _stopAllGuides = false;
+          });
+        }
     }
+  }
+
+  /// No guide shares the screen with a keyboard. A screen that opens one by
+  /// itself checks FeatureGuideCubit.takesScreenFor first; this catches a
+  /// keyboard that was already up.
+  void _closeKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
+  /// Android only sends back to the app while the app says it has something
+  /// to pop. On a screen with nothing to pop, such as Topics, back would
+  /// close the app under the guide. So while a guide plays this answers for
+  /// the screens underneath, and hands their own answer back afterwards.
+  void _holdBack({required bool hold}) {
+    if (!mounted || hold == _holdsBack) return;
+    _holdsBack = hold;
+    NavigationNotification(
+      canHandlePop: hold || (_appHandlesBack ?? true),
+    ).dispatch(context);
+  }
+
+  bool _onAppHandlesBack(NavigationNotification notification) {
+    _appHandlesBack = notification.canHandlePop;
+    if (!_holdsBack || notification.canHandlePop) return false;
+    const NavigationNotification(canHandlePop: true).dispatch(context);
+    return true;
+  }
+
+  /// The Android back button. This is registered before the router, so it is
+  /// asked first, and a guide keeps back from moving the screen underneath.
+  @override
+  Future<bool> didPopRoute() async {
+    if (!_guides.state.isRunning) return false;
+    _onSystemBack();
+    return true;
+  }
+
+  /// The back swipe, where Android draws it as a gesture. Taking it here
+  /// keeps the page underneath from sliding away under the guide.
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) =>
+      _guides.state.isRunning;
+
+  @override
+  void handleCommitBackGesture() {
+    if (_guides.state.isRunning) _onSystemBack();
+  }
+
+  /// Back asks whether to leave. Back again takes the question away.
+  void _onSystemBack() {
+    AppHaptics.selection();
+    setState(() {
+      _askingLeave = !_askingLeave;
+      _stopAllGuides = false;
+    });
+  }
+
+  void _stay() {
+    AppHaptics.selection();
+    setState(() {
+      _askingLeave = false;
+      _stopAllGuides = false;
+    });
   }
 
   /// An alarm always wins. If anything takes the user to the alarm screen,
   /// the guide gets out of the way.
   ///
-  /// Any other move the guide did not make itself is the Android back button,
-  /// since every tap is swallowed. That counts as skipping the guide. Android
-  /// 15 does not ask the app about back on a screen with nothing to pop, so
-  /// back cannot be turned into "previous step" reliably.
+  /// The Android back button is caught before it gets here (see
+  /// didPopRoute). Any other move the guide did not make itself, such as a
+  /// link opening a screen, counts as skipping the guide.
   void _onRoute() {
     final guide = _guides.state;
     if (!guide.isActive) {
@@ -462,11 +548,17 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
   /// Skip and the last step's button. The full replay hands the user back to
   /// Topics, and a guide picked from Settings hands them back to Settings. A
   /// first-visit guide leaves them where they are.
-  void _done() {
+  ///
+  /// [stopAll] is the leave card's switch: no guide plays unasked again.
+  void _done({bool stopAll = false}) {
     final guideState = _guides.state;
     final wasFullReplay = guideState.isFullReplay;
     final wasFromMenu = guideState.isActive && guideState.fromMenu;
-    _guides.finish();
+    if (stopAll) {
+      _guides.finishAll();
+    } else {
+      _guides.finish();
+    }
     if (wasFullReplay) {
       widget.router.go('/');
     } else if (wasFromMenu) {
@@ -478,7 +570,10 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        widget.child,
+        NotificationListener<NavigationNotification>(
+          onNotification: _onAppHandlesBack,
+          child: widget.child,
+        ),
         StreamBuilder<FeatureGuideState>(
           stream: _guides.stream,
           initialData: _guides.state,
@@ -527,8 +622,68 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
         ),
         // The card's own Skip guide is the one way out, on every step, so
         // leaving never depends on a back button. iOS has none.
-        if (hole != null) _card(guide, hole, screen),
+        if (_askingLeave)
+          Center(child: _leaveCard(guide))
+        else if (hole != null)
+          _card(guide, hole, screen),
       ],
+    );
+  }
+
+  /// Asked after the Android back button. A guide the user picked from
+  /// Settings has no switch: they asked for it, so there is nothing to stop.
+  Widget _leaveCard(FeatureGuideState guide) {
+    final colors = context.appColors;
+    final stopAllLabel = LocaleKeys.feature_guides_leave_stop_all.tr();
+
+    return Semantics(
+      liveRegion: true,
+      child: AppDialog(
+        skin: AppDialogSkin.panel,
+        title: LocaleKeys.feature_guides_leave_title.tr(),
+        body: LocaleKeys.feature_guides_leave_body.tr(),
+        content: guide.moves
+            ? null
+            : Row(
+                children: [
+                  Expanded(
+                    child: ExcludeSemantics(
+                      child: Text(
+                        stopAllLabel,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onPanel,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  AppSwitch(
+                    value: _stopAllGuides,
+                    variant: AppSwitchVariant.panel,
+                    semanticLabel: stopAllLabel,
+                    onChanged: (value) =>
+                        setState(() => _stopAllGuides = value),
+                  ),
+                ],
+              ),
+        actions: [
+          AppButton(
+            label: LocaleKeys.feature_guides_leave_confirm.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            onPressed: () => _done(stopAll: _stopAllGuides),
+          ),
+          AppButton(
+            label: LocaleKeys.feature_guides_leave_stay.tr(),
+            size: AppButtonSize.sm,
+            onPressed: _stay,
+          ),
+        ],
+      ),
     );
   }
 
@@ -647,30 +802,44 @@ class _FeatureGuideCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                step.titleKey.tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontDisplay,
-                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onPanel,
-                ),
-              ),
-              const SizedBox(height: 6),
-              AppBulletedText(
-                step
-                    .bodyKeyFor(
-                      usingExamples: guide.usingExamples,
-                      ringClaim: ringClaim,
-                    )
-                    .tr(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                  fontSize: 14,
-                  height: 1.4,
-                  color: colors.onPanel,
+              // The words change with each step while the buttons stay put, so
+              // a screen reader that has just pressed Next would hear
+              // nothing. A live region says the new step as it lands.
+              Semantics(
+                liveRegion: true,
+                child: MergeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        step.titleKey.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontDisplay,
+                          fontFamilyFallback:
+                              AppTypography.fontDisplayFallbacks,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: colors.onPanel,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      AppBulletedText(
+                        step
+                            .bodyKeyFor(
+                              usingExamples: guide.usingExamples,
+                              ringClaim: ringClaim,
+                            )
+                            .tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colors.onPanel,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),

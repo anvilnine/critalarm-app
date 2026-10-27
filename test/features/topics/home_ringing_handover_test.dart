@@ -2,7 +2,6 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
-import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
@@ -33,7 +32,7 @@ void main() {
 
       await cubit.load();
 
-      expect(cubit.state.severity, SeverityMode.crit);
+      expect(cubit.state.facts.ringing, isNotNull);
       expect(cubit.state.ringingIncidentId, isNotNull);
       expect(cubit.state.ringingIncidentId, startsWith('inc_'));
     });
@@ -44,7 +43,7 @@ void main() {
 
       await cubit.load();
 
-      expect(cubit.state.severity, SeverityMode.none);
+      expect(cubit.state.facts.ringing, isNull);
       expect(cubit.state.ringingIncidentId, isNull);
     });
 
@@ -54,7 +53,7 @@ void main() {
 
       await cubit.load();
 
-      expect(cubit.state.severity, SeverityMode.high);
+      expect(cubit.state.facts.warningCount, 1);
       expect(
         cubit.state.ringingIncidentId,
         isNull,

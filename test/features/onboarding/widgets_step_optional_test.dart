@@ -17,13 +17,14 @@ void main() {
       );
     });
 
-    test('legacy-1 holds it between permissions and connect', () {
-      final steps = BundledOnboardingFlows.legacy.steps;
-      final at = steps.indexOf(OnboardingStepId.widgets);
-
-      expect(at, greaterThan(-1));
-      expect(steps[at - 1], OnboardingStepId.permissions);
-      expect(steps[at + 1], OnboardingStepId.connect);
+    test('no bundled flow holds it, the welcome shows the widgets', () {
+      for (final flow in BundledOnboardingFlows.all) {
+        expect(
+          flow.contains(OnboardingStepId.widgets),
+          isFalse,
+          reason: flow.id,
+        );
+      }
     });
 
     test('a fresh install on the default flow never reaches it', () async {
@@ -77,11 +78,22 @@ void main() {
       );
     });
 
-    test('a web phone skips it in legacy-1', () async {
+    test('a web phone skips it in a flow that lists it', () async {
+      const listsIt = OnboardingFlow(
+        id: 'lists-widgets',
+        steps: [
+          OnboardingStepId.welcome,
+          OnboardingStepId.howItRings,
+          OnboardingStepId.permissions,
+          OnboardingStepId.widgets,
+          OnboardingStepId.connect,
+          OnboardingStepId.legacyTest,
+        ],
+      );
       final h = EngineHarness(
         on: web,
         repository: FakeOnboardingFlowRepository(
-          pinned: BundledOnboardingFlows.legacy,
+          pinned: listsIt,
           completed: {
             OnboardingStepId.welcome,
             OnboardingStepId.howItRings,

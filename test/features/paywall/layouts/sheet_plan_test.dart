@@ -23,6 +23,99 @@ void main() {
     textScale: textScale,
   );
 
+  group('sheetWordsHeight', () {
+    test('without a group it is as before', () {
+      expect(sheetWordsHeight(4), 56 + 24.0 * 4);
+      expect(sheetWordsHeight(0), 56 + 24.0);
+    });
+
+    test(
+      'with the Also included group it counts the label and smaller items',
+      () {
+        // Lead line 24, label block 26, then 20 for each other benefit.
+        expect(sheetWordsHeight(4, hasAlso: true), 56 + 24 + 26 + 20.0 * 3);
+        expect(sheetWordsHeight(2, hasAlso: true), 56 + 24 + 26 + 20.0);
+      },
+    );
+
+    test('a group needs two benefits, one benefit stays a single line', () {
+      expect(sheetWordsHeight(1, hasAlso: true), sheetWordsHeight(1));
+    });
+
+    test('a lead with no line of its own takes no room', () {
+      // The label sits under the headline, then 20 for each other benefit.
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false),
+        56 + 20 + 20.0 * 3,
+      );
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false),
+        lessThan(sheetWordsHeight(4, hasAlso: true)),
+      );
+      // With no group the lead line is never left out.
+      expect(sheetWordsHeight(4, showsLead: false), sheetWordsHeight(4));
+      expect(
+        sheetWordsHeight(1, hasAlso: true, showsLead: false),
+        sheetWordsHeight(1),
+      );
+    });
+  });
+
+  group('a headline of two lines', () {
+    test('adds its height to the words and to what the sheet wants', () {
+      expect(
+        sheetWordsHeight(4, hasAlso: true, showsLead: false, headlineExtra: 32),
+        sheetWordsHeight(4, hasAlso: true, showsLead: false) + 32,
+      );
+      expect(sheetWordsHeight(1, headlineExtra: 32), sheetWordsHeight(1) + 32);
+      expect(
+        sheetWantedHeight(
+          buyBlockHeight: 200,
+          benefitCount: 4,
+          bottomInset: 0,
+          headlineExtra: 32,
+        ),
+        sheetWantedHeight(
+              buyBlockHeight: 200,
+              benefitCount: 4,
+              bottomInset: 0,
+            ) +
+            32,
+      );
+    });
+
+    test('moves the sheet up when the screen has the room', () {
+      SheetPlan plan(double extra) => sheetPlanFor(
+        screenHeight: 844,
+        topInset: 47,
+        bottomInset: 22,
+        isCompact: false,
+        buyBlockHeight: 98,
+        benefitCount: 5,
+        hasAlso: true,
+        showsLead: false,
+        headlineExtra: extra,
+      );
+      expect(plan(32).sheetTop, lessThanOrEqualTo(plan(0).sheetTop));
+      expect(plan(32).rowsAbove, lessThanOrEqualTo(plan(0).rowsAbove));
+    });
+
+    test('changes nothing at a large text size', () {
+      final plain = planFor(textScale: 2);
+      final extra = sheetPlanFor(
+        screenHeight: 844,
+        topInset: 47,
+        bottomInset: 22,
+        isCompact: false,
+        buyBlockHeight: 200,
+        benefitCount: 4,
+        textScale: 2,
+        headlineExtra: 64,
+      );
+      expect(extra.sheetTop, plain.sheetTop);
+    });
+  });
+
   group('sheetPlanFor', () {
     test('the lit row is above the sheet with room for the mascot', () {
       for (final compact in [false, true]) {
@@ -115,6 +208,34 @@ void main() {
     });
   });
 
+  group('the mascot on the edge', () {
+    test('in front of the sheet it is whole and large', () {
+      expect(planFor().standsInFront, isTrue);
+      expect(planFor().faceSize, greaterThanOrEqualTo(140));
+      expect(planFor(isCompact: true).faceSize, greaterThanOrEqualTo(100));
+      // Less than half of it is above the edge: the rest is on the sheet.
+      expect(planFor().faceShown, lessThan(0.5));
+    });
+
+    test('past the default text size it stands behind and looks over', () {
+      final plan = planFor(textScale: 1.3);
+      expect(plan.standsInFront, isFalse);
+      expect(plan.faceShown, SheetPlan.faceShownBehind);
+      expect(plan.faceSize, lessThan(planFor().faceSize));
+    });
+
+    test('a hop keeps clear of the lit row', () {
+      for (final compact in [false, true]) {
+        final plan = planFor(isCompact: compact);
+        // A reaction hops 8 percent of the mascot's size.
+        expect(
+          plan.peekGap - plan.faceAbove,
+          greaterThanOrEqualTo(plan.faceSize * 0.08),
+        );
+      }
+    });
+  });
+
   group('sheetStageArrangement', () {
     test('a full stage holds the preview at its largest, centred', () {
       final a = sheetStageArrangement(const Size(390, sheetStageFull));
@@ -146,6 +267,27 @@ void main() {
     test('a stage too short for that holds nothing', () {
       final a = sheetStageArrangement(const Size(375, 100));
       expect(a.kind, HeroStageKind.none);
+    });
+
+    test('beside the mascot the preview keeps clear of it and the cross', () {
+      for (final (width, face) in [(390.0, 150.0), (375.0, 112.0)]) {
+        for (final height in [172.0, 190.0, sheetStageFull, 300.0]) {
+          final a = sheetStageArrangement(Size(width, height), face: face);
+          expect(a.kind, HeroStageKind.pair);
+          expect(a.card.width, greaterThanOrEqualTo(heroCardMin));
+          // The mascot may lie over the card's corner, as on the approved
+          // stage, and no further.
+          expect(
+            a.card.left,
+            greaterThanOrEqualTo(sheetSide + face * (1 - heroOverlapX) - 0.01),
+          );
+          expect(
+            a.card.right,
+            lessThanOrEqualTo(width - sheetCrossRoom + 0.01),
+          );
+          expect(a.card.center.dy, height / 2);
+        }
+      }
     });
 
     test('the mascot is not on the stage, and the air sits on the card', () {

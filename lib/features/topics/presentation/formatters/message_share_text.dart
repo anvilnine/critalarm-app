@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -12,7 +13,13 @@ String messageShareText(TopicDetailMessageItem message, String topic) {
     if (message.title.isNotEmpty && message.title != topic) message.title,
     if (message.body.isNotEmpty) message.body,
   ];
-  return '${lines.join('\n')}\n\n$topic · ${message.timestamp}';
+  // A shared message is read later, so it carries the full date and not
+  // "Yesterday".
+  final sentAt = message.sentAt;
+  final when = sentAt == null
+      ? message.timestamp
+      : DateLabel.dayMonthYear(sentAt.toLocal(), withTime: true);
+  return '${lines.join('\n')}\n\n$topic · $when';
 }
 
 /// Opens the system share sheet for [message]. [origin] is where the tap

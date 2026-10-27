@@ -1,13 +1,24 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/paywall/paywall_headline.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_lines.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
+import 'package:flutter/foundation.dart';
 
 // The numbers of the wipe: where the divider is at a second, where it
 // settles, what the Free side of the stage draws. No widgets, so they
@@ -21,8 +32,56 @@ import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_
 // | 0.7  | 1.5  | The divider sweeps in from the right, colour behind it |
 // | 1.5  |      | Rest: the divider on the mascot's middle               |
 //
+// After that the mascot leans toward the product every few seconds and
+// the divider goes with it, so the line stays on the middle of its face.
+// Bubbles rise on the product's side only.
+//
 // The divider's place is a share of the stage's width from the left. Free
 // is left of it, the product right of it.
+
+/// Which headline the Wipe layout shows.
+enum WipeHeadline { hosted, pro, ended, leaving }
+
+/// The headline for [variant]. A Hosted plan that has ended or is ending has
+/// words of its own. Everything else keeps the product's headline.
+WipeHeadline wipeHeadlineFor({
+  required bool isHosted,
+  required PaywallHeadlineVariant variant,
+}) {
+  if (!isHosted) return WipeHeadline.pro;
+  return switch (variant) {
+    PaywallHeadlineVariant.ended => WipeHeadline.ended,
+    PaywallHeadlineVariant.leaving => WipeHeadline.leaving,
+    PaywallHeadlineVariant.none => WipeHeadline.hosted,
+  };
+}
+
+/// Whether the Wipe groups its benefits under "Also included": the lead
+/// keeps its line and the others sit under the label, as the Sheet and Proof
+/// list them. Only the Wipe for a plan that ended does, when the route has a
+/// lead and a second benefit. Every other Wipe keeps the plain list.
+bool wipeShowsAlsoIncluded({
+  required WipeHeadline headline,
+  required bool hasLead,
+  required int benefitCount,
+}) =>
+    headline == WipeHeadline.ended &&
+    heroShowsAlsoIncluded(hasLead: hasLead, benefitCount: benefitCount);
+
+/// Whether the Wipe runs backwards: a Hosted plan that is ending, with what
+/// the leaving paywall knows in the route and at least two rows to list
+/// under the stage. Any other route is the normal Wipe, so a leaving route
+/// with no data draws what ships today.
+bool wipeRunsBackwards({
+  required bool isHosted,
+  required PaywallHeadlineVariant variant,
+  required PaywallLeaving? leaving,
+  required List<PaywallBenefit> listed,
+}) =>
+    isHosted &&
+    variant == PaywallHeadlineVariant.leaving &&
+    leaving != null &&
+    wipeLeavingRowsFor(listed).length >= 2;
 
 /// When the divider leaves the right edge and when it has settled.
 const double wipeSweepStart = 0.7;
@@ -31,9 +90,146 @@ const double wipeSweepEnd = 1.5;
 /// The second the layout rests on.
 const double wipeRestSeconds = wipeSweepEnd;
 
+/// The backwards run, in seconds on the layout's clock. The stage opens in
+/// full colour. Grey sweeps in from the left and covers the whole stage,
+/// holds a beat, then pulls back and rests on Crit.
+const double wipeBackSweepStart = 0.7;
+const double wipeBackSweepEnd = 1.3;
+const double wipeBackHoldEnd = 1.5;
+const double wipeBackRestSeconds = 2.1;
+
+/// The second the colour side's pictures change to what Free has. The grey
+/// covers the whole stage by [wipeBackSweepEnd] and starts to pull back at
+/// [wipeBackHoldEnd], so the change is made while nothing of the colour
+/// side shows.
+const double wipeBackStrikeAt = (wipeBackSweepEnd + wipeBackHoldEnd) / 2;
+
+/// Whether the colour side's pictures show what Free has at clock second
+/// [t]: the history rows past the Free window struck, the refused switch,
+/// the count stopped at the allowance. They do from the first frame when
+/// nothing may move, because that frame is the only one a person sees.
+bool wipeLeavingStruckAt(double t, {required bool isStill, double lead = 0}) =>
+    isStill || t + lead >= wipeBackStrikeAt;
+
+/// The pictures the stage plays, in order. The normal Wipe cycles through
+/// every benefit in [listed]. The leaving Wipe ([reversed]) holds on the
+/// lead's picture, the first listed, and never moves on: its list under
+/// the stage is the whole story and the loop has nothing to add to it.
+/// [lead] is the head start after an intro, see [wipeLeadFor].
+HeroLoop wipeLoopFor(
+  List<PaywallBenefit> listed, {
+  required bool reversed,
+  required double lead,
+}) => HeroLoop([
+  for (final b in reversed ? listed.take(1) : listed) b.previewId,
+], prelude: -lead);
+
+/// How many critical topics the topics picture of the leaving Wipe draws
+/// as on, or null for the plain Wipe, which keeps its looping picture. It is
+/// the count the sentence under the stage says: a count that is not known
+/// reads as none there too. A plan that ends switches no topic off.
+int? wipeLeavingCriticalFor({
+  required bool reversed,
+  required LeavingFacts? facts,
+}) => reversed ? facts?.criticalTopics ?? 0 : null;
+
+/// The words of the small tag on the card, or null for none. On the
+/// leaving Wipe the card rests on the colour side under "Today" with its
+/// rows struck, which would read as today's history being hidden already.
+/// While the card shows that struck frame ([isStruck]) it carries [date],
+/// the date of the grey side. With today's rows showing, and on the
+/// plain Wipe, it carries nothing.
+String? wipeCardTagFor({
+  required bool reversed,
+  required bool isStruck,
+  required String date,
+}) => reversed && isStruck ? date : null;
+
+/// The second the divider is on the mascot to the eye: the sweep eases
+/// out, so it is home long before it stops. The landing's cue plays here.
+const double wipeLandsAt = wipeSweepStart + 0.4;
+
+/// How the product's side moves: the approved pop, bubbles rising behind,
+/// and a lean every few seconds. The Free side takes [wipeFreeMotion]: the
+/// same mascot, so the same entrance and the same lean, and no bubbles.
+const HeroMotion wipeMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.bubbles,
+  idle: HeroIdleStyle.lean,
+);
+const HeroMotion wipeFreeMotion = HeroMotion(idle: HeroIdleStyle.lean);
+
+/// How both sides move in the run for a plan that is leaving: the approved
+/// entrance and the quiet drifting air, no bubbles. The mascot is drawn
+/// apart from the stage and stands still.
+const HeroMotion wipeLeavingMotion = HeroMotion();
+
+/// How many seconds of the entrance are skipped when an intro has just
+/// handed over. The intro ends on the mascot, so the stage is not shown
+/// all Free for long: the sweep starts almost at once.
+const double wipeIntroHeadStart = 0.6;
+
+/// The head start of a layout that does or does not follow an intro.
+double wipeLeadFor({required bool followsIntro}) =>
+    followsIntro ? wipeIntroHeadStart : 0;
+
+/// How far the middle of the mascot's face moves sideways in its lean, in
+/// points, when its idle reads [seconds] and it is [mascot] points
+/// square. The divider moves by this, so it stays on the face. Zero at
+/// rest and between leans.
+double wipeLeanShiftAt(double seconds, {required double mascot}) {
+  final pose = heroIdlePose(
+    HeroIdleStyle.lean,
+    seconds: seconds,
+    size: mascot,
+  );
+  // It leans about the middle of its foot, so its middle swings with it.
+  return pose.dx + math.sin(pose.angle) * mascot / 2;
+}
+
 /// How near either edge a finger can take the divider.
 const double wipeMin = 0.1;
 const double wipeMax = 0.9;
+
+/// What the mascot's entrance sounds like, by clock second: it lands.
+/// [lead] is the head start after an intro (see [wipeLeadFor]).
+List<PaywallCueBeat> wipeEntranceCues({double lead = 0}) => [
+  heroLandingBeat(wipeMotion.entrance, prelude: -lead),
+];
+
+/// What the divider's own sweep sounds like, by clock second: a whoosh as
+/// it starts in from the right and a snap as it lands on the mascot. A
+/// divider the hand has taken does not sweep, so it plays neither. The
+/// backwards run whooshes as the grey starts across and snaps as it comes
+/// to rest on Crit.
+List<PaywallCueBeat> wipeSweepCues({
+  double lead = 0,
+  bool reversed = false,
+}) => reversed
+    ? [
+        PaywallCueBeat(wipeBackSweepStart - lead, PaywallCue.whoosh),
+        PaywallCueBeat(wipeBackHoldEnd + 0.4 - lead, PaywallCue.snap),
+      ]
+    : [
+        PaywallCueBeat(wipeSweepStart - lead, PaywallCue.whoosh),
+        PaywallCueBeat(wipeLandsAt - lead, PaywallCue.snap),
+      ];
+
+/// The notch a divider at [at] has last passed: there is one at every
+/// tenth of the stage's width.
+int wipeNotchOf(double at) => (at * 10 + 1e-9).floor();
+
+/// What a drag that moved the divider from [from] to [to] is felt as, or
+/// null for nothing.
+///
+/// Reaching either stop is a refusal, once: a divider already at the stop
+/// that is pushed further says nothing more. Short of a stop, crossing a
+/// notch is one tick of the ratchet.
+PaywallCue? wipeDragCue(double from, double to) {
+  if (to == from) return null;
+  final isAtStop = to <= wipeMin || to >= wipeMax;
+  if (isAtStop) return PaywallCue.refuse;
+  return wipeNotchOf(to) == wipeNotchOf(from) ? null : PaywallCue.ratchet;
+}
 
 /// Where the divider settles with no mascot to stand on.
 const double wipeSettleAlone = 0.2;
@@ -70,6 +266,15 @@ double wipeSettleFor(HeroArrangement arrangement, double width) {
   return (arrangement.mascot.center.dx / width).clamp(0.16, 0.5);
 }
 
+/// Where the grip's left edge is when the divider is [x] points from the
+/// stage's left edge. It stands on the divider, kept far enough in that the
+/// whole circle is on screen: the divider itself runs to either edge.
+double wipeGripLeftFor(
+  double x, {
+  required double width,
+  required double grip,
+}) => math.max(0, math.min(x - grip / 2, width - grip));
+
 /// How far down the stage the grip sits: under the mascot, clear of its
 /// face.
 double wipeGripCentreFor(HeroArrangement arrangement, Size size) =>
@@ -102,12 +307,19 @@ class WipeGrip {
 /// Untouched, it waits at the right edge, sweeps to [settle] and stays.
 /// Under a finger it is where the finger has it. Let go, it holds for
 /// [wipeHoldSeconds] and goes home. When nothing may move it is at
-/// [settle], or where the hand last put it.
+/// [settle], or where the hand last put it. [lead] is the head start of
+/// the sweep: see [wipeLeadFor].
+///
+/// [reversed] is the run for a plan that is leaving: the divider waits at
+/// the left edge, so the stage is all colour, goes across to the right edge
+/// so the grey covers it, holds, and pulls back to [settle].
 double wipeDividerAt(
   double t, {
   required double settle,
   WipeGrip? grip,
   bool isStill = false,
+  double lead = 0,
+  bool reversed = false,
 }) {
   if (grip != null) {
     final released = grip.releasedAt;
@@ -119,8 +331,20 @@ double wipeDividerAt(
     return grip.at + (settle - grip.at) * back;
   }
   if (isStill) return settle;
+  if (reversed) {
+    final x = t + lead;
+    // The grey side grows from the left to fill the stage.
+    final out = AppCurves.easeOut.transform(
+      phase(x, wipeBackSweepStart, wipeBackSweepEnd),
+    );
+    // Then it pulls back to rest on Crit.
+    final back = AppCurves.easeOut.transform(
+      phase(x, wipeBackHoldEnd, wipeBackRestSeconds),
+    );
+    return out + (settle - out) * back;
+  }
   final sweep = AppCurves.easeOut.transform(
-    phase(t, wipeSweepStart, wipeSweepEnd),
+    phase(t + lead, wipeSweepStart, wipeSweepEnd),
   );
   return 1 + (settle - 1) * sweep;
 }
@@ -201,3 +425,43 @@ List<double> wipeMutedMatrix(double saturation) {
 
 /// How much colour the Free side keeps.
 const double wipeFreeSaturation = 0.12;
+
+/// Crit's face on the leaving Wipe: sad through the sweep and the hold, then
+/// calm, and calm from the first frame when it opens at rest.
+@immutable
+class WipeLeavingFace {
+  const WipeLeavingFace(this.face, this.from, this.blend);
+
+  final HeroFace face;
+  final HeroFace from;
+  final double blend;
+}
+
+WipeLeavingFace wipeLeavingFaceAt(double t, {bool atRest = false}) {
+  if (atRest) {
+    return const WipeLeavingFace(HeroFace.calm, HeroFace.calm, 1);
+  }
+  if (t < wipeBackHoldEnd) {
+    return const WipeLeavingFace(HeroFace.sad, HeroFace.sad, 1);
+  }
+  return WipeLeavingFace(
+    HeroFace.calm,
+    HeroFace.sad,
+    phase(t, wipeBackHoldEnd, wipeBackRestSeconds),
+  );
+}
+
+/// The rows of the list under the leaving Wipe.
+enum WipeLeavingRow { history, pushes, topics }
+
+/// The rows for the benefits the product [listed], in the order of the
+/// table: history, pushes, critical topics. A benefit with no Free number
+/// has no row.
+List<WipeLeavingRow> wipeLeavingRowsFor(List<PaywallBenefit> listed) {
+  final ids = {for (final b in listed) b.id};
+  return [
+    if (ids.contains(PaywallBenefitId.history)) WipeLeavingRow.history,
+    if (ids.contains(PaywallBenefitId.pushes)) WipeLeavingRow.pushes,
+    if (ids.contains(PaywallBenefitId.topics)) WipeLeavingRow.topics,
+  ];
+}

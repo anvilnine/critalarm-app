@@ -1,4 +1,5 @@
 import 'package:critalarm/design/ambient/ambient.dart';
+import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -21,8 +22,15 @@ class AppAmbientShell extends StatefulWidget {
 
   /// The backdrop for each screen. A screen pushed on top of another needs a
   /// different profile from it, or the backdrop holds still on the push.
+  ///
+  /// [heroSpot] is where the Topics hero's disc sits on this display. Without
+  /// it the disc sits where it does on a 390 by 844 phone.
   @visibleForTesting
-  static AmbientProfile profileForPath(String path, AppColors colors) {
+  static AmbientProfile profileForPath(
+    String path,
+    AppColors colors, {
+    HeroDiscSpot heroSpot = HeroDiscSpot.phone,
+  }) {
     if (path == '/history') {
       return AmbientAppProfiles.history(colors);
     }
@@ -30,7 +38,7 @@ class AppAmbientShell extends StatefulWidget {
       return AmbientAppProfiles.settings(colors);
     }
     if (path == '/') {
-      return AmbientAppProfiles.topics(colors);
+      return AmbientAppProfiles.topicsHero(colors, spot: heroSpot);
     }
     if (path.startsWith('/topics/new')) {
       return AmbientAppProfiles.createTopic(colors);
@@ -54,7 +62,7 @@ class AppAmbientShell extends StatefulWidget {
     if (path.startsWith('/settings/') || path == '/app-icon') {
       return AmbientAppProfiles.settingsDetail(colors);
     }
-    return AmbientAppProfiles.topics(colors);
+    return AmbientAppProfiles.topicsHero(colors, spot: heroSpot);
   }
 
   @override
@@ -196,8 +204,16 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final baseProfile = AppAmbientShell.profileForPath(_currentPath, colors);
-    final profile = _controller.overrideProfile ?? baseProfile;
+    // A screen's own choice for its route (the Topics tab follows its card),
+    // then the shell's.
+    final profile =
+        _controller.overrideProfile ??
+        _controller.routeProfileFor(_currentPath) ??
+        AppAmbientShell.profileForPath(
+          _currentPath,
+          colors,
+          heroSpot: heroDiscSpotOf(context),
+        );
 
     return Stack(
       children: [

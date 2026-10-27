@@ -57,10 +57,6 @@ class AppNotificationCard extends StatelessWidget {
       shadows = AppShadows.lightMd;
     }
 
-    final faceStroke = isCrit ? colors.crit : colors.faceStroke;
-    final faceFill = colors.surface;
-    final faceInk = colors.ink;
-
     final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -75,9 +71,6 @@ class AppNotificationCard extends StatelessWidget {
           FaceWidget(
             state: isCrit ? FaceState.alarmed : faceState,
             size: 44,
-            overrideFillColor: faceFill,
-            overrideStrokeColor: faceStroke,
-            overrideInkColor: faceInk,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -114,15 +107,23 @@ class AppNotificationCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.01 * 16,
-                    color: colors.ink,
+                Semantics(
+                  // The cream background is the only mark of a quiet one, so
+                  // a screen reader hears it in front of the title.
+                  label: isQuiet && !isCrit
+                      ? '${LocaleKeys.home_meta_quiet.tr()}, $title'
+                      : null,
+                  excludeSemantics: isQuiet && !isCrit,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontDisplay,
+                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.01 * 16,
+                      color: colors.ink,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),

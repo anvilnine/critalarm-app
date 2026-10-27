@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Severity mode for canvas and face retinting.
+/// Severity mode for canvas retinting. The face keeps its own colours on
+/// every one of them.
 enum SeverityMode {
   none,
   high,
@@ -159,7 +160,8 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color ackGhost;
   final Color ackGhostStrong;
 
-  // Face
+  // Face. Yellow head, dark outline and features, in every theme and on every
+  // severity canvas.
   final Color faceFill;
   final Color faceStroke;
   final Color faceInk;
@@ -350,9 +352,11 @@ class AppColors extends ThemeExtension<AppColors> {
     ackGhost: Color(0x0CFFFFFF),
     ackGhostStrong: Color(0x14FFFFFF),
     // Face
-    faceFill: Color(0xFF241D18),
-    faceStroke: Color(0xFFB08A22),
-    faceInk: Color(0xFFF7F1EA),
+    // The face is the same yellow with the same dark outline and features
+    // in both themes. Only the page around it changes.
+    faceFill: Color(0xFFFFC93C),
+    faceStroke: Color(0xFF1A140F),
+    faceInk: Color(0xFF1A140F),
     // Fixed
     inkFixed: Color(0xFF1A140F),
     cobaltOnDark: Color(0xFF7C8AFF),
@@ -399,14 +403,12 @@ class AppColors extends ThemeExtension<AppColors> {
         return copyWith(
           canvas: highCanvas,
           canvasAlt: highCanvasAlt,
-          faceStroke: highStroke,
           focusGap: highCanvas,
         );
       case SeverityMode.crit:
         return copyWith(
           canvas: critCanvas,
           canvasAlt: critCanvasAlt,
-          faceStroke: critStroke,
           focusGap: critCanvas,
         );
       case SeverityMode.ack:
@@ -415,8 +417,6 @@ class AppColors extends ThemeExtension<AppColors> {
           canvasAlt: ackCanvasAlt,
           onCanvas: ackText,
           onCanvasMuted: ackTextMuted,
-          faceStroke: ackStroke,
-          faceInk: ackText,
           canvasGhost: ackGhost,
           canvasGhostStrong: ackGhostStrong,
           focus: ackText,
@@ -720,4 +720,13 @@ abstract final class ColorContrast {
     if (ratio >= 3.0) return 'AA large';
     return 'fail';
   }
+}
+
+/// Derived colours that no theme stores.
+extension AppColorsDerived on AppColors {
+  /// The critical red as text on a light fill: a step toward ink, so it
+  /// reads at 7 to 1 on white where the plain red reads at 3.6 to 1. On the
+  /// dark theme the same step moves toward cream and reads lighter than the
+  /// plain red.
+  Color get critText => Color.lerp(crit, ink, 0.4)!;
 }

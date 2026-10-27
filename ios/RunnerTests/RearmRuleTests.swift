@@ -159,3 +159,126 @@ final class IncidentIntentsTests: XCTestCase {
         )
     }
 }
+
+/// The app's own publish of the sound choices, reading what Dart wrote
+/// under its real keys. A key spelled differently here would read as "never
+/// locked".
+///
+/// It sits in this file because `SoundLibrary` is in the app module, and
+/// this is one of the two test files that import it.
+final class SoundPublishTests: XCTestCase {
+    private let appSuite = "app.critalarm.tests.sound-publish.app"
+    private let groupSuite = "app.critalarm.tests.sound-publish.group"
+    private var app: UserDefaults!
+    private var group: UserDefaults!
+
+    private let own = "user_1700000000000000"
+    private let otherOwn = "user_1700000000000001"
+
+    override func setUp() {
+        super.setUp()
+        app = UserDefaults(suiteName: appSuite)
+        group = UserDefaults(suiteName: groupSuite)
+        app.removePersistentDomain(forName: appSuite)
+        group.removePersistentDomain(forName: groupSuite)
+        // What `shared_preferences` leaves in the app's standard defaults.
+        app.set("pager_beep", forKey: "flutter.alarm_sound_default")
+        app.set("{\"prod\":\"\(own)\"}", forKey: "flutter.alarm_sound_per_topic")
+    }
+
+    override func tearDown() {
+        app.removePersistentDomain(forName: appSuite)
+        group.removePersistentDomain(forName: groupSuite)
+        super.tearDown()
+    }
+
+    /// What the extension plays, with every file on disk.
+    private func rings(_ topic: String?) -> String? {
+        SharedSounds.fileName(forTopic: topic, defaults: group) { _ in true }
+    }
+
+    func testThePublishReadsTheFlagUnderTheKeyDartWrites() {
+        app.set(true, forKey: "flutter.alarm_sound_own_locked")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(group.dictionary(forKey: "sound_per_topic_files") as? [String: String], [:])
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "pager_beep.caf")
+        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+    }
+
+    /// The same publish carries the wake-up challenge flags, for the Done
+    /// button on the Live Activity.
+    func testThePublishCarriesTheChallengeFlagsUnderTheKeysDartWrites() {
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.stringArray(forKey: "challenge_owed_topics"), ["prod"])
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+        XCTAssertEqual(DoneButton.forCard(topic: "staging", shared: group), .closes)
+
+        // The flag goes, and the next publish takes the topic out.
+        app.removeObject(forKey: "flutter.topic_challenge_owed.prod")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .closes)
+    }
+
+    /// Before the first unlock the app's defaults read as empty. That
+    /// must not wipe what an earlier publish left in the group.
+    func testDefaultsThatCouldNotBeReadPublishNothing() {
+        app.set(true, forKey: "flutter.alarm_sound_own_locked")
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod")
+        XCTAssertTrue(SoundLibrary.publishChoices(defaults: app, to: group))
+        XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+
+        // What a locked phone hands back: nothing at all.
+        app.removePersistentDomain(forName: appSuite)
+        XCTAssertFalse(SoundLibrary.defaultsWereRead(app))
+        XCTAssertFalse(SoundLibrary.publishChoices(defaults: app, to: group))
+
+        XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "pager_beep.caf")
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+    }
+
+    func testDefaultsWithAnythingDartWroteCountAsRead() {
+        XCTAssertTrue(SoundLibrary.defaultsWereRead(app))
+    }
+
+    func testThePublishWithNoChallengeFlagPublishesNone() {
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.stringArray(forKey: "challenge_owed_topics"), [])
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .closes)
+    }
+
+    func testThePublishWithTheFlagFalsePublishesTheOwnFile() {
+        app.set(false, forKey: "flutter.alarm_sound_own_locked")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertFalse(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(rings("prod"), "\(own).caf")
+    }
+
+    func testThePublishWithNoFlagWrittenPublishesTheOwnFile() {
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertFalse(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(rings("prod"), "\(own).caf")
+    }
+
+    func testAPublishAfterTheFlagClearsBringsTheOwnFileBack() {
+        app.set(true, forKey: "flutter.alarm_sound_own_locked")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+
+        app.set(false, forKey: "flutter.alarm_sound_own_locked")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(rings("prod"), "\(own).caf")
+    }
+
+    func testThePublishTurnsALockedOwnDefaultIntoTheClassicSiren() {
+        app.set(true, forKey: "flutter.alarm_sound_own_locked")
+        app.set(otherOwn, forKey: "flutter.alarm_sound_default")
+        SoundLibrary.publishChoices(defaults: app, to: group)
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "classic_siren.caf")
+        XCTAssertEqual(rings("prod"), "classic_siren.caf")
+        XCTAssertEqual(rings(nil), "classic_siren.caf")
+    }
+}

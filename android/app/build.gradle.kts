@@ -32,7 +32,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "app.critalarm"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -60,6 +59,12 @@ android {
     assetPacks += listOf(":sound_pack_library")
 
     buildTypes {
+        debug {
+            // Builds the en-XA pseudo-locale from the default strings, so a
+            // debug run with the pseudo-locale picked shows which native text
+            // follows the app's language. Never on in release.
+            isPseudoLocalesEnabled = true
+        }
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")

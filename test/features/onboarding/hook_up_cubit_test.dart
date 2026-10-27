@@ -256,6 +256,72 @@ void main() {
       expect(cubit.state.isCritical, isFalse);
     });
 
+    test('what the topic was made with is in the first frame', () async {
+      for (final isCritical in [true, false]) {
+        await handoff.hold(
+          FirstTopicHandoffEntry(
+            topicName: 'nightly',
+            serverUrl: _server,
+            token: _token,
+            isCritical: isCritical,
+          ),
+        );
+        final gate = Completer<List<Topic>>();
+        final cubit = HookUpCubit(
+          handoff: handoff,
+          templates: SharedPrefsToolTemplateStore(prefs),
+          createToken: createToken,
+          readTopics: () => gate.future,
+          refreshTopics: () => gate.future,
+          readServerUrl: () async => _server,
+          watcher: FirstMessageWatcher(
+            store: store,
+            source: source,
+            timer: (_, onFire) => _Timer(onFire),
+          ),
+          consent: SetupStatsConsent(
+            privacy: SharedPrefsPrivacyRepository(prefs),
+            telemetry: telemetry,
+          ),
+          revokeToken: revokeToken,
+          ring: ring,
+        );
+        addTearDown(cubit.close);
+
+        final states = <HookUpState>[];
+        final listening = cubit.stream.listen(states.add);
+        final loading = cubit.load(tokenName: 'Setup');
+        await pumpEventQueue();
+
+        // Nothing has read the topic list yet, and the line is on screen
+        // with the answer already in it.
+        expect(cubit.state.hasLine, isTrue);
+        expect(cubit.state.isCritical, isCritical);
+        expect(states.first.hasLine, isTrue);
+        expect(states.first.isCritical, isCritical);
+
+        gate.complete([Topic(name: 'nightly', critical: isCritical)]);
+        await loading;
+        await listening.cancel();
+        expect(cubit.state.isCritical, isCritical);
+        expect(states.every((s) => s.isCritical == isCritical), isTrue);
+      }
+    });
+
+    test(
+      'a token made again carries the Critical switch into the handoff',
+      () async {
+        await prefs.setString(PrefsFirstTopicHandoff.topicNameKey, 'nightly');
+        topics = [const Topic(name: 'nightly')];
+        final cubit = build();
+
+        await cubit.load(tokenName: 'Setup');
+
+        expect(cubit.state.isCritical, isFalse);
+        expect(handoff.entry!.isCritical, isFalse);
+      },
+    );
+
     test('the tool comes from the phone when the handoff has none', () async {
       await holdFirstTopic();
       await SharedPrefsToolTemplateStore(

@@ -27,6 +27,9 @@ enum PropKind {
 
   /// Curved lines either side of the head, for a shake.
   motionArcs,
+
+  /// One tear on a cheek, in the blue of a sweat or tear drop.
+  tear,
 }
 
 /// One extra, somewhere near the head.

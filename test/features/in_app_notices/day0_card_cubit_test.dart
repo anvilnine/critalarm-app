@@ -25,7 +25,7 @@ void main() {
       ..now = (() => now)
       ..firstRealAcknowledgedAt = now.subtract(const Duration(days: 1));
     final account = _MockAccount();
-    when(account.readIsPaid).thenAnswer((_) async => false);
+    when(account.readHoldsHosted).thenAnswer((_) async => false);
     when(account.readServerMode).thenAnswer((_) async => ServerMode.hosted);
     gate = _MockGate();
     when(() => gate.logEvent(any(), any())).thenAnswer((_) async {});

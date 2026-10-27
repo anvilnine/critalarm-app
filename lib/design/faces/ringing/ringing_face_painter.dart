@@ -10,8 +10,8 @@ import 'package:flutter/rendering.dart';
 /// The stage is [stageUnits] wide in the same units the face painter uses,
 /// with the face's 200 unit box in the middle, so the extras have room to
 /// fly off the head without being cut off. The head, brows, eyes and mouth
-/// are drawn by [FacePainter]; this adds the head's movement, its colour
-/// changes and the extras.
+/// are drawn by [FacePainter]; this adds the head's movement and the
+/// extras. The head stays [fillColor] on every frame.
 class RingingFacePainter extends CustomPainter {
   /// Paints [frame] in the given colours.
   const RingingFacePainter({
@@ -20,6 +20,7 @@ class RingingFacePainter extends CustomPainter {
     required this.strokeColor,
     required this.inkColor,
     required this.accentColor,
+    this.canvasInkColor,
   });
 
   /// What to draw.
@@ -36,6 +37,12 @@ class RingingFacePainter extends CustomPainter {
 
   /// The alarm colour: the flush, the siren, the anger vein.
   final Color accentColor;
+
+  /// The sound waves, which are lines drawn beside the head with nothing
+  /// of the face behind them. Null draws them in the features' ink, as
+  /// every other extra is. A screen whose ink cannot be seen on its
+  /// background hands in a colour that can.
+  final Color? canvasInkColor;
 
   /// How wide the stage is, in face units. The face takes the middle 200.
   static const double stageUnits = 280;
@@ -54,9 +61,9 @@ class RingingFacePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final f = frame;
-    final fill = Color.lerp(fillColor, accentColor, f.flush * 0.8)!;
-    final headFill = Color.lerp(fill, inkColor, f.flash)!;
-    final ink = Color.lerp(inkColor, fill, f.flash)!;
+    // The head is [fillColor] and the features [inkColor] on every frame.
+    final headFill = fillColor;
+    final ink = inkColor;
 
     canvas
       ..save()
@@ -133,6 +140,8 @@ class RingingFacePainter extends CustomPainter {
     switch (fx.kind) {
       case RingFxKind.soundWaves:
         // Three arcs either side of the head, rippling outward.
+        final canvasInk = canvasInkColor;
+        final wave = canvasInk == null ? line : _a(canvasInk, alpha);
         for (final side in const [-1.0, 1.0]) {
           for (var i = 0; i < 3; i++) {
             final p = (fx.phase + i / 3) % 1;
@@ -142,7 +151,7 @@ class RingingFacePainter extends CustomPainter {
               side < 0 ? math.pi * 0.75 : -math.pi * 0.25,
               math.pi * 0.5,
               false,
-              _pen(_a(line, 1 - p), 6),
+              _pen(_a(wave, 1 - p), 6),
             );
           }
         }
@@ -393,5 +402,6 @@ class RingingFacePainter extends CustomPainter {
       oldDelegate.fillColor != fillColor ||
       oldDelegate.strokeColor != strokeColor ||
       oldDelegate.inkColor != inkColor ||
-      oldDelegate.accentColor != accentColor;
+      oldDelegate.accentColor != accentColor ||
+      oldDelegate.canvasInkColor != canvasInkColor;
 }

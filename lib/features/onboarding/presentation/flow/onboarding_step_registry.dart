@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_navigation
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/use_step_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
@@ -160,6 +161,19 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       ),
     ),
     OnboardingStepEntry(
+      id: OnboardingStepId.use,
+      route: '/onboarding/use',
+      routeName: 'onboardingUse',
+      ambientStep: OnboardingAmbientStep.use,
+      // A returning user whose first topic is skipped is not asked a
+      // question that would change nothing.
+      isSatisfied: (facts) => facts.hasOwnedTopic(),
+      screen: (context, state) => UseStepScreen(
+        isReplay: isOnboardingReplayUri(state.uri),
+        cameBack: isOnboardingCameBackUri(state.uri),
+      ),
+    ),
+    OnboardingStepEntry(
       id: OnboardingStepId.firstTopic,
       route: '/onboarding/first-topic',
       routeName: 'onboardingFirstTopic',
@@ -191,9 +205,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       id: OnboardingStepId.offer,
       route: '/onboarding/offer',
       routeName: 'onboardingOffer',
-      // The paywall layout covers the whole screen. The canvas under it
-      // only has to differ from the steps on either side.
-      ambientStep: OnboardingAmbientStep.firstTopic,
+      // The paywall layout covers the whole screen, so the canvas under it
+      // is only seen as it glides in and out.
+      ambientStep: OnboardingAmbientStep.offer,
       hasTopBar: false,
       // The stores sell on a phone only.
       isAvailable: _onMobileOnly,
@@ -206,7 +220,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       id: OnboardingStepId.legacyTest,
       route: '/onboarding/test',
       routeName: 'onboardingTest',
-      ambientStep: OnboardingAmbientStep.connected,
+      ambientStep: OnboardingAmbientStep.legacyTest,
       requires: const {OnboardingStepId.connect},
       screen: (context, state) =>
           const OnboardingConnectScreen(part: OnboardingConnectPart.test),

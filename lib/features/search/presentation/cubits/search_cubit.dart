@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
-import 'package:critalarm/core/account/plan_changes.dart';
-import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/access/own_server.dart';
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
-import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
+import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/search/domain/entities/docs_page.dart';
@@ -45,14 +45,12 @@ class SearchCubit extends Cubit<SearchState> {
     required this._addRecentSearch,
     required this._clearRecentSearches,
     required this._includeDevOnlySettings,
-    this.identityStore,
     this.sessionStore,
-    PlanChanges? planChanges,
+    Stream<void>? localeChanges,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       _planChanges = planChanges ?? appPlanChanges,
        super(const SearchState()) {
-    _planChanges.addListener(_onPlanChanged);
+    _localeSub = localeChanges?.listen((_) => refreshTranslations());
   }
 
   final TopicsCubit _topics;
@@ -64,52 +62,14 @@ class SearchCubit extends Cubit<SearchState> {
   final bool _includeDevOnlySettings;
   final DateTime Function() _now;
 
-  /// Read to decide whether the Storage rows exist in Settings. Null in
-  /// tests, and then only the store or the developer switch can say paid.
-  final DeviceIdentityStore? identityStore;
-
-  /// Says whether the server is self-hosted, which also shows Storage.
+  /// Says whether the server is self-hosted, which has no plan row to find.
   final ApiSessionStore? sessionStore;
-
-  /// Moves when a purchase lands, so Storage becomes searchable right away.
-  final PlanChanges _planChanges;
-
-  /// Whether Settings draws its Storage section. Same rule as
-  /// `SettingsState.hasStorageSection`.
-  bool _showsStorage = false;
 
   /// Whether this phone is on its own server, which has no plans to search.
   bool _isSelfHosted = false;
 
-  Future<({bool showsStorage, bool selfHosted})> _readPlanFlags() async {
-    final identity = await identityStore?.readOrCreate();
-    final session = await sessionStore?.read();
-    final selfHosted = session?.mode == ServerMode.selfhosted;
-    return (
-      showsStorage:
-          AccountAccess(identity, planChanges: _planChanges).isPaid ||
-          selfHosted,
-      selfHosted: selfHosted,
-    );
-  }
-
-  void _onPlanChanged() {
-    if (isClosed || state.status != SearchStatus.ready) return;
-    unawaited(_refreshStorage());
-  }
-
-  Future<void> _refreshStorage() async {
-    final flags = await _readPlanFlags();
-    if (isClosed ||
-        (flags.showsStorage == _showsStorage &&
-            flags.selfHosted == _isSelfHosted)) {
-      return;
-    }
-    _showsStorage = flags.showsStorage;
-    _isSelfHosted = flags.selfHosted;
-    _catalogue = _buildCatalogue();
-    emit(state.copyWith(results: _rank(state.query)));
-  }
+  Future<bool> _readIsSelfHosted() async =>
+      isOwnServerMode((await sessionStore?.read())?.mode);
 
   /// Every searchable thing, in the order sections should break ties: topics,
   /// past alarms, settings, documentation.
@@ -119,6 +79,7 @@ class SearchCubit extends Cubit<SearchState> {
   /// changes it while search is open.
   List<DocsPage> _docs = const <DocsPage>[];
 
+  late final StreamSubscription<void>? _localeSub;
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
 
@@ -149,9 +110,7 @@ class SearchCubit extends Cubit<SearchState> {
     await incidentsCall;
     _docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
     final recent = (await recentCall).getOrNull() ?? const <String>[];
-    final flags = await _readPlanFlags();
-    _showsStorage = flags.showsStorage;
-    _isSelfHosted = flags.selfHosted;
+    _isSelfHosted = await _readIsSelfHosted();
 
     if (isClosed) return;
 
@@ -185,6 +144,14 @@ class SearchCubit extends Cubit<SearchState> {
     emit(state.copyWith(results: _rank(state.query)));
   }
 
+  /// Search is held by the shell even while another tab is open.
+  /// Rebuild text and date keywords without refetching or losing the query.
+  void refreshTranslations() {
+    if (isClosed || state.status != SearchStatus.ready) return;
+    _catalogue = _buildCatalogue();
+    emit(state.copyWith(results: _rank(state.query)));
+  }
+
   List<SearchResult> _buildCatalogue() {
     final topics = _topics.state.topics;
     final incidents = _incidents.state.incidents;
@@ -206,7 +173,7 @@ class SearchCubit extends Cubit<SearchState> {
 
   @override
   Future<void> close() async {
-    _planChanges.removeListener(_onPlanChanged);
+    await _localeSub?.cancel();
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();
@@ -266,7 +233,6 @@ class SearchCubit extends Cubit<SearchState> {
 
   List<SearchResult> _historyResults(List<Incident> incidents) {
     final entries = HistoryCubit.toEntries(incidents, _now());
-    final dayFormat = DateFormat('MMM d');
 
     return <SearchResult>[
       for (final entry in entries)
@@ -278,15 +244,20 @@ class SearchCubit extends Cubit<SearchState> {
           // because a flat result list has no day headings to sit under.
           title: entry.topic,
           subtitle: historyMetaText(entry),
-          timeText: dayFormat.format(entry.startedAt),
+          timeText: DateLabel.monthDay(entry.startedAt),
           faceState: entry.faceState,
+          historyMark: historyMarkFor(entry.state),
           keywords: <String>[
             'history',
             'alarm',
             _stateWord(entry),
-            dayFormat.format(entry.startedAt).toLowerCase(),
-            DateFormat('MMMM').format(entry.startedAt).toLowerCase(),
-            DateFormat('EEEE').format(entry.startedAt).toLowerCase(),
+            DateLabel.monthDay(entry.startedAt).toLowerCase(),
+            DateFormat('MMMM', currentFormatLocale())
+                .format(entry.startedAt)
+                .toLowerCase(),
+            DateFormat('EEEE', currentFormatLocale())
+                .format(entry.startedAt)
+                .toLowerCase(),
           ],
           routePath: '/incidents/${Uri.encodeComponent(entry.id)}',
           date: entry.day,
@@ -304,7 +275,6 @@ class SearchCubit extends Cubit<SearchState> {
   List<SearchResult> _settingsResults() {
     final destinations = SettingsSearchIndex.forBuild(
       includeDevOnly: _includeDevOnlySettings,
-      showsStorage: _showsStorage,
       isSelfHosted: _isSelfHosted,
     );
     return <SearchResult>[

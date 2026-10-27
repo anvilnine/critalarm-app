@@ -66,6 +66,8 @@ state-management library.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
+| Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store) |
+| Record the Cloud paywall layouts and benefit previews as frames (site and marketing media) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
@@ -81,6 +83,15 @@ runs all three in the background and drops a `.worktree-ready` marker when it ca
 build. `make worktree-list` shows what is still open; `make worktree-clean` removes
 only the worktrees that are clean and already merged. Details in
 `worktrees/README.md`.
+
+**Worktrees live in `worktrees/`, never in `.claude/worktrees/`.** This is a hard
+rule for every agent and session. Do not use Claude Code's built-in worktree
+option (`claude --worktree`, `EnterWorktree`, or an agent started with
+`isolation: "worktree"`): it puts the copy in `.claude/worktrees/<name>` on a
+`worktree-<name>` branch. Flutter skips folders whose names start with a dot, so
+nothing builds there, and `make worktree-list`, `make worktree-clean` and the
+prep hook never see it. Always run `make worktree-new NAME=<slug>`. If you find a
+worktree under `.claude/worktrees/`, stop and tell Z.
 
 **Most generated files are git-ignored.** `*.g.dart` and `*.freezed.dart` are not
 in the repo. FlutterGen's `lib/gen/*.gen.dart` is the exception and is committed,
@@ -125,19 +136,40 @@ names in code, strings, comments and PRs, and never one for another.
   replays them all. Formerly "tour" and, before that, "showcase". The prefs keys
   `tour_guides_seen` and `has_completed_showcase_tour` keep their old names
   because devices already hold them.
-- **In-App Notices** (`lib/features/in_app_notices/`): the one non-blocking
-  card or pinned bar on Home: no server connected, setup health, Pro ending,
-  back up your topics. A notice sits on the screen until its condition clears
-  or the user dismisses it. An **ask** is different: an interruptive sheet or
-  popup (the Pro ask, the consent ask, the Local reminders sheet, the store
-  review), governed by `HomeAskRules` and `SetupGate`. Never call a sheet a
-  notice. Formerly "home prompts"; the `home_prompt_*` prefs keys and the
-  `pro_prompt_answered` analytics event keep their names.
-  The setup checklist and the widgets card are neither: they are Home
-  content, drawn from `HomeSetupCubit`, and they do not go through the
-  notice slot or `SetupGate`. The checklist floats above the tab bar
-  (`HomeSetupPill`) and the widgets card sits at the top of the list sheet
-  (`HomeSetupSection`). See "Home setup content" below.
+- **Cloud** (the paid plan): the word in copy since the plan was renamed from
+  Hosted. The code keeps `hosted` everywhere it was already there: `Holding.hosted`,
+  `PaywallProduct.hosted`, translation key names such as `paywall_kit.name_hosted`,
+  route values, prefs keys, analytics, the store product ids, the server mode
+  and the account tier. Only the text a person reads or hears says Cloud. The
+  server we run is "our server" in copy, never "Crit Alarm Cloud", so that Cloud
+  means the plan only.
+- **In-App Notices** (`lib/features/in_app_notices/`): a reminder Home pins
+  above the tab bar as an `AppPinnedNoticeBar`. `InAppNoticeCubit` picks two
+  of them: the Cloud plan ending and "back up your topics". A notice sits
+  there until its condition clears or the user dismisses it. An **ask** is
+  different: an interruptive sheet or popup (the Pro ask, the consent ask,
+  the Local reminders sheet, the store review), governed by `HomeAskRules`
+  and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
+  `home_prompt_*` prefs keys and the `pro_prompt_answered` analytics event
+  keep their names.
+  Home puts three kinds of thing on the screen, and only the first is a
+  notice:
+  - **Pinned bars** (`pinnedBarFor` in
+    `lib/features/topics/domain/home_list_rules.dart`): one at a time, in
+    this order. The Cloud ending, the account backup reminder, then "One
+    topic so far", which is Home's own rule and not a notice.
+  - **Status card kinds** (`HomeCardKind`): what Home reports about whether
+    an alarm will ring, and where setup stands. No server, a missed alarm, a
+    stale or failed list, a warning, a failed or doubtful reliability check
+    (a missing permission, battery saver, a phone update, weekly checks that
+    stopped), the setup checklist and the wait for the first message. None
+    of them is a notice or a banner. The card is the only place Home reports
+    health.
+  - **Cream cards** (`AppCreamCard`, `creamCardFor`): the widgets card and the
+    day-0 card, one at a time at the top of the list sheet. The widgets card
+    comes from `HomeSetupCubit`. `Day0CardCubit` decides the day-0 card,
+    after the asks in `runHomeAsk`. Neither goes through `InAppNoticeCubit`.
+    See "Home setup content" below.
 - **Local Reminders** (`lib/features/local_reminders/`): notifications the app
   schedules for itself on the device: fire drill, silent topic, backup, plan
   heads-up, review and feedback asks, Pro later. Method channel
@@ -195,12 +227,17 @@ To add a step:
    - `requires`: step ids that must come earlier in any flow that lists it.
    - `ambientStep`: the `OnboardingAmbientStep` the canvas shows on that
      route. `onboardingStepForPath` reads it from the entry.
+     Each step has its own, with its own arrangement in
+     `OnboardingAmbientProfiles`, so the shapes glide whenever the flow moves
+     from one step to another. A test fails when two steps share one.
 3. When the user is done with the screen, call
    `finishOnboardingStep(context, OnboardingStepId.yourStep)`. A screen never
    names the step after it.
-4. List the id in a flow. `BundledOnboardingFlows` holds the three that
-   ship: `2026-10-b` (the default), `2026-10-a` (the default before it, kept
-   for phones that pinned it) and `legacy-1` (the first shipped order).
+4. List the id in a flow. `BundledOnboardingFlows` holds the four that
+   ship: `2026-10-c` (the default), `2026-10-b` (the default before it, with
+   no `use` step), `2026-10-a` (the one before that) and `legacy-1` (the
+   first shipped order). The older three are kept for phones that pinned
+   them. A shipped flow is never edited: a new order is a new flow id.
 5. Give it a chapter in `onboarding_chapters.dart` if the tracker should
    count it. A step with no chapter sits outside the tracker.
 
@@ -214,51 +251,143 @@ its own state for it: `real_ring` and `hook_up` today.
 `hook_up` is the last step of the default flow. It exists on iOS and
 Android, and counts as already done once a first message was received.
 
-`widgets` is an optional step. The default flow leaves it out and `legacy-1`
-lists it. It works at any position, the last one included, and it exists on
-iOS and Android only.
+`widgets` is an optional step. No bundled flow lists it, because the welcome
+shows the widgets as its last page. A flow that lists it shows it at any
+position, the last one included, and it exists on iOS and Android only.
 
 `welcome` is one step with three pages (`WelcomePage` in
-`domain/welcome_pages.dart`): the ring story, the priority ladder and the
-curl that rings a phone. The user swipes between them or taps Next, and Get
-started on the last page finishes the step. Until the first swipe or Next
-tap, a story that ends opens the next page. The rules for the button, for
-where a finished story hands on and for which page may play haptics are in
-that file. `how_it_rings` shows the same curl as a step of its own.
-`2026-10-b` leaves it out because the welcome already has it, and
-`2026-10-a` and `legacy-1` still list it.
+`domain/welcome_pages.dart`): the word page ("Welcome to Crit Alarm" with the
+face), the curl that rings a phone and the home screen widgets. The user
+swipes between them or taps Next, and Get started on the last page finishes
+the step. Until the first swipe or Next tap, the first story ends by opening
+the next page. The rules for the button, for where a finished story hands on
+and for which page may play haptics are in that file.
 
-`offer` is a frame around one paywall layout (`offer_step_screen.dart`). It
-holds no words, prices or benefit lists: it builds the layout an id names
-from `paywallLayoutBuilders`, over the whole screen. Closing the layout
-finishes the step and so does a purchase. `2026-10-b` lists it between
-`real_ring` and `hook_up`, it has no chapter, and it ships switched off.
+- While the pager moves, the first page's big title, face and rings fade and
+  travel clear of the page edge instead of being cut by it
+  (`welcomeWordPartingAt`, driven by the `PageController` page value).
+- The shapes behind the welcome follow the page value: each page has its own
+  arrangement (`OnboardingAmbientProfiles.welcomePages`), and the shell
+  paints the blend of two neighbours (`welcomeAmbientAt`) while a swipe moves
+  the pager. The welcome reports the page value through
+  `OnboardingAmbientScope.pagePosition`. Under reduced motion the pager
+  jumps, so the shapes jump too.
+- `how_it_rings` and `widgets` are still steps with their own routes, and a
+  flow that lists them shows them. No bundled flow does, because the welcome
+  already shows the curl and the widgets.
 
-- Four switches (`OnboardingOfferConfig`): `enabled` (false), `cloud_product`
-  (`pro`, `hosted` or `none`; `pro`), `self_hosted_product` (`pro` or `none`;
-  `pro`) and `layout` (a `PaywallLayoutId.key`; `plain`). The bundled value is
-  in brackets. They are one JSON object, read from Developer options
+`use` is the question step, "What should wake you?": five rows (servers,
+homelab, jobs, home, something else) and a `skip` control. A tap on a row
+saves the answer, sends the pick event and finishes the step at once; there
+is no Continue button. The answer is `SetupUse`, one wire id each (`servers`,
+`homelab`, `jobs`, `home`, `other`), kept under the one prefs key `setup_use`
+by `SetupUseStore`. It is not part of the setup draft, because setup clears
+the draft when it ends and Home and the offer read the answer afterwards.
+`skip` saves `other`. A missing or unreadable answer reads as `other`, which
+is what a phone on an older flow has. Everything an answer changes is data
+in `SetupUseProfile` (`domain/setup_use/`): the topic name and name chips,
+the tool chip order and the tool that starts selected, the sample alarm
+message, what the offer opens on and the Home waiting line. A replay keeps
+its pick in memory (`SetupUseReplay`) and saves nothing; readers ask
+`setupUseFor`. The step is in the Set up chapter, is satisfied for a user
+who already owns a topic, and flow `2026-10-c` lists it between
+`permissions` and `first_topic`.
+
+`offer` is a frame around the offer sequence (`offer_step_screen.dart`). It
+holds no words, prices or benefit lists: the layout and the thanks screen own
+those. `2026-10-b` and `2026-10-c` list it between `real_ring` and `hook_up`,
+it has no chapter, and it ships switched on.
+
+- Four switches (`OnboardingOfferConfig`): `enabled` (true), `cloud_product`
+  (`auto`, `pro`, `hosted` or `none`; `auto`), `self_hosted_product` (`pro` or
+  `none`; `pro`) and `layout` (a `PaywallLayoutId.key`; `reel`). The bundled
+  value is in brackets. They are one JSON object, read from Developer options
   (`dev.onboarding_offer`), then the Remote Config key `onboarding_offer`
   (`TelemetryGate.onboardingOfferJson`), then the bundled value. A field left
-  out takes its bundled value. A field with a value it cannot have sets the
-  whole object aside and the next source is asked.
-- `decideOnboardingOffer` is the rule. The step skips itself on a replay,
-  when it is off, when the product is `none` for this kind of server, when
-  the layout is not built in this version, when no account id is known, and
-  when the user already holds the product. `OnboardingOfferGate` reads the
-  phone for it, and a read that fails is a skip.
+  out takes its bundled value, so a remote value that leaves `enabled` out
+  keeps the step on and only `{"enabled": false}` switches it off. A field
+  with a value it cannot have sets the whole object aside and the next
+  source is asked. A build older than `auto`
+  sets a value holding it aside the same way.
+- `auto` picks the product from the answer on our server: the Pro pack for the
+  home answer, Cloud for the rest. `pro`, `hosted` and `none` force one
+  answer for everyone. On a server of the user's own only
+  `self_hosted_product` counts, and Cloud is never offered there.
+- `decideOnboardingOffer` is the rule. The step skips itself on a replay
+  (see below), when it is off, when the product is `none` for this kind of
+  server, when the layout is not built in this version, when no account id is
+  known, and when the user already holds the product. `OnboardingOfferGate`
+  reads the phone for it, and a read that fails is a skip. It reads no store.
+- The store check starts early. When the real alarm step opens,
+  `OnboardingOfferGate.startSaleCheck()` has `OfferSaleProbe` make the buy
+  model and load it, so the store answer is cached before "It works" appears.
+  It is the one store read the paywall already makes and no request goes to
+  the app's own server. The step takes the loaded model (`takeOnSale`): a
+  cached answer costs no wait, and with no answer yet it waits up to 2
+  seconds (`offerSaleWait`) on the plain setup canvas. Only a product that is
+  on sale goes on. Not on sale, a failed load and a timeout all skip the step.
+  A cached "not on sale" also makes the engine skip the step
+  (`hasNoOfferToShow`), so Continue goes straight to `hook_up`.
+- There is no intro. After Continue the reel rises over the setup step from
+  the bottom edge, fully opaque (`buildOfferLayerTransition`, 400 ms), so the
+  setup canvas and its tracker are covered by the moving edge and never show
+  through a half-faded reel. With reduced motion it opens at once. The setup
+  offer plays no false alarm, shows no tag and no skip hint, and never writes
+  `paywall.false_alarm_shown`: the Settings plan row keeps its false alarm.
+  The false alarm intro, its tag rule and the paywall kit's `hint` parameter
+  stay in the kit for other triggers.
+- Then the reel, and on a purchase the confetti thanks. The reel opens on the
+  benefit the answer leads with (`offerLeadFor`): the critical topics for
+  servers (naming the user's topic), the weekly delivery check for homelab
+  and jobs, widgets for home and for any answer on an own server. An answer
+  of `other` keeps the paywall's own order. A lead never names a benefit the
+  product does not list. A scene whose picture has less room than
+  `reelStageMinHeight` (the smallest mascot and the room above it) draws no
+  picture and no placeholder, and the lead's line stands under the headline.
+  It happens at 320 wide and text scale 2.0 with a lead line.
+- The thanks screen has one button, "Hook up your tool". It pops the layer
+  and the step finishes, so setup goes on to `hook_up` and never to Home.
+  Closing the layer with the cross does the same with no purchase.
+- A real alarm wins. When one starts while the layer is open, or the step
+  goes away under it, the layer is taken off at once, the step finishes in
+  the engine with no navigation and no purchase is recorded.
 - A step that skips counts as already done (`hasNoOfferToShow`), so a run
   never opens it and the funnel never counts it.
-- A replay skips the step. The one exception is a developer value: with the
-  Offer step switches set in Developer options, "Open a step" shows it.
+- A replay plays the step in a build that skips the store (`SKIP_PAYWALL`,
+  `OnboardingOfferGate.readUsesDemoStore`), and nowhere else. Redo onboarding
+  there goes on from the ring step into the reel, led by the answer picked in
+  that replay (`SetupUseReplay`), then the made-up purchase or the cross, the
+  thanks and hook up. On that made-up buy model a replay ignores the account
+  and the products held (`offerIgnoresHoldings`), so a tester sees the paywall
+  with no account, with Cloud already held and with Pro already held. It
+  still follows the switches: the offer switched off (by the developer value
+  or the remote one), no product for an own server, and an unbuilt layout all
+  skip it. An own server gets the `self_hosted_product` offer, as a real run
+  would. The replay writes nothing: no answer, no step marked done, no funnel
+  event (`isReplay` goes to `OnboardingFunnel`), no false alarm flag, and no
+  `appPlanChanges` or `appAccountIdentityChanges` bump after the made-up
+  purchase. The replayed real alarm step sends nothing and its button moves
+  on, so a replay has no "It works" screen and no confetti rule to follow.
+- A replay with a real store skips the step, because the buy button would
+  start a real purchase. The one exception is a developer value: with the
+  Offer step switches set in Developer options, "Open a step" shows it, and
+  the Offer sequence row there opens it on one answer (`?use=<wire id>`). That
+  replay asks the phone as a real run does (account, products held), reads
+  the real store, and is the tester's own choice.
+  `tool/capture_offer_sequence.dart` (`ONLY=redo`) walks the whole Redo
+  onboarding and checks that the prefs end as they began.
 - The buy model comes from the same `PaywallBuyCubit` factory the paywall
   route uses, so only a `SKIP_PAYWALL` build gets the stand-in.
 - Three funnel events go through `OnboardingFunnel`: `onboarding_offer_shown`,
   `onboarding_offer_closed` and `onboarding_offer_bought`, each with
-  `product`, `layout` and `flow_id`. They wait for the analytics answer with
-  the step events.
-- While the step is still to come (`offerStepIsAhead`), `AfterAckDecider`
-  gives an acknowledged alarm no follow-up.
+  `product`, `layout`, `use` and `flow_id`. They wait for the analytics answer
+  with the step events.
+- While the step is still to come (`offerStepIsAhead`) and the store has not
+  said no, `AfterAckDecider` gives an acknowledged alarm no follow-up.
+  `OnboardingOfferGate.outlook()` is the one answer: `coming` (step ahead,
+  store said on sale), `none` (not ahead, or the store said nothing is on
+  sale) and `unsure` (step ahead, no store answer yet). `ackConfettiMayFly`
+  is the pure rule on it.
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
@@ -322,7 +451,7 @@ replaced by the bundled default with the completed steps kept.
 
 Chapters and the tracker: setup has three chapters (`OnboardingChapter`):
 Meet (`welcome`, and `how_it_rings` in a flow that lists it), Set up
-(`connect`, `permissions`, `first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
+(`connect`, `permissions`, `use`, `first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
 where a step's top bar has its title: one small face and three bars.
 `onboardingTrackerFillFor` holds the maths. Bars before the current chapter
 are full, and the current one is the chapter's steps listed before this one
@@ -338,7 +467,7 @@ or a callback, and passes null to hand the choice back. `TravellingFaceMood`
 has the five it can be. A step never draws a face of its own in the top bar.
 
 Back: `onboardingBackStepFor` is the rule. Back is offered on
-`how_it_rings` (where a flow lists it), `connect`, `permissions` and
+`how_it_rings` (where a flow lists it), `connect`, `permissions`, `use` and
 `first_topic`, and is gone for
 good once the first topic exists. It goes to the nearest earlier step of the
 flow that was on screen at any point in this run
@@ -351,7 +480,9 @@ while it is offered, never greyed out, and `OnboardingStepFrame` makes the
 Android back button and an iPhone edge swipe follow the same rule.
 `OnboardingFlowEngine.goBack` takes the step that was left out of the
 completed steps, so going forward opens it again. Back opens the step with
-`?back=true` (`isOnboardingCameBack`): the connect step then shows
+`?back=true` (`isOnboardingCameBack`): the use step then draws the saved
+answer's row picked, and a tap on any row saves it again and moves on. The
+connect step shows
 "Connected to" the server that is saved, or where a connect still running
 stands, with a way to change it through the call Settings > Server makes.
 The permissions list every permission of this phone as allowed or not
@@ -366,7 +497,7 @@ round for Back. `finishOnboardingStep` and `goBackInOnboarding` start it, so
 a step route has no page transition of its own. The canvas gets `pop` for
 Back, and `sweep` when the change crosses a chapter.
 
-Background connect: Continue with Crit Alarm Cloud finishes the `connect`
+Background connect: Continue with our server finishes the `connect`
 step at once. `BackgroundConnect`
 (`lib/features/onboarding/domain/connect/background_connect.dart`, one object
 for the whole app run, registered in `lib/app/di.dart`) does the work behind
@@ -423,7 +554,8 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
   `dev.onboarding_flow`. It fills the `developerOnboardingFlowSource` slot, so
   it outranks the remote value and still passes the validator.
 - Redo onboarding: replays the flow that would run now (`?demo=true`) and
-  names its id.
+  names its id. In a `SKIP_PAYWALL` build it plays on through the offer
+  (see the `offer` step).
 - Open a step: every registered step, opened as a replay. A step that is not
   on this phone, or has no screen yet, is listed greyed with the reason. A
   replay of the permissions step takes `?skip=<n>` to open on a later step
@@ -431,8 +563,8 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
 - Other setup states: screens around setup that no step route reaches,
   with made-up values. `first_tool_acknowledged` opens the setup
   acknowledged screen (`CriticalAlarmScreen.previewFirstToolAckedLocation`),
-  and `checklist_closed` / `checklist_open` put the setup pill on Home
-  (`homeSetupPreview`). Nothing is sent or saved. Real ring states also
+  and `checklist_closed` / `checklist_open` set `homeSetupPreview`. Home no
+  longer reads it, so those two draw nothing. Nothing is sent or saved. Real ring states also
   has `send_countdown`.
 - Count as not done: one switch per step that has an `isSatisfied` check
   (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
@@ -519,11 +651,30 @@ user's first topic (`isFirstTopicFor`: the shared list is ready and empty,
   title and one line (`firstTopicCardCopy`), plus the plan line on the free
   plan. Its tone comes from `firstTopicCardTone`, the one place to change it:
   `choice` while off, `crit` once on, never `calm`.
-- A row of tool chips (`ToolTemplate`) above the name field. A chip fills the
-  name only when the field is empty or still holds a name a chip put there.
-  The chosen id is saved under `topic_tool_template.<topic name>`
-  (`ToolTemplateStore`) once the topic exists. Nothing about it goes to the
-  server. `ToolTemplate.other` has no chip: picking none means the same.
+- A row of tool chips (`ToolTemplate`). Outside setup (`FirstTopicLayout.wrapping`)
+  they wrap above the name field. A chip fills the name only when the field is
+  empty or still holds a name a chip put there. The chosen id is saved under
+  `topic_tool_template.<topic name>` (`ToolTemplateStore`) once the topic
+  exists. Nothing about it goes to the server. `ToolTemplate.other` has no
+  chip: picking none means the same. `curl` is a tool with a chip, no
+  suggested name and no snippet: its hook-up content is the curl line.
+
+In setup the first topic reads the answer from the `use` step
+(`FirstTopicLayout.answerFirst`, never a route parameter) and the form is laid
+out in this order:
+
+1. The name field arrives filled with the answer's name. The answer `other`
+   leaves it empty with the example placeholder.
+2. Under it, unless the answer is `other`, one line of name chips from the
+   answer's table. A name chip always replaces the field.
+3. One line of tool chips, ordered by the answer, with the answer's tool
+   selected. The row scrolls sideways and fades at its right edge, and all
+   six tools are in it. A tool tap replaces the name only when the field is
+   empty or holds a name an earlier chip or the answer filled; a name the
+   user typed is never replaced.
+4. The Critical delivery card and the Create button as above.
+
+Later topics keep the plain screen.
 
 In setup the screen is one step (`CreateTopicCubit.isOneStep`, set whenever
 the screen is given `onDone`). The pinned button creates the topic from the
@@ -533,7 +684,7 @@ created stop either: the topic drops as a row into a small picture of Home
 (`TopicMadeBeat`, about 1.2 seconds, a tap skips it, still under reduce
 motion) and the screen moves on, because the hook-up step shows the address
 and the token where they are used. A replay makes no topic and shows no
-picture. It shows no ask, the Hosted ask included. Opened from Home, the
+picture. It shows no ask, the Cloud ask included. Opened from Home, the
 screen keeps its two steps and its created state, whatever the topic count.
 
 When finishing a step ends setup, `finishOnboardingStepInEngine` raises
@@ -623,6 +774,15 @@ rules are pure functions in
 - The Critical card on this step carries the same free-plan line as on the
   first topic (`criticalPlanFor`, from `readCriticalLimit`).
 - A replay sends nothing: the button moves on to the next step.
+- The server fixes the test alarm's title and message, so the sample for the
+  user's answer shows on the alarm screen from local state
+  (`setupSampleFor`, applied where `CriticalAlarmCubit` sets the incident's
+  title and body). It applies only to the setup test the server sent: the
+  title is the answer's sample message and the body is a short line saying it
+  is what a real one looks like. A real incident, the first tool alarm, a
+  Settings test, the phone-only test and an `other` answer keep the server's
+  text. The OS notification and the text cached for the iOS extension stay as
+  the server sent them, so the lock screen shows the server's text.
 
 **After the ring.** The acknowledged screen says what the alarm proved
 (`setupTestKind`: server-sent, phone-only, or not a test) as a list of
@@ -634,6 +794,17 @@ it shows one Continue button, which calls `finishOnboardingStep` and never
 completes setup itself: the engine does, when no step is left. `legacy-1`
 keeps its two buttons and completes setup from them. A test run again after
 setup ends on one Finish button.
+
+The setup test's acknowledged screen ("It works") stays calm only when the
+offer follows and the store said the product is on sale (`OfferOutlook.coming`).
+It asks the offer gate (`outlook`) once, reads the cached store answer without
+waiting, builds nothing until that answer is in, and throws its confetti and
+plays its success haptic a few frames late for every other answer: no offer,
+the store said nothing is on sale, or the store has not answered yet. So a
+session is never left with no celebration. The one case where the two differ:
+the store answers after "It works" opened, so the confetti flies and the offer
+still shows. The face ripple stays either way. The first tool alarm keeps its
+confetti.
 
 Setup never closes, silences or walks away from a real alarm. Continue on a
 server-sent test calls `CriticalAlarmCubit.closeSetupTests(id)`, which does
@@ -699,6 +870,25 @@ because no step is left.
   tool's own form (Uptime Kuma, Healthchecks). The CI snippet reads the
   token from a secret and never holds it. Field labels are the tool's own
   words and stay in English.
+- Layout follows the tool saved on the topic, not the answer. Uptime Kuma,
+  Healthchecks and Home Assistant are the three tools with documented steps
+  (`toolStepsFor`), and they get the steps layout (`HookUpStepsLayout`): a
+  `Hook up` label, the tool name as the title, a white sheet of numbered
+  steps with the tool's fields or code inside it, a row of chips (Copy URL,
+  Copy token, curl), the waiting card and Done. It has no face. The address
+  and token are masked where they are only looked at and whole when copied.
+  The curl line is one tap away under the chips. Every other tool, and no
+  tool, keeps the curl screen: the face, the curl block with the tool's
+  snippet after it. For the `jobs` answer that screen carries one line under
+  the curl block about where a job sends it.
+- The last step follows the topic's Critical switch. `toolStepsFor` takes
+  `isCritical`: on keeps "This phone rings.", off or not known says "It lands
+  on this phone." A topic with Critical off does not ring. The switch is
+  `HookUpState.isCritical`, the one the `critical_off` note reads. It is
+  in the first frame because `FirstTopicHandoffEntry.isCritical` carries what
+  the topic was made with, and the topic list read has the last word.
+- The waiting card's line follows the saved tool when it has documented
+  steps, and the answer's line otherwise (`waitingLineFor`).
 - `FirstMessageWatcher` (`lib/features/topics/domain/first_message/`) polls
   the topic every 5 seconds while its screen is open and the app is in
   front, and backs off to a minute when the server cannot be asked. Where
@@ -739,6 +929,16 @@ topic name, URL, token or device id ever goes in them. `OnboardingFunnel`
 (`lib/core/telemetry/onboarding_funnel.dart`) sends them, fed by
 `OnboardingFlowEngine.onStepEvent`, so screens make no calls of their own.
 The names live in `AnalyticsEvents` and the wrapper is `OnboardingAnalytics`.
+
+The `use` step adds one event, `onboarding_use_picked`, with `use` and
+`flow_id`. `use` is one of `servers`, `homelab`, `jobs`, `home`, `other` or
+`skipped`, and the funnel drops any other word. The three offer events carry
+the same `use` parameter (the answer's wire id, `other` when there is none),
+so conversion can be read by answer. An offer event buffered before the
+parameter existed is sent as `other`. Both go through the same buffer and the
+same consent rule, and a replay records neither. The hook-up switch says so:
+step names, timings and the answer to the question, never messages. The
+answer is never sent to the server.
 
 The consent question comes on the last step, so events wait on the phone
 until the user answers:
@@ -788,25 +988,31 @@ because the acknowledgement often comes later. Three places read it:
 incident that now holds a message of the user's own. It drops it from the
 list and leaves it for them to answer.
 
-**Home setup content.** A user who left setup early gets a checklist as a
-floating card above the tab bar (`HomeSetupPill`), drawn like the pinned
-notice bar. Closed it is one line with the count; a tap opens it in place
-to the three rows. The rules are pure functions in
-`lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit`
-runs them from the list Home drew.
+**Home setup content.** A user who left setup early gets a checklist that
+the status card speaks for. The card shows the label SETUP, the count as
+`1/3` with one pip per row, and a foot naming the next open row
+(`HomeCardKind.setup`). Its button, Continue, opens the screen for that row.
+Nothing in the list sheet or above the tab bar shows the rows any more: the
+floating checklist card that did is gone. Once the first two
+rows are true the card turns into the wait for the first message
+(`HomeCardKind.waiting`). Its foot is the waiting line of the saved tool when
+that tool has documented steps, and of the user's answer otherwise
+(`waitingLineFor`); an `other` answer leaves "send the first line". The rules are pure functions in
+`lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit` runs
+them from the list Home drew. The card rule is in
+`lib/features/topics/domain/home_card/home_card_rule.dart`.
 
-- Three rows: a server is connected, a topic has Critical delivery on, a
-  first message arrived (`FirstMessageStore.isReceived`). The third row is
-  `FirstMessageRow`, the same one the last setup step uses, drawn bare. The
-  rows sit on the card with no surface of their own.
-- It shows only over a list that loaded, and stays until all three are
-  true. With no server nothing is drawn: the no-server card has that row.
-  An empty Home shows its empty card under it.
-- A pinned notice has the spot above the tab bar first
-  (`setupPillHasTheSpot`). While one is up the checklist is not drawn and
-  counts as not in front, so no row ticks behind it.
-- A row only opens a screen (`setupChecklistRoute`). Nothing here turns
-  Critical delivery on.
+- Three rows, one pip each: a server is connected, a topic has Critical
+  delivery on, a first message arrived (`FirstMessageStore.isReceived`, the
+  same fact the last setup step reads).
+- It counts only over a list that loaded, and stays until all three are
+  true. The card shows the first kind in `homeCardPriority` whose condition
+  holds, so a ringing alarm, the no-server card or a broken check outranks
+  it. An empty Home shows its empty state in the sheet under the card.
+- A pinned bar does not cover the card, so the checklist counts as in front
+  whenever Home is, and no row ticks out of sight.
+- The Continue button only opens the screen for the next open row
+  (`setupChecklistRoute`). Nothing here turns Critical delivery on.
 - The first look at a phone (`seedSetupChecklist`, once, saved as
   `setup_checklist_seeded`): a phone that already has the first-message
   flag, a message that is not a test alarm, or an incident that
@@ -832,18 +1038,21 @@ runs them from the list Home drew.
   minutes (`setupSeedRetryDelay`). Nothing is drawn until it succeeds.
 - An install that owns a topic and finished setup before the checklist
   existed (`SetupChecklistStore.wasSetUpHere` is false) never sees it.
-- Hide the setup list, the last line of the open card, retires it for
-  good with no celebration (`checklistDismissed`).
+- `HomeSetupCubit.checklistDismissed` retires the checklist for good with no
+  celebration. The card has no control that calls it, so nothing on Home
+  does today.
 - A row that turns true while Home is covered is held until Home is back,
   so the tick plays in view. When the last one turns in view,
-  `setup_checklist_done` is saved first, the tick plays, then the rows
-  become one finished line with a short throw of confetti (none under
-  reduce motion), and it goes for good. Leaving Home ends it.
+  `setup_checklist_done` is saved first, then the card shows
+  `setupFinishCard` (`3/3`, every pip full, a glad face, no button) under a
+  short throw of confetti (none under reduce motion), and goes back to its
+  kind for good. Leaving Home ends it.
 - After that, on a later visit and once the Feature Guides offer was
-  answered, the widgets card shows once (`home_widgets_card_seen`), on iOS
-  and Android only. Opening the how-to, going to the plans or closing it
+  answered, the widgets card shows once at the top of the list sheet
+  (`home_widgets_card_seen`), on iOS and Android only. Opening the how-to, going to the plans or closing it
   all count as seen. Its main button is the next thing that user can do:
-  the how-to where widgets are unlocked, the plans where they need Hosted. The how-to steps have separate iOS and Android keys
+  the how-to where widgets are unlocked, the plans where they need Pro (Pro alone unlocks widgets, on a server of the
+  user's own too). The how-to steps have separate iOS and Android keys
   (`home_widgets.ios.*`, `home_widgets.android.*`).
 
 The Feature Guide offer is raised after the frame in which the route
@@ -856,7 +1065,7 @@ offer whose screen went away under it is not counted as declined.
 
 - Two things share a word. Identifiers that say Pro and are not `ProPack...`
   (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
-  `ProOverride`, `DevProSwitch`) mean the Hosted plan. The pack is always
+  `ProOverride`, `DevProSwitch`) mean the Cloud plan. The pack is always
   `ProPack...` in code and "Pro" in copy. Neither routes through the other.
 - `ProPackAccess` answers one question: does this install hold the pack.
   `isHeld` is the value and `stream` carries its changes. It never says how
@@ -884,25 +1093,66 @@ offer whose screen went away under it is not counted as declined.
   (`pro_pack_grant.dart`) is the one function that could grant the pack from
   another source, and it returns false.
 - `proPackRefreshOutcome` is the refresh table. `confirmed: false` with no
-  pack listed is `unknown`: what was showing stays, the sheet says it is still
-  checking and asks again. It is never "no pack" and never a failed purchase.
-- The sheet is `ProPackSheet`, a bottom sheet at its own route (`/pro`,
-  `AppRoute.proPack`). It lists the packages of the RevenueCat offering
-  `proPackOfferingId` with the store's own title and price strings. With no
-  such offering, or in a build that skips the store, it says Pro is not on
-  sale yet and offers nothing to buy. Restore is there whenever the sheet
-  rests, on sale or not.
-- The Reliability screen draws `ProPackReliabilityGroup` through
-  `reliabilityExtraGroups`: one row, the weekly delivery check. Locked, it
-  opens the sheet. Unlocked, it draws its `weeklyCheckBody` builder.
-- Developer options has a switch for the pack beside the Hosted one, in a
+  pack listed is `unknown`: what was showing stays, the paywall says it is
+  still checking and asks again. It is never "no pack" and never a failed
+  purchase.
+- Pro is sold on a paywall layout (`/plans/<layout>?product=pro`), the same
+  route that sells Cloud. There is no Pro sheet and no `/pro` route.
+  `ProPaywallBuyCubit` lists the packages of the RevenueCat offering
+  `proPackOfferingId`. With no such offering the layout still draws, and
+  its buy block says Pro is not on sale yet and offers nothing to buy.
+  Restore is there either way.
+- **Paywalls are coded, never remote.** Every locked place asks
+  `PaywallDoor` (`lib/features/paywall/presentation/paywall_door.dart`), and
+  the door always answers with a layout location. `paywallOpeningFor`
+  (`lib/features/paywall/domain/paywall_routing.dart`) holds the defaults:
+  the place table picks the layout and the intro, Cloud ends on Receipt
+  party after Cloud climb, Pro on Stamp after Break, lift, ring. Remote
+  Config holds no paywall key, RevenueCat's dashboard draws no paywall
+  (`RevenueCatUI.presentPaywall` is never called), and only the customer
+  centre still comes from `purchases_ui_flutter`. Developer options can
+  set each of the four steps in a `SKIP_PAYWALL` or `PAYWALL_LAB` build,
+  with "Auto" (the coded default) first. `/paywall?source=...` is kept as a
+  path for reminders, the settings search result and a locked home screen
+  widget. It draws nothing and redirects to the layout for its source. If
+  the door fails, or none is registered, the plan layout for that product
+  opens. Details: `lib/features/paywall/presentation/layouts/kit/README.md`,
+  "What opens".
+- The pack unlocks features built into the app (`featureTable`). It has
+  no row on the Reliability screen: the weekly delivery check there needs
+  Cloud (see "Weekly check").
+- Developer options has a switch for the pack beside the Cloud one, in a
   `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
   the mock relay hold the pack (`MockServer.grantedPacks`).
 
 **Weekly check.** Once a week the relay sends an enrolled phone a push that
 shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
-It needs the Pro pack. The code is in `lib/features/weekly_check/`, plus the
-native handlers.
+It needs Cloud, because the relay runs it, and it does not exist on a
+server of the user's own. The Pro pack does not unlock it. The code is in
+`lib/features/weekly_check/`, plus the native handlers.
+
+- `featureTable` holds the rule: `weeklyCheck` is unlocked by Cloud and is
+  `OwnServerRule.notOffered`. `FeatureAccess.decide` answers
+  `FeatureDecision.notOffered` there, which is its own answer: not open,
+  and not a lock. A screen says in plain words that the feature is not
+  available and opens no paywall. `weeklyCheckAccessFor` turns the decision
+  into the four words this feature acts on (`WeeklyCheckAccess`).
+- The weekly row inside the proof card on Will it wake me (`WeeklyCheckCardRow`) is one of three: the switch
+  with Cloud held, a locked row that opens the Cloud paywall through
+  `AccessLock`, or one line saying it is not available on a server of your
+  own.
+- A lapse takes nothing away. The relay keeps the device enrolled and
+  answers `off` with the reason `tier`. The row locks from what is held,
+  and when Cloud is back the check goes on with no new tap. A reason the
+  app does not know, `pack` from before 1.19.0 included, is no reason.
+- A lapse is never a miss. `WeeklyCheckNoticeRule` answers no while the
+  plan is away, and sets aside what the phone learned before it last saw
+  the plan away (`weekly_check.plan_away_at`), so a clock that ran on
+  through a lapse raises nothing when Cloud is back.
+- On a server of the user's own the app never sends `"enabled":true`. A
+  phone that was enrolled before sends `"enabled":false` once
+  (`WeeklyCheckMonitor.accessChanged`). A send that fails is tried again on
+  the next read, and nothing waits on it.
 
 - Native code answers the push, with no Dart running. Android:
   `CheckPush.fromData` is the first thing `PushRouter.route` asks, and a check
@@ -935,29 +1185,111 @@ native handlers.
   item `app.critalarm.device_identity`.
 - `WeeklyCheckMonitor` reads `GET .../check` on launch and resume, once a
   minute at most, and keeps the answer on the phone. The switch calls
-  `PUT .../check`. A `403` pack error goes to `ProPackAccess.relayRefused`.
-- A received check is never shown as proof that alarms work. On a phone
-  connected to a self-hosted server the row adds that it checks the relay to
-  this phone, not that server.
-- One missed round changes the row and nothing else. Home shows one notice
-  at two misses in a row, or when the phone's own clock passes
-  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). A
+  `PUT .../check`. A `403` tier error has the tier read again through a
+  device registration, and what is held then locks the row.
+- A received check is never shown as proof that alarms work.
+- One missed round changes the row and nothing else. Two misses in a row,
+  or the phone's own clock passing `notice_after` with no check received
+  since, make the weekly check a check that needs a look
+  (`WeeklyCheckNoticeRule`, read through `WeeklyCheckSource`), so Home's
+  status card counts it and the Reliability screen lists it. A
   check that arrived with no receipt answer ends only its own window: the
-  phone then counts two windows of 11 days from that arrival. It
-  is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
-  closed it comes back only for a later run of misses.
+  phone then counts two windows of 11 days from that arrival. Home has no
+  card or notice of its own for it.
 - The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
-  needs no pack.
+  needs no plan.
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
-  `openWeeklyCheckRound()` returns the id a push would carry.
+  `openWeeklyCheckRound()` returns the id a push would carry. The mock
+  gates the check on `MockServer.accountTier`, which the developer switch
+  for Cloud sets in a mock build.
+
+**Backups and restores.** A restored phone starts as a phone the relay has
+never seen, and a person's own alarm photo and own sounds are in no backup.
+
+- Android restores nothing. The manifest sets `android:allowBackup="false"`
+  and points at `res/xml/data_extraction_rules.xml` and
+  `res/xml/backup_rules.xml`, which leave every domain out. The rules files
+  are needed: on Android 12 and later `allowBackup="false"` alone does not
+  stop a phone to phone transfer. The main preferences file holds identity
+  next to taste, so no part of it is let through. `BackupRulesTest` reads
+  the three files.
+- An iPhone backup carries the preferences, the app group and, in an
+  encrypted computer backup or a phone to phone transfer, the Keychain. So
+  the app asks at launch whether the install moved. `InstallMarker`
+  (`ios/Runner/BackupGuard.swift`) keeps one random id in the preferences
+  and in a Keychain item of class `AfterFirstUnlockThisDeviceOnly`, which
+  no other phone can restore. The two disagreeing means the install moved.
+  A Keychain that cannot be asked decides nothing.
+- `MovedPhoneReset` (`lib/app/moved_phone_reset.dart`) is the first thing
+  `main` waits for. On a moved install it runs `AccountData.forget()`, and
+  that is the only thing that drops account data. Then it drops the device
+  identity, the record of the push token last sent, and, on every server
+  but one of the person's own, the session and the connection, because both
+  hold the old phone's device token. It ends with a `BackgroundConnect` to
+  the same server, the path a fresh install takes. The synced account item
+  stays, so the phone joins the person's account as a new device. Taste
+  (theme, chosen sound, quiet hours) stays.
+- A value that names this phone to the relay, or a flag written on a sure
+  answer about the plan, either goes on the `AccountData` list or is
+  dropped by `MovedPhoneReset`. Add it there when you add one.
+- The own photo folder `alarm_look` carries `isExcludedFromBackup`, set by
+  `FileOwnLookStore` when it makes the folder and at each launch sweep. Own
+  sounds share `Library/Sounds` with the bundled and pack sounds, so each
+  `user_` file is flagged on its own, at import and at launch
+  (`BackupExclusion.excludeOwnSounds`). A file that is written again has
+  lost the flag, which is why both run at every launch.
+- A backup carries the photo record and the own sound list but not the
+  files. Both then name a file that is not there, which the app already
+  treats as nothing to draw and nothing to ring.
+
+**Local store and the held topic list.** `LocalStore` (`lib/core/store/local_store.dart`,
+`critalarm.db`, schema version 3) holds three tables. `incidents` and `messages` are the
+archive: the user's own copy, deleted only by the auto-delete setting. `topics` is the last list
+the server gave, kept so the app opens with the topics it already knows. It is a copy the server
+replaces on every answer, not an archive.
+
+- A table change bumps `LocalStore.schemaVersion` and adds a step in `_upgrade`. A test builds
+  the previous version's file by hand and checks the old rows survive (`test/core/store/`).
+- What a `topics` row holds: name, Critical delivery, the three timers, the relay content
+  setting, when the topic was made (milliseconds, because the Topic screen matches what it
+  remembered about a topic by that exact time) and the order the server gave. A topic token, its
+  id and its name are never written. The server shows a token once, on creation. An empty list
+  is stored as no rows, so an empty copy is never shown as "no topics yet".
+- Every row carries a scope: a hash of the saved server address and the account id
+  (`heldScopeFor`, `lib/core/store/held_scope.dart`). A read names its scope and gets nothing
+  for any other, and deletes what it finds under another. `TopicsCubit` writes only when the
+  scope is the same as when the request went out and no sign-in, sign-out or account switch
+  happened since (`_generation`). `AccountData.forget()` (sign-out, account delete, dead
+  credential, a moved phone, a connect to a different server) and `LocalStore.clearServerData`
+  both clear it.
+- `TopicsCubit.loadHeld()` starts the state from the copy. `main()` calls it before `runApp`,
+  after the store is open and after `MovedPhoneReset`, with an 800 ms limit. The state is ready
+  and `TopicsState.isKept`, so screens draw the topics as real data with no loading state.
+  `ensureLoaded()` still asks the server once while `isKept`. The first answer replaces the
+  list and clears `isKept`, and a topic deleted elsewhere is gone from both. A failed answer
+  keeps the list and sets the usual failure.
+- While `isKept`, `HomeCubit` and `TopicDetailCubit` do not run their full build, which polls
+  every topic's messages, because the server's list is about to say which topics those are. The
+  Topic screen's seed (`seedFor`) and the Home card guess (`heldTopicsFrom`) read the held list.
+- Write-through: the refresh, `applyTopic` (the Critical switch, from the Topic screen and from
+  setup's real ring step), a delete the server took, and `noteCreated`, which
+  `CreateTopicUsecase.onCreated` calls for a new topic (stored without its token, memory left
+  to the next refresh). Nothing is written before a list is loaded.
+- Where the store is not open (the web build, or `local_store_open_failed` at launch) the list
+  stays in memory and the app behaves as it did before the copy existed. Push, alarms and
+  incident handling never read the `topics` table.
 
 **Motion.** One large living thing per screen, and everything under it quiet. A screen that
 persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
 Crit reacting, or a feature shown doing its job, driven from one clock with a pure, tested
-timeline. Lists, forms and settings get none. When a screen feels busy, remove the boxes around
+timeline. Lists, forms and settings get none, with one exception: a list screen may carry one
+hero when that hero is the face. A tab opened many times a day has no entrance: its first frame
+is the finished picture. When a screen feels busy, remove the boxes around
 small things and keep the character. When it feels flat, add one hero, never several
 decorations. Nothing rests at an angle, the way out is on screen from the first frame, and
-reduce motion shows a complete resting frame. No Lottie, no Rive, no video. The full rules, the
+reduce motion shows a complete resting frame. The one standing exception to "small things do not
+move" is the Look and Sound thumbnails on the Personalize root (see the `motion` skill, rule 7).
+No Lottie, no Rive, no video. The full rules, the
 clock helpers and how to prove motion with captured frames are in the `motion` skill:
 `.claude/skills/motion/SKILL.md`. Read it before adding or changing an animation.
 
@@ -974,13 +1306,49 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
   or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
   plain words, no em dashes. Write user entries from the user's side ("History
-  keeps 90 days on Hosted"), not the code's.
+  keeps 90 days on Cloud"), not the code's.
 - Add the entry in the same branch as the change. When branches merge, keep
   both sides' lines.
 - This repo is public. Neither file names prices, keys, task numbers or
   planning documents.
 - At release, after the version bump, `make changelog-release` moves
   Unreleased under the new version in both files.
+
+**Release builds and symbols.** `scripts/release-ios.sh` and
+`scripts/release-android.sh` are the only way a build reaches a store. Both build
+with `--obfuscate --split-debug-info`, so a release hides Dart names and its
+stack traces need the symbol files from that exact build. `scripts/release-lib.sh`
+holds the steps the two share.
+
+- **Kept:** every build copies its symbols to `symbols/<version>/<platform>/` in
+  the main checkout, also when the script runs from a worktree. Git ignores the
+  folder. Android gets `dart/` and `mapping.txt.gz`. The bundle itself carries
+  the mapping and the engine's symbols for Play Console.
+  iOS gets `dart/` and `dSYMs.zip`. `BUILD.txt` names the commit.
+- **Sent:** before the store upload the script sends symbols to Crashlytics.
+  iOS sends every dSYM in the archive with the SDK's `upload-symbols`. Android
+  sends the Dart symbols with `firebase crashlytics:symbols:upload` (through
+  `npx`, no sign-in), and the Crashlytics Gradle plugin sends R8's mapping
+  during the build. `--symbols-only` does this step alone. `--skip-symbols`
+  leaves it out.
+- **Bump and tag:** `--bump` runs the gates, then commits the new build number.
+  When a changelog has lines under Unreleased it runs `make changelog-release`
+  in the same commit. A finished store upload tags the commit `v<version>`. The
+  tag is local until pushed.
+- **Reusing a build:** `--upload-only` and `--symbols-only` read
+  `build/release-<platform>.stamp` and stop when it does not match `pubspec.yaml`.
+- **Reading a trace by hand:** `fvm flutter symbolize -i trace.txt -d
+  symbols/<version>/android/dart/app.android-arm64.symbols`.
+- **Code that breaks under obfuscation:** anything that compares
+  `runtimeType.toString()` or a class name to a string. Enum `.name` is safe.
+  A `runtimeType` in a log line prints a short mangled name in a release build.
+- **Crash reports:** `installCrashHooks` in `lib/core/telemetry/crash_hooks.dart`
+  sends errors nothing caught to `TelemetryGate.recordError`. The gate drops
+  them while the user has crash reporting off. It sends the error's type and
+  stack trace and never its message, because a message can quote a server
+  answer. Do not call `FirebaseCrashlytics` anywhere else.
+- A dev build (`make run-release`, `make build-quiet-apk`) is not obfuscated and
+  sends no symbols.
 
 **Where the docs are.**
 
@@ -991,6 +1359,12 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
   `tokens/`, components in `components/`, the face in `faces/`, the theme in
   `theme/`. `NOTES.md` lists the components and when to use each. The debug
   route `/gallery` shows every one.
+- The Crit face is always yellow (`#FFC93C`) with a dark outline and dark
+  features, in the light theme, the dark theme and on every canvas. The page
+  around it may change colour. `FaceWidget` and `RingingFaceWidget` take no
+  colour for the head, and `AppColors.dark` has the same face tokens as
+  `AppColors.light`. Tell a wall of faces apart by expression, size, tilt or a
+  ring around them (`rippleCellLook`), never by head colour.
 - `lib/design_system/` is the older folder. It re-exports `lib/design/` and
   keeps the motion and haptics helpers. Do not add components there.
 

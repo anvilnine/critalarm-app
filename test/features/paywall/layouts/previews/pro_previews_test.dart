@@ -1,3 +1,4 @@
+import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/alarm_screens_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/challenge_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/sounds_preview.dart';
@@ -72,6 +73,42 @@ void main() {
       expect(challengePreviewFrameAt(found - 0.25).scan, closeTo(0.5, 1e-9));
       expect(challengePreviewFrameAt(found).scanOpacity, 0);
       expect(challengePreviewFrameAt(found + 0.3).found, 1);
+    });
+
+    test('each loop shows the next challenge the shelf draws, then comes '
+        'round', () {
+      const kinds = challengePreviewKinds;
+      expect(kinds, [
+        ChallengeKind.typeTopicName,
+        ChallengeKind.opsMath,
+        ChallengeKind.typeAlertTitle,
+        ChallengeKind.scratchCard,
+      ]);
+      for (var pass = 0; pass < kinds.length * 2; pass++) {
+        final t = pass * challengePreviewLoop + 1;
+        expect(challengePreviewFrameAt(t).pass, pass);
+        expect(
+          challengePreviewKindOf(challengePreviewFrameAt(t).pass),
+          kinds[pass % kinds.length],
+        );
+      }
+      // The shake is a face, and the alarm screen already has one.
+      expect(kinds, isNot(contains(ChallengeKind.shake)));
+    });
+
+    test('the next challenge comes in only as everything else goes back', () {
+      const reset = challengePreviewLoop - challengePreviewReset;
+      for (final t in _seconds(challengePreviewLoop / 2)) {
+        final frame = challengePreviewFrameAt(t);
+        if (t < reset) {
+          expect(frame.change, 0, reason: '$t');
+        } else if (t < challengePreviewLoop) {
+          // Change and the undoing of the rest are one move.
+          expect(frame.change, closeTo(1 - frame.found, 1e-9), reason: '$t');
+        }
+      }
+      expect(challengePreviewFrameAt(reset + 0.15).change, closeTo(0.5, 0.01));
+      expect(challengePreviewFrameAt(challengePreviewLoop).change, 0);
     });
 
     test('the stopped screen holds, then goes back to ringing before the '

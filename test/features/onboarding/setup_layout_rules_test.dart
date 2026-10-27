@@ -94,13 +94,13 @@ void main() {
   });
 
   group('setupTapRoomFor', () {
-    test('a small button gets the 8 it is short of a full tap area', () {
-      expect(setupMinTapHeight, 44);
-      expect(setupTapRoomFor(36), 8);
+    test('a small button gets the 12 it is short of a full tap area', () {
+      expect(setupMinTapHeight, 48);
+      expect(setupTapRoomFor(36), 12);
+      expect(setupTapRoomFor(44), 4);
     });
 
     test('a control that is tall enough gets nothing', () {
-      expect(setupTapRoomFor(44), 0);
       expect(setupTapRoomFor(48), 0);
       expect(setupTapRoomFor(60), 0);
     });
@@ -113,9 +113,10 @@ void main() {
           textScale: textScale,
         ),
       );
-      expect(roomAt(1), 8);
-      expect(roomAt(1.5), closeTo(7, 0.001));
-      expect(roomAt(2), 0);
+      expect(roomAt(1), 12);
+      expect(roomAt(1.5), closeTo(11, 0.001));
+      expect(roomAt(2), closeTo(4, 0.001));
+      expect(roomAt(2.5), 0);
       expect(roomAt(3.1), 0);
     });
   });

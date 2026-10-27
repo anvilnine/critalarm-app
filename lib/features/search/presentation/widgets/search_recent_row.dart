@@ -17,7 +17,7 @@ class SearchRecentRow extends StatelessWidget {
     super.key,
   });
 
-  static const double height = 44;
+  static const double height = 48;
 
   final String query;
   final VoidCallback onTap;
@@ -34,7 +34,7 @@ class SearchRecentRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: height),
         child: Padding(
           // Lines up with the section label above it.
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.s4),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: <Widget>[
               Expanded(

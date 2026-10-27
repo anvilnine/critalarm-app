@@ -1,11 +1,16 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/components/buttons.dart';
+import 'package:critalarm/design/components/sheets.dart';
+import 'package:critalarm/design/faces/face_painter.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style_scope.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/standard_alarm_style.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +23,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// real screen and its cubit would also start the after-ack reminders timer,
 /// which is a different feature's job to test.
 void main() {
+  // The value of the Source row, as the mock alarm has it.
+  const sourceLine = '03:08 / critical, database';
+
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await configureDependencies(useMockApi: true);
@@ -27,6 +35,7 @@ void main() {
     final now = DateTime.now();
     return CriticalAlarmState(
       status: status,
+      meta: sourceLine,
       incident: Incident(
         id: 'inc_1',
         topic: 'prod-db',
@@ -38,11 +47,16 @@ void main() {
     );
   }
 
-  Widget buildTestApp(CriticalAlarmStatus status) {
+  Widget buildTestApp(
+    CriticalAlarmStatus status, {
+    Brightness brightness = Brightness.light,
+  }) {
     return BlocProvider<TopicsCubit>.value(
       value: getIt<TopicsCubit>(),
       child: MaterialApp(
-        theme: buildLightTheme(),
+        theme: brightness == Brightness.dark
+            ? buildDarkTheme()
+            : buildLightTheme(),
         home: Builder(
           builder: (context) => AcknowledgedScreen(
             state: stateFor(status),
@@ -117,6 +131,7 @@ void main() {
       Size size, {
       double textScale = 1,
       CriticalAlarmStatus status = CriticalAlarmStatus.acknowledged,
+      Brightness brightness = Brightness.light,
     }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -127,7 +142,7 @@ void main() {
             size: size,
             textScaler: TextScaler.linear(textScale),
           ),
-          child: buildTestApp(status),
+          child: buildTestApp(status, brightness: brightness),
         ),
       );
       await tester.pumpAndSettle();
@@ -199,6 +214,176 @@ void main() {
       expect(desk.top, greaterThan(667 / 2));
     });
 
+    testWidgets('on a small phone at 1.3 the Source row, value and all, '
+        'shows above the pinned buttons with nothing scrolled', (
+      tester,
+    ) async {
+      await pumpOn(tester, const Size(375, 667), textScale: 1.3);
+
+      expect(tester.takeException(), isNull);
+      // At 1.3 the hint takes two lines, so it goes into the list under the
+      // card, and the whole Source row shows at rest.
+      final hint = find.text(
+        'Rings again in 10 min unless you tap At my desk.',
+      );
+      final desk = find.widgetWithText(AppButton, 'At my desk');
+      expect(
+        tester.getRect(find.text(sourceLine)).bottom,
+        lessThanOrEqualTo(tester.getRect(desk).top),
+      );
+
+      await tester.dragFrom(const Offset(187, 120), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(find.text(sourceLine)).bottom,
+        lessThan(tester.getRect(hint).top),
+      );
+      // The whole card, with its padding, is above the hint too.
+      final card = find.ancestor(
+        of: find.text('Source'),
+        matching: find.byType(AppSheet),
+      );
+      expect(
+        tester.getRect(card).bottom,
+        lessThanOrEqualTo(tester.getRect(hint).top),
+      );
+    });
+
+    for (final brightness in Brightness.values) {
+      for (final textScale in [1.0, 1.3, 2.0]) {
+        testWidgets('on a tablet the wide layout draws the face, the title, '
+            'the topic and the details above the pinned buttons, '
+            '${brightness.name}, text $textScale', (tester) async {
+          await pumpOn(
+            tester,
+            const Size(1024, 768),
+            textScale: textScale,
+            brightness: brightness,
+          );
+
+          // The wide layout used to throw here and draw only the buttons.
+          expect(tester.takeException(), isNull);
+          expect(find.byType(FaceWidget), findsOneWidget);
+          expect(title(), findsOneWidget);
+          expect(find.text('prod-db'), findsOneWidget);
+          for (final label in ['Started', 'Source']) {
+            expect(find.text(label), findsOneWidget, reason: label);
+          }
+          expect(find.text(sourceLine), findsOneWidget);
+          expect(buttonLabels(tester), ['At my desk', 'Back to topics']);
+
+          // In the test font, at twice the text size, the column is taller
+          // than the room and has to scroll clear instead.
+          if (textScale >= 2) {
+            await tester.dragFrom(
+              const Offset(700, 200),
+              const Offset(0, -3000),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          } else {
+            expect(tester.getRect(title()).top, greaterThanOrEqualTo(0));
+          }
+          final desk = tester.getRect(
+            find.widgetWithText(AppButton, 'At my desk'),
+          );
+          final back = tester.getRect(
+            find.widgetWithText(AppButton, 'Back to topics'),
+          );
+          expect(desk.top, greaterThan(0));
+          expect(back.bottom, lessThanOrEqualTo(768));
+          final card = find.ancestor(
+            of: find.text('Source'),
+            matching: find.byType(AppSheet),
+          );
+          expect(tester.getRect(card).bottom, lessThanOrEqualTo(desk.top));
+        });
+      }
+    }
+
+    for (final textScale in [1.0, 1.3, 2.0]) {
+      for (final status in [
+        CriticalAlarmStatus.acknowledged,
+        CriticalAlarmStatus.closed,
+      ]) {
+        testWidgets('on a phone on its side nothing throws, the buttons are '
+            'on the screen and the details scroll clear of them, '
+            '${status.name}, text $textScale', (tester) async {
+          await pumpOn(
+            tester,
+            const Size(844, 390),
+            textScale: textScale,
+            status: status,
+          );
+
+          expect(tester.takeException(), isNull);
+          final isClosed = status == CriticalAlarmStatus.closed;
+          expect(buttonLabels(tester), [
+            if (!isClosed) 'At my desk',
+            'Back to topics',
+          ]);
+          final first = find.byType(AppButton).first;
+          expect(tester.getRect(first).top, greaterThanOrEqualTo(0));
+          expect(
+            tester.getRect(find.byType(AppButton).last).bottom,
+            lessThanOrEqualTo(390),
+          );
+          expect(title(), findsOneWidget);
+
+          await tester.dragFrom(const Offset(600, 60), const Offset(0, -3000));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final card = find.ancestor(
+            of: find.text('Source'),
+            matching: find.byType(AppSheet),
+          );
+          expect(
+            tester.getRect(card).bottom,
+            lessThanOrEqualTo(tester.getRect(first).top),
+          );
+        });
+      }
+    }
+
+    testWidgets('the face is the yellow one, dark outline and features, in '
+        'the dark theme too', (tester) async {
+      await tester.pumpWidget(
+        BlocProvider<TopicsCubit>.value(
+          value: getIt<TopicsCubit>(),
+          child: MaterialApp(
+            theme: buildDarkTheme(),
+            home: AlarmStyleStage(
+              style: standardAlarmStyle,
+              stage: AlarmStage.acknowledged,
+              severity: SeverityMode.crit,
+              child: Builder(
+                builder: (context) => AcknowledgedScreen(
+                  state: stateFor(CriticalAlarmStatus.acknowledged),
+                  colors: context.appColors,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      final painter =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: find.byType(FaceWidget),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter!
+              as FacePainter;
+      expect(painter.fillColor, AppColors.light.yellow);
+      expect(painter.strokeColor, AppColors.light.faceStroke);
+      expect(painter.inkColor, AppColors.light.faceInk);
+    });
+
     testWidgets('the acknowledged colours stay after At my desk', (
       tester,
     ) async {
@@ -238,9 +423,19 @@ void main() {
           ),
         );
 
-        final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-        expect(face.overrideStrokeColor, AppColors.light.faceStroke);
-        expect(face.overrideInkColor, AppColors.light.faceInk);
+        final painter =
+            tester
+                    .widget<CustomPaint>(
+                      find.descendant(
+                        of: find.byType(FaceWidget),
+                        matching: find.byType(CustomPaint),
+                      ),
+                    )
+                    .painter!
+                as FacePainter;
+        expect(painter.fillColor, AppColors.light.yellow);
+        expect(painter.strokeColor, AppColors.light.faceStroke);
+        expect(painter.inkColor, AppColors.light.faceInk);
       }
     });
   });

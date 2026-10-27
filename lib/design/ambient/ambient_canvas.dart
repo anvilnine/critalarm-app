@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/design/ambient/ambient_profile.dart';
+import 'package:critalarm/design/ambient/ambient_shape.dart';
 import 'package:critalarm/design/ambient/ambient_transition.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ class AmbientCanvas extends StatefulWidget {
     required this.variant,
     required this.direction,
     required this.reduceMotion,
+    this.isLive = false,
     super.key,
   });
 
@@ -20,6 +22,12 @@ class AmbientCanvas extends StatefulWidget {
   final AmbientMotionVariant variant;
   final AmbientDirection direction;
   final bool reduceMotion;
+
+  /// True while [profile] follows something else frame by frame, such as a
+  /// finger dragging a pager. The canvas then paints each profile as it is,
+  /// with no glide of its own, and a later change of target starts from the
+  /// last one drawn.
+  final bool isLive;
 
   @override
   State<AmbientCanvas> createState() => _AmbientCanvasState();
@@ -46,6 +54,15 @@ class _AmbientCanvasState extends State<AmbientCanvas>
   @override
   void didUpdateWidget(covariant AmbientCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.isLive) {
+      _controller
+        ..stop()
+        ..value = 1;
+      _from = widget.profile;
+      _to = widget.profile;
+      return;
+    }
 
     final targetChanged =
         widget.profile != oldWidget.profile ||
@@ -145,31 +162,55 @@ class _AmbientCanvasPainter extends CustomPainter {
         (pose.anchor.y + 1) * size.height / 2,
       );
       final extent = pose.scale * size.shortestSide;
-      final paint = Paint()
-        ..color = shape.color.withValues(alpha: shape.opacity);
+      // A shape is a fill, an outline, or a cross-fade of the two.
+      final fillAlpha = shape.opacity * (1 - shape.ring);
+      final ringAlpha = shape.opacity * shape.ring;
 
       canvas
         ..save()
         ..translate(center.dx, center.dy)
         ..rotate(pose.turns * math.pi * 2);
-      if (index.isEven) {
-        canvas.drawCircle(Offset.zero, extent / 2, paint);
-      } else {
-        final height = extent * 0.58;
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromCenter(
-              center: Offset.zero,
-              width: extent * 1.4,
-              height: height,
-            ),
-            Radius.circular(height / 2),
-          ),
-          paint,
+      if (fillAlpha > 0) {
+        _drawShape(
+          canvas,
+          index,
+          extent,
+          Paint()..color = shape.color.withValues(alpha: fillAlpha),
+        );
+      }
+      if (ringAlpha > 0) {
+        _drawShape(
+          canvas,
+          index,
+          extent,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = AmbientShape.ringWidth
+            ..color = shape.color.withValues(alpha: ringAlpha),
         );
       }
       canvas.restore();
     }
+  }
+
+  /// A circle for an even slot, a pill for an odd one.
+  static void _drawShape(Canvas canvas, int index, double extent, Paint paint) {
+    if (index.isEven) {
+      canvas.drawCircle(Offset.zero, extent / 2, paint);
+      return;
+    }
+    final height = extent * 0.58;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: extent * 1.4,
+          height: height,
+        ),
+        Radius.circular(height / 2),
+      ),
+      paint,
+    );
   }
 
   @override

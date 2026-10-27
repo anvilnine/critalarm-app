@@ -48,7 +48,7 @@ object FaceBitmap {
 
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = face.canvasColor
+            color = face.headColor
         }
         val corner = size * 0.3f
         canvas.drawRoundRect(RectF(0f, 0f, size, size), corner, corner, fill)

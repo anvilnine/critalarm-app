@@ -63,7 +63,9 @@ class AppDialog extends StatelessWidget {
       type: MaterialType.transparency,
       child: Container(
         width: 320,
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        // The actions are 36 pills in 48 tap boxes, which reach 6 past them,
+        // so the bottom padding under them is 6 less.
+        padding: EdgeInsets.fromLTRB(20, 20, 20, actions.isEmpty ? 20 : 14),
         decoration: BoxDecoration(
           color: isPanel ? colors.panel : colors.surface,
           borderRadius: isPanel ? Radii.lgAll : Radii.xlAll,
@@ -117,10 +119,12 @@ class AppDialog extends StatelessWidget {
               content!,
             ],
             if (actions.isNotEmpty) ...[
-              const SizedBox(height: 18),
+              // 6 less than the 18 it was, for the tap boxes of the actions.
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
-                runSpacing: 8,
+                // 8 between pills, and the boxes are 12 taller than they are.
+                runSpacing: -4,
                 alignment: _wrapAlignment(alignActions),
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: actions,

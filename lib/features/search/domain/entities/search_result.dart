@@ -1,4 +1,5 @@
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:flutter/foundation.dart';
 
 /// What a result points at. Also the section it is drawn under.
@@ -19,6 +20,7 @@ class SearchResult {
     this.date,
     this.faceState,
     this.timeText,
+    this.historyMark,
     this.isCrit = false,
     this.isQuiet = false,
   });
@@ -56,6 +58,9 @@ class SearchResult {
 
   /// The right hand time on a past alarm, matching the History list.
   final String? timeText;
+
+  /// The tick or bang a past alarm wears in History. Only past alarms set it.
+  final HistoryMark? historyMark;
 
   final bool isCrit;
   final bool isQuiet;

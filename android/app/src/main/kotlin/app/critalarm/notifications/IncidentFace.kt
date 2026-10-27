@@ -1,5 +1,9 @@
 package app.critalarm.notifications
 
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
+import java.util.Locale
+
 /**
  * The palette, copied from lib/design/tokens/colors.dart by way of
  * ios/CritAlarmActivity/FaceView.swift. Keep the three in step.
@@ -22,8 +26,16 @@ enum class CritAlarmFace(val canvasColor: Int) {
     ALARMED(CritAlarmPalette.CRIT),
     ACKED(CritAlarmPalette.COBALT);
 
+    /**
+     * The head is brand yellow in every state. [canvasColor] is for the
+     * surface around the face (the notification accent), never the face.
+     */
+    val headColor: Int
+        get() = CritAlarmPalette.YELLOW
+
+    /** The eyes, brows and mouth are ink on every state. */
     val strokeColor: Int
-        get() = if (this == ACKED) CritAlarmPalette.ON_HIGHLIGHT else CritAlarmPalette.INK
+        get() = CritAlarmPalette.INK
 }
 
 /**
@@ -35,12 +47,19 @@ enum class CritAlarmFace(val canvasColor: Int) {
  */
 enum class IncidentCardState(
     val face: CritAlarmFace,
-    val chipText: String,
+    private val word: NativeText,
 ) {
-    OPEN(CritAlarmFace.ALARMED, "RINGING"),
-    ACKED(CritAlarmFace.ACKED, "AWAKE"),
-    CLOSED(CritAlarmFace.CALM, "CLOSED"),
-    EXPIRED(CritAlarmFace.WORRIED, "MISSED");
+    OPEN(CritAlarmFace.ALARMED, NativeText.STATE_RINGING),
+    ACKED(CritAlarmFace.ACKED, NativeText.STATE_AWAKE),
+    CLOSED(CritAlarmFace.CALM, NativeText.STATE_CLOSED),
+    EXPIRED(CritAlarmFace.WORRIED, NativeText.STATE_MISSED);
+
+    /** The chip's word in English, upper case. */
+    val chipText: String get() = chipText(NativeWords.English)
+
+    /** The chip's word from [words], upper case in the locale it is written in. */
+    fun chipText(words: NativeWords, locale: Locale = Locale.ROOT): String =
+        words.text(word).uppercase(locale)
 
     val accentColor: Int get() = face.canvasColor
 }

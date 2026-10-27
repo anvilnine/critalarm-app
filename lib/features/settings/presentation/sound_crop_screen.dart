@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/settings/domain/crop_window.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
@@ -63,12 +67,22 @@ String formatClipTime(Duration d) {
   final tenths = (d.inMilliseconds / 100).round();
   final minutes = tenths ~/ 600;
   final seconds = (tenths % 600) ~/ 10;
-  return '$minutes:${seconds.toString().padLeft(2, '0')}.${tenths % 10}';
+  return LocaleKeys.dart_format_clip_time.tr(
+    namedArgs: {
+      'minutes': formatInt(minutes),
+      'seconds': formatInt(seconds, minimumDigits: 2),
+      'tenths': formatInt(tenths % 10),
+    },
+  );
 }
 
 /// `29.5 s`.
 String formatClipLength(Duration d) =>
-    '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
+    LocaleKeys.dart_format_seconds.tr(
+      namedArgs: {
+        'seconds': formatNum(d.inMilliseconds / 1000, minDecimals: 1),
+      },
+    );
 
 class _SoundCropView extends StatelessWidget {
   const _SoundCropView();
@@ -97,6 +111,18 @@ class _SoundCropView extends StatelessWidget {
               leave(context);
             case SoundCropStatus.unavailable:
               leave(context);
+            case SoundCropStatus.ready
+                when state.errorCode == ImportSoundUsecase.lockedCode:
+              // Own sounds were locked by the time Save was tapped. The
+              // clip stays open, so a purchase can be followed by Save.
+              context.read<SoundCropCubit>().clearError();
+              unawaited(
+                openPaywallForFeature(
+                  context,
+                  AppFeature.ownSounds,
+                  LockSource.sounds,
+                ),
+              );
             case SoundCropStatus.ready when state.errorCode != null:
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()

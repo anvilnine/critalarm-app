@@ -11,43 +11,49 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// up the moment a purchase goes through and leaves on sign-out.
 class ProStatusCubit extends Cubit<bool> {
   ProStatusCubit({
-    required Future<bool> Function() readIsPaid,
+    required Future<bool> Function() readHoldsHosted,
+    Stream<Object?>? holdingChanges,
     PlanChanges? planChanges,
     AccountIdentityChanges? identityChanges,
   }) : // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
        // ignore: prefer_initializing_formals
-       _readIsPaid = readIsPaid,
+       _readHoldsHosted = readHoldsHosted,
        _planChanges = planChanges ?? appPlanChanges,
        _identityChanges = identityChanges ?? appAccountIdentityChanges,
        super(false) {
     _planChanges.addListener(_onChanged);
     _identityChanges.addListener(_onChanged);
+    _holdingSub = holdingChanges?.listen((_) => _onChanged());
     unawaited(load());
   }
 
-  final Future<bool> Function() _readIsPaid;
+  final Future<bool> Function() _readHoldsHosted;
   final PlanChanges _planChanges;
   final AccountIdentityChanges _identityChanges;
+
+  /// `Holdings.stream` in the app: what is held changed.
+  StreamSubscription<Object?>? _holdingSub;
 
   void _onChanged() => unawaited(load());
 
   @visibleForTesting
   Future<void> load() async {
-    bool isPaid;
+    bool holdsHosted;
     try {
-      isPaid = await _readIsPaid();
+      holdsHosted = await _readHoldsHosted();
     } on Object catch (_) {
       // No badge beats a wrong badge.
-      isPaid = false;
+      holdsHosted = false;
     }
-    if (!isClosed) emit(isPaid);
+    if (!isClosed) emit(holdsHosted);
   }
 
   @override
   Future<void> close() {
     _planChanges.removeListener(_onChanged);
     _identityChanges.removeListener(_onChanged);
+    unawaited(_holdingSub?.cancel());
     return super.close();
   }
 }

@@ -1,21 +1,32 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_headline.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_outro.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
+import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
+import 'package:critalarm/features/language/presentation/language_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
@@ -25,22 +36,26 @@ import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/onboarding_step_frame.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
+import 'package:critalarm/features/search/presentation/screens/docs_list_screen.dart';
+import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
+import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
@@ -49,6 +64,11 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_pass_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/look/look_pass_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/passes/personalize_root_page.dart';
+import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/widgets/widgets_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
@@ -57,10 +77,13 @@ import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_recorder_screen.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -78,6 +101,7 @@ abstract final class AppRoute {
   static const onboardingWelcome = 'onboardingWelcome';
   static const onboardingHowItRings = 'onboardingHowItRings';
   static const onboardingWidgets = 'onboardingWidgets';
+  static const onboardingUse = 'onboardingUse';
   static const onboardingFirstTopic = 'onboardingFirstTopic';
   static const onboardingRealRing = 'onboardingRealRing';
   static const onboardingOffer = 'onboardingOffer';
@@ -87,6 +111,7 @@ abstract final class AppRoute {
   static const history = 'history';
   static const topicDetail = 'topicDetail';
   static const topicMessages = 'topicMessages';
+  static const topicTokens = 'topicTokens';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
@@ -99,11 +124,19 @@ abstract final class AppRoute {
   static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
   static const priorities = 'priorities';
+  static const docs = 'docs';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const languageSettings = 'languageSettings';
+  static const personalize = 'personalize';
+  static const personalizeLook = 'personalizeLook';
+  static const topicLook = 'topicLook';
+  static const topicChallenge = 'topicChallenge';
+  static const personalizeChallenge = 'personalizeChallenge';
+  static const personalizeWidgets = 'personalizeWidgets';
   static const appIcon = 'appIcon';
   static const localReminderSettings = 'localReminderSettings';
   static const about = 'about';
@@ -113,10 +146,10 @@ abstract final class AppRoute {
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
+  static const accessLab = 'accessLab';
   static const paywall = 'paywall';
   static const paywallLayout = 'paywallLayout';
   static const paywallLayoutsDev = 'paywallLayoutsDev';
-  static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -127,12 +160,36 @@ abstract final class AppRoute {
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+/// The card a Personalize pass page grows from: the `PassOrigin` the root
+/// passed as `extra`, or null when the page was opened another way (a deep
+/// link, a restored route, a topic's own sound).
+PassOrigin? _passOriginOf(GoRouterState state) {
+  final extra = state.extra;
+  return extra is PassOrigin ? extra : null;
+}
+
 /// Whether a developer can reach this build's paywall layouts: a debug
 /// build, or one with Developer options. Both dart-defines are compile-time
 /// constants, so a store build holds no developer page, and its layout
 /// route draws only what the remote values send a user to.
 const bool _isDeveloperPaywallBuild =
     kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
+
+/// Whether the page on top of [router] is a paywall. Every paywall is a
+/// layout, so this is the layout route and no other.
+bool paywallIsOnTop(GoRouter router) {
+  final matches = router.routerDelegate.currentConfiguration;
+  if (matches.isEmpty) return false;
+  return matches.last.route.name == AppRoute.paywallLayout;
+}
+
+/// Pushes the paywall at [location], unless a paywall is already up: a
+/// second one never stacks on the first. Answers whether it pushed.
+bool openPaywallOnce(GoRouter router, String location) {
+  if (paywallIsOnTop(router)) return false;
+  unawaited(router.push<void>(location));
+  return true;
+}
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
@@ -156,7 +213,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         // stayed on screen behind the form. The ambient backdrop sits outside
         // the navigator, so it still shows.
         opaque: true,
-        child: const CreateTopicScreen(),
+        child: CreateTopicScreen(
+          initialTool: ToolTemplate.fromId(state.uri.queryParameters['tool']),
+        ),
       ),
     ),
     // One screen, two jobs. No `topic` sets the default sound;
@@ -169,10 +228,15 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       path: '/sounds',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundPicker,
+      // The Sound pass grows into it from its card when the root pushes it
+      // with the card's `PassOrigin` as `extra`. Any other way in (a deep
+      // link, a topic's own sound) carries none and takes the shell's slide.
       pageBuilder: (context, state) {
         final topic = state.uri.queryParameters['topic'];
-        return AmbientPage(
+        return PassPage(
           key: state.pageKey,
+          name: state.name,
+          origin: _passOriginOf(state),
           child: SoundPickerScreen(
             topicName: topic != null && topic.isNotEmpty ? topic : null,
           ),
@@ -182,11 +246,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // The cropper for a file the user just picked. The file travels as
     // `extra`, so a refresh on the web or a stray link arrives with none,
     // and the screen goes straight back. It also leaves when the platform
-    // cannot import sounds.
+    // cannot import sounds. While own sounds are locked it never opens: the
+    // sound list does, where every way in opens the paywall.
     GoRoute(
       path: '/sounds/crop',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundCrop,
+      redirect: (context, state) => ownSoundsRouteRedirect(
+        getIt<FeatureAccess>(),
+        soundList: '/sounds',
+      ),
       pageBuilder: (context, state) {
         final file = state.extra;
         return AmbientPage(
@@ -202,19 +271,54 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
     // The recorder. Once a clip is recorded the same route shows the
     // cropper for it, so back from the cropper lands on the sound list.
-    // Leaves at once where the platform cannot import sounds.
+    // Leaves at once where the platform cannot import sounds, and while
+    // own sounds are locked.
     GoRoute(
       path: '/sounds/record',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundRecord,
       redirect: (context, state) async =>
           (await getIt<SoundHost>().capabilities()).canImportSounds
-          ? null
+          ? ownSoundsRouteRedirect(
+              getIt<FeatureAccess>(),
+              soundList: '/sounds',
+            )
           : '/sounds',
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
         opaque: true,
         child: const SoundRecorderScreen(),
+      ),
+    ),
+    // The Look and Wake-up challenge pages for one topic: the Personalize
+    // pages with the scope of `?topic=<name>`. Without a topic they are the
+    // pages Personalize opens, for the whole phone. A topic is reached from
+    // two tabs, so these sit on the root navigator like `/sounds`, and the
+    // page grows out of the card that pushes it with a `PassOrigin`.
+    GoRoute(
+      path: '/look',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicLook,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: LookPassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/challenge',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.topicChallenge,
+      pageBuilder: (context, state) => PassPage(
+        key: state.pageKey,
+        name: state.name,
+        origin: _passOriginOf(state),
+        child: ChallengePassScreen(
+          scope: passScopeFromQuery(state.uri.queryParameters['topic']),
+        ),
       ),
     ),
     // The icon picker covers the display like creating a topic, so the tab
@@ -230,11 +334,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           await getIt<AppIconHost>().canChangeAppIcon()
           ? null
           : '/settings/appearance',
-      pageBuilder: (context, state) => AmbientPage(
+      // The App icon pass grows into it from its card, as /sounds does.
+      pageBuilder: (context, state) => PassPage(
         key: state.pageKey,
-        // Over the shell, like /topics/new: opaque, or the Settings tab
-        // shows through the transparent scaffold.
-        opaque: true,
+        name: state.name,
+        origin: _passOriginOf(state),
         child: const AppIconScreen(),
       ),
     ),
@@ -242,8 +346,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // bar stays on screen and each tab keeps its own back stack. Anything that
     // must cover the whole display is routed outside it.
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          AppShell(navigationShell: navigationShell),
+      // The shell fades and drifts out under a Settings screen the way the
+      // Topics list does under a Topic. See `TabShellPage`.
+      pageBuilder: (context, state, navigationShell) => TabShellPage(
+        key: state.pageKey,
+        child: AppShell(navigationShell: navigationShell),
+      ),
       branches: [
         StatefulShellBranch(
           routes: [
@@ -283,6 +391,24 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         return AmbientPage(
                           key: state.pageKey,
                           child: TopicMessagesScreen(topicName: name),
+                        );
+                      },
+                    ),
+                    // The topic's tokens. `?curl=1` is the silent topic
+                    // reminder's "Get curl line": the New token sheet opens
+                    // as the page does, with the name filled in.
+                    GoRoute(
+                      path: 'tokens',
+                      name: AppRoute.topicTokens,
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
                         );
                       },
                     ),
@@ -336,6 +462,21 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       },
                     ),
                     GoRoute(
+                      path: 'tokens',
+                      name: 'historyTopicTokens',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicTokensScreen(
+                            topicName: name,
+                            startCurlFlow:
+                                state.uri.queryParameters['curl'] == '1',
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
                       path: 'sounds',
                       name: 'historyTopicSounds',
                       pageBuilder: (context, state) {
@@ -368,7 +509,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               // Every sub-page sits on the root navigator, above the floating
               // tab bar, so its + and search buttons are gone. Opaque, for the
               // reason given on `/app-icon`. Create-topic and search do not
-              // belong on a page like Delete account.
+              // belong on a page like Delete account. Each one sets
+              // `leavesTabBehind`, so the shell under it fades and drifts out
+              // as a Topic does over the Topics list. Without it the shell
+              // stood fully drawn until the page was opaque.
               routes: [
                 GoRoute(
                   path: 'disconnected',
@@ -387,6 +531,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DevicePermissionsScreen(),
                   ),
                 ),
@@ -397,6 +542,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ReliabilityScreen(),
                   ),
                   routes: [
@@ -429,6 +575,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AlarmSettingsScreen(),
                   ),
                 ),
@@ -445,7 +592,21 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrioritiesScreen(),
+                  ),
+                ),
+                // The bundled docs index as a list. Settings > Help opens it,
+                // and search can link here.
+                GoRoute(
+                  path: 'docs',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.docs,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const DocsListScreen(),
                   ),
                 ),
                 GoRoute(
@@ -455,6 +616,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const ServerSettingsScreen(),
                   ),
                 ),
@@ -467,6 +629,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AccountScreen(),
                   ),
                   routes: [
@@ -485,13 +648,84 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ],
                 ),
                 GoRoute(
+                  path: 'personalize',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.personalize,
+                  pageBuilder: (context, state) => PersonalizeRootPage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const PersonalizeScreen(),
+                  ),
+                  // The pass pages. The root pushes one with the tapped
+                  // card's `PassOrigin` as `extra`, and the page grows out of
+                  // the card. Sound and App icon are `/sounds` and
+                  // `/app-icon`. A deep link has no origin and the page
+                  // takes the shell's slide. None of these redirects for a
+                  // plan: a tag never closes a door.
+                  routes: [
+                    GoRoute(
+                      path: 'look',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeLook,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const LookPassScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'challenge',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeChallenge,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const ChallengePassScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'widgets',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.personalizeWidgets,
+                      // Web and desktop have no home screen widgets.
+                      redirect: (context, state) =>
+                          homeWidgetsStepsFor(
+                                getIt<PlatformCapabilities>().platform,
+                              ) ==
+                              null
+                          ? '/settings/personalize'
+                          : null,
+                      pageBuilder: (context, state) => PassPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        origin: _passOriginOf(state),
+                        child: const WidgetsPassScreen(),
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
                   path: 'appearance',
                   parentNavigatorKey: _rootKey,
                   name: AppRoute.appearanceSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AppearanceSettingsScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'language',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.languageSettings,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const LanguageScreen(),
                   ),
                 ),
                 GoRoute(
@@ -501,6 +735,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const PrivacySettingsScreen(),
                   ),
                 ),
@@ -511,6 +746,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const LocalReminderSettingsScreen(),
                   ),
                 ),
@@ -521,6 +757,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const AboutScreen(),
                   ),
                 ),
@@ -534,6 +771,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
                     opaque: true,
+                    leavesTabBehind: true,
                     child: const DeveloperSettingsScreen(),
                   ),
                   routes: [
@@ -548,6 +786,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                           key: state.pageKey,
                           opaque: true,
                           child: const PaywallLayoutsDevScreen(),
+                        ),
+                      ),
+                    // The Plans and features lab. It writes the developer
+                    // plan switches, which only a build that skips the
+                    // store has, so a store build holds no such route.
+                    if (buildSkipsPaywall)
+                      GoRoute(
+                        path: 'access',
+                        parentNavigatorKey: _rootKey,
+                        name: AppRoute.accessLab,
+                        pageBuilder: (context, state) => AmbientPage(
+                          key: state.pageKey,
+                          opaque: true,
+                          child: const AccessLabScreen(),
                         ),
                       ),
                     GoRoute(
@@ -623,44 +875,58 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: paywallPath,
       name: AppRoute.paywall,
-      // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
-      // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
-      // is never configured and so has nothing to show.
-      pageBuilder: (context, state) {
-        // `?source=` names what opened it, for the paywall_viewed event.
-        // A missing or unknown one reads as direct.
-        final source = PaywallSource.parse(
-          state.uri.queryParameters['source'],
-        ).wire;
-        return AmbientPage(
-          key: state.pageKey,
-          child: buildSkipsPaywall
-              ? PaywallScreen(source: source)
-              : HostedPaywallScreen(source: source),
-        );
-      },
+      // The path reminders, the settings search index and a locked home
+      // screen widget build raw. It draws nothing of its own: it always
+      // opens the layout for its `?source=`. A missing or unknown source
+      // reads as direct.
+      redirect: (context, state) =>
+          resolvePaywallLocation(state.uri.toString()),
     ),
     // One paywall layout, selling Hosted or Pro. Every opener asks the
-    // paywall door, which sends a user here only when the product's remote
-    // value says so. In a store build the route checks that again: with the
-    // value at its default it opens the shipped surface in its place.
-    // Developer options and the capture tool open any layout.
+    // paywall door for its location. Developer options and the capture tool
+    // open any layout.
     GoRoute(
       path: paywallLayoutPath,
       name: AppRoute.paywallLayout,
       parentNavigatorKey: _rootKey,
-      redirect: (context, state) =>
-          _isDeveloperPaywallBuild ? null : shippedPaywallInsteadOf(state.uri),
       pageBuilder: (context, state) {
         final query = state.uri.queryParameters;
+        final intro =
+            PaywallIntroId.fromKey(query['intro']) ??
+            paywallIntroInLayoutValue(state.pathParameters['layout']) ??
+            PaywallIntroId.none;
+        // An intro that plays cuts in: no slide, so its first frame is on
+        // screen at once. Going back keeps the slow slide.
+        final cutsIn = paywallRouteCutsIn(
+          intro,
+          isBuilt: paywallIntroIsBuilt(intro),
+        );
         return AmbientPage(
           key: state.pageKey,
           opaque: true,
+          transitionDuration: cutsIn ? Duration.zero : AppDurations.slow,
           child: PaywallLayoutScreen(
-            // An unknown key draws the reference layout.
+            // An unknown key draws the fallback layout. The key the false
+            // alarm had as a layout opens that one, with the intro.
             layout:
                 PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
-                PaywallLayoutId.plain,
+                paywallFallbackLayout,
+            intro: intro,
+            lead: paywallLeadFromQuery(query),
+            headline: PaywallHeadlineVariant.parse(query['headline']),
+            leaving: PaywallLeaving.fromQuery(query),
+            // The person's own rows are read only for a history lead.
+            historyOwn:
+                paywallLeadFromQuery(query)?.benefit == PaywallBenefitId.history
+                ? HistoryOwn.fromQuery(query)
+                : null,
+            thanks:
+                PaywallThanksId.fromKey(query['thanks']) ??
+                PaywallThanksId.none,
+            outro:
+                PaywallOutroId.fromKey(query['outro']) ?? PaywallOutroId.none,
+            // The developer picker's "Open it". A store build never reads it.
+            isTryOut: _isDeveloperPaywallBuild && query['try'] == paywallTryOut,
             product: PaywallProduct.parse(query['product']),
             source: PaywallSource.parse(query['source']),
             sourceWire: query['source'],
@@ -676,19 +942,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           ),
         );
       },
-    ),
-    // The Pro pack's sheet. It is a bottom sheet with its own route, over
-    // whatever opened it, and has nothing to do with the paywall above.
-    GoRoute(
-      path: proPackSheetPath,
-      name: AppRoute.proPack,
-      parentNavigatorKey: _rootKey,
-      pageBuilder: (context, state) => ProPackSheetPage(
-        key: state.pageKey,
-        // `?source=` names what opened it, for the analytics event.
-        source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
-        isSelfHosted: proPackSheetIsSelfHosted(state.uri),
-      ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
     // it.
@@ -810,6 +1063,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           opaque: true,
           child: CriticalAlarmScreen(
             incidentId: id,
+            // A native Done button opened it. See `PushDeepLink.fromDone`.
+            cameFromDone: PushDeepLink.cameFromDone(state.uri),
             // A developer build can look at one screen with made-up values.
             previewsFirstToolAcked:
                 buildHasOnboardingDeveloperTools &&

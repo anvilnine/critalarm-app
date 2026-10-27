@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -19,9 +19,15 @@ regen:
 	fvm dart run build_runner clean
 	fvm dart run build_runner build --delete-conflicting-outputs
 
-# Regenerate type-safe locale keys from assets/translations.
+# Regenerate type-safe locale keys from assets/translations, then the iOS and
+# Android string files from the `native` group (tool/l10n_native.dart).
 l10n:
 	fvm dart run easy_localization:generate -S assets/translations -O lib/gen -o locale_keys.g.dart -f keys
+	fvm dart run tool/l10n_native.dart
+
+# Generate the opt-in debug pseudo-locale before a capture or asset test.
+l10n-pseudo:
+	fvm dart run tool/l10n_pseudo.dart
 
 # Refresh docs/api.md and docs/ARCHITECTURE.md from critalarm-server.
 sync-contract:
@@ -29,6 +35,32 @@ sync-contract:
 
 test:
 	fvm flutter test
+
+# Marketing screenshots from the real widgets in MOCK mode: store and social
+# sizes, light and dark, plus manifest.json. A tool, not a test: it never runs
+# in `make test` or CI. Output goes outside this repo, by default into the
+# content pipeline checkout next to the main checkout of this repo (found from
+# the shared .git, so it works from a worktree too). Override with
+# SCREENS_OUT=/abs/path, render a subset with
+# SCREENS_ONLY=alarm.ringing,home.calm, and only some sizes with
+# SCREENS_DEVICES=social916. TZ is pinned so every clock on a screen reads in
+# the same zone.
+#
+# `make screens STORIES=1` draws the alarm stories and nothing else: the
+# ringing and the answered alarm screen for each story in the tool, at the
+# social size, light and dark, as alarm.ringing.<slug>.png and
+# alarm.acked.<slug>.png. It writes stories.json and leaves manifest.json and
+# every other shot as they are. SCREENS_ONLY narrows it to some of them.
+SCREENS_OUT ?= $(abspath $(dir $(shell git rev-parse --path-format=absolute --git-common-dir))../critalarm-content-pipeline/ui-snapshots)
+screens:
+	@mkdir -p "$(SCREENS_OUT)"
+	TZ=UTC SCREENS_OUT="$(abspath $(SCREENS_OUT))" \
+	SCREENS_ONLY="$(SCREENS_ONLY)" \
+	SCREENS_DEVICES="$(SCREENS_DEVICES)" \
+	SCREENS_STORIES="$(STORIES)" \
+	GIT_SHA="$$(git rev-parse --short HEAD)" \
+	GIT_DIRTY="$$(test -z "$$(git status --porcelain -- lib assets pubspec.yaml)" && echo false || echo true)" \
+	fvm flutter test tool/capture_marketing_screens.dart --reporter=compact
 
 # Fill ios/Flutter/Google.xcconfig from .env. Google Sign-In on iOS needs the
 # reversed client id registered as a URL scheme in the bundle, and Xcode reads
@@ -46,8 +78,8 @@ analyze:
 format:
 	fvm dart format .
 
-# Format + analyze in one go. Run before every commit.
-quality: format analyze
+# Format, analyze and the access check in one go. Run before every commit.
+quality: format analyze check-access
 
 # Enforce clean-architecture dependency direction.
 check-layers:
@@ -57,6 +89,14 @@ check-layers:
 # AppButton label. Mark text that must stay with `// l10n-ok: <reason>`.
 check-l10n:
 	sh tool/check_l10n.sh
+	fvm dart run tool/l10n_parity.dart
+	fvm dart run tool/l10n_native.dart --check
+
+# Fail on plan access decided anywhere but lib/core/access/: a raw read of
+# the tier, the store, the packs or a developer switch outside the allow
+# list at the top of the script.
+check-access:
+	sh tool/check_access.sh
 
 # Install the repo git hooks (pre-commit: format + analyze).
 hooks:
@@ -72,12 +112,28 @@ doctor:
 	fvm flutter analyze
 	sh tool/check_layers.sh
 	sh tool/check_l10n.sh
+	sh tool/check_access.sh
 
-# Release build for UI work on a device. Skips RevenueCat, so the test API key
-# cannot pop the "Wrong API Key" dialog that closes the app.
+# Release build for UI work on a device. SKIP_PAYWALL leaves RevenueCat out:
+# every paywall draws price book prices and a purchase is made up, nothing is
+# charged and nothing unlocks. Developer options are in. To buy for real, use
+# run-store.
 # Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
 run-release: google-xcconfig
 	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
+
+# Release build that sells through the real store, as a store build does:
+# RevenueCat with the keys in .env, the store's own prices, a real purchase
+# and restore. For a test purchase with an App Store sandbox account or a Play
+# licence tester. No Developer options and no layout pickers. Not obfuscated
+# and sends no symbols, so it never goes to a store: the release scripts do.
+# Pass a device with DEVICE=<id>, e.g. make run-store DEVICE=R5CXB30NDRV
+run-store: google-xcconfig
+	fvm flutter run --release $(if $(DEVICE),-d $(DEVICE),)
+
+# Same, as an installable APK.
+build-store-apk:
+	fvm flutter build apk --release
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.
@@ -89,11 +145,18 @@ run-quiet: google-xcconfig
 build-quiet-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true
 
+# Cloud paywall layouts and benefit previews as frames, for the site. Ids,
+# env and output are in the header of tool/capture_site_paywalls.dart; then
+# `sh tool/site_paywalls_to_web.sh <out-dir>` makes the web assets.
+site-paywalls:
+	sh tool/capture_site_paywalls.sh
+
 # Never passes --yes-wipe. Fresh runs require an explicit script invocation.
 cold-start:
 	sh tool/cold_start.sh --apk "$(APK)" $(if $(SERIAL),--serial "$(SERIAL)",) $(if $(RUNS),--runs "$(RUNS)",) $(if $(MODE),--mode "$(MODE)",) $(if $(LABEL),--label "$(LABEL)",)
 
-# Same flag, for an installable artifact instead of an attached run.
+# Same flag, for an installable artifact instead of an attached run. Buys
+# nothing: build-store-apk is the one that sells.
 build-release-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true
 
@@ -104,6 +167,11 @@ build-release-ios: google-xcconfig
 # One command from a clean main to a build sitting in App Store Connect.
 # Auth is an App Store Connect API key, so there is no password and no two
 # factor prompt. Run `./scripts/release-ios.sh --help` for the one time setup.
+#
+# Both release scripts build with --obfuscate, keep the build's symbol files
+# under symbols/<version>/ and send them to Crashlytics before the store
+# upload. --bump commits the new build number, and a finished upload tags it.
+# scripts/release-lib.sh holds the shared steps.
 
 release-ios:
 	./scripts/release-ios.sh --bump
@@ -123,12 +191,19 @@ release-android:
 release-android-dry:
 	./scripts/release-android.sh --dry-run
 
-# Both stores on the build number already in pubspec. No bump: set it first.
-# The two builds run one after the other, because Xcode and Gradle at the same
-# time fight over the machine. The gates run once, in the iOS step. The two
-# uploads run side by side, and the target fails if either one does.
+# Send the symbols of the builds under build/ to Crashlytics and nothing to a
+# store. For a build that was handed out some other way, or after --skip-symbols.
+release-symbols:
+	./scripts/release-ios.sh --symbols-only
+	./scripts/release-android.sh --symbols-only
+
+# Both stores on one new build number. The iOS step runs the gates, then
+# bumps and commits the build number in pubspec, so the Android step builds the
+# same number. The two builds run one after the other, because Xcode and Gradle
+# at the same time fight over the machine. The two uploads run side by side,
+# and the target fails if either one does.
 release-both:
-	./scripts/release-ios.sh --build-only
+	./scripts/release-ios.sh --build-only --bump
 	./scripts/release-android.sh --build-only --skip-gates
 	./scripts/release-ios.sh --upload-only & ios=$$!; \
 	./scripts/release-android.sh --upload-only & android=$$!; \

@@ -32,6 +32,7 @@ enum GlyphType {
   bellOff,
   share,
   lock,
+  moon,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -356,6 +357,20 @@ class _GlyphPainter extends CustomPainter {
           ..moveTo(3, 3)
           ..lineTo(21, 21);
         canvas.drawPath(body, strokePaint);
+
+      case GlyphType.moon:
+        // A crescent: M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z
+        final path = Path()
+          ..moveTo(20, 14.5)
+          ..arcToPoint(const Offset(9.5, 4), radius: const Radius.circular(8.5))
+          ..arcToPoint(
+            const Offset(20, 14.5),
+            radius: const Radius.circular(8.5),
+            largeArc: true,
+            clockwise: false,
+          )
+          ..close();
+        canvas.drawPath(path, strokePaint);
 
       case GlyphType.share:
         // M12 3v12 M7 8l5-5 5 5 M5 12v7h14v-7

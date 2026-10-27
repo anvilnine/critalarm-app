@@ -346,7 +346,10 @@ void main() {
 
         final state = cubit.state;
         expect(state.status, CriticalAlarmStatus.acknowledged);
-        expect(state.errorMessage, isNotNull);
+        expect(
+          state.errorMessage,
+          'Something went wrong on the server. Try again.',
+        );
       },
     );
 

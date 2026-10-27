@@ -14,6 +14,7 @@ import 'package:critalarm/design/components/ladder_rows.dart';
 import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/components/message_cards.dart';
 import 'package:critalarm/design/components/notification_cards.dart';
+import 'package:critalarm/design/components/picker_rows.dart';
 import 'package:critalarm/design/components/preview_button.dart';
 import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/components/sheets.dart';
@@ -26,8 +27,10 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/pulse_ring_widget.dart';
 import 'package:critalarm/design/gallery/glyphs_and_curves_section.dart';
+import 'package:critalarm/design/gallery/passes_section.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
+import 'package:critalarm/design/gallery/topics_components_section.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -51,6 +54,7 @@ class GalleryScreen extends StatefulWidget {
 class _GalleryScreenState extends State<GalleryScreen> {
   SeverityMode _severity = SeverityMode.none;
   bool _isDark = false;
+  bool _reduceMotion = false;
 
   bool _liveCalm = false;
   bool _liveWatching = true;
@@ -130,6 +134,22 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           _buildEmptyStateSection(colors),
                           const SizedBox(height: 48),
                           _buildSetupComponentsSection(colors),
+                          const SizedBox(height: 48),
+                          // The status screens' pieces, with a switch for
+                          // reduce motion in the top bar.
+                          MediaQuery(
+                            data: MediaQuery.of(
+                              context,
+                            ).copyWith(disableAnimations: _reduceMotion),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TopicsComponentsSection(),
+                                SizedBox(height: 48),
+                                PassesSection(),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 48),
                           _buildControlsAndCardsSection(colors),
                           const SizedBox(height: 48),
@@ -238,6 +258,30 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              InkWell(
+                onTap: () => setState(() => _reduceMotion = !_reduceMotion),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: Radii.fullAll,
+                    border: Border.all(color: colors.hairline),
+                  ),
+                  child: Text(
+                    _reduceMotion ? 'Reduce motion: on' : 'Reduce motion: off',
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: colors.ink,
+                    ),
+                  ),
                 ),
               ),
               InkWell(
@@ -466,20 +510,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
               ),
               const FaceWidget(state: FaceState.calm, size: 40),
               const FaceWidget(state: FaceState.watching, size: 40),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.worried,
                 size: 40,
-                overrideStrokeColor: colors.high,
               ),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.alarmed,
                 size: 40,
-                overrideStrokeColor: colors.crit,
               ),
-              FaceWidget(
+              const FaceWidget(
                 state: FaceState.acked,
                 size: 40,
-                overrideStrokeColor: colors.cobalt,
               ),
               Text(
                 'stroke 10 / 200 viewBox',
@@ -516,7 +557,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
               state: state,
               size: 100,
               isLive: isLive,
-              overrideStrokeColor: strokeColor,
             ),
             const SizedBox(height: 14),
             Text(
@@ -1316,6 +1356,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ),
           child: Column(
             children: [
+              AppValueRow(title: 'Opens a page', value: 'value', onTap: () {}),
+              const SizedBox(height: 8),
+              AppPickerRow<String>(
+                title: 'Opens a sheet of choices',
+                selected: 'b',
+                options: const [
+                  AppPickerOption(value: 'a', label: 'First'),
+                  AppPickerOption(value: 'b', label: 'Second'),
+                ],
+                onPick: (_) {},
+              ),
+              const SizedBox(height: 8),
               AppListRow(
                 name: 'prod-db',
                 meta: 'Primary database down. Ringing 2 min 14 s.',
@@ -1838,12 +1890,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
               PulseRingWidget(
                 size: 200,
                 color: colors.ink.withValues(alpha: 0.2),
-                child: FaceWidget(
+                child: const FaceWidget(
                   state: FaceState.alarmed,
                   size: 200,
                   isLive: true,
-                  overrideStrokeColor: colors.ink,
-                  overrideFillColor: colors.critCanvas,
                 ),
               ),
               const SizedBox(height: 24),

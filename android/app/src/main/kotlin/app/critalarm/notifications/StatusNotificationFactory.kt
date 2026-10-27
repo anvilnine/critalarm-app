@@ -9,12 +9,19 @@ import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
+import app.critalarm.TapRoute
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.l10n.NativeLocale
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.notifications.LiveUpdate.requestPromotion
 import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.storage.ChallengeFlagStore
+import app.critalarm.storage.DoneButton
+import app.critalarm.storage.DoneButtonRule
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.TopicTimerStore
 import app.critalarm.storage.TopicTimers
@@ -29,6 +36,9 @@ object StatusNotificationFactory {
      */
     private const val ACTION_SALT = 0x41435401
 
+    /** The request code of a Done button that opens the app. */
+    private const val OPEN_SALT = 0x4F50454E
+
     fun notificationId(incidentId: String) = incidentId.hashCode() xor 0x5f3759df
 
     /**
@@ -38,11 +48,11 @@ object StatusNotificationFactory {
     data class Countdown(val startMillis: Long, val endMillis: Long)
 
     /**
-     * The text a silenced card carries. `en.json` holds the same sentence for
-     * the in-app screen; this copy is here because the card is built with no
-     * Flutter engine running.
+     * The text a silenced card carries, from the `native.card` strings in
+     * `en.json`: the card is built with no Flutter engine running.
      */
-    fun silencedText(seconds: Int) = "Stopped. Rings again in $seconds s. Tap I'm up to end it."
+    fun silencedText(seconds: Int, words: NativeWords = NativeWords.English) =
+        words.text(NativeText.CARD_SILENCED, "seconds" to seconds)
 
     /**
      * Builds the card for one incident state.
@@ -61,27 +71,29 @@ object StatusNotificationFactory {
     fun create(
         context: Context,
         payload: FcmIncidentPayload,
-        content: IncidentContent = IncidentContentFetcher.fallback(payload),
+        content: IncidentContent = IncidentContentFetcher.fallback(payload, NativeWords.of(context)),
         state: IncidentCardState = IncidentCardState.ACKED,
         ackedAtMillis: Long = System.currentTimeMillis(),
         silencedInSeconds: Int? = null,
         countdownEndMillis: Long? = null,
         ackTimeKnown: Boolean = true,
     ): Notification {
-        NotificationChannels.ensureCreated(context)
+        val words = NativeWords.of(context)
+        NotificationChannels.ensureCreated(context, words)
         val incidentId = payload.incidentId ?: ""
         val immutable = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val title = NtfyEmoji.prefixTitle(content.title, content.tags)
         // The content carries no topic when it came from the push alone, as on
         // a remote ack. The store remembers it from the first delivery.
         val topic = content.topic ?: IncidentDeliveryStore(context).topicOf(incidentId)
-        val body = silencedInSeconds?.let { silencedText(it) } ?: content.body
+        val body = silencedInSeconds?.let { silencedText(it, words) } ?: content.body
         // An acked card leads with when it was acked, then the message, the
         // same order as the iOS Live Activity.
         val ackedLine = if (silencedInSeconds == null && state == IncidentCardState.ACKED) {
             LiveCardText.ackedLine(
                 ackedAtMillis = ackedAtMillis.takeIf { ackTimeKnown },
                 pattern = LiveCardText.patternFor(DateFormat.is24HourFormat(context)),
+                words = words,
             )
         } else {
             null
@@ -109,7 +121,7 @@ object StatusNotificationFactory {
                     immutable,
                 ),
             )
-            .shortCriticalText(state.chipText)
+            .shortCriticalText(state.chipText(words, NativeLocale.locales(context)[0]))
             .requestPromotion()
 
         if (silencedInSeconds != null) {
@@ -124,7 +136,7 @@ object StatusNotificationFactory {
             }
             builder.addAction(
                 0,
-                "I'm up",
+                words.text(NativeText.ACTION_IM_UP),
                 PendingIntent.getBroadcast(
                     context,
                     notificationId(incidentId) xor ACTION_SALT,
@@ -137,21 +149,36 @@ object StatusNotificationFactory {
             // "acknowledge" trigger to IncidentAction.CLOSE, so the old
             // "Acknowledge" label named a different step than the one it ran.
             // iOS hit this and renamed it too, see IncidentActivityWidget.swift.
-            val done = Intent(context, IncidentActionReceiver::class.java).apply {
-                action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
-                putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
-                putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
-            }
-            builder.addAction(
-                0,
-                "Done",
-                PendingIntent.getBroadcast(
+            //
+            // A topic that owes a wake-up challenge is the one exception:
+            // Done then opens the app on this incident, where the challenge
+            // and its way out are, and closes nothing here. Dart wrote that
+            // flag; nothing on this side works a plan out. The alarm is
+            // already stopped by the time this card exists.
+            val doneIntent = when (DoneButtonRule.forTopic(topic, ChallengeFlagStore(context))) {
+                DoneButton.OPENS_APP -> PendingIntent.getActivity(
+                    context,
+                    notificationId(incidentId) xor OPEN_SALT,
+                    // Marked as coming from Done, so the app can still hand
+                    // the close back here when it cannot reach the server.
+                    incidentLaunchIntent(context, incidentId).apply {
+                        data = Uri.parse(TapRoute.doneLink(Uri.encode(incidentId)))
+                        putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
+                    },
+                    immutable,
+                )
+                DoneButton.CLOSES -> PendingIntent.getBroadcast(
                     context,
                     notificationId(incidentId) xor ACTION_SALT,
-                    done,
+                    Intent(context, IncidentActionReceiver::class.java).apply {
+                        action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
+                        putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
+                        putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
+                    },
                     immutable,
-                ),
-            )
+                )
+            }
+            builder.addAction(0, words.text(NativeText.ACTION_DONE), doneIntent)
         }
 
         applyChronometer(context, builder, topic, state, ackedAtMillis, countdownEndMillis)

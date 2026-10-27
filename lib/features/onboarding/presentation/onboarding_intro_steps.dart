@@ -23,7 +23,7 @@ class OnboardingHowItRingsScreen extends StatelessWidget {
 }
 
 /// The widgets step (/onboarding/widgets): the home screen widgets, marked as
-/// a Hosted feature. It is optional. A flow lists it where it wants it, and
+/// a Pro feature. It is optional. A flow lists it where it wants it, and
 /// the button finishes it like any other step, whatever comes next.
 class OnboardingWidgetsScreen extends StatelessWidget {
   const OnboardingWidgetsScreen({super.key});

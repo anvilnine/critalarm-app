@@ -1,18 +1,22 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
+import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
@@ -25,22 +29,29 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_host.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -91,7 +102,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   late final LocalReminderBindings _reminders = LocalReminderBindings(
     scheduler: getIt<LocalReminderScheduler>(),
     notices: getIt<InAppNoticeRepository>(),
-    readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+    readHoldsHosted: () => getIt<AccountRepository>().readHoldsHosted(),
     focus: getIt<AlarmFocus>(),
     navigate: _openPath,
     openUrl: (url) async {
@@ -104,9 +115,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
+  StreamSubscription<LanguageState>? _languageSub;
+
   late final QuickActionBindings _quickActions = QuickActionBindings(
     topics: getIt<TopicsCubit>(),
     navigate: _openPath,
+    localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
@@ -114,10 +128,13 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// another tab is a `go` so the tab bar moves with the user. Everything
   /// else is a push, so the confirm screen and the paywall close back to
   /// where the user was.
-  void _openPath(String tapped) {
-    // A reminder or a widget tap names the shipped paywall. This is where
-    // it learns what that paywall is set to open.
-    final path = resolvePaywallLocation(tapped);
+  void _openPath(String tapped) => unawaited(_openResolvedPath(tapped));
+
+  Future<void> _openResolvedPath(String tapped) async {
+    // A reminder or a widget tap names the raw paywall path. This is where
+    // it learns which paywall that is and which layout it opens.
+    final path = await resolvePaywallLocationWhenReady(tapped);
+    if (!mounted) return;
     final from = _router.routerDelegate.currentConfiguration.uri.toString();
     if (opensWithGo(path, from: from)) {
       _router.go(path);
@@ -149,6 +166,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     routeChanges: _router.routerDelegate,
     incidentChanges: getIt<IncidentsCubit>().stream,
     open: _openCropper,
+    openPaywall: _openSoundPaywall,
     showMessage: (message) {
       // A failed audio share never talks over an alarm.
       if (getIt<AlarmFocus>().on) return;
@@ -183,17 +201,37 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
+  /// A file shared in while own sounds are locked. The file is already
+  /// deleted, and this opens the paywall the sound list would. Never over
+  /// an alarm, and never a second one over a paywall that is already up.
+  void _openSoundPaywall(FeatureDecision decision) {
+    if (getIt<AlarmFocus>().on) return;
+    final location = paywallLocationFor(decision, LockSource.sounds);
+    if (location == null) return;
+    openPaywallOnce(_router, location);
+  }
+
   StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(getIt<LanguageCubit>().synchronizeNative());
+    _languageSub = getIt<LanguageCubit>().stream.listen((_) {
+      getIt<TopicsCubit>().refreshTranslations();
+      getIt<IncidentsCubit>().refreshTranslations();
+    });
     _push.start();
     _reminders.start();
     // Sign-in, sign-out, a linked provider and an account delete all bump
     // this. Re-plan from what is left right away.
-    appAccountIdentityChanges.addListener(_replan);
+    appAccountIdentityChanges
+      ..addListener(_replan)
+      ..addListener(_checkAccountNotes);
+    // A registration saved or an identity reset is the account changing
+    // under the notes the paid features keep.
+    getIt<DeviceIdentityStore>().changes.addListener(_checkAccountNotes);
     appPlanChanges.addListener(_replan);
     // Planning waits while a Feature Guide is up, so plan the
     // moment one ends rather than on the next resume.
@@ -204,24 +242,63 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
       _checkAppIcon();
+      _stopRingsHandledElsewhere();
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
+    getIt<SoundLockSync>().start();
+    // Made now, so it knows the plan was read before an alarm asks it.
+    getIt<ChallengeGate>();
+    getIt<ChallengeFlagSync>().start();
+    // Made now too, and it notes each sure answer about the plan.
+    getIt<AlarmStyleGate>().start();
+    // The own photo is decoded now, ahead of any alarm: the alarm screen
+    // never reads a file or decodes while it rings.
+    unawaited(getIt<OwnAlarmLookKeeper>().start());
     _autoDelete();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    getIt<EasyLocalizationLanguageHost>().attach(context);
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    unawaited(getIt<LanguageCubit>().followSystemLocale());
+  }
+
+  @override
   void dispose() {
+    getIt<EasyLocalizationLanguageHost>().detach();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_push.dispose());
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
-    appAccountIdentityChanges.removeListener(_replan);
+    unawaited(_languageSub?.cancel());
+    appAccountIdentityChanges
+      ..removeListener(_replan)
+      ..removeListener(_checkAccountNotes);
+    getIt<DeviceIdentityStore>().changes.removeListener(_checkAccountNotes);
     appPlanChanges.removeListener(_replan);
     unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
+    unawaited(getIt<SoundLockSync>().dispose());
+    unawaited(getIt<ChallengeFlagSync>().dispose());
+    unawaited(getIt<AlarmStyleGate>().dispose());
     super.dispose();
+  }
+
+  /// The own sounds lock, the challenge flags and the note the alarm looks
+  /// keep each belong to one account, so they are read again when the
+  /// account changes. Each check starts by taking away what was written
+  /// for another account.
+  void _checkAccountNotes() {
+    unawaited(getIt<SoundLockSync>().check());
+    unawaited(getIt<ChallengeFlagSync>().check());
+    unawaited(getIt<AlarmStyleGate>().check());
   }
 
   @override
@@ -232,12 +309,38 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());
+    // A plan that could not be read at a background launch can be read now.
+    unawaited(getIt<SoundLockSync>().check());
+    unawaited(getIt<ChallengeFlagSync>().check());
+    unawaited(getIt<AlarmStyleGate>().check());
     unawaited(_retryFailedLaunchCalls());
+    _stopRingsHandledElsewhere();
+    // The alarm screen, if it is up and ringing, asks about its own
+    // incident. The sweep above leaves that one to it.
+    unawaited(CriticalAlarmCubit.current?.recheck());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.
     unawaited(getIt<BackgroundConnect>().retryNow());
     _autoDelete();
     _checkAppIcon();
+  }
+
+  /// A ring left on this phone for an incident another device already
+  /// answered stops here, on launch and on every resume. The alarm screen
+  /// checks the incident it shows itself, so it is left to do that and to
+  /// say why the phone went quiet.
+  void _stopRingsHandledElsewhere() {
+    unawaited(
+      getIt<IncidentAlarmController>().stopRingsHandledElsewhere(
+        skip: (incidentId) {
+          final screen = CriticalAlarmCubit.current;
+          if (screen == null || screen.isClosed) return false;
+          // Still loading: it is about to check its own incident.
+          if (screen.state.status == CriticalAlarmStatus.loading) return true;
+          return screen.state.incident?.id == incidentId;
+        },
+      ),
+    );
   }
 
   /// A Pro icon goes back to the default once Pro has ended, including an

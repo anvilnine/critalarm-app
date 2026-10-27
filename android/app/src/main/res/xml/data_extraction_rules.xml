@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and later. Nothing this app keeps goes into a Google account
+     backup, and nothing is copied when a phone is set up from another phone.
+
+     The app's main preferences file holds this phone's identity (its device
+     id and device token, the saved session, the acknowledgements still
+     waiting) next to every flag written on a sure plan answer, and the files
+     folder holds the person's own alarm photo and own alarm sounds. A new
+     phone has to start as a phone the relay has never seen, so every domain
+     is left out, in both sections.
+
+     The device-transfer section is not optional: on Android 12 and later
+     android:allowBackup="false" stops the cloud backup and does not stop a
+     phone to phone transfer. Keep the two lists the same. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

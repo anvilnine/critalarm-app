@@ -69,7 +69,9 @@ class EstablishApiSessionUsecase {
     final mode = ServerMode.fromWireValue(info.mode);
     final relay = Uri.parse(info.relayUrl);
     final server = Uri.parse(info.baseUrl);
-    final usesDeviceToken = mode != ServerMode.selfhosted;
+    // How to connect, not a plan: only a server with accounts registers
+    // the device.
+    final usesDeviceToken = mode != ServerMode.selfhosted; // access-ok: connect
     final previous = await _sessions.read();
     final held = await _identity.read();
     // The relay of the saved session is where the device token goes from

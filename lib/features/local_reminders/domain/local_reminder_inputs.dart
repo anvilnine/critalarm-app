@@ -105,7 +105,7 @@ final class LocalReminderInputs {
     this.morningAfterDone = const {},
     this.isSetupDone = true,
     this.proShouldAsk = false,
-    this.isPaid = false,
+    this.holdsHosted = false,
     this.proDismissCount = 0,
     this.proLaterAt,
     this.consentAskedAt,
@@ -175,7 +175,7 @@ final class LocalReminderInputs {
 
   /// `ProAskRules.shouldAsk()` at plan time.
   final bool proShouldAsk;
-  final bool isPaid;
+  final bool holdsHosted;
   final int proDismissCount;
 
   /// `InAppNoticeRepository.getProAskLaterAt()`.

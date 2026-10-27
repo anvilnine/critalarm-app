@@ -255,6 +255,36 @@ void main() {
       expect(second.isHeld, isTrue);
     });
 
+    test('the accepted mark is kept, and a record without it reads as only '
+        'started', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final kept = SharedPrefsProPackStore(prefs);
+      const scope = ProPackScope(accountId: 'acc_1', relay: '');
+
+      await kept.writePending(PendingProPackConfirm(scope: scope, since: now));
+      expect(kept.readPending()?.storeAccepted, isFalse);
+      expect(
+        prefs.getString(SharedPrefsProPackStore.pendingKey),
+        isNot(contains('store_accepted')),
+      );
+
+      await kept.writePending(
+        PendingProPackConfirm(scope: scope, since: now, storeAccepted: true),
+      );
+      final read = kept.readPending();
+      expect(read?.storeAccepted, isTrue);
+      expect(read?.scope, scope);
+      expect(read?.since.isAtSameMomentAs(now), isTrue);
+
+      // Only a written true counts.
+      await prefs.setString(
+        SharedPrefsProPackStore.pendingKey,
+        '{"account_id":"acc_1","relay":"","since":1,"store_accepted":"yes"}',
+      );
+      expect(kept.readPending()?.storeAccepted, isFalse);
+    });
+
     test('a kept value that does not read back counts as none', () async {
       SharedPreferences.setMockInitialValues({
         SharedPrefsProPackStore.key: 'not json',
@@ -975,47 +1005,6 @@ void main() {
       now = now.add(ProPackAccess.refreshWindow);
       await access.confirmWithStore();
       expect(api.refreshCalls, 6);
-    });
-  });
-
-  group('a 403 pack error', () {
-    test(
-      'for the Pro pack reads the list again, even inside the window',
-      () async {
-        api.packs = const PacksAnswer(packs: [proPack]);
-        final access = await build();
-        await access.refresh();
-        expect(access.isHeld, isTrue);
-
-        api.packs = const PacksAnswer(packs: []);
-        await access.relayRefused('pro');
-        expect(api.reads, 2);
-        expect(access.isHeld, isFalse);
-      },
-    );
-
-    test('does not take the pack away when the list still has it', () async {
-      api.packs = const PacksAnswer(packs: [proPack]);
-      final access = await build();
-      await access.refresh();
-      await access.relayRefused('pro');
-      expect(access.isHeld, isTrue);
-    });
-
-    test('keeps the pack when the list cannot be read', () async {
-      api.packs = const PacksAnswer(packs: [proPack]);
-      final access = await build();
-      await access.refresh();
-      api.packs = null;
-      await access.relayRefused('pro');
-      expect(access.isHeld, isTrue);
-    });
-
-    test('for another pack does nothing', () async {
-      final access = await build();
-      await access.relayRefused('team');
-      await access.relayRefused(null);
-      expect(api.reads, 0);
     });
   });
 

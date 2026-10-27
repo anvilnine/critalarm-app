@@ -1,8 +1,14 @@
+import 'package:critalarm/core/paywall/paywall_headline.dart';
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/domain/history_own.dart';
+import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
+import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/widgets.dart';
@@ -20,31 +26,59 @@ class PaywallOffer {
     required this.product,
     required this.benefits,
     required this.source,
+    this.lead,
   });
 
   /// The offer of the paywall route above [context].
   factory PaywallOffer.of(BuildContext context) {
     final info = PaywallRouteInfo.maybeOf(context);
-    final product = BlocProvider.of<PaywallBuyCubit>(context).state.product;
+    return PaywallOffer.from(
+      product: BlocProvider.of<PaywallBuyCubit>(context).state.product,
+      source: info?.source ?? PaywallSource.direct,
+      showsUnbuilt: info?.showsUnbuilt ?? false,
+      lead: info?.lead,
+    );
+  }
+
+  /// The offer for [product]: what this build lists for it, or every
+  /// benefit of it when [showsUnbuilt].
+  ///
+  /// With a [lead], the benefit it names comes first and the rest keep
+  /// their order. A lead for a benefit the product does not list is
+  /// ignored, so a Hosted lead on a Pro paywall changes nothing.
+  factory PaywallOffer.from({
+    required PaywallProduct product,
+    PaywallSource source = PaywallSource.direct,
+    bool showsUnbuilt = false,
+    PaywallLead? lead,
+  }) {
+    final listed = showsUnbuilt
+        ? [
+            for (final b in allPaywallBenefits)
+              if (b.product == product) b,
+          ]
+        : paywallBenefitsFor(product);
+    final applied = paywallLeadIn(listed, lead);
     return PaywallOffer(
       product: product,
-      benefits: info?.showsUnbuilt ?? false
-          ? [
-              for (final b in allPaywallBenefits)
-                if (b.product == product) b,
-            ]
-          : paywallBenefitsFor(product),
-      source: info?.source ?? PaywallSource.direct,
+      benefits: paywallBenefitsLeadFirst(listed, applied),
+      source: source,
+      lead: applied,
     );
   }
 
   final PaywallProduct product;
 
-  /// What to list, in display order. Only benefits this build has.
+  /// What to list, in display order, the lead's benefit first. Only
+  /// benefits this build has.
   final List<PaywallBenefit> benefits;
 
   /// What opened the paywall.
   final PaywallSource source;
+
+  /// The route's lead, when it names a benefit in [benefits]. That
+  /// benefit is the first one. Null otherwise.
+  final PaywallLead? lead;
 
   bool get isHosted => product == PaywallProduct.hosted;
   bool get isPro => product == PaywallProduct.pro;
@@ -62,6 +96,8 @@ class PaywallLayoutScope {
     required this.clock,
     required this.closeOnLeft,
     required this.close,
+    this.intro = PaywallIntroId.none,
+    this.lead,
   });
 
   /// Edge of the square the close cross takes in a top corner of the
@@ -99,6 +135,20 @@ class PaywallLayoutScope {
   /// Closes the paywall, as a tap on the cross does.
   final VoidCallback close;
 
+  /// The intro that plays before this layout on this open. `none` when
+  /// there is none, and when nothing may move, since an intro is then
+  /// skipped. The layout's clock starts at zero as the intro hands over.
+  final PaywallIntroId intro;
+
+  /// The route's lead, when it names one of [benefits]. That benefit is
+  /// the first one. Most layouts only list it first. The reel also reads
+  /// its words.
+  final PaywallLead? lead;
+
+  /// True when the layout comes in under the end of an intro, which ends
+  /// on the mascot. A layout may then shorten or skip its own entrance pop.
+  bool get followsIntro => intro != PaywallIntroId.none;
+
   bool get isHosted => product == PaywallProduct.hosted;
   bool get isPro => product == PaywallProduct.pro;
 
@@ -129,6 +179,8 @@ class PaywallLayoutScopeProvider extends InheritedWidget {
       scope.isCompact != oldWidget.scope.isCompact ||
       scope.source != oldWidget.scope.source ||
       scope.closeOnLeft != oldWidget.scope.closeOnLeft ||
+      scope.intro != oldWidget.scope.intro ||
+      scope.lead != oldWidget.scope.lead ||
       scope.benefits.length != oldWidget.scope.benefits.length;
 }
 
@@ -140,11 +192,34 @@ class PaywallRouteInfo extends InheritedWidget {
     required this.source,
     required super.child,
     this.showsUnbuilt = false,
+    this.lead,
+    this.headline = PaywallHeadlineVariant.none,
+    this.historyOwn,
+    this.leaving,
     super.key,
   });
 
   final PaywallLayoutId layout;
   final PaywallSource source;
+
+  /// The benefit to open on, and the words for it. Null lists the benefits
+  /// in the product's display order.
+  final PaywallLead? lead;
+
+  /// The words for a plan that is ending or ended. Receipt and Wipe read it;
+  /// the other layouts ignore it.
+  final PaywallHeadlineVariant headline;
+
+  /// The person's own alarms for the history picture, when the phone holds
+  /// some older than the Free window. Null draws the made-up rows. Topic
+  /// names in it are drawn on screen and go nowhere else.
+  final HistoryOwn? historyOwn;
+
+  /// What the leaving paywall knows: the day the plan ends, whether the sad
+  /// opening was shown for that day already, and the person's numbers. Null
+  /// on every other paywall. The numbers are drawn on screen and go nowhere
+  /// else.
+  final PaywallLeaving? leaving;
 
   /// A developer view that also lists the benefits this build does not
   /// have yet, to see a layout with the full list.
@@ -153,9 +228,93 @@ class PaywallRouteInfo extends InheritedWidget {
   static PaywallRouteInfo? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PaywallRouteInfo>();
 
+  /// The headline variant of the route above [context]: `none` with no route.
+  static PaywallHeadlineVariant headlineOf(BuildContext context) =>
+      maybeOf(context)?.headline ?? PaywallHeadlineVariant.none;
+
+  /// The leaving part of the route above [context], or null.
+  static PaywallLeaving? leavingOf(BuildContext context) =>
+      maybeOf(context)?.leaving;
+
   @override
   bool updateShouldNotify(PaywallRouteInfo oldWidget) =>
       layout != oldWidget.layout ||
       source != oldWidget.source ||
+      lead != oldWidget.lead ||
+      headline != oldWidget.headline ||
+      historyOwn != oldWidget.historyOwn ||
+      leaving != oldWidget.leaving ||
       showsUnbuilt != oldWidget.showsUnbuilt;
+}
+
+/// No cue and no haptic from anything below it. A thumbnail that plays a
+/// layout puts one above it, so opening a picker makes no sound.
+class PaywallMuted extends InheritedWidget {
+  const PaywallMuted({required super.child, super.key});
+
+  /// Whether what is under [context] stays silent. Safe in `initState`.
+  static bool of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<PaywallMuted>() != null;
+
+  @override
+  bool updateShouldNotify(PaywallMuted oldWidget) => false;
+}
+
+/// What the step after a purchase tells the layout under it.
+class PaywallThanksHandle {
+  /// True from the frame the product is known to be held: the step after
+  /// the purchase has the screen and the sound from then on, so the layout
+  /// under it plays no cue of its own.
+  bool hasBegun = false;
+
+  /// The cue the buy block plays when the purchase is confirmed: null when
+  /// the host plays the sound itself (the score of an outro, started with
+  /// its clock). Unset means the purchase cue. Set by the host, read by the
+  /// buy block on that frame.
+  PaywallCue? Function()? purchaseCue;
+}
+
+/// Says that something of its own plays after a purchase on the layout
+/// below. `PaywallThanksHost` puts it there, and only when a version is
+/// set and built.
+///
+/// The buy block reads it: with one above, the block does not change to
+/// its own done state when the purchase is confirmed, so nothing under the
+/// show moves as it starts.
+class PaywallThanksPlay extends InheritedWidget {
+  const PaywallThanksPlay({
+    required this.handle,
+    required super.child,
+    super.key,
+  });
+
+  final PaywallThanksHandle handle;
+
+  /// Whether a step after the purchase takes over from the buy block
+  /// under [context].
+  static bool takesOver(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PaywallThanksPlay>() != null;
+
+  /// The cue the buy block plays for a confirmed purchase under [context]:
+  /// [PaywallCue.bought], or null when the step after the purchase plays
+  /// the sound itself. It does not listen.
+  static PaywallCue? purchaseCueOf(BuildContext context) {
+    final ask = context
+        .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+        ?.handle
+        .purchaseCue;
+    return ask == null ? PaywallCue.bought : ask();
+  }
+
+  /// Whether that step has begun. It does not listen, so it is safe on a
+  /// tick.
+  static bool hasBegun(BuildContext context) =>
+      context
+          .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+          ?.handle
+          .hasBegun ??
+      false;
+
+  @override
+  bool updateShouldNotify(PaywallThanksPlay oldWidget) => false;
 }

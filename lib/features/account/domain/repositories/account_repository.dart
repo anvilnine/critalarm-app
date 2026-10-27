@@ -60,11 +60,13 @@ abstract interface class AccountRepository {
   /// the later calls do nothing.
   Future<void> recoverFromDeadCredential();
 
-  /// Whether this device is registered on a paid tier.
+  /// Whether this install holds Hosted: what `Holdings` says, once its
+  /// sources have been read. The repository decides nothing here. It
+  /// passes the answer on to the classes that already hold it.
   ///
   /// The delete prompt has to say that a store subscription keeps billing
   /// after the account is gone, and only somebody paying needs to read it.
-  Future<bool> readIsPaid();
+  Future<bool> readHoldsHosted();
 
   /// Which mode the server runs in. `selfhosted` has no accounts to sign in
   /// to, so none of the sign-in UI is offered there.

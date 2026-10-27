@@ -8,9 +8,11 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.
 import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:flutter/foundation.dart';
 
 /// Holds what the prefs would, and counts the writes.
@@ -93,7 +95,7 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
     this.offerSkips = true,
   });
 
-  /// The offer step is switched off unless a test turns it on.
+  /// The offer step shows nothing unless a test turns it on.
   bool offerSkips;
   bool connected;
   bool permissions;
@@ -117,19 +119,25 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
 }
 
 /// An offer gate over plain values. With nothing passed in, no source has a
-/// value and the step is off. The defaults below describe a user who would
-/// be shown the offer once it is switched on.
+/// value and the bundled one, on, is in use. The defaults below describe a
+/// user who would be shown the offer. The store has said nothing unless a
+/// test passes [sale]; [started] collects the products a check started for.
 OnboardingOfferGate offerGateFor({
   String? developerJson,
   String? remoteJson,
   ServerMode? serverMode = ServerMode.hosted,
-  Set<String> builtLayoutKeys = const {'plain'},
+  Set<String> builtLayoutKeys = const {'hero', 'reel'},
   String? accountId = 'acct_1',
   bool holdsPro = false,
   bool holdsHosted = false,
   bool isSetupComplete = false,
   List<String> flowSteps = const [],
   Set<String> completedSteps = const {},
+  SetupUse? use,
+  String? topicName,
+  OfferSaleAnswer sale = OfferSaleAnswer.unknown,
+  List<PaywallProduct>? started,
+  bool usesDemoStore = false,
 }) => OnboardingOfferGate(
   readDeveloperJson: () => developerJson,
   readRemoteJson: () => remoteJson,
@@ -141,6 +149,11 @@ OnboardingOfferGate offerGateFor({
   isSetupComplete: () async => isSetupComplete,
   readFlowSteps: () => flowSteps,
   readCompletedSteps: () => completedSteps,
+  readUse: ({required isReplay}) => use,
+  readTopicName: () => topicName,
+  readSale: (_) => sale,
+  startSale: (product) => started?.add(product),
+  readUsesDemoStore: () => usesDemoStore,
 );
 
 /// A source whose flow can be swapped while a test runs.

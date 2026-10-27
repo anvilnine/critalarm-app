@@ -1,10 +1,13 @@
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/list_rows.dart';
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
+import 'package:critalarm/features/history/domain/week_bars.dart';
+import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
-import 'package:critalarm/features/search/domain/search_layout.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
+import 'package:critalarm/features/search/presentation/widgets/search_docs_row.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_no_matches.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_recent_row.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_section_label.dart';
@@ -15,14 +18,26 @@ import 'package:flutter/rendering.dart';
 
 /// The results, sitting directly above the search bar.
 ///
-/// No card behind them: the rows sit straight on the blurred screen, grow
-/// upward from the bar as matches come in, with the best match nearest the
-/// bar, and stop at [maxHeight], the full
-/// height of the display. The list itself runs edge to edge: [bottomInset]
-/// keeps the last row clear of the bar and [topInset] the first row clear of
-/// the status bar, and past that the rows scroll under both instead of being
-/// clipped short of them. With nothing to show it takes no space at all, so
-/// the bar sits alone over the blurred screen.
+/// No card behind the panel as a whole: each section sits straight on the
+/// blurred screen and grows upward from the bar as matches come in. The best
+/// section is the one nearest the bar. Inside a section things read like any
+/// other list, its title on top and its best match first under it.
+///
+/// Each section wears the look of the screen its results come from, so the
+/// kind of thing is clear before the words are read:
+/// - Topics: the face cards of the Topics list.
+/// - History: the tick and bang rows of History, on a white sheet with
+///   hairlines between them.
+/// - Settings: the arrow rows of Settings, on a white sheet.
+/// - Documentation: flat rows on a cream sheet with an arrow pointing out,
+///   because they open in the browser.
+///
+/// It stops at [maxHeight], the full height of the display. The list runs edge
+/// to edge: [bottomInset] keeps the nearest section clear of the bar and
+/// [topInset] the farthest clear of the status bar, and past that the sections
+/// scroll under both instead of being clipped short of them. With nothing to
+/// show it takes no space at all, so the bar sits alone over the blurred
+/// screen.
 class SearchPanel extends StatelessWidget {
   const SearchPanel({
     required this.state,
@@ -36,8 +51,14 @@ class SearchPanel extends StatelessWidget {
     super.key,
   });
 
-  /// Gap between rows, matching the Topics and History lists.
+  /// Gap between the topic cards, matching the Topics list.
   static const double _rowGap = 10;
+
+  /// Gap between one section and the next.
+  static const double _sectionGap = Spacing.s4;
+
+  /// The inner padding of the History, Settings and docs sheets.
+  static const EdgeInsets _sheetPadding = EdgeInsets.all(6);
 
   final SearchState state;
 
@@ -52,18 +73,18 @@ class SearchPanel extends StatelessWidget {
   /// Called with one of the example queries on the no-results card.
   final ValueChanged<String> onTapExample;
 
-  /// Room left above the first row once the list is long enough to reach the
-  /// top, so it starts below the status bar and scrolls up under it.
+  /// Room left above the farthest section once the list is long enough to
+  /// reach the top, so it starts below the status bar and scrolls up under it.
   final double topInset;
 
-  /// Room left below the last row for the search bar, and the keyboard when
-  /// it is up. Rows scroll through it, under the bar.
+  /// Room left below the nearest section for the search bar, and the keyboard
+  /// when it is up. Sections scroll through it, under the bar.
   final double bottomInset;
 
   @override
   Widget build(BuildContext context) {
-    final children = _children(context);
-    if (children.isEmpty) return const SizedBox.shrink();
+    final sections = _sections(context);
+    if (sections.isEmpty) return const SizedBox.shrink();
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -73,15 +94,20 @@ class SearchPanel extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         // The keyboard stays up while the user reads through the rows. It
-        // goes away only when they drag the list down, towards it.
+        // goes away only when they drag the list down, towards it. The list
+        // is reversed, so that drag scrolls it in the reverse direction.
         child: NotificationListener<UserScrollNotification>(
           onNotification: (notification) {
-            if (notification.direction == ScrollDirection.forward) {
+            if (notification.direction == ScrollDirection.reverse) {
               FocusManager.instance.primaryFocus?.unfocus();
             }
             return false;
           },
-          child: ListView(
+          // Reversed so the first section sits by the bar and the list opens
+          // scrolled to it. Each section is one child drawn top to bottom, so
+          // its title stays above its rows.
+          child: ListView.separated(
+            reverse: true,
             shrinkWrap: true,
             padding: EdgeInsets.fromLTRB(
               Spacing.s1,
@@ -89,28 +115,23 @@ class SearchPanel extends StatelessWidget {
               Spacing.s1,
               bottomInset + Spacing.s1,
             ),
-            children: children,
+            itemCount: sections.length,
+            separatorBuilder: (_, _) => const SizedBox(height: _sectionGap),
+            itemBuilder: (_, i) => sections[i],
           ),
         ),
       ),
     );
   }
 
-  List<Widget> _children(BuildContext context) {
+  /// One widget per section, nearest the bar first.
+  List<Widget> _sections(BuildContext context) {
     if (state.isBrowsing) {
       // Nothing typed and nothing searched before: show nothing rather than a
       // box explaining what search is. The bar's own hint already says it.
       if (state.recent.isEmpty) return const <Widget>[];
 
-      return <Widget>[
-        for (final query in state.recent)
-          SearchRecentRow(query: query, onTap: () => onTapRecent(query)),
-        SearchSectionLabel(
-          LocaleKeys.search_recent_header.tr(),
-          action: LocaleKeys.search_recent_clear.tr(),
-          onAction: onClearRecent,
-        ),
-      ];
+      return <Widget>[_recentCard(context)];
     }
 
     if (state.hasNoMatches) {
@@ -123,57 +144,169 @@ class SearchPanel extends StatelessWidget {
     }
 
     return <Widget>[
-      for (final entry in nearestFirstEntries(state.sections))
-        switch (entry) {
-          SearchHeaderEntry(:final kind) => SearchSectionLabel(
-            _sectionTitle(kind),
-          ),
-          SearchRowEntry(:final result) => Padding(
-            padding: const EdgeInsets.only(bottom: _rowGap),
-            child: _row(context, result),
-          ),
-        },
+      for (final MapEntry(key: kind, value: results) in state.sections.entries)
+        _Section(
+          label: SearchSectionLabel(_sectionTitle(kind)),
+          child: _body(context, kind, results),
+        ),
     ];
   }
 
-  /// Draws a result with the row its own screen uses.
-  ///
-  /// A topic wears its face and its ringing state, the way the Topics list
-  /// draws it. A past alarm carries the same sentence, with the day where
-  /// History puts the time. Settings and documentation only open something
-  /// else, so they get no face and an arrow, matching the Settings screen.
-  Widget _row(BuildContext context, SearchResult result) {
-    void open() => onTapResult(result);
+  /// Past searches on one card, the same white sheet the results sit on, so
+  /// the blur behind never washes the text. Label and Clear are inside it.
+  Widget _recentCard(BuildContext context) {
+    final colors = context.appColors;
 
-    return switch (result.kind) {
-      SearchResultKind.topic => AppListRow(
-        name: result.title,
-        meta: result.subtitle,
-        faceState: result.faceState,
-        isCrit: result.isCrit,
-        isQuiet: result.isQuiet,
-        onTap: open,
+    return AppSheet(
+      padding: _sheetPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SearchSectionLabel(
+            LocaleKeys.search_recent_header.tr(),
+            action: LocaleKeys.search_recent_clear.tr(),
+            onAction: onClearRecent,
+            padding: const EdgeInsets.fromLTRB(14, Spacing.s2, 0, Spacing.s1),
+          ),
+          for (var i = 0; i < state.recent.length; i++) ...<Widget>[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: ColoredBox(
+                  color: colors.hairline,
+                  child: const SizedBox(height: 1),
+                ),
+              ),
+            SearchRecentRow(
+              query: state.recent[i],
+              onTap: () => onTapRecent(state.recent[i]),
+            ),
+          ],
+        ],
       ),
-      SearchResultKind.history => AppListRow(
-        name: result.title,
-        meta: result.subtitle,
-        faceState: result.faceState,
-        timeText: result.timeText,
-        onTap: open,
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    SearchResultKind kind,
+    List<SearchResult> results,
+  ) {
+    return switch (kind) {
+      SearchResultKind.topic => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          for (var i = 0; i < results.length; i++) ...<Widget>[
+            if (i > 0) const SizedBox(height: _rowGap),
+            _topicRow(results[i]),
+          ],
+        ],
       ),
-      SearchResultKind.settings || SearchResultKind.docs => AppListRow(
-        name: result.title,
-        meta: result.subtitle,
-        faceState: null,
-        trailing: _trailingGlyph(context, GlyphType.arrow),
-        onTap: open,
+      SearchResultKind.history => AppSheet(
+        padding: _sheetPadding,
+        child: _hairlined(context, results, _historyRow),
+      ),
+      SearchResultKind.settings => AppSheet(
+        padding: _sheetPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (var i = 0; i < results.length; i++) ...<Widget>[
+              // Settings spaces its rows apart on the sheet, with no lines.
+              if (i > 0) const SizedBox(height: Spacing.s2),
+              _settingsRow(context, results[i]),
+            ],
+          ],
+        ),
+      ),
+      SearchResultKind.docs => AppSheet(
+        padding: _sheetPadding,
+        color: context.appColors.cream,
+        child: _hairlined(context, results, _docsRow),
       ),
     };
   }
 
-  static Widget _trailingGlyph(BuildContext context, GlyphType glyph) {
-    return AppGlyph(glyph, size: 16, color: context.appColors.ink3);
+  /// [results] drawn with [row], a hairline between each, as History does.
+  static Widget _hairlined(
+    BuildContext context,
+    List<SearchResult> results,
+    Widget Function(SearchResult) row,
+  ) {
+    final colors = context.appColors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (var i = 0; i < results.length; i++) ...<Widget>[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: ColoredBox(
+                color: colors.hairline,
+                child: const SizedBox(height: 1),
+              ),
+            ),
+          row(results[i]),
+        ],
+      ],
+    );
   }
+
+  /// A topic wears its face and its ringing state, the way the Topics list
+  /// draws it.
+  Widget _topicRow(SearchResult result) => AppListRow(
+    name: result.title,
+    meta: result.subtitle,
+    faceState: result.faceState,
+    isCrit: result.isCrit,
+    isQuiet: result.isQuiet,
+    onTap: () => onTapResult(result),
+  );
+
+  /// A past alarm is the History row, with the day where History puts the
+  /// time, because the results have no day headings to sit under.
+  Widget _historyRow(SearchResult result) {
+    final mark = result.historyMark ?? HistoryMark.answered;
+    return HistoryRow(
+      name: result.title,
+      meta: result.subtitle,
+      time: result.timeText ?? '',
+      mark: mark,
+      markLabel: _markLabel(mark),
+      onTap: () => onTapResult(result),
+    );
+  }
+
+  /// A setting only opens another screen, so it gets no face and an arrow,
+  /// matching the Settings screen. The grey line names the screen it is on.
+  Widget _settingsRow(BuildContext context, SearchResult result) => AppListRow(
+    name: result.title,
+    meta: result.subtitle,
+    faceState: null,
+    trailing: AppGlyph(
+      GlyphType.arrow,
+      size: 16,
+      color: context.appColors.ink3,
+    ),
+    onTap: () => onTapResult(result),
+  );
+
+  Widget _docsRow(SearchResult result) => SearchDocsRow(
+    title: result.title,
+    group: result.subtitle,
+    onTap: () => onTapResult(result),
+  );
+
+  static String _markLabel(HistoryMark mark) => switch (mark) {
+    HistoryMark.answered => LocaleKeys.history_hero_mark_answered.tr(),
+    HistoryMark.notAnswered => LocaleKeys.history_hero_mark_not_answered.tr(),
+    HistoryMark.ringing => LocaleKeys.history_hero_mark_ringing.tr(),
+  };
 
   static String _sectionTitle(SearchResultKind kind) => switch (kind) {
     SearchResultKind.topic => LocaleKeys.search_section_topics.tr(),
@@ -181,4 +314,21 @@ class SearchPanel extends StatelessWidget {
     SearchResultKind.settings => LocaleKeys.search_section_settings.tr(),
     SearchResultKind.docs => LocaleKeys.search_section_docs.tr(),
   };
+}
+
+/// A section title with its rows under it.
+class _Section extends StatelessWidget {
+  const _Section({required this.label, required this.child});
+
+  final Widget label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[label, child],
+    );
+  }
 }

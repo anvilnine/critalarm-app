@@ -54,4 +54,50 @@ void main() {
       expect(amount(-30), 0);
     });
   });
+
+  group('AppScreenScaffold.backedTopHeight', () {
+    test('a screen with a top bar backs that bar under the status bar', () {
+      expect(
+        AppScreenScaffold.backedTopHeight(hasTopBar: true, safeTop: 47),
+        47 + AppScreenScaffold.topBarHeight,
+      );
+    });
+
+    test('a top bar is backed whatever the host draws', () {
+      expect(
+        AppScreenScaffold.backedTopHeight(
+          hasTopBar: true,
+          safeTop: 24,
+          barOverTop: 40,
+        ),
+        24 + AppScreenScaffold.topBarHeight,
+      );
+    });
+
+    test('a screen with no top bar backs the bar its host draws over it', () {
+      expect(
+        AppScreenScaffold.backedTopHeight(
+          hasTopBar: false,
+          safeTop: 24,
+          barOverTop: AppScreenScaffold.topBarHeight,
+        ),
+        24 + AppScreenScaffold.topBarHeight,
+      );
+    });
+
+    test('a screen with no top bar and no host bar backs nothing', () {
+      expect(
+        AppScreenScaffold.backedTopHeight(hasTopBar: false, safeTop: 24),
+        isNull,
+      );
+      expect(
+        AppScreenScaffold.backedTopHeight(
+          hasTopBar: false,
+          safeTop: 24,
+          barOverTop: 0,
+        ),
+        isNull,
+      );
+    });
+  });
 }

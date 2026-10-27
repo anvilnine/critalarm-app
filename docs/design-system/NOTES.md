@@ -81,9 +81,9 @@ Two more came later and are listed after them.
   - `calm`: the cobalt tint with a cobalt stroke, for a row that is done.
 
   Text on it takes `onCanvas`: muted text on the light `crit` tone is 3.85:1.
-- Cream and the stroke: a cream card on the yellow canvas has no stroke (`AppNoticeCard`, tone
-  `AppNoticeTone.cream`). A cream card on the white sheet has the ink stroke
-  (`AppHighlightTone.choice`), because cream on white does not separate by itself.
+- Cream and the stroke: a cream card on the yellow canvas has no stroke. A cream card on the white
+  sheet has the ink stroke (`AppCreamCard.isOnSheet`, drawn as `AppHighlightTone.choice`), because
+  cream on white does not separate by itself.
 - `AppAnimatedTick`: use it when one thing finishes while the user watches, such as a first message
   landing or a checklist step. The ring fills, then the tick draws, once, in 600 ms. For a static
   "included" mark in a list, use `AppFeatureBullet`. The caller wraps it in `Semantics` with a
@@ -124,6 +124,65 @@ Two more came later and are listed after them.
 - `AppScreenScaffold.bodyClearsBottomBar`: turn it on for a body that fills the screen with a
   `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
   room of its own after it, and the page scrolls only once the body is taller than the screen.
+
+- `AppValueRow` and `AppPickerRow` (`picker_rows.dart`): one-line settings rows on the same cream
+  surface as `AppToggleRow`. `AppValueRow` is a title, an optional value at the trailing end and
+  an arrow, for a row that opens a page. `AppPickerRow` is for a choice from a list: it shows the
+  current value and opens a bottom sheet of `AppSheetOptionRow`s that closes on a pick. A list of
+  more than six opens the sheet that scrolls. Use a toggle row for on and off, never a picker.
+
+## Status screen components
+
+All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce motion switch.
+
+- `AppHeroScene`: the face, a card slot that overlaps it by 10 points, and a breathing disc and
+  ring. It stacks below 340 points, above text scale 1.3 and in a list pane. Nothing plays when it
+  first appears.
+- `AppStatusCard`: the dark card (label, numeral, pips, foot, action). `AppStatusCard.strip` is
+  the Settings version with a 40 point face. In the dark theme the panel is 1.06 to 1 against the
+  canvas, so the card takes `surfaceElevated` and a `panelLine` outline instead.
+- `AppReadinessPips`: one pip per check, fine, look, broken or open. The numeral carries the count.
+- `AppInboxSheet` and `AppInboxRow`: one white sheet, hairlines between rows, a face only for a
+  topic that needs a look. The bell and moon labels come from the caller.
+- `AppCreamCard` (in `notice_card.dart`): title, body, an outline action and an optional bare cross.
+  On the white sheet it takes the ink stroke.
+- `AppStatCard`: History's week of seven bars and two numbers on the same dark surface. The numbers
+  sit in a column on the left and the bars fill the right. On a narrow card or above the chrome text
+  limit the bars go on top, spread across the width. A day the plan does not reach (`isHidden`)
+  has a letter and no bar.
+
+## Personalize components
+
+All in `lib/design/components/`, each in the gallery at `/gallery` (section "Passes") and drawn by
+`tool/capture_passes.dart`. Colours come from `passToneFor` (`lib/design/tokens/pass_tones.dart`),
+durations from `AppDurations.pass` (520 ms) and `AppDurations.passPage` (600 ms), the curve from
+`AppCurves.passGrow`.
+
+- `AppPassCard`: one setting as a coloured card: a mono label, an optional tag, the value in large
+  type, a thumbnail slot. It is a button for a screen reader and gives `onTap` the `PassOrigin` of
+  the card. Use it for a setting that opens its own page. The look pass computes its own `PassTone`
+  from the look in use.
+- `AppPassStack` and `PassStackLayout`: the header row (ringed back button and title) and the cards,
+  overlapped under text scale 1.3 and a flat column from 1.3. Scrolls, and sits in a column up to 560
+  wide. It places the `PassOriginScope` its cards read.
+- `AppPassBands` and `PassBandsLayout`: the compact stack, for a page that has its own header and
+  scroll (a topic page). The same `AppPassCard`s, with no header, no back ring and no scroll. It takes
+  the width it is given. Cards are 190 points tall with a 104 point step, and the last card is 124
+  tall with all four corners round (`PassCardEnd`). From text scale 1.3 the cards stand in a column
+  with a 10 point gap, the same switch `AppPassStack` makes. A card in a band drops to one line of
+  value when a second line would run under the next card. An empty value draws nothing and keeps the
+  height of one line. `hasInsets` sits the cards 12 points in from the sides, for a parent that does
+  not pad. A tap gives the caller a `PassOrigin`, as in `AppPassStack`. `PassId.tokens` is the
+  cream tone for a Tokens card, and the Personalize root never lists it.
+- `AppPassPage`: the page a card grows into. A ground in the pass colour, a pinned top row with the
+  back ring (and an optional trailing control), the header block (label, state word, tag, value,
+  foot), body slivers and an optional bottom bar. It sets an `AmbientOverride` of the same colour, so
+  the canvas under it matches. Build every pass page on it so the grow can hand off the header.
+- `PassPage`, `PassOrigin`, `PassFrame`, `passFrameAt`: the go_router page and the pure function that
+  places each part of the grow. A page with an origin grows out of the card and shrinks back into it.
+  A page without one (a deep link, a restored route) takes the shell's slide and fade. Under reduce
+  motion the finished page fades in over the root and nothing grows.
+- `AmbientAppProfiles.passGround(color)`: a one-colour ambient profile with the shapes cleared.
 
 ## Glyphs and motion curves
 

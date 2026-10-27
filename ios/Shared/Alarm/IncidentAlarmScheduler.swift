@@ -11,6 +11,58 @@ import ActivityKit
 import SwiftUI
 #endif
 
+/// The one thing native code knows about plans: whether own sounds (a
+/// picked file, a recording, a cropped clip, a file shared in) are locked.
+///
+/// Dart writes the flag and native reads it. Nothing here works a plan out.
+/// The app copies the flag into the app group with the sound choices
+/// (`SoundLibrary.publishChoices`), because the notification extension
+/// cannot read the app's own defaults.
+///
+/// Locked only swaps an own sound for a bundled one. A flag that is
+/// missing, or that does not read as a boolean, is "not locked", so nothing
+/// about it can stop an alarm from making a sound.
+///
+/// It lives in this file because every target that schedules an alarm
+/// compiles it.
+public enum OwnSoundLock {
+    static let appGroup = "group.app.critalarm"
+
+    /// Where Dart writes the flag: `alarm_sound_own_locked` through
+    /// `shared_preferences`, which adds the `flutter.` prefix.
+    /// `ownSoundsLockedKey` in lib/core/sound/own_sound_rule.dart.
+    static let appKey = "flutter.alarm_sound_own_locked"
+
+    /// The copy in the app group, written on every publish.
+    static let groupKey = "sound_own_locked"
+
+    /// Every own sound has an id, and so a file name, starting with this.
+    /// `ownSoundIdPrefix` in lib/core/sound/own_sound_rule.dart.
+    static let ownPrefix = "user_"
+
+    static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
+
+    /// True for the id or the file name of an own sound.
+    static func isOwn(_ name: String) -> Bool { name.hasPrefix(ownPrefix) }
+
+    /// The flag as last published. False when there is none.
+    static func isLocked(in defaults: UserDefaults?) -> Bool {
+        defaults?.bool(forKey: groupKey) ?? false
+    }
+
+    /// The name an alarm or a local notification rings with.
+    ///
+    /// [requested] is what the caller was handed, [bundled] the file that
+    /// ships in the app. No name, an empty one, or an own sound while own
+    /// sounds are locked all answer [bundled], so the answer is always a
+    /// name and the last resort is always in the bundle.
+    static func alarmSound(requested: String?, ownLocked: Bool, bundled: String) -> String {
+        guard let requested, !requested.isEmpty else { return bundled }
+        if ownLocked && isOwn(requested) { return bundled }
+        return requested
+    }
+}
+
 /// Schedules, re-schedules and cancels the AlarmKit alarm for one incident.
 ///
 /// The alarm is a three-second countdown rather than a clock alarm, because
@@ -99,18 +151,22 @@ public enum IncidentAlarmScheduler {
         try? AlarmManager.shared.cancel(id: id)
 
         // Two buttons, and they are not the same thing. Stop silences and
-        // sets the next ring; "I'm up" opens the app to the active incident
+        // sets the next ring; "Open Crit Alarm" opens the app to the active incident
         // without stopping the alarm in the background. The secondary button is
         // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
+        //
+        // The button words are looked up here, in the language picked in the
+        // app, and handed over as finished text: AlarmKit draws them outside
+        // this process, where only the phone's language is known.
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: title),
             stopButton: AlarmButton(
-                text: "Stop",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmStop)),
                 textColor: .white,
                 systemImageName: "bell.slash.fill"
             ),
             secondaryButton: AlarmButton(
-                text: "I'm up",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmOpenApp)),
                 textColor: .white,
                 systemImageName: "checkmark.circle.fill"
             ),
@@ -125,19 +181,28 @@ public enum IncidentAlarmScheduler {
             tintColor: Color(red: 0.961, green: 0.278, blue: 0.227)  // crit #F5473A
         )
 
+        // An own sound never rings here while own sounds are locked. The
+        // name handed in is still what gets stored below, so it rings again
+        // once they are open.
+        let ringing = OwnSoundLock.alarmSound(
+            requested: sound,
+            ownLocked: OwnSoundLock.isLocked(in: OwnSoundLock.groupDefaults),
+            bundled: soundName
+        )
+
         let configuration = AlarmManager.AlarmConfiguration.timer(
             duration: delay,
             attributes: attributes,
             stopIntent: StopAlarmIntent(incidentId: incidentId),
             secondaryIntent: OpenIncidentIntent(incidentId: incidentId),
-            sound: .named(sound ?? soundName)
+            sound: .named(ringing)
         )
 
         do {
             _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
             NSLog(
                 "CritAlarmAlarm: alarm_scheduled incident_id=%@ alarm_id=%@ in=%.0fs sound=%@",
-                incidentId, id.uuidString, delay, sound ?? soundName
+                incidentId, id.uuidString, delay, ringing
             )
             PendingIncidentStore.write(
                 incidentId: incidentId, topic: topic, server: server,

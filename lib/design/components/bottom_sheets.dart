@@ -1,8 +1,12 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// A top-rounded surface card pinned to the bottom, with a drag handle.
@@ -16,6 +20,7 @@ class AppBottomSheet extends StatelessWidget {
     this.title,
     this.subtitle,
     this.scrollController,
+    this.bottomRoom = 0,
     super.key,
   });
 
@@ -23,6 +28,23 @@ class AppBottomSheet extends StatelessWidget {
   final String? subtitle;
   final Widget child;
   final ScrollController? scrollController;
+
+  /// How much of the 18 under the content the content's own last tap box
+  /// uses: a small button ends in a box taller than the button, and the
+  /// button stays where it was when the sheet gives up the same room.
+  final double bottomRoom;
+
+  /// The height the card keeps for itself around its content when it has no
+  /// title: the top padding, the handle and its gap, and the room under the
+  /// content with the safe area and the keyboard. A sheet that has to fit a
+  /// short screen subtracts it from the room it may fill.
+  static double chromeHeight(BuildContext context) =>
+      10 +
+      5 +
+      14 +
+      18 +
+      MediaQuery.paddingOf(context).bottom +
+      MediaQuery.viewInsetsOf(context).bottom;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +96,7 @@ class AppBottomSheet extends StatelessWidget {
     // The bottom safe area sits inside the content, not on the card, so the
     // last row scrolls with the list instead of meeting a hard edge above the
     // home indicator.
-    final bottomPadding = 18 + bottomInset + viewInsets;
+    final bottomPadding = 18 - bottomRoom + bottomInset + viewInsets;
 
     final body = scrollController == null
         ? Padding(
@@ -111,6 +133,7 @@ class AppSheetOption<T> {
     this.value,
     this.meta,
     this.glyph,
+    this.badge,
     this.isSelected = false,
     this.isDestructive = false,
   });
@@ -119,6 +142,11 @@ class AppSheetOption<T> {
   final T? value;
   final String? meta;
   final GlyphType? glyph;
+
+  /// A short word that sits at the row's end, such as the plan that unlocks
+  /// the option. The row stays at full colour and a tap still picks it. A
+  /// screen reader hears the label and then this word.
+  final String? badge;
   final bool isSelected;
   final bool isDestructive;
 }
@@ -142,8 +170,17 @@ class AppSheetOptionRow<T> extends StatelessWidget {
         ? Border.all(color: colors.cobalt, width: 1.5)
         : Border.all(color: colors.hairline, width: 1.5);
 
+    final badge = option.badge;
     return Semantics(
       selected: option.isSelected,
+      button: badge == null ? null : true,
+      label: badge == null
+          ? null
+          : LocaleKeys.feature_lock_sheet_option.tr(
+              namedArgs: {'name': option.label, 'plan': badge},
+            ),
+      onTap: badge == null ? null : onTap,
+      excludeSemantics: badge != null,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -198,6 +235,10 @@ class AppSheetOptionRow<T> extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (badge != null) ...[
+                  const SizedBox(width: 8),
+                  ProBadge(label: badge, isLocked: true),
+                ],
               ],
             ),
           ),
@@ -224,6 +265,10 @@ Future<T?> showAppSheet<T>({
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.45),
+    // Under reduce motion the sheet is there on the first frame.
+    sheetAnimationStyle: context.reduceMotion
+        ? AnimationStyle.noAnimation
+        : null,
     builder: (sheetContext) {
       return AppBottomSheet(
         title: title,
@@ -262,6 +307,10 @@ Future<T?> showExpandingSheet<T>({
     useRootNavigator: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.45),
+    // Under reduce motion the sheet is there on the first frame.
+    sheetAnimationStyle: context.reduceMotion
+        ? AnimationStyle.noAnimation
+        : null,
     builder: (sheetContext) {
       return DraggableScrollableSheet(
         initialChildSize: initialChildSize,

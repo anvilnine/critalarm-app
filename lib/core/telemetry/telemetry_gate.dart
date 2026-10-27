@@ -19,19 +19,19 @@ abstract interface class TelemetryGate {
   // ignore: avoid_positional_boolean_parameters
   Future<void> setCrashlyticsEnabled(bool enabled);
 
+  /// Reports one error to crash reporting. Dropped unless the user switched
+  /// crash reporting on. What is sent is the error's type and its stack
+  /// trace, never its message: a message can quote a server answer or an
+  /// address, and those can hold the user's own words.
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  });
+
   /// Records one analytics event. Dropped unless the user opted in.
   Future<void> logEvent(String name, [Map<String, Object?>? parameters]);
-
-  /// Whether the paywall feature is enabled via Remote Config.
-  bool get paywallEnabled;
-
-  /// Alias for [paywallEnabled].
-  bool get isPaywallEnabled;
-
-  /// Which paywall layout Remote Config picked for this device, as the raw
-  /// string under `paywall_variant`. `PaywallVariant.fromKey` turns an
-  /// unknown value into the default, so this getter never has to validate.
-  String get paywallVariantKey;
 
   /// The setup flow Remote Config holds under `onboarding_flow`, as the raw
   /// JSON text. Empty when none has been set or fetched yet. Answers at once
@@ -42,47 +42,20 @@ abstract interface class TelemetryGate {
   /// `onboarding_offer`, as the raw JSON text. Empty when none has been set
   /// or fetched yet. Answers at once and never waits for the network.
   String get onboardingOfferJson;
-  /// What Remote Config holds under `paywall_layout`: what the Hosted
-  /// paywall opens. Empty, the default, is the paywall that ships today.
-  /// `PaywallLayoutSetting.parse` reads it, and an unknown value counts as
-  /// empty. Already activated, never fetched here.
-  String get paywallLayoutKey;
-
-  /// The same for Pro, under `pro_paywall_layout`. Empty is the Pro sheet.
-  String get proPaywallLayoutKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
 class NoopTelemetryGate implements TelemetryGate {
   const NoopTelemetryGate({
-    this.paywallEnabled = false,
-    this.paywallVariantKey = '',
     this.onboardingFlowJson = '',
     this.onboardingOfferJson = '',
-    this.paywallLayoutKey = '',
-    this.proPaywallLayoutKey = '',
   });
 
   @override
   final String onboardingOfferJson;
 
   @override
-  final bool paywallEnabled;
-
-  @override
-  final String paywallVariantKey;
-
-  @override
   final String onboardingFlowJson;
-
-  @override
-  final String paywallLayoutKey;
-
-  @override
-  final String proPaywallLayoutKey;
-
-  @override
-  bool get isPaywallEnabled => paywallEnabled;
 
   @override
   Future<void> initialize() async {}
@@ -92,6 +65,14 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setCrashlyticsEnabled(bool enabled) async {}
+
+  @override
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  }) async {}
 
   @override
   Future<void> logEvent(

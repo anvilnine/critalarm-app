@@ -49,8 +49,25 @@ void main() {
         'home_assistant': 'home-assistant',
         'cron': 'cron',
         'ci': 'ci',
+        'curl': null,
         'other': null,
       },
+    );
+  });
+
+  test('curl has a label, no suggested name and sits between CI and other', () {
+    final curl = ToolTemplate.fromId('curl');
+    expect(curl, ToolTemplate.curl);
+    expect(curl!.label, 'curl');
+    expect(curl.suggestedName, isNull);
+    const order = ToolTemplate.values;
+    expect(
+      order.indexOf(ToolTemplate.ci) + 1,
+      order.indexOf(ToolTemplate.curl),
+    );
+    expect(
+      order.indexOf(ToolTemplate.curl) + 1,
+      order.indexOf(ToolTemplate.other),
     );
   });
 
@@ -117,6 +134,16 @@ void main() {
       );
       expect(second.pick.selected, isNull);
       expect(second.name, 'cron');
+    });
+
+    test('curl picks itself and leaves the name', () {
+      final result = tapToolTemplate(
+        current: const ToolTemplatePick(),
+        currentName: 'prod-db',
+        tapped: ToolTemplate.curl,
+      );
+      expect(result.name, 'prod-db');
+      expect(result.pick.selected, ToolTemplate.curl);
     });
 
     test('Other picks itself and fills nothing', () {

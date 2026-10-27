@@ -1,9 +1,11 @@
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof/proof_tag.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
 
@@ -14,8 +16,18 @@ import 'package:flutter/material.dart';
 /// one arrangement, so they meet exactly wherever the divider stands, and
 /// the mascot is one character with the line across its face.
 ///
+/// Bubbles rise on the product's side only. When the mascot leans toward
+/// the product the divider goes with it, so the line stays on its face.
+///
 /// A sideways drag anywhere on the stage moves the divider. A tap plays
 /// the current turn again, and the loop waits under a finger.
+///
+/// [reversed] is the run for a plan that is leaving. The stage opens in
+/// full colour and the grey side grows from the left until it covers the
+/// whole stage, then pulls back to rest on Crit. The colour side's pictures
+/// change to what Free has while the grey covers them, so the frame it
+/// rests on reads as a loss. Crit is drawn once over both sides, yellow,
+/// still and upright, sad and then calm: he is never filtered or clipped.
 class WipeStage extends StatefulWidget {
   const WipeStage({
     required this.player,
@@ -24,8 +36,22 @@ class WipeStage extends StatefulWidget {
     required this.after,
     required this.label,
     required this.showing,
+    this.lead = 0,
+    this.reversed = false,
+    this.leavingCritical,
     super.key,
   });
+
+  /// How many critical topics the person has, for the topics picture of the
+  /// run for a plan that is leaving: see `wipeLeavingCriticalFor`.
+  final int? leavingCritical;
+
+  /// The head start of the sweep after an intro. See `wipeLeadFor`.
+  final double lead;
+
+  /// The run for a plan that is leaving: grey covers the colour, and Crit
+  /// is drawn on his own, in his own colour.
+  final bool reversed;
 
   final HeroPlayer player;
   final Size size;
@@ -46,6 +72,9 @@ class WipeStage extends StatefulWidget {
 class _WipeStageState extends State<WipeStage> {
   static const double _tagGap = 10;
   static const double _tagTop = 2;
+
+  /// How far in from the card's right edge its tag stands.
+  static const double _cardTagInset = 14;
 
   /// The least room a tag keeps from the screen's edge.
   static const double _tagEdge = 8;
@@ -68,10 +97,13 @@ class _WipeStageState extends State<WipeStage> {
     settle: _settle,
     grip: _hand,
     isStill: _player.isStill,
+    lead: widget.lead,
+    reversed: widget.reversed,
   );
 
+  // A finger takes hold of the divider: one tick of the ratchet.
   void _grab(DragStartDetails details) {
-    AppHaptics.selection();
+    playPaywallCue(PaywallCue.ratchet);
     setState(() {
       _hand = WipeGrip(
         at: _at(_player.clock.value).clamp(wipeMin, wipeMax),
@@ -82,23 +114,28 @@ class _WipeStageState extends State<WipeStage> {
   void _drag(DragUpdateDetails details) {
     final hand = _hand;
     if (hand == null || widget.size.width <= 0) return;
-    setState(() {
-      _hand = hand.moved((details.primaryDelta ?? 0) / widget.size.width);
-    });
+    final moved = hand.moved((details.primaryDelta ?? 0) / widget.size.width);
+    // A tick at every tenth of the width, a knock at either stop.
+    final cue = wipeDragCue(hand.at, moved.at);
+    if (cue != null) playPaywallCue(cue);
+    setState(() => _hand = moved);
   }
 
+  // The finger lets go and the divider stays where it was left.
   void _letGo() {
     final hand = _hand;
-    if (hand == null) return;
+    if (hand == null || hand.releasedAt != null) return;
+    playPaywallCue(PaywallCue.snap);
     setState(() => _hand = hand.released(_player.clock.value));
   }
 
   /// A screen reader moves the divider a tenth of the stage at a time.
   void _nudge(double by) {
     final at = _at(_player.clock.value).clamp(wipeMin, wipeMax);
-    setState(() {
-      _hand = WipeGrip(at: at).moved(by).released(_player.clock.value);
-    });
+    final moved = WipeGrip(at: at).moved(by);
+    final cue = wipeDragCue(at, moved.at);
+    if (cue != null) playPaywallCue(cue);
+    setState(() => _hand = moved.released(_player.clock.value));
   }
 
   String _share(double at) =>
@@ -131,6 +168,7 @@ class _WipeStageState extends State<WipeStage> {
         size: size,
         label: widget.showing,
         arrange: wipeArrangementFor,
+        motion: wipeMotion,
       );
     }
 
@@ -165,98 +203,228 @@ class _WipeStageState extends State<WipeStage> {
     final fadeFrom = full <= 0 ? 0.0 : (1 - _fade / full).clamp(0.0, 1.0);
     final tail = [tones.ink, tones.ink, tones.ink.withValues(alpha: 0)];
     final tailStops = [0.0, fadeFrom, 1.0];
+    // On the dark canvas the two sides are nearly one black, so the
+    // product's side gets a wash of the yellow. The Free side is drawn
+    // over it and keeps none.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final wash = colors.yellow.withValues(alpha: isDark ? 0.14 : 0);
+    final lead = widget.lead;
+    final reversed = widget.reversed;
 
-    return HeroTouchArea(
-      player: _player,
-      swipes: false,
-      child: RawGestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        gestures: {
-          HeroStageDragRecognizer:
-              GestureRecognizerFactoryWithHandlers<HeroStageDragRecognizer>(
-                HeroStageDragRecognizer.new,
-                (drag) => drag
-                  ..onStart = _grab
-                  ..onUpdate = _drag
-                  ..onEnd = ((_) => _letGo())
-                  ..onCancel = _letGo,
-              ),
-        },
-        child: RepaintBoundary(
-          child: PaywallClockBuilder(
-            clock: _player.clock,
-            builder: (context, t, _) {
-              final frame = _player.frameAt(t);
-              final seconds = _player.stageSeconds(t);
-              final isStill = _player.isStill;
-              final at = _at(t);
-              final x = at * size.width;
-              // The line and its grip come in as the sweep starts, the
-              // tags as it ends.
-              final line = isStill || _hand != null
-                  ? 1.0
-                  : phase(t, wipeSweepStart - 0.1, wipeSweepStart + 0.1);
-              final tags = isStill || _hand != null
-                  ? 1.0
-                  : phase(t, wipeSweepEnd - 0.3, wipeSweepEnd);
+    // What the colour side draws in place of its pictures once the grey
+    // has covered them: the picture Free has, held on one moment, as the
+    // grey side draws it, with the colour left in.
+    Widget heldPicture(
+      BuildContext context,
+      HeroScene scene,
+      Size box,
+      double? playFrom,
+    ) {
+      final preview = scene.preview;
+      if (preview == null) return SizedBox.fromSize(size: box);
+      return MediaQuery(
+        data: media,
+        child: PaywallStill(
+          isStill: false,
+          child: PaywallLayoutScopeProvider(
+            scope: frozenScope,
+            child: PaywallPreview(
+              preview,
+              sizeClass: PaywallPreviewClass.large,
+              size: box,
+              playFrom: wipeFrozenSecond - wipeFreeOffsetFor(preview),
+              leavingCritical: widget.leavingCritical,
+            ),
+          ),
+        ),
+      );
+    }
 
-              return Semantics(
-                container: true,
-                slider: true,
-                label: [widget.label, ?widget.showing(frame)].join('. '),
-                // How much of the stage is the product's.
-                value: _share(at),
-                increasedValue: _share(at - 0.1),
-                decreasedValue: _share(at + 0.1),
-                onIncrease: () => _nudge(-0.1),
-                onDecrease: () => _nudge(0.1),
-                child: ExcludeSemantics(
-                  child: SizedBox.fromSize(
-                    size: size,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        HeroStage(
-                          size: size,
-                          frame: frame,
-                          seconds: seconds,
-                          bleedTop: bleed,
-                          arrange: wipeArrangementFor,
-                        ),
-                        Positioned(
-                          left: 0,
-                          top: -bleed,
-                          width: size.width,
-                          height: full,
-                          child: ClipRect(
-                            clipper: _LeftOf(x),
-                            child: ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (bounds) => LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: tail,
-                                stops: tailStops,
-                              ).createShader(bounds),
-                              child: ColorFiltered(
-                                colorFilter: muted,
-                                child: ColoredBox(
-                                  color: tones.background,
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: bleed),
-                                    child: MediaQuery(
-                                      data: media,
-                                      child: PaywallStill(
-                                        isStill: false,
-                                        child: PaywallLayoutScopeProvider(
-                                          scope: frozenScope,
-                                          child: HeroStage(
-                                            size: size,
-                                            frame: wipeFreeFrame(frame),
-                                            seconds: seconds,
-                                            bleedTop: bleed,
-                                            arrange: wipeArrangementFor,
+    return PaywallCueScore(
+      clock: _player.clock,
+      // A divider the hand has taken does not sweep in.
+      beats: _hand == null
+          ? wipeSweepCues(lead: lead, reversed: reversed)
+          : const [],
+      child: HeroTouchArea(
+        player: _player,
+        swipes: false,
+        child: RawGestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          gestures: {
+            HeroStageDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<HeroStageDragRecognizer>(
+                  HeroStageDragRecognizer.new,
+                  (drag) => drag
+                    ..onStart = _grab
+                    ..onUpdate = _drag
+                    ..onEnd = ((_) => _letGo())
+                    ..onCancel = _letGo,
+                ),
+          },
+          child: RepaintBoundary(
+            child: PaywallClockBuilder(
+              clock: _player.clock,
+              builder: (context, t, _) {
+                final frame = _player.frameAt(t);
+                final seconds = _player.stageSeconds(t);
+                final isStill = _player.isStill;
+                final home = _at(t);
+                // Home on the mascot, the divider leans with it.
+                final leans =
+                    !reversed && !isStill && (home - _settle).abs() < 1e-6;
+                final x =
+                    home * size.width +
+                    (leans
+                        ? wipeLeanShiftAt(
+                            frame.bob,
+                            mascot: arrangement.mascot.width,
+                          )
+                        : 0);
+                final at = size.width <= 0 ? home : x / size.width;
+                // The line and its grip come in as the sweep starts, the
+                // tags as it ends.
+                final sweepStart = reversed
+                    ? wipeBackSweepStart
+                    : wipeSweepStart;
+                final sweepEnd = reversed ? wipeBackSweepEnd : wipeSweepEnd;
+                final line = isStill || _hand != null
+                    ? 1.0
+                    : phase(t + lead, sweepStart - 0.1, sweepStart + 0.1);
+                final tags = isStill || _hand != null
+                    ? 1.0
+                    : phase(t + lead, sweepEnd - 0.3, sweepEnd);
+                // The grey has covered the colour side's pictures, or
+                // nothing may move: they show what Free has.
+                final isStruck =
+                    reversed &&
+                    wipeLeavingStruckAt(t, isStill: isStill, lead: lead);
+                final face = wipeLeavingFaceAt(t + lead, atRest: isStill);
+                final cardTag = arrangement.kind == HeroStageKind.pair
+                    ? wipeCardTagFor(
+                        reversed: reversed,
+                        isStruck: isStruck,
+                        date: widget.before,
+                      )
+                    : null;
+
+                return Semantics(
+                  container: true,
+                  slider: true,
+                  label: [widget.label, ?widget.showing(frame)].join('. '),
+                  // How much of the stage is the product's.
+                  value: _share(at),
+                  increasedValue: _share(at - 0.1),
+                  decreasedValue: _share(at + 0.1),
+                  onIncrease: () => _nudge(-0.1),
+                  onDecrease: () => _nudge(0.1),
+                  child: ExcludeSemantics(
+                    child: SizedBox.fromSize(
+                      size: size,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          if (isDark)
+                            Positioned(
+                              left: 0,
+                              top: -bleed,
+                              width: size.width,
+                              height: full,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      wash,
+                                      wash,
+                                      wash.withValues(alpha: 0),
+                                    ],
+                                    stops: tailStops,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          HeroStage(
+                            size: size,
+                            frame: frame,
+                            seconds: seconds,
+                            bleedTop: bleed,
+                            arrange: wipeArrangementFor,
+                            hidesMascot: reversed,
+                            sceneBuilder: isStruck ? heldPicture : null,
+                            motion: reversed ? wipeLeavingMotion : wipeMotion,
+                          ),
+                          // The card shows the struck frame under "Today":
+                          // a tag with the date of the grey side says it is
+                          // the day after the plan ends. It sits under the
+                          // grey, so it is there when the grey leaves.
+                          if (cardTag != null)
+                            Positioned(
+                              top: arrangement.card.top,
+                              right:
+                                  size.width -
+                                  arrangement.card.right +
+                                  _cardTagInset,
+                              child: IgnorePointer(
+                                child: ExcludeSemantics(
+                                  child: FractionalTranslation(
+                                    translation: const Offset(0, -0.65),
+                                    child: ProofLabelTag(
+                                      text: cardTag,
+                                      isCompact: scope.isCompact,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            left: 0,
+                            top: -bleed,
+                            width: size.width,
+                            height: full,
+                            child: ClipRect(
+                              clipper: _LeftOf(x),
+                              child: ShaderMask(
+                                blendMode: BlendMode.dstIn,
+                                shaderCallback: (bounds) => LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: tail,
+                                  stops: tailStops,
+                                ).createShader(bounds),
+                                child: ColorFiltered(
+                                  colorFilter: muted,
+                                  child: ColoredBox(
+                                    color: tones.background,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: bleed),
+                                      child: MediaQuery(
+                                        data: media,
+                                        child: PaywallStill(
+                                          isStill: false,
+                                          child: PaywallLayoutScopeProvider(
+                                            scope: frozenScope,
+                                            child: HeroStage(
+                                              size: size,
+                                              frame: wipeFreeFrame(frame),
+                                              seconds: seconds,
+                                              bleedTop: bleed,
+                                              arrange: wipeArrangementFor,
+                                              // The leaving run draws the
+                                              // same picture on both sides.
+                                              sceneBuilder: reversed
+                                                  ? heldPicture
+                                                  : null,
+                                              // The disc alone: nothing
+                                              // rises on this side.
+                                              showsShapes: false,
+                                              hidesMascot: reversed,
+                                              motion: reversed
+                                                  ? wipeLeavingMotion
+                                                  : wipeFreeMotion,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -266,82 +434,110 @@ class _WipeStageState extends State<WipeStage> {
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          left: x - 1,
-                          top: -bleed,
-                          width: 2,
-                          height: full,
-                          child: Opacity(
-                            opacity: line,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: tail,
-                                  stops: tailStops,
+                          // Crit on his own over both sides, so the grey
+                          // never reaches his face. Still, upright and
+                          // level: no bob, no lean, no hop.
+                          if (reversed)
+                            Positioned.fromRect(
+                              rect: arrangement.mascot,
+                              child: HeroMascot(
+                                size: arrangement.mascot.width,
+                                face: face.face,
+                                fromFace: face.from,
+                                faceBlend: face.blend,
+                                entranceStyle: wipeMotion.entrance,
+                                entrance: frame.entrance,
+                              ),
+                            ),
+                          Positioned(
+                            left: x - 1,
+                            top: -bleed,
+                            width: 2,
+                            height: full,
+                            child: Opacity(
+                              opacity: line,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: tail,
+                                    stops: tailStops,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          right: size.width - x + _tagGap,
-                          top: _tagTop,
-                          child: Opacity(
-                            opacity:
-                                tags *
-                                wipeTagShow(
-                                  x - _tagEdge,
-                                  beforeWidth + _tagGap,
-                                ),
-                            child: Text(
-                              widget.before,
-                              style: tagStyle,
-                              textScaler: scaler,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: x + _tagGap,
-                          top: _tagTop,
-                          child: Opacity(
-                            opacity:
-                                tags *
-                                wipeTagShow(
-                                  size.width - _crossRoom - x,
-                                  afterWidth + _tagGap * 2,
-                                ),
-                            child: Text(
-                              widget.after,
-                              style: tagStyle,
-                              textScaler: scaler,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: x - _grip / 2,
-                          top: gripY - _grip / 2,
-                          child: Opacity(
-                            opacity: line,
-                            child: CustomPaint(
-                              size: const Size.square(_grip),
-                              painter: _GripPainter(
-                                fill: colors.cream,
-                                ink: colors.ink,
+                          Positioned(
+                            right: size.width - x + _tagGap,
+                            top: _tagTop,
+                            child: Opacity(
+                              opacity:
+                                  tags *
+                                  wipeTagShow(
+                                    x - _tagEdge,
+                                    beforeWidth + _tagGap,
+                                  ) *
+                                  // With the grey over the whole stage the
+                                  // date would sit under the close cross.
+                                  (reversed
+                                      ? phase(
+                                          size.width - _crossRoom - x + _tagGap,
+                                          0,
+                                          16,
+                                        )
+                                      : 1.0),
+                              child: Text(
+                                widget.before,
+                                style: tagStyle,
+                                textScaler: scaler,
+                                maxLines: 1,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            left: x + _tagGap,
+                            top: _tagTop,
+                            child: Opacity(
+                              opacity:
+                                  tags *
+                                  wipeTagShow(
+                                    size.width - _crossRoom - x,
+                                    afterWidth + _tagGap * 2,
+                                  ),
+                              child: Text(
+                                widget.after,
+                                style: tagStyle,
+                                textScaler: scaler,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: wipeGripLeftFor(
+                              x,
+                              width: size.width,
+                              grip: _grip,
+                            ),
+                            top: gripY - _grip / 2,
+                            child: Opacity(
+                              opacity: line,
+                              child: CustomPaint(
+                                size: const Size.square(_grip),
+                                painter: _GripPainter(
+                                  fill: colors.cream,
+                                  ink: colors.ink,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

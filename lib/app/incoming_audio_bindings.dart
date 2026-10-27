@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
@@ -22,6 +23,7 @@ class AppIncomingAudioBindings {
     required this._routeChanges,
     required this._incidentChanges,
     required this._open,
+    required this._openPaywall,
     required this._showMessage,
   });
 
@@ -30,6 +32,9 @@ class AppIncomingAudioBindings {
   final Listenable _routeChanges;
   final Stream<Object?> _incidentChanges;
   final void Function(PickedSoundFile file) _open;
+
+  /// A shared file met the lock on own sounds. The file is already gone.
+  final void Function(FeatureDecision decision) _openPaywall;
   final void Function(String message) _showMessage;
 
   final List<StreamSubscription<Object?>> _subscriptions = [];
@@ -37,6 +42,7 @@ class AppIncomingAudioBindings {
   void start() {
     _subscriptions
       ..add(_incoming.toOpen.listen(_open))
+      ..add(_incoming.locked.listen(_openPaywall))
       ..add(_incoming.rejected.listen((r) => _showMessage(messageFor(r))))
       ..add(_host.incomingAudio.listen((f) => unawaited(_incoming.receive(f))))
       ..add(_incidentChanges.listen((_) => _retry()));

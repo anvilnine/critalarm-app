@@ -1,3 +1,5 @@
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
@@ -19,6 +21,14 @@ enum PaywallBenefitId {
   const PaywallBenefitId(this.key);
 
   final String key;
+
+  /// The benefit [key] names, or null for a missing or unknown key.
+  static PaywallBenefitId? fromKey(String? key) {
+    for (final id in values) {
+      if (id.key == key) return id;
+    }
+    return null;
+  }
 }
 
 /// One thing a product gives, as a layout draws it: a title, one short line
@@ -31,9 +41,13 @@ class PaywallBenefit {
     required this.lineKey,
     required this.previewId,
     required this.inThisBuild,
+    this.feature,
   });
 
   final PaywallBenefitId id;
+
+  /// The feature this benefit stands for, where it has one in the table.
+  final AppFeature? feature;
   final PaywallProduct product;
   final String titleKey;
 
@@ -55,8 +69,15 @@ class PaywallBenefit {
 
 /// The Hosted line and preview for each benefit a layout lists under
 /// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
-/// listed: home screen widgets are sold with Pro on these layouts. A
-/// benefit taken out of `HostedBenefit.all` drops off every layout too.
+/// listed. A benefit taken out of `HostedBenefit.all` drops off every
+/// layout too.
+///
+/// Every benefit of `HostedBenefit.all` has an entry, the weekly delivery
+/// check included. It is listed under Hosted because Hosted unlocks it
+/// (`featureTable`), and its line is the one the Weekly check screen
+/// reads. The step after a purchase reads each Hosted benefit's plan facts
+/// by id (`limitsHostedFor`); the weekly check has no number on either
+/// plan, so it has no limits row there.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -79,23 +100,47 @@ const _hostedParts =
         LocaleKeys.paywall_kit_benefits_app_icons_line,
         PaywallPreviewId.appIcons,
       ),
+      HostedBenefitId.weeklyCheck: (
+        PaywallBenefitId.reliabilityChecks,
+        LocaleKeys.weekly_check_what_line,
+        PaywallPreviewId.weeklyCheck,
+      ),
     };
 
-/// What Pro gives, in display order. [PaywallBenefit.inThisBuild] is true
-/// only for what the app has today: the widgets and the weekly delivery
-/// check. The other three are written and drawn, and a layout picks each
-/// one up the day its switch is turned on.
-const _proBenefits = <PaywallBenefit>[
+/// Every benefit Pro has a title, a line and a preview for, in display
+/// order. The table picks from it and never reorders it: a benefit is
+/// listed under Pro while Pro unlocks its feature.
+///
+/// [PaywallBenefit.inThisBuild] is true only for what the app has today,
+/// as its line and its preview show it: the widgets, the person's own
+/// alarm sounds (a file picked or a recording), the alarm screen looks
+/// (four fixed ones and the person's own photo) and the wake-up
+/// challenges (type the topic name, type the alert title, a sum, a
+/// scratch card and a shake, each one asked before "At my desk", with
+/// "I'm up" always stopping the ring).
+///
+/// The weekly delivery check keeps its entry here and the table leaves it
+/// out, because Hosted is what unlocks it now. Hosted lists it from
+/// `_hostedParts` under the same benefit id, so no layout lists it twice.
+///
+/// The app icons have no entry here yet, though Pro unlocks them too. A
+/// layout lists them under Hosted only. An entry for them needs the step
+/// after a purchase to tell the two products apart first: it reads a
+/// benefit's plan facts by id (`limitsHostedFor`) and expects none for a
+/// Pro benefit.
+const _proDisplayOrder = <PaywallBenefit>[
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
+    feature: AppFeature.wakeUpChallenges,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_title,
     lineKey: LocaleKeys.paywall_kit_benefits_wake_up_challenges_line,
     previewId: PaywallPreviewId.wakeUpChallenges,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
   PaywallBenefit(
     id: PaywallBenefitId.widgets,
+    feature: AppFeature.widgets,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_widgets_title,
     lineKey: LocaleKeys.paywall_kit_benefits_widgets_line,
@@ -104,6 +149,7 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.reliabilityChecks,
+    feature: AppFeature.weeklyCheck,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_reliability_checks_title,
     lineKey: LocaleKeys.paywall_kit_benefits_reliability_checks_line,
@@ -112,38 +158,68 @@ const _proBenefits = <PaywallBenefit>[
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customSounds,
+    feature: AppFeature.ownSounds,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_custom_sounds_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_sounds_line,
     previewId: PaywallPreviewId.customSounds,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customAlarmScreens,
+    feature: AppFeature.alarmScreenStyles,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_line,
     previewId: PaywallPreviewId.customAlarmScreens,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
 ];
 
-/// Every benefit of both products, Hosted first, each in display order.
-/// Includes the ones this build does not have yet. Only the tests and the
-/// developer pages read this: a layout reads [paywallBenefitsFor].
-List<PaywallBenefit> get allPaywallBenefits => [
-  for (final hosted in HostedBenefit.all)
+/// Every benefit of both products under [table], Hosted first, each in
+/// display order. Includes the ones this build does not have yet.
+///
+/// Hosted lists each benefit of [hostedBenefitsIn] that has a line and a
+/// preview here. Pro lists each of its benefits whose feature Pro unlocks
+/// in [table].
+List<PaywallBenefit> allPaywallBenefitsIn(
+  Map<AppFeature, FeatureRule> table,
+) => [
+  for (final hosted in hostedBenefitsIn(table))
     if (_hostedParts[hosted.id] case (final id, final lineKey, final preview))
       PaywallBenefit(
         id: id,
+        feature: hosted.feature,
         product: PaywallProduct.hosted,
         titleKey: hosted.compareLabelKey,
         lineKey: lineKey,
         previewId: preview,
         inThisBuild: true,
       ),
-  ..._proBenefits,
+  for (final pro in _proDisplayOrder)
+    if (table[pro.feature]?.unlockedBy.contains(Holding.pro) ?? false) pro,
 ];
+
+/// [allPaywallBenefitsIn] for the app's own table. Only the tests and the
+/// developer pages read this: a layout reads [paywallBenefitsFor].
+List<PaywallBenefit> get allPaywallBenefits =>
+    allPaywallBenefitsIn(featureTable);
+
+/// Whether [product] has a benefit of its own named [id] under [table]: a
+/// benefit it lists, in this build or not. A place whose lead [product]
+/// has no benefit for opens the product's plan place, never the Sheet or
+/// the layout of a place that sells something else.
+bool paywallProductHasBenefitIn(
+  Map<AppFeature, FeatureRule> table,
+  PaywallProduct product,
+  PaywallBenefitId id,
+) => allPaywallBenefitsIn(
+  table,
+).any((benefit) => benefit.product == product && benefit.id == id);
+
+/// [paywallProductHasBenefitIn] for the app's own table.
+bool paywallProductHasBenefit(PaywallProduct product, PaywallBenefitId id) =>
+    paywallProductHasBenefitIn(featureTable, product, id);
 
 /// What a layout lists for [product]: the benefits this build really has,
 /// in display order.

@@ -1,7 +1,10 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Priority levels corresponding to ntfy / Crit Alarm server specification.
@@ -68,35 +71,35 @@ class AppPriorityChip extends StatelessWidget {
 
     final (label, glyph, bg, fg, border) = switch (priority) {
       PriorityLevel.min => (
-        'min',
+        LocaleKeys.dart_labels_priority_min.tr(),
         GlyphType.down,
         Colors.transparent,
         colors.ink2,
         Border.all(color: colors.hairline, width: 1.5),
       ),
       PriorityLevel.low => (
-        'low',
+        LocaleKeys.dart_labels_priority_low.tr(),
         GlyphType.minus,
         colors.ash,
         colors.ink2,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.defaultPriority => (
-        'default',
+        LocaleKeys.dart_labels_priority_default.tr(),
         GlyphType.dot,
         colors.yellow,
         colors.inkFixed,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.high => (
-        'high',
+        LocaleKeys.dart_labels_priority_high.tr(),
         GlyphType.up,
         colors.high,
         colors.inkFixed,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.critical => (
-        'critical',
+        LocaleKeys.dart_labels_priority_critical.tr(),
         GlyphType.bell,
         colors.crit,
         colors.inkFixed,
@@ -165,11 +168,14 @@ class AppPriorityChip extends StatelessWidget {
 
     return Semantics(
       button: true,
+      selected: isSelected,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: chip,
+          // The pill stays 26 or 30 high. The tap area is a 48 box around it.
+          child: AppTapTarget(child: chip),
         ),
       ),
     );
@@ -246,22 +252,27 @@ class AppDeliveryChip extends StatelessWidget {
 ///
 /// With [onTap] it is a button, and [isSelected] marks the picked one in a
 /// row of them: a filled cobalt pill with white text, which reads without
-/// colour because the fill and the text both flip. [hitSlop] grows the tap
-/// area above and below the pill without growing what is drawn, for a row of
-/// chips a thumb has to hit.
+/// colour because the fill and the text both flip. The pill is 26 high, drawn,
+/// and sits in the middle of a transparent 48 box that takes the tap, so a
+/// row of them is 48 high.
+///
+/// [hitSlop] is for a wrapped group of chips that cannot give each one 48:
+/// the chips sit 8 apart, and 48 boxes would move the second row. It grows
+/// the tap area by that much above and below the pill instead, and leaves
+/// the chip short of 48.
 class AppTopicChip extends StatelessWidget {
   const AppTopicChip({
     required this.text,
     this.onTap,
     this.isSelected = false,
-    this.hitSlop = 0,
+    this.hitSlop,
     super.key,
   });
 
   final String text;
   final VoidCallback? onTap;
   final bool isSelected;
-  final double hitSlop;
+  final double? hitSlop;
 
   @override
   Widget build(BuildContext context) {
@@ -310,10 +321,10 @@ class AppTopicChip extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: hitSlop == 0
-              ? chip
+          child: hitSlop == null
+              ? AppTapTarget(child: chip)
               : Padding(
-                  padding: EdgeInsets.symmetric(vertical: hitSlop),
+                  padding: EdgeInsets.symmetric(vertical: hitSlop!),
                   child: chip,
                 ),
         ),

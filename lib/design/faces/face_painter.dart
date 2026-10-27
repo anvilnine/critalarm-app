@@ -22,11 +22,12 @@ class FacePainter extends CustomPainter {
     this.shape,
   });
 
-  /// The face to draw when [shape] is null, and the source of the head
-  /// colours either way.
+  /// The face to draw when [shape] is null.
   final FaceState state;
 
-  /// The head.
+  /// The head. The face widget always hands in brand yellow. Only a watermark,
+  /// which is the page's own colour drawn as a faint outline, hands in
+  /// anything else.
   final Color fillColor;
 
   /// The head outline.
@@ -364,6 +365,32 @@ class FacePainter extends CustomPainter {
             );
           }
         }
+
+      case PropKind.tear:
+        final s = prop.scale;
+        final drop = Path()
+          ..moveTo(prop.at.dx, prop.at.dy - 12 * s)
+          ..cubicTo(
+            prop.at.dx + 9 * s,
+            prop.at.dy - 2 * s,
+            prop.at.dx + 8 * s,
+            prop.at.dy + 8 * s,
+            prop.at.dx,
+            prop.at.dy + 8 * s,
+          )
+          ..cubicTo(
+            prop.at.dx - 8 * s,
+            prop.at.dy + 8 * s,
+            prop.at.dx - 9 * s,
+            prop.at.dy - 2 * s,
+            prop.at.dx,
+            prop.at.dy - 12 * s,
+          )
+          ..close();
+        canvas.drawPath(
+          drop,
+          Paint()..color = const Color(0xFF4FA8E8).withValues(alpha: alpha),
+        );
     }
   }
 

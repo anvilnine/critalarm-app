@@ -1,19 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:critalarm/core/models/account_pack.dart';
-import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_grant.dart';
-import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_state.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _isHeldLine =
-    '_relayHolds() || _override.isForcing || _otherGrant(_other);';
+    'bool get isHeldWithoutSwitch => _relayHolds() || _otherGrant(_other);';
 
 void main() {
   group('the packs list', () {
@@ -160,163 +154,7 @@ void main() {
     });
   });
 
-  group('the row on the Reliability screen', () {
-    test('without the pack it is locked and opens Pro', () {
-      final view = weeklyCheckRowView(isHeld: false);
-      expect(view.isLocked, isTrue);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
-    });
-
-    test('with the pack it is ready and not locked', () {
-      final view = weeklyCheckRowView(isHeld: true);
-      expect(view.isLocked, isFalse);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_ready_line);
-    });
-
-    test('locked on a self-hosted phone: it says relay, not your server', () {
-      final view = weeklyCheckRowView(isHeld: false, isSelfHosted: true);
-      expect(view.isLocked, isTrue);
-      expect(view.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
-      expect(view.selfHostedLineKey, LocaleKeys.weekly_check_self_hosted_line);
-    });
-
-    test('locked on a cloud phone has no such line', () {
-      expect(weeklyCheckRowView(isHeld: false).selfHostedLineKey, isNull);
-    });
-
-    test('the unlocked row leaves that line to its body', () {
-      expect(
-        weeklyCheckRowView(isHeld: true, isSelfHosted: true).selfHostedLineKey,
-        isNull,
-      );
-    });
-  });
-
-  group('the sheet', () {
-    test('every stage has a view, and waiting stages watch', () {
-      for (final stage in ProPackSheetStage.values) {
-        final view = proPackSheetView(stage);
-        expect(
-          view.isWaiting,
-          view.face == FaceState.watching,
-          reason: '$stage',
-        );
-      }
-    });
-
-    test('the stages after the store say the purchase is being confirmed', () {
-      expect(
-        proPackSheetView(ProPackSheetStage.checking).titleKey,
-        LocaleKeys.pro_pack_sheet_checking,
-      );
-      expect(
-        proPackSheetView(ProPackSheetStage.checkingPaused).titleKey,
-        LocaleKeys.pro_pack_sheet_paused_title,
-      );
-    });
-
-    test('a stage that still waits on the store never says it is done', () {
-      final words =
-          (jsonDecode(File('assets/translations/en.json').readAsStringSync())
-                  as Map<String, dynamic>)['pro_pack']
-              as Map<String, dynamic>;
-      String text(String key) =>
-          words[key.substring('pro_pack.'.length)] as String;
-
-      for (final stage in [
-        ProPackSheetStage.loading,
-        ProPackSheetStage.atStore,
-      ]) {
-        final view = proPackSheetView(stage);
-        expect(view.lineKey, isNull, reason: '$stage');
-        expect(
-          view.titleKey,
-          isNot(
-            anyOf(
-              LocaleKeys.pro_pack_sheet_checking,
-              LocaleKeys.pro_pack_sheet_paused_title,
-            ),
-          ),
-          reason: '$stage',
-        );
-        expect(text(view.titleKey), contains('store'), reason: '$stage');
-        expect(text(view.titleKey), isNot(contains('done')), reason: '$stage');
-      }
-      // Only the stage reached after the store finished carries that line.
-      expect(
-        [
-          for (final stage in ProPackSheetStage.values)
-            if (proPackSheetView(stage).lineKey ==
-                LocaleKeys.pro_pack_sheet_paused_line)
-              stage,
-        ],
-        [ProPackSheetStage.checkingPaused],
-      );
-      expect(
-        proPackSheetView(ProPackSheetStage.checking).lineKey,
-        isNull,
-        reason: 'one face and one line while it asks on its own',
-      );
-    });
-
-    test('on a self-hosted phone the sheet says relay, not your server', () {
-      expect(
-        {
-          for (final stage in ProPackSheetStage.values)
-            stage: proPackSheetSelfHostedLineKey(stage, isSelfHosted: true),
-        },
-        {
-          ProPackSheetStage.loading: null,
-          ProPackSheetStage.notOnSale: LocaleKeys.weekly_check_self_hosted_line,
-          ProPackSheetStage.offers: LocaleKeys.weekly_check_self_hosted_line,
-          ProPackSheetStage.atStore: null,
-          ProPackSheetStage.checking: null,
-          ProPackSheetStage.checkingPaused: null,
-          ProPackSheetStage.held: null,
-        },
-      );
-    });
-
-    test('on a cloud phone the sheet has no such line', () {
-      for (final stage in ProPackSheetStage.values) {
-        expect(
-          proPackSheetSelfHostedLineKey(stage, isSelfHosted: false),
-          isNull,
-          reason: '$stage',
-        );
-      }
-    });
-
-    test('the route carries the self-hosted fact to the sheet', () {
-      expect(
-        proPackSheetIsSelfHosted(Uri.parse('/pro?source=reliability')),
-        isFalse,
-      );
-      expect(
-        proPackSheetIsSelfHosted(
-          Uri.parse('/pro?source=reliability&self_hosted=1'),
-        ),
-        isTrue,
-      );
-      expect(
-        proPackSheetIsSelfHosted(Uri.parse('/pro?self_hosted=0')),
-        isFalse,
-      );
-    });
-
-    test('stages a person rests on have different faces', () {
-      final faces = [
-        for (final stage in [
-          ProPackSheetStage.notOnSale,
-          ProPackSheetStage.offers,
-          ProPackSheetStage.checkingPaused,
-          ProPackSheetStage.held,
-        ])
-          proPackSheetView(stage).face,
-      ];
-      expect(faces.toSet().length, faces.length);
-    });
-
+  group('what opened the Pro paywall', () {
     test('a source it does not know reads as direct', () {
       expect(
         ProPackSheetSource.parse('reliability'),

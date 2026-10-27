@@ -22,6 +22,19 @@ enum PaywallSource {
   reminderProLater('reminder_pro_later'),
   homeDay0Card('home_day0_card'),
 
+  /// The sound strip on the Personalize page. The wire name matches the
+  /// Pro side (`ProPackSheetSource.personalizeSound`).
+  personalizeSound('personalize_sound'),
+
+  /// The Widgets row on the Personalize page.
+  personalizeWidgets('personalize_widgets'),
+
+  /// The App icon row on the Personalize page.
+  personalizeAppIcon('personalize_app_icon'),
+
+  /// The weekly delivery check row on the Reliability screen.
+  reliability('reliability'),
+
   /// The offer step of setup, which hosts one paywall layout.
   onboardingOffer('onboarding_offer'),
 

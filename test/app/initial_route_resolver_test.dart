@@ -284,7 +284,7 @@ void main() {
         repository: FakeOnboardingFlowRepository(legacyStep: 'test'),
       );
 
-      expect(await resolver(h)(), '/onboarding/first-topic');
+      expect(await resolver(h)(), '/onboarding/use');
     });
 
     test('no step left completes setup and opens Home', () async {

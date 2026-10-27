@@ -459,9 +459,9 @@ enum WidgetDisplay {
     /// The word beside a topic: the same words the live card uses.
     static func stateWord(_ incident: WidgetIncident?) -> String {
         switch incident?.state {
-        case WidgetIncident.open: return "Ringing"
-        case WidgetIncident.acked: return "Awake"
-        default: return "Quiet"
+        case WidgetIncident.open: return NativeL10n.text(.stateRinging)
+        case WidgetIncident.acked: return NativeL10n.text(.stateAwake)
+        default: return NativeL10n.text(.stateQuiet)
         }
     }
 
@@ -477,8 +477,8 @@ enum WidgetDisplay {
     /// "I'm up" acknowledges a ringing incident, "Done" closes an acked one.
     static func buttonTitle(_ incident: WidgetIncident?) -> String? {
         switch incident?.state {
-        case WidgetIncident.open: return "I'm up"
-        case WidgetIncident.acked: return "Done"
+        case WidgetIncident.open: return NativeL10n.text(.actionImUp)
+        case WidgetIncident.acked: return NativeL10n.text(.actionDone)
         default: return nil
         }
     }

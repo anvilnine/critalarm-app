@@ -6,6 +6,8 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.d
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/access/store_access.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -23,21 +25,22 @@ void main() {
 
   test('the store saying Pro flips the plan row without a reload', () async {
     final plan = PlanChanges();
+    final identity = await freeAccount();
+    final access = accessOver(identity, planChanges: plan);
     final cubit = SettingsCubit(
-      identityStore: await freeAccount(),
+      identityStore: identity,
+      holdings: access.holdings,
       proOverride: const NoProOverride(),
       planChanges: plan,
     );
     addTearDown(cubit.close);
     await cubit.load();
-    expect(cubit.state.access.isPaid, isFalse);
-    expect(cubit.state.hasStorageSection, isFalse);
+    expect(cubit.state.holdsHosted, isFalse);
 
     plan.setStoreSaysPro(value: true);
     await pumpEventQueue();
 
-    expect(cubit.state.access.isPaid, isTrue);
-    expect(cubit.state.hasStorageSection, isTrue);
+    expect(cubit.state.holdsHosted, isTrue);
   });
 
   test('a bump reads the new tier and caps from the store', () async {

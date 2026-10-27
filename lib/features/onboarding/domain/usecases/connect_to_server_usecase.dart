@@ -200,7 +200,8 @@ class ConnectToServerUsecase {
         !ServerInfoValidation.isValidServerInfo(info)) {
       return const ServerAnswerInvalid();
     }
-    final isSelfHosted = mode == ServerMode.selfhosted;
+    // How to connect, not a plan: a self-hosted server wants its token.
+    final isSelfHosted = mode == ServerMode.selfhosted; // access-ok: connect
     // A link carries an admin token, and only a self-hosted server takes
     // one. Nothing is registered anywhere for a link.
     if (pinToAddress && !isSelfHosted) return const LinkServerNotSelfHosted();

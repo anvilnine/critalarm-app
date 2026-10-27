@@ -40,6 +40,10 @@ class CriticalAlarmState {
     this.setupFlowHasRealRing = false,
     this.firstToolIncidentId,
     this.isPreview = false,
+    this.doneIncidentId,
+    this.isDoneHandedOff = false,
+    this.isHandledElsewhere = false,
+    this.isAckPending = false,
   });
 
   final CriticalAlarmStatus status;
@@ -92,6 +96,31 @@ class CriticalAlarmState {
   /// A developer's look at a screen: nothing on it reaches the server.
   final bool isPreview;
 
+  /// Set only on a failed load, and only when both are true: the screen
+  /// was opened by a native Done button, and the server gave no answer.
+  /// It is the incident that Done was for, and the failed screen then
+  /// offers "At my desk", which hands the close back to native.
+  ///
+  /// Null in every other state, and cleared the moment an incident is
+  /// applied.
+  final String? doneIncidentId;
+
+  /// That close was handed to native. Nothing else is known: native sends
+  /// it, or keeps it until the server can be reached.
+  final bool isDoneHandedOff;
+
+  /// The incident on screen was rung on this phone and then acknowledged,
+  /// closed or expired somewhere else, which the server said. The ringing
+  /// layout gives way to a short note and one Stop button. The ring is
+  /// already stopped by then; Stop is there so the person has a button that
+  /// does what they came to do.
+  final bool isHandledElsewhere;
+
+  /// "I'm up" was tapped here and the screen already shows it, but the
+  /// server has not answered yet. A 409 never clears this into a confirmed
+  /// acknowledge: it ends on [isHandledElsewhere] instead.
+  final bool isAckPending;
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
@@ -138,6 +167,9 @@ class CriticalAlarmState {
     bool? setupFlowHasRealRing,
     String? firstToolIncidentId,
     bool? isPreview,
+    bool? isHandledElsewhere,
+    bool? isAckPending,
+    bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
     bool clearFeedback = false,
@@ -170,6 +202,10 @@ class CriticalAlarmState {
           ? null
           : (firstToolIncidentId ?? this.firstToolIncidentId),
       isPreview: isPreview ?? this.isPreview,
+      doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
+      isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
+      isHandledElsewhere: isHandledElsewhere ?? this.isHandledElsewhere,
+      isAckPending: isAckPending ?? this.isAckPending,
     );
   }
 
@@ -200,7 +236,11 @@ class CriticalAlarmState {
           setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
           setupFlowHasRealRing == other.setupFlowHasRealRing &&
           firstToolIncidentId == other.firstToolIncidentId &&
-          isPreview == other.isPreview;
+          isPreview == other.isPreview &&
+          doneIncidentId == other.doneIncidentId &&
+          isDoneHandedOff == other.isDoneHandedOff &&
+          isHandledElsewhere == other.isHandledElsewhere &&
+          isAckPending == other.isAckPending;
 
   @override
   int get hashCode => Object.hash(
@@ -228,6 +268,24 @@ class CriticalAlarmState {
       firstToolIncidentId,
       isPreview,
       ringTimeSpoken,
+      doneIncidentId,
+      isDoneHandedOff,
+      isHandledElsewhere,
+      isAckPending,
     ),
   );
 }
+
+/// True on the one change where an acknowledge on this screen becomes
+/// settled: the server took it, or the screen opened on an incident already
+/// acknowledged, or the demo alarm was answered. The real-use stamps and the
+/// sheet after an acknowledge hang off this. A guess still waiting for the
+/// server does not count, and neither does a 409 or any other incident
+/// another device answered.
+bool countsAsConfirmedAck({
+  required CriticalAlarmState previous,
+  required CriticalAlarmState current,
+}) => !_isConfirmedAck(previous) && _isConfirmedAck(current);
+
+bool _isConfirmedAck(CriticalAlarmState state) =>
+    state.isAcknowledged && !state.isAckPending && !state.isHandledElsewhere;

@@ -42,6 +42,19 @@ class $AssetsAppIconsGen {
   ];
 }
 
+class $AssetsConfigGen {
+  const $AssetsConfigGen();
+
+  /// File path: assets/config/price_book.json
+  String get priceBook => 'assets/config/price_book.json';
+
+  /// Directory path: assets/config
+  String get path => 'assets/config';
+
+  /// List of all assets
+  List<String> get values => [priceBook];
+}
+
 class $AssetsDocsGen {
   const $AssetsDocsGen();
 
@@ -67,9 +80,6 @@ class $AssetsFontsGen {
   /// File path: assets/fonts/BricolageGrotesque-OFL.txt
   String get bricolageGrotesqueOFL => 'assets/fonts/BricolageGrotesque-OFL.txt';
 
-  /// File path: assets/fonts/IBMPlexMono-OFL.txt
-  String get iBMPlexMonoOFL => 'assets/fonts/IBMPlexMono-OFL.txt';
-
   /// File path: assets/fonts/InstrumentSans-OFL.txt
   String get instrumentSansOFL => 'assets/fonts/InstrumentSans-OFL.txt';
 
@@ -84,7 +94,6 @@ class $AssetsFontsGen {
     antonOFL,
     archivoOFL,
     bricolageGrotesqueOFL,
-    iBMPlexMonoOFL,
     instrumentSansOFL,
     jetBrainsMonoOFL,
   ];
@@ -380,26 +389,230 @@ class $AssetsSoundsGen {
 class $AssetsTranslationsGen {
   const $AssetsTranslationsGen();
 
+  /// File path: assets/translations/de.json
+  String get de => 'assets/translations/de.json';
+
   /// File path: assets/translations/en.json
   String get en => 'assets/translations/en.json';
+
+  /// File path: assets/translations/ja.json
+  String get ja => 'assets/translations/ja.json';
 
   /// Directory path: assets/translations
   String get path => 'assets/translations';
 
   /// List of all assets
-  List<String> get values => [en];
+  List<String> get values => [de, en, ja];
+}
+
+class $AssetsUiSoundsGen {
+  const $AssetsUiSoundsGen();
+
+  /// File path: assets/ui_sounds/ui_buy.m4a
+  String get uiBuy => 'assets/ui_sounds/ui_buy.m4a';
+
+  /// File path: assets/ui_sounds/ui_check.m4a
+  String get uiCheck => 'assets/ui_sounds/ui_check.m4a';
+
+  /// File path: assets/ui_sounds/ui_close.m4a
+  String get uiClose => 'assets/ui_sounds/ui_close.m4a';
+
+  /// File path: assets/ui_sounds/ui_drop.m4a
+  String get uiDrop => 'assets/ui_sounds/ui_drop.m4a';
+
+  /// File path: assets/ui_sounds/ui_error.m4a
+  String get uiError => 'assets/ui_sounds/ui_error.m4a';
+
+  /// File path: assets/ui_sounds/ui_flip.m4a
+  String get uiFlip => 'assets/ui_sounds/ui_flip.m4a';
+
+  /// File path: assets/ui_sounds/ui_intro_arrive_kalimba.m4a
+  String get uiIntroArriveKalimba =>
+      'assets/ui_sounds/ui_intro_arrive_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_intro_arrive_piano.m4a
+  String get uiIntroArrivePiano => 'assets/ui_sounds/ui_intro_arrive_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_intro_knock.m4a
+  String get uiIntroKnock => 'assets/ui_sounds/ui_intro_knock.m4a';
+
+  /// File path: assets/ui_sounds/ui_intro_slide.m4a
+  String get uiIntroSlide => 'assets/ui_sounds/ui_intro_slide.m4a';
+
+  /// File path: assets/ui_sounds/ui_key.m4a
+  String get uiKey => 'assets/ui_sounds/ui_key.m4a';
+
+  /// File path: assets/ui_sounds/ui_lift.m4a
+  String get uiLift => 'assets/ui_sounds/ui_lift.m4a';
+
+  /// File path: assets/ui_sounds/ui_line.m4a
+  String get uiLine => 'assets/ui_sounds/ui_line.m4a';
+
+  /// File path: assets/ui_sounds/ui_lock.m4a
+  String get uiLock => 'assets/ui_sounds/ui_lock.m4a';
+
+  /// File path: assets/ui_sounds/ui_next.m4a
+  String get uiNext => 'assets/ui_sounds/ui_next.m4a';
+
+  /// File path: assets/ui_sounds/ui_open.m4a
+  String get uiOpen => 'assets/ui_sounds/ui_open.m4a';
+
+  /// File path: assets/ui_sounds/ui_page.m4a
+  String get uiPage => 'assets/ui_sounds/ui_page.m4a';
+
+  /// File path: assets/ui_sounds/ui_pick_monthly.m4a
+  String get uiPickMonthly => 'assets/ui_sounds/ui_pick_monthly.m4a';
+
+  /// File path: assets/ui_sounds/ui_pick_yearly.m4a
+  String get uiPickYearly => 'assets/ui_sounds/ui_pick_yearly.m4a';
+
+  /// File path: assets/ui_sounds/ui_pop.m4a
+  String get uiPop => 'assets/ui_sounds/ui_pop.m4a';
+
+  /// File path: assets/ui_sounds/ui_press.m4a
+  String get uiPress => 'assets/ui_sounds/ui_press.m4a';
+
+  /// File path: assets/ui_sounds/ui_print.m4a
+  String get uiPrint => 'assets/ui_sounds/ui_print.m4a';
+
+  /// File path: assets/ui_sounds/ui_refuse.m4a
+  String get uiRefuse => 'assets/ui_sounds/ui_refuse.m4a';
+
+  /// File path: assets/ui_sounds/ui_restore.m4a
+  String get uiRestore => 'assets/ui_sounds/ui_restore.m4a';
+
+  /// File path: assets/ui_sounds/ui_rise.m4a
+  String get uiRise => 'assets/ui_sounds/ui_rise.m4a';
+
+  /// File path: assets/ui_sounds/ui_roll.m4a
+  String get uiRoll => 'assets/ui_sounds/ui_roll.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_break_lift.m4a
+  String get uiScoreBreakLift => 'assets/ui_sounds/ui_score_break_lift.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_break_lift_ring.m4a
+  String get uiScoreBreakLiftRing =>
+      'assets/ui_sounds/ui_score_break_lift_ring.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_cloud_climb.m4a
+  String get uiScoreCloudClimb => 'assets/ui_sounds/ui_score_cloud_climb.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_curtain_kalimba.m4a
+  String get uiScoreCurtainKalimba =>
+      'assets/ui_sounds/ui_score_curtain_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_curtain_piano.m4a
+  String get uiScoreCurtainPiano =>
+      'assets/ui_sounds/ui_score_curtain_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_false_alarm_kalimba.m4a
+  String get uiScoreFalseAlarmKalimba =>
+      'assets/ui_sounds/ui_score_false_alarm_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_false_alarm_piano.m4a
+  String get uiScoreFalseAlarmPiano =>
+      'assets/ui_sounds/ui_score_false_alarm_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_snooze_kalimba.m4a
+  String get uiScoreSnoozeKalimba =>
+      'assets/ui_sounds/ui_score_snooze_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_snooze_piano.m4a
+  String get uiScoreSnoozePiano => 'assets/ui_sounds/ui_score_snooze_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_wake_up_kalimba.m4a
+  String get uiScoreWakeUpKalimba =>
+      'assets/ui_sounds/ui_score_wake_up_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_wake_up_piano.m4a
+  String get uiScoreWakeUpPiano =>
+      'assets/ui_sounds/ui_score_wake_up_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_settle.m4a
+  String get uiSettle => 'assets/ui_sounds/ui_settle.m4a';
+
+  /// File path: assets/ui_sounds/ui_snap.m4a
+  String get uiSnap => 'assets/ui_sounds/ui_snap.m4a';
+
+  /// File path: assets/ui_sounds/ui_stamp.m4a
+  String get uiStamp => 'assets/ui_sounds/ui_stamp.m4a';
+
+  /// File path: assets/ui_sounds/ui_swap.m4a
+  String get uiSwap => 'assets/ui_sounds/ui_swap.m4a';
+
+  /// File path: assets/ui_sounds/ui_tear.m4a
+  String get uiTear => 'assets/ui_sounds/ui_tear.m4a';
+
+  /// File path: assets/ui_sounds/ui_tick.m4a
+  String get uiTick => 'assets/ui_sounds/ui_tick.m4a';
+
+  /// File path: assets/ui_sounds/ui_whoosh.m4a
+  String get uiWhoosh => 'assets/ui_sounds/ui_whoosh.m4a';
+
+  /// Directory path: assets/ui_sounds
+  String get path => 'assets/ui_sounds';
+
+  /// List of all assets
+  List<String> get values => [
+    uiBuy,
+    uiCheck,
+    uiClose,
+    uiDrop,
+    uiError,
+    uiFlip,
+    uiIntroArriveKalimba,
+    uiIntroArrivePiano,
+    uiIntroKnock,
+    uiIntroSlide,
+    uiKey,
+    uiLift,
+    uiLine,
+    uiLock,
+    uiNext,
+    uiOpen,
+    uiPage,
+    uiPickMonthly,
+    uiPickYearly,
+    uiPop,
+    uiPress,
+    uiPrint,
+    uiRefuse,
+    uiRestore,
+    uiRise,
+    uiRoll,
+    uiScoreBreakLift,
+    uiScoreBreakLiftRing,
+    uiScoreCloudClimb,
+    uiScoreCurtainKalimba,
+    uiScoreCurtainPiano,
+    uiScoreFalseAlarmKalimba,
+    uiScoreFalseAlarmPiano,
+    uiScoreSnoozeKalimba,
+    uiScoreSnoozePiano,
+    uiScoreWakeUpKalimba,
+    uiScoreWakeUpPiano,
+    uiSettle,
+    uiSnap,
+    uiStamp,
+    uiSwap,
+    uiTear,
+    uiTick,
+    uiWhoosh,
+  ];
 }
 
 class Assets {
   const Assets._();
 
   static const $AssetsAppIconsGen appIcons = $AssetsAppIconsGen();
+  static const $AssetsConfigGen config = $AssetsConfigGen();
   static const $AssetsDocsGen docs = $AssetsDocsGen();
   static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsReminderFacesGen reminderFaces =
       $AssetsReminderFacesGen();
   static const $AssetsSoundsGen sounds = $AssetsSoundsGen();
   static const $AssetsTranslationsGen translations = $AssetsTranslationsGen();
+  static const $AssetsUiSoundsGen uiSounds = $AssetsUiSoundsGen();
 }
 
 class AssetGenImage {

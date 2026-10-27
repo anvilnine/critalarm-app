@@ -49,6 +49,13 @@ enum HeroFace {
 
   /// Taken with something: soft eyes and a heart above the head.
   loving,
+
+  /// Sad: wet eyes, brows tipped up in the middle, a frown, one tear.
+  sad,
+
+  /// Calm: round dot eyes and an easy smile. Plain, still and upright. The
+  /// face a leaving layout rests on.
+  calm,
 }
 
 /// What the mascot wears.
@@ -178,7 +185,7 @@ const Map<PaywallPreviewId, HeroScript> heroDefaultScripts = {
     ],
     props: {HeroProp.crown: 0.7, HeroProp.shades: 1.2},
   ),
-  // The alarm rings behind a locked button. The code is scanned, the lock
+  // The alarm rings behind a locked button. The challenge is done, the lock
   // opens and the alarm stops: a breath let go.
   PaywallPreviewId.wakeUpChallenges: HeroScript(
     seconds: 3.1,

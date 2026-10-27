@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/alarm/quiet_hours.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Whether the user has let the app set alarms.
@@ -88,6 +89,7 @@ final class AlarmHost {
   final _tokens = StreamController<ActivityToken>.broadcast();
   final _scheduled = StreamController<String>.broadcast();
   final _magicTaps = StreamController<void>.broadcast();
+  final _remoteStates = StreamController<RemoteIncidentState>.broadcast();
 
   /// Tokens captured while the app is running. Tokens captured before Dart was
   /// listening come from [takePendingTokens] instead.
@@ -103,6 +105,13 @@ final class AlarmHost {
   /// touch on the glass and exists only with VoiceOver running.
   Stream<void> get magicTaps => _magicTaps.stream;
 
+  /// An incident this phone heard was acknowledged, closed or expired
+  /// somewhere else, after the native side already stopped its ring. iOS
+  /// sends one when a Live Activity update lands (api.md §5.3). Android hears
+  /// the same thing as a state push and reloads the list instead, so it sends
+  /// none.
+  Stream<RemoteIncidentState> get remoteStates => _remoteStates.stream;
+
   /// Tells the iPhone whether a magic tap belongs to the app right now. On
   /// only while the ringing alarm screen is in front. Off, the native handler
   /// answers false and the system keeps its own behaviour. Android has no
@@ -110,12 +119,19 @@ final class AlarmHost {
   Future<void> setMagicTapArmed({required bool isArmed}) async =>
       _invoke<void>('setMagicTapArmed', {'armed': isArmed});
 
-  Future<AlarmAuthorization> authorizationStatus() async =>
+  /// The newest answer [authorizationStatus] or [requestAuthorization] gave
+  /// since the app started, or null before any. A screen that draws on its
+  /// first frame reads this to show the switch it will end up with, and asks
+  /// again right after to catch a change.
+  AlarmAuthorization? get lastKnownAuthorization => _lastAuthorization;
+  AlarmAuthorization? _lastAuthorization;
+
+  Future<AlarmAuthorization> authorizationStatus() async => _lastAuthorization =
       AlarmAuthorization.fromName(await _invoke<String>('authorizationStatus'));
 
   /// Shows the system prompt. Answers with whatever the user chose.
   Future<AlarmAuthorization> requestAuthorization() async =>
-      AlarmAuthorization.fromName(
+      _lastAuthorization = AlarmAuthorization.fromName(
         await _invoke<String>('requestAuthorization'),
       );
 
@@ -179,6 +195,34 @@ final class AlarmHost {
       }) ??
       false;
 
+  /// Runs what the Done button on an acknowledged card runs, for
+  /// [incidentId]: the native close, which sends it, queues it when there
+  /// is no signal, and takes the card down when the server says the
+  /// incident is over.
+  ///
+  /// For the one case where a Done button opened the app instead of
+  /// closing (its topic owes a wake-up challenge) and the app then could
+  /// not load the incident. Nothing in Dart decides anything here: native
+  /// drew that Done, so native already holds the incident as acknowledged.
+  ///
+  /// The link that set this off can be forged, so native checks its own
+  /// record first: the incident has to be acknowledged on this phone and
+  /// quiet. If it is not, native touches nothing and answers
+  /// [notAcknowledgedCode].
+  ///
+  /// Throws when native refused, when the platform has no such call, or
+  /// when it failed, so the caller never tells the user a close was handed
+  /// over when it was not.
+  Future<void> closeFromDone(String incidentId) =>
+      _channel.invokeMethod<void>('closeFromDone', {
+        'incident_id': incidentId,
+      });
+
+  /// The error code native answers when the incident is not acknowledged
+  /// on this phone. `AlarmChannel.NOT_ACKNOWLEDGED` on Android and the
+  /// same word in `AppDelegate` hold it too.
+  static const notAcknowledgedCode = 'not_acknowledged';
+
   /// Stop whatever is ringing on this device, whichever incident it belongs to.
   ///
   /// [cancelAlarm] needs an id, and an id can be wrong: the server can ring an
@@ -212,11 +256,98 @@ final class AlarmHost {
   Future<void> cancelRearm(String incidentId) async =>
       _invoke<void>('cancelRearm', {'incident_id': incidentId});
 
+  /// The ring generation of [incidentId] on this phone: a counter every
+  /// push that arms a ring for it moves on by one. A Stop's own re-arm does
+  /// not. Read it before asking the server, and hand it to
+  /// [applyRemoteState] with the answer. Null where the platform has none.
+  Future<int?> ringGeneration(String incidentId) async =>
+      _invoke<int>('ringGeneration', {'incident_id': incidentId});
+
+  /// [ringGeneration] for launch reconcile, which must tell two kinds of
+  /// "no number" apart. A host with no handler, or one that answers
+  /// nothing, keeps no ring generations and has no native ring to guard
+  /// (web, desktop, a test host). A call that failed is a phone whose ring
+  /// may be live, and the card must stay.
+  Future<RingGenerationRead> readRingGeneration(String incidentId) async {
+    try {
+      final value = await _channel.invokeMethod<int>('ringGeneration', {
+        'incident_id': incidentId,
+      });
+      return value == null
+          ? const RingGenerationRead.notKept()
+          : RingGenerationRead.known(value);
+    } on MissingPluginException {
+      return const RingGenerationRead.notKept();
+    } on PlatformException {
+      return const RingGenerationRead.failed();
+    }
+  }
+
+  /// The server says [incidentId] is [state] (`acked`, `closed` or
+  /// `expired`), in answer to a question asked when the ring generation was
+  /// [generation].
+  ///
+  /// The native side does what a state push does (api.md §5.2): stops the
+  /// ring, drops the phone's own next ring and moves or takes down the card.
+  /// It first checks, in the same step that push arming goes through, that
+  /// the generation has not moved. If a push armed a ring since the question
+  /// went out, the answer may be about the stage before a reopen, and it is
+  /// refused. A missing [generation] is always refused.
+  ///
+  /// [openedAt] is the stage the answer is about, sent along for the log.
+  ///
+  /// [applyWhenNothing] also moves or takes down the card, in the same
+  /// native step, when the answer is accepted and nothing was set to ring.
+  /// [keepLive] refuses the answer when a ring is set: for an answer that
+  /// may end a card but never a ring, such as a 404 on launch.
+  Future<RemoteApply> applyRemoteState(
+    String incidentId,
+    String state, {
+    required int? generation,
+    DateTime? openedAt,
+    bool applyWhenNothing = false,
+    bool keepLive = false,
+  }) async {
+    if (generation == null) return RemoteApply.refused;
+    final answer = await _invoke<String>('applyRemoteState', {
+      'incident_id': incidentId,
+      'state': state,
+      'generation': generation,
+      if (openedAt != null)
+        'opened_at': openedAt.millisecondsSinceEpoch ~/ 1000,
+      if (applyWhenNothing) 'apply_when_nothing': true,
+      if (keepLive) 'keep_live': true,
+    });
+    return RemoteApply.fromWire(answer);
+  }
+
+  /// Incidents this phone is ringing for right now or has a ring set for:
+  /// an alarm going off, a re-arm waiting, or on Android an alarm push whose
+  /// ring window is still open and that nobody answered here. Usually empty.
+  /// Empty where the platform has no such idea.
+  Future<List<String>> liveIncidentIds() async =>
+      (await _invoke<List<Object?>>(
+        'liveIncidentIds',
+      ))?.whereType<String>().toList() ??
+      const [];
+
   /// Whether an alarm is ringing on this device right now. Android answers
   /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
   /// answer reads as not ringing, so nothing waits on a platform that cannot
   /// tell.
   Future<bool> isRinging() async => await _invoke<bool>('isRinging') ?? false;
+
+  /// Android: the alarm screen for [incidentId] was acknowledged, closed or
+  /// left, so the app window stops showing over the lock screen. Native keeps
+  /// it there only while another alarm needs it, and asks for the unlock when
+  /// the phone is locked. iOS has no such window and no handler for this.
+  Future<void> releaseLockScreen(String? incidentId) async =>
+      _invoke<void>('releaseLockScreen', {'incident_id': incidentId});
+
+  /// Android: the alarm screen for [incidentId] started ringing, or is in
+  /// front again. Native refuses it for an incident that owes no ack.
+  Future<void> holdLockScreen(String incidentId) async =>
+      _invoke<void>('holdLockScreen', {'incident_id': incidentId});
 
   /// Whether a push that rings reached this phone for [incidentId]. Android
   /// answers from the record its push service keeps, with no network call.
@@ -362,6 +493,9 @@ final class AlarmHost {
         if (id != null && id.isNotEmpty) _scheduled.add(id);
       case 'onMagicTap':
         _magicTaps.add(null);
+      case 'onRemoteState':
+        final remote = RemoteIncidentState.fromMap(call.arguments);
+        if (remote != null) _remoteStates.add(remote);
     }
   }
 
@@ -370,5 +504,87 @@ final class AlarmHost {
     await _tokens.close();
     await _scheduled.close();
     await _magicTaps.close();
+    await _remoteStates.close();
+  }
+}
+
+/// What [AlarmHost.readRingGeneration] found.
+@immutable
+final class RingGenerationRead {
+  const RingGenerationRead.known(int this.value) : isKept = true;
+  const RingGenerationRead.notKept() : value = null, isKept = false;
+  const RingGenerationRead.failed() : value = null, isKept = true;
+
+  /// The generation, or null when there is none to hand back.
+  final int? value;
+
+  /// False only on a host that keeps no ring generations at all.
+  final bool isKept;
+
+  /// The host keeps generations and the read did not give one.
+  bool get isFailed => isKept && value == null;
+}
+
+/// What the native side did with a state the server named.
+enum RemoteApply {
+  /// The answer was for the ring generation going now, and a ring or a
+  /// ring set for later was stopped.
+  stopped,
+
+  /// The answer was for the ring generation going now, and nothing was
+  /// ringing or set. Still an answer this phone accepts.
+  nothingToStop,
+
+  /// A push armed a ring since the question went out, or the answer was not
+  /// one native takes. Nothing changed.
+  refused;
+
+  /// Native took the answer as true for the ring going now.
+  bool get isAccepted => this != refused;
+
+  static RemoteApply fromWire(String? value) => switch (value) {
+    'stopped' => stopped,
+    'nothing' => nothingToStop,
+    _ => refused,
+  };
+}
+
+/// One incident the native side heard was answered somewhere else.
+@immutable
+final class RemoteIncidentState {
+  const RemoteIncidentState({
+    required this.incidentId,
+    required this.state,
+    this.openedAt,
+  });
+
+  final String incidentId;
+
+  /// `acked`, `closed` or `expired`, as the Live Activity carried it.
+  final String state;
+
+  /// The `opened_at` of the stage the update is about (api.md §5.3), or null
+  /// when the update did not say. A reopen moves it, so it is what tells a
+  /// late update about an earlier stage from one about the ring going now.
+  final DateTime? openedAt;
+
+  static RemoteIncidentState? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final incidentId = raw['incident_id'];
+    final state = raw['state'];
+    if (incidentId is! String || incidentId.isEmpty || state is! String) {
+      return null;
+    }
+    final openedAt = raw['opened_at'];
+    return RemoteIncidentState(
+      incidentId: incidentId,
+      state: state,
+      openedAt: openedAt is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (openedAt * 1000).round(),
+              isUtc: true,
+            )
+          : null,
+    );
   }
 }

@@ -56,8 +56,6 @@ void main() {
       () async {
         final unconfiguredGate = FirebaseTelemetryGate();
         expect(unconfiguredGate.initialize, returnsNormally);
-        expect(unconfiguredGate.paywallEnabled, isFalse);
-        expect(unconfiguredGate.isPaywallEnabled, isFalse);
         expect(unconfiguredGate.onboardingFlowJson, isEmpty);
         expect(
           () => unconfiguredGate.setAnalyticsEnabled(true),
@@ -99,15 +97,11 @@ void main() {
           equals(const Duration(seconds: 10)),
         );
 
-        // Typed config defaults with paywall_enabled: false
+        // Typed config defaults: the two setup keys and no paywall key.
         verify(
           () => remoteConfig.setDefaults(const {
-            'paywall_enabled': false,
-            'paywall_variant': 'straight',
             'onboarding_flow': '',
             'onboarding_offer': '',
-            'paywall_layout': '',
-            'pro_paywall_layout': '',
           }),
         ).called(1);
 
@@ -158,57 +152,83 @@ void main() {
       expect(gate.isCrashlyticsEnabled, isFalse);
     });
 
-    test('paywallEnabled returns typed bool from Remote Config', () {
-      when(() => remoteConfig.getBool('paywall_enabled')).thenReturn(true);
+    group('recordError', () {
+      setUp(() {
+        when(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        ).thenAnswer((_) async {});
+      });
 
-      expect(gate.paywallEnabled, isTrue);
-      expect(gate.isPaywallEnabled, isTrue);
-      verify(() => remoteConfig.getBool('paywall_enabled')).called(2);
-    });
+      test('records nothing while crash reporting is off', () async {
+        await gate.recordError(StateError('x'), StackTrace.current);
+        await gate.setCrashlyticsEnabled(true);
+        await gate.setCrashlyticsEnabled(false);
+        await gate.recordError(StateError('x'), StackTrace.current);
 
-    test('paywallEnabled returns false when remoteConfig throws', () {
-      when(
-        () => remoteConfig.getBool('paywall_enabled'),
-      ).thenThrow(Exception('Config missing'));
+        verifyNever(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        );
+      });
 
-      expect(gate.paywallEnabled, isFalse);
-      expect(gate.isPaywallEnabled, isFalse);
-    });
-  });
+      test('sends the type and the stack, never the message', () async {
+        await gate.setCrashlyticsEnabled(true);
+        final stack = StackTrace.current;
 
-  group('the paywall layout values', () {
-    late MockFirebaseRemoteConfig remoteConfig;
-    late FirebaseTelemetryGate gate;
+        await gate.recordError(
+          const FormatException('the words of a message'),
+          stack,
+          fatal: true,
+          reason: 'widgets library',
+        );
 
-    setUp(() {
-      remoteConfig = MockFirebaseRemoteConfig();
-      gate = FirebaseTelemetryGate(remoteConfig: remoteConfig);
-    });
+        final sent = verify(
+          () => crashlytics.recordError(
+            captureAny<dynamic>(),
+            stack,
+            reason: 'widgets library',
+            fatal: true,
+          ),
+        ).captured.single;
+        expect(sent, isA<ReportedError>());
+        expect(sent.toString(), 'FormatException');
+        expect(sent.toString(), isNot(contains('words')));
+      });
 
-    test('both default to an empty string, the shipped paywall', () {
-      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
-      expect(defaults['paywall_layout'], isEmpty);
-      expect(defaults['pro_paywall_layout'], isEmpty);
-      expect(FirebaseTelemetryGate().paywallLayoutKey, isEmpty);
-      expect(FirebaseTelemetryGate().proPaywallLayoutKey, isEmpty);
-    });
+      test('a plugin that throws does not throw out of the gate', () async {
+        await gate.setCrashlyticsEnabled(true);
+        when(
+          () => crashlytics.recordError(
+            any<dynamic>(),
+            any(),
+            reason: any<dynamic>(named: 'reason'),
+            fatal: any(named: 'fatal'),
+          ),
+        ).thenThrow(Exception('no channel'));
 
-    test('each reads its own key, already activated, with no fetch', () {
-      when(() => remoteConfig.getString('paywall_layout')).thenReturn('auto');
-      when(
-        () => remoteConfig.getString('pro_paywall_layout'),
-      ).thenReturn('sheet');
+        await expectLater(
+          gate.recordError(StateError('x'), StackTrace.current),
+          completes,
+        );
+      });
 
-      expect(gate.paywallLayoutKey, 'auto');
-      expect(gate.proPaywallLayoutKey, 'sheet');
-      verifyNever(() => remoteConfig.fetchAndActivate());
-    });
-
-    test('a read that throws is empty', () {
-      when(() => remoteConfig.getString(any())).thenThrow(Exception('gone'));
-
-      expect(gate.paywallLayoutKey, isEmpty);
-      expect(gate.proPaywallLayoutKey, isEmpty);
+      test('a gate with no Firebase app drops the report', () async {
+        final bare = FirebaseTelemetryGate();
+        await bare.setCrashlyticsEnabled(true);
+        await expectLater(
+          bare.recordError(StateError('x'), StackTrace.current),
+          completes,
+        );
+      });
     });
   });
 
@@ -286,19 +306,13 @@ void main() {
 
   group('NoopTelemetryGate', () {
     test(
-      'provides safe no-op implementation with default or custom flag',
+      'provides safe no-op implementation',
       () async {
         const defaultGate = NoopTelemetryGate();
-        expect(defaultGate.paywallEnabled, isFalse);
-        expect(defaultGate.isPaywallEnabled, isFalse);
         expect(defaultGate.onboardingFlowJson, isEmpty);
         await defaultGate.initialize();
         await defaultGate.setAnalyticsEnabled(true);
         await defaultGate.setCrashlyticsEnabled(true);
-
-        const activeGate = NoopTelemetryGate(paywallEnabled: true);
-        expect(activeGate.paywallEnabled, isTrue);
-        expect(activeGate.isPaywallEnabled, isTrue);
       },
     );
   });

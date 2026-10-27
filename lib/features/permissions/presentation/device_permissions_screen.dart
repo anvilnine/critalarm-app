@@ -224,7 +224,10 @@ class _PermissionRow extends StatelessWidget {
 
     if (!item.status.isGranted) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        // The button is a 36 pill in a 48 tap box. The card gives up 6 of its
+        // 10 above and below, and the words take them back as padding, so the
+        // card is as tall as it was whatever the words are.
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: colors.cream,
           borderRadius: Radii.mdAll,
@@ -232,31 +235,34 @@ class _PermissionRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: colors.ink,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.title,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: colors.ink,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    LocaleKeys.device_permissions_state_off.tr(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      color: colors.ink3,
+                    const SizedBox(height: 2),
+                    Text(
+                      LocaleKeys.device_permissions_state_off.tr(),
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 12,
+                        color: colors.ink3,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 8),

@@ -593,7 +593,7 @@ void main() {
     test('it has a title and a line for each of its reasons', () {
       expect(
         reliabilityTitleKey(const ReliabilityCheckId('weekly_check')),
-        LocaleKeys.pro_pack_weekly_title,
+        LocaleKeys.weekly_check_title,
       );
       String? line(String reason) => reliabilityLineKey(
         check('weekly_check', ReliabilityState.needsLook, reason: reason),

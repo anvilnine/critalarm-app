@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
@@ -53,6 +56,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.storageSettings,
     this.onAutoDeleteChanged,
     this.onConnectionChanged,
+    this.holdings,
     ProOverride? proOverride,
     PlanChanges? planChanges,
   }) : _proOverride = proOverride ?? appProOverride,
@@ -60,6 +64,7 @@ class SettingsCubit extends Cubit<SettingsState> {
        super(const SettingsState()) {
     _proOverride.listenable?.addListener(_onForceProChanged);
     _planChanges.addListener(_onPlanChanged);
+    _holdingsSub = holdings?.stream.listen((_) => _onHeldChanged());
   }
 
   final GetConnectionUsecase? getConnectionUsecase;
@@ -114,6 +119,12 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// reminders from what is left, right away. Null in tests.
   final Future<void> Function()? onConnectionChanged;
 
+  /// What this install holds, for the plan row. Null in tests that do not
+  /// look at it, and then the row reads as not holding Hosted.
+  final Holdings? holdings;
+
+  StreamSubscription<Set<Holding>>? _holdingsSub;
+
   final ProOverride _proOverride;
 
   /// Moves when a purchase lands or a registration brings a new tier, so the
@@ -132,22 +143,51 @@ class SettingsCubit extends Cubit<SettingsState> {
     unawaited(_loadAccess());
   }
 
-  /// The developer Force Pro switch moved. The plan row reads
-  /// [AccountAccess.isPaid], so hand it a fresh one and let the screen rebuild.
+  /// The developer Force Pro switch moved. The usage line words itself
+  /// from [AccountAccess], so hand it a fresh one and let the screen rebuild.
   void _onForceProChanged() {
     if (isClosed) return;
     emit(state.copyWith(access: _access(state.access.identity)));
   }
 
+  /// What is held changed. The plan row follows at once.
+  void _onHeldChanged() {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        access: _access(state.access.identity),
+        holdsHosted: _holdsHosted,
+        // Not before the first read: that one waits for the holdings to be
+        // current, and an early answer can say "not held" for a held Pro.
+        proState: state.proState == null ? null : _proState,
+      ),
+    );
+  }
+
+  /// Draws the plan row as soon as the plan has been read from the phone.
+  /// No network call is involved.
+  Future<void> _drawPlanOnceRead() async {
+    await holdings?.ready;
+    if (isClosed) return;
+    final holdsHosted = _holdsHosted;
+    final proState = _proState;
+    if (state.holdsHosted == holdsHosted && state.proState == proState) return;
+    emit(state.copyWith(holdsHosted: holdsHosted, proState: proState));
+  }
+
+  bool get _holdsHosted => holdings?.holds(Holding.hosted) ?? false;
+
+  /// Pro as the Pro row draws it, or null when there are no holdings to ask
+  /// (a test that does not look at it).
+  HoldingState? get _proState => holdings?.stateOf(Holding.pro);
+
   @override
   Future<void> close() {
     _proOverride.listenable?.removeListener(_onForceProChanged);
     _planChanges.removeListener(_onPlanChanged);
+    unawaited(_holdingsSub?.cancel());
     return super.close();
   }
-
-  bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
-  bool get paywallEnabled => isPaywallEnabled;
 
   /// How long the phone keeps alarms before deleting them itself.
   Future<void> setRetention(HistoryRetention retention) async {
@@ -193,6 +233,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (session != null) {
       emit(state.copyWith(serverMode: session.mode));
     }
+
+    // The plan row and the Storage section come from what the phone holds
+    // already: the saved tier, the store flag, the saved server mode. They
+    // are drawn here, before anything that waits on the network, so they
+    // do not pop in late and are there with no connection at all.
+    // Not waited for: the saved server and the connection card below must
+    // not wait on it either.
+    unawaited(_drawPlanOnceRead());
 
     final storage = storageSettings?.read();
     if (storage != null) emit(state.copyWith(storage: storage));
@@ -288,13 +336,16 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
+    final failure = result?.exceptionOrNull();
+    await holdings?.ready;
     if (isClosed) return;
     emit(
       state.copyWith(
         status: SettingsStatus.success,
         access: _access(identity),
+        holdsHosted: _holdsHosted,
         topics: result?.getOrNull() ?? [],
-        errorMessage: result?.exceptionOrNull()?.message,
+        errorMessage: failure == null ? null : failureMessage(failure),
       ),
     );
   }

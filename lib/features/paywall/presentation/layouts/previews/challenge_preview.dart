@@ -1,27 +1,30 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_tile_art.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// The steps of the loop, in order.
 enum ChallengePreviewPhase {
-  /// The alarm rings and its stop button is locked.
+  /// The alarm rings, the challenge is up and the button under it is
+  /// locked.
   ringing,
 
-  /// A line runs over the code in the viewfinder.
+  /// A line runs over the challenge, as the answer is read.
   scanning,
 
-  /// The viewfinder closes on the code and marks it.
+  /// A tick lands on the challenge: it is done.
   found,
 
-  /// The lock on the stop button opens.
+  /// The lock on the button opens.
   unlocking,
 
   /// The alarm has stopped.
@@ -32,8 +35,8 @@ enum ChallengePreviewPhase {
 const double challengePreviewLoop = 9;
 
 /// The second a still preview rests on: the alarm ringing behind its
-/// locked button, the code waiting in the viewfinder. The ring has not
-/// started to swell, so the face is upright, and no scan line is out.
+/// locked button, the first challenge waiting. The ring has not started to
+/// swell, so the face is upright, and no line is out.
 const double challengePreviewRestAt = 0.12;
 
 /// When each step starts, in seconds into the loop.
@@ -52,6 +55,20 @@ double challengePreviewStart(ChallengePreviewPhase phase) =>
 /// How long the picture takes to go back to ringing before the loop ends.
 const double challengePreviewReset = 0.3;
 
+/// The challenges the loop shows, one for each pass, in this order. They
+/// are the pictures the Wake-up challenge shelf draws. The shake is left
+/// out: its picture is a face, and the alarm already has one.
+const challengePreviewKinds = <ChallengeKind>[
+  ChallengeKind.typeTopicName,
+  ChallengeKind.opsMath,
+  ChallengeKind.typeAlertTitle,
+  ChallengeKind.scratchCard,
+];
+
+/// The challenge shown on pass [pass] of the loop, counted from zero.
+ChallengeKind challengePreviewKindOf(int pass) =>
+    challengePreviewKinds[pass % challengePreviewKinds.length];
+
 /// How far the ringing face rocks either way, in radians: three degrees.
 const double challengePreviewShake = 3 * math.pi / 180;
 
@@ -68,6 +85,8 @@ class ChallengePreviewFrame {
     required this.unlock,
     required this.stopped,
     required this.local,
+    this.pass = 0,
+    this.change = 0,
   });
 
   final ChallengePreviewPhase phase;
@@ -78,7 +97,7 @@ class ChallengePreviewFrame {
   /// How strong the rings around the ringing face are, 0 to 1.
   final double pulse;
 
-  /// Where the scan line is down the code, 0 at its top and 1 at its foot.
+  /// Where the line is down the challenge, 0 at its top and 1 at its foot.
   final double scan;
 
   /// How visible the scan line is, 0 to 1.
@@ -95,6 +114,15 @@ class ChallengePreviewFrame {
 
   /// Seconds into the loop.
   final double local;
+
+  /// How many loops have gone by, counted from zero. It picks the
+  /// challenge the screen shows.
+  final int pass;
+
+  /// How far the screen has gone over to the next loop's challenge, 0 to 1.
+  /// It is 0 for all of the loop but its last moments, which are also when
+  /// everything else goes back.
+  final double change;
 }
 
 /// The frame of the wake-up challenge preview at clock second [t].
@@ -140,17 +168,21 @@ ChallengePreviewFrame challengePreviewFrameAt(double t) {
     unlock: phase(local, unlockAt, unlockAt + 0.3) * kept,
     stopped: phase(local, stopAt, stopAt + 0.3) * kept,
     local: local,
+    pass: math.max(0, t ~/ challengePreviewLoop),
+    change: 1 - kept,
   );
 }
 
-/// A wake-up challenge: an alarm whose stop button stays locked until a QR
-/// code is scanned.
+/// A wake-up challenge: an alarm whose button stays locked until a
+/// challenge is done.
 ///
-/// Small, it is a code in a viewfinder on the shared tile. As a scene it is
-/// one alarm screen in miniature: the ringing face, the viewfinder over a
-/// code, and the locked button under it. The line finds the code, the lock
-/// opens and the screen goes from ringing to stopped. The red and the blue
-/// are the alarm screen's own and stay inside the miniature.
+/// Small, it is a text box with a caret on the shared tile. As a scene it
+/// is one alarm screen in miniature: the ringing face, the picture of a
+/// challenge the app draws on its Wake-up challenge shelf, and the locked
+/// button under it. A line runs over the challenge, a tick lands on it,
+/// the lock opens and the screen goes from ringing to stopped. The next
+/// loop shows the next challenge. The red and the blue are the alarm
+/// screen's own and stay inside the miniature.
 class ChallengePreview extends StatelessWidget {
   const ChallengePreview({required this.size, super.key});
 
@@ -159,7 +191,7 @@ class ChallengePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (size.shortestSide < paywallPreviewSceneMinEdge) {
-      return PreviewGlyphTile.mark(PreviewMark.scanCode, size: size);
+      return PreviewGlyphTile.mark(PreviewMark.challenge, size: size);
     }
     return ExtrasPreviewTile(
       size: size,
@@ -193,18 +225,13 @@ class _Screen extends StatelessWidget {
     final fill = Color.lerp(colors.crit, colors.highlight, stopped)!;
     final ink = Color.lerp(colors.inkFixed, colors.onHighlight, stopped)!;
 
-    final width = u * 0.56;
+    final width = u * 0.6;
     final height = u * 0.86;
     final pad = u * 0.05;
     final inner = width - pad * 2;
     final face = u * 0.19;
     final button = u * 0.125;
-    final gap = u * 0.04;
     final edge = math.max(1.5, u * 0.012);
-    final finder = math.min(
-      inner - edge * 2,
-      height - (pad + edge) * 2 - face - button - gap * 2,
-    );
     final isStopped = frame.stopped >= 0.5;
 
     return Container(
@@ -217,6 +244,7 @@ class _Screen extends StatelessWidget {
         border: Border.all(color: colors.ink, width: edge),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           SizedBox(
             height: face,
@@ -257,19 +285,7 @@ class _Screen extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: gap),
-          CustomPaint(
-            size: Size.square(finder),
-            painter: _FinderPainter(
-              frame: frame,
-              window: colors.inkFixed,
-              paper: colors.onHighlight,
-              mark: colors.yellow,
-              badge: colors.highlight,
-              tick: colors.onHighlight,
-            ),
-          ),
-          SizedBox(height: gap),
+          _Task(width: inner, frame: frame),
           _StopButton(
             u: u,
             height: button,
@@ -322,148 +338,112 @@ class _PulsePainter extends CustomPainter {
       local != old.local || strength != old.strength || color != old.color;
 }
 
-/// The code's dark squares, on a grid 11 wide. The three corner squares
-/// are drawn apart, as boxes.
-const _codeCells = <(int, int)>[
-  (4, 0), (6, 0), (5, 1), (4, 2), (6, 2), //
-  (0, 4), (2, 4), (4, 4), (5, 4), (7, 4), (9, 4), (10, 4), //
-  (1, 5), (3, 5), (6, 5), (8, 5), //
-  (0, 6), (2, 6), (4, 6), (5, 6), (7, 6), (10, 6), //
-  (4, 8), (6, 8), (8, 8), (9, 8), (5, 9), (7, 9), (10, 9), //
-  (4, 10), (6, 10), (8, 10), (9, 10), (8, 7), (10, 7), //
-];
+/// The picture of the challenge on the screen, as the Wake-up challenge
+/// shelf draws it, with the line that reads it and the tick that says it
+/// is done. As the loop ends it gives way to the next challenge.
+class _Task extends StatelessWidget {
+  const _Task({required this.width, required this.frame});
 
-/// The camera's window: the code on its paper, the corner marks around it,
-/// the line that reads it and the badge that says it was read.
-class _FinderPainter extends CustomPainter {
-  const _FinderPainter({
+  final double width;
+  final ChallengePreviewFrame frame;
+
+  /// The box the shelf draws a picture in, 175 by 104.
+  static const double _artWidth = 175;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = width * kChallengeArtHeight / _artWidth;
+    Widget art(ChallengeKind kind, double opacity) => Opacity(
+      opacity: opacity,
+      child: FittedBox(
+        child: SizedBox(
+          width: _artWidth,
+          height: kChallengeArtHeight,
+          child: ChallengeTileArt(kind: kind),
+        ),
+      ),
+    );
+
+    final colors = context.appColors;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(height * 0.14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            art(challengePreviewKindOf(frame.pass), 1),
+            if (frame.change > 0)
+              art(challengePreviewKindOf(frame.pass + 1), frame.change),
+            CustomPaint(
+              painter: _CheckPainter(
+                frame: frame,
+                mark: colors.yellow,
+                badge: colors.highlight,
+                paper: colors.onHighlight,
+                tick: colors.onHighlight,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What is drawn over the challenge: the line that reads it, and the badge
+/// with a tick that lands on it once it is done.
+class _CheckPainter extends CustomPainter {
+  const _CheckPainter({
     required this.frame,
-    required this.window,
-    required this.paper,
     required this.mark,
     required this.badge,
+    required this.paper,
     required this.tick,
   });
 
   final ChallengePreviewFrame frame;
-  final Color window;
-  final Color paper;
   final Color mark;
   final Color badge;
+  final Color paper;
   final Color tick;
 
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.shortestSide;
     final rect = Offset.zero & size;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, Radius.circular(s * 0.14)),
-      Paint()..color = window,
-    );
-
-    // The code, on its square of paper.
-    final code = Rect.fromCenter(
-      center: rect.center,
-      width: s * 0.6,
-      height: s * 0.6,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(code, Radius.circular(s * 0.05)),
-      Paint()..color = paper,
-    );
-    final grid = code.deflate(s * 0.05);
-    final cell = grid.width / 11;
-    final dark = Paint()..color = window;
-    for (final (x, y) in _codeCells) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          grid.left + x * cell,
-          grid.top + y * cell,
-          cell + 0.2,
-          cell + 0.2,
-        ),
-        dark,
-      );
-    }
-    for (final (x, y) in const [(0, 0), (8, 0), (0, 8)]) {
-      final box = Rect.fromLTWH(
-        grid.left + x * cell,
-        grid.top + y * cell,
-        cell * 3,
-        cell * 3,
-      );
-      canvas
-        ..drawRect(
-          box.deflate(cell * 0.4),
-          Paint()
-            ..color = window
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = cell * 0.8,
-        )
-        ..drawRect(
-          Rect.fromCenter(center: box.center, width: cell, height: cell),
-          dark,
-        );
-    }
-
-    // The corner marks stand off the code and close on it when it is read.
-    final found = AppCurves.easeBack.transform(frame.found);
-    final marks = code.inflate(s * (0.1 - 0.06 * found));
-    final arm = s * 0.13;
-    final corner = Paint()
-      ..color = Color.lerp(paper, mark, frame.found)!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.5, s * 0.045)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    for (final (dx, dy) in const [(1, 1), (-1, 1), (1, -1), (-1, -1)]) {
-      final at = Offset(
-        dx > 0 ? marks.left : marks.right,
-        dy > 0 ? marks.top : marks.bottom,
-      );
-      canvas.drawPath(
-        Path()
-          ..moveTo(at.dx + arm * dx, at.dy)
-          ..lineTo(at.dx, at.dy)
-          ..lineTo(at.dx, at.dy + arm * dy),
-        corner,
-      );
-    }
 
     if (frame.scanOpacity > 0) {
-      final y = code.top + code.height * frame.scan;
+      final y = rect.top + rect.height * frame.scan;
       canvas
         ..drawRect(
-          Rect.fromLTRB(marks.left, y - s * 0.07, marks.right, y),
+          Rect.fromLTRB(rect.left, y - s * 0.3, rect.right, y),
           Paint()..color = mark.withValues(alpha: 0.28 * frame.scanOpacity),
         )
         ..drawLine(
-          Offset(marks.left, y),
-          Offset(marks.right, y),
+          Offset(rect.left, y),
+          Offset(rect.right, y),
           Paint()
             ..color = mark.withValues(alpha: frame.scanOpacity)
-            ..strokeWidth = math.max(1.5, s * 0.04)
+            ..strokeWidth = math.max(1.5, s * 0.07)
             ..strokeCap = StrokeCap.round,
         );
     }
 
-    // Read: a ticked badge lands on the code.
+    // Done: a ticked badge lands on the challenge.
+    final found = AppCurves.easeBack.transform(frame.found);
     if (found > 0) {
-      final radius = s * 0.17 * found;
+      final radius = s * 0.3 * found;
+      final center = rect.center;
       canvas
-        ..drawCircle(code.center, radius + s * 0.025, Paint()..color = paper)
-        ..drawCircle(code.center, radius, Paint()..color = badge)
+        ..drawCircle(center, radius + s * 0.045, Paint()..color = paper)
+        ..drawCircle(center, radius, Paint()..color = badge)
         ..drawPath(
           Path()
-            ..moveTo(code.center.dx - radius * 0.45, code.center.dy)
-            ..lineTo(
-              code.center.dx - radius * 0.1,
-              code.center.dy + radius * 0.36,
-            )
-            ..lineTo(
-              code.center.dx + radius * 0.48,
-              code.center.dy - radius * 0.34,
-            ),
+            ..moveTo(center.dx - radius * 0.45, center.dy)
+            ..lineTo(center.dx - radius * 0.1, center.dy + radius * 0.36)
+            ..lineTo(center.dx + radius * 0.48, center.dy - radius * 0.34),
           Paint()
             ..color = tick
             ..style = PaintingStyle.stroke
@@ -475,14 +455,14 @@ class _FinderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_FinderPainter old) =>
+  bool shouldRepaint(_CheckPainter old) =>
       frame.found != old.frame.found ||
       frame.scan != old.frame.scan ||
       frame.scanOpacity != old.frame.scanOpacity ||
-      window != old.window ||
-      paper != old.paper ||
       mark != old.mark ||
-      badge != old.badge;
+      badge != old.badge ||
+      paper != old.paper ||
+      tick != old.tick;
 }
 
 /// The stop button. Locked, it is a quiet capsule with a padlock. The
@@ -540,16 +520,23 @@ class _StopButton extends StatelessWidget {
               ),
             if (hasWords) ...[
               SizedBox(width: height * 0.22),
-              Text(
-                isStopped
-                    ? LocaleKeys.paywall_previews_extras_challenge_stopped.tr()
-                    : LocaleKeys.paywall_previews_extras_challenge_locked.tr(),
-                maxLines: 1,
-                softWrap: false,
-                style: AppTypography.title(
-                  ink,
-                  fontSize: height * 0.42,
-                ).copyWith(height: 1),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    isStopped
+                        ? LocaleKeys.paywall_previews_extras_challenge_stopped
+                              .tr()
+                        : LocaleKeys.paywall_previews_extras_challenge_locked
+                              .tr(),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTypography.title(
+                      ink,
+                      fontSize: height * 0.42,
+                    ).copyWith(height: 1),
+                  ),
+                ),
               ),
             ],
           ],
