@@ -92,22 +92,49 @@ class _SettingsScreenContent extends StatefulWidget {
 }
 
 class _SettingsScreenContentState extends State<_SettingsScreenContent> {
-  /// The row whose page the detail pane shows. Null until a row is tapped,
-  /// and then the pane opens on the first row's page.
+  /// The row whose page the detail pane shows. Null until a row is tapped
+  /// or Settings has loaded, and the pane opens on [_paneSelection] until
+  /// then.
   SettingsPage? _selected;
 
-  /// The page the pane shows right now, worked out in [build].
-  SettingsPage? _shown;
+  /// The pages the rows lead to on this phone, in row order.
+  List<SettingsPage> _pagesShown(SettingsState state) {
+    final capabilities = getIt<PlatformCapabilities>();
+    return settingsPagesShown(
+      canRunAlarm: capabilities.canRunAlarm,
+      hasAccounts: state.hasAccounts,
+      hasLocalNotifications: capabilities.hasLocalNotifications,
+      showsDeveloper: buildSkipsPaywall || buildHasPaywallLab,
+    );
+  }
 
-  /// The page of [page] as it draws in the detail pane.
-  Widget _panePage(SettingsPage page) => switch (page) {
+  /// The page the pane shows for [state]. A phone that has lost its server
+  /// opens on Server, the page that can fix it.
+  SettingsPage? _paneSelection(SettingsState state) => settingsPaneSelection(
+    selected: _selected,
+    shown: _pagesShown(state),
+    preferred: state.status == SettingsStatus.success && !state.isConnected
+        ? SettingsPage.server
+        : null,
+  );
+
+  /// The page of [page] as it draws in the detail pane. The pages that read
+  /// [SettingsCubit] share this screen's, so the row beside the page shows
+  /// what the page just changed.
+  Widget _panePage(BuildContext context, SettingsPage page) => switch (page) {
     SettingsPage.sound => const SoundPickerScreen(),
     SettingsPage.priorities => const PrioritiesScreen(),
-    SettingsPage.storage => const AlarmSettingsScreen(),
-    SettingsPage.server => const ServerSettingsScreen(),
+    SettingsPage.storage => AlarmSettingsScreen(
+      cubit: context.read<SettingsCubit>(),
+    ),
+    SettingsPage.server => ServerSettingsScreen(
+      cubit: context.read<SettingsCubit>(),
+    ),
     SettingsPage.personalize => const PersonalizeScreen(),
     SettingsPage.appearance => const AppearanceSettingsScreen(),
-    SettingsPage.privacy => const PrivacySettingsScreen(),
+    SettingsPage.privacy => PrivacySettingsScreen(
+      cubit: context.read<SettingsCubit>(),
+    ),
     SettingsPage.about => const AboutScreen(),
     // Never selected: these push. See SettingsPage.opensInPane.
     SettingsPage.account ||
@@ -116,14 +143,16 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
     SettingsPage.developer => const SizedBox.shrink(),
   };
 
-  void _open(BuildContext context, SettingsPage page) {
+  /// Opens [page] for a tap on its row. [shown] is the page the pane shows
+  /// now, or null with no pane.
+  void _open(BuildContext context, SettingsPage page, SettingsPage? shown) {
     final tap = settingsRowTapFor(
       showsDetail: AppScreenScaffold.showsDetail(context),
       page: page,
     );
     switch (tap) {
       case SettingsRowTap.select:
-        if (page != _shown) AppHaptics.selection();
+        if (page != shown) AppHaptics.selection();
         setState(() => _selected = page);
       case SettingsRowTap.push:
         unawaited(context.push(page.path));
@@ -132,8 +161,10 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
 
   /// One row that leads to a screen under /settings. [value] is what the row
   /// is set to, when that is already known, and sits before the arrow.
+  /// [shown] is the page the pane shows, or null with no pane.
   Widget _buildNavRow(
     BuildContext context, {
+    required SettingsPage? shown,
     required String title,
     required String subtitle,
     required SettingsPage page,
@@ -179,8 +210,8 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
           AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
         ],
       ),
-      isSelected: page == _shown,
-      onTap: () => _open(context, page),
+      isSelected: page == shown,
+      onTap: () => _open(context, page, shown),
     );
   }
 
@@ -259,7 +290,18 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SettingsCubit, SettingsState>(
+    return BlocConsumer<SettingsCubit, SettingsState>(
+      // Once Settings has loaded, the page the pane opened on stays put: a
+      // phone that opened on Server because it had lost its server keeps
+      // Server when it connects again from that page.
+      listenWhen: (was, now) =>
+          was.status != SettingsStatus.success &&
+          now.status == SettingsStatus.success,
+      listener: (context, state) {
+        if (_selected == null) {
+          setState(() => _selected = _paneSelection(state));
+        }
+      },
       builder: (context, state) {
         final colors = context.appColors;
         final capabilities = getIt<PlatformCapabilities>();
@@ -267,16 +309,9 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
         // Tabletop: the card holds still in the top half, over the fold,
         // and the rows scroll in the bottom half.
         final cardOnStage = AppFold.of(context).isTabletop;
-        final shown = settingsPaneSelection(
-          selected: _selected,
-          shown: settingsPagesShown(
-            canRunAlarm: capabilities.canRunAlarm,
-            hasAccounts: state.hasAccounts,
-            hasLocalNotifications: capabilities.hasLocalNotifications,
-            showsDeveloper: buildSkipsPaywall || buildHasPaywallLab,
-          ),
-        );
-        _shown = showsDetail ? shown : null;
+        final selection = _paneSelection(state);
+        // The page the pane shows, or null where there is no pane.
+        final shown = showsDetail ? selection : null;
 
         // The dark card. It reads the same checks as the Topics card and
         // opens the screen that lists them.
@@ -287,10 +322,10 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
 
         return AppScreenScaffold(
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
-          detail: showsDetail && shown != null
+          detail: shown != null
               ? SettingsPaneScope(
                   key: ValueKey(shown),
-                  child: _panePage(shown),
+                  child: _panePage(context, shown),
                 )
               : null,
           // The card keeps the width of the rows' column below the fold and
@@ -329,6 +364,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                     children: [
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.settings_alarm_sound_row_title.tr(),
                         subtitle: LocaleKeys.settings_alarm_sound_row_subtitle
                             .tr(),
@@ -339,6 +375,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.settings_priorities_row_title.tr(),
                           subtitle: LocaleKeys.settings_priorities_row_subtitle
                               .tr(),
@@ -351,6 +388,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.settings_storage_row_title.tr(),
                         subtitle: LocaleKeys.settings_storage_row_subtitle.tr(),
                         page: SettingsPage.storage,
@@ -361,6 +399,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.settings_server_row_title.tr(),
                         subtitle: LocaleKeys.settings_server_row_subtitle.tr(),
                         page: SettingsPage.server,
@@ -374,6 +413,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.account_row_title.tr(),
                           subtitle: LocaleKeys.account_row_subtitle.tr(),
                           page: SettingsPage.account,
@@ -386,6 +426,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                       ),
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.personalize_title.tr(),
                         subtitle: LocaleKeys.personalize_row_subtitle.tr(),
                         page: SettingsPage.personalize,
@@ -395,6 +436,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         bloc: getIt<ThemeCubit>(),
                         builder: (context, mode) => _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.settings_appearance_row_title.tr(),
                           subtitle: LocaleKeys.settings_appearance_row_subtitle
                               .tr(),
@@ -407,6 +449,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         bloc: getIt<LanguageCubit>(),
                         builder: (context, state) => _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.language_title.tr(),
                           // The value says what it is set to, and a line
                           // under "Language" would only repeat the title.
@@ -422,6 +465,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.local_reminders_settings_row_title
                               .tr(),
                           subtitle: LocaleKeys
@@ -509,6 +553,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
+                          shown: shown,
                           title: LocaleKeys.settings_developer_row_title.tr(),
                           subtitle: LocaleKeys.settings_developer_row_subtitle
                               .tr(),
@@ -520,6 +565,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.settings_privacy_row_title.tr(),
                         subtitle: LocaleKeys.settings_privacy_row_subtitle.tr(),
                         page: SettingsPage.privacy,
@@ -527,6 +573,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
+                        shown: shown,
                         title: LocaleKeys.settings_about_row_title.tr(),
                         subtitle: LocaleKeys.settings_about_row_subtitle.tr(),
                         page: SettingsPage.about,

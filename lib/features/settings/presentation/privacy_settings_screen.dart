@@ -13,10 +13,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// What, if anything, the app sends back: usage analytics and crash reports.
 /// Both are off until the user turns them on.
 class PrivacySettingsScreen extends StatelessWidget {
-  const PrivacySettingsScreen({super.key});
+  const PrivacySettingsScreen({super.key, this.cubit});
+
+  /// The Settings screen's own cubit, when the page draws in its detail
+  /// pane, so the row beside the page and the page read one state. A pushed
+  /// page leaves it null and loads its own.
+  final SettingsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    final shared = cubit;
+    if (shared != null) {
+      return BlocProvider.value(
+        value: shared,
+        child: const _PrivacySettingsView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();

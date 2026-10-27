@@ -18,10 +18,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// page only exists where there is a Storage section to show, and Settings
 /// hides its row otherwise.
 class AlarmSettingsScreen extends StatelessWidget {
-  const AlarmSettingsScreen({super.key});
+  const AlarmSettingsScreen({super.key, this.cubit});
+
+  /// The Settings screen's own cubit, when the page draws in its detail
+  /// pane, so the row beside the page and the page read one state. A pushed
+  /// page leaves it null and loads its own.
+  final SettingsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    final shared = cubit;
+    if (shared != null) {
+      return BlocProvider.value(
+        value: shared,
+        child: const _AlarmSettingsView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();
