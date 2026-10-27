@@ -554,6 +554,11 @@ void main() {
   });
 
   tearDownAll(() {
+    if (_docsPath.isNotEmpty) {
+      try {
+        Directory(_docsPath).deleteSync(recursive: true);
+      } on FileSystemException catch (_) {}
+    }
     _writeErrors(out);
     _writeIndex(out);
     final withErrors = {
