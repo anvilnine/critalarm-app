@@ -949,6 +949,9 @@ Future<void> configureDependencies({
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
         beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
+        readSessionRelay: () async =>
+            (await getIt<ApiSessionStore>().read())?.relayUri,
+        readSession: () => getIt<ApiSessionStore>().read(),
         onPacks: (response, {relayUri, request}) =>
             getIt<ProPackAccess>().relayAnswered(
               accountId: response.accountId,
@@ -2671,6 +2674,7 @@ Future<void> configureDependencies({
         apiSessions: getIt<ApiSessionStore>(),
         getServerInfo: getIt<GetServerInfoUsecase>(),
         establishSession: getIt<EstablishApiSessionUsecase>(),
+        connectToServer: getIt<ConnectToServerUsecase>(),
         getTopics: getIt<GetTopicsUsecase>(),
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         clearConnectionUsecase: getIt<ClearConnectionUsecase>(),
