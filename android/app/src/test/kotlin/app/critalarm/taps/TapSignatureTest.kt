@@ -128,13 +128,6 @@ class TapSignatureTest {
     }
 
     @Test
-    fun `nothing is kept from a refused intent`() {
-        assertTrue(TapSignature.kept(everything, TapVerdict.REFUSED).values.all { it == null })
-        assertTrue(TapSignature.kept(everything, TapVerdict.NONE).values.all { it == null })
-        assertEquals(everything, TapSignature.kept(everything, TapVerdict.SIGNED))
-    }
-
-    @Test
     fun `the mark is never a routing extra`() {
         assertFalse(TapSignature.EXTRA in TapSignature.FIELDS)
         assertFalse(TapSignature.FLUTTER_ROUTE in TapSignature.FIELDS)

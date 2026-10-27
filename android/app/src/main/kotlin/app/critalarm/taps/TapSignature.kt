@@ -24,6 +24,10 @@ import javax.crypto.spec.SecretKeySpec
  *
  * Nothing here logs: the key, a mark and an extra's value stay out of logs.
  *
+ * Not covered: the home screen shortcuts. The quick_actions plugin reads its
+ * own extra off MainActivity's intent, and the launcher that sends it cannot
+ * carry a mark, so a shortcut's screen opens for any app that names it.
+ *
  * Pure, so a JVM test can reach it. The key comes in as a parameter.
  */
 object TapSignature {
@@ -82,13 +86,6 @@ object TapSignature {
         val held = key() ?: return TapVerdict.REFUSED
         return if (matches(held, values, mark)) TapVerdict.SIGNED else TapVerdict.REFUSED
     }
-
-    /**
-     * The routing extras the screen may act on after [verdict]: all of them
-     * for a good mark, none otherwise.
-     */
-    fun kept(values: Map<String, String?>, verdict: TapVerdict): Map<String, String?> =
-        if (verdict == TapVerdict.SIGNED) FIELDS.associateWith { values[it] } else emptyMap()
 
     internal fun message(values: Map<String, String?>): ByteArray {
         val bytes = ByteArrayOutputStream()

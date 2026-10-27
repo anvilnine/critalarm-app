@@ -16,6 +16,13 @@ import org.junit.Test
 class TapLockRuleTest {
     private val key = ByteArray(TapKeyFile.SIZE) { (it * 7).toByte() }
 
+    /**
+     * The routing extras MainActivity's readers see after the gate: all of
+     * them for a good mark, none otherwise (TapGate.admit strips them).
+     */
+    private fun afterGate(values: Map<String, String?>, verdict: TapVerdict): Map<String, String?> =
+        if (verdict == TapVerdict.SIGNED) TapSignature.FIELDS.associateWith { values[it] } else emptyMap()
+
     private fun alarmStart(incidentId: String) = mapOf(
         MainActivity.EXTRA_ALARM_INCIDENT_ID to incidentId,
         MainActivity.EXTRA_INCIDENT_ID to incidentId,
@@ -24,14 +31,14 @@ class TapLockRuleTest {
     /** The same steps MainActivity takes: verdict, then the lock rule. */
     private fun showsOverLock(values: Map<String, String?>, mark: String?, owesAck: (String) -> Boolean): Boolean {
         val signed = TapSignature.verdict(values, mark) { key } == TapVerdict.SIGNED
-        val kept = TapSignature.kept(values, if (signed) TapVerdict.SIGNED else TapVerdict.REFUSED)
+        val kept = afterGate(values, if (signed) TapVerdict.SIGNED else TapVerdict.REFUSED)
         return TapLockRule.showsFor(signed, kept[MainActivity.EXTRA_ALARM_INCIDENT_ID], owesAck)
     }
 
     /** The same steps onCreate takes to the route Flutter is handed. */
     private fun initialRoute(values: Map<String, String?>, mark: String?): String {
         val verdict = TapSignature.verdict(values, mark) { key }
-        val kept = TapSignature.kept(values, verdict)
+        val kept = afterGate(values, verdict)
         val launch = LaunchTap {
             val incidentId = kept[MainActivity.EXTRA_ALARM_INCIDENT_ID] ?: kept[MainActivity.EXTRA_INCIDENT_ID]
             val topic = kept[MainActivity.EXTRA_TOPIC]
@@ -97,7 +104,7 @@ class TapLockRuleTest {
         )
         for (values in forged) {
             assertEquals(values.toString(), TapRoute.HOME, initialRoute(values, null))
-            assertTrue(TapSignature.kept(values, TapSignature.verdict(values, null) { key }).isEmpty())
+            assertEquals(TapVerdict.REFUSED, TapSignature.verdict(values, null) { key })
         }
     }
 
