@@ -647,10 +647,10 @@
     "reason_price": "Costs too much",
     "reason_unused": "Not using it enough",
     "reason_selfhost": "Moving to my own server",
-    "reason_missing": "Missing something",
+    "reason_missing": "Missing a feature",
     "reason_broken": "Something broke",
     "reason_other": "Other",
-    "explain_hint": "Want to explain? Optional",
+    "explain_hint": "Optional note. We can't reply.",
     "send": "Send",
     "thanks_title": "Thanks. That helps.",
     "keeps": "Cloud stays on until {date}."

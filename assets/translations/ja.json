@@ -650,7 +650,7 @@
     "reason_missing": "足りない機能がある",
     "reason_broken": "不具合があった",
     "reason_other": "その他",
-    "explain_hint": "理由があれば教えてください（任意）",
+    "explain_hint": "メモ（任意）。返信はできません。",
     "send": "送信",
     "thanks_title": "ありがとうございます。参考になります。",
     "keeps": "Cloudは{date}まで有効です。"
