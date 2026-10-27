@@ -11,6 +11,8 @@
 //   SCREENS=04_home_face,10_settings       only these screen ids
 //   THEMES=light                           light or dark (unset: both)
 //   OUT=/abs/dir                           where the files go (default below)
+//   FOLD_GUIDE=1                           draw the fold as a 1 px guide line
+//                                          on the hinge rows
 //
 // Output:
 //
@@ -39,7 +41,18 @@
 //
 // Each errors.json entry has a `kind`: `flutter_error` (a FlutterError the
 // screen raised), `note` (the tool could not do a step, such as finding a row
-// to pick) or `failed` (the capture threw). Notes show in grey on the sheet.
+// to pick, or a geometry check failed), `failed` (the capture threw) or
+// `fold_overlap` (on a hinge row, a text, button or face overlaps the fold
+// band at scroll 0; see tool/fold_clearance.dart). A fold_overlap entry also
+// carries `widget`, `label`, `rect` ([left, top, right, bottom]) and `chrome`
+// (true for the shell's tab bar or rail). Notes show in grey on the sheet.
+//
+// Every capture measures the tab bar and the rail from the render tree and
+// prints the numbers (`geometry ...` lines, also in run-log.txt), with a
+// PASS or FAIL for the rules that apply at that size: the bar left of the
+// band in book posture, the rail below the band in tabletop posture, the rail
+// inside the 1600 frame on a wider window, the cover bar 8 above the safe
+// area and icons only, and two panes on Home where the size is expanded.
 //
 // The clock is not pinned. Screens and the mock fixtures read DateTime.now()
 // and lib/ has no clock to swap, so times, "Today" labels and relative ages
@@ -60,8 +73,12 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/inbox_row.dart';
+import 'package:critalarm/design/components/nav_rail.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/faces.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
@@ -80,6 +97,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
+import 'fold_clearance.dart';
 
 const _defaultOut =
     '/Users/pat/Projects/anvilnine/crit-alarm/critalarm-planning/docs/'
@@ -288,11 +306,15 @@ typedef _Err = ({
   String screen,
   String kind,
   String message,
+  Map<String, Object?> extra,
 });
 
 const _flutterError = 'flutter_error';
 const _note = 'note';
 const _failed = 'failed';
+const _foldOverlap = 'fold_overlap';
+
+bool get _foldGuide => _env('FOLD_GUIDE') == '1';
 
 final _errors = <_Err>[];
 final _captured = <String>{};
@@ -400,6 +422,7 @@ void _writeErrors(Directory out) {
             'screen': e.screen,
             'kind': e.kind,
             'message': e.message,
+            ...e.extra,
           },
       ]..sort(
         (a, b) => _cell(
@@ -595,12 +618,15 @@ void main() {
     final withErrors = {
       for (final e in flutterErrors) _cell(e.size, e.theme, e.screen),
     };
+    final folds = _errors.where((e) => e.kind == _foldOverlap);
+    final chromeFolds = folds.where((e) => e.extra['chrome'] == true).length;
     final summary = [
       'captures written: ${_captured.length}',
       'captures with errors: ${withErrors.length}',
       'FlutterErrors recorded: ${flutterErrors.length}',
       'notes: ${_errors.where((e) => e.kind == _note).length}',
       'failed captures: ${_errors.where((e) => e.kind == _failed).length}',
+      'fold overlaps: ${folds.length} ($chromeFolds in shell chrome)',
       'routes that could not render: ${_broken.length}',
       for (final MapEntry(:key, :value) in _broken.entries) '  $key: $value',
       'wall time: ${clock.elapsed.inSeconds} s',
@@ -633,7 +659,11 @@ void main() {
             setUpAll(() => _boot(size));
             testWidgets('capture', (tester) async {
               final messages = <String>{};
-              void record(String message, {String kind = _flutterError}) {
+              void record(
+                String message, {
+                String kind = _flutterError,
+                Map<String, Object?> extra = const {},
+              }) {
                 final first = message.trim().split('\n').first;
                 if (messages.add(first)) {
                   _errors.add((
@@ -642,6 +672,7 @@ void main() {
                     screen: screen.id,
                     kind: kind,
                     message: first,
+                    extra: extra,
                   ));
                 }
               }
@@ -700,12 +731,24 @@ void main() {
                       routerConfig: router,
                       builder: (context, child) => RepaintBoundary(
                         key: boundary,
-                        child: AppDeviceScope(
-                          isIphone: size.isIphone,
-                          child: AppAmbientShell(
-                            router: router,
-                            child: child ?? const SizedBox.shrink(),
-                          ),
+                        child: Stack(
+                          textDirection: TextDirection.ltr,
+                          children: [
+                            AppDeviceScope(
+                              isIphone: size.isIphone,
+                              child: AppAmbientShell(
+                                router: router,
+                                child: child ?? const SizedBox.shrink(),
+                              ),
+                            ),
+                            if (_foldGuide && size.hingeLine != null)
+                              Positioned.fromRect(
+                                rect: _guideRect(size.hingeLine!),
+                                child: const IgnorePointer(
+                                  child: ColoredBox(color: Color(0xFFFF00C8)),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -730,6 +773,51 @@ void main() {
                 final pickProblem = await _tapPick(tester, screen.pick);
                 if (pickProblem != null) {
                   record('capture note: $pickProblem', kind: _note);
+                }
+
+                // The geometry the layout rules promise, read off the render
+                // tree rather than judged by eye.
+                for (final (line, failed) in _measure(tester, size, screen)) {
+                  print('geometry $rel: $line');
+                  _log.add('geometry $rel: $line');
+                  if (failed) {
+                    record('geometry check failed: $line', kind: _note);
+                  }
+                }
+
+                // On a hinge row nothing that reads may sit on the fold.
+                if (line != null) {
+                  final fold = AppFold.fromFeatures(
+                    size.displayFeatures,
+                    Size(size.width, size.height),
+                  );
+                  final overlaps = findFoldOverlaps(
+                    tester,
+                    fold.band,
+                    Offset.zero & Size(size.width, size.height),
+                  );
+                  for (final o in overlaps) {
+                    final r = o.rect;
+                    final where = o.isChrome ? 'shell chrome' : 'screen body';
+                    record(
+                      'fold_overlap: ${o.widget}'
+                      '${o.label.isEmpty ? '' : ' "${o.label}"'} in $where '
+                      'at ${_rectText(r)}',
+                      kind: _foldOverlap,
+                      extra: {
+                        'widget': o.widget,
+                        'label': o.label,
+                        'rect': [r.left, r.top, r.right, r.bottom],
+                        'chrome': o.isChrome,
+                      },
+                    );
+                  }
+                  final chrome = overlaps.where((o) => o.isChrome).length;
+                  final summary =
+                      'fold band ${_rectText(fold.band)}: '
+                      '${overlaps.length} overlaps ($chrome in shell chrome)';
+                  print('fold $rel: $summary');
+                  _log.add('fold     $rel: $summary');
                 }
 
                 await tester.runAsync(() async {
@@ -775,4 +863,105 @@ void main() {
       }
     });
   }
+}
+
+String _rectText(Rect r) =>
+    '[${r.left.toStringAsFixed(1)}, ${r.top.toStringAsFixed(1)}, '
+    '${r.right.toStringAsFixed(1)}, ${r.bottom.toStringAsFixed(1)}]';
+
+/// The 1 px FOLD_GUIDE line along a zero-thickness fold.
+Rect _guideRect(Rect line) => line.width == 0
+    ? Rect.fromLTWH(line.left - 0.5, line.top, 1, line.height)
+    : Rect.fromLTWH(line.left, line.top - 0.5, line.width, 1);
+
+/// The painted box of the one widget of type [T] on screen, or null.
+Rect? _paintedOf<T extends Widget>(WidgetTester tester) {
+  for (final element in find.byType(T).evaluate()) {
+    final render = element.renderObject;
+    if (render is! RenderBox) continue;
+    final rect = paintedRect(render);
+    if (rect != null) return rect;
+  }
+  return null;
+}
+
+/// Measures the tab bar, the rail and the panes, and checks them against the
+/// rules for [size]. Each line comes with true when its check failed.
+List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
+  final window = Size(size.width, size.height);
+  final appSize = AppSize(size.width, size.height, isIphone: size.isIphone);
+  final fold = AppFold.fromFeatures(size.displayFeatures, window);
+  final bar = _paintedOf<AppFloatingTabBar>(tester);
+  final rail = _paintedOf<AppNavRail>(tester);
+  final lines = <(String, bool)>[];
+  if (bar == null && rail == null) {
+    return [('no tab bar or rail on screen', false)];
+  }
+
+  if (bar != null) {
+    final iconsOnly = find
+        .byType(AppFloatingTabBar)
+        .evaluate()
+        .map((e) => (e.widget as AppFloatingTabBar).iconsOnly)
+        .first;
+    lines.add(('bar ${_rectText(bar)}, icons only $iconsOnly', false));
+    if (fold.isBook) {
+      final ok = bar.right <= fold.band.left;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} bar right ${bar.right.toStringAsFixed(1)} '
+            '<= band left ${fold.band.left.toStringAsFixed(1)}',
+        !ok,
+      ));
+    }
+    if (fold.isTabletop) {
+      final ok = bar.top >= fold.band.bottom;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} bar top ${bar.top.toStringAsFixed(1)} '
+            '>= band bottom ${fold.band.bottom.toStringAsFixed(1)}',
+        !ok,
+      ));
+    }
+    if (appSize.isCover) {
+      // The test view has no safe area, so the bar sits 8 above the edge.
+      final gap = size.height - bar.bottom;
+      final ok =
+          (gap - AppFloatingTabBar.coverEdgeGap).abs() < 0.5 && iconsOnly;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} cover bar ${gap.toStringAsFixed(1)} above '
+            'the safe area (want ${AppFloatingTabBar.coverEdgeGap}), '
+            'icons only $iconsOnly',
+        !ok,
+      ));
+    }
+  }
+  if (rail != null) {
+    lines.add(('rail ${_rectText(rail)}', false));
+    if (fold.isTabletop) {
+      final ok = rail.top >= fold.band.bottom;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} rail top ${rail.top.toStringAsFixed(1)} '
+            '>= band bottom ${fold.band.bottom.toStringAsFixed(1)}',
+        !ok,
+      ));
+    }
+    if (appSize.frameInset > 0) {
+      final ok = rail.left >= appSize.frameInset;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} rail left ${rail.left.toStringAsFixed(1)} '
+            '>= frame inset ${appSize.frameInset.toStringAsFixed(1)}',
+        !ok,
+      ));
+    }
+  }
+  if (screen.id == '04_home_face' &&
+      AppScreenScaffold.showsDetailFor(appSize, fold)) {
+    final panes = _paintedOf<AppDetailPane>(tester);
+    final ok = panes != null;
+    lines.add((
+      '${ok ? 'PASS' : 'FAIL'} Home shows two panes'
+          '${panes == null ? '' : ', detail ${_rectText(panes)}'}',
+      !ok,
+    ));
+  }
+  return lines;
 }
