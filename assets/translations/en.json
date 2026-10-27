@@ -651,9 +651,9 @@
     "reason_broken": "Something broke",
     "reason_other": "Other",
     "explain_hint": "Optional note. We can't reply.",
-    "send": "Send",
+    "send": "Send note",
     "thanks_title": "Thanks. That helps.",
-    "keeps": "Cloud stays on until {date}."
+    "keeps": "Cloud stays on until {date}. Your alarms keep ringing."
   },
   "asks": {
     "pro_title": "Cloud adds:",
