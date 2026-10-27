@@ -98,6 +98,7 @@ import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
 import 'fold_clearance.dart';
+import 'wp6_geometry.dart';
 
 const _defaultOut =
     '/Users/pat/Projects/anvilnine/crit-alarm/critalarm-planning/docs/'
@@ -897,9 +898,12 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
   final fold = AppFold.fromFeatures(size.displayFeatures, window);
   final bar = _paintedOf<AppFloatingTabBar>(tester);
   final rail = _paintedOf<AppNavRail>(tester);
-  final lines = <(String, bool)>[];
+  final lines = <(String, bool)>[
+    // WP6: onboarding and New topic. See tool/wp6_geometry.dart.
+    ...wp6Measure(tester, screen.id, window: window, size: appSize, fold: fold),
+  ];
   if (bar == null && rail == null) {
-    return [('no tab bar or rail on screen', false)];
+    return [...lines, ('no tab bar or rail on screen', false)];
   }
 
   if (bar != null) {
