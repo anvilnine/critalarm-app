@@ -42,7 +42,7 @@ const List<CaptureRoute> allScreenRoutes = [
   ('14_server_disconnected', '/settings/disconnected', FaceState.calm, null),
   (
     '15_sound_picker_ios',
-    '/settings/sounds',
+    '/sounds',
     FaceState.calm,
     TargetPlatform.iOS,
   ),
