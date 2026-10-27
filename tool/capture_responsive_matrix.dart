@@ -95,6 +95,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../test/helpers/load_translations.dart';
+import 'alarm_geometry.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
 import 'fold_clearance.dart';
@@ -206,6 +207,7 @@ const List<_Size> _sizes = [
   _Size('pixel-fold-tabletop', 841, 701, _Renders.android, hingeY: 350),
   _Size('pixel-fold-inner-book', 841, 701, _Renders.android, hingeX: 420),
   _Size('razr-cover', 384, 388, _Renders.android),
+  _Size('razr-cover-text13', 384, 388, _Renders.android, textScale: 1.3),
   _Size(
     'iphone-fold-unfolded',
     720,
@@ -897,9 +899,13 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
   final fold = AppFold.fromFeatures(size.displayFeatures, window);
   final bar = _paintedOf<AppFloatingTabBar>(tester);
   final rail = _paintedOf<AppNavRail>(tester);
-  final lines = <(String, bool)>[];
+  final lines = <(String, bool)>[
+    // The ringing alarm (WP2): "I'm up" on screen at rest, and the rules of
+    // the cover and wide layouts. Nothing when no alarm is on screen.
+    ...measureRingingAlarm(tester, window: window, size: appSize, fold: fold),
+  ];
   if (bar == null && rail == null) {
-    return [('no tab bar or rail on screen', false)];
+    return [...lines, ('no tab bar or rail on screen', false)];
   }
 
   if (bar != null) {
