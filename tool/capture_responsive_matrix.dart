@@ -98,6 +98,7 @@ import '../test/helpers/load_translations.dart';
 import 'capture_fonts.dart';
 import 'capture_routes.dart';
 import 'fold_clearance.dart';
+import 'paywall_geometry.dart';
 
 const _defaultOut =
     '/Users/pat/Projects/anvilnine/crit-alarm/critalarm-planning/docs/'
@@ -895,6 +896,14 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
   final window = Size(size.width, size.height);
   final appSize = AppSize(size.width, size.height, isIphone: size.isIphone);
   final fold = AppFold.fromFeatures(size.displayFeatures, window);
+  // A paywall has no bar: it is measured on its own (WP5).
+  final paywall = measurePaywall(
+    tester,
+    window: window,
+    size: appSize,
+    fold: fold,
+  );
+  if (paywall != null) return paywall;
   final bar = _paintedOf<AppFloatingTabBar>(tester);
   final rail = _paintedOf<AppNavRail>(tester);
   final lines = <(String, bool)>[];
