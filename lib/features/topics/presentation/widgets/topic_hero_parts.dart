@@ -321,9 +321,10 @@ AppScreenColumns foldStageColumnsFor(BuildContext context, double boxWidth) =>
 /// What a screen hands `AppScreenScaffold.foldStage`: [children] stacked at
 /// the top of the stage pane, in the same column as the stage's top bar.
 ///
-/// The stage holds still. Nothing in it scrolls, because a vertical scroll
-/// view there would also drive the shared refresh face. A stage taller than
-/// its pane (very large text) is cut at the pane's foot instead.
+/// The stage holds still. Only a stage taller than its pane (large text in a
+/// book start pane) scrolls, and that scroll stays inside the stage: its
+/// notifications stop here, so it never drives the shared refresh face the
+/// list in the other pane pulls.
 class FoldStageColumn extends StatelessWidget {
   const FoldStageColumn({required this.children, super.key});
 
@@ -333,18 +334,19 @@ class FoldStageColumn extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final columns = foldStageColumnsFor(context, constraints.maxWidth);
-      return ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topCenter,
-          minHeight: 0,
-          maxHeight: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: columns.gutter),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
-            ),
+      return NotificationListener<Notification>(
+        onNotification: (notification) =>
+            notification is ScrollNotification ||
+            notification is ScrollMetricsNotification ||
+            notification is OverscrollIndicatorNotification,
+        child: SingleChildScrollView(
+          primary: false,
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: columns.gutter),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
           ),
         ),
       );
@@ -442,11 +444,16 @@ class HeroLinePanel extends StatelessWidget {
     required this.parts,
     this.onTap,
     this.semanticsLabel,
+    this.liveRegion = false,
     super.key,
   });
 
   final List<HeroLinePart> parts;
   final VoidCallback? onTap;
+
+  /// True announces the panel's words when they change, as the full card
+  /// does for a card whose kind changes while it is on screen.
+  final bool liveRegion;
 
   /// What a screen reader says for the panel. Defaults to the parts' words.
   final String? semanticsLabel;
@@ -516,6 +523,8 @@ class HeroLinePanel extends StatelessWidget {
     return Semantics(
       container: true,
       button: onTap != null,
+      onTap: onTap,
+      liveRegion: liveRegion,
       label: semanticsLabel ?? spoken,
       child: ExcludeSemantics(
         child: GestureDetector(
