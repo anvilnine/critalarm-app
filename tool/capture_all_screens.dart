@@ -9,7 +9,6 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/api/mock_server.dart';
-import 'package:critalarm/design/faces/faces.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/foundation.dart';
@@ -22,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../test/helpers/load_translations.dart';
 
 import 'capture_fonts.dart';
+import 'capture_routes.dart';
 
 void main() {
   setUpAll(() async {
@@ -36,37 +36,8 @@ void main() {
     await loadAppFonts();
   });
 
-  // The fourth field pins the platform the screen renders as. It matters for
-  // the sound picker, which shows a different note on iOS.
-  final screens = <(String, String, FaceState, TargetPlatform?)>[
-    ('01_gallery', '/gallery', FaceState.calm, null),
-    ('02_onboarding_welcome', '/onboarding', FaceState.calm, null),
-    (
-      '03_onboarding_permissions',
-      '/onboarding/permissions',
-      FaceState.alarmed,
-      null,
-    ),
-    ('04_home_face', '/', FaceState.calm, null),
-    ('05_topics_list', '/topics', FaceState.calm, null),
-    ('06_topic_detail', '/topics/nas-backup', FaceState.worried, null),
-    ('07_create_topic', '/topics/new', FaceState.watching, null),
-    ('08_critical_alarm', '/alarm', FaceState.alarmed, null),
-    ('09_lock_screen', '/lockscreen', FaceState.alarmed, null),
-    ('10_settings', '/settings', FaceState.acked, null),
-    ('11_paywall_shell', '/paywall', FaceState.acked, null),
-    ('12_device_permissions', '/settings/permissions', FaceState.calm, null),
-    ('13_permission_denial', '/onboarding/denied', FaceState.worried, null),
-    ('14_server_disconnected', '/settings/disconnected', FaceState.calm, null),
-    (
-      '15_sound_picker_ios',
-      '/settings/sounds',
-      FaceState.calm,
-      TargetPlatform.iOS,
-    ),
-  ];
-
-  for (final (filename, routePath, fixtureState, platform) in screens) {
+  // The list is shared with tool/capture_responsive_matrix.dart.
+  for (final (filename, routePath, fixtureState, platform) in allScreenRoutes) {
     testWidgets('Capture $filename at $routePath', (tester) async {
       getIt<MockServer>().loadFixture(fixtureState);
       debugDefaultTargetPlatformOverride = platform;
