@@ -158,6 +158,9 @@ class DeviceIdentityStore {
         await _prefs.setString(key, value);
       }
     }
+    // The tier and the account may be the old ones again, so whoever read
+    // them from the identity that is gone reads them again.
+    _written.ring();
   }
 
   /// Forgets the device row that was retired by the iOS Keychain split.
