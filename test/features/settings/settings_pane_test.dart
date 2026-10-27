@@ -110,6 +110,94 @@ void main() {
     });
   });
 
+  group('settingsPaneOpening', () {
+    test('draws no page while the connection is not read yet', () {
+      for (final isConnected in [true, false]) {
+        expect(
+          settingsPaneOpening(
+            selected: null,
+            shown: nativeShown(),
+            connectionKnown: false,
+            isConnected: isConnected,
+          ),
+          isNull,
+          reason: 'isConnected: $isConnected',
+        );
+      }
+    });
+
+    test('a tapped row shows while the connection is not read yet', () {
+      expect(
+        settingsPaneOpening(
+          selected: SettingsPage.storage,
+          shown: nativeShown(),
+          connectionKnown: false,
+          isConnected: false,
+        ),
+        SettingsPage.storage,
+      );
+      // A tapped row that never draws in the pane still waits.
+      expect(
+        settingsPaneOpening(
+          selected: SettingsPage.language,
+          shown: nativeShown(),
+          connectionKnown: false,
+          isConnected: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('the lost-server screen opens on Server from the first frame', () {
+      expect(
+        settingsPaneOpening(
+          selected: null,
+          shown: nativeShown(),
+          connectionKnown: false,
+          isConnected: false,
+          forceDisconnected: true,
+        ),
+        SettingsPage.server,
+      );
+    });
+
+    test('once read, a lost server opens on Server', () {
+      expect(
+        settingsPaneOpening(
+          selected: null,
+          shown: nativeShown(),
+          connectionKnown: true,
+          isConnected: false,
+        ),
+        SettingsPage.server,
+      );
+    });
+
+    test('once read, a connected phone opens on the first row', () {
+      expect(
+        settingsPaneOpening(
+          selected: null,
+          shown: nativeShown(),
+          connectionKnown: true,
+          isConnected: true,
+        ),
+        SettingsPage.sound,
+      );
+    });
+
+    test('a tapped row wins over Server once read', () {
+      expect(
+        settingsPaneOpening(
+          selected: SettingsPage.about,
+          shown: nativeShown(),
+          connectionKnown: true,
+          isConnected: false,
+        ),
+        SettingsPage.about,
+      );
+    });
+  });
+
   group('settingsPaneSelection with a preferred page', () {
     test('a phone that lost its server opens on Server', () {
       expect(
