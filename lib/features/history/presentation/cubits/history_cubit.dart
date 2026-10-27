@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
@@ -33,6 +34,7 @@ class HistoryCubit extends Cubit<HistoryState> {
     this.identityStore,
     this.featureAccess,
     this.store,
+    this.held,
     PlanChanges? planChanges,
   }) : _now = now ?? DateTime.now,
        _planChanges = planChanges ?? appPlanChanges,
@@ -59,6 +61,10 @@ class HistoryCubit extends Cubit<HistoryState> {
   /// The phone's own copy. Null in tests that only exercise the grouping.
   final LocalStore? store;
 
+  /// What the phone held at launch. Draws the first frame before the plan and
+  /// the disk have been read. Null in tests that do not care.
+  final HeldRows? held;
+
   /// Tells this cubit when the caps may have moved, so a new plan shows
   /// its own window without an app restart.
   final PlanChanges _planChanges;
@@ -82,7 +88,10 @@ class HistoryCubit extends Cubit<HistoryState> {
     _incidentsSub ??= _incidents.stream.listen((_) => _rebuildIfChanged());
     // A refresh keeps whatever is already grouped. Only a first load has
     // nothing to show, and that is the only time the screen says "loading".
-    emit(state.copyWith(status: HistoryStatus.loading));
+    // A phone that held alarms at launch has something to show at once.
+    if (!_seedFromHeld()) {
+      emit(state.copyWith(status: HistoryStatus.loading));
+    }
 
     if (!await _readPlan()) {
       emit(
@@ -96,9 +105,50 @@ class HistoryCubit extends Cubit<HistoryState> {
       return;
     }
 
+    // The phone's own copy first, so the list does not wait on the network.
+    // The server's answer, if it adds or changes anything, is read after it.
+    // A phone that holds nothing says nothing yet: "no alarms" is for a server
+    // that has been asked, not for an empty disk.
+    final local = store;
+    if (local != null && await local.incidents.count() > 0) await _reload();
+
     await _incidents.ensureLoaded();
     _builtFrom = null;
     await _reload();
+  }
+
+  /// Draws the first page from the alarms the phone held at launch, in this
+  /// frame. True when it did. The alarms are the phone's stored answers, so an
+  /// alarm shows open only if the last stored answer said so, and the read of
+  /// the disk right after replaces the rows with what it holds now.
+  bool _seedFromHeld() {
+    final snapshot = held?.snapshot;
+    if (snapshot == null || store == null) return false;
+    if (state.status != HistoryStatus.initial) return false;
+    final bound = snapshot.bound;
+    final page = <Incident>[
+      for (final incident in snapshot.incidents)
+        if (incident.openedAt != null &&
+            (bound == null || !incident.openedAt!.isBefore(bound)))
+          incident,
+    ].take(pageSize).toList();
+    if (page.isEmpty) return false;
+
+    final entries = toEntries(page, _now());
+    _hasLongHistory = snapshot.plan.hasLongHistory;
+    _pagesRead = 1;
+    emit(
+      state.copyWith(
+        status: HistoryStatus.success,
+        entries: entries,
+        days: groupByDay(filterEntries(entries, state.filter, _now())),
+        shownDays: snapshot.plan.shownDays,
+        olderCount: snapshot.olderCount,
+        hasMore: page.length == pageSize,
+        clearError: true,
+      ),
+    );
+    return true;
   }
 
   /// Reads the plan and the server mode again. False when there is an
