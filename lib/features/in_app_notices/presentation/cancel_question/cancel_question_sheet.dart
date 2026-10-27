@@ -152,79 +152,76 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
           style: AppTypography.small(colors.ink3, fontSize: 12),
         );
 
+        // The header, the reasons and the field scroll. Send and the last
+        // line stay under them, so a long note never pushes either out of
+        // view.
+        final footer = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isExplain) ...[
+              const SizedBox(height: Spacing.s2),
+              AppButton(
+                label: LocaleKeys.cancel_question_send.tr(),
+                variant: AppButtonVariant.ink,
+                isFullWidth: true,
+                onPressed: _hasText ? () => cubit.send(_controller.text) : null,
+              ),
+            ],
+            const SizedBox(height: Spacing.s3),
+            keeps,
+          ],
+        );
+
+        final top = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            if (!isThanks) ...[
+              const SizedBox(height: Spacing.s2),
+              Wrap(
+                spacing: Spacing.s2,
+                runSpacing: room < Spacing.s2 ? Spacing.s2 - room : 0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final reason in CancelReason.values)
+                    CancelReasonChip(
+                      label: _label(reason),
+                      isSelected: state.reason == reason,
+                      onTap: step == CancelQuestionStep.question
+                          ? () => cubit.pick(reason)
+                          : null,
+                    ),
+                ],
+              ),
+            ],
+            if (isExplain)
+              Padding(
+                padding: const EdgeInsets.only(top: Spacing.s3),
+                child: AppTextField(
+                  controller: _controller,
+                  isMono: false,
+                  growToFit: true,
+                  maxLength: kCancelTextMaxChars,
+                  placeholder: LocaleKeys.cancel_question_explain_hint.tr(),
+                  textCapitalization: TextCapitalization.sentences,
+                  scrollPadding: const EdgeInsets.only(bottom: 120),
+                ),
+              ),
+          ],
+        );
+
         return ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),
-          child: SingleChildScrollView(
-            child: _grow(
-              context,
+          child: _grow(
+            context,
+            child: Semantics(
+              liveRegion: isThanks,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (isThanks)
-                    Semantics(
-                      liveRegion: true,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          header,
-                          const SizedBox(height: Spacing.s3),
-                          keeps,
-                        ],
-                      ),
-                    )
-                  else ...[
-                    header,
-                    const SizedBox(height: Spacing.s2),
-                    Wrap(
-                      spacing: Spacing.s2,
-                      runSpacing: room < Spacing.s2 ? Spacing.s2 - room : 0,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (final reason in CancelReason.values)
-                          CancelReasonChip(
-                            label: _label(reason),
-                            isSelected: state.reason == reason,
-                            onTap: step == CancelQuestionStep.question
-                                ? () => cubit.pick(reason)
-                                : null,
-                          ),
-                      ],
-                    ),
-                    if (isExplain)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Spacing.s3),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            AppTextField(
-                              controller: _controller,
-                              isMono: false,
-                              growToFit: true,
-                              maxLength: kCancelTextMaxChars,
-                              placeholder: LocaleKeys
-                                  .cancel_question_explain_hint
-                                  .tr(),
-                              textCapitalization: TextCapitalization.sentences,
-                              scrollPadding: const EdgeInsets.only(
-                                bottom: 120,
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.s2),
-                            AppButton(
-                              label: LocaleKeys.cancel_question_send.tr(),
-                              variant: AppButtonVariant.ink,
-                              isFullWidth: true,
-                              onPressed: _hasText
-                                  ? () => cubit.send(_controller.text)
-                                  : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: Spacing.s3),
-                    keeps,
-                  ],
+                  Flexible(child: SingleChildScrollView(child: top)),
+                  footer,
                 ],
               ),
             ),

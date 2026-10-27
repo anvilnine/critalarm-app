@@ -293,6 +293,18 @@ void main() {
           await _settle(tester);
         }
         await scene.afterKeyboard?.call(tester);
+        // The last line is never cut: it lies whole above the keyboard and
+        // inside the phone, and Send (when there) does too.
+        final visibleBottom = phone.size.height - scene.keyboard;
+        for (final text in ['Cloud stays on until', 'Send']) {
+          final found = find.textContaining(text);
+          if (found.evaluate().isEmpty) continue;
+          final box = tester.getRect(found.first);
+          _expect(
+            box.top >= 0 && box.bottom <= visibleBottom,
+            '"$text" is cut: ${box.top}..${box.bottom} of $visibleBottom',
+          );
+        }
         scene.check?.call(sink);
 
         await tester.runAsync(() async {
