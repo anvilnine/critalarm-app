@@ -694,6 +694,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                   : real.topicItems),
             ],
           );
+    // Book posture shows the pane at any width, tabletop shows none.
+    final showsDetail = AppScreenScaffold.showsDetail(context);
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
     // rather than trusted.
@@ -715,9 +717,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             home,
             topic,
             now: now,
-            isSelected: size.isExpanded && topic.name == selected,
+            isSelected: showsDetail && topic.name == selected,
             isExample: showExamples,
-            isExpanded: size.isExpanded,
+            isExpanded: showsDetail,
           ),
         ),
     ];
@@ -813,7 +815,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                   child: _HeroBlock(
                     model: card,
                     glance: _glance,
-                    isPane: size.isExpanded,
+                    isPane: showsDetail,
                     onAction: showExamples ? null : _onCardAction,
                     onTapBody: showExamples ? null : _openReliability,
                   ),
