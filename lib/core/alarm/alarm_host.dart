@@ -349,6 +349,22 @@ final class AlarmHost {
   Future<void> holdLockScreen(String incidentId) async =>
       _invoke<void>('holdLockScreen', {'incident_id': incidentId});
 
+  /// Whether this phone has a camera flash the app can blink. No answer,
+  /// which is every platform with no handler, reads as none.
+  Future<bool> hasTorch() async => await _invoke<bool>('hasTorch') ?? false;
+
+  /// Starts or stops the blinking flash that goes with the alarm screen.
+  ///
+  /// iOS only. An iPhone alarm is rung by the system, so the app can blink
+  /// the flash only while its own alarm screen is open. [topics] are the
+  /// topics ringing on that screen: the native side checks them against the
+  /// saved switches again before it turns anything on. Android blinks from
+  /// its alarm service and has no handler for this.
+  Future<void> setScreenFlash({
+    required bool on,
+    List<String> topics = const <String>[],
+  }) => _invoke<void>('setScreenFlash', {'on': on, 'topics': topics});
+
   /// Whether a push that rings reached this phone for [incidentId]. Android
   /// answers from the record its push service keeps, with no network call.
   /// iOS has no such record and answers false; the alarm it schedules is

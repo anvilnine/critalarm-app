@@ -742,6 +742,11 @@
       "other": "{count} Nachrichten. Klingelt bei Priorität {priority}."
     },
     "critical_needs_alarm": "Aktiviere zuerst Alarme in den Einstellungen. Sonst kommt ein Alarm als leise Benachrichtigung an.",
+    "flash_row_title": "Kameralicht blinken lassen",
+    "flash_row_subtitle": "Blinkt einmal pro Sekunde, solange dieses Topic klingelt",
+    "flash_row_subtitle_ios": "Blinkt einmal pro Sekunde, solange der Alarmbildschirm offen ist",
+    "vibration_row_title": "Starke Vibration",
+    "vibration_row_subtitle": "Vibriert kräftig, solange dieses Topic klingelt",
     "messages_header": "Nachrichten",
     "stop_alarm_button": "Alarm stoppen",
     "retry_button": "Erneut versuchen",

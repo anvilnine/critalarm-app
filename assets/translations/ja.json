@@ -742,6 +742,11 @@
       "other": "メッセージ{count}件。優先度{priority}で鳴ります。"
     },
     "critical_needs_alarm": "まず設定でアラームをオンにしてください。オフだと音のない通知として届きます。",
+    "flash_row_title": "カメラのライトを点滅",
+    "flash_row_subtitle": "このトピックが鳴っている間、1秒に1回点滅します",
+    "flash_row_subtitle_ios": "アラーム画面が開いている間、1秒に1回点滅します",
+    "vibration_row_title": "強いバイブレーション",
+    "vibration_row_subtitle": "このトピックが鳴っている間、強く振動します",
     "messages_header": "メッセージ",
     "stop_alarm_button": "アラームを停止",
     "retry_button": "再試行",

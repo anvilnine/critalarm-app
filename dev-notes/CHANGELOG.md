@@ -8,6 +8,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - DateLabel in lib/core/format/date\_label.dart formats every date label for the current locale and keeps the English patterns unchanged.
 - The relay that issued the device token is kept beside it: prefs key device\_token\_relay on Android and the same field in the iOS Keychain device item. deviceTokenRelayTrust in lib/core/push/device\_token\_relay.dart is the rule RegisterDeviceUsecase and EstablishApiSessionUsecase follow.
 - The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
+- Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
