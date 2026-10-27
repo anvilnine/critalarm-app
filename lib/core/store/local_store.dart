@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -31,14 +30,13 @@ import 'package:sqflite/sqflite.dart';
 /// Times are stored as whole seconds since the epoch, the same unit the
 /// contract uses on the wire.
 class LocalStore {
-  /// [scope] and [identityChanges] name the account the archive is read and
-  /// written for. Leave them out only where one account is all there is (a
-  /// unit test, a capture): every row then shares one scope.
+  /// [scope] names the account the archive is read and written for. Leave it
+  /// out only where one account is all there is (a unit test, a capture):
+  /// every row then shares one scope.
   LocalStore(
     Database db, {
     Future<String?> Function()? scope,
-    AccountIdentityChanges? identityChanges,
-  }) : this._(db, ArchiveScope(current: scope, changes: identityChanges));
+  }) : this._(db, ArchiveScope(current: scope));
 
   LocalStore._(this.db, this._scope)
     : incidents = IncidentStore(db, _scope),
@@ -65,14 +63,11 @@ class LocalStore {
   /// [scope] names the account the phone is on now (`heldScopeFor`). A file
   /// from before rows were scoped is upgraded by giving every row that
   /// scope, so nobody loses history on update. It is read once, during that
-  /// upgrade, and must not touch this database. [identityChanges] tells the
-  /// store when the account changed, so a write that started before is not
-  /// kept.
+  /// upgrade, and must not touch this database.
   static Future<LocalStore> open({
     DatabaseFactory? factory,
     String? path,
     Future<String?> Function()? scope,
-    AccountIdentityChanges? identityChanges,
   }) async {
     final resolved =
         path ??
@@ -94,13 +89,10 @@ class LocalStore {
         },
       ),
     );
-    return LocalStore(db, scope: scope, identityChanges: identityChanges);
+    return LocalStore(db, scope: scope);
   }
 
-  Future<void> close() {
-    _scope.dispose();
-    return db.close();
-  }
+  Future<void> close() => db.close();
 
   /// Remembers the incident cursor immediately before it is sent to the API.
   void recordLastSince(DateTime? since) {

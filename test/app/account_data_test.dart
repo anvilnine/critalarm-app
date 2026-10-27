@@ -3,7 +3,6 @@ import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
-import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -564,7 +563,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: inMemoryDatabasePath,
         scope: () async => account,
-        identityChanges: AccountIdentityChanges(),
       );
       addTearDown(store.close);
       Incident alarm(String id) => Incident(

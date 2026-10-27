@@ -43,6 +43,8 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/scoped_api_client.dart';
+import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
@@ -418,7 +420,6 @@ Future<void> configureDependencies({
       // from before rows were scoped is upgraded.
       localStore = await LocalStore.open(
         scope: heldScope.call,
-        identityChanges: appAccountIdentityChanges,
       );
     } on Object catch (error, stack) {
       // A database that will not open must not stop the app from ringing.
@@ -664,22 +665,30 @@ Future<void> configureDependencies({
     ..registerLazySingleton<MockApiClient>(
       () => MockApiClient(getIt<MockServer>()),
     )
+    // Every answer that carries incidents or messages is checked against the
+    // account that asked: if the phone moved to another account while the
+    // request was out, the call throws instead of handing it back.
     ..registerLazySingleton<ApiClient>(
       () => useMockApi
           ? getIt<MockApiClient>()
-          : HttpApiClient(
-              httpClient ?? http.Client(),
-              getIt<ApiSessionStore>(),
-              // A 401 on this phone's own credential means somebody deleted
-              // the account from another handset (api.md §3.7). Resolved
-              // inside the closure, because the repository needs this client.
-              onDeadCredential: () =>
-                  getIt<AccountRepository>().recoverFromDeadCredential(),
-              readDeviceToken: () async =>
-                  (await getIt<DeviceIdentityStore>().readOrCreate())
-                      .deviceToken,
-              readDeviceId: () async =>
-                  (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
+          : ScopedApiClient(
+              HttpApiClient(
+                httpClient ?? http.Client(),
+                getIt<ApiSessionStore>(),
+                // A 401 on this phone's own credential means somebody deleted
+                // the account from another handset (api.md §3.7). Resolved
+                // inside the closure, because the repository needs this
+                // client.
+                onDeadCredential: () =>
+                    getIt<AccountRepository>().recoverFromDeadCredential(),
+                readDeviceToken: () async =>
+                    (await getIt<DeviceIdentityStore>().readOrCreate())
+                        .deviceToken,
+                readDeviceId: () async =>
+                    (await getIt<DeviceIdentityStore>().readOrCreate())
+                        .deviceId,
+              ),
+              readScope: heldScope.call,
             ),
     )
     // The weekly check routes live on the same client too.
@@ -1301,6 +1310,8 @@ Future<void> configureDependencies({
             return incident.messages.any(
               (message) => message.title != IncidentKinds.testAlarmTitle,
             );
+          } on StaleAccountException {
+            return null;
           } on ApiException catch (error) {
             // Gone from the server: nothing of the user's is in it.
             return error.statusCode == 404 ? false : null;
@@ -1655,11 +1666,6 @@ Future<void> configureDependencies({
         getIt<GetIncidentsUsecase>(),
         badge: getIt<AppBadge>(),
         saveIncident: getIt<IncidentRepository>().saveIncident,
-        isLeftBehind: (id) {
-          final repository = getIt<IncidentRepository>();
-          return repository is InMemoryIncidentRepository &&
-              repository.isLeftBehind(id);
-        },
       ),
     )
     ..registerLazySingleton(

@@ -1,5 +1,3 @@
-import 'package:critalarm/core/account/account_identity_changes.dart';
-
 /// Which account the phone's archive of incidents and messages belongs to
 /// right now, and the write guard that keeps a late write out of the next
 /// account's rows.
@@ -13,32 +11,21 @@ import 'package:critalarm/core/account/account_identity_changes.dart';
 /// [current] is null for a store that has one account only (a unit test, a
 /// capture). Every row then sits under [single].
 class ArchiveScope {
-  ArchiveScope({
-    this._current,
-    AccountIdentityChanges? changes,
-  }) : _changes = changes ?? appAccountIdentityChanges {
-    _changes.addListener(_onIdentityChanged);
-  }
+  ArchiveScope({this._current});
 
   /// The scope of every row in a store that was given no [current].
   static const single = 'single';
 
   final Future<String?> Function()? _current;
-  final AccountIdentityChanges _changes;
 
-  /// Counts sign-ins, sign-outs, account switches and deletes. A write
-  /// remembers the number it started under and is dropped when it moved.
+  /// Counts deletes and merges. A write remembers the number it started
+  /// under and is dropped when it moved.
   int _generation = 0;
 
-  void _onIdentityChanged() => _generation++;
-
-  /// Makes every write that started before now drop itself. A delete calls it
-  /// before it queues, so a write that has not reached the database yet
-  /// cannot land after the delete and bring the rows back.
+  /// Makes every write that started before now drop itself. A delete or a
+  /// merge calls it before it queues, so a write that has not reached the
+  /// database yet cannot land after it and bring the rows back.
   void invalidate() => _generation++;
-
-  /// Stops listening. The store calls it when it closes.
-  void dispose() => _changes.removeListener(_onIdentityChanged);
 
   /// The scope the phone is on now, or null when it is on none (no server is
   /// saved) or the answer cannot be read. A null scope reads as an empty
@@ -61,10 +48,12 @@ class ArchiveScope {
 /// One write's claim on the archive.
 ///
 /// It settles to the scope to write under, or to null when the write must not
-/// be stored: no scope was known when it started, the identity changed since,
-/// or the phone is on another scope now. An alarm rings before any of this
-/// runs, so a dropped write costs a row in the archive and nothing else. The
-/// next sync fetches the incident again for the account it belongs to.
+/// be stored: no scope was known when it started, or the phone is on another
+/// scope now. Only the scopes are compared. A sign-in that leaves the account
+/// as it was, or an account that was left and came back, does not drop the
+/// write. An alarm rings before any of this runs, so a dropped write costs a
+/// row in the archive and nothing else. The next sync fetches the incident
+/// again for the account it belongs to.
 class ArchiveTicket {
   ArchiveTicket._(this._scope, this._generation, this._started);
 
@@ -72,25 +61,15 @@ class ArchiveTicket {
   final int _generation;
   final Future<String?> _started;
 
-  /// True while nothing has changed since the write started. Checked inside
-  /// the write's transaction, with no wait between the check and the first
-  /// insert, so a delete that follows is queued after the write and removes
-  /// what it wrote.
+  /// True while no delete or merge has run since the write started. Checked
+  /// inside the write's transaction, with no wait between the check and the
+  /// first insert, so a delete that follows is queued after the write and
+  /// removes what it wrote.
   bool get holds => _scope._generation == _generation;
-
-  /// True when the phone is no longer on the account this write started
-  /// under: the identity changed, or the scope is another one now. A write
-  /// that started with no scope at all cannot tell, so it reads as not stale.
-  Future<bool> isStale() async {
-    final startedAs = await _started;
-    if (startedAs == null) return false;
-    return _scope._generation != _generation ||
-        startedAs != await _scope.current();
-  }
 
   Future<String?> settle() async {
     final startedAs = await _started;
-    if (startedAs == null || _scope._generation != _generation) return null;
+    if (startedAs == null || !holds) return null;
     return startedAs == await _scope.current() ? startedAs : null;
   }
 }

@@ -6,6 +6,7 @@ import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/api/scoped_api_client.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -272,7 +273,6 @@ void main() {
       factory: databaseFactoryFfi,
       path: inMemoryDatabasePath,
       scope: phone.scope,
-      identityChanges: phone.changes,
     );
   });
 
@@ -402,8 +402,7 @@ void main() {
       },
     );
 
-    test('the same holds when the identity bell rang and the account came '
-        'back', () async {
+    test('a write whose account was left and came back is stored', () async {
       final ticket = store.messages.beginWrite();
       phone
         ..moveTo('acc_b')
@@ -413,8 +412,22 @@ void main() {
         const Message(id: 'late', topic: 'prod', time: 1),
       ], ticket: ticket);
 
-      expect(await store.messages.count(), 0);
+      expect(await store.messages.count(), 1);
     });
+
+    test(
+      'a bump that changes nothing about the account drops nothing',
+      () async {
+        final ticket = store.messages.beginWrite();
+        phone.changes.bump();
+
+        await store.messages.upsertAll([
+          const Message(id: 'kept', topic: 'prod', time: 1),
+        ], ticket: ticket);
+
+        expect(await store.messages.count(), 1);
+      },
+    );
 
     test('a write with no account is not stored', () async {
       phone.moveTo(null);
@@ -440,7 +453,6 @@ void main() {
           factory: databaseFactoryFfi,
           path: inMemoryDatabasePath,
           scope: () async => throw StateError('prefs gone'),
-          identityChanges: AccountIdentityChanges(),
         );
         addTearDown(broken.close);
 
@@ -508,7 +520,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       addTearDown(upgraded.close);
 
@@ -540,7 +551,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       addTearDown(upgraded.close);
 
@@ -559,7 +569,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       addTearDown(upgraded.close);
 
@@ -581,7 +590,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: () async => upgrading ? null : phone.account,
-        identityChanges: phone.changes,
       );
       addTearDown(upgraded.close);
       upgrading = false;
@@ -652,7 +660,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       addTearDown(upgraded.close);
 
@@ -670,7 +677,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       await first.incidents.upsertAll([_incident('inc_a', daysAgo: 1)]);
       await first.db.execute('PRAGMA user_version = 3');
@@ -681,7 +687,6 @@ void main() {
         factory: databaseFactoryFfi,
         path: path,
         scope: phone.scope,
-        identityChanges: phone.changes,
       );
       addTearDown(again.close);
 
@@ -842,7 +847,8 @@ void main() {
 
     // The cubits that acknowledge mark the shared list first, send the
     // request, and hand the answer back to the shared list, which stores it.
-    // Both halves are driven here the way they do.
+    // Both halves are driven here the way they do, over the client the app
+    // runs on, which checks every answer against the account that asked.
     Future<
       ({
         InMemoryIncidentRepository repository,
@@ -852,11 +858,13 @@ void main() {
     >
     alarmedPhone() async {
       final api = _Spy(MockServer())..server.seedAlarmed();
-      final repository = InMemoryIncidentRepository(api, store: store);
+      final repository = InMemoryIncidentRepository(
+        ScopedApiClient(api, readScope: phone.scope),
+        store: store,
+      );
       final shared = IncidentsCubit(
         GetIncidentsUsecase(repository),
         saveIncident: repository.saveIncident,
-        isLeftBehind: repository.isLeftBehind,
         identityChanges: phone.changes,
       );
       addTearDown(shared.close);
@@ -880,35 +888,33 @@ void main() {
       );
     });
 
-    test('an acknowledge that answers after the account switched is neither '
-        'stored nor drawn for the new account', () async {
-      final made = await alarmedPhone();
-      made.shared.acknowledgeNow(made.shared.state.incidents.single);
-      made.api.ackGate = Completer<void>();
-      final answering = made.repository.ackIncident('inc_alarmed_proddb');
+    test(
+      'an acknowledge that answers after the account switched hands '
+      'nothing back, so nothing is drawn or stored for the new account',
+      () async {
+        final made = await alarmedPhone();
+        made.shared.acknowledgeNow(made.shared.state.incidents.single);
+        made.api.ackGate = Completer<void>();
+        final answering = made.repository.ackIncident('inc_alarmed_proddb');
 
-      phone.moveTo('acc_b');
-      made.api.listsNothing = true;
-      await made.shared.refresh();
-      expect(made.shared.state.incidents, isEmpty);
+        phone.moveTo('acc_b');
+        made.api.listsNothing = true;
+        await made.shared.refresh();
+        expect(made.shared.state.incidents, isEmpty);
 
-      made.api.ackGate!.complete();
-      final result = await answering;
-      // The cubit's own apply, as every acknowledge path makes it.
-      made.shared.applyIncident(result.getOrNull()!);
-      await pumpEventQueue();
+        made.api.ackGate!.complete();
+        final result = await answering;
 
-      expect(made.shared.state.incidents, isEmpty);
-      expect(await store.incidents.count(), 0);
-      expect(await store.messages.count(), 0);
-      // Nothing of it was kept for the account that asked either; its next
-      // list read brings the acknowledged copy.
-      phone.moveTo('acc_a');
-      expect((await store.incidents.page()).single.state, isNot('acked'));
-    });
+        expect(result.isSuccess(), isFalse);
+        expect(made.shared.state.incidents, isEmpty);
+        expect(await store.incidents.count(), 0);
+        expect(await store.messages.count(), 0);
+        phone.moveTo('acc_a');
+        expect((await store.incidents.page()).single.state, isNot('acked'));
+      },
+    );
 
-    test('a lookup that answers after the switch is neither stored nor drawn '
-        'for the new account', () async {
+    test('a lookup that answers after the switch hands nothing back', () async {
       final made = await alarmedPhone();
       made.api.lookupGate = Completer<void>();
       final late = made.repository.getIncident('inc_alarmed_proddb');
@@ -917,10 +923,70 @@ void main() {
       await made.shared.refresh();
       made.api.lookupGate!.complete();
 
-      made.shared.applyIncidents([(await late).getOrNull()!]);
-      await pumpEventQueue();
+      expect((await late).isSuccess(), isFalse);
       expect(made.shared.state.incidents, isEmpty);
       expect(await store.incidents.count(), 0);
+    });
+
+    test('a list read that answers after the switch hands back what the new '
+        'account holds, and stores nothing', () async {
+      final made = await alarmedPhone();
+      // The shared list refreshes on a switch of its own; this test is about
+      // the one read that was out.
+      await made.shared.close();
+      made.api.duringRead = () => phone.moveTo('acc_b');
+
+      final result = await made.repository.getIncidents(limit: 200);
+
+      expect(result.getOrNull(), isEmpty);
+      expect(await store.incidents.count(), 0);
+    });
+
+    test('a bump that leaves the account as it was changes nothing: the '
+        'answer is stored and drawn', () async {
+      final made = await alarmedPhone();
+      made.shared.acknowledgeNow(made.shared.state.incidents.single);
+      made.api.ackGate = Completer<void>();
+      final answering = made.repository.ackIncident('inc_alarmed_proddb');
+
+      phone.changes.bump();
+      made.api.ackGate!.complete();
+      final result = await answering;
+      made.shared.applyIncident(result.getOrNull()!);
+      await pumpEventQueue();
+
+      expect(made.shared.state.incidents.single.state, IncidentStates.acked);
+      expect(
+        (await store.incidents.page()).single.state,
+        IncidentStates.acked,
+      );
+    });
+
+    test('an account that was left and came back keeps its answer, and its '
+        'later updates and a reopen are still drawn', () async {
+      final made = await alarmedPhone();
+      made.shared.acknowledgeNow(made.shared.state.incidents.single);
+      made.api.ackGate = Completer<void>();
+      final answering = made.repository.ackIncident('inc_alarmed_proddb');
+
+      phone
+        ..moveTo('acc_b')
+        ..moveTo('acc_a');
+      made.api.ackGate!.complete();
+      final result = await answering;
+      made.shared.applyIncident(result.getOrNull()!);
+      await pumpEventQueue();
+      expect(made.shared.state.incidents.single.state, IncidentStates.acked);
+
+      final reopened = made.shared.state.incidents.single.copyWith(
+        state: IncidentStates.open,
+        ackedAt: null,
+      );
+      made.shared.applyIncident(reopened);
+      await pumpEventQueue();
+
+      expect(made.shared.state.incidents.single.state, IncidentStates.open);
+      expect((await store.incidents.page()).single.state, IncidentStates.open);
     });
 
     test('the shared incident list and a topic screen read nothing of the '
