@@ -1160,6 +1160,8 @@ class AcknowledgedScreen extends StatelessWidget {
         startedLabel: startedLabel,
         ackedLabel: ackedLabel,
         hintInList: hintInList,
+        pinsHint: pinsHint,
+        isClosed: isClosed,
       );
     }
 
@@ -1330,6 +1332,8 @@ class AcknowledgedScreen extends StatelessWidget {
     required String startedLabel,
     required String ackedLabel,
     required bool hintInList,
+    required bool pinsHint,
+    required bool isClosed,
   }) {
     final face = Hero(
       tag: 'alarm-face-${state.incident?.id}',
@@ -1352,47 +1356,119 @@ class AcknowledgedScreen extends StatelessWidget {
         _sub(look, align, ackedSub),
       ],
     );
-    final stage = SafeArea(
-      bottom: fold.isBook,
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: fold.isBook
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    face,
-                    const SizedBox(height: Spacing.s4),
-                    lines(TextAlign.center),
-                  ],
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    face,
-                    const SizedBox(width: Spacing.s5),
-                    Flexible(child: lines(TextAlign.left)),
-                  ],
-                ),
+    final card = _detailSheet(startedLabel, ackedLabel);
+    final hint = _sub(look, TextAlign.center, _deskTimerHint(context));
+
+    if (fold.isTabletop) {
+      // A 350 half is too short for the card under the buttons, so the top
+      // half holds the face, the lines and the card side by side, and the
+      // bottom half holds the hint and the buttons.
+      return AppScreenScaffold(
+        hasTabBar: false,
+        barBacking: colors.canvas,
+        foldStage: SafeArea(
+          bottom: false,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: Spacing.s3,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  face,
+                  const SizedBox(width: Spacing.s5),
+                  Flexible(child: lines(TextAlign.left)),
+                  const SizedBox(width: Spacing.s6),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: card,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-    );
+        slivers: [
+          if (hintInList)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
+                child: hint,
+              ),
+            ),
+        ],
+        bottomBar: bottomBar,
+      );
+    }
+
+    // Book: the face and the lines in the start pane. The card sits at the
+    // foot of the end pane, right over the hint and the buttons.
     return AppScreenScaffold(
       hasTabBar: false,
       barBacking: colors.canvas,
-      foldStage: stage,
+      foldStage: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                face,
+                const SizedBox(height: Spacing.s4),
+                lines(TextAlign.center),
+              ],
+            ),
+          ),
+        ),
+      ),
       slivers: [
+        // Built in the end pane, so the room is the pane's. A guess at the
+        // pinned block, as in the wide layout: the hint takes two lines in
+        // a phone-wide pane. A wrong guess moves the card a little or lets
+        // the pane scroll a little; the capture run checks it does not.
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s5, 16, 0),
-            child: _detailSheet(startedLabel, ackedLabel),
+          child: Builder(
+            builder: (context) {
+              final media = MediaQuery.of(context);
+              final scale = media.textScaler.scale(16) / 16;
+              final room = math
+                  .max(
+                    0,
+                    media.size.height -
+                        media.padding.vertical -
+                        ringingBarHeightFor(
+                          textScale: scale,
+                          pinnedButtons: isClosed ? 1 : 2,
+                        ) -
+                        (!isClosed && pinsHint
+                            ? 2 * 24 * scale + Spacing.s3
+                            : 0) -
+                        ringingBarClearance -
+                        16,
+                  )
+                  .toDouble();
+              return ConstrainedBox(
+                constraints: BoxConstraints(minHeight: room),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: card,
+                  ),
+                ),
+              );
+            },
           ),
         ),
         if (hintInList)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
-              child: _sub(look, TextAlign.center, _deskTimerHint(context)),
+              child: hint,
             ),
           ),
       ],
@@ -1444,50 +1520,28 @@ class AcknowledgedScreen extends StatelessWidget {
       ),
     );
     final bottomGap = MediaQuery.paddingOf(context).bottom + 24;
-    final scaffold = AppScreenScaffold(
-      hasTabBar: false,
-      // The column below is sized to the screen, so the list has no room to
-      // scroll and no reason to bounce.
-      physics: const NeverScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          child: isWide
-              ? Padding(
-                  padding: EdgeInsets.fromLTRB(24, 16, 24, bottomGap),
-                  child: Row(
-                    children: [
-                      Expanded(child: ripple),
-                      const SizedBox(width: 40),
-                      Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 320),
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  copy(
-                                    TextAlign.left,
-                                    CrossAxisAlignment.start,
-                                  ),
-                                  const SizedBox(height: Spacing.s5),
-                                  bottomBar,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Padding(
+    final fold = AppFold.of(context);
+    final scaffold = !fold.isNone
+        // A half-open foldable: the ripple fills the start pane or the top
+        // half, the words and the way on go in the other, off the fold.
+        ? AppScreenScaffold(
+            hasTabBar: false,
+            physics: const NeverScrollableScrollPhysics(),
+            // The column below carries its own room at the foot, so the list
+            // adds none and the pane does not scroll at rest.
+            bodyClearsBottomBar: true,
+            foldStage: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.s5),
+                child: ripple,
+              ),
+            ),
+            slivers: [
+              SliverFillRemaining(
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(24, Spacing.s4, 24, bottomGap),
-                  // The ripple takes what the words and the button leave.
-                  // The words scroll when they are taller than that, and the
-                  // button stays pinned under them.
                   child: _AckedDemoColumn(
-                    ripple: ripple,
+                    ripple: const SizedBox.shrink(),
                     copy: _ScrollingCopy(
                       fadeColor: colors.canvas,
                       child: copy(TextAlign.center, CrossAxisAlignment.center),
@@ -1495,9 +1549,73 @@ class AcknowledgedScreen extends StatelessWidget {
                     bar: bottomBar,
                   ),
                 ),
-        ),
-      ],
-    );
+              ),
+            ],
+          )
+        : AppScreenScaffold(
+            hasTabBar: false,
+            // The column below is sized to the screen, so the list has no
+            // room to scroll and no reason to bounce.
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                child: isWide
+                    ? Padding(
+                        padding: EdgeInsets.fromLTRB(24, 16, 24, bottomGap),
+                        child: Row(
+                          children: [
+                            Expanded(child: ripple),
+                            const SizedBox(width: 40),
+                            Expanded(
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 320,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        copy(
+                                          TextAlign.left,
+                                          CrossAxisAlignment.start,
+                                        ),
+                                        const SizedBox(height: Spacing.s5),
+                                        bottomBar,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          Spacing.s4,
+                          24,
+                          bottomGap,
+                        ),
+                        // The ripple takes what the words and the button
+                        // leave. The words scroll when they are taller than
+                        // that, and the button stays pinned under them.
+                        child: _AckedDemoColumn(
+                          ripple: ripple,
+                          copy: _ScrollingCopy(
+                            fadeColor: colors.canvas,
+                            child: copy(
+                              TextAlign.center,
+                              CrossAxisAlignment.center,
+                            ),
+                          ),
+                          bar: bottomBar,
+                        ),
+                      ),
+              ),
+            ],
+          );
     return Stack(
       children: [
         scaffold,

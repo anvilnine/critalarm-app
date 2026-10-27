@@ -22,6 +22,10 @@ enum LockWatermark {
   shape,
 }
 
+/// The widest the clock and the cards get side by side: two columns and
+/// the gap between them.
+const double lockScreenWideMaxWidth = 2 * AppSize.contentMaxWidth + 40;
+
 /// Which watermark the lock screen ships with. The one place to switch it.
 const LockWatermark lockScreenWatermark = LockWatermark.yellowFace;
 
@@ -151,23 +155,32 @@ class _LockScreenView extends StatelessWidget {
                                         16,
                                         0,
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: _clockBlock(
-                                              state,
-                                              colors,
-                                              CrossAxisAlignment.start,
-                                            ),
+                                      // The clock and the cards stay a pair
+                                      // on a wide window, not at its edges.
+                                      child: Center(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: lockScreenWideMaxWidth,
                                           ),
-                                          const SizedBox(width: 40),
-                                          Expanded(
-                                            child: _notificationCards(
-                                              state,
-                                              context,
-                                            ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: _clockBlock(
+                                                  state,
+                                                  colors,
+                                                  CrossAxisAlignment.start,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 40),
+                                              Expanded(
+                                                child: _notificationCards(
+                                                  state,
+                                                  context,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     )
                                   else ...[
