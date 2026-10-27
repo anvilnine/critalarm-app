@@ -1,4 +1,7 @@
+import 'package:critalarm/design/components/floating_tab_bar.dart';
+import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
+import 'package:critalarm/design/components/stage.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -190,6 +193,109 @@ void main() {
       expect(columns.twoPane, isFalse);
       expect(columns.contentLeft, 0);
       expect(columns.contentWidth, 390);
+    });
+  });
+
+  group('AppScreenColumns rail on the right', () {
+    test(
+      'an iPhone Fold past the frame keeps the rail and the frame inset',
+      () {
+        // An unfolded iPhone Fold puts the rail on the right. 1800 wide is past
+        // the frame, so 100 of canvas shows each side.
+        final columns = AppScreenColumns.resolve(
+          boxWidth: 1800,
+          size: const AppSize(1800, 1000, isIphone: true),
+          padding: EdgeInsets.zero,
+          hasDetail: true,
+        );
+        expect(columns.railOnRight, isTrue);
+        expect(columns.twoPane, isTrue);
+        expect(columns.listLeft, 100);
+        // The detail stops short of the rail's room and the canvas.
+        expect(columns.detailLeft + columns.detailWidth, 1800 - 100 - 88);
+        expect(columns.railClearance, 88 + 100);
+      },
+    );
+  });
+
+  group('AppFloatingTabBar gaps', () {
+    test('a cover screen puts the bar 8 from the edge', () {
+      const cover = AppSize(384, 388);
+      expect(AppFloatingTabBar.edgeGapFor(cover), 8);
+      expect(
+        AppFloatingTabBar.contentGapFor(cover),
+        AppFloatingTabBar.contentGap - AppFloatingTabBar.edgeGap + 8,
+      );
+      expect(
+        AppFloatingTabBar.fadeHeightFor(cover),
+        AppFloatingTabBar.height + 8,
+      );
+    });
+
+    test('everything else keeps the usual gap', () {
+      const phone = AppSize(390, 844);
+      expect(AppFloatingTabBar.edgeGapFor(phone), AppFloatingTabBar.edgeGap);
+      expect(
+        AppFloatingTabBar.contentGapFor(phone),
+        AppFloatingTabBar.contentGap,
+      );
+      expect(
+        AppFloatingTabBar.fadeHeightFor(phone),
+        AppFloatingTabBar.fadeHeight,
+      );
+    });
+  });
+
+  group('hero face size', () {
+    test('a cover screen draws the face at 72 in either layout', () {
+      for (final layout in AppHeroLayout.values) {
+        expect(heroFaceSizeFor(layout, 360, isCover: true), 72);
+      }
+    });
+
+    test('a column 360 or wider never draws it under 120', () {
+      expect(
+        heroFaceSizeFor(AppHeroLayout.stacked, 360),
+        greaterThanOrEqualTo(120),
+      );
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 360),
+        greaterThanOrEqualTo(120),
+      );
+    });
+
+    test('a narrow column keeps the plain size', () {
+      expect(heroFaceSizeFor(AppHeroLayout.stacked, 200), 200 * 0.44);
+    });
+  });
+
+  group('stageFaceSizeFor', () {
+    test('a cover screen gets 72', () {
+      expect(
+        stageFaceSizeFor(requested: 190, size: const AppSize(384, 388)),
+        72,
+      );
+    });
+
+    test('a short display caps the face at 96', () {
+      expect(
+        stageFaceSizeFor(requested: 110, size: const AppSize(844, 390)),
+        96,
+      );
+    });
+
+    test('a tablet lifts a small face to 120', () {
+      expect(
+        stageFaceSizeFor(requested: 110, size: const AppSize(744, 1133)),
+        120,
+      );
+    });
+
+    test('a phone keeps what it asked for', () {
+      expect(
+        stageFaceSizeFor(requested: 110, size: const AppSize(390, 844)),
+        110,
+      );
     });
   });
 }

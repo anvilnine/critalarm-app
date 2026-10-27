@@ -297,13 +297,13 @@ class _AppShellContentState extends State<_AppShellContent>
     // it floats at the foot of the start pane, in tabletop posture in the
     // bottom half, and search opens in that same pane.
     final fold = AppFold.of(context);
-    final panes = fold.panes(screen, direction: Directionality.of(context));
-    final navArea = fold.isBook
-        ? panes.first
-        : fold.isTabletop
-        ? panes.second
-        : Offset.zero & screen;
-    final hasRail = size.hasRail && !fold.isBook;
+    final navArea = navAreaFor(
+      screen,
+      fold,
+      direction: Directionality.of(context),
+    );
+    final placement = navPlacementFor(size, fold);
+    final hasRail = placement != AppNavPlacement.bottom;
 
     // The bar rides above the keyboard while searching, the way the pill in
     // ProblemStack does, so the field is never hidden behind it.
@@ -401,7 +401,7 @@ class _AppShellContentState extends State<_AppShellContent>
               // display. The search bar still comes up at the bottom, where the
               // thumb is.
               if (hasRail && !_isSearching)
-                _rail(items, size, padding, navArea, hideTabBar)
+                _rail(items, placement, size, padding, navArea, hideTabBar)
               else
                 AnimatedPositioned(
                   duration: context.motion(AppDurations.slow),
@@ -436,12 +436,13 @@ class _AppShellContentState extends State<_AppShellContent>
   /// [area]: the bottom half in tabletop posture, the window otherwise.
   Widget _rail(
     List<AppTabItem> items,
+    AppNavPlacement placement,
     AppSize size,
     EdgeInsets padding,
     Rect area,
     bool hide,
   ) {
-    final onRight = size.navPlacement == AppNavPlacement.right;
+    final onRight = placement == AppNavPlacement.right;
     final inset =
         size.frameInset +
         AppNavRail.edgeInset +

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
+import 'package:critalarm/design/size_class.dart';
 import 'package:flutter/widgets.dart';
 
 /// How a folding display is held, read from its fold.
@@ -151,6 +152,33 @@ class AppFold {
 
   @override
   String toString() => 'AppFold(${posture.name}, $bounds)';
+}
+
+/// Where the shell puts the tab bar on a display of [size] with [fold], and
+/// so where every screen leaves room for it. The one rule the shell, the
+/// scaffold and [AppFold] users share.
+///
+/// Book posture beats the size class: the bar is always the pill at the foot
+/// of the start pane, never a rail, so it does not cross the fold. Otherwise
+/// it is [AppSize.navPlacement] (in tabletop posture the rail or pill sits in
+/// the bottom half, see [navAreaFor]).
+AppNavPlacement navPlacementFor(AppSize size, AppFold fold) =>
+    fold.isBook ? AppNavPlacement.bottom : size.navPlacement;
+
+/// The part of a window of [window] the tab bar or rail floats in: the start
+/// pane in book posture, the bottom half in tabletop posture, the whole
+/// window otherwise. Search opens in the same part.
+Rect navAreaFor(
+  Size window,
+  AppFold fold, {
+  TextDirection direction = TextDirection.ltr,
+}) {
+  final panes = fold.panes(window, direction: direction);
+  return switch (fold.posture) {
+    AppPosture.book => panes.first,
+    AppPosture.tabletop => panes.second,
+    AppPosture.none => Offset.zero & window,
+  };
 }
 
 /// True when [box] covers part of [band]. Boxes that only touch its edge, and
