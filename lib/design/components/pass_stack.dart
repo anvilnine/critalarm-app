@@ -195,6 +195,7 @@ class AppPassStack extends StatelessWidget {
     required this.cards,
     this.onBack,
     this.showsBack = true,
+    this.roundsFoot = false,
     this.groupLabel,
     this.safeTop,
     this.safeBottom,
@@ -218,6 +219,12 @@ class AppPassStack extends StatelessWidget {
   /// place, for a stack drawn as a pane beside a list rather than as a
   /// route of its own.
   final bool showsBack;
+
+  /// True gives the last card round bottom corners when it stops short of
+  /// the bottom edge. On a full display the last card runs off that edge; a
+  /// stack drawn in a pane taller than itself would otherwise end in mid air
+  /// with a square foot.
+  final bool roundsFoot;
 
   /// The spoken name of the group of cards.
   final String? groupLabel;
@@ -303,9 +310,15 @@ class AppPassStack extends StatelessWidget {
                     top: layout.tops[i],
                     height: layout.heights[i],
                     // The next card covers the rest of this one.
-                    child: i == cards.length - 1
-                        ? cards[i]
-                        : PassCardBand(height: layout.step, child: cards[i]),
+                    child: i < cards.length - 1
+                        ? PassCardBand(height: layout.step, child: cards[i])
+                        : roundsFoot &&
+                              layout.tops[i] +
+                                      layout.heights[i] -
+                                      kPassCardBleed <
+                                  height
+                        ? PassCardEnd(child: cards[i])
+                        : cards[i],
                   ),
               ],
             ),
