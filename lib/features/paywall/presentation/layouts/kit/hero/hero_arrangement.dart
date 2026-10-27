@@ -165,12 +165,45 @@ class HeroStageRoom {
 /// out: most above and below the words, some to the stage. At a large text
 /// size the words may leave nothing, and the stage is zero: the stage's
 /// arrangement then drops the card, then the mascot.
+///
+/// [minGap] is the least the gap may be once shared out: the room the pips
+/// need. When the stage leaves less, the gap takes [minGap] from the
+/// stage. A tall screen, whose gap is already larger, comes out the same.
 HeroStageRoom heroStageRoomFor({
   required double height,
   required double words,
   required double gap,
   required double bottomGap,
   double stageMax = heroStageMax,
+  double minGap = 0,
+}) {
+  final room = _stageRoomFor(
+    height: height,
+    words: words,
+    gap: gap,
+    bottomGap: bottomGap,
+    stageMax: stageMax,
+  );
+  if (room.gap >= minGap) return room;
+  return _stageRoomFor(
+    height: height,
+    words: words,
+    gap: minGap,
+    bottomGap: bottomGap,
+    stageMax: stageMax,
+  );
+}
+
+/// The row the pips get between the stage and the headline, at least: a
+/// Razr cover has no stage and would otherwise set them on the headline.
+const double heroPipsRow = 16;
+
+HeroStageRoom _stageRoomFor({
+  required double height,
+  required double words,
+  required double gap,
+  required double bottomGap,
+  required double stageMax,
 }) {
   final left = height - words - gap - bottomGap;
   final spare = math.max(0, left - stageMax);

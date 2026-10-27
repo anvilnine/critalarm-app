@@ -55,6 +55,13 @@ const List<CaptureRoute> allScreenRoutes = [
   // nothing ringing.
   ('wp2_09_lock_screen_quiet', '/lockscreen', FaceState.calm, null),
   ('wp2_08_no_alarm', '/alarm', FaceState.acked, null),
+  // WP5: the other paywall layouts a place opens, to check the one column
+  // and the frame on wide windows.
+  ('wp5_paywall_sheet', '/plans/sheet?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_proof', '/plans/proof?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_reel', '/plans/reel?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_wipe', '/plans/wipe?product=hosted', FaceState.acked, null),
+  ('wp5_paywall_pro', '/plans/hero?product=pro', FaceState.acked, null),
 ];
 
 /// Screens a capture tool reaches by tapping "I'm up" on a ringing alarm:
