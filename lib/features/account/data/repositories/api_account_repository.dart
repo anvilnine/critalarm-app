@@ -22,6 +22,9 @@ final class ApiAccountRepository implements AccountRepository {
     required this.identities,
     required this.connections,
     this.forgetAccountData,
+    this.forgetDeletedAccountData,
+    this.forgetMergedAccount,
+    this.readAccountId,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -41,6 +44,23 @@ final class ApiAccountRepository implements AccountRepository {
   /// `lib/app/account_data.dart`, which a connect to a different server
   /// calls too.
   final Future<void> Function()? forgetAccountData;
+
+  /// [forgetAccountData], and the phone's copy of the account's alarm
+  /// history, for an account that was deleted. Falls back to
+  /// [forgetAccountData] when not given.
+  ///
+  /// Called with the account that was deleted, as [readAccountId] named it
+  /// when the delete started, or null when that is not known.
+  final Future<void> Function(String? accountId)? forgetDeletedAccountData;
+
+  /// The account this phone is on now: the one the person signed in to, or
+  /// the device's own.
+  final Future<String?> Function()? readAccountId;
+
+  /// Called with the account folded away and the one it went into once the
+  /// server has merged, so what the phone kept for the first moves to the
+  /// second. A failure here never turns a merge into an error.
+  final Future<void> Function(String from, String into)? forgetMergedAccount;
 
   /// Drops the store's idea of who this is, back to an anonymous user.
   ///
@@ -74,10 +94,35 @@ final class ApiAccountRepository implements AccountRepository {
   Future<AccountMergeResult> merge({
     required String identityToken,
     required String intoAccount,
-  }) => api.mergeAccount(
-    identityToken: identityToken,
-    intoAccount: intoAccount,
-  );
+  }) async {
+    final result = await api.mergeAccount(
+      identityToken: identityToken,
+      intoAccount: intoAccount,
+    );
+    String? from;
+    String? into;
+    switch (result) {
+      case AccountMerged(:final accountId, :final mergedFrom):
+        from = mergedFrom;
+        into = accountId;
+      case AccountMergeAlreadyMerged():
+        // A retry after a reply that never arrived: the server merged the
+        // first time. The phone still names its own account until the next
+        // registration, so that is the one that was folded in.
+        try {
+          from = await readAccountId?.call();
+        } on Object catch (_) {}
+        into = intoAccount;
+      case _:
+        break;
+    }
+    if (from != null && into != null && from != into) {
+      try {
+        await forgetMergedAccount?.call(from, into);
+      } on Object catch (_) {}
+    }
+    return result;
+  }
 
   @override
   Future<AccountSwitchResult> switchTo({
@@ -124,7 +169,22 @@ final class ApiAccountRepository implements AccountRepository {
       api.deleteAccount(identityToken: identityToken);
 
   @override
-  Future<void> wipeAfterDelete() async {
+  Future<void> wipeAfterDelete({String? accountId}) async {
+    final forgetDeleted = forgetDeletedAccountData;
+    if (forgetDeleted == null) return _wipe(forget: forgetAccountData);
+    // The caller names the account it asked the server to delete. Only when
+    // it could not (nobody was signed in) is it read here, and then nothing
+    // has changed the phone's account since the delete went out.
+    var deleted = accountId;
+    if (deleted == null) {
+      try {
+        deleted = await readAccountId?.call();
+      } on Object catch (_) {}
+    }
+    return _wipe(forget: () => forgetDeleted(deleted));
+  }
+
+  Future<void> _wipe({required Future<void> Function()? forget}) async {
     // The store knows this phone as the account id that has just gone, so it
     // goes back to an anonymous user before anything else. It is not a
     // failure when it was anonymous already: the store answers
@@ -135,7 +195,7 @@ final class ApiAccountRepository implements AccountRepository {
     // Everything here names something on the account that is gone: an
     // incident to acknowledge, a message id to poll since, a topic somebody
     // searched for.
-    await forgetAccountData?.call();
+    await forget?.call();
     await _startOverOnFreshAccount();
   }
 
@@ -147,7 +207,8 @@ final class ApiAccountRepository implements AccountRepository {
       // Whatever is ringing belongs to an incident on an account that no
       // longer exists, so there is nobody left to acknowledge it to.
       await stopAlarm?.call();
-      await wipeAfterDelete();
+      // The credential is dead, not the account, so the history stays.
+      await _wipe(forget: forgetAccountData);
     } finally {
       _recovering = false;
     }

@@ -33,6 +33,12 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 ///    local store). It is also read only for the account and server it was
 ///    written for, so a copy that survives a failed drop is still never shown.
 ///
+/// The archive of incidents and messages is not on the list, on purpose. Its
+/// rows carry the scope of the account they were read for and every read asks
+/// for the current scope only, so a sign-out keeps the rows (they come back
+/// when the same account signs in) and no other account is ever shown them.
+/// [forgetDeleted] is the one that removes them, for an account that is gone.
+///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
 /// not a plan state. The lock flag decides whether an own sound rings, and
@@ -44,8 +50,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// rings: a person's own picture must not stay on a phone they signed out
 /// of, deleted their account on, or pointed at another server.
 ///
-/// Settings, permissions and the archive are not here either. The connect
-/// to a different server drops the archive itself.
+/// Settings and permissions are not here either. The connect to a different
+/// server drops the whole archive, every scope of it, itself.
 class AccountData {
   AccountData({
     required this._acks,
@@ -57,6 +63,7 @@ class AccountData {
     required this._ownLook,
     this._proofLog,
     this._heldTopics,
+    this._archive,
     this._afterForget,
   });
 
@@ -72,6 +79,10 @@ class AccountData {
   /// The topic list kept on the phone. Null where the local store is not
   /// open: the web build, or a store that would not open.
   final TopicStore? _heldTopics;
+
+  /// The phone's archive of incidents and messages, for [forgetDeleted].
+  /// Null where the local store is not open.
+  final LocalStore? _archive;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -117,6 +128,23 @@ class AccountData {
     if (failed != null) {
       Error.throwWithStackTrace(failed, failedAt ?? StackTrace.current);
     }
+  }
+
+  /// [forget], and the archive rows of the account that was deleted: the one
+  /// named by [scope], or the account the phone is on now when none is given.
+  ///
+  /// Nobody can sign in to a deleted account again, so the copy of its
+  /// history goes. A sign-out calls [forget] alone.
+  Future<void> forgetDeleted({String? scope}) async {
+    final archive = _archive;
+    if (archive != null) {
+      await _quietly(
+        scope == null
+            ? archive.deleteCurrentArchive
+            : () => archive.deleteArchiveOf(scope),
+      );
+    }
+    await forget();
   }
 
   Future<void> _quietly(Future<void> Function() drop) async {
