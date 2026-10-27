@@ -1,4 +1,3 @@
-import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
@@ -10,6 +9,7 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/store/held_scope.dart';
