@@ -237,13 +237,28 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     return held?.snapshot?.incidents;
   }
 
-  /// The shared list moved before the server's answer made it the whole list:
-  /// an alarm landed on this topic, or one the phone's copy held open was
-  /// closed. What the shared list says wins over the stored copy, so a real
-  /// alarm is never shown as calm.
+  /// An update of the shared list that arrived while this screen was making
+  /// its own change, applied when that change is over.
+  bool _sharedPending = false;
+
+  /// The shared list moved while the screen still shows the phone's copy: an
+  /// alarm landed on this topic, or one the copy held open was closed. This
+  /// covers two moments: before the server's answer (the list holds only what
+  /// was applied to it, so the copy's other alarms stay), and after it while
+  /// the topic list is still the phone's copy (the list is whole, so it
+  /// replaces the copy). Once the topic list has answered too, the full build
+  /// takes over. What the shared list says wins over the stored copy, so a
+  /// real alarm is never shown as calm.
   void _applySharedToCopy() {
     final shared = _incidents.state;
-    if (isClosed || _busy || shared.isReady || shared.incidents.isEmpty) return;
+    if (isClosed) return;
+    if (_busy) {
+      _sharedPending = true;
+      return;
+    }
+    final whole = shared.isReady;
+    if (whole && !_topics.state.isKept) return;
+    if (!whole && shared.incidents.isEmpty) return;
     if (state.topicName.isEmpty || state.status != TopicDetailStatus.success) {
       return;
     }
@@ -252,17 +267,20 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     final ofTopic = shared.forTopic(state.topicName);
     final ids = {for (final i in shared.incidents) i.id};
     final open = [
-      for (final i in _copyOpen)
-        if (!ids.contains(i.id)) i,
+      if (!whole)
+        for (final i in _copyOpen)
+          if (!ids.contains(i.id)) i,
       for (final i in ofTopic)
         if (i.state == 'open') i,
     ];
     final openIds = [for (final i in open) i.id];
     if (listEquals(openIds, state.openIncidentIds)) return;
-    _copyOpen = [
-      for (final i in open)
-        if (!ids.contains(i.id)) i,
-    ];
+    _copyOpen = whole
+        ? const []
+        : [
+            for (final i in open)
+              if (!ids.contains(i.id)) i,
+          ];
     final stage = _stageOf(
       topic: topic,
       openIncidents: open,
@@ -558,6 +576,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         );
       },
     );
+    _applyPendingShared();
   }
 
   /// Acknowledge every open incident on this topic, and stop the noise first.
@@ -627,6 +646,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         ),
       );
     }
+    _applyPendingShared();
+  }
+
+  /// Applies what the shared list did while a change of this screen's own was
+  /// running.
+  void _applyPendingShared() {
+    if (!_sharedPending || isClosed) return;
+    _sharedPending = false;
+    _applySharedToCopy();
   }
 
   /// Marks each of [ids] acknowledged in the shared list, before any request
