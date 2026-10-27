@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_chapters.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -583,6 +585,13 @@ class _OnboardingShellState extends State<OnboardingShell>
         ? () => unawaited(_goBack())
         : null;
 
+    // The steps keep to a 560 column on a wide window, and the tracker
+    // keeps to it with them. In book posture the tracker is in the start
+    // pane, over the step's face, so it keeps to the window edge.
+    final trackerGutter = AppFold.of(context).isBook
+        ? 0.0
+        : AppSize.of(context).sideGutter;
+
     return Stack(
       children: [
         Positioned.fill(
@@ -692,8 +701,15 @@ class _OnboardingShellState extends State<OnboardingShell>
                   // Back is a 40 circle in a 48 tap box, which reaches 4 past
                   // it: 4 less on the left, and 2 less above for the 2 the
                   // bar is taller. The slot holds the 4 back on the left
-                  // while Back is not offered.
-                  padding: const EdgeInsets.fromLTRB(12, 10, 16, 0),
+                  // while Back is not offered. On a wide window the row
+                  // keeps to the step's column, where the step's own top
+                  // bar is.
+                  padding: EdgeInsets.fromLTRB(
+                    12 + trackerGutter,
+                    10,
+                    16 + trackerGutter,
+                    0,
+                  ),
                   child: Row(
                     children: [
                       _BackSlot(onPressed: onBack),

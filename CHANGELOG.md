@@ -11,6 +11,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
 - Tablets, foldables and wide windows get layouts of their own. On a half-open foldable the tab bar and rail stay clear of the fold, and in book posture Topics and History show the list on one side and the detail on the other. On a wide window the rail and both panes sit in a centred frame, and a small cover screen gets a compact tab bar.
+- On a tablet or a desktop window, setup and New topic keep their button right under the form, and on a half-open foldable the face sits on one side of the fold and the form on the other.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
