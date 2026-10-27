@@ -107,6 +107,10 @@ class AppScreenScaffold extends StatefulWidget {
   /// the list in the other pane, and a `RefreshActivityIndicator` in the top
   /// bar shows the refresh running. The stage has to call `stageFace` with a
   /// context from inside the stage (its own build method or a `Builder`).
+  /// With [onFaceRefresh] the stage must not scroll vertically: the host
+  /// hears every scroll view in both panes, so pulling a scrolling stage past
+  /// its top would start a refresh. Keep vertical scrolling out of the
+  /// stage, or stop its `ScrollNotification`s before they leave it.
   final Widget? foldStage;
 
   final ScrollController? scrollController;
@@ -256,6 +260,12 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
   /// does not, so this key moves it from one shape to the other without
   /// losing the scroll position.
   final GlobalKey _bodyKey = GlobalKey();
+
+  /// The pull to refresh host, around the list or around both fold panes.
+  /// Only one of the two places is built in any frame, so one key moves the
+  /// host and its controller across a posture change, and a refresh that is
+  /// running then finishes on the face instead of leaving it mid-pose.
+  final GlobalKey _faceHostKey = GlobalKey();
 
   /// How tall the pinned bottom bar came out, once it has laid out.
   ///
@@ -417,7 +427,11 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // notifications reach it at depth 0: a fold pane adds no viewport.
     final onFaceRefresh = widget.onFaceRefresh;
     if (hasStagePane && onFaceRefresh != null) {
-      split = RefreshFaceHost(onRefresh: onFaceRefresh, child: split);
+      split = RefreshFaceHost(
+        key: _faceHostKey,
+        onRefresh: onFaceRefresh,
+        child: split,
+      );
     }
     return _wrap(context, split);
   }
@@ -855,7 +869,11 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // In a split with a stage the host is around both panes instead.
     final onFaceRefresh = widget.onFaceRefresh;
     if (onFaceRefresh != null && hostsFaceRefresh) {
-      body = RefreshFaceHost(onRefresh: onFaceRefresh, child: body);
+      body = RefreshFaceHost(
+        key: _faceHostKey,
+        onRefresh: onFaceRefresh,
+        child: body,
+      );
     }
 
     if (twoPane) {
@@ -864,13 +882,18 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       body = Padding(
         padding: EdgeInsets.only(
           left: columns.listLeft,
-          right: boxWidth - columns.detailLeft - columns.detailWidth,
+          right: columns.detailEndInset(boxWidth),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(width: paneWidth, child: body),
-            Expanded(child: AppDetailPane(child: detail!)),
+            Expanded(
+              child: AppDetailPane(
+                endsInside: columns.detailEndInset(boxWidth) > 0,
+                child: detail!,
+              ),
+            ),
           ],
         ),
       );
@@ -1085,6 +1108,12 @@ class AppScreenColumns {
   /// True when the list is one pane of a fold.
   final bool inFoldPane;
 
+  /// How far the detail pane stops short of the end edge of a box
+  /// [boxWidth] wide: the canvas past the frame on a window wider than
+  /// [AppSize.frameMaxWidth], else 0.
+  double detailEndInset(double boxWidth) =>
+      math.max(0, boxWidth - detailLeft - detailWidth);
+
   /// True when the list is narrowed to a pane, so a hero in it stacks.
   bool get isPane => twoPane || inFoldPane;
 
@@ -1246,11 +1275,27 @@ class _StagePane extends StatelessWidget {
 
 /// The second pane on an expanded display. It is a raised surface that runs
 /// to the bottom edge, so the list beside it keeps the canvas.
+///
+/// Where the frame is narrower than the window and the canvas shows past the
+/// pane's end ([endsInside]), the pane is a card instead: every corner
+/// rounded, and the same room under it as beside its start edge, so it never
+/// looks cut off at the frame.
 class AppDetailPane extends StatelessWidget {
-  const AppDetailPane({required this.child, super.key});
+  const AppDetailPane({
+    required this.child,
+    this.endsInside = false,
+    super.key,
+  });
 
   /// Room between the pane's surface edges and its content, on each side.
   static const double gutter = 8;
+
+  /// Room between the list and the pane's start edge, and under a pane that
+  /// [endsInside].
+  static const double startInset = 8;
+
+  /// True when the pane stops short of the window's end edge.
+  final bool endsInside;
 
   final Widget child;
 
@@ -1258,16 +1303,20 @@ class AppDetailPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final top = MediaQuery.paddingOf(context).top;
+    final padding = MediaQuery.paddingOf(context);
 
     return Container(
-      margin: EdgeInsets.only(top: top + 14, left: 8),
+      margin: EdgeInsets.only(
+        top: padding.top + 14,
+        left: startInset,
+        bottom: endsInside ? startInset + padding.bottom : 0,
+      ),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(Radii.xl),
-        ),
+        borderRadius: endsInside
+            ? const BorderRadius.all(Radius.circular(Radii.xl))
+            : const BorderRadius.only(topLeft: Radius.circular(Radii.xl)),
         boxShadow: AppShadows.shadowLg(isDark: isDark),
       ),
       // A wide pane keeps its surface edge to edge, and the content in it
@@ -1283,10 +1332,12 @@ class AppDetailPane extends StatelessWidget {
               maxWidth: AppSize.detailMaxWidth,
             ),
             // The margin above already clears the status bar, so the page
-            // in the pane must not leave room for it a second time.
+            // in the pane must not leave room for it a second time. The same
+            // goes for the home indicator under a pane that ends inside.
             child: MediaQuery.removePadding(
               context: context,
               removeTop: true,
+              removeBottom: endsInside,
               child: child,
             ),
           ),

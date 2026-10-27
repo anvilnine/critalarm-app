@@ -6,7 +6,9 @@
 // - two panes open on an item (no "No topic selected", no "No incident
 //   selected"), and the incident rows stay inside the 680 detail cap
 // - the History hero face is 120 on a tablet or a wide window
-// - a cover screen shows two whole rows above the tab bar
+// - a cover screen shows two whole rows above the tab bar at text scale 1.0
+//   (at a larger text scale the row count is printed as a note, not checked:
+//   a 388 tall Razr cover fits one row of large text)
 // - book posture keeps the list or stage in the start pane and the detail
 //   or passes in the end pane
 // - tabletop keeps the hero above the fold band and the list below it
@@ -86,6 +88,7 @@ List<(String, bool)> wp3Measure(
   required Size window,
   required AppSize size,
   required AppFold fold,
+  double textScale = 1,
 }) {
   if (!wp3Screens.contains(screenId)) return const [];
   final lines = <(String, bool)>[];
@@ -305,13 +308,19 @@ List<(String, bool)> wp3Measure(
     }
   }
 
-  // A cover screen: two whole rows above the bar.
+  // A cover screen: two whole rows above the bar. The rule holds at text
+  // scale 1.0. Larger text gets the count as a note: one row of it is what
+  // fits on a 388 tall cover.
   final bars = _painted(find.byType(AppFloatingTabBar));
   if (size.isCover && bars.isNotEmpty && !isTopic) {
     final barTop = bars.first.top;
     final whole = rows.where((r) => r.bottom <= barTop).length;
+    final isChecked = textScale == 1;
+    void rowRule(String text, {required bool ok}) => isChecked
+        ? check(text, ok: ok)
+        : note('$text at text $textScale (information only)');
     if (rows.length >= 2) {
-      check(
+      rowRule(
         '$whole whole rows above the bar top ${_n(barTop)} '
         '(rows ${rows.map(_r).join(' ')})',
         ok: whole >= 2,
@@ -320,7 +329,7 @@ List<(String, bool)> wp3Measure(
       // The fixture has fewer rows than that: measure the room instead.
       final room = barTop - rows.first.top;
       final rowHeight = rows.first.height;
-      check(
+      rowRule(
         'room for ${_n(room / rowHeight)} rows of ${_n(rowHeight)} from '
         '${_n(rows.first.top)} to the bar top ${_n(barTop)}',
         ok: room >= 2 * rowHeight,

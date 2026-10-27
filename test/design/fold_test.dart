@@ -305,4 +305,25 @@ void main() {
       expect(columns.inFoldPane, isFalse);
     });
   });
+
+  group('AppScreenColumns.detailEndInset', () {
+    AppScreenColumns columnsAt(Size window) => AppScreenColumns.resolve(
+      boxWidth: window.width,
+      size: AppSize.from(window),
+      padding: EdgeInsets.zero,
+      hasDetail: true,
+    );
+
+    test('past the 1600 frame the pane stops short of the window edge', () {
+      final columns = columnsAt(const Size(1920, 1080));
+      expect(columns.twoPane, isTrue);
+      expect(columns.detailEndInset(1920), (1920 - AppSize.frameMaxWidth) / 2);
+    });
+
+    test('inside the frame the pane runs to the window edge', () {
+      final columns = columnsAt(const Size(1440, 900));
+      expect(columns.twoPane, isTrue);
+      expect(columns.detailEndInset(1440), 0);
+    });
+  });
 }
