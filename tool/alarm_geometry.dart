@@ -12,6 +12,7 @@ import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/faces/ringing/shuffling_ringing_face.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -45,7 +46,9 @@ List<(String, bool)> measureRingingAlarm(
   required AppSize size,
   required AppFold fold,
 }) {
-  if (find.byType(RingingScreen).evaluate().isEmpty) return const [];
+  if (find.byType(RingingScreen).evaluate().isEmpty) {
+    return _measureAcknowledged(fold: fold);
+  }
   final lines = <(String, bool)>[];
   void check(String what, {required bool ok}) =>
       lines.add(('${ok ? 'PASS' : 'FAIL'} $what', !ok));
@@ -141,5 +144,109 @@ List<(String, bool)> measureRingingAlarm(
           card.width <= AppSize.actionMaxWidth + 0.5,
     );
   }
+  // Every layout that sizes its own group (all but the upright and the
+  // sideways phone, whose pages may scroll under pinned buttons) must fit
+  // at rest. Its room is summed from the scaffold's insets, so a change to
+  // those would show here first. Only the card may scroll.
+  if (layout != RingingLayout.tall && layout != RingingLayout.sideways) {
+    final scrolls = _scrollingAtRest(RingingScreen);
+    check(
+      '${layout.name}: nothing but the card scrolls at rest'
+      '${scrolls.isEmpty ? '' : ' (scrolls by ${scrolls.join(', ')})'}',
+      ok: scrolls.isEmpty,
+    );
+  }
   return lines;
+}
+
+/// The labels a screen reader walks on the ringing screen, in traversal
+/// order, and a check that the message comes before Silence and Read the
+/// full message, with "I'm up" first as on the phone. Empty when no ringing
+/// screen is on screen.
+Future<List<(String, bool)>> ringingReadingOrder(WidgetTester tester) async {
+  final ringing = find.byType(RingingScreen);
+  if (ringing.evaluate().isEmpty) return const [];
+  final state = (ringing.evaluate().first.widget as RingingScreen).state;
+  final handle = tester.ensureSemantics();
+  final labels = <String>[];
+  try {
+    await tester.pump();
+    final root = tester
+        .binding
+        .renderViews
+        .first
+        .owner!
+        .semanticsOwner!
+        .rootSemanticsNode!;
+    void walk(SemanticsNode node) {
+      final label = node.label.replaceAll('\n', ' ').trim();
+      if (label.isNotEmpty) labels.add(label);
+      node
+          .debugListChildrenInOrder(DebugSemanticsDumpOrder.traversalOrder)
+          .forEach(walk);
+    }
+
+    walk(root);
+  } finally {
+    handle.dispose();
+  }
+  int at(String text) => labels.indexWhere((l) => l.contains(text));
+  final up = at(LocaleKeys.critical_alarm_acknowledge_button.tr());
+  final message = at(state.title);
+  final silence = at(LocaleKeys.critical_alarm_silence_ringing_button.tr());
+  final read = at(LocaleKeys.critical_alarm_read_message_button.tr());
+  String short(String l) => l.length > 48 ? '${l.substring(0, 48)}...' : l;
+  final ok =
+      up >= 0 &&
+      message > up &&
+      silence > message &&
+      (read == -1 || read > silence);
+  final order = [
+    for (final (i, l) in labels.indexed) '${i + 1}. ${short(l)}',
+  ].join(' | ');
+  return [
+    ('order: $order', false),
+    (
+      "${ok ? 'PASS' : 'FAIL'} reading order: I'm up ($up), then the "
+          'message ($message), then Silence ($silence) and Read ($read)',
+      !ok,
+    ),
+  ];
+}
+
+/// How far each scroll view under a widget of [screen] type can scroll at
+/// rest, leaving out the ones inside a card (`AppSheet`), which may scroll.
+List<String> _scrollingAtRest(Type screen) {
+  final scrolls = <String>[];
+  for (final element
+      in find
+          .descendant(
+            of: find.byType(screen),
+            matching: find.byType(Scrollable),
+          )
+          .evaluate()) {
+    if (element.findAncestorWidgetOfExactType<AppSheet>() != null) continue;
+    final state = (element as StatefulElement).state as ScrollableState;
+    final position = state.position;
+    if (!position.hasContentDimensions) continue;
+    final extent = position.maxScrollExtent - position.minScrollExtent;
+    if (extent > 0.5) scrolls.add(extent.toStringAsFixed(1));
+  }
+  return scrolls;
+}
+
+/// The acknowledged screen on a fold: every part fits its pane at rest.
+List<(String, bool)> _measureAcknowledged({required AppFold fold}) {
+  if (fold.isNone) return const [];
+  if (find.byType(AcknowledgedScreen).evaluate().isEmpty) return const [];
+  final scrolls = _scrollingAtRest(AcknowledgedScreen);
+  final ok = scrolls.isEmpty;
+  return [
+    (
+      '${ok ? 'PASS' : 'FAIL'} acknowledged ${fold.posture.name}: nothing '
+          'scrolls at rest'
+          '${scrolls.isEmpty ? '' : ' (scrolls by ${scrolls.join(', ')})'}',
+      !ok,
+    ),
+  ];
 }
