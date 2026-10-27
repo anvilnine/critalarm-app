@@ -94,6 +94,11 @@ class AppScreenScaffold extends StatefulWidget {
   /// - Book, when there is no [detail]: this fills the start pane, with the
   ///   tab bar floating over its foot, and the slivers scroll in the end pane.
   ///
+  /// The [topBar] goes with the stage: it draws along the top of the stage's
+  /// pane (the top half, or the start pane), above the stage, so the title
+  /// sits over the hero it names and never under the fold. The list in the
+  /// other pane then has no top bar of its own.
+  ///
   /// With no fold it is not drawn, so the screen keeps the same content in its
   /// slivers and leaves it out of them when `AppFold.of(context)` is not none.
   /// The stage sits outside the pull to refresh.
@@ -235,6 +240,12 @@ class AppScreenScaffold extends StatefulWidget {
 }
 
 class _AppScreenScaffoldState extends State<AppScreenScaffold> {
+  /// The list and the detail keep their state (scroll position, a selected
+  /// row, a half-typed field) when the hinge opens or closes and the tree
+  /// around them changes shape.
+  final GlobalKey _listKey = GlobalKey();
+  final GlobalKey _detailKey = GlobalKey();
+
   /// How tall the pinned bottom bar came out, once it has laid out.
   ///
   /// The bar is whatever the screen handed over, so its height is not known
@@ -313,15 +324,24 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // The list as the scaffold lays it out in the box it is given. Width
     // comes from that box, not from the display, so a screen nested inside a
     // detail pane measures its own pane.
-    Widget list({required Widget? detail, required bool hasTabBar}) =>
-        LayoutBuilder(
-          builder: (context, constraints) => _buildContent(
-            context,
-            constraints.maxWidth,
-            detail: detail,
-            hasTabBar: hasTabBar,
-          ),
-        );
+    Widget list({
+      required Widget? detail,
+      required bool hasTabBar,
+      bool showTopBar = true,
+    }) => KeyedSubtree(
+      key: _listKey,
+      child: LayoutBuilder(
+        builder: (context, constraints) => _buildContent(
+          context,
+          constraints.maxWidth,
+          detail: detail == null
+              ? null
+              : KeyedSubtree(key: _detailKey, child: detail),
+          hasTabBar: hasTabBar,
+          showTopBar: showTopBar,
+        ),
+      ),
+    );
 
     if (fold.isNone ||
         (fold.isTabletop && stage == null) ||
@@ -348,14 +368,22 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     if (fold.isBook && detail != null) {
       // List in the start pane, under the tab bar. Detail in the end pane.
       first = list(detail: null, hasTabBar: widget.hasTabBar);
-      second = AppDetailPane(child: detail);
+      second = AppDetailPane(
+        child: KeyedSubtree(key: _detailKey, child: detail),
+      );
     } else {
-      // The stage holds still in the start pane or the top half. The list
-      // scrolls in the other one, and only the bottom half has the bar.
-      first = stage!;
+      // The stage holds still in the start pane or the top half, under the
+      // top bar it names. The list scrolls in the other one, and only the
+      // bottom half has the bar.
+      first = _StagePane(
+        topBar: widget.topBar == null ? null : _topBarContent(context),
+        contentMaxWidth: widget.contentMaxWidth,
+        child: stage!,
+      );
       second = list(
         detail: null,
         hasTabBar: widget.hasTabBar && fold.isTabletop,
+        showTopBar: false,
       );
     }
     return _wrap(
@@ -389,12 +417,32 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     );
   }
 
+  /// The screen's top bar, with the text scale clamp the backing scope asks
+  /// for. Null when the screen has none.
+  Widget? _topBarContent(BuildContext context) {
+    final topBar = widget.topBar;
+    if (topBar == null) return null;
+    final maxScale = AppBarBackingScope.maybeOf(context)?.topBarMaxTextScale;
+    if (maxScale == null) return topBar;
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: MediaQuery.textScalerOf(
+          context,
+        ).clamp(maxScaleFactor: maxScale),
+      ),
+      child: topBar,
+    );
+  }
+
   Widget _buildContent(
     BuildContext context,
     double boxWidth, {
     required Widget? detail,
     required bool hasTabBar,
+    required bool showTopBar,
   }) {
+    // In a fold split the stage pane draws the top bar, so the list does not.
+    final topBar = showTopBar ? widget.topBar : null;
     final colors = context.appColors;
     final padding = MediaQuery.paddingOf(context);
     final inAmbient = AmbientScope.isInAmbientScope(context);
@@ -403,10 +451,15 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         widget.backgroundColor ??
         (inAmbient ? Colors.transparent : colors.canvas);
     final size = AppSize.of(context);
+    // Inside a fold pane this is no fold. On the window it is the one the
+    // shell reads, so both agree on where the bar is.
+    final fold = AppFold.of(context);
+    final hasRail = navPlacementFor(size, fold) != AppNavPlacement.bottom;
     final columns = AppScreenColumns.resolve(
       boxWidth: boxWidth,
       size: size,
       padding: padding,
+      fold: fold,
       hasTabBar: hasTabBar,
       hasDetail: detail != null,
       contentMaxWidth: widget.contentMaxWidth,
@@ -435,14 +488,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
 
     final topInset =
-        padding.top +
-        (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
+        padding.top + (topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
     // A screen with no top bar of its own can sit under a bar the host draws
     // over it. The list keeps its own top padding, and the backing covers
     // the bar's height like a top bar's.
     final backedTopOrNull = AppScreenScaffold.backedTopHeight(
-      hasTopBar: widget.topBar != null,
+      hasTopBar: topBar != null,
       safeTop: padding.top,
       barOverTop: isScoped ? scope?.barOverTop : null,
     );
@@ -450,7 +502,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final backedTop = backedTopOrNull ?? topInset;
 
     // The tab bar leaves room for itself, and so does a pinned bar.
-    final tabBarRoom = hasTabBar && !size.hasRail
+    final tabBarRoom = hasTabBar && !hasRail
         ? AppFloatingTabBar.contentGapFor(size)
         : 0.0;
 
@@ -567,7 +619,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   ? ValueListenableBuilder<double>(
                       valueListenable: _scrolledUnderTop,
                       builder: (context, amount, _) =>
-                          widget.topBar == null && amount <= 0
+                          topBar == null && amount <= 0
                           // The bar is the host's, so at rest the screen
                           // keeps the edge it always had.
                           ? SizedBox(
@@ -620,7 +672,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is
           // inside the screen's SeverityScope, so the wash follows the retint.
-          if (effectiveWithFades && hasTabBar && !size.hasRail)
+          if (effectiveWithFades && hasTabBar && !hasRail)
             Positioned(
               bottom: 0,
               left: 0,
@@ -633,7 +685,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
             ),
           // The list runs under the top bar, so wash the canvas over the last
           // few pixels and let rows dissolve instead of meeting a hard edge.
-          if (effectiveWithFades && widget.topBar != null)
+          if (effectiveWithFades && topBar != null)
             Positioned(
               top: 0,
               left: 0,
@@ -663,7 +715,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 ),
               ),
             ),
-          if (widget.topBar != null)
+          if (topBar != null)
             Positioned(
               top: 0,
               left: 0,
@@ -681,14 +733,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                     // The bar has one fixed height, so past a point larger
                     // text is cut by it.
                     child: topBarMaxTextScale == null
-                        ? widget.topBar
+                        ? topBar
                         : MediaQuery(
                             data: MediaQuery.of(context).copyWith(
                               textScaler: MediaQuery.textScalerOf(
                                 context,
                               ).clamp(maxScaleFactor: topBarMaxTextScale),
                             ),
-                            child: widget.topBar!,
+                            child: topBar,
                           ),
                   ),
                 ),
@@ -832,17 +884,25 @@ class AppScreenColumns {
     required this.detailLeft,
     required this.detailWidth,
     this.originX = 0,
+    this.originY = 0,
     this.inFoldPane = false,
   });
 
-  /// The columns of a box [boxWidth] wide on a display of [size] whose safe
-  /// area is [padding]. [hasTabBar] says the shell's bar or rail floats over
-  /// the screen, [hasDetail] that the screen passes a detail. Folds are not
-  /// read here: pass the pane's own values inside a fold pane.
+  /// The columns of one box [boxWidth] wide on a display of [size] whose
+  /// safe area is [padding] and whose fold is [fold]. [hasTabBar] says the
+  /// shell's bar or rail floats over the screen, [hasDetail] that the screen
+  /// passes a detail.
+  ///
+  /// [fold] only decides where the bar is ([navPlacementFor]: book posture
+  /// is always the bottom pill) and that a folded window never puts list and
+  /// detail side by side in one box. The split into panes is
+  /// [AppScreenColumns.of]'s job; inside a pane pass the pane's own values
+  /// and no fold.
   factory AppScreenColumns.resolve({
     required double boxWidth,
     required AppSize size,
     required EdgeInsets padding,
+    AppFold fold = AppFold.none,
     bool hasTabBar = true,
     bool hasDetail = false,
     double contentMaxWidth = AppSize.contentMaxWidth,
@@ -852,8 +912,9 @@ class AppScreenColumns {
     // above the bottom edge. The display's own safe area on that side, the
     // notch on a phone turned sideways, comes on top. Past the frame width
     // the rail sits at the frame's edge, in from the window edge.
-    final hasRail = size.hasRail && hasTabBar;
-    final railOnRight = size.navPlacement == AppNavPlacement.right;
+    final placement = navPlacementFor(size, fold);
+    final hasRail = placement != AppNavPlacement.bottom && hasTabBar;
+    final railOnRight = placement == AppNavPlacement.right;
     final frameInset = boxWidth <= AppSize.frameMaxWidth
         ? 0.0
         : (boxWidth - AppSize.frameMaxWidth) / 2;
@@ -862,7 +923,7 @@ class AppScreenColumns {
         : 0.0;
     final railClearance = hasRail ? railGap + frameInset : 0.0;
 
-    if (size.isExpanded && hasDetail) {
+    if (size.isExpanded && hasDetail && fold.isNone) {
       // Two panes have already narrowed the list, so it needs no gutter.
       final available = boxWidth - 2 * frameInset - railGap;
       final listWidth = AppScreenScaffold.listPaneWidth(available);
@@ -894,25 +955,54 @@ class AppScreenColumns {
     );
   }
 
-  /// The columns of a top-level screen drawn in [context], folds included.
-  /// In book posture with a detail, the list is the start pane's.
+  /// The columns of the list of a top-level screen drawn in [context],
+  /// folds included, laid out the way [AppScreenScaffold] lays it out:
+  ///
+  /// - Book posture with a detail: the start pane.
+  /// - Book posture with a stage ([hasStage]) and no detail: the end pane,
+  ///   with no tab bar (the bar is in the start pane).
+  /// - Tabletop posture with a stage: the bottom half, with the bar.
+  /// - Anything else: the whole window.
+  ///
+  /// [originX] and [originY] say where that box sits in the window.
   factory AppScreenColumns.of(
     BuildContext context, {
     bool hasTabBar = true,
     bool hasDetail = false,
+    bool hasStage = false,
+    double contentMaxWidth = AppSize.contentMaxWidth,
+  }) => AppScreenColumns.forWindow(
+    window: MediaQuery.sizeOf(context),
+    padding: MediaQuery.paddingOf(context),
+    fold: AppFold.of(context),
+    isIphone: AppDeviceScope.isIphoneOf(context),
+    direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
+    hasTabBar: hasTabBar,
+    hasDetail: hasDetail,
+    hasStage: hasStage,
+    contentMaxWidth: contentMaxWidth,
+  );
+
+  /// [AppScreenColumns.of] from plain values.
+  factory AppScreenColumns.forWindow({
+    required Size window,
+    required EdgeInsets padding,
+    AppFold fold = AppFold.none,
+    bool isIphone = false,
+    TextDirection direction = TextDirection.ltr,
+    bool hasTabBar = true,
+    bool hasDetail = false,
+    bool hasStage = false,
     double contentMaxWidth = AppSize.contentMaxWidth,
   }) {
-    final window = MediaQuery.sizeOf(context);
-    final padding = MediaQuery.paddingOf(context);
-    final isIphone = AppDeviceScope.isIphoneOf(context);
-    final fold = AppFold.of(context);
-    if (fold.isBook && hasDetail) {
-      final pane = fold
-          .panes(
-            window,
-            direction: Directionality.maybeOf(context) ?? TextDirection.ltr,
-          )
-          .first;
+    final panes = fold.panes(window, direction: direction);
+    final (Rect? pane, bool paneHasTabBar) = switch (fold.posture) {
+      AppPosture.book when hasDetail => (panes.first, hasTabBar),
+      AppPosture.book when hasStage => (panes.second, false),
+      AppPosture.tabletop when hasStage => (panes.second, hasTabBar),
+      _ => (null, hasTabBar),
+    };
+    if (pane != null) {
       final paneMedia = foldPaneMediaQuery(
         MediaQueryData(size: window, padding: padding),
         pane,
@@ -921,7 +1011,7 @@ class AppScreenColumns {
         boxWidth: pane.width,
         size: AppSize.from(pane.size, isIphone: isIphone),
         padding: paneMedia.padding,
-        hasTabBar: hasTabBar,
+        hasTabBar: paneHasTabBar,
         contentMaxWidth: contentMaxWidth,
       );
       return AppScreenColumns._(
@@ -934,6 +1024,7 @@ class AppScreenColumns {
         detailLeft: inPane.detailLeft,
         detailWidth: inPane.detailWidth,
         originX: pane.left,
+        originY: pane.top,
         inFoldPane: true,
       );
     }
@@ -941,8 +1032,9 @@ class AppScreenColumns {
       boxWidth: window.width,
       size: AppSize.from(window, isIphone: isIphone),
       padding: padding,
+      fold: fold,
       hasTabBar: hasTabBar,
-      hasDetail: hasDetail && !fold.isTabletop,
+      hasDetail: hasDetail,
       contentMaxWidth: contentMaxWidth,
     );
   }
@@ -971,6 +1063,10 @@ class AppScreenColumns {
   /// Where the box starts in the window: the start pane of a book fold can
   /// sit right of it in a right to left layout.
   final double originX;
+
+  /// Where the box starts in the window from the top: the bottom half of a
+  /// tabletop fold starts below the band.
+  final double originY;
 
   /// True when the list is one pane of a fold.
   final bool inFoldPane;
@@ -1064,10 +1160,68 @@ class _RenderMeasureHeight extends RenderProxyBox {
   }
 }
 
+/// The stage pane of a fold split: the screen's top bar along the top, where
+/// the scaffold draws it on one column, and the stage under it.
+class _StagePane extends StatelessWidget {
+  const _StagePane({
+    required this.topBar,
+    required this.contentMaxWidth,
+    required this.child,
+  });
+
+  final Widget? topBar;
+  final double contentMaxWidth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final topBar = this.topBar;
+    if (topBar == null) return child;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Lined up with the column the list in the other pane uses. No rail
+        // runs down this pane, so it keeps no room for one.
+        final columns = AppScreenColumns.resolve(
+          boxWidth: constraints.maxWidth,
+          size: AppSize.of(context),
+          padding: MediaQuery.paddingOf(context),
+          hasTabBar: false,
+          contentMaxWidth: contentMaxWidth,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: columns.gutter),
+                child: SizedBox(
+                  height: AppScreenScaffold.topBarHeight + 2,
+                  child: topBar,
+                ),
+              ),
+            ),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: child,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// The second pane on an expanded display. It is a raised surface that runs
 /// to the bottom edge, so the list beside it keeps the canvas.
 class AppDetailPane extends StatelessWidget {
   const AppDetailPane({required this.child, super.key});
+
+  /// Room between the pane's surface edges and its content, on each side.
+  static const double gutter = 8;
 
   final Widget child;
 
@@ -1088,12 +1242,19 @@ class AppDetailPane extends StatelessWidget {
         boxShadow: AppShadows.shadowLg(isDark: isDark),
       ),
       // A wide pane keeps its surface edge to edge, and the content in it
-      // stops at a readable width in the middle.
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSize.detailMaxWidth),
-          child: child,
+      // stops at a readable width in the middle. The surface runs to the
+      // window edge, so the content keeps a gutter on both sides and a card
+      // in it is never cut by that edge.
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: gutter),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSize.detailMaxWidth,
+            ),
+            child: child,
+          ),
         ),
       ),
     );

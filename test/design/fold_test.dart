@@ -190,4 +190,119 @@ void main() {
       );
     });
   });
+
+  group('book posture beats the size class', () {
+    // A Pixel Fold inner screen half opened as a book: expanded and wider
+    // than tall, so without the fold it would get a rail.
+    const window = Size(841, 701);
+    final fold = AppFold.fromFeatures([
+      _fold(Rect.fromLTWH(420, 0, 0, window.height)),
+    ], window);
+    final size = AppSize.from(window);
+
+    test('the bar is the bottom pill, never a rail', () {
+      expect(size.navPlacement, AppNavPlacement.left);
+      expect(navPlacementFor(size, fold), AppNavPlacement.bottom);
+      expect(navPlacementFor(size, AppFold.none), AppNavPlacement.left);
+    });
+
+    test('the bar floats in the start pane, left of the band', () {
+      final area = navAreaFor(window, fold);
+      expect(area, const Rect.fromLTRB(0, 0, 404, 701));
+    });
+
+    test('one column keeps no room for a rail that is not drawn', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: window.width,
+        size: size,
+        padding: EdgeInsets.zero,
+        fold: fold,
+      );
+      expect(columns.railClearance, 0);
+      expect(columns.gutter, (841 - 560) / 2);
+    });
+
+    test('a detail never sits beside the list in one folded box', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: window.width,
+        size: size,
+        padding: EdgeInsets.zero,
+        fold: fold,
+        hasDetail: true,
+      );
+      expect(columns.twoPane, isFalse);
+    });
+  });
+
+  group('AppScreenColumns.forWindow', () {
+    test('book with a detail: the list is the start pane', () {
+      final fold = AppFold.fromFeatures([_fold(bookLine)], book);
+      final columns = AppScreenColumns.forWindow(
+        window: book,
+        padding: EdgeInsets.zero,
+        fold: fold,
+        hasDetail: true,
+      );
+      expect(columns.inFoldPane, isTrue);
+      expect(columns.originX, 0);
+      expect(columns.listWidth, 329);
+      expect(columns.contentWidth, 329);
+    });
+
+    test(
+      'book with a detail, right to left: the start pane is on the right',
+      () {
+        final fold = AppFold.fromFeatures([_fold(bookLine)], book);
+        final columns = AppScreenColumns.forWindow(
+          window: book,
+          padding: EdgeInsets.zero,
+          fold: fold,
+          direction: TextDirection.rtl,
+          hasDetail: true,
+        );
+        expect(columns.originX, 361);
+        expect(columns.contentLeft, 361);
+      },
+    );
+
+    test('book with a stage: the list is the end pane, with no bar', () {
+      final fold = AppFold.fromFeatures([_fold(bookLine)], book);
+      final columns = AppScreenColumns.forWindow(
+        window: book,
+        padding: EdgeInsets.zero,
+        fold: fold,
+        hasStage: true,
+      );
+      expect(columns.originX, 361);
+      expect(columns.listWidth, 329);
+      expect(columns.railClearance, 0);
+    });
+
+    test(
+      'tabletop with a stage: the list is the bottom half, with the rail',
+      () {
+        final fold = AppFold.fromFeatures([_fold(tabletopLine)], tabletop);
+        final columns = AppScreenColumns.forWindow(
+          window: tabletop,
+          padding: EdgeInsets.zero,
+          fold: fold,
+          hasStage: true,
+        );
+        expect(columns.originY, 366);
+        expect(columns.railClearance, 88);
+      },
+    );
+
+    test('tabletop with only a detail: one column on the window', () {
+      final fold = AppFold.fromFeatures([_fold(tabletopLine)], tabletop);
+      final columns = AppScreenColumns.forWindow(
+        window: tabletop,
+        padding: EdgeInsets.zero,
+        fold: fold,
+        hasDetail: true,
+      );
+      expect(columns.twoPane, isFalse);
+      expect(columns.inFoldPane, isFalse);
+    });
+  });
 }
