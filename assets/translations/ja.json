@@ -189,6 +189,10 @@
     "server_url_error_empty": "サーバーURLを入力してください",
     "server_url_error_invalid": "有効なURLを入力してください（例: https://api.critalarm.app）",
     "admin_token_error_empty": "管理者トークンを入力してください",
+    "admin_token_error_wrong": "サーバーがこの管理者トークンを受け付けませんでした。接続していません。",
+    "answer_invalid": "このアドレスはCrit Alarmサーバーとして応答しませんでした。接続していません。",
+    "relay_differs": "このサーバーは、このスマートフォンが登録されているものとは別のリレーを使っています。先に切断してから再接続してください。",
+    "registered_elsewhere": "このスマートフォンは別のサーバーに登録されています。先に切断してから再接続してください。",
     "version_incompatible": "サーバーは{version}です。0.xに更新してから再接続してください。",
     "connected_status": "接続済み: {serverUrl}",
     "hook_title": "アラームをテスト",
@@ -283,6 +287,7 @@
     "not_encrypted": "このアドレスは暗号化されていません。",
     "address_differs": "このサーバーは自分のアドレスを{host}としています。接続していません。",
     "downgrade": "このサーバーは暗号化されていないアドレスを返しました。接続していません。",
+    "not_self_hosted": "リンクで接続できるのはセルフホストのサーバーだけです。接続していません。",
     "close": "閉じる"
   },
   "onboarding_real_ring": {
