@@ -1,6 +1,7 @@
 // Shared by the capture tools under tool/. Not part of the app.
 
 import 'package:critalarm/design/faces/faces.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
 /// One screen a capture tool opens: the file name it is saved under, the
@@ -77,3 +78,61 @@ acknowledgedCaptureRoutes = [
   ('wp2_08_acked', '/alarm', FaceState.alarmed),
   ('wp2_08_acked_setup_test', '/incidents/inc_demo', FaceState.calm),
 ];
+
+/// A screen captured after one tap: the file name, the route, the fixture,
+/// and the `LocaleKeys` key of the text the tool taps once the screen has
+/// drawn. Unlike the picks in `tool/capture_responsive_matrix.dart`, it is
+/// captured at every size, so the same tap shows what one pane and two panes
+/// each do with it.
+typedef CaptureTapRoute = (
+  String id,
+  String path,
+  FaceState fixture,
+  String tapKey,
+);
+
+/// The tap captures `tool/capture_responsive_matrix.dart` adds to its list.
+const List<CaptureTapRoute> tapScreenRoutes = [
+  // WP4: Server opens in the Settings detail pane with the URL unchanged
+  // where there is a pane, and pushes /settings/server where there is none.
+  (
+    'wp4_settings_tap_server',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.settings_server_row_title,
+  ),
+  // WP4: the Personalize pass stack in the pane, with no back ring.
+  (
+    'wp4_settings_tap_personalize',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.personalize_title,
+  ),
+  // WP4: on a phone that lost its server the pane opens on Server, and the
+  // Server page and the Server row read one state (both Disconnected).
+  (
+    'wp4_disconnected_tap_server',
+    '/settings/disconnected',
+    FaceState.calm,
+    LocaleKeys.settings_server_row_title,
+  ),
+  // WP4: Storage opens in the pane and every row value beside it stays as
+  // it was.
+  (
+    'wp4_settings_tap_storage',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.settings_storage_row_title,
+  ),
+];
+
+/// A second tap some tap captures make inside the Settings detail pane,
+/// once the first tap has opened a page there: the capture id and the
+/// `LocaleKeys` key of the text tapped on that page. It is the tap a person
+/// would make next. Where there is no pane the capture stops after the
+/// first tap, so the phone captures stay as they were.
+const Map<String, String> paneTapRoutes = {
+  // WP4: a new retention picked on the Storage page in the pane shows in the
+  // Storage row beside it at once (Keep all, then 1 month).
+  'wp4_settings_tap_storage': LocaleKeys.settings_storage_delete_1m,
+};

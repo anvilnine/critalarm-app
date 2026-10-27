@@ -7,6 +7,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -24,10 +25,22 @@ String serverModeLabelKey(ServerMode mode) => switch (mode) {
 /// The server this phone is paged by: which host, and the admin token used
 /// to talk to it.
 class ServerSettingsScreen extends StatelessWidget {
-  const ServerSettingsScreen({super.key});
+  const ServerSettingsScreen({super.key, this.cubit});
+
+  /// The Settings screen's own cubit, when the page draws in its detail
+  /// pane, so the row beside the page and the page read one state. A pushed
+  /// page leaves it null and loads its own.
+  final SettingsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    final shared = cubit;
+    if (shared != null) {
+      return BlocProvider.value(
+        value: shared,
+        child: const _ServerSettingsView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();
@@ -387,17 +400,8 @@ class _ServerSettingsView extends StatelessWidget {
           hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_server_connection_header.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
-            ),
+            // Beside the Settings rows, in the detail pane, there is no back.
+            leading: settingsBackButton(context),
           ),
           slivers: [
             // One line of context under the title, as Health has, so the page
