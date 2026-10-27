@@ -1,3 +1,4 @@
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
@@ -276,6 +277,7 @@ void main() {
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
+    registerFallbackValue(const SessionCheckpoint(null, <String, String?>{}));
   });
 
   group('the wipe of what belongs to an account', () {
@@ -416,6 +418,18 @@ void main() {
         ),
       );
       when(() => save(any())).thenAnswer((_) async => unit.toSuccess());
+      // The connect checks: no device token to keep back, and the server
+      // takes the admin token.
+      when(
+        () => establish.relayTrust(any()),
+      ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+      when(establish.checkpoint).thenAnswer(
+        (_) async => const SessionCheckpoint(null, <String, String?>{}),
+      );
+      when(() => establish.rollBack(any())).thenAnswer((_) async {});
+      when(
+        () => getInfo.proveAdminToken(any(), any()),
+      ).thenAnswer((_) async {});
       final phone = _Phone();
       await phone.start(accountDataFor('acc_1'), accountId: 'acc_1');
       ConnectToServerUsecase connectFrom(String saved) =>
