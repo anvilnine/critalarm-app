@@ -7,6 +7,7 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
@@ -19,6 +20,7 @@ import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -483,6 +485,21 @@ Widget _spokenHeroFor(WelcomeVariant variant) =>
     ? const _WakeUpHero()
     : ExcludeSemantics(child: _heroFor(variant));
 
+/// Marks a hero whose page edge is not the edge of the screen: the pane
+/// beside or above the fold of a half-open foldable, or the centred column
+/// on a tablet or desktop window. A hero there keeps everything inside its
+/// page rather than hang off the edge the way it does on a phone, where the
+/// edge it hangs off is the screen's.
+class _BoundedPage extends InheritedWidget {
+  const _BoundedPage({required super.child});
+
+  static bool isIn(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_BoundedPage>() != null;
+
+  @override
+  bool updateShouldNotify(_BoundedPage old) => false;
+}
+
 /// Says whether the hero below is the one in front. On the welcome pages
 /// only the page the user rests on is: its story starts and its haptic cues
 /// play. A hero with no stage above it is always in front.
@@ -550,6 +567,9 @@ class _IntroLayout extends StatelessWidget {
 
   /// The room left free on each side of the page.
   static const double sidePadding = Spacing.s5;
+
+  /// The most room the animation takes either way on a wide window.
+  static const double _stageMaxSide = 560;
 
   final Widget hero;
 
@@ -647,8 +667,214 @@ class _IntroLayout extends StatelessWidget {
     );
   }
 
+  /// The animation, in whatever room it is given. Too little room for it
+  /// to read and it goes, and the words keep the page.
+  Widget _heroArea() => LayoutBuilder(
+    builder: (context, box) {
+      // Too little room for it to read: it goes, and
+      // the words keep the page.
+      if (!introHeroFits(box.maxHeight)) {
+        return const SizedBox.shrink();
+      }
+      // It is a drawing, so it keeps its size when the
+      // system text grows.
+      final drawing = MediaQuery.withNoTextScaling(
+        child: AnimatedSwitcher(
+          duration: context.motion(
+            const Duration(milliseconds: 450),
+          ),
+          child: hero,
+        ),
+      );
+      // A mock-up; the words below carry the meaning.
+      return isHeroSpoken ? drawing : ExcludeSemantics(child: drawing);
+    },
+  );
+
+  /// The title, the badge and the line under it.
+  List<Widget> _words(BuildContext context, AppColors colors) => [
+    _titleRow(context, colors),
+    if (badge != null) ...[
+      const SizedBox(height: Spacing.s3),
+      Align(alignment: Alignment.centerLeft, child: badge),
+    ],
+    const SizedBox(height: Spacing.s2),
+    caption ??
+        Text(
+          subtitle,
+          style: AppTypography.lead(
+            colors.onCanvasMuted,
+            fontSize: 16,
+          ),
+        ),
+  ];
+
+  /// The button that moves on, the one action on the page.
+  Widget _button() => AppButton(
+    label: button,
+    size: AppButtonSize.lg,
+    isFullWidth: true,
+    onPressed: onPressed,
+  );
+
   @override
   Widget build(BuildContext context) {
+    return switch (ScreenFrame.of(context)) {
+      ScreenFrame.phone => _phone(context),
+      ScreenFrame.cover => _phone(context, isCover: true),
+      ScreenFrame.centred => _centred(context),
+      ScreenFrame.book || ScreenFrame.tabletop => _folded(context),
+    };
+  }
+
+  /// A tablet or desktop window: the animation, at most 560 square, with the
+  /// words and the button right under it, the group in the middle of the
+  /// window.
+  Widget _centred(BuildContext context) {
+    final colors = context.appColors;
+    final textScale = setupTextScaleOf(context);
+    final trackerRoom = OnboardingAmbientScope.showsTrackerOf(context)
+        ? AppScreenScaffold.topBarHeight - Spacing.s4
+        : 0.0;
+    return AppScreenScaffold(
+      backgroundColor: Colors.transparent,
+      withGhosts: false,
+      withFades: false,
+      hasTabBar: false,
+      physics: const ClampingScrollPhysics(),
+      // The column below fills the screen and keeps its own room at the
+      // foot, so the page moves only once the words are taller than it.
+      bodyClearsBottomBar: true,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            sidePadding,
+            Spacing.s4 + trackerRoom,
+            sidePadding,
+            0,
+          ),
+          sliver: SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom + Spacing.s4,
+              ),
+              // One 480 column: the animation, the words and the button
+              // share their left edge.
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppSize.actionMaxWidth,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (top != null) ...[
+                        top!,
+                        const SizedBox(height: Spacing.s4),
+                      ],
+                      Flexible(
+                        child: _NoIntrinsicSize(
+                          minHeight: introHeroMinHeightFor(
+                            textScale,
+                            roomAbove: trackerRoom,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: _stageMaxSide,
+                            ),
+                            child: SizedBox.expand(
+                              child: _BoundedPage(child: _heroArea()),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (underHero != null) ...[
+                        const SizedBox(height: Spacing.s3),
+                        Center(child: underHero),
+                      ],
+                      const SizedBox(height: Spacing.s5),
+                      ..._words(context, colors),
+                      const SizedBox(height: Spacing.s5),
+                      _button(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A half-open foldable: the animation and its page dots hold still in
+  /// the start pane (book) or the top half (tabletop). The words go in the
+  /// other pane, with the button right under them in a book and pinned to
+  /// the bottom edge on a table.
+  Widget _folded(BuildContext context) {
+    final colors = context.appColors;
+    final isBook = ScreenFrame.of(context) == ScreenFrame.book;
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ..._words(context, colors),
+        if (isBook) ...[
+          const SizedBox(height: Spacing.s5),
+          _button(),
+        ],
+      ],
+    );
+    return AppScreenScaffold(
+      backgroundColor: Colors.transparent,
+      withGhosts: false,
+      withFades: false,
+      hasTabBar: false,
+      physics: const ClampingScrollPhysics(),
+      bottomBar: isBook ? null : _button(),
+      foldStage: Padding(
+        // The shell's tracker sits along the top of this pane.
+        padding: EdgeInsets.fromLTRB(
+          sidePadding,
+          MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight,
+          sidePadding,
+          Spacing.s4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (top != null) ...[top!, const SizedBox(height: Spacing.s4)],
+            Expanded(child: _BoundedPage(child: _heroArea())),
+            if (underHero != null) ...[
+              const SizedBox(height: Spacing.s3),
+              Center(child: underHero),
+            ],
+          ],
+        ),
+      ),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: sidePadding),
+          sliver: isBook
+              ? CentredGroupSliver(child: words)
+              : SliverPadding(
+                  padding: const EdgeInsets.only(top: Spacing.s4),
+                  sliver: SliverToBoxAdapter(child: words),
+                ),
+        ),
+      ],
+    );
+  }
+
+  /// A phone: the animation fills the top, the words sit under it and the
+  /// button is pinned to the bottom edge.
+  ///
+  /// On a cover screen (both sides under 500) the animation keeps no room of
+  /// its own: it takes what the words leave, so the line under it is never
+  /// pushed below the button.
+  Widget _phone(BuildContext context, {bool isCover = false}) {
     final colors = context.appColors;
     final textScale = setupTextScaleOf(context);
     // This step has no top bar, so the shell's tracker, small face and Back
@@ -673,12 +899,7 @@ class _IntroLayout extends StatelessWidget {
       // itself, so the list adds none: the page moves only once the words
       // are taller than the screen.
       bodyClearsBottomBar: true,
-      bottomBar: AppButton(
-        label: button,
-        size: AppButtonSize.lg,
-        isFullWidth: true,
-        onPressed: onPressed,
-      ),
+      bottomBar: _button(),
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(
@@ -715,33 +936,13 @@ class _IntroLayout extends StatelessWidget {
                       // The room the animation keeps depends on the text
                       // size: all of it at the default, none once the text
                       // is larger, so the words come first.
-                      minHeight: introHeroMinHeightFor(
-                        textScale,
-                        roomAbove: trackerRoom,
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, box) {
-                          // Too little room for it to read: it goes, and
-                          // the words keep the page.
-                          if (!introHeroFits(box.maxHeight)) {
-                            return const SizedBox.shrink();
-                          }
-                          // It is a drawing, so it keeps its size when the
-                          // system text grows.
-                          final drawing = MediaQuery.withNoTextScaling(
-                            child: AnimatedSwitcher(
-                              duration: context.motion(
-                                const Duration(milliseconds: 450),
-                              ),
-                              child: hero,
+                      minHeight: isCover
+                          ? 0
+                          : introHeroMinHeightFor(
+                              textScale,
+                              roomAbove: trackerRoom,
                             ),
-                          );
-                          // A mock-up; the words below carry the meaning.
-                          return isHeroSpoken
-                              ? drawing
-                              : ExcludeSemantics(child: drawing);
-                        },
-                      ),
+                      child: _heroArea(),
                     ),
                   ),
                   if (underHero != null) ...[
@@ -749,20 +950,7 @@ class _IntroLayout extends StatelessWidget {
                     Center(child: underHero),
                   ],
                   const SizedBox(height: Spacing.s5),
-                  _titleRow(context, colors),
-                  if (badge != null) ...[
-                    const SizedBox(height: Spacing.s3),
-                    Align(alignment: Alignment.centerLeft, child: badge),
-                  ],
-                  const SizedBox(height: Spacing.s2),
-                  caption ??
-                      Text(
-                        subtitle,
-                        style: AppTypography.lead(
-                          colors.onCanvasMuted,
-                          fontSize: 16,
-                        ),
-                      ),
+                  ..._words(context, colors),
                 ],
               ),
             ),
