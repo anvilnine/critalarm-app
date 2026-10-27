@@ -19,7 +19,9 @@ import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/pass_route.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
@@ -80,6 +82,7 @@ import 'package:critalarm/features/settings/presentation/sound_recorder_screen.d
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
@@ -159,6 +162,21 @@ abstract final class AppRoute {
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
+
+/// Whether [matches] put a page on the root navigator, above the tabs: a
+/// top-level route such as the ringing alarm, pushed or gone to. The tabs
+/// themselves are a shell match, and a page pushed onto a tab is an
+/// imperative match that holds a shell match.
+bool _hasPageAboveShell(List<RouteMatchBase> matches) {
+  for (final match in matches) {
+    if (match is ImperativeRouteMatch) {
+      if (_hasPageAboveShell(match.matches.matches)) return true;
+    } else if (match is RouteMatch) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /// The card a Personalize pass page grows from: the `PassOrigin` the root
 /// passed as `extra`, or null when the page was opened another way (a deep
@@ -372,6 +390,35 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     // curl line": the token sheet opens as the screen does.
                     final startCurlFlow =
                         state.uri.queryParameters['curl'] == '1';
+                    // On an expanded window the topic opens in Home's detail
+                    // pane, beside the list: this page is a see-through
+                    // stand-in that hands the topic to the pane once it is
+                    // the page in front (at once, or on the way back from
+                    // Messages or Tokens). With a page over the tabs, such
+                    // as the ringing alarm, the topic opens as a page of its
+                    // own and the alarm stays put.
+                    final isCurlTopic =
+                        startCurlFlow &&
+                        state.uri.path == state.matchedLocation;
+                    if (!isCurlTopic &&
+                        opensTopicInHomePane(
+                          AppSize.of(context),
+                          AppFold.of(context),
+                          hasPageAboveShell: _hasPageAboveShell(
+                            GoRouter.of(
+                              context,
+                            ).routerDelegate.currentConfiguration.matches,
+                          ),
+                        )) {
+                      return CustomTransitionPage<void>(
+                        key: state.pageKey,
+                        opaque: false,
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                        transitionsBuilder: (_, _, _, child) => child,
+                        child: HomePaneHandOff(topicName: name),
+                      );
+                    }
                     return AmbientPage(
                       key: state.pageKey,
                       child: TopicDetailScreen(

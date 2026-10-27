@@ -7,6 +7,7 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
@@ -18,6 +19,7 @@ import 'package:critalarm/features/topics/domain/topic_tokens_page_rules.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
@@ -294,6 +296,47 @@ class _TopicDetailScreenContent extends StatelessWidget {
 
         final tone = _heroTone(card, state.severity);
 
+        // On a fold the face and the Critical delivery card hold still in
+        // their own pane. Tabletop: they fill the top half and the name,
+        // messages and passes scroll in the bottom half. Book: the start
+        // pane also carries the name and the newest message, and the passes
+        // scroll in the end pane. A pane inside Home never sees the fold.
+        final fold = AppFold.of(context);
+        final onStage = !isPane && heroOnFoldStage(fold, hasDetail: false);
+        final isBookStage = onStage && fold.isBook;
+
+        final header = TopicHeader(
+          name: state.topicName,
+          // Blank until the messages have been read, so the line does not
+          // say "nothing yet" and then change.
+          summary: state.areMessageTimesKnown ? topicSummaryText(summary) : '',
+        );
+        final hero = AppHeroScene(
+          face: state.faceState,
+          tone: tone,
+          gaze: AppHeroGaze.card,
+          isPane: isPane,
+          card: FeatureGuideAnchor(
+            id: FeatureGuideAnchorId.topicCritical,
+            child: TopicCriticalCard(
+              card: card,
+              onChanged: card.canSwitch
+                  ? (value) => unawaited(_setCritical(context, value))
+                  : null,
+              onInfo: () => _showCriticalInfo(context, state),
+            ),
+          ),
+        );
+        final sheet = Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: _TopicSheet(
+            state: state,
+            isExample: isExample,
+            showsMessages: !isBookStage,
+            onDelete: () => unawaited(_confirmDelete(context, state.topicName)),
+          ),
+        );
+
         final scaffold = SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
@@ -362,6 +405,28 @@ class _TopicDetailScreenContent extends StatelessWidget {
                 ),
               ),
             ),
+            foldStage: !onStage
+                ? null
+                : FoldStageColumn(
+                    children: [
+                      const SizedBox(height: Spacing.s3),
+                      if (isBookStage) ...[
+                        header,
+                        const SizedBox(height: Spacing.s3),
+                      ],
+                      hero,
+                      if (isBookStage) ...[
+                        const SizedBox(height: Spacing.s4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: AppInboxSheet(
+                            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+                            children: [_MessagesBlock(state: state, limit: 1)],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
             slivers: [
               SliverToBoxAdapter(
                 // The hero and the sheet are one box, so the sheet paints
@@ -370,44 +435,15 @@ class _TopicDetailScreenContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: Spacing.s3),
-                    TopicHeader(
-                      name: state.topicName,
-                      // Blank until the messages have been read, so the line
-                      // does not say "nothing yet" and then change.
-                      summary: state.areMessageTimesKnown
-                          ? topicSummaryText(summary)
-                          : '',
-                    ),
-                    const SizedBox(height: Spacing.s3),
-                    AppHeroScene(
-                      face: state.faceState,
-                      tone: tone,
-                      gaze: AppHeroGaze.card,
-                      isPane: isPane,
-                      card: FeatureGuideAnchor(
-                        id: FeatureGuideAnchorId.topicCritical,
-                        child: TopicCriticalCard(
-                          card: card,
-                          onChanged: card.canSwitch
-                              ? (value) => unawaited(
-                                  _setCritical(context, value),
-                                )
-                              : null,
-                          onInfo: () => _showCriticalInfo(context, state),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      child: _TopicSheet(
-                        state: state,
-                        isExample: isExample,
-                        onDelete: () => unawaited(
-                          _confirmDelete(context, state.topicName),
-                        ),
-                      ),
-                    ),
+                    if (!isBookStage) ...[
+                      header,
+                      const SizedBox(height: Spacing.s3),
+                    ],
+                    if (!onStage) ...[
+                      hero,
+                      const SizedBox(height: Spacing.s4),
+                    ],
+                    sheet,
                   ],
                 ),
               ),
@@ -427,7 +463,13 @@ class _TopicDetailScreenContent extends StatelessWidget {
         if (isPane) return scaffold;
         return AmbientOverride(
           direction: AmbientDirection.push,
-          profile: topicCanvasProfileFor(context, state),
+          profile: topicCanvasProfileFor(
+            context,
+            state,
+            stage: !onStage
+                ? null
+                : (isBookStage ? TopicFoldStage.book : TopicFoldStage.tabletop),
+          ),
           child: scaffold,
         );
       },
@@ -455,17 +497,19 @@ AppHeroTone topicHeroToneFor(TopicHeroCard card, SeverityMode severity) =>
 /// while the card still shows its dots.
 AmbientProfile topicCanvasProfileFor(
   BuildContext context,
-  TopicDetailState state,
-) {
+  TopicDetailState state, {
+  TopicFoldStage? stage,
+}) {
   final card = topicHeroCardFor(
     critical: state.critical,
     canEditCritical: state.canEditCritical,
     claim: RingClaim.forPhone(state.alarm),
   );
+  final stageWidth = stage == null ? null : foldStageHeroSpot(context).width;
   final headerHeight = topicHeaderHeight(
     context,
     name: state.topicName,
-    width: MediaQuery.sizeOf(context).width,
+    width: stageWidth ?? MediaQuery.sizeOf(context).width,
     // Same text TopicHeader draws, so a two-line summary moves the disc too.
     summary: state.areMessageTimesKnown
         ? topicSummaryText(
@@ -481,8 +525,25 @@ AmbientProfile topicCanvasProfileFor(
     context.appColors,
     severity: state.severity,
     tone: topicHeroToneFor(card, state.severity),
-    spot: heroDiscSpotOf(context, above: headerHeight + Spacing.s3),
+    spot: switch (stage) {
+      null => heroDiscSpotOf(context, above: headerHeight + Spacing.s3),
+      TopicFoldStage.tabletop => foldStageDiscSpotOf(context),
+      TopicFoldStage.book => foldStageDiscSpotOf(
+        context,
+        above: headerHeight + Spacing.s3,
+      ),
+    },
   );
+}
+
+/// Which fold stage the Topic screen draws its hero in. See
+/// [topicCanvasProfileFor].
+enum TopicFoldStage {
+  /// The top half: face and card.
+  tabletop,
+
+  /// The start pane: name, face, card and the newest message.
+  book,
 }
 
 /// Gives the canvas the Topic screen's arrangement before the screen is
@@ -529,11 +590,16 @@ class _TopicSheet extends StatelessWidget {
     required this.state,
     required this.isExample,
     required this.onDelete,
+    this.showsMessages = true,
   });
 
   final TopicDetailState state;
   final bool isExample;
   final VoidCallback onDelete;
+
+  /// False when the messages are drawn elsewhere: beside the fold, in the
+  /// start pane with the face.
+  final bool showsMessages;
 
   @override
   Widget build(BuildContext context) {
@@ -541,7 +607,7 @@ class _TopicSheet extends StatelessWidget {
       // Nothing under the Delete button's tap box, which has the 6 itself.
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
       children: [
-        _MessagesBlock(state: state),
+        if (showsMessages) _MessagesBlock(state: state),
         // The topic's look, sound, wake-up challenge and tokens. Each card
         // opens the page that changes it. Kept on the device only, except the
         // tokens.
@@ -592,9 +658,12 @@ class _TopicSheet extends StatelessWidget {
 
 /// A cap or an error, the newest messages, and the way to all of them.
 class _MessagesBlock extends StatelessWidget {
-  const _MessagesBlock({required this.state});
+  const _MessagesBlock({required this.state, this.limit = _kSheetMessages});
 
   final TopicDetailState state;
+
+  /// How many of the newest messages show before the link to all of them.
+  final int limit;
 
   /// Keeps the old child in place while the new one fades in, and animates the
   /// height between the two.
@@ -623,7 +692,7 @@ class _MessagesBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final messages = state.messages;
-    final shown = messages.take(_kSheetMessages).toList();
+    final shown = messages.take(limit).toList();
     final newest = messages.isEmpty ? null : messages.first;
 
     return Column(
@@ -751,9 +820,7 @@ class _MessagesBlock extends StatelessWidget {
                         _AllMessagesLink(
                           count: messages.length,
                           onTap: () => unawaited(
-                            context.push(
-                              '${GoRouterState.of(context).uri.path}/messages',
-                            ),
+                            context.push('${_topicPath(context)}/messages'),
                           ),
                         ),
                     ],
@@ -762,6 +829,15 @@ class _MessagesBlock extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// The topic's own path. In Home's detail pane the router is on `/`, so
+  /// the pane names the topic itself.
+  String _topicPath(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    return path.contains('/topics/')
+        ? path
+        : '/topics/${Uri.encodeComponent(state.topicName)}';
   }
 
   Widget _row(
@@ -784,6 +860,7 @@ class _MessagesBlock extends StatelessWidget {
     // The newest message flies to the messages screen when it is opened.
     return Hero(
       tag: topicLatestMessageHeroTag(state.topicName, message.timestamp),
+      flightShuttleBuilder: topicMessageHeroShuttle,
       child: Material(color: Colors.transparent, child: row),
     );
   }

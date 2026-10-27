@@ -14,6 +14,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On a tablet or a desktop window, setup and New topic keep their button right under the form, and on a half-open foldable the face sits on one side of the fold and the form on the other.
 - On tablets, desktops, the Razr cover and half-open foldables the ringing alarm has its own layout, and I'm up is always on screen without scrolling. On a wide screen the buttons sit right under the message.
 - On tablets and desktop windows the paywall keeps its plans and button in one column, and on a half-open foldable it stays clear of the fold.
+- On a tablet or a wide window, Topics and History open with the first topic or the newest alarm already showing beside the list, and a link to a topic opens it there. On a half-open foldable the face and its card hold still on one side of the fold while the list moves on the other, and a small cover screen fits two rows under a one-line card.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
