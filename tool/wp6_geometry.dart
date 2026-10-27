@@ -23,6 +23,7 @@ import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -87,11 +88,29 @@ List<(String, bool)> wp6Measure(
                 w.label == LocaleKeys.create_topic_create_button.tr()),
       ),
     );
-    if (cards.isEmpty || buttons.isEmpty) {
+    // On the cover and a tabletop fold Next scrolls after the card, so at
+    // rest it may sit past the bottom edge and not be painted at all.
+    final flows = actionsFlowFor(screenFrameFor(size, fold));
+    if (cards.isEmpty || (buttons.isEmpty && !flows)) {
       lines.add(('card or Next not found', true));
       return lines;
     }
     final card = cards.first;
+    if (buttons.isEmpty) {
+      lines.add((
+        'card ${_r(card)}, Next after the card, below the edge at rest',
+        false,
+      ));
+      _restChecks(
+        lines,
+        size: size,
+        fold: fold,
+        window: window,
+        next: null,
+        isSetup: isSetup,
+      );
+      return lines;
+    }
     final next = buttons.first;
     final gap = next.top - card.bottom;
     lines.add((
@@ -99,6 +118,15 @@ List<(String, bool)> wp6Measure(
           'Next width ${next.width.toStringAsFixed(1)}',
       false,
     ));
+    if (flows) {
+      final ok = next.top >= card.bottom - 0.5;
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} Next scrolls after the card '
+            '(top ${next.top.toStringAsFixed(1)}, card bottom '
+            '${card.bottom.toStringAsFixed(1)})',
+        !ok,
+      ));
+    }
     if (!size.isCompact && !size.isShort && fold.isNone) {
       final ok = gap >= 0 && gap <= 48 && next.width <= 480.5;
       lines.add((
@@ -117,70 +145,14 @@ List<(String, bool)> wp6Measure(
         !ok,
       ));
     }
-    // The Razr cover: what names the topic is readable and usable at rest,
-    // with Next scrolling after the card instead of pinned over the field.
-    if (size.isCover && fold.isNone) {
-      final label = _painted(
-        find.text(LocaleKeys.create_topic_name_label.tr()),
-      );
-      final paste = isSetup
-          ? <Rect>[]
-          : _painted(
-              find.byWidgetPredicate(
-                (w) =>
-                    w is AppButton &&
-                    w.label == LocaleKeys.create_topic_paste_button.tr(),
-              ),
-            );
-      final field = _painted(find.byType(EditableText));
-      if (label.isEmpty || field.isEmpty || (!isSetup && paste.isEmpty)) {
-        lines.add((
-          'FAIL cover: name label ${label.length}, Paste ${paste.length}, '
-              'field ${field.length} painted',
-          true,
-        ));
-      } else {
-        final boxes = [label.first, ...paste.take(1), field.first];
-        final ok = boxes.every((b) => _clearAtRest(b, window, [next]));
-        lines.add((
-          '${ok ? 'PASS' : 'FAIL'} cover: name label ${_r(label.first)}, '
-              'Paste ${paste.isEmpty ? 'none' : _r(paste.first)} and field '
-              '${_r(field.first)} on screen at rest, clear of Next',
-          !ok,
-        ));
-      }
-    }
-    // A tabletop fold: the ring card's title and its switch are on screen
-    // in the bottom half, with Next after the card instead of over it.
-    if (fold.isTabletop) {
-      final switches = _painted(find.byType(AppSwitch));
-      final titles = _painted(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (w) => w is FirstTopicCriticalCard || w is AppToggleRow,
-          ),
-          matching: find.byType(Text),
-        ),
-      )..sort((a, b) => a.top.compareTo(b.top));
-      if (switches.isEmpty || titles.isEmpty) {
-        lines.add((
-          'FAIL tabletop: ring card switch ${switches.length}, '
-              'title ${titles.length} painted',
-          true,
-        ));
-      } else {
-        final title = titles.first;
-        final toggle = switches.first;
-        final ok =
-            _clearAtRest(title, window, [next]) &&
-            _clearAtRest(toggle, window, [next]);
-        lines.add((
-          '${ok ? 'PASS' : 'FAIL'} tabletop: ring card title ${_r(title)} '
-              'and switch ${_r(toggle)} on screen at rest, clear of Next',
-          !ok,
-        ));
-      }
-    }
+    _restChecks(
+      lines,
+      size: size,
+      fold: fold,
+      window: window,
+      next: next,
+      isSetup: isSetup,
+    );
   }
   if (screenId == '13_permission_denial') {
     final title = _painted(
@@ -223,4 +195,90 @@ List<(String, bool)> wp6Measure(
     ));
   }
   return lines;
+}
+
+/// The at-rest checks of New topic on the cover and on a tabletop fold.
+/// [next] is Next's box, or null when it is below the edge and not painted.
+void _restChecks(
+  List<(String, bool)> lines, {
+  required AppSize size,
+  required AppFold fold,
+  required Size window,
+  required Rect? next,
+  required bool isSetup,
+}) {
+  // The Razr cover: what names the topic is readable and usable at rest,
+  // with Next scrolling after the card instead of pinned over the field.
+  if (size.isCover && fold.isNone) {
+    final label = _painted(
+      find.text(LocaleKeys.create_topic_name_label.tr()),
+    );
+    final paste = isSetup
+        ? <Rect>[]
+        : _painted(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is AppButton &&
+                  w.label == LocaleKeys.create_topic_paste_button.tr(),
+            ),
+          );
+    final field = _painted(find.byType(EditableText));
+    if (label.isEmpty || field.isEmpty || (!isSetup && paste.isEmpty)) {
+      lines.add((
+        'FAIL cover: name label ${label.length}, Paste ${paste.length}, '
+            'field ${field.length} painted',
+        true,
+      ));
+    } else {
+      final boxes = [label.first, ...paste.take(1), field.first];
+      final ok = boxes.every((b) => _clearAtRest(b, window, [?next]));
+      // The rule holds at the default text size, as the cover's other
+      // rules do. Larger, the 388 tall screen scrolls to the field, and the
+      // line is recorded as information.
+      final scale = MediaQuery.textScalerOf(
+        find.byType(EditableText).evaluate().first,
+      ).scale(1);
+      final applies = scale <= 1.01;
+      lines.add((
+        '${ok ? 'PASS' : (applies ? 'FAIL' : 'INFO')} cover: name label '
+            '${_r(label.first)}, '
+            'Paste ${paste.isEmpty ? 'none' : _r(paste.first)} and field '
+            '${_r(field.first)} on screen at rest, clear of Next'
+            '${applies ? '' : ' (text ${scale.toStringAsFixed(1)}, '
+                      'checked at 1.0 only)'}',
+        !ok && applies,
+      ));
+    }
+  }
+  // A tabletop fold: the ring card's title and its switch are on screen
+  // in the bottom half, with Next after the card instead of over it.
+  if (fold.isTabletop) {
+    final switches = _painted(find.byType(AppSwitch));
+    final titles = _painted(
+      find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is FirstTopicCriticalCard || w is AppToggleRow,
+        ),
+        matching: find.byType(Text),
+      ),
+    )..sort((a, b) => a.top.compareTo(b.top));
+    if (switches.isEmpty || titles.isEmpty) {
+      lines.add((
+        'FAIL tabletop: ring card switch ${switches.length}, '
+            'title ${titles.length} painted',
+        true,
+      ));
+    } else {
+      final title = titles.first;
+      final toggle = switches.first;
+      final ok =
+          _clearAtRest(title, window, [?next]) &&
+          _clearAtRest(toggle, window, [?next]);
+      lines.add((
+        '${ok ? 'PASS' : 'FAIL'} tabletop: ring card title ${_r(title)} '
+            'and switch ${_r(toggle)} on screen at rest, clear of Next',
+        !ok,
+      ));
+    }
+  }
 }

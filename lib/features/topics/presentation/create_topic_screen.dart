@@ -1147,9 +1147,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 faceState: face,
                 faceSize: 110,
                 isLive: true,
-                padding: const EdgeInsets.fromLTRB(
+                // The cover is 388 tall: the face sits right under the top
+                // bar, so the name field is whole on screen at rest.
+                padding: EdgeInsets.fromLTRB(
                   24,
-                  Spacing.s3,
+                  frame == ScreenFrame.cover ? 0 : Spacing.s3,
                   24,
                   0,
                 ),
@@ -1174,7 +1176,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           // point decides whether the form fits above the button.
           padding: isSetup && hasKeyboard
               ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
-              : const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
+              : EdgeInsets.fromLTRB(
+                  12,
+                  frame == ScreenFrame.cover ? Spacing.s2 : Spacing.s4,
+                  12,
+                  16,
+                ),
           child: AppSheet(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
