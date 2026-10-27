@@ -1,4 +1,5 @@
 import 'package:critalarm/app/account_data.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_exception.dart';
@@ -6,12 +7,14 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -26,6 +29,8 @@ import 'package:critalarm/features/onboarding/domain/usecases/register_device_us
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart' show Sqflite;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../app/account_data_fixture.dart';
 import 'account_fakes.dart';
@@ -116,6 +121,15 @@ final class _Harness {
   late final ApiAccountRepository account;
   late final OwnLookOnDisk ownLook;
 
+  /// The phone's alarm history, with one alarm of the account that is
+  /// registered at the start.
+  late final LocalStore archive;
+
+  /// Alarms held on the phone, for every account.
+  Future<int> get archivedAlarms async => Sqflite.firstIntValue(
+    await archive.db.rawQuery('SELECT COUNT(*) FROM incidents'),
+  )!;
+
   int billingLogOuts = 0;
   int alarmStops = 0;
 
@@ -166,6 +180,31 @@ final class _Harness {
     // And what the paid features keep for this account, next to the
     // person's own sounds.
     await writeAll(prefs, accountDataFor(registered.accountId!));
+    archive = await LocalStore.open(
+      factory: databaseFactoryFfi,
+      path: inMemoryDatabasePath,
+      scope: () async => (await devices.readOrCreate()).accountId,
+      identityChanges: AccountIdentityChanges(),
+    );
+    addTearDown(archive.close);
+    await archive.incidents.upsertAll([
+      Incident(
+        id: 'inc_old',
+        topic: 'prod',
+        openedAt: DateTime.utc(2026, 9, 20, 12),
+        lastMessageAt: DateTime.utc(2026, 9, 20, 12),
+      ),
+    ]);
+    final accountData = AccountData(
+      ownLook: (ownLook = await OwnLookOnDisk.seed(prefs)).store,
+      acks: AckQueue(prefs, api),
+      messageCursors: MessageSyncService(prefs, api),
+      recentSearches: SharedPrefsRecentSearchesRepository(prefs),
+      challenges: SharedPrefsChallengeChoices(prefs),
+      alarmStyles: SharedPrefsAlarmStyleChoices(prefs),
+      soundLock: OwnSoundLockFlag(prefs),
+      archive: archive,
+    );
 
     account = ApiAccountRepository(
       api: api,
@@ -174,15 +213,8 @@ final class _Harness {
       register: register,
       identities: identities,
       connections: connections,
-      forgetAccountData: AccountData(
-        ownLook: (ownLook = await OwnLookOnDisk.seed(prefs)).store,
-        acks: AckQueue(prefs, api),
-        messageCursors: MessageSyncService(prefs, api),
-        recentSearches: SharedPrefsRecentSearchesRepository(prefs),
-        challenges: SharedPrefsChallengeChoices(prefs),
-        alarmStyles: SharedPrefsAlarmStyleChoices(prefs),
-        soundLock: OwnSoundLockFlag(prefs),
-      ).forget,
+      forgetAccountData: accountData.forget,
+      forgetDeletedAccountData: accountData.forgetDeleted,
       signOutBilling: () async => billingLogOuts++,
       stopAlarm: () async => alarmStops++,
     );
@@ -193,6 +225,8 @@ final class _Harness {
 }
 
 void main() {
+  sqfliteFfiInit();
+
   group('against the real repository', () {
     test('204 wipes what is here and registers fresh', () async {
       final harness = _Harness(failDelete: false);
@@ -233,6 +267,8 @@ void main() {
       await harness.ownLook.expectGone();
       // The recordings and what rings where are the person's, not a plan's.
       expectOwnSoundsKept(harness.prefs);
+      // The account is gone, so its alarm history goes too.
+      expect(await harness.archivedAlarms, 0);
     });
 
     test('a 5xx leaves every local credential exactly as it was', () async {
@@ -258,6 +294,7 @@ void main() {
       expect(harness.prefs.getStringList('search_recent_queries'), ['prod']);
       expectAccountDataKept(harness.prefs);
       await harness.ownLook.expectKept();
+      expect(await harness.archivedAlarms, 1);
       expect(harness.billingLogOuts, 0);
       expect(cubit.state.status, AccountStatus.signedOut);
       expect(cubit.state.errorMessage, isNotNull);
@@ -311,6 +348,8 @@ void main() {
       );
       expectAccountDataGone(harness.prefs);
       expectOwnSoundsKept(harness.prefs);
+      // The credential died, not the account. The history stays.
+      expect(await harness.archivedAlarms, 1);
     });
 
     // Signing out registers a new anonymous account and logs the store in to
@@ -342,6 +381,10 @@ void main() {
       expectAccountDataGone(harness.prefs);
       expectOwnSoundsKept(harness.prefs);
       await harness.ownLook.expectGone();
+      // The history stays for the account to find again. The new anonymous
+      // account the phone lands on reads none of it.
+      expect(await harness.archivedAlarms, 1);
+      expect(await harness.archive.incidents.count(), 0);
     });
   });
 

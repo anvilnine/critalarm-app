@@ -400,9 +400,21 @@ Future<void> configureDependencies({
   // [openedStore] is a store the caller already opened, for a test or a
   // capture that has no documents directory. It is used as it is.
   var localStore = openedStore;
+  final identityStore = DeviceIdentityStore.forPlatform(prefs);
   if (!kIsWeb && localStore == null) {
     try {
-      localStore = await LocalStore.open();
+      // The scope of the rows already on the phone, read once when a file
+      // from before rows were scoped is upgraded. Nothing is registered yet,
+      // so it reads the saved connection and identity directly.
+      localStore = await LocalStore.open(
+        scope: () async => heldScopeFor(
+          serverUrl: (await SharedPrefsConnectionRepository(
+            prefs,
+          ).getConnection()).getOrNull()?.serverUrl,
+          accountId: (await identityStore.readOrCreate()).accountId,
+        ),
+        identityChanges: appAccountIdentityChanges,
+      );
     } on Object catch (error, stack) {
       // A database that will not open must not stop the app from ringing.
       debugPrint('local_store_open_failed error=$error');
@@ -524,8 +536,6 @@ Future<void> configureDependencies({
       proOutro: layoutSwitches.proOutro,
     );
   }
-
-  final identityStore = DeviceIdentityStore.forPlatform(prefs);
 
   if (!getIt.isRegistered<RevenueCatService>()) {
     final revenueCatService = RevenueCatService();
@@ -960,6 +970,7 @@ Future<void> configureDependencies({
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
         forgetAccountData: () => getIt<AccountData>().forget(),
+        forgetDeletedAccountData: () => getIt<AccountData>().forgetDeleted(),
         signOutBilling: buildSkipsPaywall
             ? null
             : () => getIt<RevenueCatService>().logOut(),
@@ -1701,6 +1712,7 @@ Future<void> configureDependencies({
         ownLook: getIt<OwnLookStore>(),
         proofLog: getIt<ProofLog>(),
         heldTopics: localStore?.topics,
+        archive: localStore,
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {

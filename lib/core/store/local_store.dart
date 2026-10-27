@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/store/archive_scope.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -20,20 +22,36 @@ import 'package:sqflite/sqflite.dart';
 /// The topic list is the exception. It is a copy the server replaces on
 /// every answer, kept so the app opens with the topics it already knows.
 ///
+/// Incidents and messages carry the scope of the account they were read for
+/// ([ArchiveScope]). Every read returns the current scope's rows only, so a
+/// phone that signs out and signs in as somebody else never shows the first
+/// account's history. Signing out keeps the rows. Deleting the account removes
+/// them ([deleteArchiveOf]).
+///
 /// Times are stored as whole seconds since the epoch, the same unit the
 /// contract uses on the wire.
 class LocalStore {
-  LocalStore(this.db)
-    : incidents = IncidentStore(db),
-      messages = MessageStore(db),
+  /// [scope] and [identityChanges] name the account the archive is read and
+  /// written for. Leave them out only where one account is all there is (a
+  /// unit test, a capture): every row then shares one scope.
+  LocalStore(
+    Database db, {
+    Future<String?> Function()? scope,
+    AccountIdentityChanges? identityChanges,
+  }) : this._(db, ArchiveScope(current: scope, changes: identityChanges));
+
+  LocalStore._(this.db, this._scope)
+    : incidents = IncidentStore(db, _scope),
+      messages = MessageStore(db, _scope),
       topics = TopicStore(db);
 
   /// Bumped whenever a table changes, with a matching step in [_upgrade].
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
 
   static const fileName = 'critalarm.db';
 
   final Database db;
+  final ArchiveScope _scope;
   final IncidentStore incidents;
   final MessageStore messages;
   final TopicStore topics;
@@ -43,9 +61,18 @@ class LocalStore {
   ///
   /// Pass [factory] and [path] to open somewhere else. A unit test hands in
   /// `databaseFactoryFfi` and `inMemoryDatabasePath`.
+  ///
+  /// [scope] names the account the phone is on now (`heldScopeFor`). A file
+  /// from before rows were scoped is upgraded by giving every row that
+  /// scope, so nobody loses history on update. It is read once, during that
+  /// upgrade, and must not touch this database. [identityChanges] tells the
+  /// store when the account changed, so a write that started before is not
+  /// kept.
   static Future<LocalStore> open({
     DatabaseFactory? factory,
     String? path,
+    Future<String?> Function()? scope,
+    AccountIdentityChanges? identityChanges,
   }) async {
     final resolved =
         path ??
@@ -56,13 +83,24 @@ class LocalStore {
         version: schemaVersion,
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, _) => _create(db),
-        onUpgrade: _upgrade,
+        onUpgrade: (db, from, to) async {
+          String? legacy;
+          if (from < 4) {
+            try {
+              legacy = scope == null ? ArchiveScope.single : await scope();
+            } on Object catch (_) {}
+          }
+          await _upgrade(db, from, to, legacy);
+        },
       ),
     );
-    return LocalStore(db);
+    return LocalStore(db, scope: scope, identityChanges: identityChanges);
   }
 
-  Future<void> close() => db.close();
+  Future<void> close() {
+    _scope.dispose();
+    return db.close();
+  }
 
   /// Remembers the incident cursor immediately before it is sent to the API.
   void recordLastSince(DateTime? since) {
@@ -71,8 +109,8 @@ class LocalStore {
         : '${since.toUtc().millisecondsSinceEpoch ~/ 1000}';
   }
 
-  /// Deletes every incident, message and held topic, and forgets the
-  /// `since` cursor.
+  /// Deletes every incident, message and held topic of every scope, and
+  /// forgets the `since` cursor.
   ///
   /// For a phone that connects to a different server: what is held belongs
   /// to the old one, and the incident cursor is the newest timestamp the old
@@ -86,24 +124,54 @@ class LocalStore {
     _lastSinceSent = null;
   }
 
+  /// Deletes the incidents and messages kept for [scope] and nothing else.
+  ///
+  /// For an account delete: the account is gone, so the copy of its history
+  /// goes with it. A sign-out does not call this, because the same account
+  /// can sign in again.
+  Future<void> deleteArchiveOf(String scope) async {
+    await db.transaction((txn) async {
+      await txn.delete('messages', where: 'scope = ?', whereArgs: [scope]);
+      await txn.delete('incidents', where: 'scope = ?', whereArgs: [scope]);
+    });
+  }
+
+  /// Deletes the incidents and messages of the account the phone is on now.
+  /// A phone on no scope has nothing of its own to delete.
+  Future<void> deleteCurrentArchive() async {
+    final scope = await _scope.current();
+    if (scope != null) await deleteArchiveOf(scope);
+  }
+
   /// Aggregate diagnostics only; never exposes the database or message text.
+  /// It counts the current scope, like every other read.
   Future<DebugStoreStats> stats() async {
-    final incidentRows = await db.rawQuery('''
+    final scope = await _scope.current() ?? '';
+    final incidentRows = await db.rawQuery(
+      '''
       SELECT COUNT(*) AS row_count, MIN(opened_at) AS oldest
-      FROM incidents
-    ''');
+      FROM incidents WHERE scope = ?
+    ''',
+      [scope],
+    );
     final messageCount =
         Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM messages'),
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM messages WHERE scope = ?',
+            [scope],
+          ),
         ) ??
         0;
-    final syncRows = await db.rawQuery('''
+    final syncRows = await db.rawQuery(
+      '''
       SELECT MAX(synced_at) AS latest FROM (
-        SELECT MAX(synced_at) AS synced_at FROM incidents
+        SELECT MAX(synced_at) AS synced_at FROM incidents WHERE scope = ?
         UNION ALL
-        SELECT MAX(synced_at) AS synced_at FROM messages
+        SELECT MAX(synced_at) AS synced_at FROM messages WHERE scope = ?
       )
-    ''');
+    ''',
+      [scope, scope],
+    );
     final path = db.path;
     int? databaseBytes;
     if (path.isNotEmpty && path != inMemoryDatabasePath) {
@@ -123,30 +191,42 @@ class LocalStore {
   }
 
   static Future<void> _create(Database db) async {
-    final batch = db.batch()
-      ..execute('''
-        CREATE TABLE incidents (
-          id TEXT PRIMARY KEY, topic TEXT NOT NULL, state TEXT NOT NULL,
-          opened_at INTEGER NOT NULL, acked_at INTEGER, closed_at INTEGER,
-          updated_at INTEGER, last_message_at INTEGER NOT NULL, max_ring_s INTEGER,
-          priority INTEGER NOT NULL, synced_at INTEGER NOT NULL
-        )
-      ''')
-      ..execute('CREATE INDEX incidents_opened ON incidents(opened_at DESC)')
-      ..execute('''
-        CREATE TABLE messages (
-          id TEXT PRIMARY KEY, topic TEXT NOT NULL, incident_id TEXT,
-          title TEXT, body TEXT, priority INTEGER NOT NULL, tags TEXT,
-          click TEXT, markdown INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL, synced_at INTEGER NOT NULL
-        )
-      ''')
-      ..execute(
-        'CREATE INDEX messages_topic_created '
-        'ON messages(topic, created_at DESC)',
-      );
-    await batch.commit(noResult: true);
+    await _createIncidents(db);
+    await _createMessages(db);
     await _createTopics(db);
+  }
+
+  static Future<void> _createIncidents(Database db) async {
+    await db.execute('''
+      CREATE TABLE incidents (
+        scope TEXT NOT NULL,
+        id TEXT NOT NULL, topic TEXT NOT NULL, state TEXT NOT NULL,
+        opened_at INTEGER NOT NULL, acked_at INTEGER, closed_at INTEGER,
+        updated_at INTEGER, last_message_at INTEGER NOT NULL, max_ring_s INTEGER,
+        priority INTEGER NOT NULL, synced_at INTEGER NOT NULL,
+        PRIMARY KEY (scope, id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX incidents_opened ON incidents(scope, opened_at DESC)',
+    );
+  }
+
+  static Future<void> _createMessages(Database db) async {
+    await db.execute('''
+      CREATE TABLE messages (
+        scope TEXT NOT NULL,
+        id TEXT NOT NULL, topic TEXT NOT NULL, incident_id TEXT,
+        title TEXT, body TEXT, priority INTEGER NOT NULL, tags TEXT,
+        click TEXT, markdown INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL, synced_at INTEGER NOT NULL,
+        PRIMARY KEY (scope, id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX messages_topic_created '
+      'ON messages(scope, topic, created_at DESC)',
+    );
   }
 
   static Future<void> _createTopics(Database db) => db.execute('''
@@ -160,7 +240,12 @@ class LocalStore {
     )
   ''');
 
-  static Future<void> _upgrade(Database db, int from, int to) async {
+  static Future<void> _upgrade(
+    Database db,
+    int from,
+    int to,
+    String? legacyScope,
+  ) async {
     if (from < 2) {
       await db.execute('ALTER TABLE incidents ADD COLUMN updated_at INTEGER');
       await db.execute(
@@ -169,6 +254,49 @@ class LocalStore {
       );
     }
     if (from < 3) await _createTopics(db);
+    if (from < 4) await _scopeArchive(db, legacyScope);
+  }
+
+  /// Gives every incident and message already on the phone to [scope], the
+  /// account it is on at the upgrade. The primary key becomes the scope and
+  /// the id, which SQLite can only do by building the table again.
+  ///
+  /// A phone with no saved server at the upgrade has no account to give the
+  /// rows to. They keep the empty scope, which no read ever asks for.
+  static Future<void> _scopeArchive(Database db, String? scope) async {
+    final stamp = scope ?? '';
+    await db.execute('DROP INDEX IF EXISTS incidents_opened');
+    await db.execute('DROP INDEX IF EXISTS messages_topic_created');
+    await db.execute('ALTER TABLE incidents RENAME TO incidents_before_scope');
+    await db.execute('ALTER TABLE messages RENAME TO messages_before_scope');
+    await _createIncidents(db);
+    await _createMessages(db);
+    await db.execute(
+      '''
+      INSERT INTO incidents (
+        scope, id, topic, state, opened_at, acked_at, closed_at, updated_at,
+        last_message_at, max_ring_s, priority, synced_at
+      )
+      SELECT ?, id, topic, state, opened_at, acked_at, closed_at, updated_at,
+        last_message_at, max_ring_s, priority, synced_at
+      FROM incidents_before_scope
+    ''',
+      [stamp],
+    );
+    await db.execute(
+      '''
+      INSERT INTO messages (
+        scope, id, topic, incident_id, title, body, priority, tags, click,
+        markdown, created_at, synced_at
+      )
+      SELECT ?, id, topic, incident_id, title, body, priority, tags, click,
+        markdown, created_at, synced_at
+      FROM messages_before_scope
+    ''',
+      [stamp],
+    );
+    await db.execute('DROP TABLE incidents_before_scope');
+    await db.execute('DROP TABLE messages_before_scope');
   }
 }
 
@@ -196,17 +324,35 @@ int incidentPriority(Incident incident) {
 }
 
 /// Incidents on the phone, newest first.
+///
+/// Every read is for the current scope ([ArchiveScope]) and every write is
+/// stored under the scope it was started for. A write names the moment it
+/// started with an [ArchiveTicket] ([beginWrite]); one that landed after the
+/// account changed is not stored.
 class IncidentStore {
-  IncidentStore(this._db);
+  IncidentStore(this._db, this._scope);
 
   final Database _db;
+  final ArchiveScope _scope;
 
-  /// Writes [incidents], replacing any row with the same id.
+  /// Starts a write. Take it before the request the data comes from.
+  ArchiveTicket beginWrite() => _scope.begin();
+
+  /// Writes [incidents], replacing any row with the same id in the same
+  /// scope.
   ///
-  /// Server ids are the primary key, so syncing the same incident twice
+  /// Server ids are the key within a scope, so syncing the same incident twice
   /// leaves one row. Messages carried on an incident are written too.
-  Future<void> upsertAll(Iterable<Incident> incidents) async {
+  ///
+  /// [ticket] is the write's claim from before its request went out. Without
+  /// one the write claims the account it is called under.
+  Future<void> upsertAll(
+    Iterable<Incident> incidents, {
+    ArchiveTicket? ticket,
+  }) async {
     if (incidents.isEmpty) return;
+    final scope = await (ticket ?? _scope.begin()).settle();
+    if (scope == null) return;
     final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
     final batch = _db.batch();
     final messages = <Message>[];
@@ -214,6 +360,7 @@ class IncidentStore {
     for (final incident in incidents) {
       final openedAt = _epoch(incident.openedAt ?? incident.lastMessageAt);
       batch.insert('incidents', {
+        'scope': scope,
         'id': incident.id,
         'topic': incident.topic,
         'state': incident.state,
@@ -231,39 +378,43 @@ class IncidentStore {
     }
 
     await batch.commit(noResult: true);
-    await MessageStore(_db).upsertAll(messages);
+    await MessageStore(_db, _scope)._write(scope, messages);
   }
 
   /// The newest `opened_at` held, or null when the store is empty.
   Future<DateTime?> newestOpenedAt() async {
+    final scope = await _scope.current();
+    if (scope == null) return null;
     final rows = await _db.rawQuery(
-      'SELECT MAX(opened_at) AS newest FROM incidents',
+      'SELECT MAX(opened_at) AS newest FROM incidents WHERE scope = ?',
+      [scope],
     );
     return _time(rows.first['newest']);
   }
 
   /// The oldest `opened_at` held, or null when the store is empty.
   Future<DateTime?> oldestOpenedAt() async {
+    final scope = await _scope.current();
+    if (scope == null) return null;
     final rows = await _db.rawQuery(
-      'SELECT MIN(opened_at) AS oldest FROM incidents',
+      'SELECT MIN(opened_at) AS oldest FROM incidents WHERE scope = ?',
+      [scope],
     );
     return _time(rows.first['oldest']);
   }
 
   /// Every incident that opened at or after [since], newest first, with
   /// only what a count needs. Times are UTC, as the store holds them.
-  ///
-  /// Reads the whole table, like [page] and [newestOpenedAt]: the table
-  /// holds the rows of one server (`LocalStore.clearServerData` empties it
-  /// on a change of server) and has no scope column to filter on.
   Future<List<({String id, DateTime openedAt, bool isAcked})>> openedSince(
     DateTime since,
   ) async {
+    final scope = await _scope.current();
+    if (scope == null) return const [];
     final rows = await _db.query(
       'incidents',
       columns: const ['id', 'opened_at', 'acked_at'],
-      where: 'opened_at >= ?',
-      whereArgs: [_epoch(since)],
+      where: 'scope = ? AND opened_at >= ?',
+      whereArgs: [scope, _epoch(since)],
       orderBy: 'opened_at DESC, id DESC',
     );
     return [
@@ -279,18 +430,13 @@ class IncidentStore {
   /// The incidents that opened at or after [from], newest first, as a topic
   /// and a time, at most [limit]. Times are UTC. For the history picture on
   /// a paywall.
-  ///
-  /// Reads the whole table, like [openedSince]: it holds the rows of one
-  /// server and has no scope column. Scoping by account would apply here,
-  /// once the table gains one.
   Future<List<({String topic, DateTime openedAt})>> newestSince(
     DateTime from, {
     int limit = 200,
   }) => _topicRows('opened_at >= ?', from, limit);
 
   /// The incidents that opened before [before], newest first, as a topic
-  /// and a time, at most [limit]. The same table and the same scope note as
-  /// [newestSince].
+  /// and a time, at most [limit]. The same table as [newestSince].
   Future<List<({String topic, DateTime openedAt})>> newestBefore(
     DateTime before, {
     int limit = 200,
@@ -301,11 +447,13 @@ class IncidentStore {
     DateTime at,
     int limit,
   ) async {
+    final scope = await _scope.current();
+    if (scope == null) return const [];
     final rows = await _db.query(
       'incidents',
       columns: const ['topic', 'opened_at'],
-      where: where,
-      whereArgs: [_epoch(at)],
+      where: 'scope = ? AND $where',
+      whereArgs: [scope, _epoch(at)],
       orderBy: 'opened_at DESC, id DESC',
       limit: limit,
     );
@@ -319,9 +467,14 @@ class IncidentStore {
   ///
   /// This is what goes on the wire as `since` (api.md §3.2), which is
   /// exclusive, so the server answers with what this phone has not seen.
+  /// It is the current scope's newest, so an account that signs in on a phone
+  /// another account used asks for its whole window.
   Future<DateTime?> newestUpdatedAt() async {
+    final scope = await _scope.current();
+    if (scope == null) return null;
     final rows = await _db.rawQuery(
-      'SELECT MAX(updated_at) AS newest FROM incidents',
+      'SELECT MAX(updated_at) AS newest FROM incidents WHERE scope = ?',
+      [scope],
     );
     return _time(rows.first['newest']);
   }
@@ -336,8 +489,10 @@ class IncidentStore {
     int offset = 0,
     String? topic,
   }) async {
-    final where = <String>[];
-    final args = <Object?>[];
+    final scope = await _scope.current();
+    if (scope == null) return const [];
+    final where = <String>['scope = ?'];
+    final args = <Object?>[scope];
     if (window != null) {
       where.add('opened_at >= ?');
       args.add(_epoch(window));
@@ -349,15 +504,16 @@ class IncidentStore {
 
     final rows = await _db.query(
       'incidents',
-      where: where.isEmpty ? null : where.join(' AND '),
-      whereArgs: args.isEmpty ? null : args,
+      where: where.join(' AND '),
+      whereArgs: args,
       orderBy: 'opened_at DESC, id DESC',
       limit: limit,
       offset: offset,
     );
     if (rows.isEmpty) return const [];
 
-    final byIncident = await MessageStore(_db).groupedByIncident(
+    final byIncident = await MessageStore(_db, _scope)._groupedByIncident(
+      scope,
       rows.map((r) => r['id']! as String),
     );
     return [
@@ -370,9 +526,11 @@ class IncidentStore {
   /// because then nothing is hidden.
   Future<int> countOlderThan(DateTime? window) async {
     if (window == null) return 0;
+    final scope = await _scope.current();
+    if (scope == null) return 0;
     final rows = await _db.rawQuery(
-      'SELECT COUNT(*) AS n FROM incidents WHERE opened_at < ?',
-      [_epoch(window)],
+      'SELECT COUNT(*) AS n FROM incidents WHERE scope = ? AND opened_at < ?',
+      [scope, _epoch(window)],
     );
     return Sqflite.firstIntValue(rows) ?? 0;
   }
@@ -383,39 +541,43 @@ class IncidentStore {
   /// does. With [keepP5] on, an incident whose highest priority was 5 stays.
   /// An incident still `open` or `acked` stays whatever its age, the same
   /// rule the server prunes by (api.md §4.2).
+  ///
+  /// This covers every scope, not only the current one. The setting is about
+  /// how long the phone keeps alarms, and an account that left its rows here
+  /// would otherwise keep them for good.
   Future<int> deleteOlderThan(DateTime cutoff, {bool keepP5 = true}) async {
-    final seconds = _epoch(cutoff);
     final where = StringBuffer(
       'opened_at < ? AND state NOT IN (?, ?)',
     );
     final args = <Object?>[
-      seconds,
+      _epoch(cutoff),
       IncidentStates.open,
       IncidentStates.acked,
     ];
     if (keepP5) where.write(' AND priority < 5');
 
-    final doomed = await _db.query(
-      'incidents',
-      columns: const ['id'],
-      where: where.toString(),
-      whereArgs: args,
-    );
-    if (doomed.isEmpty) return 0;
-
-    final ids = doomed.map((r) => r['id']! as String).toList();
-    final holes = List.filled(ids.length, '?').join(',');
-    await _db.delete(
-      'messages',
-      where: 'incident_id IN ($holes)',
-      whereArgs: ids,
-    );
-    return _db.delete('incidents', where: 'id IN ($holes)', whereArgs: ids);
+    return _db.transaction((txn) async {
+      await txn.rawDelete(
+        'DELETE FROM messages WHERE incident_id IS NOT NULL AND EXISTS ( '
+        'SELECT 1 FROM incidents '
+        'WHERE incidents.scope = messages.scope '
+        'AND incidents.id = messages.incident_id AND $where)',
+        args,
+      );
+      return txn.delete('incidents', where: where.toString(), whereArgs: args);
+    });
   }
 
-  Future<int> count() async => Sqflite.firstIntValue(
-    await _db.rawQuery('SELECT COUNT(*) FROM incidents'),
-  )!;
+  Future<int> count() async {
+    final scope = await _scope.current();
+    if (scope == null) return 0;
+    return Sqflite.firstIntValue(
+      await _db.rawQuery(
+        'SELECT COUNT(*) FROM incidents WHERE scope = ?',
+        [scope],
+      ),
+    )!;
+  }
 
   Incident _toIncident(Map<String, Object?> row, List<Message> messages) {
     return Incident(
@@ -433,17 +595,37 @@ class IncidentStore {
 }
 
 /// Messages on the phone, newest first per topic.
+///
+/// Scoped like [IncidentStore]: reads return the current scope only, and a
+/// write that started before the account changed is not stored.
 class MessageStore {
-  MessageStore(this._db);
+  MessageStore(this._db, this._scope);
 
   final Database _db;
+  final ArchiveScope _scope;
 
-  Future<void> upsertAll(Iterable<Message> messages) async {
+  /// Starts a write. Take it before the request the data comes from.
+  ArchiveTicket beginWrite() => _scope.begin();
+
+  /// Writes [messages], replacing any row with the same id in the same
+  /// scope. See [IncidentStore.upsertAll] for [ticket].
+  Future<void> upsertAll(
+    Iterable<Message> messages, {
+    ArchiveTicket? ticket,
+  }) async {
+    if (messages.isEmpty) return;
+    final scope = await (ticket ?? _scope.begin()).settle();
+    if (scope == null) return;
+    await _write(scope, messages);
+  }
+
+  Future<void> _write(String scope, Iterable<Message> messages) async {
     if (messages.isEmpty) return;
     final syncedAt = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
     final batch = _db.batch();
     for (final message in messages) {
       batch.insert('messages', {
+        'scope': scope,
         'id': message.id,
         'topic': message.topic,
         'incident_id': message.incidentId,
@@ -463,11 +645,13 @@ class MessageStore {
   /// The id of the newest message held on [topic], or null when there is
   /// none. This is the `since` the poll route takes (api.md §2).
   Future<String?> newestMessageId(String topic) async {
+    final scope = await _scope.current();
+    if (scope == null) return null;
     final rows = await _db.query(
       'messages',
       columns: const ['id'],
-      where: 'topic = ?',
-      whereArgs: [topic],
+      where: 'scope = ? AND topic = ?',
+      whereArgs: [scope, topic],
       orderBy: 'created_at DESC, id DESC',
       limit: 1,
     );
@@ -481,8 +665,10 @@ class MessageStore {
     int limit = 50,
     int offset = 0,
   }) async {
-    final where = StringBuffer('topic = ?');
-    final args = <Object?>[topic];
+    final scope = await _scope.current();
+    if (scope == null) return const [];
+    final where = StringBuffer('scope = ? AND topic = ?');
+    final args = <Object?>[scope, topic];
     if (window != null) {
       where.write(' AND created_at >= ?');
       args.add(_epoch(window));
@@ -501,8 +687,10 @@ class MessageStore {
   /// How many messages on [topic] sit before [window].
   Future<int> countOlderThan(DateTime? window, {String? topic}) async {
     if (window == null) return 0;
-    final where = StringBuffer('created_at < ?');
-    final args = <Object?>[_epoch(window)];
+    final scope = await _scope.current();
+    if (scope == null) return 0;
+    final where = StringBuffer('scope = ? AND created_at < ?');
+    final args = <Object?>[scope, _epoch(window)];
     if (topic != null) {
       where.write(' AND topic = ?');
       args.add(topic);
@@ -515,7 +703,8 @@ class MessageStore {
   }
 
   /// Deletes messages created before [cutoff] that belong to no incident.
-  /// Messages on an incident go when the incident goes.
+  /// Messages on an incident go when the incident goes. Like
+  /// [IncidentStore.deleteOlderThan], this covers every scope.
   Future<int> deleteOlderThan(DateTime cutoff, {bool keepP5 = true}) async {
     final where = StringBuffer('created_at < ? AND incident_id IS NULL');
     if (keepP5) where.write(' AND priority < 5');
@@ -529,13 +718,22 @@ class MessageStore {
   Future<Map<String, List<Message>>> groupedByIncident(
     Iterable<String> incidentIds,
   ) async {
+    final scope = await _scope.current();
+    if (scope == null) return const {};
+    return _groupedByIncident(scope, incidentIds);
+  }
+
+  Future<Map<String, List<Message>>> _groupedByIncident(
+    String scope,
+    Iterable<String> incidentIds,
+  ) async {
     final ids = incidentIds.toList();
     if (ids.isEmpty) return const {};
     final holes = List.filled(ids.length, '?').join(',');
     final rows = await _db.query(
       'messages',
-      where: 'incident_id IN ($holes)',
-      whereArgs: ids,
+      where: 'scope = ? AND incident_id IN ($holes)',
+      whereArgs: [scope, ...ids],
       orderBy: 'created_at ASC, id ASC',
     );
     final grouped = <String, List<Message>>{};
@@ -546,9 +744,16 @@ class MessageStore {
     return grouped;
   }
 
-  Future<int> count() async => Sqflite.firstIntValue(
-    await _db.rawQuery('SELECT COUNT(*) FROM messages'),
-  )!;
+  Future<int> count() async {
+    final scope = await _scope.current();
+    if (scope == null) return 0;
+    return Sqflite.firstIntValue(
+      await _db.rawQuery(
+        'SELECT COUNT(*) FROM messages WHERE scope = ?',
+        [scope],
+      ),
+    )!;
+  }
 
   Message _toMessage(Map<String, Object?> row) {
     final tags = row['tags'] as String?;
