@@ -21,6 +21,7 @@ import 'package:critalarm/features/onboarding/domain/setup_use/setup_use.dart';
 import 'package:critalarm/features/onboarding/domain/setup_use/setup_use_store.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
@@ -206,6 +207,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     final alignment =
         (barBottom + Spacing.s4) / _scroll.position.viewportDimension;
     return viewport.getOffsetToReveal(box, alignment).offset;
+  }
+
+  /// The face and the form, measured, so a tablet or desktop window can
+  /// tell whether the button still fits right under the form. See
+  /// [actionsInlineFor].
+  double _formHeight = 0;
+
+  /// The button and what goes with it, measured the last time it sat under
+  /// the form. Null until then.
+  double? _actionsHeight;
+
+  /// The height the centred group has to fit in.
+  double _groupRoom = double.infinity;
+
+  /// Room between the form and the button under it.
+  static const double _actionsGap = Spacing.s2;
+
+  void _setMeasure(void Function() change) {
+    if (!mounted) return;
+    setState(change);
   }
 
   /// The glad face has had its moment and settles.
@@ -1056,6 +1077,265 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 },
         );
 
+        // Where the form sits: a phone column, a centred group on a tablet
+        // or desktop window, or split at the fold of a half-open foldable.
+        final frame = ScreenFrame.of(context);
+        final splits = frame.splitsAtFold;
+        final centresGroup =
+            frame == ScreenFrame.centred || frame == ScreenFrame.book;
+        final isInline = actionsInlineFor(
+          frame,
+          hasKeyboard: hasKeyboard,
+          fits: groupFits(
+            group: _formHeight,
+            actions:
+                _actionsHeight ??
+                MediaQuery.textScalerOf(context).scale(isSetup ? 60 : 48) +
+                    (showsLegal ? 48 : 0),
+            gap: _actionsGap,
+            available: _groupRoom,
+          ),
+        );
+
+        // The face and what names the step. In setup it gives way to the
+        // form when the keyboard is up, unless it has a pane of its own.
+        final stageBox = isSetup
+            ? AnimatedSize(
+                duration: stepDuration,
+                curve: AppCurves.easeOut,
+                alignment: Alignment.topCenter,
+                child: hasKeyboard && !splits
+                    ? const SizedBox(width: double.infinity)
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.s5,
+                          Spacing.s4,
+                          Spacing.s5,
+                          0,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // The face every setup step shares, so
+                            // it flies in from the step before. It
+                            // shrinks and goes with a large text size.
+                            SetupFace(
+                              state: face,
+                              gap: Spacing.s4,
+                              base: frame == ScreenFrame.centred ? 120 : 80,
+                            ),
+                            Semantics(
+                              header: true,
+                              child: AppFittedTitle(
+                                LocaleKeys.create_topic_first_topic_title.tr(),
+                                minFontSize: setupTitleMinFontSize,
+                                style: AppTypography.headline(
+                                  colors.onCanvas,
+                                  fontSize: 30,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              )
+            : AppStage(
+                faceState: face,
+                faceSize: 110,
+                isLive: true,
+                padding: const EdgeInsets.fromLTRB(
+                  24,
+                  Spacing.s3,
+                  24,
+                  0,
+                ),
+              );
+
+        // Step 1 of 2, under the face when the form is in the other pane.
+        final stepLabel = Text(
+          LocaleKeys.create_topic_step_label.tr(
+            namedArgs: {'current': isTokenStep ? '2' : '1', 'total': '2'},
+          ),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
+        );
+
+        final formCard = Padding(
+          // Tighter with the keyboard up in setup, where every
+          // point decides whether the form fits above the button.
+          padding: isSetup && hasKeyboard
+              ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
+              : const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
+          child: AppSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (state.capReached != null)
+                  AppEmptyState(
+                    title: state.capReached!.message,
+                    description: LocaleKeys.create_topic_limit_review_plan_hint
+                        .tr(),
+                    showFace: false,
+                  ),
+                // One step needs no counter.
+                if (showsForm && !isSetup && !splits) ...[
+                  Text(
+                    LocaleKeys.create_topic_step_label.tr(
+                      namedArgs: {
+                        'current': isTokenStep ? '2' : '1',
+                        'total': '2',
+                      },
+                    ),
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colors.ink3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (showsForm)
+                  AnimatedSize(
+                    duration: stepDuration,
+                    curve: AppCurves.easeOut,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedSwitcher(
+                      duration: stepDuration,
+                      switchInCurve: AppCurves.easeOut,
+                      switchOutCurve: AppCurves.easeOut,
+                      layoutBuilder: (currentChild, previousChildren) => Stack(
+                        alignment: Alignment.topLeft,
+                        children: [
+                          ...previousChildren,
+                          ?currentChild,
+                        ],
+                      ),
+                      transitionBuilder: (child, animation) {
+                        // Next slides the new step in from the right
+                        // and the old one out to the left. Back runs
+                        // the other way, so the movement matches the
+                        // travel.
+                        final isIncoming = child.key == stepKey;
+                        final fromRight = isTokenStep == isIncoming;
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: Offset(
+                              fromRight ? 0.12 : -0.12,
+                              0,
+                            ),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: SizedBox(
+                        key: stepKey,
+                        width: double.infinity,
+                        child: isTokenStep
+                            ? _tokenStepBody(context, state)
+                            : _topicStepBody(context, state),
+                      ),
+                    ),
+                  ),
+                if (showsCreated) ...[
+                  Text(
+                    LocaleKeys.create_topic_generated_label.tr(),
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.ink3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (state.serverUrl.isNotEmpty) ...[
+                    AppKeyValueRow(
+                      value: '${state.serverUrl}/${state.name}',
+                      trailingFillsRow: true,
+                      trailing: TokenActions(
+                        value: '${state.serverUrl}/${state.name}',
+                        onCopied: _showToast,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (state.createdTopic?.tokenName case final tokenName?
+                      when tokenName.isNotEmpty) ...[
+                    Text(
+                      tokenName,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  AppKeyValueRow(
+                    value: token,
+                    trailingFillsRow: true,
+                    trailing: TokenActions(
+                      value: token,
+                      onCopied: _showToast,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    LocaleKeys.create_topic_token_warning.tr(),
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colors.ink3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+
+        // The button, the toast above it and the legal line under it. Pinned
+        // to the bottom, or right under the form on a wide window.
+        Widget actions({required bool isPinned}) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_toast case final message?) ...[
+              AppToast(message: message),
+              const SizedBox(height: Spacing.s2),
+            ],
+            FeatureGuideAnchor(
+              id: FeatureGuideAnchorId.createButton,
+              child: button,
+            ),
+            // Pinned under the button where the topic is made in two
+            // steps. Setup puts it at the end of the page instead: a
+            // line of small text pinned over a page that scrolls has
+            // the rows behind it showing through. Under the form, both
+            // keep it under the button.
+            if (showsLegal && (!isSetup || !isPinned))
+              const Padding(
+                padding: EdgeInsets.only(top: Spacing.s2),
+                child: _LegalLinks(),
+              ),
+          ],
+        );
+
         final content = PopScope(
           canPop: canPop,
           onPopInvokedWithResult: (didPop, result) {
@@ -1086,6 +1366,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 leading:
                     isSetup &&
                         hasKeyboard &&
+                        !splits &&
                         !OnboardingAmbientScope.showsTrackerOf(context)
                     ? ExcludeSemantics(
                         child: FaceWidget(state: face, size: 32, isLive: true),
@@ -1105,248 +1386,97 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 // Setup has no way out of this step but making the topic.
                 trailing: isSetup
                     ? null
-                    : AppIconButton(
-                        glyph: GlyphType.close,
-                        ariaLabel: LocaleKeys.create_topic_cancel_aria_label
-                            .tr(),
+                    // The house close: a bare x, no circle.
+                    : AppDismissCross(
+                        label: LocaleKeys.create_topic_cancel_aria_label.tr(),
+                        color: colors.onCanvas,
+                        tapSize: kMinTapTarget,
                         onPressed: close,
                       ),
+                // The cross sits where the old 40 circle sat in its 48 box.
+                trailingTapRoom: isSetup ? null : AppIconButton.tapRoom(40),
               ),
               // Pinned, so the button is at one height in every state and
               // stays above the keyboard.
-              bottomBar: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_toast case final message?) ...[
-                    AppToast(message: message),
-                    const SizedBox(height: Spacing.s2),
-                  ],
-                  FeatureGuideAnchor(
-                    id: FeatureGuideAnchorId.createButton,
-                    child: button,
-                  ),
-                  // Pinned under the button where the topic is made in two
-                  // steps. Setup puts it at the end of the page instead: a
-                  // line of small text pinned over a page that scrolls has
-                  // the rows behind it showing through.
-                  if (showsLegal && !isSetup)
-                    const Padding(
-                      padding: EdgeInsets.only(top: Spacing.s2),
-                      child: _LegalLinks(),
-                    ),
-                ],
-              ),
-              slivers: [
-                if (isSetup)
-                  SliverToBoxAdapter(
-                    // With the keyboard up there is room for the form or
-                    // for the face and title, not both, and the form is
-                    // what the user is typing into.
-                    child: AnimatedSize(
-                      duration: stepDuration,
-                      curve: AppCurves.easeOut,
-                      alignment: Alignment.topCenter,
-                      child: hasKeyboard
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                Spacing.s5,
-                                Spacing.s4,
-                                Spacing.s5,
-                                0,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // The face every setup step shares, so
-                                  // it flies in from the step before. It
-                                  // shrinks and goes with a large text size.
-                                  SetupFace(state: face, gap: Spacing.s4),
-                                  Semantics(
-                                    header: true,
-                                    child: AppFittedTitle(
-                                      LocaleKeys.create_topic_first_topic_title
-                                          .tr(),
-                                      minFontSize: setupTitleMinFontSize,
-                                      style: AppTypography.headline(
-                                        colors.onCanvas,
-                                        fontSize: 30,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: AppStage(
-                      faceState: face,
-                      faceSize: 110,
-                      isLive: true,
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        Spacing.s3,
-                        24,
-                        0,
-                      ),
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    // Tighter with the keyboard up in setup, where every
-                    // point decides whether the form fits above the button.
-                    padding: isSetup && hasKeyboard
-                        ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
-                        : const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
-                    child: AppSheet(
+              bottomBar: isInline ? null : actions(isPinned: true),
+              // On a half-open foldable the face and the step stay put in
+              // one pane (beside or above the fold) and the form scrolls in
+              // the other one.
+              foldStage: splits
+                  ? FoldStageBox(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (state.capReached != null)
-                            AppEmptyState(
-                              title: state.capReached!.message,
-                              description: LocaleKeys
-                                  .create_topic_limit_review_plan_hint
-                                  .tr(),
-                              showFace: false,
-                            ),
-                          // One step needs no counter.
+                          // The face on its own: a half is too short for
+                          // the stage, which would put it beside its words.
+                          if (isSetup)
+                            stageBox
+                          else
+                            FaceWidget(state: face, isLive: true),
                           if (showsForm && !isSetup) ...[
-                            Text(
-                              LocaleKeys.create_topic_step_label.tr(
-                                namedArgs: {
-                                  'current': isTokenStep ? '2' : '1',
-                                  'total': '2',
-                                },
-                              ),
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontBody,
-                                fontFamilyFallback:
-                                    AppTypography.fontBodyFallbacks,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: colors.ink3,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          if (showsForm)
-                            AnimatedSize(
-                              duration: stepDuration,
-                              curve: AppCurves.easeOut,
-                              alignment: Alignment.topCenter,
-                              child: AnimatedSwitcher(
-                                duration: stepDuration,
-                                switchInCurve: AppCurves.easeOut,
-                                switchOutCurve: AppCurves.easeOut,
-                                layoutBuilder:
-                                    (currentChild, previousChildren) => Stack(
-                                      alignment: Alignment.topLeft,
-                                      children: [
-                                        ...previousChildren,
-                                        ?currentChild,
-                                      ],
-                                    ),
-                                transitionBuilder: (child, animation) {
-                                  // Next slides the new step in from the right
-                                  // and the old one out to the left. Back runs
-                                  // the other way, so the movement matches the
-                                  // travel.
-                                  final isIncoming = child.key == stepKey;
-                                  final fromRight = isTokenStep == isIncoming;
-                                  return SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: Offset(
-                                        fromRight ? 0.12 : -0.12,
-                                        0,
-                                      ),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: FadeTransition(
-                                      opacity: animation,
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: SizedBox(
-                                  key: stepKey,
-                                  width: double.infinity,
-                                  child: isTokenStep
-                                      ? _tokenStepBody(context, state)
-                                      : _topicStepBody(context, state),
-                                ),
-                              ),
-                            ),
-                          if (showsCreated) ...[
-                            Text(
-                              LocaleKeys.create_topic_generated_label.tr(),
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontBody,
-                                fontFamilyFallback:
-                                    AppTypography.fontBodyFallbacks,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: colors.ink3,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            if (state.serverUrl.isNotEmpty) ...[
-                              AppKeyValueRow(
-                                value: '${state.serverUrl}/${state.name}',
-                                trailingFillsRow: true,
-                                trailing: TokenActions(
-                                  value: '${state.serverUrl}/${state.name}',
-                                  onCopied: _showToast,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                            if (state.createdTopic?.tokenName
-                                case final tokenName?
-                                when tokenName.isNotEmpty) ...[
-                              Text(
-                                tokenName,
-                                style: TextStyle(
-                                  fontFamily: AppTypography.fontBody,
-                                  fontFamilyFallback:
-                                      AppTypography.fontBodyFallbacks,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: colors.ink,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                            ],
-                            AppKeyValueRow(
-                              value: token,
-                              trailingFillsRow: true,
-                              trailing: TokenActions(
-                                value: token,
-                                onCopied: _showToast,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              LocaleKeys.create_topic_token_warning.tr(),
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontBody,
-                                fontFamilyFallback:
-                                    AppTypography.fontBodyFallbacks,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: colors.ink3,
-                              ),
-                            ),
+                            const SizedBox(height: Spacing.s3),
+                            stepLabel,
                           ],
                         ],
                       ),
+                    )
+                  : null,
+              slivers: [
+                if (centresGroup)
+                  CentredGroupSliver(
+                    // With the keyboard up the field is what counts, and
+                    // the button pins above the keyboard.
+                    isCentred: !hasKeyboard,
+                    onAvailable: (room) {
+                      if ((room - _groupRoom).abs() > 0.5) {
+                        _setMeasure(() => _groupRoom = room);
+                      }
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ReportSize(
+                          onSize: (size) {
+                            if ((size.height - _formHeight).abs() > 0.5) {
+                              _setMeasure(() => _formHeight = size.height);
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [if (!splits) stageBox, formCard],
+                          ),
+                        ),
+                        if (isInline)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              12,
+                              _actionsGap,
+                              12,
+                              0,
+                            ),
+                            child: ReportSize(
+                              onSize: (size) {
+                                if ((size.height - (_actionsHeight ?? 0))
+                                        .abs() >
+                                    0.5) {
+                                  _setMeasure(
+                                    () => _actionsHeight = size.height,
+                                  );
+                                }
+                              },
+                              child: InlineActions(
+                                child: actions(isPinned: false),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                ),
-                if (isSetup && showsLegal && !hasKeyboard)
+                  )
+                else ...[
+                  if (!splits) SliverToBoxAdapter(child: stageBox),
+                  SliverToBoxAdapter(child: formCard),
+                ],
+                if (isSetup && showsLegal && !hasKeyboard && !isInline)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.only(bottom: Spacing.s2),
