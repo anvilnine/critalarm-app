@@ -145,9 +145,9 @@ class _SoundPickerViewState extends State<_SoundPickerView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // In the Settings detail pane the page lives as long as the Settings tab
-    // does, so it stays alive behind another tab or a pushed page. Tickers go
-    // quiet there; a preview that is playing stops with them.
+    // A playing preview stops once the page is off screen: covered by a
+    // pushed page (the cropper, the recorder), or, in the Settings detail
+    // pane, kept alive behind another tab. Tickers go quiet in both cases.
     final showing = TickerMode.valuesOf(context).enabled;
     if (_isShowing && !showing) {
       unawaited(context.read<SoundPickerCubit>().stopPreview());
