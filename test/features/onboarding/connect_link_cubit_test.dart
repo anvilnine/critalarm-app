@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/links/app_link.dart';
@@ -477,7 +478,18 @@ void main() {
         const ServerIncompatible('9.9.9'),
         const ConnectionNotSaved(Failure.database()),
         ConnectTransportError(Exception('socket')),
+        ConnectTransportError(
+          const ApiException(statusCode: 400, message: 'bad $_token'),
+        ),
         const AdminTokenMissing(_info),
+        const ServerAddressDiffers('evil.example.net'),
+        const ServerDowngrade(),
+        const ServerAnswerInvalid(),
+        const LinkServerNotSelfHosted(),
+        const AdminTokenRefused(),
+        const RelayDiffers(),
+        const RelayUnchecked(),
+        const RegisteredElsewhere(),
       ]) {
         when(
           () => connect(
@@ -508,6 +520,14 @@ void main() {
           isNot(contains(_token)),
           reason: '$outcome',
         );
+        final kept = [
+          '$outcome',
+          if (outcome is ConnectTransportError) ...[
+            '${outcome.error}',
+            '${outcome.error.server}',
+          ],
+        ];
+        expect(kept.join('\n'), isNot(contains(_token)), reason: '$outcome');
       }
     });
 
