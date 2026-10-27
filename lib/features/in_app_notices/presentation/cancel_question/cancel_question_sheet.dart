@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/design/design.dart';
@@ -52,7 +54,25 @@ class CancelQuestionSheet extends StatefulWidget {
 }
 
 class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
+  /// Set order of the reasons on screen. "Moving to my own server" sits next
+  /// to "Other" so the six pack into three rows on a 390 wide phone. This is
+  /// the order of the sheet only: the reasons and their wire names do not
+  /// change.
+  static const List<CancelReason> _order = [
+    CancelReason.price,
+    CancelReason.unused,
+    CancelReason.missing,
+    CancelReason.broken,
+    CancelReason.selfhost,
+    CancelReason.other,
+  ];
+
+  /// From this text scale the face sits above the title, so the title keeps
+  /// the full width.
+  static const double _stackedFrom = 1.6;
+
   final TextEditingController _controller = TextEditingController();
+  final GlobalKey _fieldKey = GlobalKey();
   bool _hasText = false;
 
   @override
@@ -72,6 +92,23 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
       ..removeListener(_onText)
       ..dispose();
     super.dispose();
+  }
+
+  /// Brings the field the chip just opened into view as one eased move. Under
+  /// reduced motion it is there at once.
+  void _showField() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final fieldContext = _fieldKey.currentContext;
+      if (!mounted || fieldContext == null) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          fieldContext,
+          duration: context.reduceMotion ? Duration.zero : AppDurations.quick,
+          curve: AppCurves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        ),
+      );
+    });
   }
 
   String _label(CancelReason reason) => switch (reason) {
@@ -109,36 +146,56 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
     // their distance. A chip that wraps is taller than the box and needs none.
     final chipHeight = media.textScaler.scale(14) * 1.4 + 2 * Spacing.s2 + 3;
     final room = chipHeight >= kMinTapTarget ? 0.0 : kMinTapTarget - chipHeight;
+    final isStacked = media.textScaler.scale(1) >= _stackedFrom;
+    final isKeyboardUp = media.viewInsets.bottom > 0;
 
-    return BlocBuilder<CancelQuestionCubit, CancelQuestionState>(
+    return BlocConsumer<CancelQuestionCubit, CancelQuestionState>(
+      listenWhen: (before, after) =>
+          before.step != after.step && after.step == CancelQuestionStep.explain,
+      listener: (context, state) => _showField(),
       builder: (context, state) {
         final cubit = context.read<CancelQuestionCubit>();
         final step = state.step;
         final isThanks = step == CancelQuestionStep.thanks;
         final isExplain = step == CancelQuestionStep.explain;
 
-        final header = Row(
-          children: [
-            FaceWidget(
-              state: isThanks ? FaceState.happy : FaceState.calm,
-              size: 40,
-            ),
-            const SizedBox(width: Spacing.s3),
-            Expanded(
-              child: Text(
-                isThanks
-                    ? LocaleKeys.cancel_question_thanks_title.tr()
-                    : LocaleKeys.cancel_question_title.tr(),
-                style: AppTypography.title(colors.ink),
-              ),
-            ),
-            AppDismissCross(
-              onPressed: widget.onClose,
-              label: LocaleKeys.common_close.tr(),
-              tapSize: 48,
-            ),
-          ],
+        final face = FaceWidget(
+          state: isThanks ? FaceState.happy : FaceState.calm,
+          size: 40,
         );
+        final title = Text(
+          isThanks
+              ? LocaleKeys.cancel_question_thanks_title.tr()
+              : LocaleKeys.cancel_question_title.tr(),
+          style: AppTypography.title(colors.ink),
+        );
+        final cross = AppDismissCross(
+          onPressed: widget.onClose,
+          label: LocaleKeys.common_close.tr(),
+          tapSize: 48,
+        );
+
+        // At large text the face and the cross share one row and the title
+        // takes the full width under them.
+        final header = isStacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [face, cross],
+                  ),
+                  title,
+                ],
+              )
+            : Row(
+                children: [
+                  face,
+                  const SizedBox(width: Spacing.s3),
+                  Expanded(child: title),
+                  cross,
+                ],
+              );
 
         final keeps = Text(
           LocaleKeys.cancel_question_keeps.tr(
@@ -167,8 +224,12 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
                 onPressed: _hasText ? () => cubit.send(_controller.text) : null,
               ),
             ],
-            const SizedBox(height: Spacing.s3),
-            keeps,
+            // The last line does nothing while someone types, so it steps
+            // aside for the keyboard and returns when it closes.
+            if (!isKeyboardUp) ...[
+              const SizedBox(height: Spacing.s3),
+              keeps,
+            ],
           ],
         );
 
@@ -183,7 +244,7 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
                 runSpacing: room < Spacing.s2 ? Spacing.s2 - room : 0,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  for (final reason in CancelReason.values)
+                  for (final reason in _order)
                     CancelReasonChip(
                       label: _label(reason),
                       isSelected: state.reason == reason,
@@ -198,6 +259,7 @@ class _CancelQuestionSheetState extends State<CancelQuestionSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: Spacing.s3),
                 child: AppTextField(
+                  key: _fieldKey,
                   controller: _controller,
                   isMono: false,
                   growToFit: true,
