@@ -101,7 +101,12 @@ class AppScreenScaffold extends StatefulWidget {
   ///
   /// With no fold it is not drawn, so the screen keeps the same content in its
   /// slivers and leaves it out of them when `AppFold.of(context)` is not none.
-  /// The stage sits outside the pull to refresh.
+  ///
+  /// With [onFaceRefresh], the stage, its top bar and the list share one pull
+  /// to refresh: a face the stage draws with `stageFace` acts out the pull of
+  /// the list in the other pane, and a `RefreshActivityIndicator` in the top
+  /// bar shows the refresh running. The stage has to call `stageFace` with a
+  /// context from inside the stage (its own build method or a `Builder`).
   final Widget? foldStage;
 
   final ScrollController? scrollController;
@@ -246,6 +251,12 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
   final GlobalKey _listKey = GlobalKey();
   final GlobalKey _detailKey = GlobalKey();
 
+  /// The scroll view and what floats over it. On an expanded window the list
+  /// sits inside a frame with the detail beside it, and in a fold pane it
+  /// does not, so this key moves it from one shape to the other without
+  /// losing the scroll position.
+  final GlobalKey _bodyKey = GlobalKey();
+
   /// How tall the pinned bottom bar came out, once it has laid out.
   ///
   /// The bar is whatever the screen handed over, so its height is not known
@@ -328,6 +339,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       required Widget? detail,
       required bool hasTabBar,
       bool showTopBar = true,
+      bool hostsFaceRefresh = true,
     }) => KeyedSubtree(
       key: _listKey,
       child: LayoutBuilder(
@@ -339,6 +351,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               : KeyedSubtree(key: _detailKey, child: detail),
           hasTabBar: hasTabBar,
           showTopBar: showTopBar,
+          hostsFaceRefresh: hostsFaceRefresh,
         ),
       ),
     );
@@ -365,7 +378,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     );
     final Widget first;
     final Widget second;
+    final bool hasStagePane;
     if (fold.isBook && detail != null) {
+      hasStagePane = false;
       // List in the start pane, under the tab bar. Detail in the end pane.
       first = list(detail: null, hasTabBar: widget.hasTabBar);
       second = AppDetailPane(
@@ -375,8 +390,12 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       // The stage holds still in the start pane or the top half, under the
       // top bar it names. The list scrolls in the other one, and only the
       // bottom half has the bar.
+      hasStagePane = true;
       first = _StagePane(
-        topBar: widget.topBar == null ? null : _topBarContent(context),
+        topBar: widget.topBar,
+        topBarMaxTextScale: AppBarBackingScope.maybeOf(
+          context,
+        )?.topBarMaxTextScale,
         contentMaxWidth: widget.contentMaxWidth,
         child: stage!,
       );
@@ -384,17 +403,23 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         detail: null,
         hasTabBar: widget.hasTabBar && fold.isTabletop,
         showTopBar: false,
+        hostsFaceRefresh: false,
       );
     }
-    return _wrap(
-      context,
-      Stack(
-        children: [
-          AppFoldPane(rect: panes.first, window: window, child: first),
-          AppFoldPane(rect: panes.second, window: window, child: second),
-        ],
-      ),
+    Widget split = Stack(
+      children: [
+        AppFoldPane(rect: panes.first, window: window, child: first),
+        AppFoldPane(rect: panes.second, window: window, child: second),
+      ],
     );
+    // With a stage the top bar and the stage face are in the other pane from
+    // the list, so the refresh host goes around both panes. The list's scroll
+    // notifications reach it at depth 0: a fold pane adds no viewport.
+    final onFaceRefresh = widget.onFaceRefresh;
+    if (hasStagePane && onFaceRefresh != null) {
+      split = RefreshFaceHost(onRefresh: onFaceRefresh, child: split);
+    }
+    return _wrap(context, split);
   }
 
   /// The ghosts behind [body] and the Scaffold around it, for the whole
@@ -417,29 +442,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     );
   }
 
-  /// The screen's top bar, with the text scale clamp the backing scope asks
-  /// for. Null when the screen has none.
-  Widget? _topBarContent(BuildContext context) {
-    final topBar = widget.topBar;
-    if (topBar == null) return null;
-    final maxScale = AppBarBackingScope.maybeOf(context)?.topBarMaxTextScale;
-    if (maxScale == null) return topBar;
-    return MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: MediaQuery.textScalerOf(
-          context,
-        ).clamp(maxScaleFactor: maxScale),
-      ),
-      child: topBar,
-    );
-  }
-
   Widget _buildContent(
     BuildContext context,
     double boxWidth, {
     required Widget? detail,
     required bool hasTabBar,
     required bool showTopBar,
+    required bool hostsFaceRefresh,
   }) {
     // In a fold split the stage pane draws the top bar, so the list does not.
     final topBar = showTopBar ? widget.topBar : null;
@@ -831,17 +840,22 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       );
     }
 
-    var body = widget.bottomBar == null
-        ? buildBody(0)
-        : ValueListenableBuilder<double>(
-            valueListenable: _bottomBarHeight,
-            builder: (context, barHeight, _) => buildBody(barHeight),
-          );
+    Widget body = KeyedSubtree(
+      key: _bodyKey,
+      child: widget.bottomBar == null
+          ? buildBody(0)
+          : ValueListenableBuilder<double>(
+              valueListenable: _bottomBarHeight,
+              builder: (context, barHeight, _) => buildBody(barHeight),
+            ),
+    );
 
     // Around the list and the top bar, so a spinner in the bar can follow the
-    // refresh. The side pane stays outside: its face is not this refresh.
-    if (widget.onFaceRefresh != null) {
-      body = RefreshFaceHost(onRefresh: widget.onFaceRefresh!, child: body);
+    // refresh. The detail pane stays outside: its face is not this refresh.
+    // In a split with a stage the host is around both panes instead.
+    final onFaceRefresh = widget.onFaceRefresh;
+    if (onFaceRefresh != null && hostsFaceRefresh) {
+      body = RefreshFaceHost(onRefresh: onFaceRefresh, child: body);
     }
 
     if (twoPane) {
@@ -1165,11 +1179,16 @@ class _RenderMeasureHeight extends RenderProxyBox {
 class _StagePane extends StatelessWidget {
   const _StagePane({
     required this.topBar,
+    required this.topBarMaxTextScale,
     required this.contentMaxWidth,
     required this.child,
   });
 
   final Widget? topBar;
+
+  /// The text scale clamp the backing scope asks for, applied here so the
+  /// bar keeps the pane's MediaQuery (its size and insets), not the window's.
+  final double? topBarMaxTextScale;
   final double contentMaxWidth;
   final Widget child;
 
@@ -1177,6 +1196,7 @@ class _StagePane extends StatelessWidget {
   Widget build(BuildContext context) {
     final topBar = this.topBar;
     if (topBar == null) return child;
+    final maxScale = topBarMaxTextScale;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Lined up with the column the list in the other pane uses. No rail
@@ -1197,7 +1217,16 @@ class _StagePane extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: columns.gutter),
                 child: SizedBox(
                   height: AppScreenScaffold.topBarHeight + 2,
-                  child: topBar,
+                  child: maxScale == null
+                      ? topBar
+                      : MediaQuery(
+                          data: MediaQuery.of(context).copyWith(
+                            textScaler: MediaQuery.textScalerOf(
+                              context,
+                            ).clamp(maxScaleFactor: maxScale),
+                          ),
+                          child: topBar,
+                        ),
                 ),
               ),
             ),
