@@ -7,7 +7,9 @@ import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
@@ -17,13 +19,22 @@ import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dar
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:critalarm/features/settings/presentation/about_screen.dart';
+import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/appearance_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
+import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
+import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_plan_card.dart';
 import 'package:critalarm/features/settings/presentation/settings_pro_row.dart';
 import 'package:critalarm/features/settings/presentation/settings_readiness_card.dart';
 import 'package:critalarm/features/settings/presentation/settings_row_values.dart';
+import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -37,6 +48,13 @@ import 'package:go_router/go_router.dart';
 /// Everything with more than one control behind it lives on its own screen
 /// under /settings. What stays here is the readiness card, the rows that lead
 /// to those screens, and the plan. There is no face scene: a list gets none.
+///
+/// Where the display has a detail pane (an expanded window, or book posture
+/// on a foldable), the card and the rows are the list and a row's page draws
+/// in the pane beside them, starting with the first row's. Nothing is pushed
+/// and the URL stays /settings. Rows whose page belongs to another feature
+/// still push it. In tabletop posture the card holds still in the top half
+/// and the rows scroll in the bottom half.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
@@ -66,8 +84,51 @@ const EdgeInsets _kSheetPadding = EdgeInsets.fromLTRB(6, 10, 6, 10);
 /// The section label's padding: the row's own 14 points at each side.
 const EdgeInsets _kLabelPadding = EdgeInsets.fromLTRB(14, 10, 14, 6);
 
-class _SettingsScreenContent extends StatelessWidget {
+class _SettingsScreenContent extends StatefulWidget {
   const _SettingsScreenContent();
+
+  @override
+  State<_SettingsScreenContent> createState() => _SettingsScreenContentState();
+}
+
+class _SettingsScreenContentState extends State<_SettingsScreenContent> {
+  /// The row whose page the detail pane shows. Null until a row is tapped,
+  /// and then the pane opens on the first row's page.
+  SettingsPage? _selected;
+
+  /// The page the pane shows right now, worked out in [build].
+  SettingsPage? _shown;
+
+  /// The page of [page] as it draws in the detail pane.
+  Widget _panePage(SettingsPage page) => switch (page) {
+    SettingsPage.sound => const SoundPickerScreen(),
+    SettingsPage.priorities => const PrioritiesScreen(),
+    SettingsPage.storage => const AlarmSettingsScreen(),
+    SettingsPage.server => const ServerSettingsScreen(),
+    SettingsPage.personalize => const PersonalizeScreen(),
+    SettingsPage.appearance => const AppearanceSettingsScreen(),
+    SettingsPage.privacy => const PrivacySettingsScreen(),
+    SettingsPage.about => const AboutScreen(),
+    // Never selected: these push. See SettingsPage.opensInPane.
+    SettingsPage.account ||
+    SettingsPage.language ||
+    SettingsPage.localReminders ||
+    SettingsPage.developer => const SizedBox.shrink(),
+  };
+
+  void _open(BuildContext context, SettingsPage page) {
+    final tap = settingsRowTapFor(
+      showsDetail: AppScreenScaffold.showsDetail(context),
+      page: page,
+    );
+    switch (tap) {
+      case SettingsRowTap.select:
+        if (page != _shown) AppHaptics.selection();
+        setState(() => _selected = page);
+      case SettingsRowTap.push:
+        unawaited(context.push(page.path));
+    }
+  }
 
   /// One row that leads to a screen under /settings. [value] is what the row
   /// is set to, when that is already known, and sits before the arrow.
@@ -75,7 +136,7 @@ class _SettingsScreenContent extends StatelessWidget {
     BuildContext context, {
     required String title,
     required String subtitle,
-    required String path,
+    required SettingsPage page,
     String? value,
   }) {
     final colors = context.appColors;
@@ -118,7 +179,8 @@ class _SettingsScreenContent extends StatelessWidget {
           AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
         ],
       ),
-      onTap: () => context.push(path),
+      isSelected: page == _shown,
+      onTap: () => _open(context, page),
     );
   }
 
@@ -200,23 +262,62 @@ class _SettingsScreenContent extends StatelessWidget {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         final colors = context.appColors;
+        final capabilities = getIt<PlatformCapabilities>();
+        final showsDetail = AppScreenScaffold.showsDetail(context);
+        // Tabletop: the card holds still in the top half, over the fold,
+        // and the rows scroll in the bottom half.
+        final cardOnStage = AppFold.of(context).isTabletop;
+        final shown = settingsPaneSelection(
+          selected: _selected,
+          shown: settingsPagesShown(
+            canRunAlarm: capabilities.canRunAlarm,
+            hasAccounts: state.hasAccounts,
+            hasLocalNotifications: capabilities.hasLocalNotifications,
+            showsDeveloper: buildSkipsPaywall || buildHasPaywallLab,
+          ),
+        );
+        _shown = showsDetail ? shown : null;
+
+        // The dark card. It reads the same checks as the Topics card and
+        // opens the screen that lists them.
+        const card = FeatureGuideAnchor(
+          id: FeatureGuideAnchorId.settingsHealth,
+          child: SettingsReadinessCard(),
+        );
 
         return AppScreenScaffold(
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          detail: showsDetail && shown != null
+              ? SettingsPaneScope(
+                  key: ValueKey(shown),
+                  child: _panePage(shown),
+                )
+              : null,
+          // The card keeps the width of the rows' column below the fold and
+          // rests in the middle of the half under the title.
+          foldStage: cardOnStage
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSize.contentMaxWidth,
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: card,
+                    ),
+                  ),
+                )
+              : null,
           // The sheet is text on white and scrolls under the title, so the
           // backing holds full strength behind the whole title row.
           slivers: [
-            // The dark card. It reads the same checks as the Topics card and
-            // opens the screen that lists them.
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: FeatureGuideAnchor(
-                  id: FeatureGuideAnchorId.settingsHealth,
-                  child: SettingsReadinessCard(),
+            if (!cardOnStage)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: card,
                 ),
               ),
-            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
@@ -231,17 +332,17 @@ class _SettingsScreenContent extends StatelessWidget {
                         title: LocaleKeys.settings_alarm_sound_row_title.tr(),
                         subtitle: LocaleKeys.settings_alarm_sound_row_subtitle
                             .tr(),
-                        path: '/sounds',
+                        page: SettingsPage.sound,
                       ),
                       // A browser has no push and no alarm to describe.
-                      if (getIt<PlatformCapabilities>().canRunAlarm) ...[
+                      if (capabilities.canRunAlarm) ...[
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
                           title: LocaleKeys.settings_priorities_row_title.tr(),
                           subtitle: LocaleKeys.settings_priorities_row_subtitle
                               .tr(),
-                          path: '/settings/priorities',
+                          page: SettingsPage.priorities,
                         ),
                       ],
                       // Storage is the only thing left of the old Alarms
@@ -252,7 +353,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         context,
                         title: LocaleKeys.settings_storage_row_title.tr(),
                         subtitle: LocaleKeys.settings_storage_row_subtitle.tr(),
-                        path: '/settings/alarms',
+                        page: SettingsPage.storage,
                         value: settingsStorageValueKey(
                           state.storage.retention,
                         ).tr(),
@@ -262,7 +363,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         context,
                         title: LocaleKeys.settings_server_row_title.tr(),
                         subtitle: LocaleKeys.settings_server_row_subtitle.tr(),
-                        path: '/settings/server',
+                        page: SettingsPage.server,
                         value: settingsServerValueKey(
                           status: state.status,
                           isConnected: state.isConnected,
@@ -275,7 +376,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           context,
                           title: LocaleKeys.account_row_title.tr(),
                           subtitle: LocaleKeys.account_row_subtitle.tr(),
-                          path: '/settings/account',
+                          page: SettingsPage.account,
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -287,7 +388,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         context,
                         title: LocaleKeys.personalize_title.tr(),
                         subtitle: LocaleKeys.personalize_row_subtitle.tr(),
-                        path: '/settings/personalize',
+                        page: SettingsPage.personalize,
                       ),
                       const SizedBox(height: 8),
                       BlocBuilder<ThemeCubit, AppThemeMode>(
@@ -297,7 +398,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           title: LocaleKeys.settings_appearance_row_title.tr(),
                           subtitle: LocaleKeys.settings_appearance_row_subtitle
                               .tr(),
-                          path: '/settings/appearance',
+                          page: SettingsPage.appearance,
                           value: settingsThemeValueKey(mode).tr(),
                         ),
                       ),
@@ -310,15 +411,14 @@ class _SettingsScreenContent extends StatelessWidget {
                           // The value says what it is set to, and a line
                           // under "Language" would only repeat the title.
                           subtitle: '',
-                          path: '/settings/language',
+                          page: SettingsPage.language,
                           value: state.selectedTag == null
                               ? LocaleKeys.language_system_default.tr()
                               : languageNativeNames[state.selectedTag] ?? '',
                         ),
                       ),
                       // Web has no local notifications, so no reminders.
-                      if (getIt<PlatformCapabilities>()
-                          .hasLocalNotifications) ...[
+                      if (capabilities.hasLocalNotifications) ...[
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
@@ -327,7 +427,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           subtitle: LocaleKeys
                               .local_reminders_settings_row_subtitle
                               .tr(),
-                          path: '/settings/local-reminders',
+                          page: SettingsPage.localReminders,
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -412,7 +512,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           title: LocaleKeys.settings_developer_row_title.tr(),
                           subtitle: LocaleKeys.settings_developer_row_subtitle
                               .tr(),
-                          path: '/settings/developer',
+                          page: SettingsPage.developer,
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -422,14 +522,14 @@ class _SettingsScreenContent extends StatelessWidget {
                         context,
                         title: LocaleKeys.settings_privacy_row_title.tr(),
                         subtitle: LocaleKeys.settings_privacy_row_subtitle.tr(),
-                        path: '/settings/privacy',
+                        page: SettingsPage.privacy,
                       ),
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
                         title: LocaleKeys.settings_about_row_title.tr(),
                         subtitle: LocaleKeys.settings_about_row_subtitle.tr(),
-                        path: '/settings/about',
+                        page: SettingsPage.about,
                       ),
                     ],
                   ),

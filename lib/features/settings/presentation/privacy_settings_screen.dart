@@ -4,11 +4,11 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 /// What, if anything, the app sends back: usage analytics and crash reports.
 /// Both are off until the user turns them on.
@@ -41,17 +41,8 @@ class _PrivacySettingsView extends StatelessWidget {
           hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_privacy_header.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
-            ),
+            // Beside the Settings rows, in the detail pane, there is no back.
+            leading: settingsBackButton(context),
           ),
           slivers: [
             SliverToBoxAdapter(
