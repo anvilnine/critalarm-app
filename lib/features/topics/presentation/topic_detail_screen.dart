@@ -860,6 +860,7 @@ class _MessagesBlock extends StatelessWidget {
     // The newest message flies to the messages screen when it is opened.
     return Hero(
       tag: topicLatestMessageHeroTag(state.topicName, message.timestamp),
+      flightShuttleBuilder: topicMessageHeroShuttle,
       child: Material(color: Colors.transparent, child: row),
     );
   }
