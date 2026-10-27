@@ -25,10 +25,22 @@ String serverModeLabelKey(ServerMode mode) => switch (mode) {
 /// The server this phone is paged by: which host, and the admin token used
 /// to talk to it.
 class ServerSettingsScreen extends StatelessWidget {
-  const ServerSettingsScreen({super.key});
+  const ServerSettingsScreen({super.key, this.cubit});
+
+  /// The Settings screen's own cubit, when the page draws in its detail
+  /// pane, so the row beside the page and the page read one state. A pushed
+  /// page leaves it null and loads its own.
+  final SettingsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    final shared = cubit;
+    if (shared != null) {
+      return BlocProvider.value(
+        value: shared,
+        child: const _ServerSettingsView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();

@@ -50,15 +50,20 @@ List<SettingsPage> settingsPagesShown({
 ];
 
 /// The page the detail pane shows: [selected] while a row still shows it,
-/// else the first page in [shown] that can be drawn in the pane. Null when
-/// none can.
+/// else [preferred] when its row shows and it draws in the pane, else the
+/// first page in [shown] that can be drawn in the pane. Null when none can.
+///
+/// [preferred] is the page the screen's state points at, such as Server on
+/// a phone that lost its server.
 SettingsPage? settingsPaneSelection({
   required SettingsPage? selected,
   required List<SettingsPage> shown,
+  SettingsPage? preferred,
 }) {
-  if (selected != null && selected.opensInPane && shown.contains(selected)) {
-    return selected;
-  }
+  bool fits(SettingsPage? page) =>
+      page != null && page.opensInPane && shown.contains(page);
+  if (fits(selected)) return selected;
+  if (fits(preferred)) return preferred;
   for (final page in shown) {
     if (page.opensInPane) return page;
   }

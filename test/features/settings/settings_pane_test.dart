@@ -110,6 +110,50 @@ void main() {
     });
   });
 
+  group('settingsPaneSelection with a preferred page', () {
+    test('a phone that lost its server opens on Server', () {
+      expect(
+        settingsPaneSelection(
+          selected: null,
+          shown: nativeShown(),
+          preferred: SettingsPage.server,
+        ),
+        SettingsPage.server,
+      );
+    });
+
+    test('a tapped row wins over the preferred page', () {
+      expect(
+        settingsPaneSelection(
+          selected: SettingsPage.appearance,
+          shown: nativeShown(),
+          preferred: SettingsPage.server,
+        ),
+        SettingsPage.appearance,
+      );
+    });
+
+    test('a preferred page that is not listed or not in the pane is passed '
+        'over for the first row', () {
+      expect(
+        settingsPaneSelection(
+          selected: null,
+          shown: webShown(),
+          preferred: SettingsPage.priorities,
+        ),
+        SettingsPage.sound,
+      );
+      expect(
+        settingsPaneSelection(
+          selected: null,
+          shown: nativeShown(),
+          preferred: SettingsPage.account,
+        ),
+        SettingsPage.sound,
+      );
+    });
+  });
+
   group('settingsRowTapFor', () {
     test('with a pane, a pane page is selected and nothing is pushed', () {
       for (final page in [
