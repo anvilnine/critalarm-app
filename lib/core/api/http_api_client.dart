@@ -4,9 +4,11 @@ import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -18,7 +20,8 @@ import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:http/http.dart' as http;
 
-final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
+final class HttpApiClient
+    implements ApiClient, PacksApi, WeeklyCheckApi, CancelReasonApi {
   HttpApiClient(
     this._http,
     this._sessions, {
@@ -403,6 +406,30 @@ final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
     final json = _json(response) as Map<String, dynamic>;
     return AccountJoinTokenResult.minted(
       joinToken: json['join_token'] as String,
+    );
+  }
+
+  @override
+  Future<void> sendCancelReason({
+    required CancelReason reason,
+    required String appVersion,
+    required String platform,
+    String? text,
+  }) async {
+    final (session, uri) = await _sessionUri(const [
+      'account',
+      'cancel-reason',
+    ]);
+    await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      body: {
+        'reason': reason.wire,
+        'text': ?text,
+        'app_version': appVersion,
+        'platform': platform,
+      },
     );
   }
 
