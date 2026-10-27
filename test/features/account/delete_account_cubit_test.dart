@@ -222,7 +222,14 @@ final class _Harness {
       identities: identities,
       connections: connections,
       forgetAccountData: accountData.forget,
-      forgetDeletedAccountData: accountData.forgetDeleted,
+      forgetDeletedAccountData: (accountId) async {
+        await accountData.forgetDeleted(
+          scope: accountId == null
+              ? null
+              : await heldScope.forAccount(accountId),
+        );
+      },
+      readAccountId: heldScope.accountId,
       signOutBilling: () async => billingLogOuts++,
       stopAlarm: () async => alarmStops++,
     );

@@ -78,6 +78,16 @@ class ArchiveTicket {
   /// what it wrote.
   bool get holds => _scope._generation == _generation;
 
+  /// True when the phone is no longer on the account this write started
+  /// under: the identity changed, or the scope is another one now. A write
+  /// that started with no scope at all cannot tell, so it reads as not stale.
+  Future<bool> isStale() async {
+    final startedAs = await _started;
+    if (startedAs == null) return false;
+    return _scope._generation != _generation ||
+        startedAs != await _scope.current();
+  }
+
   Future<String?> settle() async {
     final startedAs = await _started;
     if (startedAs == null || _scope._generation != _generation) return null;
