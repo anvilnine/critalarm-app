@@ -11,6 +11,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
 - On a half-open foldable the tab bar and rail stay clear of the fold, and in book posture Topics and History show the list on one side and the detail on the other.
+- On tablets, desktops, the Razr cover and half-open foldables the ringing alarm has its own layout, and I'm up is always on screen without scrolling. On a wide screen the buttons sit right under the message.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
