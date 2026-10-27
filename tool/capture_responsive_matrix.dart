@@ -204,6 +204,7 @@ const List<_Size> _sizes = [
   _Size('pixel-fold-cover', 411, 797, _Renders.android),
   _Size('pixel-fold-inner', 841, 701, _Renders.android),
   _Size('pixel-fold-tabletop', 841, 701, _Renders.android, hingeY: 350),
+  _Size('pixel-fold-inner-book', 841, 701, _Renders.android, hingeX: 420),
   _Size('razr-cover', 384, 388, _Renders.android),
   _Size(
     'iphone-fold-unfolded',
@@ -770,11 +771,6 @@ void main() {
                     );
                   }
                 }
-                final pickProblem = await _tapPick(tester, screen.pick);
-                if (pickProblem != null) {
-                  record('capture note: $pickProblem', kind: _note);
-                }
-
                 // The geometry the layout rules promise, read off the render
                 // tree rather than judged by eye.
                 for (final (line, failed) in _measure(tester, size, screen)) {
@@ -785,7 +781,8 @@ void main() {
                   }
                 }
 
-                // On a hinge row nothing that reads may sit on the fold.
+                // On a hinge row nothing that reads may sit on the fold, at
+                // scroll 0, before any pick.
                 if (line != null) {
                   final fold = AppFold.fromFeatures(
                     size.displayFeatures,
@@ -818,6 +815,13 @@ void main() {
                       '${overlaps.length} overlaps ($chrome in shell chrome)';
                   print('fold $rel: $summary');
                   _log.add('fold     $rel: $summary');
+                }
+
+                // After the walk: the walk reads the screen at scroll 0, and a
+                // pick can scroll or open something.
+                final pickProblem = await _tapPick(tester, screen.pick);
+                if (pickProblem != null) {
+                  record('capture note: $pickProblem', kind: _note);
                 }
 
                 await tester.runAsync(() async {
