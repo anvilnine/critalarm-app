@@ -51,3 +51,13 @@ const List<CaptureRoute> allScreenRoutes = [
   ('wp2_09_lock_screen_quiet', '/lockscreen', FaceState.calm, null),
   ('wp2_08_no_alarm', '/alarm', FaceState.acked, null),
 ];
+
+/// Screens a capture tool reaches by tapping "I'm up" on a ringing alarm:
+/// the acknowledged screen of a real incident, and the acknowledged screen
+/// of the phone-only setup test (`inc_demo`). Captured once the tap has
+/// settled.
+const List<(String id, String path, FaceState fixture)>
+acknowledgedCaptureRoutes = [
+  ('wp2_08_acked', '/alarm', FaceState.alarmed),
+  ('wp2_08_acked_setup_test', '/incidents/inc_demo', FaceState.calm),
+];
