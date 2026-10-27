@@ -36,6 +36,16 @@
 //                           from the first frame
 //   home_walkthrough_sheet  the walkthrough offer over the card
 //
+// Stored-data scenes (a phone opened again, the server not answered yet, the
+// alarms and messages it holds read before the first frame):
+//   stored_rows_home        Home with three topics and recent alarms
+//   stored_rows_history     History with the same alarms
+//   stored_rows_topic       one topic with its alarm and messages
+// Their first frame must hold the rows with no skeleton, and the rows of the
+// first frame must still be on screen once the server has answered (the mock
+// server holds the same data). Frames: first, plus16, plus120 and settled,
+// named stored_rows_<screen>_<frame>_<phone>_<theme>_<scale>x.png.
+//
 // Frames (the "frame" part of a name):
 //   first      the first frame in which the card is drawn
 //   plus16     16 ms later
@@ -77,13 +87,18 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_offer_sheet.dart';
+import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
@@ -91,6 +106,8 @@ import 'package:critalarm/features/reliability/presentation/cubits/reliability_c
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
+import 'package:critalarm/features/topics/presentation/home_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -559,6 +576,296 @@ Future<GoRouter> _open(
   return router;
 }
 
+/// One screen opened on a phone that holds its topics, alarms and messages.
+class _Stored {
+  const _Stored(
+    this.name, {
+    required this.route,
+    required this.screen,
+    required this.rows,
+  });
+
+  final String name;
+  final String route;
+
+  /// The screen the route opens. The first frame is the first one it is in.
+  final Type screen;
+
+  /// Words that have to be on screen in the first frame and still be on screen
+  /// when the server has answered.
+  final List<String> rows;
+}
+
+const _storedScenes = <_Stored>[
+  _Stored(
+    'stored_rows_home',
+    route: '/',
+    screen: HomeScreen,
+    rows: [
+      'prod-db',
+      'nas-backup',
+      'uptime-kuma',
+      'Replication lag back to 0: Replica caught up',
+      'All 14 monitors are up',
+    ],
+  ),
+  _Stored(
+    'stored_rows_history',
+    route: '/history',
+    screen: HistoryScreen,
+    rows: ['prod-db', 'nas-backup'],
+  ),
+  _Stored(
+    'stored_rows_topic',
+    route: '/topics/prod-db',
+    screen: TopicDetailScreen,
+    rows: ['prod-db', 'Replication lag back to 0'],
+  ),
+];
+
+/// The topics, alarms and messages the phone holds and the server has.
+({List<Topic> topics, List<Incident> incidents, List<Message> messages})
+_storedData() {
+  final now = DateTime.now().toUtc();
+  // Whole seconds, like the server's own times, so what the phone kept and
+  // what the server says are the same topic.
+  final created = DateTime.fromMillisecondsSinceEpoch(
+    now.subtract(const Duration(days: 30)).millisecondsSinceEpoch ~/
+        1000 *
+        1000,
+    isUtc: true,
+  );
+  int at(Duration ago) => now.subtract(ago).millisecondsSinceEpoch ~/ 1000;
+  DateTime when(Duration ago) => DateTime.fromMillisecondsSinceEpoch(
+    at(ago) * 1000,
+    isUtc: true,
+  );
+
+  final lag = Message(
+    id: 'm-lag',
+    topic: 'prod-db',
+    time: at(const Duration(hours: 3)),
+    priority: 5,
+    title: 'Replication lag 90 s',
+    message: 'Replica is 90 s behind',
+    incidentId: 'i-lag',
+  );
+  final nasWarn = Message(
+    id: 'm-nas',
+    topic: 'nas-backup',
+    time: at(const Duration(hours: 20)),
+    priority: 4,
+    title: 'Backup finished with warnings',
+    message: 'rsync: 2 files vanished',
+    incidentId: 'i-nas',
+  );
+  final messages = [
+    lag,
+    Message(
+      id: 'm-lag-ok',
+      topic: 'prod-db',
+      time: at(const Duration(hours: 2, minutes: 40)),
+      title: 'Replication lag back to 0',
+      message: 'Replica caught up',
+    ),
+    Message(
+      id: 'm-lag-ping',
+      topic: 'prod-db',
+      time: at(const Duration(hours: 30)),
+      message: 'Nightly vacuum done',
+    ),
+    nasWarn,
+    Message(
+      id: 'm-kuma',
+      topic: 'uptime-kuma',
+      time: at(const Duration(minutes: 25)),
+      message: 'All 14 monitors are up',
+    ),
+  ];
+  final incidents = [
+    Incident(
+      id: 'i-lag',
+      topic: 'prod-db',
+      state: IncidentStates.closed,
+      openedAt: when(const Duration(hours: 3)),
+      closedAt: when(const Duration(hours: 2, minutes: 40)),
+      updatedAt: when(const Duration(hours: 2, minutes: 40)),
+      lastMessageAt: when(const Duration(hours: 3)),
+      messages: [lag],
+    ),
+    Incident(
+      id: 'i-nas',
+      topic: 'nas-backup',
+      state: IncidentStates.acked,
+      openedAt: when(const Duration(hours: 20)),
+      ackedAt: when(const Duration(hours: 19, minutes: 50)),
+      updatedAt: when(const Duration(hours: 19, minutes: 50)),
+      lastMessageAt: when(const Duration(hours: 20)),
+      messages: [nasWarn],
+    ),
+  ];
+  final topics = [
+    Topic(name: 'prod-db', critical: true, createdAt: created),
+    Topic(name: 'nas-backup', createdAt: created),
+    Topic(name: 'uptime-kuma', critical: true, createdAt: created),
+  ];
+  return (topics: topics, incidents: incidents, messages: messages);
+}
+
+/// The phone as `main` leaves it before the first frame: the local store holds
+/// what the last run kept, and the topic list and the alarms and messages are
+/// read from it. The mock server holds the same data and answers later.
+Future<void> _bootStored() async {
+  SharedPreferences.setMockInitialValues({
+    'server_url': 'api.critalarm.app',
+    'admin_token': 'adm_demo_token',
+    'device_id': 'dev_capture',
+    'device_token': 'dv_capture',
+    'account_id': 'acc_capture',
+    'account_tier': 'free',
+    'account_caps':
+        '{"devices":5,"critical_topics":2,"p4_daily":50,"history_days":7}',
+    'setup_checklist_seeded': true,
+    'setup_checklist_done': true,
+    'home_widgets_card_seen': true,
+    'tour_guides_seen': '["topics","topic","settings","history"]',
+    'has_completed_showcase_tour': true,
+  });
+  await getIt.reset();
+  final data = _storedData();
+  final store = await LocalStore.open(
+    factory: databaseFactoryFfi,
+    path: inMemoryDatabasePath,
+  );
+  await store.topics.replaceAll(
+    heldScopeFor(serverUrl: 'api.critalarm.app', accountId: 'acc_capture')!,
+    data.topics,
+  );
+  await store.incidents.upsertAll(data.incidents);
+  await store.messages.upsertAll(data.messages);
+  await configureDependencies(useMockApi: true, openedStore: store);
+  getIt<MockServer>()
+    ..reset()
+    ..seedState(
+      topics: data.topics,
+      incidents: data.incidents,
+      messages: data.messages,
+    );
+  // What `main` does before the first frame.
+  await getIt<TopicsCubit>().loadHeld();
+  await getIt<HeldRows>().load();
+  expect(getIt<TopicsCubit>().state.isKept, isTrue);
+  expect(getIt<HeldRows>().snapshot, isNotNull);
+  // The phone's alarm permission is known by the time a topic opens: the phone
+  // checks on Home read it. The Topic screen's first frame waits for it.
+  await getIt<AlarmHost>().authorizationStatus();
+
+  await getIt.unregister<ReliabilityCubit>();
+  getIt.registerLazySingleton<ReliabilityCubit>(
+    () => ReliabilityCubit([_FineSource()]),
+  );
+  await getIt.unregister<MissedAlarmFeed>();
+  getIt.registerLazySingleton<MissedAlarmFeed>(_NoMissedFeed.new);
+}
+
+/// How many of [words] are on screen right now.
+Set<String> _onScreen(List<String> words) => {
+  for (final w in words)
+    if (find.text(w).evaluate().isNotEmpty) w,
+};
+
+/// Checks a frame of a stored scene: the rows are drawn and nothing is a
+/// skeleton.
+void _checkStored(_Stored scene, String frame) {
+  expect(
+    find.byType(AppSkeleton),
+    findsNothing,
+    reason: '$frame of ${scene.name} drew a skeleton',
+  );
+  expect(
+    _onScreen(scene.rows),
+    scene.rows.toSet(),
+    reason: '$frame of ${scene.name} lacks rows the phone holds',
+  );
+}
+
+Future<void> _openStored(
+  WidgetTester tester,
+  _Stored scene, {
+  required _Phone phone,
+  required ThemeMode mode,
+  required double scale,
+  required GlobalKey key,
+  required List<String> errors,
+  required String Function(String frame) nameOf,
+  required Set<String> timeline,
+}) async {
+  await tester.runAsync(_bootStored);
+  tester.view.physicalSize = phone.size * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+
+  final router = buildRouter();
+  await tester.pumpWidget(
+    BlocProvider<ThemeCubit>.value(
+      value: getIt<ThemeCubit>(),
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
+        themeMode: mode,
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: RepaintBoundary(
+            key: key,
+            child: AppAmbientShell(
+              router: router,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  router.go(scene.route);
+
+  // The first frame the screen is in. The rows have to be there in it, with
+  // no server time given.
+  var first = false;
+  for (var i = 0; i < 40 && !first; i++) {
+    await tester.pump();
+    first = find.byType(scene.screen).evaluate().isNotEmpty;
+  }
+  expect(first, isTrue, reason: 'no ${scene.screen} in ${scene.name}');
+  // Checked before the file is written: writing it takes real time, in which
+  // the mock server answers.
+  _checkStored(scene, 'the first frame');
+  final firstRows = _onScreen(scene.rows);
+  if (timeline.contains('first')) {
+    await _save(tester, key, nameOf('first'), errors);
+  }
+  var elapsed = 0;
+  for (final (frame, at) in const [('plus16', 16), ('plus120', 120)]) {
+    await tester.pump(Duration(milliseconds: at - elapsed));
+    elapsed = at;
+    _checkStored(scene, 'the frame at $at ms');
+    if (timeline.contains(frame)) {
+      await _save(tester, key, nameOf(frame), errors);
+    }
+  }
+
+  // Let the mock server answer and the screen settle.
+  for (var i = 0; i < 20; i++) {
+    await _step(tester, 100);
+    _checkStored(scene, 'settling $i');
+  }
+  // Nothing the first frame drew went away or changed when the answer came.
+  expect(_onScreen(scene.rows), firstRows);
+}
+
 bool _wanted(String name) =>
     _only.isEmpty || _only.split(',').any(name.contains);
 
@@ -690,6 +997,64 @@ void main() {
           isReduced: true,
           timeline: {if (!scene.opensSheet) 'first'},
         );
+      }
+    }
+  }
+
+  for (final scene in _storedScenes) {
+    for (final phone in _phones) {
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        for (final scale in _scales) {
+          final isBig = scale == 1.0 || scale == 2.0;
+          String nameOf(String frame) {
+            final stem = frame.isEmpty ? scene.name : '${scene.name}_$frame';
+            return '${stem}_${phone.name}_${mode.name}_${scale}x';
+          }
+
+          final timeline = {
+            if (isBig) ...['first', 'plus16', 'plus120'],
+          };
+          final frames = {'', ...timeline}.where((f) => _wanted(nameOf(f)));
+          if (frames.isEmpty) continue;
+          testWidgets('capture ${nameOf('')}', (tester) async {
+            final errors = <String>[];
+            final oldHandler = FlutterError.onError;
+            FlutterError.onError = (d) => errors.add(d.exceptionAsString());
+            addTearDown(() => FlutterError.onError = oldHandler);
+            try {
+              final key = GlobalKey();
+              await _openStored(
+                tester,
+                scene,
+                phone: phone,
+                mode: mode,
+                scale: scale,
+                key: key,
+                errors: errors,
+                nameOf: nameOf,
+                timeline: {for (final f in frames) f},
+              );
+              if (frames.contains('')) {
+                await _save(tester, key, nameOf(''), errors);
+              }
+              for (final e in errors) {
+                print('  ERROR: ${e.split('\n').first}');
+              }
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 150)),
+              );
+              await tester.pump(const Duration(milliseconds: 50));
+              expect(
+                errors,
+                isEmpty,
+                reason: 'overflow or build error in ${nameOf('')}',
+              );
+            } finally {
+              FlutterError.onError = oldHandler;
+            }
+          });
+        }
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
@@ -41,6 +42,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this.featureAccess,
     this.glances,
     this.signalStore,
+    this.held,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -75,6 +77,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// The flash and strong vibration switches, kept on this phone. Null in
   /// tests that do not care, and then both read off and neither saves.
   final AlarmSignalStore? signalStore;
+
+  /// What the phone held at launch. Lets the first frame of a topic opened
+  /// before the server has answered carry its alarms and messages. Null in
+  /// tests that do not care.
+  final HeldRows? held;
 
   final DateTime Function() _now;
 
@@ -168,8 +175,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// depend on it. Without it the card stays on its dots.
   TopicDetailState? seedFor(String topicName) {
     final topics = _topics.state;
-    final incidents = _incidents.state;
-    if (!topics.isReady || !incidents.isReady) return null;
+    if (!topics.isReady) return null;
+    final incidents = _incidentsOf();
+    if (incidents == null) return null;
     final topic = topics.named(topicName);
     if (topic == null) return null;
 
@@ -179,8 +187,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         : host.lastKnownAuthorization;
     final glance = glances?.of(topic.name, createdAt: topic.createdAt);
     final openIncidents = incidents
-        .forTopic(topic.name)
-        .where((i) => i.state == 'open')
+        .where((i) => i.topic == topic.name && i.state == 'open')
         .toList();
     final stage = _stageOf(
       topic: topic,
@@ -204,7 +211,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       isMessagesLoading: rows == null,
       messageTimes: glance?.messageTimes ?? const [],
       areMessageTimesKnown: glance != null,
-      lastAlarmAt: _lastAlarmOf(topic.name),
+      lastAlarmAt: _lastAlarmOf(topic.name, incidents),
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       // Read here too, so a seed for another topic never shows the switches
       // of the topic drawn before it.
@@ -212,6 +219,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       strongVibrationOn: signals?.vibrationFor(topic.name) ?? false,
       clearError: true,
     );
+  }
+
+  /// The incidents the first frame is drawn from: the shared list once it has
+  /// loaded, otherwise the phone's own copy from launch, which is good until
+  /// the server has answered for incidents. Null when neither exists.
+  List<Incident>? _incidentsOf() {
+    final shared = _incidents.state;
+    if (shared.isReady) return shared.incidents;
+    return held?.snapshot?.incidents;
   }
 
   /// Turns the camera flash for this topic's ring on or off. Saved on this
@@ -358,7 +374,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       isMessagesLoading: false,
       messageTimes: messageTimes,
       areMessageTimesKnown: true,
-      lastAlarmAt: _lastAlarmOf(topic.name),
+      lastAlarmAt: _lastAlarmOf(topic.name, _incidents.state.incidents),
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       clearError: true,
     );
@@ -415,9 +431,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   }
 
   /// When the newest incident on [topicName] opened, or null if none has.
-  DateTime? _lastAlarmOf(String topicName) {
+  DateTime? _lastAlarmOf(String topicName, List<Incident> incidents) {
     DateTime? last;
-    for (final incident in _incidents.state.forTopic(topicName)) {
+    for (final incident in incidents) {
+      if (incident.topic != topicName) continue;
       final opened = incident.openedAt;
       if (opened == null) continue;
       if (last == null || opened.isAfter(last)) last = opened;
