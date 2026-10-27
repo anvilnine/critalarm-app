@@ -28,6 +28,7 @@ class HistoryHero extends StatefulWidget {
   const HistoryHero({
     required this.week,
     required this.isFiltered,
+    this.isBeside = false,
     super.key,
   });
 
@@ -36,6 +37,11 @@ class HistoryHero extends StatefulWidget {
   /// A filter is on. The card then says what the filter matches and makes no
   /// claim about the week.
   final bool isFiltered;
+
+  /// The face at 120 beside the card, overlapping its left edge, instead of
+  /// perched on its corner: the top half of a tabletop fold, too short for
+  /// the face on top of the card.
+  final bool isBeside;
 
   /// The face's width and height on a phone. See [historyHeroFaceSize].
   static const double faceSize = 60;
@@ -128,7 +134,7 @@ class _HistoryHeroState extends State<HistoryHero> {
     final longest = week.longestAnswered;
     final status = _status;
     final size = AppSize.of(context);
-    final faceSize = historyHeroFaceSize(size);
+    final faceSize = historyHeroFaceSize(size, isBeside: widget.isBeside);
     final firstValue = '${week.alarms}${week.mayBeShort ? '+' : ''}';
     final firstCaption = widget.isFiltered
         ? LocaleKeys.history_hero_alarms_filtered.plural(week.alarms)
@@ -198,6 +204,46 @@ class _HistoryHeroState extends State<HistoryHero> {
             ),
     );
 
+    final statusLine = status == null
+        ? null
+        : Semantics(
+            liveRegion: true,
+            child: JumpingText(
+              status,
+              style: AppStage.horizontalSubStyle(colors),
+              gradient: [colors.cobalt, colors.crit, colors.high],
+              wave: _phase == RefreshFacePhase.working,
+            ),
+          );
+
+    if (widget.isBeside) {
+      // The card starts where the face ends, less the overlap, and a little
+      // below the face's top, the way the Topics hero sits beside its card.
+      final cardLeft = 8 + faceSize - HistoryHero.overlap;
+      final cardTop = (faceSize * 0.176).roundToDouble();
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(left: 8, top: 0, child: face),
+          Padding(
+            padding: EdgeInsets.only(left: cardLeft, top: cardTop),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: faceSize - cardTop),
+              child: card,
+            ),
+          ),
+          if (statusLine != null)
+            Positioned(
+              left: cardLeft + 20,
+              right: 8,
+              top: 0,
+              height: cardTop,
+              child: Align(alignment: Alignment.centerLeft, child: statusLine),
+            ),
+        ],
+      );
+    }
+
     final lift = faceSize - HistoryHero.overlap;
     return Stack(
       clipBehavior: Clip.none,
@@ -207,24 +253,13 @@ class _HistoryHeroState extends State<HistoryHero> {
           child: card,
         ),
         Positioned(left: 8, top: 0, child: face),
-        if (status != null)
+        if (statusLine != null)
           Positioned(
             left: 8 + faceSize + 12,
             right: 8,
             top: 0,
             height: lift,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Semantics(
-                liveRegion: true,
-                child: JumpingText(
-                  status,
-                  style: AppStage.horizontalSubStyle(colors),
-                  gradient: [colors.cobalt, colors.crit, colors.high],
-                  wave: _phase == RefreshFacePhase.working,
-                ),
-              ),
-            ),
+            child: Align(alignment: Alignment.centerLeft, child: statusLine),
           ),
       ],
     );
@@ -241,7 +276,11 @@ const double _kDiscDiameter = 340;
 /// on an expanded one, the start pane in book posture), the way the Topics
 /// hero does, so the disc stays behind the face. With [onStage] the hero is
 /// in the fold stage (the top half in tabletop posture).
-HeroDiscSpot historyDiscSpotOf(BuildContext context, {bool onStage = false}) {
+HeroDiscSpot historyDiscSpotOf(
+  BuildContext context, {
+  bool onStage = false,
+  bool isBeside = false,
+}) {
   final screen = MediaQuery.sizeOf(context);
   final padding = MediaQuery.paddingOf(context);
   final fold = AppFold.of(context);
@@ -258,6 +297,7 @@ HeroDiscSpot historyDiscSpotOf(BuildContext context, {bool onStage = false}) {
         panes.first.size,
         isIphone: AppDeviceScope.isIphoneOf(context),
       ),
+      isBeside: isBeside,
     );
     faceTopLeft = spot.origin + const Offset(12 + 8, 0);
   } else {

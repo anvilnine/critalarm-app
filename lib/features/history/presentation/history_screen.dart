@@ -56,9 +56,13 @@ class _HistoryScreenContent extends StatefulWidget {
 }
 
 class _HistoryScreenContentState extends State<_HistoryScreenContent> {
-  /// The incident the person tapped. Null until then, and the pane shows the
-  /// newest one. See [historyPaneEntry].
+  /// The incident the person tapped. Null until then, and the pane shows
+  /// [_openedId]. See [historyPaneEntry].
   String? _pickedId;
+
+  /// The incident the pane opened on while nothing is picked: the newest,
+  /// held while it is listed.
+  String? _openedId;
 
   @override
   Widget build(BuildContext context) {
@@ -82,13 +86,21 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               ? null
               : state.entries.last.startedAt,
         );
-        final selected = historyPaneEntry(state.days, _pickedId);
+        final selected = historyPaneEntry(
+          state.days,
+          _pickedId,
+          openedId: _openedId,
+        );
+        if (_pickedId == null) _openedId = selected?.id;
         final hasDetail = !state.isEmpty;
         // On a fold the hero holds still in its own pane and only the list
         // scrolls. Read off the window: inside the stage the fold is gone.
+        final fold = AppFold.of(context);
         final heroOnStage =
-            hasHero &&
-            heroOnFoldStage(AppFold.of(context), hasDetail: hasDetail);
+            hasHero && heroOnFoldStage(fold, hasDetail: hasDetail);
+        // The top half of a tabletop fold is short: the face goes beside
+        // the card there, at 120, rather than on top of it.
+        final isBeside = heroOnStage && fold.isTabletop;
         // A cover screen trims the room around the hero so two rows fit
         // above the tab bar.
         final isCover = AppSize.of(context).isCover;
@@ -100,7 +112,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
             isCover ? Spacing.s3 : Spacing.s4,
           ),
           child: hasHero
-              ? HistoryHero(week: week, isFiltered: state.filter.isActive)
+              ? HistoryHero(
+                  week: week,
+                  isFiltered: state.filter.isActive,
+                  isBeside: isBeside,
+                )
               : const SizedBox(height: Spacing.s2),
         );
 
@@ -110,7 +126,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           path: '/history',
           profile: AmbientAppProfiles.historyHero(
             context.appColors,
-            spot: historyDiscSpotOf(context, onStage: heroOnStage),
+            spot: historyDiscSpotOf(
+              context,
+              onStage: heroOnStage,
+              isBeside: isBeside,
+            ),
           ),
           child: NotificationListener<ScrollNotification>(
             // Reads the next page off the phone as the list nears its end.
