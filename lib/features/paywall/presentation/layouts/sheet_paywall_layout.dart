@@ -254,14 +254,20 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   /// The width the kit gives the headline: the side insets, and where the
   /// close control would be over it, room for that.
   static double _headlineWidth(BuildContext context) => heroHeadlineWidth(
-    width: MediaQuery.sizeOf(context).width - heroSideInset * 2,
+    width: _columnWidth(context) - heroSideInset * 2,
     endRoom: _headlineEndRoom(context),
   );
+
+  /// The width of the frame's one column: the screen on a phone, centred
+  /// and capped on a tablet (see `paywallColumnWidthFor`). The sheet still
+  /// runs edge to edge, and its words and mascot stand in the column.
+  static double _columnWidth(BuildContext context) =>
+      paywallColumnWidthFor(MediaQuery.sizeOf(context).width);
 
   /// How far from the right edge the headline stops.
   static double _headlineEndRoom(BuildContext context) =>
       sheetHeadlineEndRoomFor(
-        width: MediaQuery.sizeOf(context).width,
+        width: _columnWidth(context),
         textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
       );
 
@@ -361,7 +367,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // the home indicator's inset.
     final bottomInset = math.max(0, media.viewPadding.bottom - Spacing.s3);
     final plan = sheetPlanFor(
-      screenWidth: media.size.width,
+      screenWidth: paywallColumnWidthFor(media.size.width),
       screenHeight: media.size.height,
       topInset: media.viewPadding.top,
       bottomInset: bottomInset.toDouble(),
@@ -385,7 +391,10 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         ? null
         : Positioned(
             top: plan.sheetTop - plan.faceAbove,
-            left: heroSideInset,
+            left:
+                (media.size.width - paywallColumnWidthFor(media.size.width)) /
+                    2 +
+                heroSideInset,
             width: plan.faceSize,
             height: plan.faceSize,
             child: IgnorePointer(
