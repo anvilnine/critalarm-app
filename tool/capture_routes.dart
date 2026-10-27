@@ -62,6 +62,10 @@ const List<CaptureRoute> allScreenRoutes = [
   ('wp5_paywall_reel', '/plans/reel?product=hosted', FaceState.acked, null),
   ('wp5_paywall_wipe', '/plans/wipe?product=hosted', FaceState.acked, null),
   ('wp5_paywall_pro', '/plans/hero?product=pro', FaceState.acked, null),
+  // The topic link on an expanded window opens Home with the topic in the
+  // pane. The calm fixture lists prod-db first, so a pane on nas-backup is
+  // the link's doing.
+  ('wp3_topic_deep_link', '/topics/nas-backup', FaceState.calm, null),
 ];
 
 /// Screens a capture tool reaches by tapping "I'm up" on a ringing alarm:

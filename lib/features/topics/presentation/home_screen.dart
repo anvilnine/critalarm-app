@@ -12,6 +12,7 @@ import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -51,10 +52,12 @@ import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.d
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/home_card_view.dart';
 import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_confetti.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_pass_stack.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -64,6 +67,52 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// A topic `/topics/<name>` asked Home to show in its detail pane. See
+/// [HomePaneHandOff]. Home takes the name and sets this back to null.
+final ValueNotifier<String?> homePaneRequest = ValueNotifier<String?>(null);
+
+/// What `/topics/<name>` draws on an expanded window with no fold: nothing,
+/// on a see-through page with no transition, so Home shows through it. Once
+/// it is the page in front (at once for the topic itself, on the way back
+/// for Messages or Tokens pushed above it) it asks Home for [topicName] in
+/// the detail pane and takes itself off the stack. The topic then opens
+/// beside the list and never as a lone column.
+class HomePaneHandOff extends StatefulWidget {
+  const HomePaneHandOff({required this.topicName, super.key});
+
+  final String topicName;
+
+  @override
+  State<HomePaneHandOff> createState() => _HomePaneHandOffState();
+}
+
+class _HomePaneHandOffState extends State<HomePaneHandOff> {
+  bool _isHandedOver = false;
+
+  void _handOver() {
+    if (!mounted) return;
+    homePaneRequest.value = widget.topicName;
+    // Pop rather than go: a go would drop anything else on the stack.
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      GoRouter.of(context).go('/');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Rebuilds when the page above it goes, so the hand-off waits for that.
+    final isInFront = ModalRoute.of(context)?.isCurrent ?? true;
+    if (isInFront && !_isHandedOver) {
+      _isHandedOver = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handOver());
+    }
+    return const SizedBox.shrink();
+  }
+}
 
 /// HomeScreen matching docs/design-system/index.html mobile mockup.
 class HomeScreen extends StatelessWidget {
@@ -114,7 +163,25 @@ class _HomeScreenContent extends StatefulWidget {
 
 class _HomeScreenContentState extends State<_HomeScreenContent>
     with RouteAware, WidgetsBindingObserver {
+  /// The topic the person picked for the detail pane: a tap, or a link to
+  /// it. Null until then, and the pane shows [_openedTopic]. See
+  /// [paneSelection].
   String? _selectedTopic;
+
+  /// The topic the pane opened on while nothing is picked: the first one,
+  /// held while it is listed so a message on another topic does not move
+  /// the pane. It is not marked read.
+  String? _openedTopic;
+
+  /// Takes a topic a link asked for. See [HomePaneHandOff]. A link does not
+  /// mark the topic read, the same as on a phone: only a tap on its row does.
+  void _takePaneRequest() {
+    final name = homePaneRequest.value;
+    if (name == null) return;
+    homePaneRequest.value = null;
+    if (!mounted) return;
+    setState(() => _selectedTopic = name);
+  }
 
   /// The incident this screen has already handed over for. Kept so backing out
   /// of the alarm screen does not bounce the user straight back into it, while
@@ -221,8 +288,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // The setup checklist hears every guide change, the offer included: it
     // holds still while one is up.
     _guideSetupSub = _guides.stream.listen((_) => _tellSetup());
+    homePaneRequest.addListener(_takePaneRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _takePaneRequest();
       unawaited(_runHomeAsk(isNewOpen: true));
       final lifecycle = WidgetsBinding.instance.lifecycleState;
       _isResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
@@ -387,6 +456,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void dispose() {
     _glowEnds?.cancel();
+    homePaneRequest.removeListener(_takePaneRequest);
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_guideSub?.cancel());
     unawaited(_guideSetupSub?.cancel());
@@ -696,12 +766,20 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           );
     // Book posture shows the pane at any width, tabletop shows none.
     final showsDetail = AppScreenScaffold.showsDetail(context);
-    // A deleted topic leaves the pane pointing at a name the list no
-    // longer has, so the selection is read back off the list every build
-    // rather than trusted.
-    final selected = state.topicItems.any((t) => t.name == _selectedTopic)
-        ? _selectedTopic
-        : null;
+    // The pane opens on the first topic. A deleted topic leaves it pointing
+    // at a name the list no longer has, so the selection is read back off
+    // the list every build rather than trusted.
+    final selected = paneSelection(
+      items: [for (final topic in state.topicItems) topic.name],
+      picked: _selectedTopic,
+      latched: _openedTopic,
+    );
+    if (_selectedTopic == null) _openedTopic = selected;
+    final hasDetail = state.topicItems.isNotEmpty;
+    // On a fold the hero holds still in its own pane and only the list
+    // scrolls. Read off the window: inside the stage the fold is gone.
+    final fold = AppFold.of(context);
+    final heroOnStage = heroOnFoldStage(fold, hasDetail: hasDetail);
 
     final home = context.read<HomeCubit>();
     final now = DateTime.now();
@@ -759,6 +837,17 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           );
     final noticeBar = pinned == null ? null : _pinnedBar(pinned, notice);
 
+    final hero = FeatureGuideAnchor(
+      id: FeatureGuideAnchorId.homeStage,
+      child: _HeroBlock(
+        model: card,
+        glance: _glance,
+        isPane: showsDetail,
+        onAction: showExamples ? null : _onCardAction,
+        onTapBody: showExamples ? null : _openReliability,
+      ),
+    );
+
     final screen = SeverityScope(
       severity: card.severity,
       child: AppScreenScaffold(
@@ -790,7 +879,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           null => null,
         },
-        detail: state.topicItems.isEmpty
+        foldStage: heroOnStage
+            ? FoldStageColumn(
+                children: [
+                  const SizedBox(height: Spacing.s3),
+                  hero,
+                ],
+              )
+            : null,
+        detail: !hasDetail
             ? null
             : (selected == null
                   ? AppEmptyState(
@@ -809,18 +906,14 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: Spacing.s3),
-                FeatureGuideAnchor(
-                  id: FeatureGuideAnchorId.homeStage,
-                  child: _HeroBlock(
-                    model: card,
-                    glance: _glance,
-                    isPane: showsDetail,
-                    onAction: showExamples ? null : _onCardAction,
-                    onTapBody: showExamples ? null : _openReliability,
-                  ),
-                ),
-                const SizedBox(height: Spacing.s4),
+                // On a fold stage the hero is in the other pane, and the
+                // sheet starts at the top of this one.
+                if (!heroOnStage) ...[
+                  const SizedBox(height: Spacing.s3),
+                  hero,
+                  const SizedBox(height: Spacing.s4),
+                ] else
+                  const SizedBox(height: Spacing.s3),
                 // With no server saved there is nothing to list and nothing
                 // to say that the card above is not already saying, so the
                 // sheet does not draw at all. A failed load is said by the
@@ -866,7 +959,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       profile: homeAmbientProfile(
         card,
         context.appColors,
-        spot: heroDiscSpotOf(context),
+        spot: heroOnStage
+            ? foldStageDiscSpotOf(context)
+            : heroDiscSpotOf(context),
       ),
       child: content,
     );
@@ -1138,6 +1233,14 @@ class _HeroBlockState extends State<_HeroBlock> {
     final view = homeCardViewFor(model, now: DateTime.now());
     final action = model.action;
     final onAction = widget.onAction;
+    final runAction = action == null
+        ? null
+        : () => unawaited(onAction?.call(action) ?? Future<void>.value());
+    final onTapBody = model.tapsReliability ? widget.onTapBody : null;
+    // A cover screen keeps the label and the value on one line, so two rows
+    // of the list show above the tab bar. The card's button goes on the
+    // panel itself.
+    final isCover = AppSize.of(context).isCover;
     return AppHeroScene(
       face: model.face,
       tone: view.heroTone,
@@ -1145,23 +1248,41 @@ class _HeroBlockState extends State<_HeroBlock> {
       isLive: view.isLive,
       isPane: widget.isPane,
       glance: widget.glance,
-      card: AppStatusCard(
-        label: view.label,
-        numeral: view.numeral,
-        numeralTone: view.numeralTone,
-        foot: view.foot,
-        footMaxLines: view.footLines,
-        footTone: view.footTone,
-        pips: view.pips,
-        actionLabel: view.actionLabel,
-        onAction: action == null
-            ? null
-            : () => unawaited(onAction?.call(action) ?? Future<void>.value()),
-        onTap: model.tapsReliability ? widget.onTapBody : null,
-        // A clock changes every second, which is no news.
-        popsOnChange: !view.ticks,
-        liveRegion: view.isLive,
-      ),
+      card: isCover
+          ? HeroLinePanel(
+              parts: [
+                HeroLinePart(
+                  value: view.numeral,
+                  words: view.label,
+                  wordsFirst: true,
+                  wordsStyle: HeroLineText.label,
+                  tone: view.numeralTone,
+                ),
+              ],
+              onTap: runAction ?? onTapBody,
+              liveRegion: view.isLive,
+              semanticsLabel: [
+                ?view.label,
+                view.numeral,
+                ?view.foot,
+                ?view.actionLabel,
+              ].join(', '),
+            )
+          : AppStatusCard(
+              label: view.label,
+              numeral: view.numeral,
+              numeralTone: view.numeralTone,
+              foot: view.foot,
+              footMaxLines: view.footLines,
+              footTone: view.footTone,
+              pips: view.pips,
+              actionLabel: view.actionLabel,
+              onAction: runAction,
+              onTap: onTapBody,
+              // A clock changes every second, which is no news.
+              popsOnChange: !view.ticks,
+              liveRegion: view.isLive,
+            ),
     );
   }
 }
