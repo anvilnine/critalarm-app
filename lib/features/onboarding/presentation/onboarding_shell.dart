@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_chapters.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -19,6 +17,7 @@ import 'package:critalarm/features/onboarding/presentation/model/background_conn
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/model/welcome_ambient.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -585,12 +584,14 @@ class _OnboardingShellState extends State<OnboardingShell>
         ? () => unawaited(_goBack())
         : null;
 
-    // The steps keep to a 560 column on a wide window, and the tracker
-    // keeps to it with them. In book posture the tracker is in the start
-    // pane, over the step's face, so it keeps to the window edge.
-    final trackerGutter = AppFold.of(context).isBook
-        ? 0.0
-        : AppSize.of(context).sideGutter;
+    // On a tablet or desktop window the steps sit as one group whose
+    // buttons and words keep to 480, and the tracker starts on that group's
+    // edge. In book posture the tracker is in the start pane, over the
+    // step's face, so it keeps to the window edge.
+    final trackerGutter = trackerGutterFor(
+      ScreenFrame.of(context),
+      width: MediaQuery.sizeOf(context).width,
+    );
 
     return Stack(
       children: [
