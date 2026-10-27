@@ -78,4 +78,20 @@ const List<CaptureTapRoute> tapScreenRoutes = [
     FaceState.acked,
     LocaleKeys.personalize_title,
   ),
+  // WP4: on a phone that lost its server the pane opens on Server, and the
+  // Server page and the Server row read one state (both Disconnected).
+  (
+    'wp4_disconnected_tap_server',
+    '/settings/disconnected',
+    FaceState.calm,
+    LocaleKeys.settings_server_row_title,
+  ),
+  // WP4: Storage opens in the pane and every row value beside it stays as
+  // it was.
+  (
+    'wp4_settings_tap_storage',
+    '/settings',
+    FaceState.acked,
+    LocaleKeys.settings_storage_row_title,
+  ),
 ];
