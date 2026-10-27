@@ -546,11 +546,11 @@ class _HeroSplit extends StatelessWidget {
           rect: geometry.stage,
           window: window,
           child: PaywallSafeArea(
-            // In tabletop posture the card's under-plate keeps clear of
-            // the fold too.
+            // In tabletop posture the card's shadow, which paints below
+            // the card, keeps clear of the fold too.
             child: _maybePadded(
               geometry.kind == PaywallSplitKind.tabletop
-                  ? const EdgeInsets.only(bottom: Spacing.s4)
+                  ? const EdgeInsets.only(bottom: heroCardShadowDepth)
                   : EdgeInsets.zero,
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -612,3 +612,8 @@ Widget _maybePadded(EdgeInsets padding, Widget child) =>
     padding == EdgeInsets.zero
     ? child
     : Padding(padding: padding, child: child);
+
+/// How far below the stage's box the card's shadow paints: its offset (18,
+/// `AppShadows.lightLg`) and a small margin, so a stage that ends on a fold
+/// keeps it off the band.
+const double heroCardShadowDepth = 18 + Spacing.s4;

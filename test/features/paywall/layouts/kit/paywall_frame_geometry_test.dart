@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame_geometry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Fold implements DisplayFeature {
@@ -161,6 +163,92 @@ void main() {
       );
       expect(at(heroPipsRow).stage, at(0).stage);
       expect(at(heroPipsRow).gap, at(0).gap);
+    });
+  });
+
+  group('a layout that does not split', () {
+    PaywallSplit? frameSplit(double w, double h, {Rect? line}) {
+      final window = Size(w, h);
+      return paywallFrameSplitFor(
+        window: window,
+        size: AppSize(w, h),
+        fold: line == null
+            ? AppFold.none
+            : AppFold.fromFeatures([_Fold(line)], window),
+        splits: false,
+      );
+    }
+
+    test('keeps the one column on a phone, a tablet and a wide window', () {
+      expect(frameSplit(390, 844), isNull);
+      expect(frameSplit(834, 1194), isNull);
+      expect(frameSplit(1440, 900), isNull);
+    });
+
+    test('splits on a half-open foldable, as the fold rule wins', () {
+      final book = frameSplit(
+        690,
+        829,
+        line: const Rect.fromLTRB(345, 0, 345, 829),
+      )!;
+      expect(book.kind, PaywallSplitKind.book);
+      expect(book.stage, const Rect.fromLTRB(0, 0, 329, 829));
+      expect(book.offer, const Rect.fromLTRB(361, 0, 690, 829));
+      final tabletop = frameSplit(
+        841,
+        701,
+        line: const Rect.fromLTRB(0, 350, 841, 350),
+      )!;
+      expect(tabletop.kind, PaywallSplitKind.tabletop);
+      expect(tabletop.stage.bottom, 334);
+      expect(tabletop.offer.top, 366);
+    });
+
+    test('a layout that splits splits on a wide window too', () {
+      const window = Size(1440, 900);
+      expect(
+        paywallFrameSplitFor(
+          window: window,
+          size: const AppSize(1440, 900),
+          fold: AppFold.none,
+          splits: true,
+        )!.kind,
+        PaywallSplitKind.wide,
+      );
+    });
+  });
+
+  group('the buy block of the one column', () {
+    test('runs the width of a phone', () {
+      expect(paywallBuyBlockMaxWidthFor(width: 390, padding: 20), isNull);
+      expect(paywallBuyBlockMaxWidthFor(width: 329, padding: 20), isNull);
+    });
+
+    test('stops its plans and Get Cloud at 480 from medium up', () {
+      expect(paywallBuyBlockMaxWidthFor(width: 834, padding: 20), 520);
+      expect(
+        paywallBuyBlockMaxWidthFor(width: 1440, padding: 20)! - 40,
+        AppSize.actionMaxWidth,
+      );
+    });
+
+    test('a style copied with stacked plans keeps every other field', () {
+      const style = PaywallBuyBlockStyle(
+        tone: PaywallTone.surface,
+        showsPicker: false,
+        horizontalPadding: 24,
+        buttonLabel: 'b',
+        note: 'n',
+        showsNote: false,
+      );
+      final rows = style.copyWith(pickerStyle: PaywallPlanPickerStyle.rows);
+      expect(rows.pickerStyle, PaywallPlanPickerStyle.rows);
+      expect(rows.tone, PaywallTone.surface);
+      expect(rows.showsPicker, isFalse);
+      expect(rows.horizontalPadding, 24);
+      expect(rows.buttonLabel, 'b');
+      expect(rows.note, 'n');
+      expect(rows.showsNote, isFalse);
     });
   });
 }

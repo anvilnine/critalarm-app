@@ -142,15 +142,18 @@ class PaywallFrame extends StatelessWidget {
     final background = PaywallToneColors.of(context, tone).background;
     final isDarkBackground =
         ThemeData.estimateBrightnessForColor(background) == Brightness.dark;
-    // A thumbnail draws the phone layout whatever the window is.
-    final split = splits && !PaywallMuted.of(context)
-        ? paywallSplitFor(
-            window: MediaQuery.sizeOf(context),
-            size: AppSize.of(context),
-            fold: AppFold.of(context),
-            direction: Directionality.of(context),
-          )
-        : null;
+    // A thumbnail draws the phone layout whatever the window is. A
+    // layout that does not split still splits on a half-open foldable:
+    // the frame puts the layout's part in one pane and the buy block in
+    // the other, so nothing that reads crosses the fold.
+    final fold = PaywallMuted.of(context) ? AppFold.none : AppFold.of(context);
+    final split = paywallFrameSplitFor(
+      window: MediaQuery.sizeOf(context),
+      size: AppSize.of(context),
+      fold: fold,
+      splits: splits,
+      direction: Directionality.of(context),
+    );
     final body = PaywallFrameBody(
       builder: builder,
       tone: tone,
@@ -161,6 +164,7 @@ class PaywallFrame extends StatelessWidget {
       buyStyle: buyStyle,
       controller: controller,
       split: split,
+      layoutPlacesParts: splits,
       columnMaxHeight: splits ? paywallColumnMaxHeight : null,
     );
 
@@ -171,12 +175,12 @@ class PaywallFrame extends StatelessWidget {
       child: Scaffold(
         backgroundColor: background,
         resizeToAvoidBottomInset: false,
+        // A split body fills the window and keeps the safe areas in each
+        // of its parts.
         body: Stack(
           fit: StackFit.expand,
           children: [
             ?backdrop,
-            // A split body fills the window and keeps the safe areas in
-            // each of its parts.
             if (split != null) body else PaywallSafeArea(child: body),
           ],
         ),
@@ -221,9 +225,16 @@ class PaywallFrameBody extends StatefulWidget {
     this.buyStyle,
     this.controller,
     this.split,
+    this.layoutPlacesParts = true,
     this.columnMaxHeight,
     super.key,
   });
+
+  /// Whether the layout places the parts of a [split] itself (it reads
+  /// `PaywallLayoutScope.split`). False, the frame does: the layout's part
+  /// fills the stage box as it would a phone of that size, and the buy
+  /// block stands centred in the offer box.
+  final bool layoutPlacesParts;
 
   /// The tallest the one column grows from the medium size class up, for a
   /// layout whose words and plans belong together: past it the column
@@ -374,7 +385,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
         isVisible: widget.buyBlockVisible,
         child: PaywallBuyBlock(
           style: split != null && paywallSplitStacksPlans(split)
-              ? _stacked(style)
+              ? style.copyWith(pickerStyle: PaywallPlanPickerStyle.rows)
               : style,
         ),
       ),
@@ -385,7 +396,10 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
           product: offer.product,
           benefits: offer.benefits,
           size: constraints.biggest,
-          isCompact: isCompact,
+          // In a pane, the pane's height says whether it is compact.
+          isCompact: splitScope == null && split != null
+              ? PaywallFrame.isCompactOf(context)
+              : isCompact,
           source: offer.source,
           clock: _clock,
           closeOnLeft: widget.closeOnLeft,
@@ -429,6 +443,28 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
       ),
     );
 
+    if (split != null && !widget.layoutPlacesParts) {
+      final window = MediaQuery.of(context);
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AppFoldPane(
+            rect: split.stage,
+            window: window,
+            child: PaywallSafeArea(child: layout(null)),
+          ),
+          AppFoldPane(
+            rect: split.offer,
+            window: window,
+            child: PaywallSafeArea(
+              child: Center(child: SingleChildScrollView(child: buyBlock)),
+            ),
+          ),
+          cross,
+        ],
+      );
+    }
+
     if (split != null) {
       return Stack(
         clipBehavior: Clip.none,
@@ -468,7 +504,13 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: layout(null)),
-                  buyBlock,
+                  _capped(
+                    paywallBuyBlockMaxWidthFor(
+                      width: constraints.maxWidth,
+                      padding: style.horizontalPadding,
+                    ),
+                    buyBlock,
+                  ),
                 ],
               ),
             ),
@@ -480,18 +522,15 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   }
 }
 
-/// [style] with the plans one card per row.
-PaywallBuyBlockStyle _stacked(PaywallBuyBlockStyle style) =>
-    PaywallBuyBlockStyle(
-      pickerStyle: PaywallPlanPickerStyle.rows,
-      tone: style.tone,
-      buttonVariant: style.buttonVariant,
-      showsPicker: style.showsPicker,
-      horizontalPadding: style.horizontalPadding,
-      buttonLabel: style.buttonLabel,
-      note: style.note,
-      showsNote: style.showsNote,
-    );
+/// [child] centred and at most [maxWidth] wide. Null is [child] as it is.
+Widget _capped(double? maxWidth, Widget child) => maxWidth == null
+    ? child
+    : Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: child,
+        ),
+      );
 
 /// Brings the buy block in. It always takes its room, so nothing above it
 /// moves. Under reduce motion it is simply there.

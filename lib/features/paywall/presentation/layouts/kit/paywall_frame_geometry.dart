@@ -129,11 +129,44 @@ PaywallSplit? paywallSplitFor({
   return PaywallSplit(kind: PaywallSplitKind.wide, stage: stage, offer: offer);
 }
 
+/// The split a frame lays out, or null for the one column.
+///
+/// A layout that [splits] gets `paywallSplitFor`. Every other layout gets
+/// it only on a half-open foldable, where the fold rule wins over the
+/// layout: the frame then puts the layout's own part in the stage box and
+/// the buy block in the offer box. On a wide window such a layout keeps
+/// the one column.
+PaywallSplit? paywallFrameSplitFor({
+  required Size window,
+  required AppSize size,
+  required AppFold fold,
+  required bool splits,
+  TextDirection direction = TextDirection.ltr,
+}) => splits || !fold.isNone
+    ? paywallSplitFor(
+        window: window,
+        size: size,
+        fold: fold,
+        direction: direction,
+      )
+    : null;
+
 /// The width of the one column in a box [width] wide: the whole box on a
 /// phone, [paywallColumnMaxWidth] from the medium size class up.
 double paywallColumnWidthFor(double width) => width >= AppSize.mediumMinWidth
     ? math.min(width, paywallColumnMaxWidth)
     : width;
+
+/// The widest the buy block of the one column grows in a box [width]
+/// wide, with [padding] at each side of its plans and button: none on a
+/// phone, and from the medium size class up the plans and Get Cloud stop at
+/// `AppSize.actionMaxWidth`, as every pinned action in the app does.
+double? paywallBuyBlockMaxWidthFor({
+  required double width,
+  required double padding,
+}) => width >= AppSize.mediumMinWidth
+    ? AppSize.actionMaxWidth + padding * 2
+    : null;
 
 /// The height of the one column in a box [height] tall and [width] wide:
 /// the whole box on a phone, at most [paywallColumnMaxHeight] from the
