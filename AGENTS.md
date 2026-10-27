@@ -1337,7 +1337,9 @@ knows. It is a copy the server replaces on every answer, not an archive.
   of the shared incident list (an alarm the alarm screen applies before the first answer counts)
   and by any change of account (`AccountIdentityChanges`). While rows are still the copy, Home
   (`_reseedFromShared`) and the Topic screen (`_applySharedToCopy`) lay the shared list over it,
-  so a real alarm is never shown as calm. A new reader of stored alarms at launch goes through
+  before the answer and after it while the topic list is still the stored one, so a real alarm is
+  never shown as calm. The Topic screen applies an update that came during its own change when
+  that change ends. A new reader of stored alarms at launch goes through
   `HeldRows`, never through `IncidentsCubit`.
 - Launch cost: `main` skips the `HeldRows` read when the first location is an alarm screen
   (`HeldRows.skipsLaunchAt`), `heldPlanFrom` answers from the plan already read and never waits

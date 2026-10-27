@@ -56,6 +56,31 @@ class _GatedTopics implements TopicRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
+/// Topic updates held back until the test lets them go.
+class _GatedUpdate implements TopicRepository {
+  final gate = Completer<void>();
+
+  @override
+  Future<AppResult<Topic>> updateTopic(
+    String name, {
+    bool? critical,
+    int? repeatIntervalS,
+    int? maxRingS,
+    int? deskTimerS,
+  }) async {
+    await gate.future;
+    return Topic(
+      name: name,
+      critical: critical ?? false,
+      createdAt: _created,
+    ).toSuccess();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
 /// Counts every request that goes to the server per topic.
 class _CountingIncidents extends InMemoryIncidentRepository {
   _CountingIncidents(super._client, this.polled, {super.store});
@@ -504,11 +529,83 @@ void main() {
       final load = cubit.load('ringing');
       expect(cubit.state.openIncidentIds, isEmpty);
 
+      // The first request is out when the alarm screen applies the alarm, so
+      // that request's answer is older than the alarm and is dropped.
+      final firstRequest = incidents.refresh();
       incidents.applyIncident(ringingNow);
       await pumpEventQueue();
+      await firstRequest;
 
+      expect(incidents.state.isReady, isFalse);
       expect(cubit.state.openIncidentIds, ['i-new']);
       expect(cubit.state.severity, SeverityMode.crit);
+
+      gatedTopics.gate.complete();
+      await load;
+    });
+
+    test('the Topic screen shows an alarm the first answer brings while the '
+        'topic list is still a stored one', () async {
+      await storeCalm();
+      // The server has the alarm open and the phone stored it closed.
+      server.seedState(incidents: [ringingNow]);
+      await readPhone();
+      final cubit = TopicDetailCubit(
+        incidents,
+        topics,
+        UpdateTopicUsecase(InMemoryTopicRepository(api)),
+        repo,
+        glances: glances,
+        held: held,
+      );
+      addTearDown(cubit.close);
+
+      final load = cubit.load('ringing');
+      expect(cubit.state.openIncidentIds, isEmpty);
+
+      await incidents.refresh();
+      await pumpEventQueue();
+
+      // The incidents answered and the topic list has not: the full build
+      // waits for the list, and the calm copy must not wait with it.
+      expect(incidents.state.isReady, isTrue);
+      expect(topics.state.isKept, isTrue);
+      expect(cubit.state.openIncidentIds, ['i-new']);
+      expect(cubit.state.severity, SeverityMode.crit);
+
+      gatedTopics.gate.complete();
+      await load;
+      expect(cubit.state.openIncidentIds, ['i-new']);
+    });
+
+    test('an alarm that lands during a change made on the screen is applied '
+        'when the change is over', () async {
+      await storeCalm();
+      await readPhone();
+      final update = _GatedUpdate();
+      final cubit = TopicDetailCubit(
+        incidents,
+        topics,
+        UpdateTopicUsecase(update),
+        repo,
+        glances: glances,
+        held: held,
+      );
+      addTearDown(cubit.close);
+
+      final load = cubit.load('ringing');
+      final toggle = cubit.toggleCriticalDelivery(isCritical: false);
+      final firstRequest = incidents.refresh();
+      incidents.applyIncident(ringingNow);
+      await pumpEventQueue();
+      await firstRequest;
+      // Held while the switch is going through.
+      expect(cubit.state.openIncidentIds, isEmpty);
+
+      update.gate.complete();
+      await toggle;
+      await pumpEventQueue();
+      expect(cubit.state.openIncidentIds, ['i-new']);
 
       gatedTopics.gate.complete();
       await load;
@@ -583,7 +680,11 @@ void main() {
       await readPhone();
       identity.bump();
       expect(held.snapshot, isNull);
-      await pumpEventQueue();
+      // The change starts a refresh of both lists. Let them finish before the
+      // store is closed under them.
+      gatedTopics.gate.complete();
+      await Future.wait([incidents.refresh(), topics.refresh()]);
+      await topics.writesDone;
     });
 
     test('is not taken for a topic list the server already answered', () async {
