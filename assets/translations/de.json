@@ -651,9 +651,9 @@
     "reason_broken": "Etwas ging kaputt",
     "reason_other": "Sonstiges",
     "explain_hint": "Optionale Notiz. Wir können nicht antworten.",
-    "send": "Senden",
+    "send": "Notiz senden",
     "thanks_title": "Danke. Das hilft.",
-    "keeps": "Cloud bleibt bis {date} aktiv."
+    "keeps": "Cloud bleibt bis {date} aktiv. Deine Alarme klingeln weiter."
   },
   "asks": {
     "pro_title": "Cloud ergänzt:",

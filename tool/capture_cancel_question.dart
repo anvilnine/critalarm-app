@@ -22,8 +22,11 @@
 //   --dart-define=OUT=<folder>   where the PNGs go (default build/captures)
 //   --dart-define=ONLY=a,b       only files whose name has one of these parts
 //
-// A capture fails when anything overflows or when the sink did not get what
-// the scene did.
+// A capture fails when anything overflows, when the sink did not get what the
+// scene did, or when a whole-text check fails: the title takes at most two
+// lines, the field sits whole above Send after a pick, the last line is gone
+// while the keyboard is up, and the reasons take three rows at 390 wide and
+// text 1.0.
 //
 // Developer tool.
 // ignore_for_file: avoid_print
@@ -114,6 +117,10 @@ final String _typed = List.filled(
 
 Future<void> _pick(WidgetTester tester) async {
   await _settle(tester);
+  // Where the sheet scrolls, the chip may sit under the fold: reach it as a
+  // person would.
+  await tester.ensureVisible(find.text('Moving to my own server'));
+  await _settle(tester);
   await tester.tap(find.text('Moving to my own server'));
   await _settle(tester);
 }
@@ -193,7 +200,7 @@ final _scenes = <_Scene>[
       await _pick(tester);
       await tester.enterText(find.byType(TextField), 'A dark theme, please.');
       await _settle(tester);
-      await tester.tap(find.text('Send'));
+      await tester.tap(find.text('Send note'));
       await _settle(tester);
     },
     check: (sink) => _expect(
@@ -202,6 +209,76 @@ final _scenes = <_Scene>[
     ),
   ),
 ];
+
+const _reasonLabels = [
+  'Costs too much',
+  'Not using it enough',
+  'Missing a feature',
+  'Something broke',
+  'Moving to my own server',
+  'Other',
+];
+
+/// Checks on what is on screen, beyond "nothing overflowed".
+void _wholeText(
+  WidgetTester tester,
+  _Scene scene,
+  _Phone phone,
+  double scale,
+  double visibleBottom,
+) {
+  // The title takes at most two lines, face above it or not.
+  for (final title in ['What made you cancel?', 'Thanks. That helps.']) {
+    final found = find.text(title);
+    if (found.evaluate().isEmpty) continue;
+    final lines = tester
+        .renderObject<RenderParagraph>(found)
+        .getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: title.length),
+        )
+        .map((box) => box.top.round())
+        .toSet()
+        .length;
+    _expect(lines <= 2, 'the title "$title" takes $lines lines');
+    if (scale >= 1.6) {
+      // The face sits above the title, not beside it.
+      final face = tester.getRect(find.byType(FaceWidget).first);
+      final box = tester.getRect(found);
+      _expect(
+        face.bottom <= box.top + 1,
+        'the face is not above the title at text $scale',
+      );
+    }
+  }
+
+  // The last line steps aside for the keyboard.
+  if (scene.keyboard > 0) {
+    _expect(
+      find.textContaining('Cloud stays on until').evaluate().isEmpty,
+      'the last line shows with the keyboard up',
+    );
+  }
+
+  // After a pick the field is in view without a scroll, whole, above Send.
+  if (scene.name == 'explain') {
+    final field = tester.getRect(find.byType(TextField));
+    final send = tester.getRect(find.text('Send note'));
+    _expect(
+      field.top >= 0 && field.bottom <= send.top,
+      'the field is not whole above Send: ${field.top}..${field.bottom}, '
+      'Send at ${send.top}',
+    );
+  }
+
+  // Six reasons in three rows on a 390 phone at text 1.0.
+  if (scene.name == 'question' && phone.name == '390' && scale == 1.0) {
+    final rows = {
+      for (final label in _reasonLabels)
+        tester.getRect(find.text(label)).top.round(),
+    };
+    _expect(rows.length == 3, 'the reasons take ${rows.length} rows, not 3');
+  }
+}
 
 bool _wanted(String name) =>
     _only.isEmpty || _only.split(',').any(name.contains);
@@ -305,6 +382,7 @@ void main() {
             '"$text" is cut: ${box.top}..${box.bottom} of $visibleBottom',
           );
         }
+        _wholeText(tester, scene, phone, scale, visibleBottom);
         scene.check?.call(sink);
 
         await tester.runAsync(() async {
