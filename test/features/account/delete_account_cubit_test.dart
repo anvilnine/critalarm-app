@@ -1,6 +1,5 @@
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/held_account_scope.dart';
-import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_exception.dart';
@@ -192,7 +191,6 @@ final class _Harness {
       factory: databaseFactoryFfi,
       path: inMemoryDatabasePath,
       scope: heldScope.call,
-      identityChanges: AccountIdentityChanges(),
     );
     addTearDown(archive.close);
     await archive.incidents.upsertAll([

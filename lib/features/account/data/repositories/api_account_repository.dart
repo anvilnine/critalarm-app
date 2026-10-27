@@ -54,8 +54,7 @@ final class ApiAccountRepository implements AccountRepository {
   final Future<void> Function(String? accountId)? forgetDeletedAccountData;
 
   /// The account this phone is on now: the one the person signed in to, or
-  /// the device's own. A delete reads it before anything is signed out, so the
-  /// archive of the account that went is the one removed.
+  /// the device's own.
   final Future<String?> Function()? readAccountId;
 
   /// Called with the account folded away and the one it went into once the
@@ -81,12 +80,6 @@ final class ApiAccountRepository implements AccountRepository {
   /// credential answers 401, so several of them can ask for a recovery at
   /// once, and two recoveries racing would register twice.
   bool _recovering = false;
-
-  /// The account a delete is about, read when the delete started. A delete
-  /// that is refused as unauthorized signs the person in again and sends it a
-  /// second time, and by then the sign-in is gone, so the phone no longer
-  /// names that account. Held across that one retry only.
-  String? _deleting;
 
   @override
   Future<AccountLinkResult> link(
@@ -172,37 +165,23 @@ final class ApiAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
-    if (_deleting == null) {
-      try {
-        _deleting = await readAccountId?.call();
-      } on Object catch (_) {}
-    }
-    final AccountDeleteResult result;
-    try {
-      result = await api.deleteAccount(identityToken: identityToken);
-    } on Object {
-      _deleting = null;
-      rethrow;
-    }
-    // Kept only while a delete went through, or a retry is about to follow a
-    // refused one. Any other answer ends the attempt.
-    final retryFollows =
-        result is AccountDeleteUnauthorized && identityToken != null;
-    if (result is! AccountDeleted && !retryFollows) _deleting = null;
-    return result;
-  }
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) =>
+      api.deleteAccount(identityToken: identityToken);
 
   @override
-  Future<void> wipeAfterDelete() {
-    final deleted = _deleting;
-    _deleting = null;
+  Future<void> wipeAfterDelete({String? accountId}) async {
     final forgetDeleted = forgetDeletedAccountData;
-    return _wipe(
-      forget: forgetDeleted == null
-          ? forgetAccountData
-          : () => forgetDeleted(deleted),
-    );
+    if (forgetDeleted == null) return _wipe(forget: forgetAccountData);
+    // The caller names the account it asked the server to delete. Only when
+    // it could not (nobody was signed in) is it read here, and then nothing
+    // has changed the phone's account since the delete went out.
+    var deleted = accountId;
+    if (deleted == null) {
+      try {
+        deleted = await readAccountId?.call();
+      } on Object catch (_) {}
+    }
+    return _wipe(forget: () => forgetDeleted(deleted));
   }
 
   Future<void> _wipe({required Future<void> Function()? forget}) async {

@@ -109,11 +109,9 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     this._getIncidents, {
     this.badge,
     Future<void> Function(Incident incident)? saveIncident,
-    bool Function(String incidentId)? isLeftBehind,
     DateTime Function()? now,
     AccountIdentityChanges? identityChanges,
   }) : _saveIncident = saveIncident ?? _noopSave,
-       _isLeftBehind = isLeftBehind ?? _neverLeftBehind,
        _now = now ?? DateTime.now,
        _identityChanges = identityChanges ?? appAccountIdentityChanges,
        super(const IncidentsState()) {
@@ -121,8 +119,6 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   }
 
   static Future<void> _noopSave(Incident incident) async {}
-
-  static bool _neverLeftBehind(String incidentId) => false;
 
   /// How many incidents the shared list asks for.
   ///
@@ -137,11 +133,6 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   /// Writes an incident the caller already has fresh into the phone's own
   /// copy, so every path that updates the shared list also updates the store.
   final Future<void> Function(Incident incident) _saveIncident;
-
-  /// True for an incident whose answer came back after the account changed.
-  /// It belongs to the account that asked, so it is not drawn here and not
-  /// stored, whatever caller hands it in.
-  final bool Function(String incidentId) _isLeftBehind;
 
   /// The number on the app icon. Optional so a test can build the cubit
   /// without a platform channel behind it.
@@ -207,10 +198,8 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   /// One incident, for a caller that only has one.
   void applyIncident(Incident incident) => applyIncidents([incident]);
 
-  void _apply(Iterable<Incident> handed, {required bool save}) {
-    if (isClosed) return;
-    final incidents = handed.where((i) => !_isLeftBehind(i.id)).toList();
-    if (incidents.isEmpty) return;
+  void _apply(Iterable<Incident> incidents, {required bool save}) {
+    if (isClosed || incidents.isEmpty) return;
     final order = IncidentUpdateOrder(_now());
     if (!_order.accepts(order)) return;
     _order = order;

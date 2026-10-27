@@ -1269,18 +1269,28 @@ knows. It is a copy the server replaces on every answer, not an archive.
   (`AccountData.forgetDeleted`, called by `wipeAfterDelete` only; a dead credential and a sign-out
   call `forget`). A connect to a different server (`clearServerData`) and the auto-delete setting
   cover every scope.
-- Archive writes use a ticket (`beginWrite`, `ArchiveScope` in `lib/core/store/archive_scope.dart`)
-  taken before the request or event the data came from. A write is stored only when the account
-  has not changed since, the identity bell (`AccountIdentityChanges`) has not sounded, and the
-  scope is known. The check runs inside the write's transaction, and every delete or merge
-  invalidates open tickets first, so a late write cannot bring deleted rows back. Otherwise the
-  write is dropped and never stored under the next account. Alarms are received, sounded and
-  acknowledged before and without this, so a dropped write costs a row and nothing else. The next
-  sync fetches the incident again.
-- An answer to an acknowledge, a close or a lookup that comes back after the account changed
-  belongs to the account that asked. `InMemoryIncidentRepository` marks it
-  (`isLeftBehind`), and `IncidentsCubit` neither draws nor stores a marked incident, whichever
-  caller hands it in. A list read that returns the incident again clears the mark.
+- Every answer that carries incidents or messages is checked against the account that asked.
+  `ScopedApiClient` (`lib/core/api/scoped_api_client.dart`, wraps `HttpApiClient` in `di.dart`)
+  reads the scope (`HeldAccountScope`, server and account) when `getIncidents`, `getIncident`,
+  `ackIncident`, `closeIncident`, `publishMessage` or `pollMessages` starts and again when the
+  answer or the error arrives. If the two differ it throws `StaleAccountException`. Only the
+  scopes are compared, so a sign-in, a purchase or a connect that leaves the account as it was
+  changes nothing, and an account that was left and came back keeps its answer. Every caller
+  treats the exception as "nothing happened": the repository hands back what the phone holds
+  for the account it is on (lists, polls) or a failure (single incidents), the ack queue counts
+  the send as done, and the alarm controller, the first message watcher and the message sync
+  skip the item. A new direct read of those routes belongs on this client, never on
+  `HttpApiClient`.
+- Archive writes use a ticket as a second guard (`beginWrite`, `ArchiveScope` in
+  `lib/core/store/archive_scope.dart`) taken before the request or event the data came from.
+  The write is stored under the scope it started with, and only when the phone is still on that
+  scope. The check runs inside the write's transaction, and every delete or merge invalidates
+  open tickets first, so a late write cannot bring deleted rows back. Otherwise the write is
+  dropped and never stored under the next account. Alarms are received, sounded and
+  acknowledged before and without this, so a dropped write costs a row and nothing else. The
+  next sync fetches the incident again.
+- `AccountCubit.deleteAccount` reads the account it is deleting at the start and passes it to
+  `wipeAfterDelete(accountId:)`. The repository holds no state about it.
 - The upgrade to version 4 stamps every existing incident and message with the scope the phone
   is on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
   database). A file whose tables already have the column is left as it is. With no saved server

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/app/held_account_scope.dart';
@@ -16,6 +17,7 @@ import 'package:critalarm/features/account/data/repositories/api_account_reposit
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
+import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_state.dart';
@@ -32,12 +34,20 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 const _server = 'https://server.example';
 
 final class _Sheets implements ProviderSignIn {
+  /// Set to make the next sheet come back cancelled.
+  bool cancelNext = false;
+
   @override
   bool supports(IdentityProvider provider) => true;
 
   @override
-  Future<ProviderCredential> signIn(IdentityProvider provider) async =>
-      const ProviderCredential(idToken: 'google_id_token');
+  Future<ProviderCredential> signIn(IdentityProvider provider) async {
+    if (cancelNext) {
+      cancelNext = false;
+      throw const IdentitySignInCancelled();
+    }
+    return const ProviderCredential(idToken: 'google_id_token');
+  }
 
   @override
   Future<void> signOut() async {}
@@ -75,9 +85,16 @@ final class _ScriptedApi extends MockApiClient {
     required String intoAccount,
   }) async => merges.removeAt(0);
 
+  /// One entry per delete call, in order; a non-null one holds that call open
+  /// until the test completes it.
+  final deleteGates = <Completer<void>?>[];
+
   @override
-  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async =>
-      deletes.removeAt(0);
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
+    final gate = deleteGates.isEmpty ? null : deleteGates.removeAt(0);
+    if (gate != null) await gate.future;
+    return deletes.removeAt(0);
+  }
 
   @override
   Future<AccountSwitchResult> switchAccount({
@@ -98,6 +115,8 @@ final class _Phone {
   late final _ScriptedApi api;
   late final HttpIdentityRepository identities;
   late final AccountCubit cubit;
+  late final _Sheets sheets;
+  late final ApiAccountRepository account;
 
   Future<void> start({String? databasePath, bool open = true}) async {
     SharedPreferences.setMockInitialValues({});
@@ -128,7 +147,6 @@ final class _Phone {
         factory: databaseFactoryFfi,
         path: databasePath ?? inMemoryDatabasePath,
         scope: scope.call,
-        identityChanges: changes,
       );
       addTearDown(store.close);
     }
@@ -160,12 +178,12 @@ final class _Phone {
       ),
       sessions: sessions,
       prefs: prefs,
-      providers: _Sheets(),
+      providers: sheets = _Sheets(),
       tokens: PrefsIdentityTokenStore(prefs),
       identityChanges: changes,
     );
     if (!open) return;
-    final account = ApiAccountRepository(
+    account = ApiAccountRepository(
       api: api,
       sessions: sessions,
       devices: devices,
@@ -401,6 +419,98 @@ void main() {
       expect(await phone.rowsOf('acc_anon'), 1);
     });
 
+    // A delete that ends without wiping must leave nothing behind that a
+    // later delete of another account could read.
+    Future<void> deleteAnotherAccountLater(
+      _Phone phone, {
+      AccountCubit? using,
+    }) async {
+      phone.api
+        ..links.add(const AccountLinkResult.claimed(accountId: 'acc_y'))
+        ..deletes.add(const AccountDeleteResult.deleted());
+      await phone.seed('acc_y', 'y_old');
+      final cubit = using ?? phone.cubit;
+      await cubit.signIn(IdentityProvider.google);
+      expect(await phone.visible(), ['y_old']);
+
+      await cubit.deleteAccount();
+
+      expect(cubit.state.status, AccountStatus.deleted);
+      expect(await phone.rowsOf('acc_y'), 0);
+      // The first account is signed out here, still on the server, and its
+      // history stays.
+      expect(await phone.rowsOf('acc_x'), 1);
+    }
+
+    test('a delete whose sign-in again was cancelled leaves nothing for a '
+        'later delete to wipe', () async {
+      final phone = _Phone();
+      await phone.start();
+      await phone.seed('acc_x', 'x_old');
+      phone.api
+        ..links.add(const AccountLinkResult.claimed(accountId: 'acc_x'))
+        ..deletes.add(const AccountDeleteResult.unauthorized());
+      await phone.cubit.signIn(IdentityProvider.google);
+      phone.sheets.cancelNext = true;
+
+      await phone.cubit.deleteAccount();
+
+      expect(phone.cubit.state.errorMessage, isNotNull);
+      expect(await phone.rowsOf('acc_x'), 1);
+      await deleteAnotherAccountLater(phone);
+    });
+
+    test('a delete refused as unauthorized twice leaves nothing for a later '
+        'delete to wipe', () async {
+      final phone = _Phone();
+      await phone.start();
+      await phone.seed('acc_x', 'x_old');
+      phone.api
+        ..links.add(const AccountLinkResult.claimed(accountId: 'acc_x'))
+        ..deletes.addAll(const [
+          AccountDeleteResult.unauthorized(),
+          AccountDeleteResult.unauthorized(),
+        ]);
+      await phone.cubit.signIn(IdentityProvider.google);
+
+      await phone.cubit.deleteAccount();
+
+      expect(phone.cubit.state.errorMessage, isNotNull);
+      expect(await phone.rowsOf('acc_x'), 1);
+      await deleteAnotherAccountLater(phone);
+    });
+
+    test('a delete whose screen went away mid-way leaves nothing for a later '
+        'delete to wipe', () async {
+      final phone = _Phone();
+      await phone.start();
+      await phone.seed('acc_x', 'x_old');
+      final gate = Completer<void>();
+      phone.api
+        ..links.add(const AccountLinkResult.claimed(accountId: 'acc_x'))
+        ..deletes.addAll(const [
+          AccountDeleteResult.unauthorized(),
+          AccountDeleteResult.deleted(),
+        ])
+        ..deleteGates.addAll([null, gate]);
+      await phone.cubit.signIn(IdentityProvider.google);
+
+      final deleting = phone.cubit.deleteAccount();
+      await pumpEventQueue();
+      await phone.cubit.close();
+      gate.complete();
+      await deleting;
+
+      // The cubit was closed before it could wipe, so nothing was wiped.
+      expect(await phone.rowsOf('acc_x'), 1);
+      final next = AccountCubit(
+        identities: phone.identities,
+        account: phone.account,
+      );
+      addTearDown(next.close);
+      await deleteAnotherAccountLater(phone, using: next);
+    });
+
     test(
       'a file from before scopes keeps its history for the account the '
       'person signed in to, though the device has not registered it yet',
@@ -466,7 +576,6 @@ void main() {
           factory: databaseFactoryFfi,
           path: path,
           scope: phone.scope.call,
-          identityChanges: AccountIdentityChanges(),
         );
         addTearDown(phone.store.close);
 

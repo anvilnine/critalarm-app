@@ -5,6 +5,7 @@ import 'package:critalarm/core/ack/ack_queue_entry.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -173,6 +174,11 @@ final class AckQueue {
         case AckAction.close:
           await _api.closeIncident(entry.incidentId);
       }
+      return _SendOutcome.done;
+    } on StaleAccountException {
+      // The request went out and the server took it. The answer came after
+      // the phone moved to another account, and there is nothing in it to
+      // keep or to send again.
       return _SendOutcome.done;
     } on ApiException catch (error) {
       // 409 means the incident already moved on, so the send has nothing left
