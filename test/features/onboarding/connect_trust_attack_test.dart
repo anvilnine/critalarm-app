@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -26,9 +27,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_device_keychain.dart';
 
-/// Attack tests for the connect checks. Every test here is written to fail
-/// while the hole it names is open. Same harness as connect_trust_test.dart:
-/// the real use cases, stores and HTTP client over a fake network.
+/// Where the phone's credentials go when a connect or a registration meets
+/// a server or a relay it did not choose before. Same harness as
+/// connect_trust_test.dart: the real use cases, stores and HTTP client over
+/// a fake network.
 
 const _home = 'https://alarm.example.com';
 const _homeRelay = 'https://relay.example.com';
@@ -123,6 +125,23 @@ final class _Phone {
     for (final key in prefs.getKeys().toList()..sort()) key: prefs.get(key),
   };
 
+  /// The relay and the token the native weekly check receipt pairs: the
+  /// relay of the saved session, and the device token, sent only when its
+  /// issuer (the hosted relay when none is written down) is that relay.
+  Future<void> expectNativePairingSafe() async {
+    final session = await sessions.read();
+    final held = await identity.read();
+    final token = held?.deviceToken;
+    if (session == null || token == null) return;
+    final issuer = held?.tokenRelay ?? hostedRelayUrl;
+    expect(
+      ServerInfoValidation.isSameAddress(issuer, session.relayUri.toString()),
+      isTrue,
+      reason:
+          'the session names ${session.relayUri} beside a token from $issuer',
+    );
+  }
+
   List<http.Request> carrying(String secret) => [
     for (final request in requests)
       if (request.url.toString().contains(secret) ||
@@ -139,6 +158,7 @@ final class _Phone {
     getServerInfo: GetServerInfoUsecase(InMemoryServerRepository(client)),
     establishSession: establish,
     saveConnectionUsecase: SaveConnectionUsecase(connections),
+    connectionRepository: connections,
   );
 }
 
@@ -249,7 +269,7 @@ void main() {
       });
     });
 
-    test('Settings > Edit server, the same hosted answer never gets the '
+    test('Settings > Edit server does not hand the same hosted answer the '
         'device token either', () async {
       final phone = await _phone({
         'GET $_evil/v1/info': (_) =>
@@ -446,7 +466,7 @@ void main() {
   group('a relay credential with no issuer written down', () {
     test('typed by hand on a phone whose device token has no recorded '
         'issuer and no session, a self-hosted server with a relay of its '
-        'own never gets the token', () async {
+        'own does not get the token', () async {
       final phone = await _phone(
         {
           'GET $_evil/v1/info': (_) =>
@@ -480,7 +500,7 @@ void main() {
     });
 
     test('a link on an iPhone that holds a synced join token and no device '
-        'token never sends the join token to the relay the link server '
+        'token does not send the join token to the relay the link server '
         'names', () async {
       final keychain = FakeDeviceKeychain()
         ..install()
@@ -527,7 +547,7 @@ void main() {
     });
 
     test('a link on an iPhone still carrying the old shared device row '
-        "never sends that row's device token to the relay the link "
+        "does not send that row's device token to the relay the link "
         'server names', () async {
       final keychain = FakeDeviceKeychain()
         ..install()
@@ -611,6 +631,227 @@ void main() {
         ['DELETE $hostedRelayUrl/relay/v1/devices/dev_shared'],
       );
       expect(keychain.device?['retired_device_id'], isNull);
+    });
+  });
+
+  group('a phone with no saved server', () {
+    test(
+      'typed by hand, a server that says it is hosted and names the '
+      'hosted relay does not get the device token from before the update',
+      () async {
+        final phone = await _phone(
+          {
+            'GET $_evil/v1/info': (_) =>
+                _info(baseUrl: _evil, relayUrl: hostedRelayUrl, mode: 'hosted'),
+            'PATCH $hostedRelayUrl/relay/v1/devices/dev_this_phone': (_) =>
+                _refreshed('acc_home'),
+            'POST $hostedRelayUrl/relay/v1/devices': (_) => _registered(),
+            'GET $_evil/v1/topics': (_) => _json(<dynamic>[]),
+          },
+          isConnected: false,
+          saved: {
+            'device_id': 'dev_this_phone',
+            'device_token': _deviceToken,
+            'account_id': 'acc_home',
+          },
+        );
+
+        final outcome = await phone.connect(serverUrl: _evil, adminToken: '');
+        try {
+          await phone.client.getTopics();
+        } on Object catch (_) {}
+
+        expect(phone.carrying(_deviceToken), isEmpty);
+        // It registered as a new device, and that token is what the server
+        // holds.
+        expect(outcome, isA<Connected>());
+        expect(
+          (await phone.sessions.read())?.managementCredential,
+          'dv_from_this_relay',
+        );
+        expect(phone.prefs.getString('device_id'), isNot('dev_this_phone'));
+        await phone.expectNativePairingSafe();
+      },
+    );
+
+    test('the same on an iPhone reinstalled with its Keychain, and the '
+        'synced join token does not reach that server either', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedAccount(accountId: 'acc_cloud', joinToken: _joinToken)
+        ..seedDevice(
+          deviceId: 'dev_this_phone',
+          deviceToken: _deviceToken,
+          accountId: 'acc_cloud',
+        );
+      addTearDown(keychain.remove);
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: hostedRelayUrl, mode: 'hosted'),
+          'PATCH $hostedRelayUrl/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_cloud'),
+          'POST $hostedRelayUrl/relay/v1/devices': (_) => _registered(),
+          'GET $_evil/v1/topics': (_) => _json(<dynamic>[]),
+        },
+        isConnected: false,
+        useKeychain: true,
+      );
+
+      await phone.connect(serverUrl: _evil, adminToken: '');
+      try {
+        await phone.client.getTopics();
+      } on Object catch (_) {}
+
+      expect(phone.carrying(_deviceToken), isEmpty);
+      expect(phone.carrying(_joinToken), isEmpty);
+      expect(keychain.account, {
+        'account_id': 'acc_cloud',
+        'account_join_token': _joinToken,
+      });
+      await phone.expectNativePairingSafe();
+    });
+
+    test('a link to a self-hosted server with a relay of its own drops the '
+        'device token from before the update at once, so the saved relay is '
+        'never paired with it', () async {
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: _evilRelay),
+          'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
+        },
+        isConnected: false,
+        saved: {
+          'device_id': 'dev_this_phone',
+          'device_token': _deviceToken,
+          'account_id': 'acc_home',
+        },
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _evil,
+        adminToken: 'x',
+        pinToAddress: true,
+      );
+
+      expect(outcome, isA<Connected>());
+      expect(phone.prefs.getString('device_token'), isNull);
+      expect(phone.carrying(_deviceToken), isEmpty);
+      await phone.expectNativePairingSafe();
+    });
+
+    test('the same on an iPhone: the Keychain device item holds no token '
+        'once the connect lands', () async {
+      final keychain = FakeDeviceKeychain()
+        ..install()
+        ..seedDevice(
+          deviceId: 'dev_this_phone',
+          deviceToken: _deviceToken,
+          accountId: 'acc_cloud',
+        );
+      addTearDown(keychain.remove);
+      final phone = await _phone(
+        {
+          'GET $_evil/v1/info': (_) =>
+              _info(baseUrl: _evil, relayUrl: _evilRelay),
+          'GET $_evil/v1/incidents': (_) => _json(<dynamic>[]),
+        },
+        isConnected: false,
+        useKeychain: true,
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _evil,
+        adminToken: 'x',
+        pinToAddress: true,
+      );
+
+      expect(outcome, isA<Connected>());
+      expect(keychain.device?['device_token'], isNull);
+      expect(keychain.device?['device_id'], isNot('dev_this_phone'));
+      await phone.expectNativePairingSafe();
+    });
+
+    test('a token that records the hosted relay connects to a self-hosted '
+        'server with a relay of its own, starting fresh there', () async {
+      final phone = await _phone(
+        {
+          'GET $_home/v1/info': (_) =>
+              _info(baseUrl: _home, relayUrl: _homeRelay),
+          'GET $_home/v1/incidents': (_) => _json(<dynamic>[]),
+          'POST $_homeRelay/relay/v1/devices': (_) => _registered(),
+        },
+        isConnected: false,
+        saved: {
+          'device_id': 'dev_this_phone',
+          'device_token': _deviceToken,
+          'device_token_relay': hostedRelayUrl,
+          'device_token_server': hostedServerUrl,
+          'account_id': 'acc_cloud',
+        },
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: _home,
+        adminToken: _adminToken,
+      );
+      await phone.register(appVersion: '1.0.0');
+
+      expect(outcome, isA<Connected>());
+      expect(phone.carrying(_deviceToken), isEmpty);
+      expect(phone.prefs.getString('device_token'), 'dv_from_this_relay');
+      expect(phone.prefs.getString('device_token_relay'), _homeRelay);
+      await phone.expectNativePairingSafe();
+    });
+  });
+
+  group('Settings > Edit server form', () {
+    test('on a hosted server is not filled with the device token', () async {
+      final phone = await _phone(const {}, saved: _onCloud);
+      final settings = phone.settings();
+      addTearDown(settings.close);
+
+      await settings.load();
+
+      expect(settings.state.isConnected, isTrue);
+      expect(settings.state.adminToken ?? '', isEmpty);
+      expect('${settings.state}', isNot(contains(_deviceToken)));
+    });
+
+    test('after a connect to a hosted server is not filled with the new '
+        'device token', () async {
+      final phone = await _phone(
+        {
+          'GET $hostedServerUrl/v1/info': (_) => _info(
+            baseUrl: hostedServerUrl,
+            relayUrl: hostedRelayUrl,
+            mode: 'hosted',
+          ),
+          'POST $hostedRelayUrl/relay/v1/devices': (_) => _registered(),
+        },
+        isConnected: false,
+      );
+      final settings = phone.settings();
+      addTearDown(settings.close);
+
+      final outcome = await settings.saveConnection(
+        serverUrl: hostedServerUrl,
+        adminToken: '',
+      );
+
+      expect(outcome, isA<Connected>());
+      expect(settings.state.adminToken ?? '', isEmpty);
+    });
+
+    test('on a self-hosted server is filled with the admin token', () async {
+      final phone = await _phone(const {});
+      final settings = phone.settings();
+      addTearDown(settings.close);
+
+      await settings.load();
+
+      expect(settings.state.adminToken, _adminToken);
     });
   });
 }

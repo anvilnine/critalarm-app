@@ -125,14 +125,12 @@ void main() {
       required String server,
       String? token = 'dv_1',
       String? recorded,
-      Uri? session,
     }) => deviceTokenServerTrust(
       identity: DeviceIdentity(
         deviceId: 'dev_1',
         deviceToken: token,
         tokenServer: recorded,
       ),
-      sessionServer: session,
       server: Uri.parse(server),
     );
 
@@ -147,22 +145,35 @@ void main() {
       );
     });
 
-    test('with none saved, is the server of the saved session', () {
-      expect(
-        serverTrust(session: cloud, server: '$cloud'),
-        DeviceTokenRelayTrust.issuer,
-      );
-      expect(
-        serverTrust(session: cloud, server: 'https://evil.example.net'),
-        DeviceTokenRelayTrust.otherRelay,
-      );
+    test('with none saved, is the hosted server', () {
+      for (final written in [
+        hostedServerUrl,
+        'https://api.critalarm.app/',
+        'HTTPS://API.critalarm.app:443',
+      ]) {
+        expect(
+          serverTrust(server: written),
+          DeviceTokenRelayTrust.issuer,
+          reason: written,
+        );
+      }
     });
 
-    test('with none saved and no session, is not known', () {
-      expect(
-        serverTrust(server: '$cloud'),
-        DeviceTokenRelayTrust.unknownIssuer,
-      );
+    test('with none saved, every other server is not its server', () {
+      for (final written in [
+        '$cloud',
+        'https://evil.example.net',
+        'http://api.critalarm.app',
+        'https://api.critalarm.app.',
+        'https://api.critalarm.app.evil.example.net',
+        'https://user@api.critalarm.app',
+      ]) {
+        expect(
+          serverTrust(server: written),
+          DeviceTokenRelayTrust.unknownIssuer,
+          reason: written,
+        );
+      }
     });
 
     test('a phone with no token is bound to nothing', () {

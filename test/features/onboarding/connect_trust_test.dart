@@ -478,6 +478,38 @@ void main() {
         'the token it holds', () async {
       final phone = await _connectedPhone(
         {
+          'GET $hostedServerUrl/v1/info': (_) => _info(
+            baseUrl: hostedServerUrl,
+            relayUrl: _homeRelay,
+            mode: 'hosted',
+          ),
+          'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
+              _refreshed('acc_home'),
+        },
+        saved: {
+          'api_session': '$hostedServerUrl|$_homeRelay|hosted|$_deviceToken',
+          'server_url': hostedServerUrl,
+          'admin_token': _deviceToken,
+        },
+      );
+
+      final outcome = await phone.connect(
+        serverUrl: '$hostedServerUrl/',
+        adminToken: '',
+      );
+
+      expect(outcome, isA<Connected>());
+      expect(phone.carrying(_deviceToken).map((r) => r.url.origin), [
+        _homeRelay,
+      ]);
+      expect(phone.prefs.getString('device_token_server'), hostedServerUrl);
+    });
+
+    test('a phone on another hosted server whose token has no server '
+        'written down does not hand that server the token, and keeps its '
+        'connection', () async {
+      final phone = await _connectedPhone(
+        {
           'GET $_other/v1/info': (_) =>
               _info(baseUrl: _other, relayUrl: _homeRelay, mode: 'hosted'),
           'PATCH $_homeRelay/relay/v1/devices/dev_this_phone': (_) =>
@@ -489,25 +521,24 @@ void main() {
           'admin_token': _deviceToken,
         },
       );
+      final before = phone.stores;
 
-      final outcome = await phone.connect(
-        serverUrl: '$_other/',
-        adminToken: '',
-      );
+      final outcome = await phone.connect(serverUrl: _other, adminToken: '');
 
-      expect(outcome, isA<Connected>());
-      expect(phone.carrying(_deviceToken).map((r) => r.url.origin), [
-        _homeRelay,
-      ]);
-      expect(phone.prefs.getString('device_token_server'), _other);
+      expect(outcome, isA<RegisteredElsewhere>());
+      expect(phone.requests.where((r) => r.method != 'GET'), isEmpty);
+      expect(phone.stores, before);
     });
 
     test('a phone that moves from a hosted server to its own and back keeps '
         'its token and its account', () async {
       final phone = await _connectedPhone(
         {
-          'GET $_other/v1/info': (_) =>
-              _info(baseUrl: _other, relayUrl: hostedRelayUrl, mode: 'hosted'),
+          'GET $hostedServerUrl/v1/info': (_) => _info(
+            baseUrl: hostedServerUrl,
+            relayUrl: hostedRelayUrl,
+            mode: 'hosted',
+          ),
           'GET $_home/v1/info': (_) =>
               _info(baseUrl: _home, relayUrl: hostedRelayUrl),
           'GET $_home/v1/incidents': (_) => _json(<dynamic>[]),
@@ -515,8 +546,9 @@ void main() {
               _refreshed('acc_home'),
         },
         saved: {
-          'api_session': '$_other|$hostedRelayUrl|hosted|$_deviceToken',
-          'server_url': _other,
+          'api_session':
+              '$hostedServerUrl|$hostedRelayUrl|hosted|$_deviceToken',
+          'server_url': hostedServerUrl,
           'admin_token': _deviceToken,
         },
       );
@@ -528,20 +560,23 @@ void main() {
         await phone.connect(serverUrl: _home, adminToken: _adminToken),
         isA<Connected>(),
       );
-      expect(phone.prefs.getString('device_token_server'), _other);
+      // Neither is written down while the phone is on its own server: a
+      // token with none counts as the hosted server's and relay's.
+      expect(phone.prefs.getString('device_token_server'), isNull);
       // Its relay stays unwritten: one with none counts as the hosted one.
       expect(phone.prefs.getString('device_token_relay'), isNull);
       expect(
-        await phone.connect(serverUrl: _other, adminToken: ''),
+        await phone.connect(serverUrl: hostedServerUrl, adminToken: ''),
         isA<Connected>(),
       );
 
       expect(phone.prefs.getString('device_token'), _deviceToken);
       expect(phone.prefs.getString('account_id'), 'acc_home');
       expect(phone.prefs.getString('device_token_relay'), hostedRelayUrl);
+      expect(phone.prefs.getString('device_token_server'), hostedServerUrl);
       expect(
         phone.prefs.getString('api_session'),
-        '$_other|$hostedRelayUrl|hosted|$_deviceToken',
+        '$hostedServerUrl|$hostedRelayUrl|hosted|$_deviceToken',
       );
     });
   });

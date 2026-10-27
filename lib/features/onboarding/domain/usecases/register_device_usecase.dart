@@ -1,6 +1,7 @@
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/push/device_token_relay.dart';
@@ -22,6 +23,7 @@ final class RegisterDeviceUsecase {
     this.onPacks,
     this.beforePacksRequest,
     this.readSessionRelay,
+    this.readSession,
     PlanChanges? planChanges,
   }) : _platform = platform ?? defaultPushPlatform,
        _planChanges = planChanges ?? appPlanChanges;
@@ -51,17 +53,34 @@ final class RegisterDeviceUsecase {
   /// The relay of the saved session, or null when no server is saved. It is
   /// where a call that names no relay goes.
   final Future<Uri?> Function()? readSessionRelay;
+
+  /// The saved session, or null when no server is saved. Tells which server
+  /// a device token is the credential for when the caller names none.
+  final Future<ApiSession?> Function()? readSession;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
   final String Function() _platform;
 
+  /// [forServer] is the server the device token is about to be the
+  /// credential for, when the caller knows. Left out, it is the saved
+  /// session's server when that session uses the device token.
   Future<DeviceRegistrationResponse> call({
     required String appVersion,
     String? pushToken,
     Uri? relayUri,
+    Uri? forServer,
   }) async {
-    final target = relayUri ?? await readSessionRelay?.call();
+    final session = await readSession?.call();
+    final target =
+        relayUri ?? await readSessionRelay?.call() ?? session?.relayUri;
+    // How to connect, not a plan: only a server with accounts takes the
+    // device token as its credential.
+    final sessionUsesDeviceToken =
+        session != null &&
+        session.mode != ServerMode.selfhosted; // access-ok: connect
+    final server =
+        forServer ?? (sessionUsesDeviceToken ? session.baseUri : null);
     // A held device token goes to the relay that issued it and to no other.
     // Checked before anything is read for sending or written.
     final trust = target == null
@@ -80,8 +99,12 @@ final class RegisterDeviceUsecase {
         ? await _identity.startFresh()
         : await _identity.readOrCreate();
     // The join token and the shared row's token were never written down
-    // with an issuer, so they count as the hosted relay's too.
+    // with an issuer, so they count as the hosted relay's too. A join hands
+    // the new device token to the server it is for, so that must be the
+    // hosted server as well.
     final isHosted = target != null && isHostedRelay(target);
+    final isHostedAccount = server == null || isHostedServer(server);
+    final mayJoin = isHosted && isHostedAccount;
     final registration = DeviceRegistration(
       deviceId: identity.deviceId,
       platform: _platform(),
@@ -96,7 +119,7 @@ final class RegisterDeviceUsecase {
             registration,
             identity,
             relayUri,
-            mayJoin: isHosted,
+            mayJoin: mayJoin,
           )
         : await _api.refreshDevice(
             registration,
@@ -114,7 +137,17 @@ final class RegisterDeviceUsecase {
       caps: response.caps,
       accountJoinToken: response.accountJoinToken,
       relay: target,
+      isHostedAccount: isHostedAccount,
     );
+    // A token from before the server was written beside it, on the hosted
+    // server's own session, gets that server written down.
+    if (identity.tokenServer == null &&
+        token == identity.deviceToken &&
+        sessionUsesDeviceToken &&
+        session.managementCredential == token &&
+        isHostedServer(session.baseUri)) {
+      await _identity.saveTokenOrigin(server: session.baseUri);
+    }
     // Screens that read the tier once, like Settings and History, reload on
     // this. Only a real change bumps, so the launch registration stays quiet.
     final tierMoved = response.tier != identity.tier; // access-ok: announces
