@@ -194,6 +194,7 @@ class AppPassStack extends StatelessWidget {
     required this.backLabel,
     required this.cards,
     this.onBack,
+    this.showsBack = true,
     this.groupLabel,
     this.safeTop,
     this.safeBottom,
@@ -212,6 +213,11 @@ class AppPassStack extends StatelessWidget {
 
   /// What the back ring does. Defaults to popping the route.
   final VoidCallback? onBack;
+
+  /// False leaves the back ring out and starts the title at the ring's
+  /// place, for a stack drawn as a pane beside a list rather than as a
+  /// route of its own.
+  final bool showsBack;
 
   /// The spoken name of the group of cards.
   final String? groupLabel;
@@ -248,6 +254,7 @@ class AppPassStack extends StatelessWidget {
           title: title,
           backLabel: backLabel,
           onBack: onBack ?? () => Navigator.of(context).maybePop(),
+          showsBack: showsBack,
         );
         final Widget body;
         if (isFlat) {
@@ -330,12 +337,14 @@ class _Header extends StatelessWidget {
     required this.title,
     required this.backLabel,
     required this.onBack,
+    required this.showsBack,
   });
 
   final PassStackLayout layout;
   final String title;
   final String backLabel;
   final VoidCallback onBack;
+  final bool showsBack;
 
   @override
   Widget build(BuildContext context) {
@@ -345,13 +354,14 @@ class _Header extends StatelessWidget {
     ).clamp(maxScaleFactor: kChromeMaxTextScale);
     return Stack(
       children: [
+        if (showsBack)
+          Positioned(
+            left: layout.columnLeft + kPassRingLeft - kPassRingTapRoom,
+            top: layout.headerTop - kPassRingTapRoom,
+            child: PassBackRing(color: color, label: backLabel, onTap: onBack),
+          ),
         Positioned(
-          left: layout.columnLeft + kPassRingLeft - kPassRingTapRoom,
-          top: layout.headerTop - kPassRingTapRoom,
-          child: PassBackRing(color: color, label: backLabel, onTap: onBack),
-        ),
-        Positioned(
-          left: layout.columnLeft + 72,
+          left: layout.columnLeft + (showsBack ? 72 : kPassRingLeft),
           right: 0,
           top: layout.headerTop,
           height: kPassRingSize,

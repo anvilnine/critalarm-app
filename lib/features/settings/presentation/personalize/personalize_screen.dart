@@ -15,6 +15,7 @@ import 'package:critalarm/features/settings/presentation/cubits/personalize_cubi
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_live.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumbs.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -184,6 +185,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
             )
             .current;
         final peaks = _peaksOf(sound);
+        final inPane = SettingsPaneScope.isIn(context);
         return PassThumbClock(
           builder: (context, clock) => PassLiveBuilder(
             soundName: sound?.name,
@@ -210,25 +212,30 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
                 };
               }
 
+              final count = live.summary.present.length;
+              final stack = AppPassStack(
+                title: LocaleKeys.personalize_title.tr(),
+                backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
+                groupLabel: LocaleKeys.personalize_passes_root_stack_label.tr(),
+                onBack: _close,
+                // Beside the Settings rows there is nothing to go back to,
+                // and the pane already sits below the safe area.
+                showsBack: !inPane,
+                safeTop: inPane ? 0 : null,
+                cards: [
+                  for (final (index, item) in live.summary.present.indexed)
+                    _card(
+                      live,
+                      item.pass,
+                      thumbOf(item.pass),
+                      index,
+                      live.summary.present.length,
+                    ),
+                ],
+              );
               return Material(
                 type: MaterialType.transparency,
-                child: AppPassStack(
-                  title: LocaleKeys.personalize_title.tr(),
-                  backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
-                  groupLabel: LocaleKeys.personalize_passes_root_stack_label
-                      .tr(),
-                  onBack: _close,
-                  cards: [
-                    for (final (index, item) in live.summary.present.indexed)
-                      _card(
-                        live,
-                        item.pass,
-                        thumbOf(item.pass),
-                        index,
-                        live.summary.present.length,
-                      ),
-                  ],
-                ),
+                child: inPane ? _paneStack(stack, count) : stack,
               );
             },
           ),
@@ -236,6 +243,37 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       },
     );
   }
+
+  /// The stack in the Settings detail pane. On a full display the last
+  /// card runs off the bottom edge. A pane is taller than the stack, so the
+  /// last card would stop in mid air with a square foot: here it ends with
+  /// the round corners of a card instead.
+  Widget _paneStack(Widget stack, int count) => LayoutBuilder(
+    builder: (context, constraints) {
+      final layout = PassStackLayout.of(
+        width: constraints.maxWidth,
+        height: constraints.maxHeight,
+        textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
+        count: count,
+        safeBottom: MediaQuery.paddingOf(context).bottom,
+      );
+      if (layout.mode != PassStackMode.overlapped || layout.tops.isEmpty) {
+        return stack;
+      }
+      final foot = layout.tops.last + layout.heights.last;
+      // Only when the foot shows inside the pane.
+      if (foot - kPassCardBleed >= constraints.maxHeight) return stack;
+      return ClipPath(
+        clipper: _PaneStackClip(
+          lastTop: layout.tops.last,
+          foot: foot,
+          cardLeft: layout.cardLeft,
+          cardWidth: layout.cardWidth,
+        ),
+        child: stack,
+      );
+    },
+  );
 
   AppPassCard _card(
     PassLive live,
@@ -269,4 +307,38 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
       onTap: (origin) => _open(pass, origin, index, count),
     );
   }
+}
+
+/// Everything above the last card's top, and the last card with round
+/// bottom corners. See `_PersonalizeViewState._paneStack`.
+class _PaneStackClip extends CustomClipper<Path> {
+  const _PaneStackClip({
+    required this.lastTop,
+    required this.foot,
+    required this.cardLeft,
+    required this.cardWidth,
+  });
+
+  final double lastTop;
+  final double foot;
+  final double cardLeft;
+  final double cardWidth;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..addRect(Rect.fromLTWH(0, 0, size.width, lastTop + kPassCardRadius))
+    ..addRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTRB(cardLeft, lastTop, cardLeft + cardWidth, foot),
+        bottomLeft: const Radius.circular(kPassCardRadius),
+        bottomRight: const Radius.circular(kPassCardRadius),
+      ),
+    );
+
+  @override
+  bool shouldReclip(_PaneStackClip oldClipper) =>
+      oldClipper.lastTop != lastTop ||
+      oldClipper.foot != foot ||
+      oldClipper.cardLeft != cardLeft ||
+      oldClipper.cardWidth != cardWidth;
 }
