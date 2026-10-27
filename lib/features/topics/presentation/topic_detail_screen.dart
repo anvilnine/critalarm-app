@@ -39,6 +39,7 @@ class TopicDetailScreen extends StatelessWidget {
     this.startCurlFlow = false,
     this.cubit,
     this.isExample = false,
+    this.heroFace,
     super.key,
   });
 
@@ -47,6 +48,11 @@ class TopicDetailScreen extends StatelessWidget {
   /// True when this screen is drawn inside a detail pane rather than pushed
   /// as its own page.
   final bool isPane;
+
+  /// The face the list's hero beside the pane wears. A pane whose topic is
+  /// in the same state draws no face of its own (see `paneFaceFor`), so the
+  /// window never shows two copies of one face. Read only with [isPane].
+  final FaceState? heroFace;
 
   /// Opens the Tokens page with its New token sheet already open, as soon as
   /// this screen builds. The silent topic reminder's "Get curl line" arrives
@@ -65,7 +71,11 @@ class TopicDetailScreen extends StatelessWidget {
     if (cubit != null) {
       return BlocProvider.value(
         value: cubit!,
-        child: _TopicDetailScreenContent(isPane: isPane, isExample: isExample),
+        child: _TopicDetailScreenContent(
+          isPane: isPane,
+          isExample: isExample,
+          heroFace: heroFace,
+        ),
       );
     }
     // The guide's made-up topic is not on the server, so it is drawn from the
@@ -89,6 +99,7 @@ class TopicDetailScreen extends StatelessWidget {
         child: _TopicDetailScreenContent(
           isPane: isPane,
           isExample: isGuideExample,
+          heroFace: heroFace,
         ),
       ),
     );
@@ -139,9 +150,13 @@ class _TopicDetailScreenContent extends StatelessWidget {
   const _TopicDetailScreenContent({
     required this.isPane,
     required this.isExample,
+    required this.heroFace,
   });
 
   final bool isPane;
+
+  /// See [TopicDetailScreen.heroFace].
+  final FaceState? heroFace;
 
   /// The guide's example topic. It has no tokens on the server to list.
   final bool isExample;
@@ -296,11 +311,12 @@ class _TopicDetailScreenContent extends StatelessWidget {
 
         final tone = _heroTone(card, state.severity);
 
-        // On a fold the face and the Critical delivery card hold still in
-        // their own pane. Tabletop: they fill the top half and the name,
-        // messages and passes scroll in the bottom half. Book: the start
-        // pane also carries the name and the newest message, and the passes
-        // scroll in the end pane. A pane inside Home never sees the fold.
+        // On a fold the name, the face and the Critical delivery card hold
+        // still in their own pane, in the phone's reading order: the name
+        // first, then the card it names. Tabletop: they fill the top half and
+        // the messages and passes scroll in the bottom half. Book: the start
+        // pane also carries the newest message, and the passes scroll in the
+        // end pane. A pane inside Home never sees the fold.
         final fold = AppFold.of(context);
         final onStage = !isPane && heroOnFoldStage(fold, hasDetail: false);
         final isBookStage = onStage && fold.isBook;
@@ -311,22 +327,33 @@ class _TopicDetailScreenContent extends StatelessWidget {
           // say "nothing yet" and then change.
           summary: state.areMessageTimesKnown ? topicSummaryText(summary) : '',
         );
-        final hero = AppHeroScene(
-          face: state.faceState,
-          tone: tone,
-          gaze: AppHeroGaze.card,
-          isPane: isPane,
-          card: FeatureGuideAnchor(
-            id: FeatureGuideAnchorId.topicCritical,
-            child: TopicCriticalCard(
-              card: card,
-              onChanged: card.canSwitch
-                  ? (value) => unawaited(_setCritical(context, value))
-                  : null,
-              onInfo: () => _showCriticalInfo(context, state),
-            ),
+        final criticalCard = FeatureGuideAnchor(
+          id: FeatureGuideAnchorId.topicCritical,
+          child: TopicCriticalCard(
+            card: card,
+            onChanged: card.canSwitch
+                ? (value) => unawaited(_setCritical(context, value))
+                : null,
+            onInfo: () => _showCriticalInfo(context, state),
           ),
         );
+        // In a pane beside a hero that already wears this topic's face, the
+        // card stands on its own: never two copies of one face.
+        final paneFace = isPane
+            ? paneFaceFor(state.faceState, hero: heroFace)
+            : state.faceState;
+        final hero = paneFace == null
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.s3),
+                child: criticalCard,
+              )
+            : AppHeroScene(
+                face: paneFace,
+                tone: tone,
+                gaze: AppHeroGaze.card,
+                isPane: isPane,
+                card: criticalCard,
+              );
         final sheet = Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
           child: _TopicSheet(
@@ -410,10 +437,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
                 : FoldStageColumn(
                     children: [
                       const SizedBox(height: Spacing.s3),
-                      if (isBookStage) ...[
-                        header,
-                        const SizedBox(height: Spacing.s3),
-                      ],
+                      header,
+                      const SizedBox(height: Spacing.s3),
                       hero,
                       if (isBookStage) ...[
                         const SizedBox(height: Spacing.s4),
@@ -435,11 +460,9 @@ class _TopicDetailScreenContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: Spacing.s3),
-                    if (!isBookStage) ...[
+                    if (!onStage) ...[
                       header,
                       const SizedBox(height: Spacing.s3),
-                    ],
-                    if (!onStage) ...[
                       hero,
                       const SizedBox(height: Spacing.s4),
                     ],
@@ -526,9 +549,15 @@ AmbientProfile topicCanvasProfileFor(
     severity: state.severity,
     tone: topicHeroToneFor(card, state.severity),
     spot: switch (stage) {
-      null => heroDiscSpotOf(context, above: headerHeight + Spacing.s3),
-      TopicFoldStage.tabletop => foldStageDiscSpotOf(context),
-      TopicFoldStage.book => foldStageDiscSpotOf(
+      // A pushed page is one column on any window, never a list with a
+      // detail beside it.
+      null => heroDiscSpotOf(
+        context,
+        above: headerHeight + Spacing.s3,
+        hasDetail: false,
+      ),
+      // The name sits over the face on both stages.
+      TopicFoldStage.tabletop || TopicFoldStage.book => foldStageDiscSpotOf(
         context,
         above: headerHeight + Spacing.s3,
       ),
