@@ -26,13 +26,15 @@ import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_hero.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
+import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_message_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -47,6 +49,8 @@ const Set<String> wp3Screens = {
   '17_history',
   '18_history_selected',
   'wp3_topic_deep_link',
+  'wp3_alarm_read_message',
+  'wp3_messages_back',
 };
 
 String _r(Rect r) =>
@@ -107,11 +111,19 @@ List<(String, bool)> wp3Measure(
 
   // Two panes open on an item.
   final twoPane = AppScreenScaffold.showsDetailFor(size, fold);
+  // The captures open these links from Home or cold, with nothing above
+  // the tabs.
+  final linkGoesToPane = opensTopicInHomePane(
+    size,
+    fold,
+    hasPageAboveShell: false,
+  );
   final isHomeOnExpanded =
-      isTopic && opensTopicInHomePane(size, fold) ||
-      screenId == 'wp3_topic_deep_link' && opensTopicInHomePane(size, fold);
-  if (twoPane && !isTopic && screenId != 'wp3_topic_deep_link' ||
-      isHomeOnExpanded) {
+      linkGoesToPane &&
+      (isTopic ||
+          screenId == 'wp3_topic_deep_link' ||
+          screenId == 'wp3_messages_back');
+  if (twoPane && !isTopic && !screenId.startsWith('wp3_') || isHomeOnExpanded) {
     final emptyTitle = isHistory
         ? LocaleKeys.history_detail_empty_title.tr()
         : LocaleKeys.home_detail_empty_title.tr();
@@ -160,7 +172,7 @@ List<(String, bool)> wp3Measure(
         if (!(e.widget as TopicDetailScreen).isPane)
           (e.widget as TopicDetailScreen).topicName,
     ];
-    if (opensTopicInHomePane(size, fold)) {
+    if (linkGoesToPane) {
       check(
         '/topics/nas-backup opens Home with nas-backup in the pane '
         '(home $onHome, pane ${paneTopics.join(',')}, '
@@ -172,6 +184,93 @@ List<(String, bool)> wp3Measure(
         '/topics/nas-backup opens the topic screen '
         '(pushed ${pushed.join(',')})',
       );
+    }
+  }
+
+  final pushedTopics = [
+    for (final e
+        in find.byType(TopicDetailScreen, skipOffstage: false).evaluate())
+      if (!(e.widget as TopicDetailScreen).isPane)
+        (e.widget as TopicDetailScreen).topicName,
+  ];
+  final handOffs = find
+      .byType(HomePaneHandOff, skipOffstage: false)
+      .evaluate()
+      .length;
+
+  // Read message on the ringing alarm: the alarm stays under the topic.
+  if (screenId == 'wp3_alarm_read_message') {
+    // The alarm screen nests one widget of its own type, so count > 0.
+    final alarms = find
+        .byType(CriticalAlarmScreen, skipOffstage: false)
+        .evaluate()
+        .length;
+    final shownTopic = _painted(find.byType(TopicDetailScreen)).isNotEmpty;
+    check(
+      'alarm still on the stack under the topic (alarm screens $alarms, '
+      'topic pages ${pushedTopics.join(',')}, shown $shownTopic, '
+      'hand-offs $handOffs)',
+      ok:
+          alarms > 0 &&
+          pushedTopics.contains('nas-backup') &&
+          shownTopic &&
+          handOffs == 0,
+    );
+  }
+
+  // Back from All messages opened in the pane.
+  if (screenId == 'wp3_messages_back') {
+    final messagesPages = find
+        .byType(TopicMessagesScreen, skipOffstage: false)
+        .evaluate()
+        .length;
+    if (linkGoesToPane) {
+      check(
+        'back from All messages lands on Home with the pane '
+        '(pane ${paneTopics.join(',')}, topic pages '
+        '${pushedTopics.join(',')}, hand-offs $handOffs, '
+        'messages pages $messagesPages)',
+        ok:
+            paneTopics.contains('prod-db') &&
+            pushedTopics.isEmpty &&
+            handOffs == 0 &&
+            messagesPages == 0,
+      );
+    } else {
+      note(
+        'back from All messages: topic pages ${pushedTopics.join(',')}, '
+        'messages pages $messagesPages',
+      );
+    }
+  }
+
+  // A stage taller than its pane scrolls inside itself rather than cutting
+  // the newest message off.
+  if (isTopic && fold.isBook) {
+    for (final e
+        in find
+            .descendant(
+              of: find.byType(FoldStageColumn),
+              matching: find.byType(Scrollable),
+            )
+            .evaluate()) {
+      final position = (e as StatefulElement).state as ScrollableState;
+      final extent = position.position.maxScrollExtent;
+      final rows = _painted(
+        find.descendant(
+          of: find.byType(FoldStageColumn),
+          matching: find.byType(TopicMessageRow),
+        ),
+      );
+      final pane = fold.panes(window).first;
+      final rowBottom = rows.isEmpty ? double.nan : rows.last.bottom;
+      check(
+        'stage overflow ${_n(extent)} (scrolls when above 0); newest '
+        'message bottom ${_n(rowBottom)}, stage pane bottom '
+        '${_n(pane.bottom)}',
+        ok: rows.isNotEmpty && (rowBottom <= pane.bottom || extent > 0),
+      );
+      break;
     }
   }
 
@@ -188,7 +287,10 @@ List<(String, bool)> wp3Measure(
     if (heroFaces.isNotEmpty) {
       final face = heroFaces.first.width;
       final want = switch (sizeId) {
-        'ipad-11-portrait' || 'desktop-1440' || 'desktop-1920' => 120.0,
+        'ipad-11-portrait' ||
+        'desktop-1440' ||
+        'desktop-1920' ||
+        'pixel-fold-tabletop' => 120.0,
         'razr-cover' => 72.0,
         _ => null,
       };
@@ -226,8 +328,9 @@ List<(String, bool)> wp3Measure(
     }
   }
 
-  // Book: list or stage start, detail or passes end.
-  if (fold.isBook) {
+  // Book: list or stage start, detail or passes end. Not for the alarm
+  // capture, which shows the topic page over the alarm.
+  if (fold.isBook && screenId != 'wp3_alarm_read_message') {
     final band = fold.band;
     if (isTopic) {
       final heroes = _painted(find.byType(AppHeroScene));
@@ -260,7 +363,9 @@ List<(String, bool)> wp3Measure(
   }
 
   // Tabletop: hero above the band, list below it.
-  if (fold.isTabletop && screenId != 'wp3_topic_deep_link') {
+  if (fold.isTabletop &&
+      screenId != 'wp3_topic_deep_link' &&
+      screenId != 'wp3_alarm_read_message') {
     final band = fold.band;
     final heroes = isHistory
         ? _painted(find.byType(HistoryHero))
