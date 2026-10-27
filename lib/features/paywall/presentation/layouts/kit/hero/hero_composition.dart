@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_entrance.dart';
@@ -10,11 +11,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_mo
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pips.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_stage.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -266,8 +263,16 @@ class _HeroCompositionState extends State<HeroComposition> {
   @override
   Widget build(BuildContext context) {
     final tones = PaywallToneColors.of(context, widget.tone);
-    final sizes = HeroSizes.of(isCompact: scope.isCompact);
-    final width = scope.size.width - heroSideInset * 2;
+    final split = scope.split;
+    // A split paywall sets its words in the offer column, at the sizes for
+    // that column's height.
+    final sizes = HeroSizes.of(
+      isCompact: split == null
+          ? scope.isCompact
+          : split.geometry.offer.height <= PaywallLayoutScope.compactHeight,
+    );
+    final width =
+        (split?.geometry.offer.width ?? scope.size.width) - heroSideInset * 2;
     final benefits = scope.benefits;
     final isOne = benefits.length == 1;
 
@@ -331,6 +336,7 @@ class _HeroCompositionState extends State<HeroComposition> {
       words: words,
       gap: sizes.stageGap,
       bottomGap: sizes.bottomGap,
+      minGap: allLines.length < 2 ? 0 : heroPipsRow,
     );
 
     final player = _player
@@ -338,6 +344,119 @@ class _HeroCompositionState extends State<HeroComposition> {
       ..loop = widget.loop ?? HeroLoop([for (final b in benefits) b.previewId]);
     _listen();
     final after = player.loop.prelude;
+
+    // The headline and the benefit lines, with [bottom] clear under the
+    // last line. A tap on a line puts that benefit on the stage.
+    Widget wordsBlock({required double bottom}) => GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTapUp: isOne
+          ? null
+          : (details) {
+              final line = heroLineAt(
+                details.localPosition.dy,
+                centres,
+              );
+              if (line != null) player.touch(index: line);
+            },
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: heroSideInset,
+          right: heroSideInset,
+          // The last line ends clear of the buy block when the list
+          // is scrolled to its foot.
+          bottom: bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HeroRise(
+              clock: scope.clock,
+              index: 0,
+              after: after,
+              child: Semantics(
+                header: true,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: width - headlineWidth,
+                  ),
+                  child:
+                      widget.headlineBuilder?.call(
+                        context,
+                        headline,
+                        headlineStyle,
+                      ) ??
+                      _headlineText(
+                        player,
+                        headline,
+                        headlineStyle,
+                        headlineHeight,
+                      ),
+                ),
+              ),
+            ),
+            SizedBox(height: sizes.headlineGap),
+            HeroBenefitLines(
+              player: player,
+              metrics: metrics,
+              // What the short line leaves out is still said.
+              labels: [
+                for (final b in benefits.take(lines.length)) b.line,
+              ],
+              isPickable: !isOne,
+              handlesTaps: false,
+            ),
+            if (sentence != null)
+              HeroRise(
+                clock: scope.clock,
+                index: 2,
+                after: after,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    top: Spacing.s1,
+                    left: sizes.check + HeroSizes.checkGap,
+                  ),
+                  child: Text(sentence, style: sentenceStyle),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (split != null) {
+      return PaywallCueScore(
+        clock: scope.clock,
+        beats:
+            widget.entranceCues ??
+            heroEntranceCues(widget.motion, prelude: after),
+        player: player,
+        turnCue: widget.turnCue,
+        child: _HeroSplit(
+          split: split,
+          stage: (size) => HeroLiveStage(
+            player: player,
+            size: size,
+            label: (frame) => frame.activeIndex >= lines.length
+                ? null
+                : LocaleKeys.paywall_hero_stage_label.tr(
+                    namedArgs: {'benefit': lines[frame.activeIndex]},
+                  ),
+            arrange: widget.arrange,
+            tone: widget.tone,
+            sceneBuilder: widget.sceneBuilder,
+            beside: widget.beside,
+            showsShapes: widget.showsShapes,
+            motion: widget.motion,
+          ),
+          pips: lines.length < 2
+              ? null
+              : HeroPips(player: player, count: lines.length, color: tones.ink),
+          words: wordsBlock(bottom: sizes.bottomGap),
+        ),
+      );
+    }
 
     return PaywallCueScore(
       clock: scope.clock,
@@ -383,86 +502,113 @@ class _HeroCompositionState extends State<HeroComposition> {
                       ),
                     ),
             ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTapUp: isOne
-                  ? null
-                  : (details) {
-                      final line = heroLineAt(
-                        details.localPosition.dy,
-                        centres,
-                      );
-                      if (line != null) player.touch(index: line);
-                    },
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: heroSideInset,
-                  right: heroSideInset,
-                  // The last line ends clear of the buy block when the list
-                  // is scrolled to its foot.
-                  bottom: math.max(room.under, sizes.bottomGap),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    HeroRise(
-                      clock: scope.clock,
-                      index: 0,
-                      after: after,
-                      child: Semantics(
-                        header: true,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            right: width - headlineWidth,
-                          ),
-                          child:
-                              widget.headlineBuilder?.call(
-                                context,
-                                headline,
-                                headlineStyle,
-                              ) ??
-                              _headlineText(
-                                player,
-                                headline,
-                                headlineStyle,
-                                headlineHeight,
-                              ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: sizes.headlineGap),
-                    HeroBenefitLines(
-                      player: player,
-                      metrics: metrics,
-                      // What the short line leaves out is still said.
-                      labels: [
-                        for (final b in benefits.take(lines.length)) b.line,
-                      ],
-                      isPickable: !isOne,
-                      handlesTaps: false,
-                    ),
-                    if (sentence != null)
-                      HeroRise(
-                        clock: scope.clock,
-                        index: 2,
-                        after: after,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            top: Spacing.s1,
-                            left: sizes.check + HeroSizes.checkGap,
-                          ),
-                          child: Text(sentence, style: sentenceStyle),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            wordsBlock(bottom: math.max(room.under, sizes.bottomGap)),
           ],
         ),
       ),
     );
   }
 }
+
+/// A [HeroComposition] its frame has split: the stage fills one box, and
+/// the offer (pips, headline, lines, then the frame's buy block) stands in
+/// the other, centred in its height. Words that do not fit scroll, and the
+/// buy block stays pinned under them.
+///
+/// Each part gets its own MediaQuery and keeps its own safe areas, so a
+/// pane of a foldable reads as the phone it is the size of.
+class _HeroSplit extends StatelessWidget {
+  const _HeroSplit({
+    required this.split,
+    required this.stage,
+    required this.pips,
+    required this.words,
+  });
+
+  final PaywallSplitScope split;
+
+  /// The stage, drawn at a size: the box it fills, or that box made
+  /// smaller and then drawn up to fill it (see [paywallStageScaleFor]).
+  final Widget Function(Size size) stage;
+
+  final Widget? pips;
+  final Widget words;
+
+  @override
+  Widget build(BuildContext context) {
+    final window = MediaQuery.of(context);
+    final geometry = split.geometry;
+    final pips = this.pips;
+
+    return Stack(
+      children: [
+        AppFoldPane(
+          rect: geometry.stage,
+          window: window,
+          child: PaywallSafeArea(
+            // In tabletop posture the card's under-plate keeps clear of
+            // the fold too.
+            child: _maybePadded(
+              geometry.kind == PaywallSplitKind.tabletop
+                  ? const EdgeInsets.only(bottom: Spacing.s4)
+                  : EdgeInsets.zero,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final box = constraints.biggest;
+                  final scale = paywallStageScaleFor(box);
+                  if (scale == 1) return stage(box);
+                  return FittedBox(child: stage(box / scale));
+                },
+              ),
+            ),
+          ),
+        ),
+        AppFoldPane(
+          rect: geometry.offer,
+          window: window,
+          child: PaywallSafeArea(
+            child: Padding(
+              // In book posture the close cross stands over the end pane.
+              padding: EdgeInsets.only(
+                top: geometry.kind == PaywallSplitKind.book ? kMinTapTarget : 0,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (pips != null) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: heroSideInset,
+                              ),
+                              child: SizedBox(height: heroPipsRow, child: pips),
+                            ),
+                            const SizedBox(height: Spacing.s2),
+                          ],
+                          words,
+                        ],
+                      ),
+                    ),
+                  ),
+                  split.buyBlock,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _maybePadded(EdgeInsets padding, Widget child) =>
+    padding == EdgeInsets.zero
+    ? child
+    : Padding(padding: padding, child: child);
