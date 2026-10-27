@@ -12,6 +12,7 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_pips.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_stage.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -90,9 +91,15 @@ List<(String, bool)>? measurePaywall(
   final frames = find.byType(PaywallFrame).evaluate();
   final isSheet = frames.isEmpty;
   final splits = frames.any((e) => (e.widget as PaywallFrame).splits);
-  final split = splits
-      ? paywallSplitFor(window: window, size: size, fold: fold)
-      : null;
+  // Every full screen frame splits on a fold; only Hero on a wide window.
+  final split = isSheet
+      ? null
+      : paywallFrameSplitFor(
+          window: window,
+          size: size,
+          fold: fold,
+          splits: splits,
+        );
 
   // The close control: the bare cross, in the window's top end corner (the
   // sheet's, for the sheet).
@@ -115,9 +122,33 @@ List<(String, bool)>? measurePaywall(
 
   final width = button?.width ?? buy.width;
   final plansWidth = plans?.width ?? 0;
+  // The close cross never covers the pips or the headline, as drawn: the
+  // pips' own row and the headline's glyphs, not their full width boxes.
+  if (cross != null) {
+    final ink = [?_pipsInk(pips), ?_headlineInk()];
+    final covered = ink.any(cross.overlaps);
+    lines.add(
+      _check(
+        !covered,
+        'close cross clear of the pips and the headline'
+        '${ink.isEmpty ? '' : ' (${ink.map(_r).join(', ')})'}',
+      ),
+    );
+  }
+
+  if (split != null && !fold.isNone) {
+    final inOffer =
+        buy.left >= split.offer.left - 0.5 &&
+        buy.right <= split.offer.right + 0.5 &&
+        buy.top >= split.offer.top - 0.5 &&
+        buy.bottom <= split.offer.bottom + 0.5;
+    lines.add(
+      _check(inOffer, 'buy block inside the offer pane ${_r(split.offer)}'),
+    );
+  }
   if (split == null && !fold.isNone) {
     lines.add((
-      'one column layout on a fold: fold clearance is the walk below',
+      'sheet on a fold: fold clearance is the walk below',
       false,
     ));
   } else if (split == null && !size.isCompact) {
@@ -125,9 +156,11 @@ List<(String, bool)>? measurePaywall(
     lines
       ..add(
         _check(
-          plansWidth <= paywallColumnMaxWidth && width <= paywallColumnMaxWidth,
+          plansWidth <= AppSize.actionMaxWidth &&
+              width <= AppSize.actionMaxWidth,
           'one column: plans ${plansWidth.toStringAsFixed(1)} and Get Cloud '
-          '${width.toStringAsFixed(1)} <= $paywallColumnMaxWidth',
+          '${width.toStringAsFixed(1)} <= ${AppSize.actionMaxWidth} '
+          '(and so <= $paywallColumnMaxWidth)',
         ),
       )
       ..add(
@@ -195,4 +228,45 @@ List<(String, bool)>? measurePaywall(
     );
   }
   return lines;
+}
+
+/// Where the pips are drawn in their [row]: from its start, one long pip
+/// and the rest short (see `HeroPipsPainter`).
+Rect? _pipsInk(Rect? row) {
+  if (row == null) return null;
+  final element = find.byType(HeroPips).evaluate().firstOrNull;
+  if (element == null) return null;
+  final count = (element.widget as HeroPips).count;
+  return Rect.fromLTWH(
+    row.left,
+    row.center.dy - 2.5,
+    26 + 11 * (count - 1).toDouble(),
+    5,
+  );
+}
+
+/// The box around the headline's glyphs on screen.
+Rect? _headlineInk() {
+  final header = find.byWidgetPredicate(
+    (w) => w is Semantics && (w.properties.header ?? false),
+  );
+  for (final element
+      in find
+          .descendant(of: header, matching: find.byType(RichText))
+          .evaluate()) {
+    final render = element.renderObject;
+    if (render is! RenderParagraph || !render.hasSize) continue;
+    final length = render.text.toPlainText().length;
+    final boxes = render.getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: length),
+    );
+    if (boxes.isEmpty) continue;
+    var ink = boxes.first.toRect();
+    for (final box in boxes.skip(1)) {
+      ink = ink.expandToInclude(box.toRect());
+    }
+    final origin = render.localToGlobal(Offset.zero);
+    return ink.shift(origin);
+  }
+  return null;
 }
