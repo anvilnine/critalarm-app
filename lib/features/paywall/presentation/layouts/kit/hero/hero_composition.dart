@@ -487,6 +487,16 @@ class _HeroCompositionState extends State<HeroComposition> {
               showsShapes: widget.showsShapes,
               motion: widget.motion,
             ),
+            // With no stage (the Razr cover) the pips are the first thing
+            // in the column: they start 16 under the safe area, not at the
+            // window's edge.
+            if (room.stage <= 0 && lines.length >= 2)
+              SizedBox(
+                height: heroPipsTopInsetFor(
+                  safeTop: MediaQuery.paddingOf(context).top,
+                  gap: room.gap,
+                ),
+              ),
             SizedBox(
               height: room.gap,
               child: lines.length < 2
