@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
@@ -16,7 +19,7 @@ import 'package:flutter/foundation.dart';
 class HeldPlan {
   const HeldPlan({required this.hasLongHistory, required this.historyDays});
 
-  /// Hosted, or a server of the user's own: everything held is shown.
+  /// Cloud, or a server of the user's own: everything held is shown.
   final bool hasLongHistory;
 
   /// The cap the registration sent, in days.
@@ -25,6 +28,24 @@ class HeldPlan {
   int get shownDays => HistoryWindow.shownDays(
     hasLongHistory: hasLongHistory,
     historyDays: historyDays,
+  );
+}
+
+/// The plan from what the phone has already read, or null.
+///
+/// It never waits. A launch whose plan is not read yet draws no copy, and
+/// waiting for it would hold the first frame back: a phone opened by an alarm
+/// would show the alarm later.
+Future<HeldPlan?> heldPlanFrom({
+  required FeatureAccess access,
+  required DeviceIdentityStore identities,
+}) async {
+  if (!access.isPlanRead) return null;
+  final identity = await identities.readOrCreate();
+  if (identity.accountId == null) return null;
+  return HeldPlan(
+    hasLongHistory: access.decide(AppFeature.longHistory).isUsable,
+    historyDays: identity.caps.historyDays ?? 7,
   );
 }
 
@@ -80,8 +101,12 @@ class HeldRows {
   }) : _now = now ?? DateTime.now,
        _identityChanges = identityChanges ?? appAccountIdentityChanges {
     _identityChanges.addListener(_drop);
+    _baseline = _incidents.state.incidents;
+    // Any change of the shared list ends the copy, not only a finished
+    // answer: an alarm that lands while the first request is out (the alarm
+    // screen applies it) is newer than anything the phone stored.
     _incidentsSub = _incidents.stream.listen((state) {
-      if (state.isReady) _drop();
+      if (state.isReady || !identical(state.incidents, _baseline)) _drop();
     });
   }
 
@@ -93,8 +118,9 @@ class HeldRows {
   /// snapshot notes each topic's rows before any screen opens.
   final TopicGlances glances;
 
-  /// The plan, or null when it cannot be read. A snapshot is never taken
-  /// without it, because the window decides which rows are shown.
+  /// The plan, or null when it is not known yet or cannot be read. It must
+  /// answer from what the phone already holds and never wait: a snapshot is
+  /// never taken without it, because the window decides which rows are shown.
   final Future<HeldPlan?> Function() readPlan;
 
   /// How long the plan may take to read.
@@ -103,6 +129,9 @@ class HeldRows {
   final DateTime Function() _now;
   final AccountIdentityChanges _identityChanges;
   StreamSubscription<IncidentsState>? _incidentsSub;
+
+  /// The shared list as it was when this was built, empty and not loaded.
+  late final List<Incident> _baseline;
 
   HeldSnapshot? _snapshot;
 
@@ -116,6 +145,16 @@ class HeldRows {
     _generation++;
     _snapshot = null;
   }
+
+  /// Gives up a read still running, for the launch that did not wait for it:
+  /// it stops at its next step and leaves no snapshot and no glance, so it
+  /// never builds rows during the first frames.
+  void abandon() => _drop();
+
+  /// Whether the launch should skip the read: an alarm's own screen is the
+  /// first thing the person is meant to see, and nothing here may slow it.
+  static bool skipsLaunchAt(String location) =>
+      location.startsWith('/incidents/') || location.startsWith('/alarm');
 
   /// Reads the archive of the account the phone is on, for the topics the
   /// phone kept. Needs the held topic list: with none, there is nothing to

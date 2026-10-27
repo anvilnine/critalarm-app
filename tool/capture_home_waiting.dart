@@ -89,6 +89,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -752,6 +753,9 @@ Future<void> _bootStored() async {
       messages: data.messages,
     );
   // What `main` does before the first frame.
+  // The plan is read in the background from early in `main`, and the copy
+  // never waits for it, so it is read before the copy here.
+  await getIt<FeatureAccess>().ready;
   await getIt<TopicsCubit>().loadHeld();
   await getIt<HeldRows>().load();
   expect(getIt<TopicsCubit>().state.isKept, isTrue);

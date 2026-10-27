@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -10,8 +13,10 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/held_scope.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -28,7 +33,10 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_glances.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../core/access/access_fakes.dart';
 
 /// The topic list the server gives, held back until the test lets it go.
 class _GatedTopics implements TopicRepository {
@@ -136,9 +144,13 @@ void main() {
     polled.clear();
     repo = _CountingIncidents(api, polled, store: store);
     identity = AccountIdentityChanges();
+    // Each call is later than the one before, so an update applied after a
+    // request started is always newer than that request.
+    var tick = 0;
     incidents = IncidentsCubit(
       GetIncidentsUsecase(repo),
       identityChanges: identity,
+      now: () => DateTime.utc(2030).add(Duration(seconds: tick++)),
     );
     gatedTopics = _GatedTopics(InMemoryTopicRepository(api));
     topics = TopicsCubit(
@@ -346,8 +358,10 @@ void main() {
           topic: 'calm',
           state: IncidentStates.acked,
           openedAt: _now.subtract(const Duration(minutes: 5)),
-          ackedAt: _now.subtract(const Duration(seconds: 20)),
-          updatedAt: _now.subtract(const Duration(seconds: 20)),
+          // Older than the alarm above, so the next request still asks for
+          // what changed since that one.
+          ackedAt: _now.subtract(const Duration(seconds: 150)),
+          updatedAt: _now.subtract(const Duration(seconds: 150)),
         ),
       ]);
       await readPhone();
@@ -424,11 +438,143 @@ void main() {
     });
   });
 
+  group('an alarm that lands before the first answer', () {
+    final ringingNow = Incident(
+      id: 'i-new',
+      topic: 'ringing',
+      openedAt: _now,
+      updatedAt: _now,
+      lastMessageAt: _now,
+      messages: [
+        Message(
+          id: 'm-new',
+          topic: 'ringing',
+          time: _secondsAgo(1),
+          priority: 5,
+          incidentId: 'i-new',
+        ),
+      ],
+    );
+
+    /// The phone stored a calm picture: the alarm is closed.
+    Future<void> storeCalm() async {
+      await store.incidents.upsertAll([closedOnServer]);
+    }
+
+    test('Home shows it, not the calm copy', () async {
+      await storeCalm();
+      await readPhone();
+      final cubit = home();
+      final load = cubit.load();
+      expect(cubit.state.facts.ringing, isNull);
+      expect(cubit.state.ringingIncidentId, isNull);
+
+      // The alarm screen applies the incident while the first request is out.
+      incidents.applyIncident(ringingNow);
+      await pumpEventQueue();
+
+      expect(held.snapshot, isNull);
+      expect(cubit.state.facts.ringing?.incidentId, 'i-new');
+      expect(cubit.state.ringingIncidentId, 'i-new');
+      expect(
+        cubit.state.topicItems.firstWhere((t) => t.name == 'ringing').rowKind,
+        InboxRowKind.ringing,
+      );
+      // The request that was out is older than the alarm and is dropped, so
+      // the shared list never became ready: the copy must not come back.
+      expect(incidents.state.isReady, isFalse);
+
+      gatedTopics.gate.complete();
+      await load;
+    });
+
+    test('the Topic screen shows it, not the calm copy', () async {
+      await storeCalm();
+      await readPhone();
+      final cubit = TopicDetailCubit(
+        incidents,
+        topics,
+        UpdateTopicUsecase(InMemoryTopicRepository(api)),
+        repo,
+        glances: glances,
+        held: held,
+      );
+      addTearDown(cubit.close);
+
+      final load = cubit.load('ringing');
+      expect(cubit.state.openIncidentIds, isEmpty);
+
+      incidents.applyIncident(ringingNow);
+      await pumpEventQueue();
+
+      expect(cubit.state.openIncidentIds, ['i-new']);
+      expect(cubit.state.severity, SeverityMode.crit);
+
+      gatedTopics.gate.complete();
+      await load;
+    });
+  });
+
+  group('the launch', () {
+    test('skips the read for an alarm screen and for nothing else', () {
+      expect(HeldRows.skipsLaunchAt('/incidents/i-1'), isTrue);
+      expect(HeldRows.skipsLaunchAt('/alarm'), isTrue);
+      expect(HeldRows.skipsLaunchAt('/'), isFalse);
+      expect(HeldRows.skipsLaunchAt('/topics/prod-db'), isFalse);
+    });
+
+    test('an abandoned read leaves no snapshot and no glance', () async {
+      await topics.loadHeld();
+      final read = held.load();
+      held.abandon();
+      await read;
+      expect(held.snapshot, isNull);
+      expect(glances.of('calm', createdAt: _created), isNull);
+    });
+
+    test('the plan is never waited for', () async {
+      SharedPreferences.setMockInitialValues({
+        'device_id': 'd1',
+        'device_token': 't1',
+        'account_id': 'acc',
+        'account_caps': '{"history_days":7}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final identities = DeviceIdentityStore(prefs);
+      final pending = Completer<void>();
+      final source = FakeHoldingSource(Holding.hosted)..ready = pending.future;
+      final holdings = Holdings([source]);
+      final access = FeatureAccess(holdings: holdings);
+      addTearDown(access.dispose);
+      addTearDown(holdings.dispose);
+
+      // Not read yet: answers at once with nothing instead of waiting.
+      final early = await heldPlanFrom(
+        access: access,
+        identities: identities,
+      ).timeout(const Duration(milliseconds: 100));
+      expect(early, isNull);
+
+      pending.complete();
+      await access.ready;
+      final plan = await heldPlanFrom(access: access, identities: identities);
+      expect(plan?.historyDays, 7);
+      expect(plan?.hasLongHistory, isFalse);
+    });
+  });
+
   group('the snapshot', () {
     test('is dropped by the first answer for the incidents', () async {
       await readPhone();
       expect(held.snapshot, isNotNull);
       await incidents.refresh();
+      await pumpEventQueue();
+      expect(held.snapshot, isNull);
+    });
+
+    test('is dropped by an incident applied before any answer', () async {
+      await readPhone();
+      incidents.applyIncident(storedOpen);
       await pumpEventQueue();
       expect(held.snapshot, isNull);
     });
