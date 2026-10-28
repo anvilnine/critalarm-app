@@ -10,14 +10,12 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Changed
 - Dates and times follow the format of the language you use.
 - When the server refuses something, the app explains it in its own words in your language.
-- Tablets, foldables and wide windows get layouts of their own. On a half-open foldable the tab bar and rail stay clear of the fold, and in book posture Topics and History show the list on one side and the detail on the other. On a wide window the rail and both panes sit in a centred frame, and a small cover screen gets a compact tab bar.
-- On a tablet or a desktop window, setup and New topic keep their button right under the form, and on a half-open foldable the face sits on one side of the fold and the form on the other.
-- On tablets and desktop windows the paywall keeps its plans and button in one column, and on a half-open foldable it stays clear of the fold.
-- On a tablet on its side, a large tablet, a desktop window, the Razr cover and a half-open foldable the ringing alarm has its own layout, and I'm up is always on screen without scrolling. On a wide screen the buttons sit right under the message.
-- On a tablet on its side, a large tablet or a wide window, Topics and History open with the first topic or the newest alarm already showing beside the list, and a link to a topic opens it there. On a half-open foldable the face and its card hold still on one side of the fold while the list moves on the other, and a small cover screen fits two rows under a one-line card.
-- On a tablet on its side, a large tablet, a wide window or a foldable held open like a book, Settings keeps its rows on one side and opens the page you pick beside them. On a half-open foldable nothing in Settings or Permissions sits on the fold, and a small cover screen shows the phone check card on one line.
 - Topics, History and a topic's messages open with the alarms and messages already on your phone, then update from the server.
 - A connect link only connects to a server you host yourself.
+- Tablets, foldables and the web app on a wide screen get layouts of their own. A wide window keeps every screen in a centred frame, a half-open foldable keeps everything you read or tap off the fold, and a small cover screen gets a compact tab bar.
+- The ringing alarm fits every screen size, and I'm up is always on screen without scrolling, at large text too. On a wide screen the face sits beside the message and the answers sit right under it.
+- On a tablet on its side, a wide window or a foldable held open like a book, Topics, History and Settings show the list on one side and the topic, alarm or page you pick on the other, opening on the first one.
+- On a tablet or a wide window, setup, New topic and the plans page keep their words and button in one centred column. On a half-open foldable the face sits on one side of the fold and the form or offer on the other.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
