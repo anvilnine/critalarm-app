@@ -89,7 +89,7 @@ Firebase configuration files are intentionally gitignored and must never be comm
 
 - **Android**: Place `google-services.json` in `android/app/google-services.json`
 - **iOS**: Place `GoogleService-Info.plist` in `ios/Runner/GoogleService-Info.plist`
-- **macOS**: nothing to place. The Mac app has the iPhone's bundle id, so it is the same Firebase iOS app, set up from `DefaultFirebaseOptions.macos` in `lib/firebase_options.dart`.
+- **macOS**: nothing extra to place. The Mac app has the iPhone's bundle id, so it is the same Firebase iOS app: the Xcode project bundles `ios/Runner/GoogleService-Info.plist`, and Dart uses `DefaultFirebaseOptions.macos` in `lib/firebase_options.dart`.
 
 If these configuration files are absent (e.g. during local tests or CI builds), the telemetry subsystem initializes gracefully into a safe, disabled state without crashing.
 

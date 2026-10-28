@@ -26,6 +26,7 @@
 		33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC10F02044A3C60003C045 /* AppDelegate.swift */; };
 		33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F22044A3C60003C045 /* Assets.xcassets */; };
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
+		A3310000000000000000B005 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A005 /* GoogleService-Info.plist */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		A3310000000000000000B001 /* SoundChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A001 /* SoundChannel.swift */; };
 		A3310000000000000000B002 /* SettingsChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A002 /* SettingsChannel.swift */; };
@@ -74,6 +75,7 @@
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		33CC10F72044A3C60003C045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Runner/Info.plist; sourceTree = "<group>"; };
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
+		A3310000000000000000A005 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "../ios/Runner/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
 		A3310000000000000000A001 /* SoundChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundChannel.swift; sourceTree = "<group>"; };
 		A3310000000000000000A002 /* SettingsChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsChannel.swift; sourceTree = "<group>"; };
 		A3310000000000000000A003 /* GaplessCaf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GaplessCaf.swift; path = ../ios/Runner/GaplessCaf.swift; sourceTree = SOURCE_ROOT; };
@@ -174,6 +176,7 @@
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
+				A3310000000000000000A005 /* GoogleService-Info.plist */,
 				A3310000000000000000A001 /* SoundChannel.swift */,
 				A3310000000000000000A002 /* SettingsChannel.swift */,
 				A3310000000000000000A003 /* GaplessCaf.swift */,
@@ -304,6 +307,7 @@
 			files = (
 				33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */,
 				33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */,
+				A3310000000000000000B005 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
