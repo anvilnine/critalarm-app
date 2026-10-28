@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
 # Build the Android app bundle and send it to Google Play in one command.
+# It builds the play store flavor (--flavor play --dart-define=STORE=play),
+# which lands in build/app/outputs/bundle/playRelease/app-play-release.aab.
 #
 # Same shape as release-ios.sh: gates, build, validate, upload. The upload
 # itself is scripts/play_upload.py, which talks to the Play Developer API with
@@ -168,10 +170,13 @@ command -v fvm >/dev/null || die "fvm is not on PATH."
 command -v python3 >/dev/null || die "python3 is not on PATH."
 [ -f .env ] || die ".env is missing. Copy .env.example and fill it in."
 
-# Without this the release build dies at :app:processReleaseGoogleServices, and
-# the error does not say the file is missing.
-[ -f android/app/google-services.json ] || \
-  die "android/app/google-services.json is missing. It is kept out of this public repo."
+# The play flavor's Firebase config. Without it the build stops at
+# :app:processPlayReleaseGoogleServices.
+[ -f android/app/src/play/google-services.json ] || \
+  die "android/app/src/play/google-services.json is missing. It is kept out of this public repo."
+# Its old place. Gradle refuses a copy left there, so say how to fix it here.
+[ ! -e android/app/google-services.json ] || \
+  die "android/app/google-services.json moved to android/app/src/play/. Run: mv android/app/google-services.json android/app/src/play/"
 
 # A release bundle has to be signed with the upload key, or Play refuses it.
 [ -e android/key.properties ] || \
@@ -235,7 +240,9 @@ fi
 
 # ------------------------------------------------------------------------- build
 
-aab="build/app/outputs/bundle/release/app-release.aab"
+# The store flavor this script ships. Galaxy and huawei have no upload path yet.
+store="play"
+aab="build/app/outputs/bundle/${store}Release/app-${store}-release.aab"
 
 if [ "$reuse_build" -eq 1 ]; then
   [ -f "$aab" ] || die "no bundle at $aab. Run without --upload-only, or with --build-only first."
@@ -248,6 +255,7 @@ else
   # --split-debug-info instead, and keep_symbols copies them out of build/.
   rm -rf "$(dart_symbols_dir android)"
   fvm flutter build appbundle --release \
+    --flavor "$store" --dart-define=STORE="$store" \
     --obfuscate --split-debug-info="$(dart_symbols_dir android)"
 
   [ -f "$aab" ] || die "no bundle at $aab. The build printed why."
@@ -258,6 +266,10 @@ else
   if keytool -printcert -jarfile "$aab" 2>/dev/null | grep -q "CN=Android Debug"; then
     die "the bundle is signed with the debug key. Check android/key.properties and the keystore it names."
   fi
+
+  # No Huawei or Samsung classes, and the Play sound pack is in.
+  sh tool/store_leak_check.sh "$aab" "$store" || \
+    die "the store leak check failed. The output above names the package."
 
   write_stamp android
   keep_symbols android

@@ -15,6 +15,8 @@ final class ProEndingView {
     this.sheet = ProPlanSheet.none,
     this.showPill = false,
     this.endsAt,
+    this.hasBillingIssue = false,
+    this.endsAtInstant,
   });
 
   static const nothing = ProEndingView();
@@ -24,6 +26,18 @@ final class ProEndingView {
 
   /// Wall-clock end of Pro. Set while a cancelled plan is still running.
   final DateTime? endsAt;
+
+  /// The store has a payment problem on record for this plan. A plan that is
+  /// not renewing because a charge failed was not cancelled by the person, so
+  /// the cancel question stays away.
+  final bool hasBillingIssue;
+
+  /// The store's expiry as a UTC instant, copied from
+  /// `PlanStatus.expiresAtInstant`. It never goes through `DeviceTimeZone`,
+  /// which rebuilds an instant with an offset measured now and so can differ
+  /// by phone or after a zone change. The cancel question's local key is the
+  /// UTC date of this instant.
+  final DateTime? endsAtInstant;
 }
 
 /// Answers what the home screen shows about Pro ending: the "Pro ends" sheet,
@@ -119,7 +133,12 @@ class ProEnding {
 
     final key = ProEndingRule.keyFor(endsAt);
     if (_notices.getProEndingSheetShownFor() != key) {
-      return ProEndingView(sheet: ProPlanSheet.ending, endsAt: endsAt);
+      return ProEndingView(
+        sheet: ProPlanSheet.ending,
+        endsAt: endsAt,
+        hasBillingIssue: plan.billingIssueAt != null,
+        endsAtInstant: plan.expiresAtInstant,
+      );
     }
     return ProEndingView(
       showPill: ProEndingRule.shouldShowPill(
@@ -130,6 +149,8 @@ class ProEnding {
         lastDaysDismissed: _notices.getProEndingLastDaysDismissedFor() == key,
       ),
       endsAt: endsAt,
+      hasBillingIssue: plan.billingIssueAt != null,
+      endsAtInstant: plan.expiresAtInstant,
     );
   }
 

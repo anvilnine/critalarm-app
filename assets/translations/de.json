@@ -189,6 +189,10 @@
     "server_url_error_empty": "Server-URL darf nicht leer sein",
     "server_url_error_invalid": "Gib eine gültige URL ein (z. B. https://api.critalarm.app)",
     "admin_token_error_empty": "Admin-Token darf nicht leer sein",
+    "admin_token_error_wrong": "Der Server hat diesen Admin-Token nicht angenommen. Nicht verbunden.",
+    "answer_invalid": "Diese Adresse hat nicht wie ein Crit Alarm Server geantwortet. Nicht verbunden.",
+    "relay_differs": "Dieser Server nutzt ein anderes Relay als das, bei dem dieses Handy registriert ist. Trenne zuerst die Verbindung und verbinde dich dann erneut.",
+    "registered_elsewhere": "Dieses Handy ist bei einem anderen Server registriert. Trenne zuerst die Verbindung und verbinde dich dann erneut.",
     "version_incompatible": "Dein Server hat Version {version}. Aktualisiere ihn auf 0.x und verbinde dich erneut.",
     "connected_status": "Verbunden: {serverUrl}",
     "hook_title": "Teste deinen Alarm",
@@ -283,6 +287,7 @@
     "not_encrypted": "Diese Adresse ist nicht verschlüsselt.",
     "address_differs": "Dieser Server gibt {host} als seine Adresse an. Nicht verbunden.",
     "downgrade": "Dieser Server hat mit einer unverschlüsselten Adresse geantwortet. Nicht verbunden.",
+    "not_self_hosted": "Ein Link verbindet nur mit einem selbstgehosteten Server. Nicht verbunden.",
     "close": "Schließen"
   },
   "onboarding_real_ring": {
@@ -636,6 +641,19 @@
     "pro_ended_intro": "Deine Alarme klingeln weiter.\n\nDas hat sich geändert:",
     "pro_ended_action": "Tarife ansehen",
     "pro_ended_dismiss": "OK"
+  },
+  "cancel_question": {
+    "title": "Warum hast du gekündigt?",
+    "reason_price": "Zu teuer",
+    "reason_unused": "Zu selten genutzt",
+    "reason_selfhost": "Wechsel auf meinen eigenen Server",
+    "reason_missing": "Mir fehlt eine Funktion",
+    "reason_broken": "Etwas ging kaputt",
+    "reason_other": "Sonstiges",
+    "explain_hint": "Optionale Notiz. Wir können nicht antworten.",
+    "send": "Notiz senden",
+    "thanks_title": "Danke. Das hilft.",
+    "keeps": "Cloud bleibt bis {date} aktiv. Deine Alarme klingeln weiter."
   },
   "asks": {
     "pro_title": "Cloud ergänzt:",

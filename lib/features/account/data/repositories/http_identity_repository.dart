@@ -41,7 +41,12 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   static const _providerKey = 'identity_provider';
   static const _emailKey = 'identity_email';
-  static const _accountKey = 'identity_account_id';
+
+  /// The preference key of the account the person is signed in to. A reader
+  /// that has to answer before this repository exists (the local store, at
+  /// its upgrade) reads it from here.
+  static const String accountIdKey = 'identity_account_id';
+  static const String _accountKey = accountIdKey;
 
   /// Every provider that reaches the account, comma separated. Missing on an
   /// install saved before linking existed, which reads as the one provider in

@@ -175,7 +175,7 @@ class SoundPackChannel(
     private fun stateMap(pack: String, state: AssetPackState): Map<String, Any?> {
         val hasLocation = state.status() == AssetPackStatus.COMPLETED && packAssetsDir(pack) != null
         return mapOf(
-            "state" to SoundPackRules.stateName(state.status(), state.errorCode(), hasLocation),
+            "state" to SoundPackPlayRules.stateName(state.status(), state.errorCode(), hasLocation),
             "progress" to SoundPackRules.progress(state.bytesDownloaded(), state.totalBytesToDownload()),
             "error_code" to state.errorCode(),
         )
@@ -184,7 +184,7 @@ class SoundPackChannel(
     private fun errorMap(error: Throwable): Map<String, Any?> {
         val code = (error as? AssetPackException)?.errorCode ?: AssetPackErrorCode.INTERNAL_ERROR
         return mapOf(
-            "state" to SoundPackRules.stateName(AssetPackStatus.FAILED, code, hasLocation = false),
+            "state" to SoundPackPlayRules.stateName(AssetPackStatus.FAILED, code, hasLocation = false),
             "error_code" to code,
         )
     }
