@@ -12,6 +12,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - test/core/links/android\_link\_filters\_test.dart fails when an Android manifest gains a scheme other than https, a critalarm:// one included.
 - Android store flavors play, galaxy and huawei (app.critalarm, app.critalarm.galaxy, app.critalarm.huawei). Every Android build passes --flavor and --dart-define=STORE, read into StoreKind. The Play bundle is now build/app/outputs/bundle/playRelease/app-play-release.aab.
 - tool/store\_leak\_check.sh fails when a store build carries another store's SDK. make quality runs it on the Play build, and the Android release script runs it on the bundle before upload.
+- PushTokenKind.hms, unused until the Huawei build hands out Push Kit tokens.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
@@ -23,6 +24,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A device token with no server written beside it counts as the management credential for hostedServerUrl (https://api.critalarm.app) only. EstablishApiSessionUsecase starts the identity fresh (DeviceIdentityStore.startFresh, inside the checkpoint) for a token whose relay or server does not match when no server is saved, and refuses as before when one is. The join token is used, and the iPhone synced account item written (saveRegistration isHostedAccount), only for the hosted relay and the hosted server. RegisterDeviceUsecase takes readSession and forServer, and writes the hosted server beside a token used on its own session.
 - The native weekly check receipt (RelayDevice.parse in CheckReceipt.kt and WeeklyCheckResponder.swift) sends the device token only when its saved device\_token\_relay, or the hosted relay when none is saved, is the relay of the saved session.
 - The incidents and messages tables carry a scope column, the primary key is scope and id, and the local store is at schema version 4. IncidentStore and MessageStore read the current scope only, and ArchiveScope drops a write that lands after an account change. AccountData.forgetDeleted removes an account's rows on delete.
+- Every store call goes through StoreServices (lib/core/store/services/), picked by StoreKind in lib/app/di.dart. The Google Play and App Store set lives in lib/core/store/play\_apple/: RevenueCatBilling, the Customer Center, in\_app\_review and the native Google sheet.
+- The paywall, the Pro pack shop and the plan status source read StoreCatalogEntry, StoreOfferings and StoreCustomer instead of RevenueCat types. RevenueCatSubscriptionRepository, RevenueCatStoreCatalog, RevenueCatProPackShop and RevenueCatPlanStatusSource are now StoreSubscriptionRepository, BillingStoreCatalog, StoreProPackShop and StorePlanStatusSource.
+- tool/check\_layers.sh fails when a file under lib/features/ imports purchases\_flutter, purchases\_ui\_flutter, in\_app\_review or google\_sign\_in.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
