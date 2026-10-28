@@ -11,6 +11,7 @@ import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/l10n/app_locales.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
@@ -174,7 +175,9 @@ Future<void> main() async {
   // is picked up again.
   unawaited(getIt<BackgroundConnect>().resumeSaved());
 
-  if (!buildUsesMockApi) {
+  // The Mac has no push token yet, so it has nothing to register and no Live
+  // Activity tokens to send.
+  if (!buildUsesMockApi && getIt<PlatformCapabilities>().canRegisterPush) {
     // api.md §4.2: register on launch, and again whenever the push token
     // rotates. Failures are retried on the next launch.
     unawaited(getIt<DeviceTokenRegistry>().start());

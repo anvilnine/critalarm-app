@@ -355,7 +355,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// waiting for the next cold start. Device registration also sends the
   /// unchanged token again here when a day has passed since the last call.
   Future<void> _retryFailedLaunchCalls() async {
-    if (!buildUsesMockApi) {
+    if (!buildUsesMockApi && getIt<PlatformCapabilities>().canRegisterPush) {
       unawaited(getIt<DeviceTokenRegistry>().onResumed());
       unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
     }
