@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/design/design.dart';
@@ -161,11 +162,13 @@ class _RealRingViewState extends State<_RealRingView>
   }
 
   /// Opens the alarm screen in place of this one, unless the app has
-  /// already gone there by itself (a tapped notification does that).
+  /// already gone there by itself (a tapped notification does that) or an
+  /// alarm screen is already pushed over it.
   void _openAlarm(String incidentId) {
     final router = GoRouter.of(context);
     final here = GoRouterState.of(context).uri.path;
-    if (router.routerDelegate.currentConfiguration.uri.path != here) return;
+    final routes = router.routerDelegate.currentConfiguration;
+    if (!setupStepMayOpenAlarm(routes, here)) return;
     // A step forward in setup, not a detour, so it replaces this screen.
     router.go(PushDeepLink.incidentLocation(incidentId));
   }

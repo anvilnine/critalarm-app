@@ -1,3 +1,4 @@
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
@@ -65,12 +66,31 @@ class AppAmbientShell extends StatefulWidget {
     return AmbientAppProfiles.topicsHero(colors, spot: heroSpot);
   }
 
+  /// Whether the shell leaves its canvas out for [routes]. Setup draws its
+  /// own canvas, so the shell skips its one while setup is the whole stack.
+  ///
+  /// A `push` keeps the base uri in go_router, so a pushed `/alarm` over
+  /// `/onboarding/permissions` still reads `/onboarding/permissions` there.
+  /// The alarm routes are opaque and hide the setup canvas, so the top match
+  /// decides too: the canvas stays when anything other than setup is on top,
+  /// and when setup is pushed over a screen that needs the canvas under it.
+  @visibleForTesting
+  static bool skipsCanvasFor(RouteMatchList routes) {
+    if (routes.matches.isEmpty) return false;
+    final base = routes.uri.path;
+    final top = topPathOf(routes);
+    return _isSetupPath(base) && _isSetupPath(top);
+  }
+
+  static bool _isSetupPath(String path) => path.startsWith('/onboarding');
+
   @override
   State<AppAmbientShell> createState() => _AppAmbientShellState();
 }
 
 class _AppAmbientShellState extends State<AppAmbientShell> {
   late String _currentPath;
+  late bool _skipsCanvas;
   final List<String> _history = <String>[];
   AmbientDirection _direction = AmbientDirection.push;
   late final AmbientController _controller = AmbientController();
@@ -79,6 +99,7 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   void initState() {
     super.initState();
     _currentPath = _resolvePath();
+    _skipsCanvas = _resolveSkipsCanvas();
     _history.add(_currentPath);
     widget.router.routerDelegate.addListener(_handleRouteChanged);
     _controller.addListener(_handleOverrideChanged);
@@ -137,6 +158,16 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
     }
   }
 
+  bool _resolveSkipsCanvas() {
+    try {
+      return AppAmbientShell.skipsCanvasFor(
+        widget.router.routerDelegate.currentConfiguration,
+      );
+    } on Object {
+      return false;
+    }
+  }
+
   static bool _isRootTab(String path) {
     return path == '/' || path == '/history' || path == '/settings';
   }
@@ -148,6 +179,14 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   }
 
   void _handleRouteChanged() {
+    final skipsCanvas = _resolveSkipsCanvas();
+    if (skipsCanvas != _skipsCanvas) {
+      _skipsCanvas = skipsCanvas;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+
     final nextPath = _resolvePath();
     if (nextPath == _currentPath) return;
 
@@ -197,10 +236,6 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
     return AmbientDirection.push;
   }
 
-  bool get _isSpecialFlow {
-    return _currentPath.startsWith('/onboarding');
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -217,7 +252,7 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
 
     return Stack(
       children: [
-        if (!_isSpecialFlow)
+        if (!_skipsCanvas)
           Positioned.fill(
             child: IgnorePointer(
               child: AmbientCanvas(
@@ -229,7 +264,11 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
               ),
             ),
           ),
+        // Keyed, so the routes keep their state when the canvas before it
+        // comes or goes. Unkeyed, the canvas took this slot's place and the
+        // whole navigator under it was built again.
         Positioned.fill(
+          key: const ValueKey('app-ambient-content'),
           child: AmbientScope(
             controller: _controller,
             // The screens leave their background clear and sit on the canvas
