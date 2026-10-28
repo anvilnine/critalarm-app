@@ -10,6 +10,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
 - Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
 - test/core/links/android\_link\_filters\_test.dart fails when an Android manifest gains a scheme other than https, a critalarm:// one included.
+- Android store flavors play, galaxy and huawei (app.critalarm, app.critalarm.galaxy, app.critalarm.huawei). Every Android build passes --flavor and --dart-define=STORE, read into StoreKind. The Play bundle is now build/app/outputs/bundle/playRelease/app-play-release.aab.
+- tool/store\_leak\_check.sh fails when a store build carries another store's SDK. make quality runs it on the Play build, and the Android release script runs it on the bundle before upload.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.

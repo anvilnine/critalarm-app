@@ -31,7 +31,7 @@
 // - Needs `make gen` and `make l10n` run once in the worktree.
 //
 // ignore_for_file: invalid_use_of_visible_for_testing_member
-// ignore_for_file: depend_on_referenced_packages, avoid_print
+// ignore_for_file: avoid_print
 
 import 'dart:async';
 import 'dart:convert';
@@ -170,7 +170,7 @@ class _Glyphs extends CustomPainter {
   bool shouldRepaint(_Glyphs old) => old.color != color;
 }
 
-/// Records [seconds] of [boundary] into [dir]/frames (PNG, [outW] x [outH])
+/// Records [seconds] of [boundary] into [dir]/frames (PNG, `outW` x `outH`)
 /// plus still.png at full size from the last frame. Writes meta.json.
 Future<void> _record(
   WidgetTester tester,
@@ -186,11 +186,25 @@ Future<void> _record(
   frames.createSync(recursive: true);
   final ff = await tester.runAsync(
     () => Process.start('ffmpeg', [
-      '-hide_banner', '-loglevel', 'error', '-y',
-      '-f', 'rawvideo', '-pix_fmt', 'rgba',
-      '-s', '${fullW}x$fullH', '-framerate', '$_fps', '-i', '-',
-      '-vf', 'scale=${fullW ~/ 2}:${fullH ~/ 2}:flags=lanczos',
-      '-start_number', '0', p.join(frames.path, '%04d.png'),
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'rawvideo',
+      '-pix_fmt',
+      'rgba',
+      '-s',
+      '${fullW}x$fullH',
+      '-framerate',
+      '$_fps',
+      '-i',
+      '-',
+      '-vf',
+      'scale=${fullW ~/ 2}:${fullH ~/ 2}:flags=lanczos',
+      '-start_number',
+      '0',
+      p.join(frames.path, '%04d.png'),
     ]),
   );
   unawaited(ff!.stderr.transform(utf8.decoder).forEach(stderr.write));
@@ -205,7 +219,7 @@ Future<void> _record(
     if (thrown != null) errors.add('$thrown'.split('\n').first);
     await tester.runAsync(() async {
       final render =
-          boundary.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image = await render.toImage(pixelRatio: _ratio);
       final data = await image.toByteData();
       final w = image.width;
@@ -224,7 +238,7 @@ Future<void> _record(
     await ff.exitCode;
     // Full size still of the settled (last) frame.
     final render =
-        boundary.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await render.toImage(pixelRatio: _ratio);
     final png = await image.toByteData(format: ImageByteFormat.png);
     File(p.join(dir.path, 'still.png')).writeAsBytesSync(
@@ -255,7 +269,6 @@ Future<void> _record(
   );
 }
 
-
 void main() {
   final out = Directory(_env('SITE_OUT', 'build/site_paywalls'));
   final only = _env('SITE_ONLY', '');
@@ -285,7 +298,7 @@ void main() {
     getIt
       ..unregister<PlatformCapabilities>()
       ..registerSingleton<PlatformCapabilities>(
-        PlatformCapabilities(isWeb: false, platform: TargetPlatform.iOS),
+        const PlatformCapabilities(isWeb: false, platform: TargetPlatform.iOS),
       );
   }
 

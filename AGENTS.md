@@ -69,11 +69,24 @@ state-management library.
 | Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store) |
 | Record the Cloud paywall layouts and benefit previews as frames (site and marketing media) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
+| Build another store's app | `make build-store-apk STORE=galaxy` (or `huawei`; `play` is the default), `make build-store-appbundle STORE=...` |
+| Store leak check | `make check-store-leaks` (builds under `build/`), or `sh tool/store_leak_check.sh <apk-or-aab> <play\|galaxy\|huawei> [mapping.txt]` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
 
 Fresh cold-start mode wipes all app data on the selected device and requires `--yes-wipe`; the Makefile target never passes it.
+
+**Store flavors.** Every Android build names a store: `--flavor play|galaxy|huawei`
+and the same name as `--dart-define=STORE`, read once in `lib/app/di.dart` into
+`StoreKind` (`lib/core/platform/store_kind.dart`). The Make targets pass both,
+`STORE=play` by default, and leave them out for an iPhone, whose store is
+`apple`. A bare `fvm flutter run` on Android stops and asks for a flavor.
+`play` is `app.critalarm`; `galaxy` and `huawei` add `.galaxy` and `.huawei`.
+Play-only native code (Play Asset Delivery, `SoundPackChannel`) lives in
+`android/app/src/play/` and comes in with `playImplementation`; the other two
+flavors have their own `SoundPackChannel` that answers `unavailable`. The play
+release bundle is `build/app/outputs/bundle/playRelease/app-play-release.aab`.
 
 **Work in a worktree, one per task.** `make worktree-new NAME=search-overlay`
 creates `worktrees/search-overlay` on branch `task/search-overlay` off `main`, so

@@ -1,4 +1,4 @@
-.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -69,8 +69,30 @@ screens:
 google-xcconfig:
 	./scripts/gen-google-xcconfig.sh
 
+# --- Store flavors -------------------------------------------------------------
+# Every Android build names its store: a Gradle flavor (android/app/build.gradle.kts)
+# and the same name as --dart-define=STORE, which lib/app/di.dart reads into
+# StoreKind. play is the Google Play app as it has always been. galaxy and huawei
+# are app.critalarm.galaxy and app.critalarm.huawei. Pick one with STORE=<name>.
+STORE ?= play
+ANDROID_STORE_ARGS = --flavor $(STORE) --dart-define=STORE=$(STORE)
+
+# `flutter run` serves iPhones too, and the iOS project has no flavors: an
+# iPhone build gets no --flavor and its StoreKind is apple. So the run targets
+# add the flavor only for an Android device: the DEVICE adb knows, or, with no
+# DEVICE, whenever adb sees a phone. With an iPhone and an Android phone both
+# attached, pass DEVICE. STORE=apple forces the iPhone form.
+ADB ?= $(shell command -v adb 2>/dev/null || echo $(HOME)/Library/Android/sdk/platform-tools/adb)
+run_on_android = $(if $(filter apple,$(STORE)),,$(shell \
+	if [ -n "$(DEVICE)" ]; then \
+	  [ "$$($(ADB) -s '$(DEVICE)' get-state 2>/dev/null)" = device ] && echo yes; \
+	else \
+	  $(ADB) devices 2>/dev/null | awk 'NR > 1 && $$2 == "device" { found = 1 } END { if (found) print "yes" }'; \
+	fi))
+RUN_STORE_ARGS = $(if $(run_on_android),$(ANDROID_STORE_ARGS),)
+
 run: google-xcconfig
-	fvm flutter run
+	fvm flutter run $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
 analyze:
 	fvm flutter analyze
@@ -78,8 +100,39 @@ analyze:
 format:
 	fvm dart format .
 
-# Format, analyze and the access check in one go. Run before every commit.
-quality: format analyze check-access
+# Format, analyze, the access check and the Play leak check in one go. Run
+# before every commit.
+quality: format analyze check-access check-play-leaks
+
+# tool/store_leak_check.sh on the store builds already under build/: each
+# store's release apk and app bundle that exists. A release apk is read with
+# its variant's R8 map when that map is not older than the apk. It builds
+# nothing, so a store with no build yet is skipped with a line saying so.
+# Narrow it with LEAK_STORES="galaxy huawei".
+LEAK_STORES ?= play galaxy huawei
+check-store-leaks:
+	@status=0; \
+	for store in $(LEAK_STORES); do \
+	  apk=build/app/outputs/flutter-apk/app-$$store-release.apk; \
+	  aab=build/app/outputs/bundle/$${store}Release/app-$$store-release.aab; \
+	  map=build/app/outputs/mapping/$${store}Release/mapping.txt; \
+	  found=0; \
+	  if [ -f "$$apk" ]; then \
+	    found=1; \
+	    if [ -f "$$map" ] && [ ! "$$map" -ot "$$apk" ]; then \
+	      sh tool/store_leak_check.sh "$$apk" "$$store" "$$map" || status=1; \
+	    else \
+	      sh tool/store_leak_check.sh "$$apk" "$$store" || status=1; \
+	    fi; \
+	  fi; \
+	  if [ -f "$$aab" ]; then found=1; sh tool/store_leak_check.sh "$$aab" "$$store" || status=1; fi; \
+	  [ "$$found" -eq 1 ] || echo "store-leak-check: no $$store release build under build/, skipped. make build-store-apk STORE=$$store builds one."; \
+	done; \
+	exit $$status
+
+# The Play build only, which is what make quality runs.
+check-play-leaks:
+	@$(MAKE) --no-print-directory check-store-leaks LEAK_STORES=play
 
 # Enforce clean-architecture dependency direction.
 check-layers:
@@ -120,7 +173,7 @@ doctor:
 # run-store.
 # Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
 run-release: google-xcconfig
-	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
+	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
 # Release build that sells through the real store, as a store build does:
 # RevenueCat with the keys in .env, the store's own prices, a real purchase
@@ -129,21 +182,29 @@ run-release: google-xcconfig
 # and sends no symbols, so it never goes to a store: the release scripts do.
 # Pass a device with DEVICE=<id>, e.g. make run-store DEVICE=R5CXB30NDRV
 run-store: google-xcconfig
-	fvm flutter run --release $(if $(DEVICE),-d $(DEVICE),)
+	fvm flutter run --release $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
-# Same, as an installable APK.
+# Same, as an installable APK, for STORE=play (the default), galaxy or huawei.
+# Lands in build/app/outputs/flutter-apk/app-<store>-release.apk.
 build-store-apk:
-	fvm flutter build apk --release
+	fvm flutter build apk --release $(ANDROID_STORE_ARGS)
+
+# Same, as an app bundle: build/app/outputs/bundle/<store>Release/app-<store>-release.aab.
+# Not obfuscated and sends no symbols, so it is for checking a build, never for
+# a store upload. The Play upload is scripts/release-android.sh. Only the play
+# bundle carries the Play sound pack.
+build-store-appbundle:
+	fvm flutter build appbundle --release $(ANDROID_STORE_ARGS)
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.
 # Pass a device with DEVICE=<id>, e.g. make run-quiet DEVICE=R5CXB30NDRV
 run-quiet: google-xcconfig
-	fvm flutter run --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(if $(DEVICE),-d $(DEVICE),)
+	fvm flutter run --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
 # Same, as an installable artifact.
 build-quiet-apk:
-	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true
+	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(ANDROID_STORE_ARGS)
 
 # Cloud paywall layouts and benefit previews as frames, for the site. Ids,
 # env and output are in the header of tool/capture_site_paywalls.dart; then
@@ -158,7 +219,7 @@ cold-start:
 # Same flag, for an installable artifact instead of an attached run. Buys
 # nothing: build-store-apk is the one that sells.
 build-release-apk:
-	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true
+	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true $(ANDROID_STORE_ARGS)
 
 build-release-ios: google-xcconfig
 	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true

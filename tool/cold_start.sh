@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 # Build the APK first with: make build-quiet-apk
+# It lands in build/app/outputs/flutter-apk/app-play-release.apk (the play store
+# flavor). This script launches app.critalarm, so it measures play builds only.
 # For an offline run, switch airplane mode on by hand and pass --label offline.
 # TotalTime ends at the activity's first drawn frame, which may be the splash.
 # Each uiautomator poll costs about a second, so Get started timing is coarse
