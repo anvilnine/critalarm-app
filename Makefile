@@ -191,21 +191,30 @@ run-release: google-xcconfig
 # and restore. For a test purchase with an App Store sandbox account or a Play
 # licence tester. No Developer options and no layout pickers. Not obfuscated
 # and sends no symbols, so it never goes to a store: the release scripts do.
+# NO_TELEMETRY keeps analytics and crash reports off, as in every build made
+# here (lib/core/telemetry/telemetry_build_rule.dart). The release scripts
+# never pass it.
 # Pass a device with DEVICE=<id>, e.g. make run-store DEVICE=R5CXB30NDRV
+NO_TELEMETRY_ARGS = --dart-define=NO_TELEMETRY=true
 run-store: google-xcconfig
-	fvm flutter run --release $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
+	fvm flutter run --release $(NO_TELEMETRY_ARGS) $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
 # Same, as an installable APK, for STORE=play (the default), galaxy or huawei.
 # Lands in build/app/outputs/flutter-apk/app-<store>-release.apk.
+# A desk build: no analytics, never uploaded. It deletes the release stamp,
+# so release-android.sh --upload-only refuses until a real release build.
+RELEASE_ANDROID_STAMP = build/release-android.stamp
 build-store-apk:
-	fvm flutter build apk --release $(ANDROID_STORE_ARGS)
+	rm -f $(RELEASE_ANDROID_STAMP)
+	fvm flutter build apk --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Same, as an app bundle: build/app/outputs/bundle/<store>Release/app-<store>-release.aab.
 # Not obfuscated and sends no symbols, so it is for checking a build, never for
 # a store upload. The Play upload is scripts/release-android.sh. Only the play
 # bundle carries the Play sound pack.
 build-store-appbundle:
-	fvm flutter build appbundle --release $(ANDROID_STORE_ARGS)
+	rm -f $(RELEASE_ANDROID_STAMP)
+	fvm flutter build appbundle --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.

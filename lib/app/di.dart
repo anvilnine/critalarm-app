@@ -102,6 +102,7 @@ import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
+import 'package:critalarm/core/telemetry/telemetry_build_rule.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
 import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
@@ -472,7 +473,23 @@ Future<void> configureDependencies({
         return null;
       }
     }();
-    final telemetryGate = FirebaseTelemetryGate(options: options);
+    // Debug, profile and desk builds, and a web page off the production
+    // host, send no analytics and no crash reports, whatever the user's
+    // switch says. A store build still waits for that switch.
+    final collectionAllowed = telemetryAllowedFor(
+      isRelease: kReleaseMode,
+      usesMockApi: buildUsesMockApi,
+      skipsPaywall: buildSkipsPaywall,
+      hasPaywallLab: buildHasPaywallLab,
+      usesQuietAlarm: buildUsesQuietAlarm,
+      blocksTelemetry: buildBlocksTelemetry,
+      webPage: kIsWeb ? Uri.base : null,
+    );
+    final telemetryGate = FirebaseTelemetryGate(
+      options: options,
+      collectionAllowed: collectionAllowed,
+      isWeb: kIsWeb,
+    );
     await telemetryGate.initialize();
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
   }
