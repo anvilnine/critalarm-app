@@ -24,6 +24,8 @@ void main() {
           GoRoute(path: '/alarm', builder: page),
           GoRoute(path: '/incidents/:id', builder: page),
           GoRoute(path: '/lockscreen', builder: page),
+          GoRoute(path: '/permissions/ask', builder: page),
+          GoRoute(path: '/sounds/crop', builder: page),
         ],
       ),
     ),
@@ -80,6 +82,74 @@ void main() {
 
     test('an empty list reads as /', () {
       expect(topPathOf(RouteMatchList.empty), '/');
+    });
+  });
+
+  group('alarmIsOnTop', () {
+    const step = '/onboarding/real-ring';
+
+    test('an alarm pushed over the step is on top', () {
+      expect(alarmIsOnTop(push(at(step), '/alarm')), isTrue);
+    });
+
+    test('an incident pushed over the step is on top', () {
+      expect(alarmIsOnTop(push(at(step), '/incidents/inc_1')), isTrue);
+    });
+
+    test('an alarm opened with go is on top', () {
+      expect(alarmIsOnTop(at('/incidents/inc_1')), isTrue);
+    });
+
+    test('a page that is not the alarm, pushed over the step, is not', () {
+      expect(alarmIsOnTop(push(at(step), '/permissions/ask')), isFalse);
+      expect(alarmIsOnTop(push(at(step), '/sounds/crop')), isFalse);
+      expect(alarmIsOnTop(push(at(step), '/lockscreen')), isFalse);
+    });
+
+    test('the step itself is not', () {
+      expect(alarmIsOnTop(at(step)), isFalse);
+    });
+
+    test('an empty list is not', () {
+      expect(alarmIsOnTop(RouteMatchList.empty), isFalse);
+    });
+  });
+
+  group('setupStepMayOpenAlarm', () {
+    const step = '/onboarding/real-ring';
+
+    test('the step on its own opens the alarm', () {
+      expect(setupStepMayOpenAlarm(at(step), step), isTrue);
+    });
+
+    test('a page that is not the alarm pushed over the step does not stop '
+        'it', () {
+      expect(
+        setupStepMayOpenAlarm(push(at(step), '/permissions/ask'), step),
+        isTrue,
+      );
+      expect(
+        setupStepMayOpenAlarm(push(at(step), '/sounds/crop'), step),
+        isTrue,
+      );
+    });
+
+    test('an alarm already pushed over the step stops it', () {
+      expect(setupStepMayOpenAlarm(push(at(step), '/alarm'), step), isFalse);
+      expect(
+        setupStepMayOpenAlarm(push(at(step), '/incidents/inc_1'), step),
+        isFalse,
+      );
+    });
+
+    test('an alarm pushed over another page pushed over the step stops it', () {
+      final routes = push(push(at(step), '/permissions/ask'), '/alarm');
+      expect(setupStepMayOpenAlarm(routes, step), isFalse);
+    });
+
+    test('the router gone elsewhere with go stops it', () {
+      expect(setupStepMayOpenAlarm(at('/incidents/inc_1'), step), isFalse);
+      expect(setupStepMayOpenAlarm(at('/'), step), isFalse);
     });
   });
 }
