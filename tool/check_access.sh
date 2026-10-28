@@ -37,7 +37,7 @@ lib/features/pro_pack/domain/pro_pack_override.dart
 lib/features/paywall/domain/repositories/subscription_repository.dart
 lib/features/paywall/data/repositories/dev_subscription_repository.dart
 lib/features/paywall/data/repositories/in_memory_subscription_repository.dart
-lib/features/paywall/data/repositories/revenuecat_subscription_repository.dart
+lib/features/paywall/data/repositories/store_subscription_repository.dart
 lib/features/paywall/presentation/cubits/paywall_cubit.dart
 lib/features/paywall/presentation/layouts/
 '

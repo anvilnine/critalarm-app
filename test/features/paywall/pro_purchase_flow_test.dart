@@ -3,6 +3,7 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
@@ -84,7 +85,9 @@ void main() {
         );
         addTearDown(cubit.close);
 
-        await cubit.upgradeToPro(_package);
+        await cubit.upgradeToPro(
+          storeCatalogEntryOf(_package, offeringId: 'default'),
+        );
 
         expect(registrations, 3);
         expect(cubit.state.isPro, isTrue);

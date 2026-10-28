@@ -1,4 +1,7 @@
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/data/asset_price_book.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
@@ -77,14 +80,16 @@ class _Store extends InMemorySubscriptionRepository {
   final List<String> purchased = [];
 
   @override
-  Future<AppResult<Offerings>> getOfferings() async {
+  Future<AppResult<StoreOfferings>> getOfferings() async {
     reads++;
-    return Success(_offeringsOf(packages));
+    return Success(storeOfferingsOf(_offeringsOf(packages)));
   }
 
   @override
-  Future<AppResult<CustomerInfo>> purchasePackage(Package package) async {
-    purchased.add(package.identifier);
+  Future<AppResult<StoreCustomer>> purchasePackage(
+    StoreCatalogEntry package,
+  ) async {
+    purchased.add(package.id);
     return super.purchasePackage(package);
   }
 }

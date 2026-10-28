@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:critalarm/core/env/env.dart';
-import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/store/services/google_sign_in_sheet.dart';
+import 'package:critalarm/core/store/services/sign_in_options.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// What a provider sheet handed back, before our own server has seen it.
@@ -40,33 +38,20 @@ abstract interface class ProviderSignIn {
   Future<void> signOut();
 }
 
-/// The real sheets: `sign_in_with_apple` on iOS, `google_sign_in` on both.
+/// The real sheets: `sign_in_with_apple` on iOS, and the store's Google
+/// sheet. Which providers show is the store's [SignInOptions].
 final class NativeProviderSignIn implements ProviderSignIn {
-  NativeProviderSignIn({
-    required PlatformCapabilities capabilities,
-    GoogleSignIn? google,
-    String? googleIosClientId,
-    String? googleServerClientId,
-    // The field is private and the parameter is public, so it cannot be an
-    // initializing formal.
-    // ignore: prefer_initializing_formals
-  }) : _capabilities = capabilities,
-       _google = google ?? GoogleSignIn.instance,
-       _iosClientId = googleIosClientId ?? Env.googleIosClientId,
-       _serverClientId = googleServerClientId ?? Env.googleServerClientId;
+  NativeProviderSignIn({required this._options, required this._google});
 
-  final GoogleSignIn _google;
-  final PlatformCapabilities _capabilities;
-  final String _iosClientId;
-  final String _serverClientId;
-
-  bool _googleReady = false;
+  final SignInOptions _options;
+  final GoogleSignInSheet _google;
 
   @override
-  bool supports(IdentityProvider provider) => switch (provider) {
-    IdentityProvider.apple => _capabilities.isIos,
-    IdentityProvider.google => true,
-  };
+  bool supports(IdentityProvider provider) =>
+      _options.providers.contains(switch (provider) {
+        IdentityProvider.apple => SignInProvider.apple,
+        IdentityProvider.google => SignInProvider.google,
+      });
 
   @override
   Future<ProviderCredential> signIn(IdentityProvider provider) =>
@@ -76,7 +61,7 @@ final class NativeProviderSignIn implements ProviderSignIn {
       };
 
   @override
-  Future<void> signOut() => _googleReady ? _google.signOut() : Future.value();
+  Future<void> signOut() => _google.signOut();
 
   Future<ProviderCredential> _signInWithApple() async {
     final rawNonce = _randomNonce();
@@ -115,33 +100,13 @@ final class NativeProviderSignIn implements ProviderSignIn {
   }
 
   Future<ProviderCredential> _signInWithGoogle() async {
-    if (!_googleReady) {
-      await _google.initialize(
-        // The iOS client belongs to iOS alone. Android reads its client from
-        // the platform config, so passing one there would be wrong.
-        clientId:
-            _capabilities.platform == TargetPlatform.iOS &&
-                _iosClientId.isNotEmpty
-            ? _iosClientId
-            : null,
-        serverClientId: _serverClientId.isNotEmpty ? _serverClientId : null,
-      );
-      _googleReady = true;
-    }
-    final GoogleSignInAccount account;
+    final GoogleSheetAnswer answer;
     try {
-      account = await _google.authenticate();
-    } on GoogleSignInException catch (error) {
-      if (error.code == GoogleSignInExceptionCode.canceled) {
-        throw const IdentitySignInCancelled();
-      }
-      rethrow;
+      answer = await _google.signIn();
+    } on SignInSheetCancelled {
+      throw const IdentitySignInCancelled();
     }
-    final idToken = account.authentication.idToken;
-    if (idToken == null) {
-      throw StateError('Google returned no id token');
-    }
-    return ProviderCredential(idToken: idToken, email: account.email);
+    return ProviderCredential(idToken: answer.idToken, email: answer.email);
   }
 
   static String _randomNonce([int length = 32]) {

@@ -1,4 +1,5 @@
-import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/features/local_reminders/data/store_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/domain/device_time_zone.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,8 +36,8 @@ void main() {
   );
 
   PlanStatus? read(EntitlementInfo? active, DeviceTimeZone zone) =>
-      RevenueCatPlanStatusSource.planStatusFrom(
-        info(active),
+      StorePlanStatusSource.planStatusFrom(
+        storeCustomerOf(info(active)),
         pricesByProduct: const {},
         timeZone: zone,
       );

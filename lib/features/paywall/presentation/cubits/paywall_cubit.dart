@@ -5,6 +5,9 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/manage_subscription.dart';
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
@@ -17,11 +20,9 @@ import 'package:critalarm/features/paywall/presentation/cubits/paywall_state.dar
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 /// Cubit managing a Hosted upgrade, offerings, purchase restoration and
-/// the customer centre.
+/// the store's manage-subscription screen.
 class PaywallCubit extends Cubit<PaywallState> {
   PaywallCubit({
     this.identityStore,
@@ -31,6 +32,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     this.restorePurchasesUsecase,
     this.getCustomerInfoUsecase,
     SubscriptionRepository? subscriptionRepository,
+    this._manageSubscription,
     ProOverride? proOverride,
     this.analytics,
     List<Duration>? tierRefreshWaits,
@@ -63,6 +65,9 @@ class PaywallCubit extends Cubit<PaywallState> {
   final ProOverride _proOverride;
   final PaywallAnalytics? analytics;
 
+  /// The store's place to see or cancel the plan. Null opens nothing.
+  final ManageSubscription? _manageSubscription;
+
   /// What opened this paywall. Set by [loadSubscriptionData].
   String _source = PaywallAnalytics.directSource;
   Future<bool> _isPaid() async => AccountAccess(
@@ -83,7 +88,7 @@ class PaywallCubit extends Cubit<PaywallState> {
   final PurchasePackageUsecase? purchasePackageUsecase;
   final RestorePurchasesUsecase? restorePurchasesUsecase;
   final GetCustomerInfoUsecase? getCustomerInfoUsecase;
-  StreamSubscription<CustomerInfo>? _customerInfoSubscription;
+  StreamSubscription<StoreCustomer>? _customerInfoSubscription;
 
   /// Loads current entitlement status, customer info, and available offerings.
   Future<void> loadSubscriptionData({
@@ -117,12 +122,11 @@ class PaywallCubit extends Cubit<PaywallState> {
         (loadedOfferings) {
           offerings = loadedOfferings;
           final currentOffering = loadedOfferings.current;
-          if (currentOffering != null &&
-              currentOffering.availablePackages.isNotEmpty) {
+          if (currentOffering != null && currentOffering.entries.isNotEmpty) {
             final match =
                 _findPackageForTier(currentOffering, selectedTier) ??
                 currentOffering.annual ??
-                currentOffering.availablePackages.first;
+                currentOffering.entries.first;
             selectedPackage = match;
             selectedTier = SubscriptionTier.fromPackage(match) ?? selectedTier;
           }
@@ -149,7 +153,7 @@ class PaywallCubit extends Cubit<PaywallState> {
 
   /// Selects a subscription tier and updates the chosen package.
   void selectTier(SubscriptionTier tier) {
-    Package? matchingPackage;
+    StoreCatalogEntry? matchingPackage;
     final currentOffering = state.offerings?.current;
     if (currentOffering != null) {
       matchingPackage = _findPackageForTier(currentOffering, tier);
@@ -169,7 +173,7 @@ class PaywallCubit extends Cubit<PaywallState> {
   }
 
   /// Initiates Pro upgrade for the selected or explicitly passed package.
-  Future<void> upgradeToPro([Package? package]) async {
+  Future<void> upgradeToPro([StoreCatalogEntry? package]) async {
     emit(
       state.copyWith(
         status: PaywallStatus.loading,
@@ -311,17 +315,18 @@ class PaywallCubit extends Cubit<PaywallState> {
     return false;
   }
 
-  /// Presents the native RevenueCat Customer Center UI.
+  /// Opens the store's own place to manage the plan: RevenueCat's Customer
+  /// Center on Google Play and the App Store.
   Future<void> presentCustomerCenter() async {
-    await RevenueCatUI.presentCustomerCenter(
-      onRestoreCompleted: (info) async {
+    await _manageSubscription?.open(
+      onRestored: (info) async {
         await _refreshTierUntilPaid();
         _onCustomerInfoUpdated(info);
       },
     );
   }
 
-  void _onCustomerInfoUpdated(CustomerInfo customerInfo) {
+  void _onCustomerInfoUpdated(StoreCustomer customerInfo) {
     emit(state.copyWith(customerInfo: customerInfo));
     unawaited(_refreshTier());
   }
@@ -331,20 +336,23 @@ class PaywallCubit extends Cubit<PaywallState> {
     if (!isClosed) emit(state.copyWith(isPro: isPro));
   }
 
-  Package? _findPackageForTier(Offering offering, SubscriptionTier tier) {
+  StoreCatalogEntry? _findPackageForTier(
+    StoreOffering offering,
+    SubscriptionTier tier,
+  ) {
     switch (tier) {
       case SubscriptionTier.yearly:
         return offering.annual ??
-            offering.availablePackages.firstWhere(
+            offering.entries.firstWhere(
               (p) => SubscriptionTier.fromPackage(p) == SubscriptionTier.yearly,
-              orElse: () => offering.availablePackages.first,
+              orElse: () => offering.entries.first,
             );
       case SubscriptionTier.monthly:
         return offering.monthly ??
-            offering.availablePackages.firstWhere(
+            offering.entries.firstWhere(
               (p) =>
                   SubscriptionTier.fromPackage(p) == SubscriptionTier.monthly,
-              orElse: () => offering.availablePackages.first,
+              orElse: () => offering.entries.first,
             );
     }
   }

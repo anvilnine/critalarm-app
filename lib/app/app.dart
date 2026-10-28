@@ -30,6 +30,7 @@ import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/store_links.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -66,7 +67,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CritAlarmApp extends StatefulWidget {
@@ -108,9 +108,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     openUrl: (url) async {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     },
-    openStoreReview: () => InAppReview.instance.openStoreListing(
-      appStoreId: FeedbackLinks.appStoreId,
-    ),
+    openStoreReview: () => getIt<StoreLinks>().listing(),
     openFeedbackForm: _openFeedbackForm,
     analytics: getIt<LocalReminderAnalytics>(),
   );

@@ -1,6 +1,7 @@
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/data/asset_price_book.dart';
-import 'package:critalarm/features/paywall/data/revenuecat_store_catalog.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/data/billing_store_catalog.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/store_catalog.dart';
@@ -79,7 +80,7 @@ final _info = CustomerInfo.fromJson(const <String, dynamic>{
 void main() {
   late PriceBook book;
   late _FakeService service;
-  late RevenueCatStoreCatalog catalog;
+  late BillingStoreCatalog catalog;
 
   final yearly = _package(
     r'$rc_annual',
@@ -106,7 +107,7 @@ void main() {
 
   setUp(() {
     service = _FakeService();
-    catalog = RevenueCatStoreCatalog(service, book);
+    catalog = BillingStoreCatalog(RevenueCatBilling(service), book);
   });
 
   group('plans on sale', () {
@@ -164,7 +165,10 @@ void main() {
 
     test('with an empty book nothing is looked for', () async {
       service.offerings = storeWith(hosted: [monthly, yearly]);
-      final empty = RevenueCatStoreCatalog(service, const EmptyPriceBook());
+      final empty = BillingStoreCatalog(
+        RevenueCatBilling(service),
+        const EmptyPriceBook(),
+      );
       expect(await empty.plansFor(PaywallProduct.hosted), isEmpty);
     });
   });

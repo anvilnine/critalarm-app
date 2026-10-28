@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/store/services/store_review.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -27,7 +28,6 @@ import 'package:critalarm/features/local_reminders/presentation/widgets/local_re
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:in_app_review/in_app_review.dart';
 
 bool _isAsking = false;
 
@@ -249,8 +249,8 @@ Future<void> _share({
 /// The store decides whether its popup really shows, and never says. So the
 /// ask counts the moment it is made.
 Future<void> _askForReview() async {
-  final review = InAppReview.instance;
+  final review = getIt<StoreReview>();
   if (!await review.isAvailable()) return;
   await getIt<InAppNoticeRepository>().markReviewAsked();
-  await review.requestReview();
+  await review.request();
 }
