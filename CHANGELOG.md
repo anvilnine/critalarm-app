@@ -24,6 +24,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Your Crit Alarm Cloud device credential is sent to Crit Alarm Cloud only. On another relay the phone registers as a new device.
 - Signing in as a different account on the same phone no longer shows the alarm history of the account before it. Signing back in to the first account brings its history back.
 - Settings and the Storage page show the choice you saved. Before, they always read Keep all and a new pick did not show, even though old alarms were deleted on the schedule you picked.
+- An alarm that rings during setup now shows its full screen background.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
