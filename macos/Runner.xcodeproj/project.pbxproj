@@ -27,6 +27,9 @@
 		33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F22044A3C60003C045 /* Assets.xcassets */; };
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
+		A3310000000000000000B001 /* SoundChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A001 /* SoundChannel.swift */; };
+		A3310000000000000000B002 /* SettingsChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A002 /* SettingsChannel.swift */; };
+		A3310000000000000000B003 /* GaplessCaf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3310000000000000000A003 /* GaplessCaf.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 /* End PBXBuildFile section */
 
@@ -71,6 +74,9 @@
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		33CC10F72044A3C60003C045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Runner/Info.plist; sourceTree = "<group>"; };
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
+		A3310000000000000000A001 /* SoundChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundChannel.swift; sourceTree = "<group>"; };
+		A3310000000000000000A002 /* SettingsChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsChannel.swift; sourceTree = "<group>"; };
+		A3310000000000000000A003 /* GaplessCaf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GaplessCaf.swift; path = ../ios/Runner/GaplessCaf.swift; sourceTree = SOURCE_ROOT; };
 		33CEB47222A05771004F2AC0 /* Flutter-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Debug.xcconfig"; sourceTree = "<group>"; };
 		33CEB47422A05771004F2AC0 /* Flutter-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Release.xcconfig"; sourceTree = "<group>"; };
 		33CEB47722A0578A004F2AC0 /* Flutter-Generated.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Flutter-Generated.xcconfig"; path = "ephemeral/Flutter-Generated.xcconfig"; sourceTree = "<group>"; };
@@ -168,6 +174,9 @@
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
+				A3310000000000000000A001 /* SoundChannel.swift */,
+				A3310000000000000000A002 /* SettingsChannel.swift */,
+				A3310000000000000000A003 /* GaplessCaf.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -355,6 +364,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
+				A3310000000000000000B001 /* SoundChannel.swift in Sources */,
+				A3310000000000000000B002 /* SettingsChannel.swift in Sources */,
+				A3310000000000000000B003 /* GaplessCaf.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
@@ -485,9 +497,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/DebugProfile.entitlements;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = "Runner/DebugProfile$(CRIT_ENTITLEMENTS_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = "$(CRIT_SIGN_STYLE:default=Automatic)";
 				COMBINE_HIDPI_IMAGES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = N358LNAWS2;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -617,9 +631,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/DebugProfile.entitlements;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = "Runner/DebugProfile$(CRIT_ENTITLEMENTS_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = "$(CRIT_SIGN_STYLE:default=Automatic)";
 				COMBINE_HIDPI_IMAGES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = N358LNAWS2;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -637,9 +653,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = "Runner/Release$(CRIT_ENTITLEMENTS_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = "$(CRIT_SIGN_STYLE:default=Automatic)";
 				COMBINE_HIDPI_IMAGES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = N358LNAWS2;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

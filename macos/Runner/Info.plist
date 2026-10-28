@@ -28,5 +28,24 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Crit Alarm uses the microphone to record alarm sounds.</string>
+	<!-- Google Sign-In on macOS reads its client from here and only opens
+	     its flow if the app registers the reversed client id as a URL
+	     scheme. Both values come from GOOGLE_IOS_CLIENT_ID in .env, through
+	     macos/gen-google-xcconfig.sh, so this public repo carries neither. -->
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_CLIENT_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
