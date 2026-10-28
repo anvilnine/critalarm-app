@@ -87,3 +87,6 @@ jobs:
 
   # iOS and Android build jobs are not wired up yet. A5 and A2 add them once
   # there is a signing identity and a push credential to build against.
+  # An Android build job names its store flavor, like every Make target:
+  #   flutter build appbundle --release --flavor play --dart-define=STORE=play
+  # then runs sh tool/store_leak_check.sh on the bundle.

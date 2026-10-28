@@ -31,12 +31,16 @@ while read -r wt; do
 
   # Carry over the files git cannot: all git-ignored, all machine-local.
   # google-services.json and GoogleService-Info.plist are kept out of this
-  # public repo on purpose, and without them an Android release build fails at
-  # :app:processReleaseGoogleServices. Google.xcconfig is generated, not
-  # tracked, and is regenerated below from the copied .env anyway; it is in this
-  # list only so a worktree made without a .env still inherits a working one.
+  # public repo on purpose. Android has one per store flavor: play's is placed
+  # below, and without it a play build fails at
+  # :app:processPlayReleaseGoogleServices. The galaxy and huawei ones are
+  # symlinks into secrets/ in the main checkout; cp copies what they point at.
+  # Google.xcconfig is generated, not tracked, and is regenerated below from
+  # the copied .env anyway; it is in this list only so a worktree made without
+  # a .env still inherits a working one.
   for f in .env .env.local .claude/settings.local.json \
-           android/app/google-services.json \
+           android/app/src/galaxy/google-services.json \
+           android/app/src/huawei/google-services.json \
            android/key.properties \
            ios/Runner/GoogleService-Info.plist \
            ios/Flutter/Google.xcconfig; do
@@ -45,6 +49,25 @@ while read -r wt; do
       cp "$main/$f" "$wt/$f"
     fi
   done
+  # The play file has two homes. A branch with the store flavors reads it from
+  # android/app/src/play/ and refuses a copy at android/app/. A branch cut
+  # before them reads it from android/app/. Either main checkout layout feeds
+  # either branch.
+  play_json=""
+  for candidate in "$main/android/app/src/play/google-services.json" "$main/android/app/google-services.json"; do
+    [ -f "$candidate" ] && play_json="$candidate" && break
+  done
+  if [ -n "$play_json" ]; then
+    if grep -q 'flavorDimensions += "store"' "$wt/android/app/build.gradle.kts" 2>/dev/null; then
+      play_to="$wt/android/app/src/play/google-services.json"
+    else
+      play_to="$wt/android/app/google-services.json"
+    fi
+    if [ ! -e "$play_to" ]; then
+      mkdir -p "$(dirname "$play_to")"
+      cp "$play_json" "$play_to"
+    fi
+  fi
 
   nohup sh -c '
     cd "$1" || exit 1
