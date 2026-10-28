@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
@@ -143,7 +144,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     wait: () => Future<void>.delayed(_tickWait),
     isStillHere: () =>
         mounted &&
-        _router.routerDelegate.currentConfiguration.uri.path == _path,
+        topPathOf(_router.routerDelegate.currentConfiguration) == _path,
     // A replay saves nothing, so it has nothing to take back either.
     forgetFirstTool: () {
       if (isOnboardingReplay(context)) return;

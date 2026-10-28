@@ -37,7 +37,9 @@ class AppPushBindings {
   final AlarmFocus _focus;
   final void Function(String location) _navigate;
 
-  /// The path the router is on right now, read from the router delegate.
+  /// The path of the screen on top right now, a pushed one included, read
+  /// from the router delegate (`topPathOf`). The base uri would miss an
+  /// alarm screen opened with a push.
   final String Function() _currentLocation;
 
   /// Shows the open incident with this id on the alarm screen that is already

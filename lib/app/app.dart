@@ -9,6 +9,7 @@ import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
@@ -92,7 +93,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<IncidentsCubit>(),
     getIt<TopicsCubit>(),
     _router.go,
-    () => _router.routerDelegate.currentConfiguration.uri.path,
+    () => topPathOf(_router.routerDelegate.currentConfiguration),
     (incidentId) => CriticalAlarmCubit.current?.select(incidentId),
     getIt<AlarmFocus>(),
   );
