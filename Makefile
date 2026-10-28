@@ -1,4 +1,4 @@
-.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -100,8 +100,39 @@ analyze:
 format:
 	fvm dart format .
 
-# Format, analyze and the access check in one go. Run before every commit.
-quality: format analyze check-access
+# Format, analyze, the access check and the Play leak check in one go. Run
+# before every commit.
+quality: format analyze check-access check-play-leaks
+
+# tool/store_leak_check.sh on the store builds already under build/: each
+# store's release apk and app bundle that exists. A release apk is read with
+# its variant's R8 map when that map is not older than the apk. It builds
+# nothing, so a store with no build yet is skipped with a line saying so.
+# Narrow it with LEAK_STORES="galaxy huawei".
+LEAK_STORES ?= play galaxy huawei
+check-store-leaks:
+	@status=0; \
+	for store in $(LEAK_STORES); do \
+	  apk=build/app/outputs/flutter-apk/app-$$store-release.apk; \
+	  aab=build/app/outputs/bundle/$${store}Release/app-$$store-release.aab; \
+	  map=build/app/outputs/mapping/$${store}Release/mapping.txt; \
+	  found=0; \
+	  if [ -f "$$apk" ]; then \
+	    found=1; \
+	    if [ -f "$$map" ] && [ ! "$$map" -ot "$$apk" ]; then \
+	      sh tool/store_leak_check.sh "$$apk" "$$store" "$$map" || status=1; \
+	    else \
+	      sh tool/store_leak_check.sh "$$apk" "$$store" || status=1; \
+	    fi; \
+	  fi; \
+	  if [ -f "$$aab" ]; then found=1; sh tool/store_leak_check.sh "$$aab" "$$store" || status=1; fi; \
+	  [ "$$found" -eq 1 ] || echo "store-leak-check: no $$store release build under build/, skipped. make build-store-apk STORE=$$store builds one."; \
+	done; \
+	exit $$status
+
+# The Play build only, which is what make quality runs.
+check-play-leaks:
+	@$(MAKE) --no-print-directory check-store-leaks LEAK_STORES=play
 
 # Enforce clean-architecture dependency direction.
 check-layers:
