@@ -71,6 +71,7 @@ import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/platform/store_kind.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/last_push_reader.dart';
@@ -624,8 +625,16 @@ Future<void> configureDependencies({
     platform: defaultTargetPlatform,
   );
 
+  // The store this build is for, from `--dart-define=STORE=...`, read here
+  // and nowhere else.
+  final store = StoreKind.resolve(
+    define: const String.fromEnvironment('STORE'),
+    platform: defaultTargetPlatform,
+  );
+
   getIt
     ..registerSingleton<PlatformCapabilities>(capabilities)
+    ..registerSingleton<StoreKind>(store)
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm)
     ..registerLazySingleton<TopicListPrefsRepository>(
