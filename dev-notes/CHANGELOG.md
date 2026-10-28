@@ -10,6 +10,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
 - Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
 - test/core/links/android\_link\_filters\_test.dart fails when an Android manifest gains a scheme other than https, a critalarm:// one included.
+- A sandboxed macOS target in macos/ (macOS 13, app.critalarm) runs every screen that needs no push or ringer. make run-macos and make build-macos build it, SIGN=local without a macOS profile. PlatformCapabilities gains isMacos, isApple and the phone-only getters, and OffPlatformChannel keeps phone-only channels in Dart on a Mac.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
