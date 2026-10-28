@@ -156,6 +156,18 @@ tasks.matching { it.name.startsWith("processPlay") && it.name.endsWith("GoogleSe
     }
 }
 
+// Crashlytics sends R8's map by the Firebase app id, which galaxy and huawei
+// get from their own google-services.json. Without one the upload task has no
+// app id and the build stops, so it is off for them until those files exist.
+// Their crash reports then read as obfuscated names.
+val noFirebaseAppYet = listOf("galaxy", "huawei").filter { !file("src/$it/google-services.json").exists() }
+tasks.matching { task ->
+    task.name.startsWith("uploadCrashlyticsMappingFile") &&
+        noFirebaseAppYet.any { task.name.contains(it, ignoreCase = true) }
+}.configureEach {
+    enabled = false
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
