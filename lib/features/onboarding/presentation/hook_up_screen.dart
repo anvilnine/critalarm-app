@@ -144,7 +144,10 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     wait: () => Future<void>.delayed(_tickWait),
     isStillHere: () =>
         mounted &&
-        topPathOf(_router.routerDelegate.currentConfiguration) == _path,
+        setupStepMayOpenAlarm(
+          _router.routerDelegate.currentConfiguration,
+          _path,
+        ),
     // A replay saves nothing, so it has nothing to take back either.
     forgetFirstTool: () {
       if (isOnboardingReplay(context)) return;
