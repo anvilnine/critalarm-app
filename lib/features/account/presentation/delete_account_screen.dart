@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
@@ -32,11 +33,14 @@ class DeleteAccountScreen extends StatelessWidget {
         return cubit;
       },
       child: DeleteAccountView(
-        onManageSubscription: () async {
-          // The same customer centre the paywall opens. Cancelling is the
-          // store's job, not ours, so this hands the person straight to it.
-          await getIt<PaywallCubit>().presentCustomerCenter();
-        },
+        // The same customer centre the paywall opens. Cancelling is the
+        // store's job, not ours, so this hands the person straight to it.
+        // The Mac has no customer centre yet, so it gets the warning only.
+        onManageSubscription: getIt<PlatformCapabilities>().hasCustomerCenter
+            ? () async {
+                await getIt<PaywallCubit>().presentCustomerCenter();
+              }
+            : null,
       ),
     );
   }
@@ -46,7 +50,9 @@ class DeleteAccountScreen extends StatelessWidget {
 class DeleteAccountView extends StatefulWidget {
   const DeleteAccountView({required this.onManageSubscription, super.key});
 
-  final Future<void> Function() onManageSubscription;
+  /// Opens the store's subscription page. Null where the platform has none
+  /// to open, and the warning then shows without its button.
+  final Future<void> Function()? onManageSubscription;
 
   @override
   State<DeleteAccountView> createState() => _DeleteAccountViewState();
@@ -303,7 +309,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
 class _SubscriptionWarning extends StatelessWidget {
   const _SubscriptionWarning({required this.onManage});
 
-  final Future<void> Function() onManage;
+  final Future<void> Function()? onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -341,14 +347,17 @@ class _SubscriptionWarning extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 4),
-          AppButton(
-            label: LocaleKeys.account_delete_manage_subscription.tr(),
-            size: AppButtonSize.sm,
-            variant: AppButtonVariant.ghost,
-            isFullWidth: true,
-            onPressed: () => unawaited(onManage()),
-          ),
+          if (onManage case final manage?) ...[
+            const SizedBox(height: 4),
+            AppButton(
+              label: LocaleKeys.account_delete_manage_subscription.tr(),
+              size: AppButtonSize.sm,
+              variant: AppButtonVariant.ghost,
+              isFullWidth: true,
+              onPressed: () => unawaited(manage()),
+            ),
+          ] else
+            const SizedBox(height: 6),
         ],
       ),
     );

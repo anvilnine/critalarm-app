@@ -70,6 +70,7 @@ import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
@@ -382,7 +383,7 @@ import 'package:critalarm/firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show MethodChannel, rootBundle;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -440,8 +441,10 @@ Future<void> configureDependencies({
   }
 
   getIt
+    // The Mac has no native strings yet (no notifications, no widgets), so
+    // nothing on its side needs to hear the language.
     ..registerLazySingleton<NativeLocaleBridge>(
-      () => kIsWeb
+      () => kIsWeb || defaultTargetPlatform == TargetPlatform.macOS
           ? const NoopNativeLocaleBridge()
           : const MethodChannelNativeLocaleBridge(),
     )
@@ -557,9 +560,13 @@ Future<void> configureDependencies({
   if (!getIt.isRegistered<RevenueCatService>()) {
     final revenueCatService = RevenueCatService();
     // RevenueCat issues a public SDK key per store and the SDK rejects the
-    // other store's key, so the platform picks which one is passed.
+    // other store's key, so the platform picks which one is passed. The Mac
+    // app is the same App Store app record as the iPhone one (universal
+    // purchase), so it takes the iPhone's key.
     final sellsThroughAppStore =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
     final revenueCatKey = sellsThroughAppStore
         ? Env.revenueCatIosApiKey
         : Env.revenueCatAndroidApiKey;
@@ -624,6 +631,13 @@ Future<void> configureDependencies({
     platform: defaultTargetPlatform,
   );
 
+  // The channels whose native half only the phones have. On a Mac each of
+  // these hosts gets a channel that answers "not on this platform" in Dart,
+  // so nothing is sent to a handler that does not exist. The hosts already
+  // treat that answer as their safe default.
+  MethodChannel? phoneOnly(String name) =>
+      capabilities.isMacos ? OffPlatformChannel(name) : null;
+
   getIt
     ..registerSingleton<PlatformCapabilities>(capabilities)
     ..registerSingleton<SharedPreferences>(prefs)
@@ -635,15 +649,43 @@ Future<void> configureDependencies({
     // screen takes it.
     ..registerLazySingleton<ConnectLinkHolder>(ConnectLinkHolder.new)
     ..registerLazySingleton<PushHost>(
-      () => PushHost(null, getIt<ConnectLinkHolder>()),
+      () => PushHost(
+        phoneOnly(PushHost.channelName),
+        getIt<ConnectLinkHolder>(),
+      ),
     )
-    ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
-    ..registerLazySingleton<WidgetHost>(WidgetHost.new)
-    ..registerLazySingleton<AppIconHost>(AppIconHost.new)
+    ..registerLazySingleton<NseCredentialStore>(
+      () => NseCredentialStore(
+        phoneOnly(NseCredentialStore.channelName) ??
+            const MethodChannel(NseCredentialStore.channelName),
+      ),
+    )
+    ..registerLazySingleton<WidgetHost>(
+      () => WidgetHost(
+        phoneOnly(WidgetHost.channelName) ??
+            const MethodChannel(WidgetHost.channelName),
+      ),
+    )
+    ..registerLazySingleton<AppIconHost>(
+      () => AppIconHost(
+        capabilities.hasAlternateAppIcons
+            ? const MethodChannel(AppIconHost.channelName)
+            : const OffPlatformChannel(AppIconHost.channelName),
+      ),
+    )
     // The accelerometer, for the shake challenge. On the web and in a test
     // the channel has no native side, the stream says so, and the
-    // challenge offers taps.
-    ..registerLazySingleton<MotionSensor>(MotionSensorHost.new)
+    // challenge offers taps. A Mac has no accelerometer.
+    ..registerLazySingleton<MotionSensor>(
+      () => capabilities.isMacos
+          ? MotionSensorHost(
+              methods: const OffPlatformChannel(MotionSensorHost.methodsName),
+              events: const OffPlatformEventChannel(
+                MotionSensorHost.readingsName,
+              ),
+            )
+          : MotionSensorHost(),
+    )
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     // The same store as before, wrapped so feature access hears the server
     // mode of every session that is read or written.
@@ -666,9 +708,13 @@ Future<void> configureDependencies({
           : const NoBackupHost(),
     )
     // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
-    // raw APNs token. Android registers the FCM one (§5.2).
+    // raw APNs token. Android registers the FCM one (§5.2). The Mac will
+    // register an APNs token too. Until its push lands its PushHost answers
+    // nothing, so it has no token and registers no device.
     ..registerLazySingleton<PushTokenProvider>(
-      () => defaultTargetPlatform == TargetPlatform.iOS
+      () =>
+          defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS
           ? ApnsPushTokenProvider(getIt<PushHost>())
           : FirebasePushTokenProvider(),
     )
@@ -904,7 +950,11 @@ Future<void> configureDependencies({
       () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<SoundHost>(SoundHost.new)
-    ..registerLazySingleton<SoundPackHost>(SoundPackHost.new)
+    // Store-hosted packs are Play Asset Delivery and Background Assets, both
+    // phone only. The Mac lists the bundled sounds and its own imports.
+    ..registerLazySingleton<SoundPackHost>(
+      () => SoundPackHost(phoneOnly(SoundPackHost.channelName)),
+    )
     ..registerLazySingleton<SoundPackRepository>(
       () => SoundPackRepository(getIt<SoundPackHost>()),
     )
@@ -1079,9 +1129,10 @@ Future<void> configureDependencies({
         notices: getIt<InAppNoticeRepository>(),
       ),
     )
-    // Web has no local notifications, so the dashboard gets the no-op.
+    // Web has no local notifications, so the dashboard gets the no-op. The
+    // Mac schedules none yet either.
     ..registerLazySingleton<LocalReminderScheduler>(
-      () => kIsWeb
+      () => !capabilities.hasLocalNotifications
           ? const NoopLocalReminderScheduler()
           : NativeLocalReminderScheduler(),
     )
@@ -1231,7 +1282,15 @@ Future<void> configureDependencies({
         },
       ),
     )
-    ..registerLazySingleton<AlarmHost>(AlarmHost.new)
+    // AlarmKit and the Live Activity card on the iPhone, the alarm service on
+    // Android. The Mac rings nothing yet, so it sends none of these calls.
+    ..registerLazySingleton<AlarmHost>(
+      () => AlarmHost(
+        capabilities.hasSystemAlarmHost
+            ? null
+            : const OffPlatformChannel(AlarmHost.channelName),
+      ),
+    )
     ..registerLazySingleton<AlarmSignalStore>(
       () => AlarmSignalStore(getIt<SharedPreferences>()),
     )

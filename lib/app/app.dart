@@ -25,6 +25,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -122,6 +123,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     navigate: _openPath,
     localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
     analytics: getIt<LocalReminderAnalytics>(),
+    isAvailable: getIt<PlatformCapabilities>().hasQuickActions,
   );
 
   /// The rule `openAppPath` follows, without a shell context: a path on
