@@ -53,6 +53,63 @@ void main() {
       expect(on.hasHaptics, isTrue);
     });
 
+    test('macOS: every screen, but no push, alarm or phone extras', () {
+      const on = PlatformCapabilities(
+        isWeb: false,
+        platform: TargetPlatform.macOS,
+      );
+
+      expect(on.isMacos, isTrue);
+      expect(on.isIos, isFalse);
+      expect(on.isApple, isTrue);
+      expect(on.canRegisterPush, isFalse);
+      expect(on.canRunAlarm, isFalse);
+      expect(on.canComposeMessages, isFalse);
+      expect(on.hasLocalNotifications, isFalse);
+      expect(on.hasHaptics, isFalse);
+      expect(on.hasQuickActions, isFalse);
+      expect(on.hasAlternateAppIcons, isFalse);
+      expect(on.hasSystemAlarmHost, isFalse);
+      expect(on.hasCustomerCenter, isFalse);
+      expect(on.hasStrongAlarmVibration, isFalse);
+      expect(on.flashNeedsAlarmScreen, isFalse);
+    });
+
+    test('the phone extras are on both phones and nowhere else', () {
+      for (final platform in TargetPlatform.values) {
+        final native = PlatformCapabilities(isWeb: false, platform: platform);
+        final web = PlatformCapabilities(isWeb: true, platform: platform);
+        final isPhone =
+            platform == TargetPlatform.iOS ||
+            platform == TargetPlatform.android;
+
+        for (final (name, nativeValue, webValue) in [
+          ('quick actions', native.hasQuickActions, web.hasQuickActions),
+          ('app icons', native.hasAlternateAppIcons, web.hasAlternateAppIcons),
+          ('alarm host', native.hasSystemAlarmHost, web.hasSystemAlarmHost),
+          ('customer center', native.hasCustomerCenter, web.hasCustomerCenter),
+        ]) {
+          expect(nativeValue, isPhone, reason: '$name on ${platform.name}');
+          expect(webValue, isFalse, reason: '$name on web ${platform.name}');
+        }
+      }
+    });
+
+    test('isApple is the native iPhone and Mac apps only', () {
+      for (final platform in TargetPlatform.values) {
+        final native = PlatformCapabilities(isWeb: false, platform: platform);
+        final web = PlatformCapabilities(isWeb: true, platform: platform);
+
+        expect(
+          native.isApple,
+          platform == TargetPlatform.iOS || platform == TargetPlatform.macOS,
+          reason: platform.name,
+        );
+        expect(web.isApple, isFalse, reason: platform.name);
+        expect(web.isMacos, isFalse, reason: platform.name);
+      }
+    });
+
     test('strong alarm vibration is Android only', () {
       for (final platform in TargetPlatform.values) {
         final native = PlatformCapabilities(isWeb: false, platform: platform);
