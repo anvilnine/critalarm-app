@@ -1110,7 +1110,14 @@ List<(String, bool)> _measure(WidgetTester tester, _Size size, _Screen screen) {
   final rail = _paintedOf<AppNavRail>(tester);
   final lines = <(String, bool)>[
     // WP6: onboarding and New topic. See tool/wp6_geometry.dart.
-    ...wp6Measure(tester, screen.id, window: window, size: appSize, fold: fold),
+    ...wp6Measure(
+      tester,
+      screen.id,
+      window: window,
+      size: appSize,
+      fold: fold,
+      sizeId: size.id,
+    ),
     // The ringing alarm (WP2): "I'm up" on screen at rest, and the rules of
     // the cover and wide layouts. Nothing when no alarm is on screen.
     ...measureRingingAlarm(tester, window: window, size: appSize, fold: fold),
