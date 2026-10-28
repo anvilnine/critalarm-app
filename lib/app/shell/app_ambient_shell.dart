@@ -263,7 +263,11 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
               ),
             ),
           ),
+        // Keyed, so the routes keep their state when the canvas before it
+        // comes or goes. Unkeyed, the canvas took this slot's place and the
+        // whole navigator under it was built again.
         Positioned.fill(
+          key: const ValueKey('app-ambient-content'),
           child: AmbientScope(
             controller: _controller,
             // The screens leave their background clear and sit on the canvas
