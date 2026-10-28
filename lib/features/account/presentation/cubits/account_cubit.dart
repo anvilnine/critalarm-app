@@ -341,8 +341,13 @@ class AccountCubit extends Cubit<AccountState> {
         clearLiveIncident: true,
       ),
     );
+    // The account being deleted, read now. A refused delete signs the person
+    // in again and sends it once more, and by then the phone no longer names
+    // this account.
+    final deleting = (await identities.readIdentity())?.accountId;
     await _deleteOnce(
       await identities.readSession(),
+      deleting: deleting,
       wasSignedIn: wasSignedIn,
       canRetry: true,
     );
@@ -350,6 +355,7 @@ class AccountCubit extends Cubit<AccountState> {
 
   Future<void> _deleteOnce(
     IdentitySession? session, {
+    required String? deleting,
     required bool wasSignedIn,
     required bool canRetry,
   }) async {
@@ -367,7 +373,7 @@ class AccountCubit extends Cubit<AccountState> {
     switch (result) {
       case AccountDeleted():
         try {
-          await account.wipeAfterDelete();
+          await account.wipeAfterDelete(accountId: deleting);
         } on Object catch (_) {
           // The account is already gone on the server, so there is nothing to
           // put back. A registration that did not go through leaves the phone
@@ -410,7 +416,12 @@ class AccountCubit extends Cubit<AccountState> {
           return;
         }
         if (isClosed) return;
-        await _deleteOnce(retried, wasSignedIn: wasSignedIn, canRetry: false);
+        await _deleteOnce(
+          retried,
+          deleting: deleting,
+          wasSignedIn: wasSignedIn,
+          canRetry: false,
+        );
     }
   }
 

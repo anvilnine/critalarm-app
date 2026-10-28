@@ -12,4 +12,10 @@ class GetServerInfoUsecase implements UseCase<Uri, ServerInfo> {
   @override
   Future<AppResult<ServerInfo>> call(Uri input) =>
       _repository.getServerInfo(input);
+
+  /// One authenticated read on the server at [baseUri] with [adminToken].
+  /// Completes when the server accepts the token, and throws as
+  /// [ServerRepository.checkAdminToken] does when it does not.
+  Future<void> proveAdminToken(Uri baseUri, String adminToken) =>
+      _repository.checkAdminToken(baseUri, adminToken);
 }

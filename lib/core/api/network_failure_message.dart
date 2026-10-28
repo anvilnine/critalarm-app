@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -14,6 +15,20 @@ import 'package:http/http.dart' as http;
 /// "ClientException with SocketException: Failed host lookup ...
 /// (OS Error: nodename nor servname provided, errno = 8)".
 String networkFailureMessage(Object error) {
+  if (error is NetworkFault) {
+    return switch (error.kind) {
+      NetworkFaultKind.timeout =>
+        LocaleKeys.onboarding_connect_connect_timeout.tr(),
+      NetworkFaultKind.unreachable =>
+        LocaleKeys.onboarding_connect_network_unreachable.tr(),
+      NetworkFaultKind.server => apiErrorMessage(
+        error.server?.message,
+        code: error.server?.code,
+        cap: error.server?.cap,
+      ),
+      NetworkFaultKind.other => LocaleKeys.api_errors_unknown.tr(),
+    };
+  }
   // Device registration can throw a server response while connecting.
   if (error is ApiException) {
     return apiErrorMessage(error.message, code: error.code, cap: error.cap);
@@ -24,14 +39,8 @@ String networkFailureMessage(Object error) {
   if (error is SocketException || error is HttpException) {
     return LocaleKeys.onboarding_connect_network_unreachable.tr();
   }
-  // http wraps the socket error in its own ClientException, so the type is
-  // gone by the time it reaches us and the text is all that is left.
   final text = error.toString();
-  if (text.contains('SocketException') ||
-      text.contains('Failed host lookup') ||
-      text.contains('Connection refused') ||
-      text.contains('Connection closed') ||
-      text.contains('Network is unreachable')) {
+  if (NetworkFault.readsAsUnreachable(text)) {
     return LocaleKeys.onboarding_connect_network_unreachable.tr();
   }
   return LocaleKeys.api_errors_unknown.tr();

@@ -8,7 +8,10 @@ import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/store/held_scope.dart';
@@ -276,6 +279,7 @@ void main() {
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
+    registerFallbackValue(const SessionCheckpoint(null, <String, String?>{}));
   });
 
   group('the wipe of what belongs to an account', () {
@@ -416,6 +420,18 @@ void main() {
         ),
       );
       when(() => save(any())).thenAnswer((_) async => unit.toSuccess());
+      // The connect checks: no device token to keep back, and the server
+      // takes the admin token.
+      when(
+        () => establish.relayTrust(any()),
+      ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+      when(establish.checkpoint).thenAnswer(
+        (_) async => const SessionCheckpoint(null, <String, String?>{}),
+      );
+      when(() => establish.rollBack(any())).thenAnswer((_) async {});
+      when(
+        () => getInfo.proveAdminToken(any(), any()),
+      ).thenAnswer((_) async {});
       final phone = _Phone();
       await phone.start(accountDataFor('acc_1'), accountId: 'acc_1');
       ConnectToServerUsecase connectFrom(String saved) =>
@@ -552,6 +568,78 @@ void main() {
       );
       await blocked.forget();
       expect(stuck.order, contains('sound lock'));
+    });
+
+    test('a sign-out keeps the alarm history for the same account to find '
+        'again, and an account delete takes it', () async {
+      var account = 'acc_1';
+      final store = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+        scope: () async => account,
+      );
+      addTearDown(store.close);
+      Incident alarm(String id) => Incident(
+        id: id,
+        topic: 'prod',
+        openedAt: DateTime.utc(2026, 9, 20, 12),
+        lastMessageAt: DateTime.utc(2026, 9, 20, 12),
+        messages: [Message(id: 'm_$id', topic: 'prod', time: 1)],
+      );
+      await store.incidents.upsertAll([alarm('inc_1')]);
+      account = 'acc_2';
+      await store.incidents.upsertAll([alarm('inc_2')]);
+      account = 'acc_1';
+
+      AccountData dataFor(_List list) => AccountData(
+        acks: list.acks,
+        messageCursors: list.cursors,
+        recentSearches: list.searches,
+        challenges: list.challenges,
+        alarmStyles: list.looks,
+        soundLock: list.soundLock,
+        ownLook: list.ownLook,
+        archive: store,
+      );
+
+      // Signing out: nothing of the archive goes, for either account.
+      await dataFor(_List()).forget();
+      expect(await store.incidents.count(), 1);
+      account = 'acc_2';
+      expect(await store.incidents.count(), 1);
+      account = 'acc_1';
+
+      // Deleting the account: its rows go and the other account's stay.
+      await dataFor(_List()).forgetDeleted();
+      expect(await store.incidents.count(), 0);
+      expect(await store.messages.count(), 0);
+      account = 'acc_2';
+      expect(await store.incidents.count(), 1);
+      expect(await store.messages.count(), 1);
+    });
+
+    test('an archive that will not clear does not stop an account delete '
+        'from dropping the rest of the list', () async {
+      final list = _List();
+      final store = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+      );
+      await store.close();
+      final data = AccountData(
+        acks: list.acks,
+        messageCursors: list.cursors,
+        recentSearches: list.searches,
+        challenges: list.challenges,
+        alarmStyles: list.looks,
+        soundLock: list.soundLock,
+        ownLook: list.ownLook,
+        archive: store,
+      );
+
+      await data.forgetDeleted();
+
+      expect(list.order, contains('sound lock'));
     });
 
     test('with the real photo store: a sign-out whose ack queue fails '

@@ -49,7 +49,11 @@ abstract interface class AccountRepository {
   ///
   /// Only ever called after a 204. Running it on a call that failed leaves a
   /// live account nobody can reach and a phone that has forgotten it.
-  Future<void> wipeAfterDelete();
+  ///
+  /// [accountId] is the account the caller asked the server to delete, read
+  /// before anything was signed out. Null when nobody was signed in, and the
+  /// phone's own account is the one that went.
+  Future<void> wipeAfterDelete({String? accountId});
 
   /// Recovers from a device token the server no longer knows.
   ///

@@ -4,9 +4,12 @@ import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/cancel_reason_api.dart';
+import 'package:critalarm/core/api/management_credential_probe.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -18,7 +21,13 @@ import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:http/http.dart' as http;
 
-final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
+final class HttpApiClient
+    implements
+        ApiClient,
+        PacksApi,
+        WeeklyCheckApi,
+        ManagementCredentialProbe,
+        CancelReasonApi {
   HttpApiClient(
     this._http,
     this._sessions, {
@@ -92,11 +101,17 @@ final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
     // need it: a 409 carries the topic and incident counts the prompt shows,
     // and turning it into an exception throws those away.
     Set<int> tolerate = const {},
+    // False for a credential that is being tried out. A 401 there says the
+    // credential is wrong, not that this phone's account is gone.
+    bool recoversDeadCredential = true,
+    bool followsRedirects = true,
   }) async {
     final headers = <String, String>{'accept': accept};
     if (body != null) headers['content-type'] = 'application/json';
     if (auth != null) headers['authorization'] = 'Bearer $auth';
-    final request = http.Request(method, uri)..headers.addAll(headers);
+    final request = http.Request(method, uri)
+      ..headers.addAll(headers)
+      ..followRedirects = followsRedirects;
     if (body != null) request.body = jsonEncode(body);
     // A host that accepts the socket and then says nothing used to hang until
     // the OS gave up, with the connect button spinning the whole time.
@@ -106,7 +121,8 @@ final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
     );
     if ((result.statusCode < 200 || result.statusCode >= 300) &&
         !tolerate.contains(result.statusCode)) {
-      if (result.statusCode == 401 &&
+      if (recoversDeadCredential &&
+          result.statusCode == 401 &&
           (auth?.startsWith(_deviceTokenPrefix) ?? false)) {
         final recover = onDeadCredential;
         if (recover != null) {
@@ -160,6 +176,20 @@ final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
       _path(candidateBaseUri, const ['info']),
     );
     return ServerInfo.fromJson(_json(response) as Map<String, dynamic>);
+  }
+
+  /// One incident at most (api.md §3.2): a read that needs the credential
+  /// and changes nothing. A redirect is not followed, so the credential goes
+  /// to [baseUri] and nowhere else.
+  @override
+  Future<void> checkManagementCredential(Uri baseUri, String credential) async {
+    await _send(
+      'GET',
+      _path(baseUri, const ['incidents'], const {'limit': '1'}),
+      auth: credential,
+      recoversDeadCredential: false,
+      followsRedirects: false,
+    );
   }
 
   @override
@@ -403,6 +433,30 @@ final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
     final json = _json(response) as Map<String, dynamic>;
     return AccountJoinTokenResult.minted(
       joinToken: json['join_token'] as String,
+    );
+  }
+
+  @override
+  Future<void> sendCancelReason({
+    required CancelReason reason,
+    required String appVersion,
+    required String platform,
+    String? text,
+  }) async {
+    final (session, uri) = await _sessionUri(const [
+      'account',
+      'cancel-reason',
+    ]);
+    await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      body: {
+        'reason': reason.wire,
+        'text': ?text,
+        'app_version': appVersion,
+        'platform': platform,
+      },
     );
   }
 

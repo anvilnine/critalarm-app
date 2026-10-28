@@ -189,6 +189,10 @@
     "server_url_error_empty": "サーバーURLを入力してください",
     "server_url_error_invalid": "有効なURLを入力してください（例: https://api.critalarm.app）",
     "admin_token_error_empty": "管理者トークンを入力してください",
+    "admin_token_error_wrong": "サーバーがこの管理者トークンを受け付けませんでした。接続していません。",
+    "answer_invalid": "このアドレスはCrit Alarmサーバーとして応答しませんでした。接続していません。",
+    "relay_differs": "このサーバーは、このスマートフォンが登録されているものとは別のリレーを使っています。先に切断してから再接続してください。",
+    "registered_elsewhere": "このスマートフォンは別のサーバーに登録されています。先に切断してから再接続してください。",
     "version_incompatible": "サーバーは{version}です。0.xに更新してから再接続してください。",
     "connected_status": "接続済み: {serverUrl}",
     "hook_title": "アラームをテスト",
@@ -283,6 +287,7 @@
     "not_encrypted": "このアドレスは暗号化されていません。",
     "address_differs": "このサーバーは自分のアドレスを{host}としています。接続していません。",
     "downgrade": "このサーバーは暗号化されていないアドレスを返しました。接続していません。",
+    "not_self_hosted": "リンクで接続できるのはセルフホストのサーバーだけです。接続していません。",
     "close": "閉じる"
   },
   "onboarding_real_ring": {
@@ -636,6 +641,19 @@
     "pro_ended_intro": "アラームは引き続き鳴ります。\n\n変わった点:",
     "pro_ended_action": "プランを見る",
     "pro_ended_dismiss": "OK"
+  },
+  "cancel_question": {
+    "title": "解約した理由は何ですか？",
+    "reason_price": "料金が高い",
+    "reason_unused": "あまり使っていない",
+    "reason_selfhost": "自分のサーバーに移行する",
+    "reason_missing": "足りない機能がある",
+    "reason_broken": "不具合があった",
+    "reason_other": "その他",
+    "explain_hint": "メモ（任意）。返信はできません。",
+    "send": "メモを送信",
+    "thanks_title": "ありがとうございます。参考になります。",
+    "keeps": "Cloudは{date}まで使えます。アラームはこれからも鳴ります。"
   },
   "asks": {
     "pro_title": "Cloudで追加:",

@@ -68,6 +68,7 @@ class CheckReceiptTest {
             apiSession = "https://alerts.example.com|https://relay.example.test|selfhosted|ad_secret",
             deviceId = "dev_3f2a",
             deviceToken = "dv_test",
+            tokenRelay = "https://relay.example.test",
         )
         assertEquals(device, parsed)
         // The fourth part belongs to the user's own server. It is never sent.
@@ -77,12 +78,45 @@ class CheckReceiptTest {
     @Test
     fun `with any part missing there is nobody to answer`() {
         val session = "https://a.example|https://relay.example.test|hosted|dv_test"
-        assertNull(RelayDevice.parse(null, "dev_1", "dv_test"))
-        assertNull(RelayDevice.parse("https://a.example", "dev_1", "dv_test"))
-        assertNull(RelayDevice.parse("https://a.example|ftp://relay|hosted|x", "dev_1", "dv_test"))
-        assertNull(RelayDevice.parse(session, null, "dv_test"))
-        assertNull(RelayDevice.parse(session, "dev_1", null))
-        assertNull(RelayDevice.parse(session, "dev_1", " "))
+        val issuer = "https://relay.example.test"
+        assertNull(RelayDevice.parse(null, "dev_1", "dv_test", issuer))
+        assertNull(RelayDevice.parse("https://a.example", "dev_1", "dv_test", issuer))
+        assertNull(RelayDevice.parse("https://a.example|ftp://relay|hosted|x", "dev_1", "dv_test", issuer))
+        assertNull(RelayDevice.parse(session, null, "dv_test", issuer))
+        assertNull(RelayDevice.parse(session, "dev_1", null, issuer))
+        assertNull(RelayDevice.parse(session, "dev_1", " ", issuer))
+    }
+
+    @Test
+    fun `the token goes only to the relay that issued it`() {
+        val session = "https://a.example|https://relay.example.test|selfhosted|ad_x"
+        // Another relay issued it.
+        assertNull(RelayDevice.parse(session, "dev_1", "dv_test", "https://relay.critalarm.app"))
+        // None written down counts as the hosted relay.
+        assertNull(RelayDevice.parse(session, "dev_1", "dv_test", null))
+        assertNull(RelayDevice.parse(session, "dev_1", "dv_test", " "))
+        val hosted = "https://api.critalarm.app|https://relay.critalarm.app|hosted|dv_test"
+        assertEquals("dv_test", RelayDevice.parse(hosted, "dev_1", "dv_test", null)?.deviceToken)
+        // The same relay written another way is still the issuer.
+        for (written in listOf(
+            "https://relay.example.test/",
+            "HTTPS://Relay.Example.TEST",
+            "https://relay.example.test:443",
+            " https://relay.example.test ",
+        )) {
+            assertEquals(written, "dv_test", RelayDevice.parse(session, "dev_1", "dv_test", written)?.deviceToken)
+        }
+        for (written in listOf(
+            "http://relay.example.test",
+            "https://relay.example.test:8443",
+            "https://relay.example.test.",
+            "https://user@relay.example.test",
+            "https://relay.example.test/v2",
+            "https://relay.example.test?x=1",
+            "https://relay.example.test.evil.example",
+        )) {
+            assertNull(written, RelayDevice.parse(session, "dev_1", "dv_test", written))
+        }
     }
 
     @Test

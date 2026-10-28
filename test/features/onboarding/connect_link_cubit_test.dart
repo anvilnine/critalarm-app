@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/links/app_link.dart';
@@ -429,6 +430,33 @@ void main() {
       await cubit.close();
     });
 
+    const lines = <ConnectOutcome, String>{
+      AdminTokenRefused():
+          'The server did not accept this admin token. Not connected.',
+      LinkServerNotSelfHosted():
+          'A link only connects to a server you host yourself. Not connected.',
+      ServerAnswerInvalid():
+          'This address did not answer like a Crit Alarm server. '
+          'Not connected.',
+      RelayDiffers():
+          'This server uses another relay than the one this phone is '
+          'registered with. Disconnect first, then connect again.',
+    };
+
+    for (final MapEntry(key: outcome, value: line) in lines.entries) {
+      test(
+        '${outcome.runtimeType} has a line of its own and no retry',
+        () async {
+          final cubit = await failWith(outcome);
+          expect(cubit.state.isFailed, isTrue);
+          expect(cubit.state.errorMessage, line);
+          expect(cubit.state.canRetry, isFalse);
+          expect(connectedCalls, 0);
+          await cubit.close();
+        },
+      );
+    }
+
     test('an ordinary failure can be retried', () async {
       final cubit = await failWith(
         const ServerUnreachable(Failure.unexpected()),
@@ -447,7 +475,17 @@ void main() {
         const ServerIncompatible('9.9.9'),
         const ConnectionNotSaved(Failure.database()),
         ConnectTransportError(Exception('socket')),
+        ConnectTransportError(
+          const ApiException(statusCode: 400, message: 'bad $_token'),
+        ),
         const AdminTokenMissing(_info),
+        const ServerAddressDiffers('evil.example.net'),
+        const ServerDowngrade(),
+        const ServerAnswerInvalid(),
+        const LinkServerNotSelfHosted(),
+        const AdminTokenRefused(),
+        const RelayDiffers(),
+        const RegisteredElsewhere(),
       ]) {
         when(
           () => connect(
@@ -478,6 +516,14 @@ void main() {
           isNot(contains(_token)),
           reason: '$outcome',
         );
+        final kept = [
+          '$outcome',
+          if (outcome is ConnectTransportError) ...[
+            '${outcome.error}',
+            '${outcome.error.server}',
+          ],
+        ];
+        expect(kept.join('\n'), isNot(contains(_token)), reason: '$outcome');
       }
     });
 
@@ -520,6 +566,31 @@ void main() {
         }
         await cubit.close();
       }
+    });
+
+    test('an error that quotes a token with a line break in it is '
+        'scrubbed', () async {
+      const broken = 'tk_s3cret\nValue';
+      // As a thrown error quotes a value: the line break written out.
+      const quoted = r'Invalid header value: "Bearer tk_s3cret\nValue"';
+      when(
+        () => connect(
+          serverUrl: any(named: 'serverUrl'),
+          adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
+        ),
+      ).thenThrow(StateError(quoted));
+      final cubit = ConnectLinkCubit(
+        ConnectLink(
+          serverUrl: Uri.parse('https://alarm.example.com'),
+          token: broken,
+        ),
+        connectToServer: connect,
+      );
+      await cubit.connect();
+      expect(cubit.state.isFailed, isTrue);
+      expect(cubit.state.errorMessage, isNot(contains('tk_s3cret')));
+      await cubit.close();
     });
 
     test('is not in the state even when asked to print it', () {

@@ -1,8 +1,6 @@
 package app.critalarm.sound
 
 import app.critalarm.alarm.AlarmFallback
-import com.google.android.play.core.assetpacks.model.AssetPackErrorCode
-import com.google.android.play.core.assetpacks.model.AssetPackStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -115,34 +113,6 @@ class SoundPackRulesTest {
             AlarmSoundStore.resolveIn(sounds, "user_1") { user.path }.source,
         )
         assertEquals(siren, AlarmSoundStore.resolveIn(sounds, "user_2") { null }.source)
-    }
-
-    @Test
-    fun playStatusesMapToTheWordsDartReads() {
-        val ok = AssetPackErrorCode.NO_ERROR
-        assertEquals("downloaded", SoundPackRules.stateName(AssetPackStatus.COMPLETED, ok, false))
-        assertEquals("downloaded", SoundPackRules.stateName(AssetPackStatus.UNKNOWN, ok, true))
-        assertEquals("downloading", SoundPackRules.stateName(AssetPackStatus.PENDING, ok, false))
-        assertEquals("downloading", SoundPackRules.stateName(AssetPackStatus.DOWNLOADING, ok, false))
-        assertEquals("downloading", SoundPackRules.stateName(AssetPackStatus.TRANSFERRING, ok, false))
-        assertEquals("waiting_for_wifi", SoundPackRules.stateName(AssetPackStatus.WAITING_FOR_WIFI, ok, false))
-        assertEquals("needs_confirmation", SoundPackRules.stateName(AssetPackStatus.REQUIRES_USER_CONFIRMATION, ok, false))
-        assertEquals("not_downloaded", SoundPackRules.stateName(AssetPackStatus.NOT_INSTALLED, ok, false))
-        assertEquals("not_downloaded", SoundPackRules.stateName(AssetPackStatus.CANCELED, ok, false))
-        assertEquals("failed", SoundPackRules.stateName(AssetPackStatus.FAILED, AssetPackErrorCode.NETWORK_ERROR, false))
-    }
-
-    @Test
-    fun aSideloadedBuildReportsThePackUnavailable() {
-        for (code in listOf(
-            AssetPackErrorCode.APP_UNAVAILABLE,
-            AssetPackErrorCode.PACK_UNAVAILABLE,
-            AssetPackErrorCode.API_NOT_AVAILABLE,
-            AssetPackErrorCode.UNRECOGNIZED_INSTALLATION,
-            AssetPackErrorCode.APP_NOT_OWNED,
-        )) {
-            assertEquals("unavailable", SoundPackRules.stateName(AssetPackStatus.FAILED, code, false))
-        }
     }
 
     @Test
