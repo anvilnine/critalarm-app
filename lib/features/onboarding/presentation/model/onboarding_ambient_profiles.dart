@@ -143,8 +143,11 @@ abstract final class OnboardingAmbientProfiles {
         turns: const [0.14, -0.02, 0.26],
         depths: const [0.35, 0.65, 0.85],
       ),
+      // The words and buttons on this screen use the canvas ink, so the
+      // canvas stays one of the yellow (or dark) canvas colours. Cobalt made
+      // the text and the cobalt Open Settings button unreadable.
       OnboardingAmbientStep.denied: _profile(
-        canvas: colors.ackCanvas,
+        canvas: colors.canvasAlt,
         surfaceOpacity: 0.88,
         colors: [colors.cobalt, colors.high, colors.canvasGhostStrong],
         opacities: const [0.14, 0.12, 0.10],
