@@ -40,6 +40,13 @@ with "You must specify a --flavor option", so use the Make targets, which pass
 `--flavor` and `STORE` for you (`STORE=play` unless you say otherwise). An
 iPhone run takes no flavor and its store is `apple`.
 
+`make run-store`, `make build-store-apk` and `make build-store-appbundle` are
+desk builds. They send no analytics and are never uploaded to a store. The two
+build targets delete `build/release-android.stamp`, so
+`scripts/release-android.sh --upload-only` refuses until a real release build.
+Store builds come only from `make release-android` and `make release-ios`. An
+iOS archive for the store is never made by hand in Xcode after `make run-store`.
+
 ```bash
 make build-store-apk STORE=galaxy        # build/app/outputs/flutter-apk/app-galaxy-release.apk
 make build-store-appbundle STORE=huawei  # build/app/outputs/bundle/huaweiRelease/app-huawei-release.aab
