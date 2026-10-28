@@ -232,6 +232,122 @@ void main() {
     });
   });
 
+  group('a run that may not send', () {
+    late MockFirebaseAnalytics analytics;
+    late MockFirebaseCrashlytics crashlytics;
+    late MockFirebaseRemoteConfig remoteConfig;
+
+    setUp(() {
+      analytics = MockFirebaseAnalytics();
+      crashlytics = MockFirebaseCrashlytics();
+      remoteConfig = MockFirebaseRemoteConfig();
+      when(
+        () => analytics.setAnalyticsCollectionEnabled(any()),
+      ).thenAnswer((_) async {});
+      when(() => analytics.resetAnalyticsData()).thenAnswer((_) async {});
+      when(
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => crashlytics.setCrashlyticsCollectionEnabled(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => crashlytics.recordError(
+          any<dynamic>(),
+          any(),
+          reason: any<dynamic>(named: 'reason'),
+          fatal: any(named: 'fatal'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => remoteConfig.setConfigSettings(any()),
+      ).thenAnswer((_) async {});
+      when(() => remoteConfig.setDefaults(any())).thenAnswer((_) async {});
+      when(() => remoteConfig.fetchAndActivate()).thenAnswer((_) async => true);
+    });
+
+    FirebaseTelemetryGate gateOn({required bool isWeb}) =>
+        FirebaseTelemetryGate(
+          analytics: analytics,
+          crashlytics: crashlytics,
+          remoteConfig: remoteConfig,
+          collectionAllowed: false,
+          isWeb: isWeb,
+        );
+
+    test('on a phone it saves both switches off, then never turns them '
+        'on', () async {
+      final gate = gateOn(isWeb: false);
+      await gate.initialize();
+      await gate.setAnalyticsEnabled(true);
+      await gate.setCrashlyticsEnabled(true);
+      await gate.logEvent('onboarding_step_viewed', {'step': 'welcome'});
+      await gate.recordError(StateError('x'), StackTrace.current);
+
+      verify(() => analytics.setAnalyticsCollectionEnabled(false)).called(1);
+      verifyNever(() => analytics.setAnalyticsCollectionEnabled(true));
+      verify(
+        () => crashlytics.setCrashlyticsCollectionEnabled(false),
+      ).called(1);
+      verifyNever(() => crashlytics.setCrashlyticsCollectionEnabled(true));
+      verifyNever(
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      );
+      verifyNever(
+        () => crashlytics.recordError(
+          any<dynamic>(),
+          any(),
+          reason: any<dynamic>(named: 'reason'),
+          fatal: any(named: 'fatal'),
+        ),
+      );
+      expect(gate.isAnalyticsEnabled, isFalse);
+      expect(gate.isCrashlyticsEnabled, isFalse);
+    });
+
+    test('on web it never touches analytics or crash reporting', () async {
+      final gate = gateOn(isWeb: true);
+      await gate.initialize();
+      await gate.setAnalyticsEnabled(true);
+      await gate.setAnalyticsEnabled(false);
+      await gate.setCrashlyticsEnabled(true);
+      await gate.logEvent('onboarding_step_viewed');
+      await gate.recordError(StateError('x'), StackTrace.current);
+
+      verifyZeroInteractions(analytics);
+      verifyZeroInteractions(crashlytics);
+      expect(gate.isAnalyticsEnabled, isFalse);
+    });
+
+    test('Remote Config still loads', () async {
+      final gate = gateOn(isWeb: true);
+      await gate.initialize();
+
+      verify(() => remoteConfig.fetchAndActivate()).called(1);
+      expect(gate.isInitialized, isTrue);
+    });
+
+    test('the user switch is ignored even before initialize', () async {
+      final gate = gateOn(isWeb: false);
+      await gate.setAnalyticsEnabled(true);
+      await gate.logEvent('x');
+
+      verifyNever(() => analytics.setAnalyticsCollectionEnabled(true));
+      verifyNever(
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      );
+    });
+  });
+
   group('onboardingFlowJson', () {
     late MockFirebaseRemoteConfig remoteConfig;
     late FirebaseTelemetryGate gate;
