@@ -6,6 +6,7 @@ import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -15,12 +16,15 @@ import 'package:critalarm/features/history/domain/week_bars.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/history/presentation/history_pane.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_hero.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -52,11 +56,18 @@ class _HistoryScreenContent extends StatefulWidget {
 }
 
 class _HistoryScreenContentState extends State<_HistoryScreenContent> {
-  HistoryEntry? _selected;
+  /// The incident the person tapped. Null until then, and the pane shows
+  /// [_openedId]. See [historyPaneEntry].
+  String? _pickedId;
+
+  /// The incident the pane opened on while nothing is picked: the newest,
+  /// held while it is listed.
+  String? _openedId;
 
   @override
   Widget build(BuildContext context) {
-    final size = AppSize.of(context);
+    // Book posture shows the pane at any width, tabletop shows none.
+    final showsDetail = AppScreenScaffold.showsDetail(context);
 
     return BlocBuilder<HistoryCubit, HistoryState>(
       builder: (context, state) {
@@ -75,6 +86,39 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               ? null
               : state.entries.last.startedAt,
         );
+        final selected = historyPaneEntry(
+          state.days,
+          _pickedId,
+          openedId: _openedId,
+        );
+        if (_pickedId == null) _openedId = selected?.id;
+        final hasDetail = !state.isEmpty;
+        // On a fold the hero holds still in its own pane and only the list
+        // scrolls. Read off the window: inside the stage the fold is gone.
+        final fold = AppFold.of(context);
+        final heroOnStage =
+            hasHero && heroOnFoldStage(fold, hasDetail: hasDetail);
+        // The top half of a tabletop fold is short: the face goes beside
+        // the card there, at 120, rather than on top of it.
+        final isBeside = heroOnStage && fold.isTabletop;
+        // A cover screen trims the room around the hero so two rows fit
+        // above the tab bar.
+        final isCover = AppSize.of(context).isCover;
+        final hero = Padding(
+          padding: EdgeInsets.fromLTRB(
+            12,
+            isCover ? Spacing.s2 : Spacing.s3,
+            12,
+            isCover ? Spacing.s3 : Spacing.s4,
+          ),
+          child: hasHero
+              ? HistoryHero(
+                  week: week,
+                  isFiltered: state.filter.isActive,
+                  isBeside: isBeside,
+                )
+              : const SizedBox(height: Spacing.s2),
+        );
 
         // The canvas behind the screen is the ambient one. It gets the disc
         // behind the face, and morphs to the next tab's profile on a change.
@@ -82,7 +126,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           path: '/history',
           profile: AmbientAppProfiles.historyHero(
             context.appColors,
-            spot: historyDiscSpotOf(context),
+            spot: historyDiscSpotOf(
+              context,
+              onStage: heroOnStage,
+              isBeside: isBeside,
+            ),
           ),
           child: NotificationListener<ScrollNotification>(
             // Reads the next page off the phone as the list nears its end.
@@ -113,33 +161,27 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   ],
                 ),
               ),
-              detail: state.isEmpty
+              foldStage: heroOnStage ? FoldStageColumn(children: [hero]) : null,
+              detail: !hasDetail
                   ? null
-                  : _selected == null
+                  : selected == null
                   ? AppEmptyState(
                       title: LocaleKeys.history_detail_empty_title.tr(),
                       description: LocaleKeys.history_detail_empty_body.tr(),
                     )
                   : _IncidentDetail(
-                      key: ValueKey(_selected?.id),
-                      entry: _selected!,
+                      key: ValueKey(selected.id),
+                      entry: selected,
+                      face: paneFaceFor(
+                        selected.faceState,
+                        hero: hasHero ? week.face : null,
+                      ),
                     ),
               slivers: [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      12,
-                      Spacing.s3,
-                      12,
-                      Spacing.s4,
-                    ),
-                    child: hasHero
-                        ? HistoryHero(
-                            week: week,
-                            isFiltered: state.filter.isActive,
-                          )
-                        : const SizedBox(height: Spacing.s2),
-                  ),
+                  child: heroOnStage
+                      ? const SizedBox(height: Spacing.s3)
+                      : hero,
                 ),
                 // Loading and failure both used to fall through to the list
                 // branch, which drew an empty card with no spinner, no message
@@ -221,13 +263,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                           for (final day in state.days)
                             _DaySection(
                               day: day,
-                              selectedId: size.isExpanded
-                                  ? _selected?.id
-                                  : null,
+                              selectedId: showsDetail ? selected?.id : null,
                               onTap: (entry) {
-                                if (size.isExpanded) {
+                                if (showsDetail) {
                                   AppHaptics.selection();
-                                  setState(() => _selected = entry);
+                                  setState(() => _pickedId = entry.id);
                                 } else {
                                   primeTopicCanvas(context, entry.topic);
                                   unawaited(
@@ -468,9 +508,17 @@ class _FilterButton extends StatelessWidget {
 
 /// The right pane on an expanded display: one picked incident, full detail.
 class _IncidentDetail extends StatelessWidget {
-  const _IncidentDetail({required this.entry, super.key});
+  const _IncidentDetail({
+    required this.entry,
+    required this.face,
+    super.key,
+  });
 
   final HistoryEntry entry;
+
+  /// How the incident ended, or null when the hero beside the pane already
+  /// shows that face. See [paneFaceFor].
+  final FaceState? face;
 
   @override
   Widget build(BuildContext context) {
@@ -481,8 +529,12 @@ class _IncidentDetail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FaceWidget(state: entry.faceState, size: 96),
-          const SizedBox(height: Spacing.s4),
+          // How the incident ended, at the hero size, unless the hero
+          // already wears that face.
+          if (face case final face?) ...[
+            FaceWidget(state: face),
+            const SizedBox(height: Spacing.s4),
+          ],
           Text(
             entry.topic,
             style: AppTypography.monoBold(colors.ink, fontSize: 22),

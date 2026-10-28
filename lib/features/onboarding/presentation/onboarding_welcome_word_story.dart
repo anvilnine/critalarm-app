@@ -197,7 +197,17 @@ class _WordStoryHeroState extends _ClockState<_WordStoryHero> {
         // The right edge of the face is the right edge of the page, which is
         // wider than this picture by the side padding.
         final pageRight = width + _IntroLayout.sidePadding;
-        final faceRight = pageRight + (30 + frame.face.shift) * faceUnit;
+        // Beside or above the fold of a foldable the page edge is the fold,
+        // and nothing may sit on it; in the centred column of a wide window
+        // the edge is no edge at all. The face stays in its page, its turn
+        // included (a square turned 8 degrees is about 7 percent wider each
+        // side), and turns in place instead of peeking in from past the edge.
+        final faceRight = _BoundedPage.isIn(context)
+            ? math.min(
+                pageRight - 0.07 * faceSize,
+                pageRight + (30 + frame.face.shift) * faceUnit,
+              )
+            : pageRight + (30 + frame.face.shift) * faceUnit;
         final ringsCentre = Offset(
           pageRight - faceSize / 2,
           faceTop + faceSize / 2,

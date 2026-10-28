@@ -4,6 +4,7 @@ import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/motion.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/pass_tones.dart';
@@ -18,6 +19,19 @@ const double _kThumbGap = 12;
 
 /// The gap between the label and its plan badge.
 const double _kTagGap = 10;
+
+/// The gap above a plan badge on its own line. The pill is a little taller
+/// than the label line it is centred on, so this keeps it off the label.
+const double _kTagLineGap = 4;
+
+/// True when a card in the overlapped stack puts its plan badge on a line of
+/// its own under the label, on a window (or fold pane) [width] wide: under
+/// [AppSize.narrowMaxWidth], such as a Galaxy Fold pane in book posture or
+/// its cover screen. The thumbnail takes the right side of the band there,
+/// and a label with the badge beside it would be cut. A phone keeps the
+/// badge after the label.
+bool passTagOnOwnLineFor({required double width}) =>
+    width < AppSize.narrowMaxWidth;
 
 /// The plan badge on a label line: a compact pill with a lock and the plan
 /// word.
@@ -78,12 +92,17 @@ class PassLabelLine extends StatelessWidget {
     this.tag,
     this.badge,
     this.isSingleLine = false,
+    this.isTagOnOwnLine = false,
     super.key,
   });
 
   /// Keeps the label on one line and cuts it with an ellipsis, with the tag
   /// after it. The collapsed page header uses it.
   final bool isSingleLine;
+
+  /// With [isSingleLine], puts the tag on a line of its own under the label,
+  /// so the label has the whole width. See [passTagOnOwnLineFor].
+  final bool isTagOnOwnLine;
 
   /// The pass label, such as "Wake-up challenge".
   final String label;
@@ -127,6 +146,20 @@ class PassLabelLine extends StatelessWidget {
     final tagText = tag == null
         ? null
         : _PassTagBadge(word: tag!, colors: badge, labelHeight: 11 * 1.2);
+    if (isSingleLine && isTagOnOwnLine && tagText != null) {
+      return MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: capped),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            labelText,
+            const SizedBox(height: _kTagLineGap),
+            tagText,
+          ],
+        ),
+      );
+    }
     if (isSingleLine) {
       return MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: capped),
@@ -201,12 +234,19 @@ double passFitValueSize({
 ///
 /// Two, unless the [band] it shows (the distance to the next card's top) is
 /// too short for a second line to clear the next card. Then one. A card with
-/// no band, such as the last, draws two.
-int passValueLinesFor({required double? band, required TextScaler textScaler}) {
+/// no band, such as the last, draws two. [hasTagLine] says the plan badge is
+/// on a line of its own under the label ([passTagOnOwnLineFor]), which the
+/// value has to clear as well.
+int passValueLinesFor({
+  required double? band,
+  required TextScaler textScaler,
+  bool hasTagLine = false,
+}) {
   if (band == null) return 2;
   final label = 11 * math.min(textScaler.scale(1), kChromeMaxTextScale) * 1.2;
+  final tagLine = hasTagLine ? _kTagLineGap + label : 0.0;
   final line = textScaler.scale(kPassCardValueSize) * 1.05;
-  final room = band - kPassCardTopPadding - label - 4;
+  final room = band - kPassCardTopPadding - label - tagLine - 4;
   return (room / line).floor().clamp(1, 2);
 }
 
@@ -464,6 +504,12 @@ class _AppPassCardState extends State<AppPassCard> {
         ? const BorderRadius.all(Radius.circular(kPassCardRadius))
         : const BorderRadius.vertical(top: Radius.circular(kPassCardRadius));
 
+    // On a narrow window the badge after the label would cut it, so the
+    // badge drops to a line of its own.
+    final isTagOnOwnLine =
+        !isFlat &&
+        widget.tag != null &&
+        passTagOnOwnLineFor(width: MediaQuery.sizeOf(context).width);
     final label = PassLabelLine(
       label: widget.label,
       tag: widget.tag,
@@ -473,6 +519,7 @@ class _AppPassCardState extends State<AppPassCard> {
       // the right side, so a long label is cut with an ellipsis and the
       // badge keeps its place after it. The flat stack has the room to wrap.
       isSingleLine: !isFlat,
+      isTagOnOwnLine: isTagOnOwnLine,
     );
     final scaler = MediaQuery.textScalerOf(context);
     // An empty value draws nothing and keeps the height of one line, so the
@@ -496,6 +543,7 @@ class _AppPassCardState extends State<AppPassCard> {
                     : passValueLinesFor(
                         band: PassCardBand.maybeOf(context),
                         textScaler: scaler,
+                        hasTagLine: isTagOnOwnLine,
                       ),
                 overflow: isFlat ? TextOverflow.clip : TextOverflow.ellipsis,
                 style: passValueStyle(tone.valueFor(isOn: widget.isOn), size),
