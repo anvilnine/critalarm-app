@@ -82,6 +82,10 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   double _seenProof = 0;
   bool _isMuted = false;
 
+  /// True while the paywall stands split at a fold. No sheet lands there,
+  /// so its cues are not heard.
+  bool _isFolded = false;
+
   @override
   double get restAt => SheetMotion.restAt;
 
@@ -116,7 +120,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         : SheetMotion.proofFor(loop, player.frame);
     final wasProof = _seenProof;
     _seenProof = proof;
-    if (_isMuted || isStill || now <= was) return;
+    if (_isMuted || _isFolded || isStill || now <= was) return;
 
     // The sheet lands and bumps the mascot into a hop.
     paywallCuesBetween(
@@ -311,7 +315,8 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // layout does: the stage in one pane, the words and the plans in the
     // other, with the same lead, headline and picture as the sheet.
     final fold = PaywallMuted.of(context) ? AppFold.none : AppFold.of(context);
-    if (!fold.isNone) return _buildFolded(context);
+    _isFolded = !fold.isNone;
+    if (_isFolded) return _buildFolded(context);
     return _buildSheet(context);
   }
 

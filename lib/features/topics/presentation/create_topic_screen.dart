@@ -1083,6 +1083,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         final splits = frame.splitsAtFold;
         final centresGroup =
             frame == ScreenFrame.centred || frame == ScreenFrame.book;
+        // On the Razr cover and in the bottom half of a tabletop fold a
+        // pinned button would sit on the form (the name field, the ring
+        // card), so it scrolls with the form, after the card.
+        final flowsActions = actionsFlowFor(frame);
         final isInline = actionsInlineFor(
           frame,
           hasKeyboard: hasKeyboard,
@@ -1122,7 +1126,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                             SetupFace(
                               state: face,
                               gap: Spacing.s4,
-                              base: frame == ScreenFrame.centred ? 120 : 80,
+                              base: frame.setupFaceBaseOf(context),
                             ),
                             Semantics(
                               header: true,
@@ -1143,9 +1147,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 faceState: face,
                 faceSize: 110,
                 isLive: true,
-                padding: const EdgeInsets.fromLTRB(
+                // The cover is 388 tall: the face sits right under the top
+                // bar, so the name field is whole on screen at rest.
+                padding: EdgeInsets.fromLTRB(
                   24,
-                  Spacing.s3,
+                  frame == ScreenFrame.cover ? 0 : Spacing.s3,
                   24,
                   0,
                 ),
@@ -1170,7 +1176,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           // point decides whether the form fits above the button.
           padding: isSetup && hasKeyboard
               ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
-              : const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
+              : EdgeInsets.fromLTRB(
+                  12,
+                  frame == ScreenFrame.cover ? Spacing.s2 : Spacing.s4,
+                  12,
+                  16,
+                ),
           child: AppSheet(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1398,7 +1409,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
               ),
               // Pinned, so the button is at one height in every state and
               // stays above the keyboard.
-              bottomBar: isInline ? null : actions(isPinned: true),
+              bottomBar: isInline || flowsActions
+                  ? null
+                  : actions(isPinned: true),
               // On a half-open foldable the face and the step stay put in
               // one pane (beside or above the fold) and the form scrolls in
               // the other one.
@@ -1475,8 +1488,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 else ...[
                   if (!splits) SliverToBoxAdapter(child: stageBox),
                   SliverToBoxAdapter(child: formCard),
+                  if (flowsActions)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          12,
+                          _actionsGap,
+                          12,
+                          0,
+                        ),
+                        child: InlineActions(
+                          child: actions(isPinned: false),
+                        ),
+                      ),
+                    ),
                 ],
-                if (isSetup && showsLegal && !hasKeyboard && !isInline)
+                if (isSetup &&
+                    showsLegal &&
+                    !hasKeyboard &&
+                    !isInline &&
+                    !flowsActions)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.only(bottom: Spacing.s2),

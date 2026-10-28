@@ -39,7 +39,33 @@ enum ScreenFrame {
   /// The frame for the display [context] is drawn on.
   static ScreenFrame of(BuildContext context) =>
       screenFrameFor(AppSize.of(context), AppFold.of(context));
+
+  /// The setup face's size at the default text size on the display
+  /// [context] is drawn on. See [setupFaceBaseFor].
+  double setupFaceBaseOf(BuildContext context) {
+    if (this != book) return setupFaceBaseFor(this);
+    final pane = AppFold.of(context)
+        .panes(
+          MediaQuery.sizeOf(context),
+          direction: Directionality.of(context),
+        )
+        .first;
+    return setupFaceBaseFor(this, stagePaneWidth: pane.width);
+  }
 }
+
+/// A book stage pane at least this wide draws the setup face at full size.
+const double setupFaceFullPaneWidth = 360;
+
+/// The setup face's size at the default text size: 120 in the centred group
+/// and in a book stage pane [setupFaceFullPaneWidth] wide or more, 80
+/// everywhere else (a phone, the cover, a tabletop half, a narrow book pane).
+double setupFaceBaseFor(ScreenFrame frame, {double stagePaneWidth = 0}) =>
+    switch (frame) {
+      ScreenFrame.centred => 120,
+      ScreenFrame.book when stagePaneWidth >= setupFaceFullPaneWidth => 120,
+      _ => 80,
+    };
 
 /// The frame for a display of [size] with [fold]. The posture wins over the
 /// size class: a half-open Pixel Fold is expanded, but its halves are not.
@@ -68,6 +94,31 @@ bool actionsInlineFor(
     !hasKeyboard &&
     fits &&
     (frame == ScreenFrame.centred || frame == ScreenFrame.book);
+
+/// How far in from each side of a window [width] wide the setup tracker
+/// row starts, past its own 16, so the small face lines up with the step.
+///
+/// In the centred group that is the start edge of the 480 column the words
+/// and the buttons share. In a book fold the tracker is in the start pane
+/// and keeps to the window edge. Elsewhere it keeps to the 560 column.
+double trackerGutterFor(ScreenFrame frame, {required double width}) =>
+    switch (frame) {
+      ScreenFrame.book => 0,
+      ScreenFrame.centred => math.max(
+        0,
+        (width - AppSize.actionMaxWidth) / 2 - 16,
+      ),
+      _ => math.max(0, (width - AppSize.contentMaxWidth) / 2),
+    };
+
+/// Whether a form's buttons scroll with it, after the form card, instead of
+/// pinned to the bottom edge.
+///
+/// On the Razr cover and in the bottom half of a tabletop fold the view is
+/// too short for a pinned button: it would sit on the form's own fields (the
+/// name field on the cover, the ring card on tabletop). New topic uses it.
+bool actionsFlowFor(ScreenFrame frame) =>
+    frame == ScreenFrame.cover || frame == ScreenFrame.tabletop;
 
 /// The least height the centred group takes, so it sits in the middle of a
 /// view [viewport] tall: what is left once the room above it ([above], the

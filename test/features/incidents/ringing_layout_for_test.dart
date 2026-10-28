@@ -160,4 +160,35 @@ void main() {
       );
     });
   });
+
+  group('ringingBookLiftFor', () {
+    test('splits the room the card leaves above and below the group', () {
+      // Galaxy Fold end pane 829 tall, a three-line card of 160 at the
+      // default text size: 829 - 172 (bar) - 16 - 16 = 625 of room.
+      expect(
+        ringingBookLiftFor(paneHeight: 829, textScale: 1, cardHeight: 160),
+        (625 - 160) / 2,
+      );
+    });
+
+    test('a setup test has one button less to clear', () {
+      expect(
+        ringingBookLiftFor(
+          paneHeight: 829,
+          textScale: 1,
+          cardHeight: 160,
+          pinnedButtons: 2,
+        ),
+        (829 - 116 - 16 - 16 - 160) / 2,
+      );
+    });
+
+    test('is 0 once the card fills the room, so the buttons stay at the '
+        'foot', () {
+      expect(
+        ringingBookLiftFor(paneHeight: 600, textScale: 2, cardHeight: 500),
+        0,
+      );
+    });
+  });
 }
