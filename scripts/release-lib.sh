@@ -111,7 +111,8 @@ keep_symbols() {
 
   if [ "$platform" = "android" ]; then
     # R8's map for the Kotlin and Java side. 100 MB of text, a tenth zipped.
-    mapping="build/app/outputs/mapping/release/mapping.txt"
+    # R8 writes one map per variant, and the release ships the play flavor.
+    mapping="build/app/outputs/mapping/playRelease/mapping.txt"
     [ -f "$mapping" ] || die "no R8 mapping at $mapping."
     gzip -c "$mapping" > "$kept/mapping.txt.gz"
     # The engine's own symbols ride inside the bundle (BUNDLE-METADATA), and
