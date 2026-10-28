@@ -8,10 +8,12 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - DateLabel in lib/core/format/date\_label.dart formats every date label for the current locale and keeps the English patterns unchanged.
 - Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
 - Settings detail pane: SettingsPage, settingsPaneSelection, settingsRowTapFor and SettingsPaneScope in settings\_pane.dart, AppPassStack.showsBack, and tap captures in the responsive capture matrix (tapScreenRoutes, capture\_settings\_checks.dart).
+- Layout API for tablets, foldables and wide windows: AppFold, AppPosture, AppFoldSplit, AppFoldPane, foldPaneMediaQuery and navPlacementFor in lib/design/fold.dart; AppScreenScaffold.foldStage, showsDetail, showsDetailFor, its frame and detail panes, and AppScreenColumns; the AppSize caps and isCover; ScreenFrame for setup and New topic; PaywallLayoutScope split and paywallSplitFor; the capture matrix (make screens-responsive, tool/capture\_responsive\_matrix.dart).
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+- New topic scrolls Next with the form on a cover screen and a tabletop fold (actionsFlowFor). Setup faces are 120 in book panes 360 or wider (setupFaceBaseFor). The setup tracker starts on the 480 group edge on wide windows (trackerGutterFor). The book alarm lifts its pinned buttons so card and buttons sit mid pane (ringingBookLiftFor), and the book acknowledged screen keeps its hint with the card above the pinned buttons. The paywall one column is 520 wide (paywallColumnMaxWidth), the Razr paywall pips start 16 under the top (heroPipsTopInsetFor), and a folded sheet paywall plays no landing cue.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.

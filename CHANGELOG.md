@@ -12,13 +12,14 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - When the server refuses something, the app explains it in its own words in your language.
 - Tablets, foldables and wide windows get layouts of their own. On a half-open foldable the tab bar and rail stay clear of the fold, and in book posture Topics and History show the list on one side and the detail on the other. On a wide window the rail and both panes sit in a centred frame, and a small cover screen gets a compact tab bar.
 - On a tablet or a desktop window, setup and New topic keep their button right under the form, and on a half-open foldable the face sits on one side of the fold and the form on the other.
-- On tablets, desktops, the Razr cover and half-open foldables the ringing alarm has its own layout, and I'm up is always on screen without scrolling. On a wide screen the buttons sit right under the message.
 - On tablets and desktop windows the paywall keeps its plans and button in one column, and on a half-open foldable it stays clear of the fold.
-- On a tablet or a wide window, Topics and History open with the first topic or the newest alarm already showing beside the list, and a link to a topic opens it there. On a half-open foldable the face and its card hold still on one side of the fold while the list moves on the other, and a small cover screen fits two rows under a one-line card.
-- On a tablet, a foldable or a wide window, Settings keeps its rows on one side and opens the page you pick beside them, and on a half-open foldable nothing in Settings or Permissions sits on the fold. A small cover screen shows the phone check card on one line.
+- On a tablet on its side, a large tablet, a desktop window, the Razr cover and a half-open foldable the ringing alarm has its own layout, and I'm up is always on screen without scrolling. On a wide screen the buttons sit right under the message.
+- On a tablet on its side, a large tablet or a wide window, Topics and History open with the first topic or the newest alarm already showing beside the list, and a link to a topic opens it there. On a half-open foldable the face and its card hold still on one side of the fold while the list moves on the other, and a small cover screen fits two rows under a one-line card.
+- On a tablet on its side, a large tablet, a wide window or a foldable held open like a book, Settings keeps its rows on one side and opens the page you pick beside them. On a half-open foldable nothing in Settings or Permissions sits on the fold, and a small cover screen shows the phone check card on one line.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
+- Settings and the Storage page show the choice you saved. Before, they always read Keep all and a new pick did not show, even though old alarms were deleted on the schedule you picked.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

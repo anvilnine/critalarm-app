@@ -117,6 +117,60 @@ void main() {
     });
   });
 
+  group('actionsFlowFor', () {
+    test('a cover and a tabletop half scroll the buttons with the form', () {
+      expect(actionsFlowFor(ScreenFrame.cover), isTrue);
+      expect(actionsFlowFor(ScreenFrame.tabletop), isTrue);
+    });
+
+    test('every other frame keeps them pinned or inline', () {
+      for (final frame in [
+        ScreenFrame.phone,
+        ScreenFrame.centred,
+        ScreenFrame.book,
+      ]) {
+        expect(actionsFlowFor(frame), isFalse);
+      }
+    });
+  });
+
+  group('setupFaceBaseFor', () {
+    test('the centred group draws the face at 120', () {
+      expect(setupFaceBaseFor(ScreenFrame.centred), 120);
+    });
+
+    test('a book stage pane 360 wide or more draws it at 120', () {
+      // Pixel Fold inner screen in book posture: 841 wide, fold at 420.
+      expect(setupFaceBaseFor(ScreenFrame.book, stagePaneWidth: 404), 120);
+      expect(setupFaceBaseFor(ScreenFrame.book, stagePaneWidth: 360), 120);
+    });
+
+    test('a narrower book pane and the small frames keep 80', () {
+      // Galaxy Fold in book posture: 690 wide, fold at 345.
+      expect(setupFaceBaseFor(ScreenFrame.book, stagePaneWidth: 329), 80);
+      expect(setupFaceBaseFor(ScreenFrame.phone), 80);
+      expect(setupFaceBaseFor(ScreenFrame.cover), 80);
+      expect(setupFaceBaseFor(ScreenFrame.tabletop, stagePaneWidth: 841), 80);
+    });
+  });
+
+  group('trackerGutterFor', () {
+    test('the centred group puts the tracker face on the 480 edge', () {
+      // iPad 11 landscape: the 480 group starts at 357, the row adds 16.
+      expect(trackerGutterFor(ScreenFrame.centred, width: 1194), 341);
+      expect(trackerGutterFor(ScreenFrame.centred, width: 1920), 704);
+    });
+
+    test('a book fold keeps the window edge', () {
+      expect(trackerGutterFor(ScreenFrame.book, width: 841), 0);
+    });
+
+    test('the other frames keep to the 560 column', () {
+      expect(trackerGutterFor(ScreenFrame.phone, width: 390), 0);
+      expect(trackerGutterFor(ScreenFrame.tabletop, width: 840), 140);
+    });
+  });
+
   group('groupFits', () {
     test('form, gap and buttons inside the room fit', () {
       expect(

@@ -366,7 +366,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           // Glad for one beat after the user allows.
           SetupFace(
             state: allowedView != null ? view.grantedFace : view.face,
-            base: frame == ScreenFrame.centred ? 120 : 80,
+            base: frame.setupFaceBaseOf(context),
           ),
           if (badge != null) ...[
             const SizedBox(height: Spacing.s3),

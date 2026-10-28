@@ -973,9 +973,11 @@ class AcknowledgedScreen extends StatelessWidget {
     // several lines and the pinned block would take half a small screen,
     // so it goes into the list, under the details card. At 1.3 it already
     // takes two lines and hides the last row of the card, so it moves there
-    // from 1.3 on.
+    // from 1.3 on. In the end pane of a book fold it is always in the list,
+    // with the card, so the pane's room never rests on a guess at how many
+    // lines it takes.
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final pinsHint = textScale < 1.3;
+    final pinsHint = textScale < 1.3 && !fold.isBook;
     final hintInList = !isClosed && !pinsHint;
 
     final bottomBar = Column(
@@ -1160,7 +1162,6 @@ class AcknowledgedScreen extends StatelessWidget {
         startedLabel: startedLabel,
         ackedLabel: ackedLabel,
         hintInList: hintInList,
-        pinsHint: pinsHint,
         isClosed: isClosed,
       );
     }
@@ -1332,7 +1333,6 @@ class AcknowledgedScreen extends StatelessWidget {
     required String startedLabel,
     required String ackedLabel,
     required bool hintInList,
-    required bool pinsHint,
     required bool isClosed,
   }) {
     final face = Hero(
@@ -1405,8 +1405,10 @@ class AcknowledgedScreen extends StatelessWidget {
       );
     }
 
-    // Book: the face and the lines in the start pane. The card sits at the
-    // foot of the end pane, right over the hint and the buttons.
+    // Book: the face and the lines in the start pane. The card and the hint
+    // under it sit at the foot of the end pane, right over the buttons. When
+    // the two are taller than the room they scroll above the pinned buttons,
+    // so the hint is never hidden under them at rest.
     return AppScreenScaffold(
       hasTabBar: false,
       barBacking: colors.canvas,
@@ -1426,10 +1428,8 @@ class AcknowledgedScreen extends StatelessWidget {
         ),
       ),
       slivers: [
-        // Built in the end pane, so the room is the pane's. A guess at the
-        // pinned block, as in the wide layout: the hint takes two lines in
-        // a phone-wide pane. A wrong guess moves the card a little or lets
-        // the pane scroll a little; the capture run checks it does not.
+        // Built in the end pane, so the room is the pane's: what the pinned
+        // buttons leave. The capture run checks nothing scrolls at rest.
         SliverToBoxAdapter(
           child: Builder(
             builder: (context) {
@@ -1444,9 +1444,6 @@ class AcknowledgedScreen extends StatelessWidget {
                           textScale: scale,
                           pinnedButtons: isClosed ? 1 : 2,
                         ) -
-                        (!isClosed && pinsHint
-                            ? 2 * 24 * scale + Spacing.s3
-                            : 0) -
                         ringingBarClearance -
                         16,
                   )
@@ -1457,20 +1454,28 @@ class AcknowledgedScreen extends StatelessWidget {
                   alignment: Alignment.bottomCenter,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: card,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        card,
+                        if (hintInList)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              4,
+                              Spacing.s4,
+                              4,
+                              0,
+                            ),
+                            child: hint,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
-        if (hintInList)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
-              child: hint,
-            ),
-          ),
       ],
       bottomBar: bottomBar,
     );

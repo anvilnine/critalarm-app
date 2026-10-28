@@ -9,9 +9,16 @@ import 'package:flutter/painting.dart';
 // Where a paywall sits in a window wider than a phone. Numbers only, so the
 // rules that pick them have tests.
 
+/// The room a layout keeps at each side of its words, and the buy block at
+/// each side of its plans and button.
+const double paywallColumnPadding = 20;
+
 /// The widest a paywall's one column grows: stage, words, plans, button and
 /// legal lines, centred in the window. On a phone the column is the window.
-const double paywallColumnMaxWidth = AppSize.contentMaxWidth;
+/// It is the buy block's width, so the words and the button share their
+/// left edge: both are `AppSize.actionMaxWidth` wide inside the padding.
+const double paywallColumnMaxWidth =
+    AppSize.actionMaxWidth + 2 * paywallColumnPadding;
 
 /// The tallest the one column grows on a tablet held upright. Past it the
 /// column centres in the window's height, so the stage, the words and the
