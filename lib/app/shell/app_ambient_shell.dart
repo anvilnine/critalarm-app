@@ -1,3 +1,4 @@
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
@@ -77,7 +78,7 @@ class AppAmbientShell extends StatefulWidget {
   static bool skipsCanvasFor(RouteMatchList routes) {
     if (routes.matches.isEmpty) return false;
     final base = routes.uri.path;
-    final top = routes.last.matchedLocation;
+    final top = topPathOf(routes);
     return _isSetupPath(base) && _isSetupPath(top);
   }
 
