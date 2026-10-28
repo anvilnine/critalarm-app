@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
@@ -81,6 +82,10 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   double _seenProof = 0;
   bool _isMuted = false;
 
+  /// True while the paywall stands split at a fold. No sheet lands there,
+  /// so its cues are not heard.
+  bool _isFolded = false;
+
   @override
   double get restAt => SheetMotion.restAt;
 
@@ -115,7 +120,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         : SheetMotion.proofFor(loop, player.frame);
     final wasProof = _seenProof;
     _seenProof = proof;
-    if (_isMuted || isStill || now <= was) return;
+    if (_isMuted || _isFolded || isStill || now <= was) return;
 
     // The sheet lands and bumps the mascot into a hop.
     paywallCuesBetween(
@@ -254,14 +259,20 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   /// The width the kit gives the headline: the side insets, and where the
   /// close control would be over it, room for that.
   static double _headlineWidth(BuildContext context) => heroHeadlineWidth(
-    width: MediaQuery.sizeOf(context).width - heroSideInset * 2,
+    width: _columnWidth(context) - heroSideInset * 2,
     endRoom: _headlineEndRoom(context),
   );
+
+  /// The width of the frame's one column: the screen on a phone, centred
+  /// and capped on a tablet (see `paywallColumnWidthFor`). The sheet still
+  /// runs edge to edge, and its words and mascot stand in the column.
+  static double _columnWidth(BuildContext context) =>
+      paywallColumnWidthFor(MediaQuery.sizeOf(context).width);
 
   /// How far from the right edge the headline stops.
   static double _headlineEndRoom(BuildContext context) =>
       sheetHeadlineEndRoomFor(
-        width: MediaQuery.sizeOf(context).width,
+        width: _columnWidth(context),
         textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
       );
 
@@ -299,6 +310,74 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
 
   @override
   Widget build(BuildContext context) {
+    // On a half-open foldable a sheet over a screen has no room on either
+    // side of the fold. The paywall stands split instead, as the Hero
+    // layout does: the stage in one pane, the words and the plans in the
+    // other, with the same lead, headline and picture as the sheet.
+    final fold = PaywallMuted.of(context) ? AppFold.none : AppFold.of(context);
+    _isFolded = !fold.isNone;
+    if (_isFolded) return _buildFolded(context);
+    return _buildSheet(context);
+  }
+
+  Widget _buildFolded(BuildContext context) {
+    final offer = PaywallOffer.of(context);
+    final lead = offer.benefits.firstOrNull;
+    final showsAlso = heroShowsAlsoIncluded(
+      hasLead: offer.lead != null,
+      benefitCount: offer.benefits.length,
+    );
+    final headline = _headline(context, lead, offer);
+    final scene = _sceneFor(_ownFor(offer));
+    return PaywallFrame(
+      closeOnLeft: false,
+      restAt: heroEntranceSeconds,
+      splits: true,
+      builder: (context, scope) => HeroComposition(
+        scope: scope,
+        headline: headline,
+        sceneBuilder: scene,
+        alsoIncluded: showsAlso ? LocaleKeys.paywall_also_label.tr() : null,
+        showsLeadLine: false,
+      ),
+    );
+  }
+
+  /// The critical limit: the person's own count and the topic they were
+  /// making, when the route carries any of them. The picture then draws a
+  /// tag and puts their topic on the row that switches on.
+  static TopicsPreviewOwn? _ownFor(PaywallOffer offer) {
+    final route = offer.lead;
+    return route != null &&
+            route.benefit == PaywallBenefitId.topics &&
+            (route.usedCount != null ||
+                route.limitCount != null ||
+                route.topicName != null)
+        ? TopicsPreviewOwn(
+            topicName: route.topicName,
+            used: route.usedCount,
+            limit: route.limitCount,
+          )
+        : null;
+  }
+
+  /// The stage's picture with the person's own numbers in it, or null for
+  /// the kit's own preview.
+  static HeroSceneBuilder? _sceneFor(TopicsPreviewOwn? own) => own == null
+      ? null
+      : (context, scene, size, playFrom) {
+          final preview = scene.preview;
+          if (preview == null) return SizedBox.fromSize(size: size);
+          return PaywallPreview(
+            preview,
+            sizeClass: PaywallPreviewClass.large,
+            size: size,
+            playFrom: playFrom,
+            topicsOwn: preview == PaywallPreviewId.topics ? own : null,
+          );
+        };
+
+  Widget _buildSheet(BuildContext context) {
     final colors = context.appColors;
     final media = MediaQuery.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -318,22 +397,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       hasLead: offer.lead != null,
       benefitCount: benefits.length,
     );
-    // The critical limit: the person's own count and the topic they were
-    // making, when the route carries any of them. The picture then draws a
-    // tag and puts their topic on the row that switches on.
-    final route = offer.lead;
-    final own =
-        route != null &&
-            route.benefit == PaywallBenefitId.topics &&
-            (route.usedCount != null ||
-                route.limitCount != null ||
-                route.topicName != null)
-        ? TopicsPreviewOwn(
-            topicName: route.topicName,
-            used: route.usedCount,
-            limit: route.limitCount,
-          )
-        : null;
+    final own = _ownFor(offer);
     final headline = _headline(context, lead, offer);
     // The topics headline may take two lines. The plan counts the second one
     // so the picture keeps its room.
@@ -361,7 +425,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // the home indicator's inset.
     final bottomInset = math.max(0, media.viewPadding.bottom - Spacing.s3);
     final plan = sheetPlanFor(
-      screenWidth: media.size.width,
+      screenWidth: paywallColumnWidthFor(media.size.width),
       screenHeight: media.size.height,
       topInset: media.viewPadding.top,
       bottomInset: bottomInset.toDouble(),
@@ -385,7 +449,10 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         ? null
         : Positioned(
             top: plan.sheetTop - plan.faceAbove,
-            left: heroSideInset,
+            left:
+                (media.size.width - paywallColumnWidthFor(media.size.width)) /
+                    2 +
+                heroSideInset,
             width: plan.faceSize,
             height: plan.faceSize,
             child: IgnorePointer(
@@ -613,28 +680,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                                   headline: headline,
                                   // The same picture the stage draws, with
                                   // the person's own numbers in it.
-                                  sceneBuilder: own == null
-                                      ? null
-                                      : (context, scene, size, playFrom) {
-                                          final preview = scene.preview;
-                                          if (preview == null) {
-                                            return SizedBox.fromSize(
-                                              size: size,
-                                            );
-                                          }
-                                          return PaywallPreview(
-                                            preview,
-                                            sizeClass:
-                                                PaywallPreviewClass.large,
-                                            size: size,
-                                            playFrom: playFrom,
-                                            topicsOwn:
-                                                preview ==
-                                                    PaywallPreviewId.topics
-                                                ? own
-                                                : null,
-                                          );
-                                        },
+                                  sceneBuilder: _sceneFor(own),
                                   loop: loop,
                                   player: _playerFor(scope),
                                   arrange: (size) => sheetStageArrangement(

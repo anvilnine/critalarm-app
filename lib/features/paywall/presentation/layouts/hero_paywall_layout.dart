@@ -26,6 +26,9 @@ class HeroPaywallLayout extends StatelessWidget {
       // The mascot stands in the top left, so the cross takes the right.
       closeOnLeft: false,
       restAt: heroEntranceSeconds,
+      // On a wide window or a half-open foldable the stage stands beside
+      // or above the offer.
+      splits: true,
       builder: (context, scope) => HeroComposition(scope: scope),
     );
   }

@@ -1095,7 +1095,10 @@ class _PassFramesGalleryState extends State<PassFramesGallery> {
           ),
         ],
         const _Caption('any point'),
-        Row(
+        // Two switches side by side are wider than a phone, so they wrap.
+        Wrap(
+          spacing: Spacing.s3,
+          runSpacing: Spacing.s2,
           children: [
             SegmentedButton<bool>(
               segments: const [
@@ -1106,7 +1109,6 @@ class _PassFramesGalleryState extends State<PassFramesGallery> {
               onSelectionChanged: (value) =>
                   setState(() => _isReverse = value.first),
             ),
-            const SizedBox(width: Spacing.s3),
             SegmentedButton<PassId>(
               segments: const [
                 ButtonSegment(

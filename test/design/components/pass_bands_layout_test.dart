@@ -154,6 +154,40 @@ void main() {
     });
   });
 
+  group('plan badge on its own line', () {
+    test('a book pane and a fold cover put the badge under the label', () {
+      expect(passTagOnOwnLineFor(width: 345), isTrue);
+      expect(passTagOnOwnLineFor(width: 344), isTrue);
+    });
+
+    test('a phone keeps the badge after the label', () {
+      expect(passTagOnOwnLineFor(width: 360), isFalse);
+      expect(passTagOnOwnLineFor(width: 390), isFalse);
+    });
+
+    test('the badge line leaves the compact band room for one value line', () {
+      expect(
+        passValueLinesFor(
+          band: kPassBandMinStep,
+          textScaler: TextScaler.noScaling,
+          hasTagLine: true,
+        ),
+        1,
+      );
+    });
+
+    test('the Personalize band keeps two value lines under a badge line', () {
+      expect(
+        passValueLinesFor(
+          band: kPassMinStep,
+          textScaler: TextScaler.noScaling,
+          hasTagLine: true,
+        ),
+        2,
+      );
+    });
+  });
+
   group('passToneFor tokens', () {
     const themes = {'light': AppColors.light, 'dark': AppColors.dark};
     for (final MapEntry(key: name, value: colors) in themes.entries) {

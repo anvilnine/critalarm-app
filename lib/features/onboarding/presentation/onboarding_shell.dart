@@ -17,6 +17,7 @@ import 'package:critalarm/features/onboarding/presentation/model/background_conn
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/model/welcome_ambient.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/screen_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -583,6 +584,15 @@ class _OnboardingShellState extends State<OnboardingShell>
         ? () => unawaited(_goBack())
         : null;
 
+    // On a tablet or desktop window the steps sit as one group whose
+    // buttons and words keep to 480, and the tracker starts on that group's
+    // edge. In book posture the tracker is in the start pane, over the
+    // step's face, so it keeps to the window edge.
+    final trackerGutter = trackerGutterFor(
+      ScreenFrame.of(context),
+      width: MediaQuery.sizeOf(context).width,
+    );
+
     return Stack(
       children: [
         Positioned.fill(
@@ -692,8 +702,15 @@ class _OnboardingShellState extends State<OnboardingShell>
                   // Back is a 40 circle in a 48 tap box, which reaches 4 past
                   // it: 4 less on the left, and 2 less above for the 2 the
                   // bar is taller. The slot holds the 4 back on the left
-                  // while Back is not offered.
-                  padding: const EdgeInsets.fromLTRB(12, 10, 16, 0),
+                  // while Back is not offered. On a wide window the row
+                  // keeps to the step's column, where the step's own top
+                  // bar is.
+                  padding: EdgeInsets.fromLTRB(
+                    12 + trackerGutter,
+                    10,
+                    16 + trackerGutter,
+                    0,
+                  ),
                   child: Row(
                     children: [
                       _BackSlot(onPressed: onBack),

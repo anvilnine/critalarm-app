@@ -14,6 +14,7 @@ import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cub
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/sound/sound_hero.dart';
 import 'package:critalarm/features/settings/presentation/personalize/sound/sound_sheet.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,9 @@ import 'package:go_router/go_router.dart';
 /// It is the Sound pass of Personalize: the page's blue ground, the wave of
 /// the sound that rings, and the list on a white sheet. A choice is saved the
 /// moment it is made, so the back ring is the only way out.
+///
+/// Beside the Settings rows, in the detail pane, there is no way out to
+/// draw: the pass is a blue card in the pane, under the pane's own title.
 class SoundPickerScreen extends StatelessWidget {
   const SoundPickerScreen({super.key, this.topicName});
 
@@ -134,6 +138,23 @@ class _SoundPickerViewState extends State<_SoundPickerView>
   late final AnimationController _progress = AnimationController(vsync: this);
   final ScrollController _scroll = ScrollController();
 
+  /// Whether the page was on screen at the last check. See
+  /// [didChangeDependencies].
+  bool _isShowing = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A playing preview stops once the page is off screen: covered by a
+    // pushed page (the cropper, the recorder), or, in the Settings detail
+    // pane, kept alive behind another tab. Tickers go quiet in both cases.
+    final showing = TickerMode.valuesOf(context).enabled;
+    if (_isShowing && !showing) {
+      unawaited(context.read<SoundPickerCubit>().stopPreview());
+    }
+    _isShowing = showing;
+  }
+
   @override
   void dispose() {
     _progress.dispose();
@@ -196,6 +217,80 @@ class _SoundPickerViewState extends State<_SoundPickerView>
           ),
         ],
       ),
+    );
+  }
+
+  /// The pass as a card in the Settings detail pane: the value and Play on
+  /// the blue ground, the wave under them and the list on its white sheet,
+  /// all in one rounded card under the pane's title. The pane draws no back
+  /// ring and tints nothing outside the card.
+  Widget _paneCard(
+    BuildContext context, {
+    required SoundPickerState state,
+    required PassTone tone,
+    required String value,
+    required Widget circle,
+  }) {
+    return AppScreenScaffold(
+      hasTabBar: false,
+      scrollController: _scroll,
+      // Named as the row beside it is: the pane only ever shows the
+      // default sound, never one topic's.
+      topBar: AppTopBar(
+        title: LocaleKeys.settings_alarm_sound_row_title.tr(),
+      ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(kPassCardRadius),
+              child: ColoredBox(
+                color: tone.ground,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        kPassSidePadding,
+                        kPassCardTopPadding,
+                        14,
+                        0,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Semantics(
+                              header: true,
+                              child: Text(
+                                value,
+                                style: passValueStyle(
+                                  tone.onGround,
+                                  kPassValueMinSize,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          circle,
+                        ],
+                      ),
+                    ),
+                    _hero(context, state: state, tone: tone),
+                    SoundSheet(
+                      state: state,
+                      progress: _progress,
+                      heldBack: _SoundPickerView._heldBack,
+                      onPickFile: _SoundPickerView._pickAndCrop,
+                      onRecord: _SoundPickerView._recordAndCrop,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -272,6 +367,16 @@ class _SoundPickerViewState extends State<_SoundPickerView>
             ),
           ],
         );
+
+        if (SettingsPaneScope.isIn(context)) {
+          return _paneCard(
+            context,
+            state: state,
+            tone: tone,
+            value: value,
+            circle: circle,
+          );
+        }
 
         // A Scaffold gives the error snack bar somewhere to show. The page
         // paints its own ground, so it shows nothing of its own.

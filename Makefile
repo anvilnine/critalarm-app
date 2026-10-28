@@ -1,4 +1,4 @@
-.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols screens-responsive
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -61,6 +61,17 @@ screens:
 	GIT_SHA="$$(git rev-parse --short HEAD)" \
 	GIT_DIRTY="$$(test -z "$$(git status --porcelain -- lib assets pubspec.yaml)" && echo false || echo true)" \
 	fvm flutter test tool/capture_marketing_screens.dart --reporter=compact
+
+# Every screen at tablet, foldable and desktop sizes, light and dark, plus a
+# contact sheet (index.html) and errors.json. A tool, not a test. Narrow it
+# with SIZES=ipad-11-landscape,desktop-1440 SCREENS=04_home_face,10_settings
+# THEMES=light and pick the folder with OUT=/abs/path. The default folder and
+# the size and screen ids are in the header of
+# tool/capture_responsive_matrix.dart.
+screens-responsive:
+	TZ=UTC SIZES="$(SIZES)" SCREENS="$(SCREENS)" THEMES="$(THEMES)" \
+	OUT="$(if $(OUT),$(abspath $(OUT)),)" \
+	fvm flutter test tool/capture_responsive_matrix.dart --reporter=compact
 
 # Fill ios/Flutter/Google.xcconfig from .env. Google Sign-In on iOS needs the
 # reversed client id registered as a URL scheme in the bundle, and Xcode reads

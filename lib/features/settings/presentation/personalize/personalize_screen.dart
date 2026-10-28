@@ -15,6 +15,7 @@ import 'package:critalarm/features/settings/presentation/cubits/personalize_cubi
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_live.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/pass_thumbs.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -184,6 +185,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
             )
             .current;
         final peaks = _peaksOf(sound);
+        final inPane = SettingsPaneScope.isIn(context);
         return PassThumbClock(
           builder: (context, clock) => PassLiveBuilder(
             soundName: sound?.name,
@@ -210,25 +212,29 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
                 };
               }
 
+              final stack = AppPassStack(
+                title: LocaleKeys.personalize_title.tr(),
+                backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
+                groupLabel: LocaleKeys.personalize_passes_root_stack_label.tr(),
+                onBack: _close,
+                // Beside the Settings rows there is nothing to go back to,
+                // and the pane is taller than the stack.
+                showsBack: !inPane,
+                roundsFoot: inPane,
+                cards: [
+                  for (final (index, item) in live.summary.present.indexed)
+                    _card(
+                      live,
+                      item.pass,
+                      thumbOf(item.pass),
+                      index,
+                      live.summary.present.length,
+                    ),
+                ],
+              );
               return Material(
                 type: MaterialType.transparency,
-                child: AppPassStack(
-                  title: LocaleKeys.personalize_title.tr(),
-                  backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
-                  groupLabel: LocaleKeys.personalize_passes_root_stack_label
-                      .tr(),
-                  onBack: _close,
-                  cards: [
-                    for (final (index, item) in live.summary.present.indexed)
-                      _card(
-                        live,
-                        item.pass,
-                        thumbOf(item.pass),
-                        index,
-                        live.summary.present.length,
-                      ),
-                  ],
-                ),
+                child: stack,
               );
             },
           ),

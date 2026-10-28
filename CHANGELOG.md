@@ -12,6 +12,10 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - When the server refuses something, the app explains it in its own words in your language.
 - Topics, History and a topic's messages open with the alarms and messages already on your phone, then update from the server.
 - A connect link only connects to a server you host yourself.
+- Tablets, foldables and the web app on a wide screen get layouts of their own. A wide window keeps every screen in a centred frame, a half-open foldable keeps everything you read or tap off the fold, and a small cover screen gets a compact tab bar.
+- The ringing alarm fits every screen size, and I'm up is always on screen without scrolling, at large text too. On a wide screen the face sits beside the message and the answers sit right under it.
+- On a tablet on its side, a wide window or a foldable held open like a book, Topics, History and Settings show the list on one side and the topic, alarm or page you pick on the other, opening on the first one.
+- On a tablet or a wide window, setup, New topic and the plans page keep their words and button in one centred column. On a half-open foldable the face sits on one side of the fold and the form or offer on the other.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
@@ -19,6 +23,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Editing your server in Settings checks the server and the admin token before it saves. If the check fails, the sheet says why and the server you were connected to stays connected.
 - Your Crit Alarm Cloud device credential is sent to Crit Alarm Cloud only. On another relay the phone registers as a new device.
 - Signing in as a different account on the same phone no longer shows the alarm history of the account before it. Signing back in to the first account brings its history back.
+- Settings and the Storage page show the choice you saved. Before, they always read Keep all and a new pick did not show, even though old alarms were deleted on the schedule you picked.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
