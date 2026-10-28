@@ -31,11 +31,11 @@ void main() {
       const name = 'app.critalarm/app_icon';
       var sent = 0;
       final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(const MethodChannel(name), (_) async {
-        sent++;
-        return 'pro_crowned';
-      });
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            ..setMockMethodCallHandler(const MethodChannel(name), (_) async {
+              sent++;
+              return 'pro_crowned';
+            });
       addTearDown(
         () => messenger.setMockMethodCallHandler(
           const MethodChannel(name),
