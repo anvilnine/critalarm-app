@@ -201,7 +201,11 @@ run-store: google-xcconfig
 
 # Same, as an installable APK, for STORE=play (the default), galaxy or huawei.
 # Lands in build/app/outputs/flutter-apk/app-<store>-release.apk.
+# A desk build: no analytics, never uploaded. It deletes the release stamp,
+# so release-android.sh --upload-only refuses until a real release build.
+RELEASE_ANDROID_STAMP = build/release-android.stamp
 build-store-apk:
+	rm -f $(RELEASE_ANDROID_STAMP)
 	fvm flutter build apk --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Same, as an app bundle: build/app/outputs/bundle/<store>Release/app-<store>-release.aab.
@@ -209,6 +213,7 @@ build-store-apk:
 # a store upload. The Play upload is scripts/release-android.sh. Only the play
 # bundle carries the Play sound pack.
 build-store-appbundle:
+	rm -f $(RELEASE_ANDROID_STAMP)
 	fvm flutter build appbundle --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Release build that rings quietly: no volume override, and a ring that stops
