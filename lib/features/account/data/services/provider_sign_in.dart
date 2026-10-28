@@ -6,7 +6,6 @@ import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -40,7 +39,8 @@ abstract interface class ProviderSignIn {
   Future<void> signOut();
 }
 
-/// The real sheets: `sign_in_with_apple` on iOS, `google_sign_in` on both.
+/// The real sheets: `sign_in_with_apple` on iOS and macOS, `google_sign_in`
+/// everywhere.
 final class NativeProviderSignIn implements ProviderSignIn {
   NativeProviderSignIn({
     required PlatformCapabilities capabilities,
@@ -64,7 +64,8 @@ final class NativeProviderSignIn implements ProviderSignIn {
 
   @override
   bool supports(IdentityProvider provider) => switch (provider) {
-    IdentityProvider.apple => _capabilities.isIos,
+    // The native sheet exists on the iPhone and the Mac.
+    IdentityProvider.apple => _capabilities.isApple,
     IdentityProvider.google => true,
   };
 
@@ -117,11 +118,11 @@ final class NativeProviderSignIn implements ProviderSignIn {
   Future<ProviderCredential> _signInWithGoogle() async {
     if (!_googleReady) {
       await _google.initialize(
-        // The iOS client belongs to iOS alone. Android reads its client from
-        // the platform config, so passing one there would be wrong.
-        clientId:
-            _capabilities.platform == TargetPlatform.iOS &&
-                _iosClientId.isNotEmpty
+        // The iOS client belongs to the Apple apps. The Mac app has the same
+        // bundle id, and Google's macOS sign-in takes an iOS client. Android
+        // reads its client from the platform config, so passing one there
+        // would be wrong.
+        clientId: _capabilities.isApple && _iosClientId.isNotEmpty
             ? _iosClientId
             : null,
         serverClientId: _serverClientId.isNotEmpty ? _serverClientId : null,

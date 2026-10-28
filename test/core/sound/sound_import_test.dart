@@ -18,6 +18,24 @@ void main() {
       );
     });
 
+    test('macOS follows the iPhone: 29.5 s cap, 30 s ring limit, qta', () {
+      expect(
+        SoundImportLimits.maxClipDuration(TargetPlatform.macOS),
+        const Duration(milliseconds: 29500),
+      );
+      expect(
+        SoundImportLimits.tooLongToRing(
+          TargetPlatform.macOS,
+          const Duration(seconds: 30),
+        ),
+        isTrue,
+      );
+      expect(
+        SoundImportLimits.readableExtensionsFor(TargetPlatform.macOS),
+        SoundImportLimits.readableExtensionsFor(TargetPlatform.iOS),
+      );
+    });
+
     test('the picked file may be up to 100 MB and 20 minutes', () {
       expect(SoundImportLimits.maxSourceBytes, 100 * oneMb);
       expect(SoundImportLimits.maxSourceDuration, const Duration(minutes: 20));
