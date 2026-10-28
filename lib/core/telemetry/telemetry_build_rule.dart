@@ -45,5 +45,7 @@ bool telemetryAllowedFor({
 bool isProductionWebPage(Uri page) {
   if (page.scheme != 'https') return false;
   final host = page.host.toLowerCase();
+  // Any subdomain counts only because the dashboard host is not chosen yet.
+  // Once it is, this must become an allowlist of the exact hosts.
   return host == 'critalarm.app' || host.endsWith('.critalarm.app');
 }
