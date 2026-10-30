@@ -181,6 +181,20 @@ Rect navAreaFor(
   };
 }
 
+/// [area] (window coordinates, in a window of [window]) without the parts
+/// of the side insets in [padding] that reach into it. Top and bottom stay:
+/// the bar sits above the bottom inset on its own.
+///
+/// A pill or panel laid out in the result never runs under a system strip
+/// down one edge, such as the iPhone Duo's on the right. With no side insets
+/// it is [area].
+Rect navAreaInsideSides(Rect area, Size window, EdgeInsets padding) {
+  final left = math.max(area.left, padding.left);
+  final right = math.min(area.right, window.width - padding.right);
+  if (right <= left) return area;
+  return Rect.fromLTRB(left, area.top, right, area.bottom);
+}
+
 /// True when [box] covers part of [band]. Boxes that only touch its edge, and
 /// empty boxes, are clear.
 bool boxCrossesFold(Rect box, Rect band) {

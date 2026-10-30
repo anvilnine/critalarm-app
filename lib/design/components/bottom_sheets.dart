@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -111,17 +113,44 @@ class AppBottomSheet extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(Radii.xl),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Container(
+          padding: sheetPaddingFor(
+            padding: MediaQuery.paddingOf(context),
+            window: MediaQuery.sizeOf(context).width,
+            sheet: constraints.maxWidth,
           ),
-          boxShadow: AppShadows.shadowLg(isDark: isDark),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(Radii.xl),
+            ),
+            boxShadow: AppShadows.shadowLg(isDark: isDark),
+          ),
+          child: body,
         ),
-        child: body,
       ),
+    );
+  }
+
+  /// The room inside the card around its content, for a sheet [sheet] wide
+  /// centred in a window [window] wide whose safe area is [padding].
+  ///
+  /// 16 on each side, plus the part of that side's inset the card reaches.
+  /// The surface runs under a system strip down one edge (the iPhone Duo's),
+  /// and the rows stay out of it. A sheet capped narrower than the window
+  /// clears a notch on its own and adds nothing.
+  static EdgeInsets sheetPaddingFor({
+    required EdgeInsets padding,
+    required double window,
+    required double sheet,
+  }) {
+    final beside = sheet.isFinite ? math.max(0, (window - sheet) / 2) : 0.0;
+    return EdgeInsets.fromLTRB(
+      16 + math.max(0, padding.left - beside),
+      10,
+      16 + math.max(0, padding.right - beside),
+      0,
     );
   }
 }

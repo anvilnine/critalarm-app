@@ -99,12 +99,16 @@ class _LockScreenView extends StatelessWidget {
                 if (!fold.isNone)
                   _FoldedLockScreen(state: state)
                 else
-                  // Foreground content. Only the top is padded for the status
-                  // bar and back button; the bottom is left open so the
-                  // notification stack scrolls edge to edge with no clamp.
+                  // Foreground content. The top is padded for the status bar
+                  // and back button, and each side for its own inset (the
+                  // iPhone Duo's strip, a notch on a phone on its side); the
+                  // bottom is left open so the notification stack scrolls
+                  // edge to edge with no clamp.
                   Padding(
                     padding: EdgeInsets.only(
                       top: MediaQuery.paddingOf(context).top,
+                      left: MediaQuery.paddingOf(context).left,
+                      right: MediaQuery.paddingOf(context).right,
                     ),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
