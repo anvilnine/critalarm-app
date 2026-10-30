@@ -132,6 +132,7 @@ class _Size {
     this.textScale = 1,
     this.hingeX,
     this.hingeY,
+    this.insets = EdgeInsets.zero,
     this.note,
   });
 
@@ -147,6 +148,10 @@ class _Size {
 
   /// A horizontal fold, half opened, at this y (logical pixels).
   final double? hingeY;
+
+  /// The system's safe-area insets, in logical pixels. iPhone Duo puts its
+  /// bars on one side, so these are often uneven.
+  final EdgeInsets insets;
 
   /// Shown on the contact sheet under the size id.
   final String? note;
@@ -197,6 +202,9 @@ class _Size {
       if (textScale != 1) 'text $textScale',
       if (hingeX != null) 'fold at x ${hingeX!.round()}',
       if (hingeY != null) 'fold at y ${hingeY!.round()}',
+      if (insets != EdgeInsets.zero)
+        'insets l${insets.left.round()} t${insets.top.round()} '
+            'r${insets.right.round()} b${insets.bottom.round()}',
     ];
     return parts.join(', ');
   }
@@ -232,13 +240,69 @@ const List<_Size> _sizes = [
   _Size('pixel-fold-inner-book', 841, 701, _Renders.android, hingeX: 420),
   _Size('razr-cover', 384, 388, _Renders.android),
   _Size('razr-cover-text13', 384, 388, _Renders.android, textScale: 1.3),
+  // iPhone Duo, sizes and insets from Apple's iOS 27 design resource. iOS
+  // reports no display features to Flutter, so the plain rows are what the
+  // app sees today. The fold rows show what a bridged fold would give.
   _Size(
-    'iphone-fold-unfolded',
-    720,
-    900,
+    'iphone-duo-outer',
+    466,
+    678,
     _Renders.ios,
     isIphone: true,
-    note: 'assumed size, no device with public numbers yet',
+    insets: EdgeInsets.only(right: 84, bottom: 34),
+  ),
+  _Size(
+    'iphone-duo-outer-landscape',
+    678,
+    466,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+  ),
+  _Size(
+    'iphone-duo-inner',
+    951,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+  ),
+  _Size(
+    'iphone-duo-inner-book',
+    951,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+    hingeX: 475.5,
+    note: 'fold bridged from iOS',
+  ),
+  _Size(
+    'iphone-duo-inner-portrait',
+    669,
+    951,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(top: 84, bottom: 95),
+  ),
+  _Size(
+    'iphone-duo-tabletop',
+    669,
+    951,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(top: 84, bottom: 95),
+    hingeY: 475.5,
+    note: 'fold bridged from iOS',
+  ),
+  _Size(
+    'iphone-duo-split-half',
+    475,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+    note: 'Split View, right half',
   ),
 ];
 
@@ -804,7 +868,19 @@ void main() {
                 tester.view
                   ..physicalSize = Size(size.width, size.height) * _ratio
                   ..devicePixelRatio = _ratio
-                  ..displayFeatures = size.displayFeatures;
+                  ..displayFeatures = size.displayFeatures
+                  ..padding = FakeViewPadding(
+                    left: size.insets.left * _ratio,
+                    top: size.insets.top * _ratio,
+                    right: size.insets.right * _ratio,
+                    bottom: size.insets.bottom * _ratio,
+                  )
+                  ..viewPadding = FakeViewPadding(
+                    left: size.insets.left * _ratio,
+                    top: size.insets.top * _ratio,
+                    right: size.insets.right * _ratio,
+                    bottom: size.insets.bottom * _ratio,
+                  );
                 tester.platformDispatcher.textScaleFactorTestValue =
                     size.textScale;
                 addTearDown(tester.view.reset);
