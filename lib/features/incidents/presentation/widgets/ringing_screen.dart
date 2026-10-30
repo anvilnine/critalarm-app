@@ -639,11 +639,22 @@ class RingingScreen extends StatelessWidget {
         )
         .second;
     final media = foldPaneMediaQuery(window, pane);
+    // The page in the end pane is the pane less its gutters, which hold a
+    // side inset that reaches the pane.
+    final pageWidth = AppScreenColumns.resolve(
+      boxWidth: media.size.width,
+      size: AppSize.from(
+        media.size,
+        isIphone: AppDeviceScope.isIphoneOf(context),
+      ),
+      padding: media.padding,
+      hasTabBar: false,
+    ).contentWidth;
     final card = _measureCard(
       context,
       state,
       look,
-      media.size.width,
+      pageWidth,
       inherited: DefaultTextStyle.of(context).style,
     );
     return ringingBookLiftFor(
@@ -846,11 +857,13 @@ class RingingScreen extends StatelessWidget {
       case RingingLayout.tabletop:
         return true;
     }
+    // The width the scaffold gives the page: the column, less a side inset
+    // deeper than its gutter (the iPhone Duo's strip).
     final layout = _tallLayoutFor(
       context,
       state,
       look,
-      math.min(size.width, AppSize.contentMaxWidth),
+      AppScreenColumns.of(context, hasTabBar: false).contentWidth,
       inherited:
           Theme.of(context).textTheme.bodyMedium ??
           DefaultTextStyle.of(context).style,
