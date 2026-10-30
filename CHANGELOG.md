@@ -27,6 +27,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - In light mode, the setup screen you see after turning down a permission is now easy to read, with dark text on yellow and an Open Settings button that stands out.
 - An alarm that rings during setup now shows its full screen background.
 - Tapping an alarm notification while the alarm screen is open no longer restarts it.
+- On iPhone Duo, screens, sheets, dialogs and the tab bar keep clear of the strip down the side of the screen.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
