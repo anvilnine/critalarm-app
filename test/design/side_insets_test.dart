@@ -50,7 +50,7 @@ void main() {
       expect(columns.gutterRight, (844 - 560) / 2);
     });
 
-    test('a side with no inset is never given the other side\'s', () {
+    test("a side with no inset is never given the other side's", () {
       final columns = AppScreenColumns.resolve(
         boxWidth: 678,
         size: const AppSize(678, 466, isIphone: true),
