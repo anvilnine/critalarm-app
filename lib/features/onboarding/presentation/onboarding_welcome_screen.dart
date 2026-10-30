@@ -834,25 +834,35 @@ class _IntroLayout extends StatelessWidget {
       hasTabBar: false,
       physics: const ClampingScrollPhysics(),
       bottomBar: isBook ? null : _button(),
-      foldStage: Padding(
-        // The shell's tracker sits along the top of this pane.
-        padding: EdgeInsets.fromLTRB(
-          sidePadding,
-          MediaQuery.paddingOf(context).top + AppScreenScaffold.topBarHeight,
-          sidePadding,
-          Spacing.s4,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (top != null) ...[top!, const SizedBox(height: Spacing.s4)],
-            Expanded(child: _BoundedPage(child: _heroArea())),
-            if (underHero != null) ...[
-              const SizedBox(height: Spacing.s3),
-              Center(child: underHero),
-            ],
-          ],
-        ),
+      // Built in the stage's pane, so the insets are the pane's: a system
+      // strip down the far edge of the window pads only the pane beside it.
+      foldStage: Builder(
+        builder: (context) {
+          final padding = MediaQuery.paddingOf(context);
+          return Padding(
+            // The shell's tracker sits along the top of this pane.
+            padding: EdgeInsets.fromLTRB(
+              sidePadding + padding.left,
+              padding.top + AppScreenScaffold.topBarHeight,
+              sidePadding + padding.right,
+              Spacing.s4,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (top != null) ...[
+                  top!,
+                  const SizedBox(height: Spacing.s4),
+                ],
+                Expanded(child: _BoundedPage(child: _heroArea())),
+                if (underHero != null) ...[
+                  const SizedBox(height: Spacing.s3),
+                  Center(child: underHero),
+                ],
+              ],
+            ),
+          );
+        },
       ),
       slivers: [
         SliverPadding(

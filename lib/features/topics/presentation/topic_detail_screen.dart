@@ -177,10 +177,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
         builder: (context, setDialogState) => Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 24,
-          ),
+          insetPadding: dialogInsetPaddingFor(MediaQuery.paddingOf(context)),
           child: AppDialog(
             title: LocaleKeys.topic_detail_delete_dialog_title.tr(
               namedArgs: {'topic': topicName},

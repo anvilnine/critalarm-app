@@ -296,11 +296,13 @@ class _AppShellContentState extends State<_AppShellContent>
     // On a folding display the bar never crosses the fold. In book posture
     // it floats at the foot of the start pane, in tabletop posture in the
     // bottom half, and search opens in that same pane.
+    // The side insets come off it too, so the pill and the search panel
+    // stay out of a system strip down one edge (the iPhone Duo's).
     final fold = AppFold.of(context);
-    final navArea = navAreaFor(
+    final navArea = navAreaInsideSides(
+      navAreaFor(screen, fold, direction: Directionality.of(context)),
       screen,
-      fold,
-      direction: Directionality.of(context),
+      padding,
     );
     final placement = navPlacementFor(size, fold);
     final hasRail = placement != AppNavPlacement.bottom;
