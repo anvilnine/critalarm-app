@@ -510,6 +510,15 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
 
+    // The side insets that reach the list: all of them in one column, and in
+    // two panes only an inset at an edge the list pane touches.
+    final listSides = AppScreenColumns.sideInsetsWithin(
+      padding,
+      boxWidth: boxWidth,
+      left: columns.listLeft,
+      right: columns.listLeft + paneWidth,
+    );
+
     final topInset =
         padding.top + (topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
@@ -556,7 +565,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         slivers: [
           SliverPadding(padding: EdgeInsets.only(top: topInset)),
           SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: gutter),
+            padding: EdgeInsets.only(
+              left: columns.gutterLeft,
+              right: columns.gutterRight,
+            ),
             sliver: SliverMainAxisGroup(slivers: widget.slivers),
           ),
           if (!widget.bodyClearsBottomBar)
@@ -818,13 +830,19 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                     ),
                   SafeArea(
                     top: false,
+                    // Each side keeps 12 past its own inset, or the rail's
+                    // clearance, which already holds the inset on the rail's
+                    // side. Counting the inset twice would push the bar off
+                    // the middle of the column on an iPhone Duo.
+                    left: false,
+                    right: false,
                     child: Padding(
                       // On a screen with tabs the bar sits above the floating
                       // tab bar, not behind it.
                       padding: EdgeInsets.fromLTRB(
-                        math.max(12, sideClearance),
+                        math.max(12 + listSides.left, sideClearance),
                         0,
-                        math.max(12, sideClearance),
+                        math.max(12 + listSides.right, sideClearance),
                         AppScreenScaffold.bottomBarGap + tabBarRoom,
                       ),
                       child: Center(
@@ -887,11 +905,23 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: paneWidth, child: body),
+            SizedBox(
+              width: paneWidth,
+              child: _withSideInsets(context, listSides, body),
+            ),
             Expanded(
-              child: AppDetailPane(
-                endsInside: columns.detailEndInset(boxWidth) > 0,
-                child: detail!,
+              child: _withSideInsets(
+                context,
+                AppScreenColumns.sideInsetsWithin(
+                  padding,
+                  boxWidth: boxWidth,
+                  left: columns.detailLeft,
+                  right: columns.detailLeft + columns.detailWidth,
+                ),
+                AppDetailPane(
+                  endsInside: columns.detailEndInset(boxWidth) > 0,
+                  child: detail!,
+                ),
               ),
             ),
           ],
@@ -900,6 +930,29 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     }
 
     return body;
+  }
+
+  /// [child] with the side insets of the `MediaQuery` swapped for [sides],
+  /// the part that reaches its pane. Top and bottom stay as they are.
+  static Widget _withSideInsets(
+    BuildContext context,
+    EdgeInsets sides,
+    Widget child,
+  ) {
+    final media = MediaQuery.of(context);
+    EdgeInsets swap(EdgeInsets insets) => EdgeInsets.fromLTRB(
+      math.min(insets.left, sides.left),
+      insets.top,
+      math.min(insets.right, sides.right),
+      insets.bottom,
+    );
+    return MediaQuery(
+      data: media.copyWith(
+        padding: swap(media.padding),
+        viewPadding: swap(media.viewPadding),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -918,6 +971,8 @@ class AppScreenColumns {
     required this.listLeft,
     required this.listWidth,
     required this.gutter,
+    required this.gutterLeft,
+    required this.gutterRight,
     required this.detailLeft,
     required this.detailWidth,
     this.originX = 0,
@@ -965,6 +1020,12 @@ class AppScreenColumns {
       final available = boxWidth - 2 * frameInset - railGap;
       final listWidth = AppScreenScaffold.listPaneWidth(available);
       final listLeft = frameInset + (railOnRight ? 0 : railGap);
+      final listSides = sideInsetsWithin(
+        padding,
+        boxWidth: boxWidth,
+        left: listLeft,
+        right: listLeft + listWidth,
+      );
       return AppScreenColumns._(
         twoPane: true,
         railOnRight: railOnRight,
@@ -972,6 +1033,8 @@ class AppScreenColumns {
         listLeft: listLeft,
         listWidth: listWidth,
         gutter: 0,
+        gutterLeft: listSides.left,
+        gutterRight: listSides.right,
         detailLeft: listLeft + listWidth,
         detailWidth: available - listWidth,
       );
@@ -980,13 +1043,19 @@ class AppScreenColumns {
     // A long row is hard to read, the eye has to travel, so cap the column.
     // One column keeps the rail's clearance on both sides, so it sits in the
     // middle of the display rather than in the middle of what the rail leaves.
+    // The safe area on each side is its own: a side with a deeper inset (the
+    // iPhone Duo's system strip) keeps the content out of it, and the other
+    // side stays where it was.
+    final gutter = math.max(railClearance, (boxWidth - contentMaxWidth) / 2);
     return AppScreenColumns._(
       twoPane: false,
       railOnRight: railOnRight,
       railClearance: railClearance,
       listLeft: 0,
       listWidth: boxWidth,
-      gutter: math.max(railClearance, (boxWidth - contentMaxWidth) / 2),
+      gutter: gutter,
+      gutterLeft: math.max(gutter, padding.left),
+      gutterRight: math.max(gutter, padding.right),
       detailLeft: boxWidth,
       detailWidth: 0,
     );
@@ -1058,6 +1127,8 @@ class AppScreenColumns {
         listLeft: inPane.listLeft,
         listWidth: inPane.listWidth,
         gutter: inPane.gutter,
+        gutterLeft: inPane.gutterLeft,
+        gutterRight: inPane.gutterRight,
         detailLeft: inPane.detailLeft,
         detailWidth: inPane.detailWidth,
         originX: pane.left,
@@ -1076,6 +1147,23 @@ class AppScreenColumns {
     );
   }
 
+  /// The part of the side insets in [padding] that reaches into the span
+  /// from [left] to [right] of a box [boxWidth] wide. A span that stops
+  /// short of an edge keeps none of that edge's inset, and one that touches
+  /// it keeps all of it. Top and bottom are 0.
+  ///
+  /// For a pane that does not run to the window edge: the iPhone Duo's strip
+  /// on the right pads the pane beside it, not a list pane in from it.
+  static EdgeInsets sideInsetsWithin(
+    EdgeInsets padding, {
+    required double boxWidth,
+    required double left,
+    required double right,
+  }) => EdgeInsets.only(
+    left: math.max(0, padding.left - left),
+    right: math.max(0, padding.right - (boxWidth - right)),
+  );
+
   /// List beside detail on an expanded display.
   final bool twoPane;
 
@@ -1090,8 +1178,20 @@ class AppScreenColumns {
   final double listLeft;
   final double listWidth;
 
-  /// Room either side of the content inside the list.
+  /// Room either side of the content inside the list, the same on both
+  /// sides, before the safe area: the column cap and the rail's clearance.
+  /// A bar drawn in a `SafeArea` adds this to the inset the `SafeArea`
+  /// already keeps. Content that is not in one uses [gutterLeft] and
+  /// [gutterRight].
   final double gutter;
+
+  /// Room left of the content inside the list: [gutter], or the safe area on
+  /// that side where it is deeper. In two panes, only the part of the inset
+  /// that reaches the list pane.
+  final double gutterLeft;
+
+  /// Room right of the content inside the list. See [gutterLeft].
+  final double gutterRight;
 
   /// The detail pane. Zero wide in one column.
   final double detailLeft;
@@ -1118,10 +1218,10 @@ class AppScreenColumns {
   bool get isPane => twoPane || inFoldPane;
 
   /// Where the content in the list starts, in window coordinates.
-  double get contentLeft => originX + listLeft + gutter;
+  double get contentLeft => originX + listLeft + gutterLeft;
 
   /// How wide the content in the list is.
-  double get contentWidth => listWidth - 2 * gutter;
+  double get contentWidth => listWidth - gutterLeft - gutterRight;
 }
 
 /// Tells the screens under it what colour they sit on, so each can back its
@@ -1322,9 +1422,14 @@ class AppDetailPane extends StatelessWidget {
       // A wide pane keeps its surface edge to edge, and the content in it
       // stops at a readable width in the middle. The surface runs to the
       // window edge, so the content keeps a gutter on both sides and a card
-      // in it is never cut by that edge.
+      // in it is never cut by that edge. A side inset that reaches the pane
+      // (the iPhone Duo's strip at the end of a book fold) goes under the
+      // surface and keeps the content out of it.
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: gutter),
+        padding: EdgeInsets.only(
+          left: gutter + math.max(0, padding.left - startInset),
+          right: gutter + padding.right,
+        ),
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -1333,11 +1438,14 @@ class AppDetailPane extends StatelessWidget {
             ),
             // The margin above already clears the status bar, so the page
             // in the pane must not leave room for it a second time. The same
-            // goes for the home indicator under a pane that ends inside.
+            // goes for the home indicator under a pane that ends inside, and
+            // for the side insets the padding above has taken.
             child: MediaQuery.removePadding(
               context: context,
               removeTop: true,
               removeBottom: endsInside,
+              removeLeft: true,
+              removeRight: true,
               child: child,
             ),
           ),
