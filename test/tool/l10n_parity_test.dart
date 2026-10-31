@@ -75,15 +75,49 @@ void main() {
 
   test('all listed locales enforce their plural forms', () {
     write('en', {'items': {'one': 'Item', 'other': 'Items'}});
-    for (final locale in ['en', 'de', 'es', 'fr', 'pt-BR']) {
+    const latin = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt-BR', 'tr'];
+    for (final locale in latin) {
       write(locale, {'items': {'one': 'Item', 'other': 'Items'}});
     }
-    for (final locale in ['ja', 'ko', 'zh-Hans']) {
+    for (final locale in ['ja', 'ko', 'zh-Hans', 'zh-Hant']) {
       write(locale, {'items': {'other': 'Items'}});
     }
     expect(check(), isEmpty);
     write('ja', {'items': {'one': 'Item', 'other': 'Items'}});
     expect(check(), isEmpty);
+  });
+
+  test('Polish requires one, few, many and other', () {
+    write('en', {'items': {'one': 'Item', 'other': 'Items'}});
+    write('pl', {
+      'items': {
+        'one': 'Rzecz',
+        'few': 'Rzeczy',
+        'many': 'Rzeczy',
+        'other': 'Rzeczy',
+      },
+    });
+    expect(check(), isEmpty);
+    write('pl', {
+      'items': {'one': 'Rzecz', 'few': 'Rzeczy', 'other': 'Rzeczy'},
+    });
+    expect(check(), ['pl: items.many: missing plural form']);
+  });
+
+  test('Czech requires one, few and other, and rejects many', () {
+    write('en', {'items': {'one': 'Item', 'other': 'Items'}});
+    write('cs', {
+      'items': {'one': 'Věc', 'few': 'Věci', 'other': 'Věcí'},
+    });
+    expect(check(), isEmpty);
+    write('cs', {
+      'items': {'one': 'Věc', 'other': 'Věcí'},
+    });
+    expect(check(), ['cs: items.few: missing plural form']);
+    write('cs', {
+      'items': {'one': 'Věc', 'few': 'Věci', 'many': 'Věcí', 'other': 'Věcí'},
+    });
+    expect(check(), ['cs: items.many: extra key']);
   });
 
   test('Asian locales still require other', () {
