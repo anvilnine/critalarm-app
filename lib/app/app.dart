@@ -26,6 +26,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/device/native_fold.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -84,6 +85,15 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   late final GoRouter _router = buildRouter(
     initialLocation: widget.initialLocation,
   );
+
+  /// An iPhone tells an unfolded iPhone Fold from an iPad, and is the one
+  /// device whose fold comes over [_foldSource].
+  late final bool _isIphone =
+      getIt.isRegistered<DeviceForm>() && getIt<DeviceForm>().isIphone;
+
+  /// The folding iPhone's fold. One instance, so the scope's stream is not
+  /// opened again on every build.
+  final NativeFoldSource _foldSource = const NativeFoldChannel();
 
   /// Taps, foreground pushes and the resume reload. A notification tapped
   /// while the app is already running does not go through the initial route,
@@ -412,17 +422,20 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           builder: (context, child) => _AppearanceScope(
             child: _OnTranslationsLoaded(
               onLoaded: _quickActions.start,
-              child: AppDeviceScope(
-                isIphone:
-                    getIt.isRegistered<DeviceForm>() &&
-                    getIt<DeviceForm>().isIphone,
-                child: FeatureGuideHost(
-                  router: _router,
-                  child: ConnectLinkHost(
+              // On an iPhone the fold comes from the native side, since
+              // Flutter reports none on iOS. Elsewhere this adds nothing.
+              child: NativeFoldScope(
+                source: _isIphone ? _foldSource : null,
+                child: AppDeviceScope(
+                  isIphone: _isIphone,
+                  child: FeatureGuideHost(
                     router: _router,
-                    child: AppAmbientShell(
+                    child: ConnectLinkHost(
                       router: _router,
-                      child: child ?? const SizedBox.shrink(),
+                      child: AppAmbientShell(
+                        router: _router,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

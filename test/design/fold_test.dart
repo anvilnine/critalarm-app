@@ -206,6 +206,22 @@ void main() {
       expect(navPlacementFor(size, AppFold.none), AppNavPlacement.left);
     });
 
+    test('a side strip that holds the rail keeps the rail, half open', () {
+      // The iPhone Duo's inner display: the strip down the right holds the
+      // rail clear of the fold, so it stays a rail in book posture.
+      const duo = Size(951, 669);
+      final duoFold = AppFold.fromFeatures([
+        _fold(Rect.fromLTWH(475.5, 0, 0, duo.height)),
+      ], duo);
+      final duoSize = AppSize.from(duo, isIphone: true);
+      const strip = EdgeInsets.only(right: 84);
+      expect(
+        navPlacementFor(duoSize, duoFold, padding: strip),
+        AppNavPlacement.right,
+      );
+      expect(navPlacementFor(duoSize, duoFold), AppNavPlacement.bottom);
+    });
+
     test('the bar floats in the start pane, left of the band', () {
       final area = navAreaFor(window, fold);
       expect(area, const Rect.fromLTRB(0, 0, 404, 701));

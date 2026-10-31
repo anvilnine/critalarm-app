@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
+import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:flutter/widgets.dart';
 
@@ -158,12 +159,30 @@ class AppFold {
 /// so where every screen leaves room for it. The one rule the shell, the
 /// scaffold and [AppFold] users share.
 ///
-/// Book posture beats the size class: the bar is always the pill at the foot
-/// of the start pane, never a rail, so it does not cross the fold. Otherwise
-/// it is [AppSize.navPlacement] (in tabletop posture the rail or pill sits in
-/// the bottom half, see [navAreaFor]).
-AppNavPlacement navPlacementFor(AppSize size, AppFold fold) =>
-    fold.isBook ? AppNavPlacement.bottom : size.navPlacement;
+/// Book posture beats the size class: the bar is the pill at the foot of the
+/// start pane, never a rail across the fold. Otherwise it is
+/// [AppSize.navPlacement] (in tabletop posture the rail or pill sits in the
+/// bottom half, see [navAreaFor]).
+///
+/// A side inset in [padding] wide enough for the rail to stand in
+/// (`AppNavRail.fitsInside`) beats both: the rail goes in it, closed or open,
+/// upright or on its side, flat or half open. That is the iPhone Duo's
+/// system strip down the right of either display.
+AppNavPlacement navPlacementFor(
+  AppSize size,
+  AppFold fold, {
+  EdgeInsets padding = EdgeInsets.zero,
+}) {
+  // A side strip that holds the rail (the iPhone Duo's, down the right of
+  // both displays) gets it in every posture: it never crosses a fold and it
+  // leaves the whole height to the content.
+  final rightHolds = AppNavRail.fitsInside(padding.right);
+  final leftHolds = AppNavRail.fitsInside(padding.left);
+  if (rightHolds && !leftHolds) return AppNavPlacement.right;
+  if (leftHolds && !rightHolds) return AppNavPlacement.left;
+  if (fold.isBook) return AppNavPlacement.bottom;
+  return size.navPlacement;
+}
 
 /// The part of a window of [window] the tab bar or rail floats in: the start
 /// pane in book posture, the bottom half in tabletop posture, the whole
@@ -179,6 +198,20 @@ Rect navAreaFor(
     AppPosture.tabletop => panes.second,
     AppPosture.none => Offset.zero & window,
   };
+}
+
+/// [area] (window coordinates, in a window of [window]) without the parts
+/// of the side insets in [padding] that reach into it. Top and bottom stay:
+/// the bar sits above the bottom inset on its own.
+///
+/// A pill or panel laid out in the result never runs under a system strip
+/// down one edge, such as the iPhone Duo's on the right. With no side insets
+/// it is [area].
+Rect navAreaInsideSides(Rect area, Size window, EdgeInsets padding) {
+  final left = math.max(area.left, padding.left);
+  final right = math.min(area.right, window.width - padding.right);
+  if (right <= left) return area;
+  return Rect.fromLTRB(left, area.top, right, area.bottom);
 }
 
 /// True when [box] covers part of [band]. Boxes that only touch its edge, and
