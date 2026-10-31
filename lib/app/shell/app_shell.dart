@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:critalarm/app/di.dart';
@@ -304,7 +305,7 @@ class _AppShellContentState extends State<_AppShellContent>
       screen,
       padding,
     );
-    final placement = navPlacementFor(size, fold);
+    final placement = navPlacementFor(size, fold, padding: padding);
     final hasRail = placement != AppNavPlacement.bottom;
 
     // The bar rides above the keyboard while searching, the way the pill in
@@ -445,19 +446,23 @@ class _AppShellContentState extends State<_AppShellContent>
     bool hide,
   ) {
     final onRight = placement == AppNavPlacement.right;
-    final inset =
-        size.frameInset +
-        AppNavRail.edgeInset +
-        (onRight ? padding.right : padding.left);
+    final sideInset = onRight ? padding.right : padding.left;
+    // A side inset wide enough to hold the rail (the iPhone Duo's system
+    // strip) gets the rail down its middle, under the clock at its top.
+    final inside = AppNavRail.fitsInside(sideInset);
+    final inset = inside
+        ? size.frameInset + (sideInset - AppNavRail.width) / 2
+        : size.frameInset + AppNavRail.edgeInset + sideInset;
     final offset = hide ? -(AppNavRail.width + inset + 20) : inset;
     final screenHeight = MediaQuery.sizeOf(context).height;
+    final top = area.top > 0 ? area.top : padding.top;
 
     return AnimatedPositioned(
       duration: context.motion(AppDurations.slow),
       curve: AppCurves.easeOut,
       left: onRight ? null : offset,
       right: onRight ? offset : null,
-      top: area.top > 0 ? area.top : padding.top,
+      top: inside ? math.max(top, AppNavRail.insideInsetTop) : top,
       bottom: area.bottom < screenHeight
           ? screenHeight - area.bottom
           : padding.bottom,

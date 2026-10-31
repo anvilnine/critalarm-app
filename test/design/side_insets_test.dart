@@ -2,6 +2,7 @@ import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:critalarm/design/components/bottom_sheets.dart';
 import 'package:critalarm/design/components/dialogs.dart';
+import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -31,7 +32,9 @@ void main() {
         size: const AppSize(466, 678, isIphone: true),
         padding: const EdgeInsets.only(right: 84, bottom: 34),
       );
-      expect(columns.gutter, 0);
+      // The rail stands in the strip, so it takes nothing past it.
+      expect(columns.railOnRight, isTrue);
+      expect(columns.railClearance, 84);
       expect(columns.gutterLeft, 0);
       expect(columns.gutterRight, 84);
       expect(columns.contentWidth, 466 - 84);
@@ -50,20 +53,41 @@ void main() {
       expect(columns.gutterRight, (844 - 560) / 2);
     });
 
-    test("a side with no inset is never given the other side's", () {
+    test('a column sits in the middle of what the strip leaves', () {
+      // The Duo outer display on its side: the 560 column centres in the 594
+      // left of the strip, where the pinned bottom bar centres too.
       final columns = AppScreenColumns.resolve(
         boxWidth: 678,
         size: const AppSize(678, 466, isIphone: true),
         padding: const EdgeInsets.only(right: 84),
         hasTabBar: false,
       );
-      expect(columns.gutterLeft, (678 - 560) / 2);
-      expect(columns.gutterRight, 84);
+      expect(columns.gutterLeft, 17);
+      expect(columns.gutterRight, 84 + 17);
+      expect(columns.contentWidth, 560);
+    });
+
+    test('a rail inside the strip takes no room past it', () {
+      final columns = AppScreenColumns.resolve(
+        boxWidth: 678,
+        size: const AppSize(678, 466, isIphone: true),
+        padding: const EdgeInsets.only(right: 84),
+      );
+      expect(columns.railOnRight, isTrue);
+      expect(columns.railClearance, 84);
+      expect(columns.gutterLeft, 17);
+      expect(columns.gutterRight, 84 + 17);
+    });
+
+    test('only an inset as wide as the Duo strip holds the rail', () {
+      expect(AppNavRail.fitsInside(84), isTrue);
+      expect(AppNavRail.fitsInside(59), isFalse);
+      expect(AppNavRail.fitsInside(0), isFalse);
     });
 
     test('two panes with the rail on the right give the list no inset', () {
-      // The Duo inner display opened flat: the rail sits left of the strip,
-      // so the list pane is nowhere near it.
+      // The Duo inner display opened flat: the rail stands in the strip, so
+      // the list pane is nowhere near it.
       final columns = AppScreenColumns.resolve(
         boxWidth: 951,
         size: const AppSize(951, 669, isIphone: true),
