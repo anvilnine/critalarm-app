@@ -14,6 +14,11 @@
 //   FOLD_GUIDE=1                           draw the fold as a 1 px guide line
 //                                          on the hinge rows
 //
+// The iPhone Duo rows always draw a translucent grey wash over the side and
+// top inset strips (the system strip down the right edge, the top bar of
+// the inner display upright), so a reviewer sees what runs under them. The
+// wash is the tool's, never the app's.
+//
 // Output:
 //
 //   <OUT>/<size-id>/<theme>/<screen>.png   one capture, device pixel ratio 2
@@ -132,6 +137,7 @@ class _Size {
     this.textScale = 1,
     this.hingeX,
     this.hingeY,
+    this.insets = EdgeInsets.zero,
     this.note,
   });
 
@@ -147,6 +153,10 @@ class _Size {
 
   /// A horizontal fold, half opened, at this y (logical pixels).
   final double? hingeY;
+
+  /// The system's safe-area insets, in logical pixels. iPhone Duo puts its
+  /// bars on one side, so these are often uneven.
+  final EdgeInsets insets;
 
   /// Shown on the contact sheet under the size id.
   final String? note;
@@ -186,6 +196,23 @@ class _Size {
     ];
   }
 
+  /// The parts of the window under the side and top insets, on the iPhone
+  /// Duo rows, for the translucent overlay on their captures. The bottom
+  /// inset is the home indicator, which every phone has, so it is left out.
+  List<Rect> get insetStrips {
+    if (!id.startsWith('iphone-duo')) return const [];
+    return [
+      if (insets.left > 0) Rect.fromLTWH(0, 0, insets.left, height),
+      if (insets.right > 0)
+        Rect.fromLTWH(width - insets.right, 0, insets.right, height),
+      if (insets.top > 0) Rect.fromLTWH(0, 0, width, insets.top),
+    ];
+  }
+
+  String get _insetsText =>
+      'insets l${insets.left.round()} t${insets.top.round()} '
+      'r${insets.right.round()} b${insets.bottom.round()}';
+
   String get summary {
     final parts = <String>[
       '${width.round()} x ${height.round()}',
@@ -197,6 +224,7 @@ class _Size {
       if (textScale != 1) 'text $textScale',
       if (hingeX != null) 'fold at x ${hingeX!.round()}',
       if (hingeY != null) 'fold at y ${hingeY!.round()}',
+      if (insets != EdgeInsets.zero) _insetsText,
     ];
     return parts.join(', ');
   }
@@ -232,13 +260,69 @@ const List<_Size> _sizes = [
   _Size('pixel-fold-inner-book', 841, 701, _Renders.android, hingeX: 420),
   _Size('razr-cover', 384, 388, _Renders.android),
   _Size('razr-cover-text13', 384, 388, _Renders.android, textScale: 1.3),
+  // iPhone Duo, sizes and insets from Apple's iOS 27 design resource. iOS
+  // reports no display features to Flutter, so the plain rows are what the
+  // app sees today. The fold rows show what a bridged fold would give.
   _Size(
-    'iphone-fold-unfolded',
-    720,
-    900,
+    'iphone-duo-outer',
+    466,
+    678,
     _Renders.ios,
     isIphone: true,
-    note: 'assumed size, no device with public numbers yet',
+    insets: EdgeInsets.only(right: 84, bottom: 34),
+  ),
+  _Size(
+    'iphone-duo-outer-landscape',
+    678,
+    466,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+  ),
+  _Size(
+    'iphone-duo-inner',
+    951,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+  ),
+  _Size(
+    'iphone-duo-inner-book',
+    951,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+    hingeX: 475.5,
+    note: 'fold bridged from iOS',
+  ),
+  _Size(
+    'iphone-duo-inner-portrait',
+    669,
+    951,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(top: 84, bottom: 95),
+  ),
+  _Size(
+    'iphone-duo-tabletop',
+    669,
+    951,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(top: 84, bottom: 95),
+    hingeY: 475.5,
+    note: 'fold bridged from iOS',
+  ),
+  _Size(
+    'iphone-duo-split-half',
+    475,
+    669,
+    _Renders.ios,
+    isIphone: true,
+    insets: EdgeInsets.only(right: 84),
+    note: 'Split View, right half',
   ),
 ];
 
@@ -317,6 +401,7 @@ final List<_Screen> _screens = [
   for (final (id, path, fixture, pinned) in [
     ...allScreenRoutes,
     ...responsiveScreenRoutes,
+    ...remainingScreenRoutes,
   ])
     _Screen(id, path, fixture, pinned: pinned),
   for (final (id, path, fixture, tapKey) in tapScreenRoutes)
@@ -804,7 +889,19 @@ void main() {
                 tester.view
                   ..physicalSize = Size(size.width, size.height) * _ratio
                   ..devicePixelRatio = _ratio
-                  ..displayFeatures = size.displayFeatures;
+                  ..displayFeatures = size.displayFeatures
+                  ..padding = FakeViewPadding(
+                    left: size.insets.left * _ratio,
+                    top: size.insets.top * _ratio,
+                    right: size.insets.right * _ratio,
+                    bottom: size.insets.bottom * _ratio,
+                  )
+                  ..viewPadding = FakeViewPadding(
+                    left: size.insets.left * _ratio,
+                    top: size.insets.top * _ratio,
+                    right: size.insets.right * _ratio,
+                    bottom: size.insets.bottom * _ratio,
+                  );
                 tester.platformDispatcher.textScaleFactorTestValue =
                     size.textScale;
                 addTearDown(tester.view.reset);
@@ -860,6 +957,16 @@ void main() {
                                 child: child ?? const SizedBox.shrink(),
                               ),
                             ),
+                            // The Duo's system strips, so a reviewer sees
+                            // what runs under them. Drawn only here, never
+                            // in the app.
+                            for (final strip in size.insetStrips)
+                              Positioned.fromRect(
+                                rect: strip,
+                                child: const IgnorePointer(
+                                  child: ColoredBox(color: _insetStripColor),
+                                ),
+                              ),
                             if (_foldGuide && size.hingeLine != null)
                               Positioned.fromRect(
                                 rect: _guideRect(size.hingeLine!),
@@ -1075,6 +1182,10 @@ void main() {
 String _rectText(Rect r) =>
     '[${r.left.toStringAsFixed(1)}, ${r.top.toStringAsFixed(1)}, '
     '${r.right.toStringAsFixed(1)}, ${r.bottom.toStringAsFixed(1)}]';
+
+/// The overlay on an iPhone Duo inset strip: a thin grey wash, see-through
+/// enough that what runs under the strip still shows.
+const Color _insetStripColor = Color(0x2E5A5A6E);
 
 /// The 1 px FOLD_GUIDE line along a zero-thickness fold.
 Rect _guideRect(Rect line) => line.width == 0

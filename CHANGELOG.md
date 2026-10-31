@@ -16,6 +16,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The ringing alarm fits every screen size, and I'm up is always on screen without scrolling, at large text too. On a wide screen the face sits beside the message and the answers sit right under it.
 - On a tablet on its side, a wide window or a foldable held open like a book, Topics, History and Settings show the list on one side and the topic, alarm or page you pick on the other, opening on the first one.
 - On a tablet or a wide window, setup, New topic and the plans page keep their words and button in one centred column. On a half-open foldable the face sits on one side of the fold and the form or offer on the other.
+- On iPhone Duo, the tabs sit in the strip down the side of the screen, open or closed, flat or half folded, and the page uses the rest of the screen.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
@@ -27,6 +28,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - In light mode, the setup screen you see after turning down a permission is now easy to read, with dark text on yellow and an Open Settings button that stands out.
 - An alarm that rings during setup now shows its full screen background.
 - Tapping an alarm notification while the alarm screen is open no longer restarts it.
+- On iPhone Duo, screens, sheets, dialogs and the tab bar keep clear of the strip down the side of the screen.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

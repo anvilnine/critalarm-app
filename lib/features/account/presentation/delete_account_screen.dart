@@ -254,7 +254,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: dialogInsetPaddingFor(MediaQuery.paddingOf(context)),
       child: AppDialog(
         title: LocaleKeys.account_delete_dialog_title.tr(),
         content: Column(

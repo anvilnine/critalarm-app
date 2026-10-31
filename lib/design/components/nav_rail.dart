@@ -42,6 +42,21 @@ class AppNavRail extends StatelessWidget {
   /// What a screen should leave free on its left so content clears the rail.
   static const double contentGap = width + edgeInset + 14;
 
+  /// The narrowest side inset the rail stands inside, with 8 to spare on
+  /// each side of it. The iPhone Duo keeps an 84 wide system strip down its
+  /// trailing edge, and the rail sits in that strip instead of floating in
+  /// from it with an empty strip beside it. The notch inset of a phone on its
+  /// side (about 60) is too narrow, so the rail floats there as before.
+  static const double insideInsetMin = width + 16;
+
+  /// How far down a rail standing inside a side inset starts at the least:
+  /// the clock and the Wi-Fi glyph sit at the top of the iPhone Duo's strip,
+  /// in a reserved region 120 tall.
+  static const double insideInsetTop = 120;
+
+  /// True when the rail stands inside a side inset of [inset].
+  static bool fitsInside(double inset) => inset >= insideInsetMin;
+
   final List<AppTabItem> items;
   final int currentIndex;
   final ValueChanged<int> onSelect;

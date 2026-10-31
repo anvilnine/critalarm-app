@@ -177,6 +177,14 @@ class AppBulletedText extends StatelessWidget {
   }
 }
 
+/// The room [showAppDialog] keeps around its dialog: 24 on every side, and
+/// on the left and right 24 past that side's safe area inset. The inset is
+/// counted on its own side only, so on an iPhone Duo the dialog sits in the
+/// middle of the room the strip leaves, and on a phone with no side insets
+/// nothing moves.
+EdgeInsets dialogInsetPaddingFor(EdgeInsets padding) =>
+    EdgeInsets.fromLTRB(24 + padding.left, 24, 24 + padding.right, 24);
+
 /// Shows an [AppDialog] and resolves with the value of the action tapped, or
 /// null if it is dismissed.
 Future<T?> showAppDialog<T>({
@@ -198,7 +206,11 @@ Future<T?> showAppDialog<T>({
       return Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        // 24 from the edge of the safe area on each side, so a dialog
+        // centres in the room left of a system strip down one edge.
+        insetPadding: dialogInsetPaddingFor(
+          MediaQuery.paddingOf(dialogContext),
+        ),
         child: AppDialog(
           kicker: kicker,
           title: title,

@@ -342,7 +342,10 @@ class FoldStageColumn extends StatelessWidget {
         child: SingleChildScrollView(
           primary: false,
           physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: columns.gutter),
+          padding: EdgeInsets.only(
+            left: columns.gutterLeft,
+            right: columns.gutterRight,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
