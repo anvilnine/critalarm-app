@@ -5,6 +5,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -930,7 +931,7 @@ class ThanksStampMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.xs + 1),
       ),
       child: Text(
-        text.toUpperCase(),
+        upperInContext(text, context),
         maxLines: 1,
         style: AppTypography.monoBold(
           color,

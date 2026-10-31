@@ -293,7 +293,7 @@ class _IosNotice extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      LocaleKeys.app_title.tr().toUpperCase(),
+                      upperInContext(LocaleKeys.app_title.tr(), context),
                       style: const TextStyle(
                         color: grey,
                         fontSize: 13,
@@ -872,12 +872,18 @@ class _AndroidNotice extends StatelessWidget {
           Row(
             children: [
               Text(
-                LocaleKeys.onboarding_welcome_story_im_up.tr().toUpperCase(),
+                upperInContext(
+                  LocaleKeys.onboarding_welcome_story_im_up.tr(),
+                  context,
+                ),
                 style: action,
               ),
               const SizedBox(width: 28),
               Text(
-                LocaleKeys.onboarding_welcome_story_silence.tr().toUpperCase(),
+                upperInContext(
+                  LocaleKeys.onboarding_welcome_story_silence.tr(),
+                  context,
+                ),
                 style: action,
               ),
             ],

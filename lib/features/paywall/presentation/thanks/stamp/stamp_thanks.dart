@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
@@ -253,7 +254,7 @@ class _Slip extends StatelessWidget {
             height: StampPlan.header * u,
             child: Center(
               child: Text(
-                title.toUpperCase(),
+                upperInContext(title, context),
                 maxLines: 1,
                 style: AppTypography.monoBold(
                   quiet,

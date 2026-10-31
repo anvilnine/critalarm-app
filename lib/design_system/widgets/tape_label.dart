@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design_system/tokens/colors.dart';
 import 'package:critalarm/design_system/tokens/durations.dart';
@@ -32,7 +33,7 @@ class TapeLabel extends StatelessWidget {
           vertical: Spacing.xs,
         ),
         child: Text(
-          label.toUpperCase(),
+          upperInContext(label, context),
           style: AppTypography.eyebrow(
             colors.onPrimary,
           ).copyWith(letterSpacing: 0.8),
