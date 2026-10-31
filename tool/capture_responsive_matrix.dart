@@ -401,6 +401,7 @@ final List<_Screen> _screens = [
   for (final (id, path, fixture, pinned) in [
     ...allScreenRoutes,
     ...responsiveScreenRoutes,
+    ...remainingScreenRoutes,
   ])
     _Screen(id, path, fixture, pinned: pinned),
   for (final (id, path, fixture, tapKey) in tapScreenRoutes)

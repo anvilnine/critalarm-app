@@ -75,6 +75,70 @@ const List<CaptureRoute> responsiveScreenRoutes = [
   ('wp3_topic_deep_link', '/topics/nas-backup', FaceState.calm, null),
 ];
 
+/// The rest of the app: every route a person can reach that the lists above
+/// leave out. Added for the iPhone Duo pass, so each one is checked against
+/// the outer display's side strip and the inner display's fold. Captured by
+/// `tool/capture_responsive_matrix.dart` only.
+const List<CaptureRoute> remainingScreenRoutes = [
+  // Setup steps.
+  ('duo_onb_how_it_rings', '/onboarding/how-it-rings', FaceState.calm, null),
+  ('duo_onb_connect', '/onboarding/connect', FaceState.calm, null),
+  ('duo_onb_use', '/onboarding/use', FaceState.calm, null),
+  ('duo_onb_real_ring', '/onboarding/real-ring', FaceState.calm, null),
+  ('duo_onb_offer', '/onboarding/offer', FaceState.calm, null),
+  ('duo_onb_test', '/onboarding/test', FaceState.calm, null),
+  ('duo_onb_widgets', '/onboarding/widgets', FaceState.calm, null),
+  ('duo_onb_hook_up', '/onboarding/hook-up', FaceState.calm, null),
+  ('duo_ask_permissions', '/permissions/ask', FaceState.calm, null),
+  // Topic pages.
+  (
+    'duo_topic_messages',
+    '/topics/nas-backup/messages',
+    FaceState.worried,
+    null,
+  ),
+  ('duo_topic_tokens', '/topics/nas-backup/tokens', FaceState.worried, null),
+  ('duo_topic_sounds', '/topics/nas-backup/sounds', FaceState.worried, null),
+  // Settings pages.
+  ('duo_set_reliability', '/settings/reliability', FaceState.acked, null),
+  ('duo_set_maker', '/settings/reliability/maker', FaceState.acked, null),
+  ('duo_set_checks', '/settings/reliability/checks', FaceState.acked, null),
+  ('duo_set_alarms', '/settings/alarms', FaceState.acked, null),
+  ('duo_set_priorities', '/settings/priorities', FaceState.acked, null),
+  ('duo_set_docs', '/settings/docs', FaceState.acked, null),
+  ('duo_set_server', '/settings/server', FaceState.acked, null),
+  ('duo_set_account', '/settings/account', FaceState.acked, null),
+  ('duo_set_account_delete', '/settings/account/delete', FaceState.acked, null),
+  ('duo_set_personalize', '/settings/personalize', FaceState.acked, null),
+  ('duo_set_look', '/settings/personalize/look', FaceState.acked, null),
+  (
+    'duo_set_challenge',
+    '/settings/personalize/challenge',
+    FaceState.acked,
+    null,
+  ),
+  ('duo_set_widgets', '/settings/personalize/widgets', FaceState.acked, null),
+  ('duo_set_appearance', '/settings/appearance', FaceState.acked, null),
+  ('duo_set_language', '/settings/language', FaceState.acked, null),
+  ('duo_set_privacy', '/settings/privacy', FaceState.acked, null),
+  ('duo_set_reminders', '/settings/local-reminders', FaceState.acked, null),
+  ('duo_set_about', '/settings/about', FaceState.acked, null),
+  // Full-screen pages outside the tabs.
+  ('duo_look', '/look', FaceState.calm, null),
+  ('duo_challenge', '/challenge', FaceState.calm, null),
+  ('duo_app_icon', '/app-icon', FaceState.calm, null),
+  ('duo_sound_record', '/sounds/record', FaceState.calm, null),
+  ('duo_ring', '/ring', FaceState.calm, null),
+  ('duo_paywall_success', '/paywall/success', FaceState.acked, null),
+  // Every sheet and dialog the app opens, on one debug page.
+  (
+    'duo_dialogs_sheets',
+    '/settings/developer/dialog-sheet',
+    FaceState.calm,
+    null,
+  ),
+];
+
 /// Screens a capture tool reaches by tapping "I'm up" on a ringing alarm:
 /// the acknowledged screen of a real incident, and the acknowledged screen
 /// of the phone-only setup test (`inc_demo`). Captured once the tap has
