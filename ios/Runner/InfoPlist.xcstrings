@@ -4,6 +4,12 @@
     "NSAlarmKitUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm potřebuje přístup k budíkům, aby alarm zvonil i v tichém režimu a režimu Nerušit, dokud ho nezastavíš."
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -16,10 +22,76 @@
             "value" : "Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm necesita acceso a las alarmas para sonar incluso en modo silencio y con No molestar hasta que la detengas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm a besoin d’accéder aux alarmes pour sonner malgré le mode silencieux et Ne pas déranger, jusqu’à ce que vous l’arrêtiez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm ha bisogno dell’accesso agli allarmi per suonare anche in modalità Silenzioso e Non disturbare, finché non lo fermi."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crit Alarmにはアラームへのアクセスが必要です。停止するまで、マナーモードやおやすみモードでもアラームを鳴らせるようにするためです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무음 모드나 방해금지 모드에서도 직접 멈출 때까지 알람이 울리려면 Crit Alarm에 알람 접근 권한이 필요해요."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm heeft toegang tot wekkers nodig om in de stille modus en bij Niet storen af te kunnen gaan tot je het stopt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm potrzebuje dostępu do alarmów, aby alarm dzwonił mimo trybu cichego i trybu Nie przeszkadzać, dopóki go nie zatrzymasz."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Crit Alarm precisa de acesso aos alarmes para tocar mesmo no modo silencioso e no Não Perturbe até você parar."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alarmın, sen durdurana kadar sessiz modda ve Rahatsız Etme açıkken çalabilmesi için Crit Alarm'ın alarm erişimine ihtiyacı var."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm потрібен доступ до будильників, щоб дзвонити в беззвучному режимі та режимі «Не турбувати», доки ти не зупиниш будильник."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm需要闹钟权限，才能在静音和勿扰模式下持续响铃，直到你停止警报。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm 需要鬧鐘權限，才能在靜音和勿擾模式下持續響鈴，直到你停止警報。"
           }
         }
       }
@@ -27,6 +99,12 @@
     "NSMicrophoneUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm používá mikrofon k nahrávání zvuků alarmu."
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -39,10 +117,76 @@
             "value" : "Crit Alarm uses the microphone to record alarm sounds."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm usa el micrófono para grabar sonidos de alarma."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm utilise le microphone pour enregistrer des sons d’alarme."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm usa il microfono per registrare i suoni degli allarmi."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crit Alarmはアラーム音の録音にマイクを使用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm은 알람 소리를 녹음할 때 마이크를 사용해요."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm gebruikt de microfoon om alarmgeluiden op te nemen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm używa mikrofonu do nagrywania dźwięków alarmu."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Crit Alarm usa o microfone para gravar sons de alarme."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm, alarm sesi kaydetmek için mikrofonu kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm використовує мікрофон, щоб записувати звуки будильника."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm使用麦克风录制警报声。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crit Alarm 使用麥克風錄製警報音效。"
           }
         }
       }
