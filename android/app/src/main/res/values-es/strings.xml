@@ -9,7 +9,7 @@
     <string name="native_alarm_stop">Detener</string>
     <string name="native_card_acked_at">Confirmado a las {time}</string>
     <string name="native_card_acknowledged">Confirmado</string>
-    <string name="native_card_awake_for">Llevas {time} despierto</string>
+    <string name="native_card_awake_for">Hace {time} que despertaste</string>
     <string name="native_card_incident_acknowledged">Incidente confirmado</string>
     <string name="native_card_open_for">Abierto desde hace {time}</string>
     <string name="native_card_opened_ago">Abierto hace {time}</string>
@@ -35,7 +35,7 @@
     <string name="native_content_critical_incident">Incidente crítico</string>
     <string name="native_content_critical_open_to_see">Alerta crítica. Abre para ver los detalles.</string>
     <string name="native_content_open_to_see">Abre Crit Alarm para ver los detalles</string>
-    <string name="native_state_awake">Despierto</string>
+    <string name="native_state_awake">Ya despertaste</string>
     <string name="native_state_closed">Cerrado</string>
     <string name="native_state_missed">Sin respuesta</string>
     <string name="native_state_quiet">En calma</string>

@@ -1880,9 +1880,9 @@
     "plan_ends_body": "Tvoje alarmy budou zvonit dál. Nová kritická témata nad limit {free_critical_topics} vyžadují Cloud.",
     "morning_title": "Crit Alarm tě vzbudil v {time}",
     "morning_body": {
-      "one": "Téma {topic} zazvonilo a byl jsi vzhůru za 1 s. S Cloudem získáš {benefits}.",
-      "few": "Téma {topic} zazvonilo a byl jsi vzhůru za {} s. S Cloudem získáš {benefits}.",
-      "other": "Téma {topic} zazvonilo a byl jsi vzhůru za {} s. S Cloudem získáš {benefits}."
+      "one": "Téma {topic} zazvonilo a probuzení trvalo 1 s. S Cloudem získáš {benefits}.",
+      "few": "Téma {topic} zazvonilo a probuzení trvalo {} s. S Cloudem získáš {benefits}.",
+      "other": "Téma {topic} zazvonilo a probuzení trvalo {} s. S Cloudem získáš {benefits}."
     },
     "pro_later_title": "Pořád přemýšlíš o Cloudu?",
     "pro_later_body": "S Cloudem získáš {benefits}.",
@@ -1987,7 +1987,7 @@
     "headline_generic": "Nastavit toto téma jako kritické"
   },
   "paywall_proof": {
-    "headline_hosted": "Narazil jsi na limit? Zruš ho.",
+    "headline_hosted": "Už tě omezuje limit? Zruš ho.",
     "headline_pro": "Místo výchozího tvůj vlastní",
     "tag_free": "Free",
     "tag_hosted": "Cloud",
