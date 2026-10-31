@@ -6,10 +6,10 @@
     "alarm": {
       "stop": "Stop",
       "open_app": "Apri Crit Alarm",
-      "still_ringing": "Suona ancora. Tocca \"Sono sveglio\" per fermarlo."
+      "still_ringing": "Suona ancora. Tocca \"Arrivo\" per fermarlo."
     },
     "action": {
-      "im_up": "Sono sveglio",
+      "im_up": "Arrivo",
       "done": "Fatto",
       "ack": "ACK"
     },
@@ -38,7 +38,7 @@
       "awake_for": "Sveglio da {time}",
       "open_for": "Aperto da {time}",
       "opened_ago": "Aperto {time} fa",
-      "silenced": "Silenziato. Suona di nuovo tra {seconds} s. Tocca \"Sono sveglio\" per fermarlo.",
+      "silenced": "Silenziato. Suona di nuovo tra {seconds} s. Tocca \"Arrivo\" per fermarlo.",
       "silenced_short": "Silenziato. Suona di nuovo tra {seconds} s."
     },
     "widget": {
@@ -57,7 +57,7 @@
       "topics_name": "Topic",
       "topics_description": "I tuoi topic, prima quelli che suonano.",
       "topic_name": "Topic",
-      "topic_description": "Un topic con i pulsanti \"Sono sveglio\" e \"Fatto\".",
+      "topic_description": "Un topic con i pulsanti \"Arrivo\" e \"Fatto\".",
       "count_name": "Incidenti aperti",
       "count_description": "Il numero di incidenti aperti in questo momento."
     },
@@ -111,7 +111,7 @@
     "next": "Avanti",
     "page_progress": "Pagina {page} di {count}",
     "rings_title": "Un curl e il telefono suona",
-    "rings_subtitle": "Continua a suonare finché non tocchi \"Sono sveglio\".",
+    "rings_subtitle": "Continua a suonare finché non tocchi \"Arrivo\".",
     "widgets_title": "Tieni tutto d’occhio dalla schermata Home",
     "widgets_subtitle": "Vedi cosa suona e conferma senza aprire l’app.",
     "widgets_pro": "Funzione Pro",
@@ -122,7 +122,7 @@
     "caption_rings": "Il telefono suona finché non confermi.",
     "caption_rings_silent": "Il telefono suona finché non confermi, anche in modalità Silenzioso.",
     "caption_curl": "Qualsiasi cosa in grado di inviare una richiesta web può svegliarti.",
-    "story_curl_label": "Un comando digitato nel terminale fa suonare il telefono finché non tocchi \"Sono sveglio\".",
+    "story_curl_label": "Un comando digitato nel terminale fa suonare il telefono finché non tocchi \"Arrivo\".",
     "story_critical": "CRITICO",
     "story_alarm_title": "Primary database down",
     "story_alarm_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
@@ -133,7 +133,7 @@
     "story_now": "ora",
     "story_until_ack": "Suona fino alla conferma. Tocca per confermare.",
     "story_open_app": "Apri Crit Alarm",
-    "story_im_up": "Sono sveglio",
+    "story_im_up": "Arrivo",
     "story_silence": "Silenzia",
     "story_slide_to_stop": "scorri per fermare",
     "story_acknowledged": "Confermato",
@@ -161,7 +161,7 @@
     "feature_alarm": "Suona finché non confermi",
     "feature_curl": "Un curl per farlo suonare",
     "feature_priority": "Livelli di priorità",
-    "feature_ack": "Tocca \"Sono sveglio\" per fermarlo",
+    "feature_ack": "Tocca \"Arrivo\" per fermarlo",
     "feature_sounds": "I tuoi suoni per gli allarmi",
     "feature_history": "Ogni allarme in cronologia",
     "feature_search": "Cerca ovunque"
@@ -908,9 +908,9 @@
     "demo_body": "Questo allarme di prova verifica che il dispositivo suoni anche in modalità Silenzioso.",
     "demo_body_time_sensitive": "Questo allarme di prova verifica che il dispositivo emetta un suono. Su questo iPhone la modalità Silenzioso ne disattiva il suono.",
     "back_aria_label": "Indietro",
-    "acknowledge_button": "Sono sveglio",
+    "acknowledge_button": "Arrivo",
     "silence_ringing_button": "Silenzia",
-    "silenced_message": "Silenziato. Suonerà di nuovo tra {seconds} s. Tocca \"Sono sveglio\" per terminarlo.",
+    "silenced_message": "Silenziato. Suonerà di nuovo tra {seconds} s. Tocca \"Arrivo\" per terminarlo.",
     "alarm_count_pill": {
       "one": "1 allarme",
       "other": "{} allarmi"
@@ -1424,7 +1424,7 @@
       },
       "widgets": {
         "title": "Widget per la schermata Home",
-        "line": "Vedi cosa sta suonando e tocca \"Sono sveglio\" direttamente dalla schermata Home."
+        "line": "Vedi cosa sta suonando e tocca \"Arrivo\" direttamente dalla schermata Home."
       },
       "app_icons": {
         "line": "Tre in più: corona, occhiali da sole o entrambi."
@@ -1944,7 +1944,7 @@
     "widget_ringing": "Suona",
     "widget_awake": "Sveglio",
     "widget_quiet": "Tutto tranquillo",
-    "widget_im_up": "Sono sveglio",
+    "widget_im_up": "Arrivo",
     "widget_done": "Fatto",
     "challenge_locked": "Alla scrivania",
     "challenge_stopped": "Interrotto",
@@ -2197,7 +2197,7 @@
   },
   "paywall_intro_wake_up": {
     "ping": "ping",
-    "line": "Sono sveglio!"
+    "line": "Arrivo!"
   },
   "paywall_intro_curtain": {
     "line": "Oh, ciao.",
@@ -2317,7 +2317,7 @@
       "tile_off": "\"Alla scrivania\" chiude subito l’allarme",
       "pick_label": "Usa {name} per i nuovi topic",
       "pick_label_locked": "Usa {name} per i nuovi topic. Richiede {plan}.",
-      "page_note": "\"Alla scrivania\" richiede una sfida. \"Sono sveglio\" ferma sempre l’allarme.",
+      "page_note": "\"Alla scrivania\" richiede una sfida. \"Arrivo\" ferma sempre l’allarme.",
       "scope_note": "I topic esistenti non cambiano.",
       "topic_label": "Sfida per svegliarti: {topic}",
       "topic_scope_note": "Cambia solo {topic}.",
@@ -2340,7 +2340,7 @@
   },
   "challenges": {
     "off": "Disattivata",
-    "sheet_note": "\"Alla scrivania\" richiede una sfida. \"Sono sveglio\" ferma l’allarme con un tocco.",
+    "sheet_note": "\"Alla scrivania\" richiede una sfida. \"Arrivo\" ferma l’allarme con un tocco.",
     "strip_title": "Sfida per svegliarti",
     "skip_hold": "Tieni premuto {seconds} s per saltare",
     "skip_holding": "Tieni premuto per altri {seconds} s",

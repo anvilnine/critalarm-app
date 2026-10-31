@@ -124,7 +124,7 @@ Register: tú. Español neutro para España y América Latina, sin usted ni voso
 | Critical | Crítica (pantalla: CRÍTICA) | no | Se refiere a la alarma o a la entrega. Crítico para tema o incidente. |
 | Critical delivery | Entrega crítica | no | Interruptor del tema. |
 | priority | prioridad | no | Prioridad 1 a 5. |
-| I'm up | Ya estoy despierto | no | Detiene el sonido e inicia el temporizador para llegar al escritorio. |
+| I'm up | Ya voy | no | Detiene el sonido e inicia el temporizador para llegar al escritorio. Sin género: "despierto" excluiría a la mitad de quienes lo usan. |
 | At my desk | En mi escritorio | no | Cierra la alarma; declaración breve para un botón grande. |
 | Silence | Silenciar | no | Detiene el sonido sin cerrar la alarma. |
 | acknowledge(d) | confirmar / confirmado | no | No implica resolver el incidente. Concordar el género según el sustantivo. |
@@ -229,7 +229,7 @@ Register: você, tom acolhedor e direto. Botões curtos, sem formalidade nem exc
 | Critical delivery | Entrega crítica | no | opção de cada tópico |
 | priority | prioridade | no | prioridade de 1 a 5 |
 | I'm up | Já acordei | no | para o som e inicia o temporizador de chegada |
-| At my desk | Já estou na mesa | no | encerra o alarme |
+| At my desk | Estou no computador | no | encerra o alarme; "na mesa" soa como mesa de jantar |
 | Silence | Silenciar | no | para o som sem encerrar o alarme |
 | acknowledge(d) | confirmar / confirmado | no | não significa resolvido |
 | desk timer | temporizador de chegada | no | prazo para chegar à mesa |
@@ -280,7 +280,7 @@ Register: tu nelle frasi, verbi brevi nei pulsanti. Virgolette dritte e apostrof
 | Critical | Critico (screen: CRITICO) | no | |
 | Critical delivery | Invio critico | no | interruttore del topic |
 | priority | priorità | no | priorità da 1 a 5 |
-| I'm up | Sono sveglio | no | ferma il suono e avvia il timer per la scrivania |
+| I'm up | Arrivo | no | ferma il suono e avvia il timer per la scrivania; neutro, "sveglio" è maschile |
 | At my desk | Alla scrivania | no | pulsante che chiude l’allarme |
 | Silence | Silenzia | no | ferma il suono senza chiudere l’allarme |
 | acknowledge(d) | confermare / confermato | no | non significa risolto |

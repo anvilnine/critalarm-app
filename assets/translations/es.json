@@ -6,10 +6,10 @@
     "alarm": {
       "stop": "Detener",
       "open_app": "Abrir Crit Alarm",
-      "still_ringing": "Sigue sonando. Toca \"Ya estoy despierto\" para detenerla."
+      "still_ringing": "Sigue sonando. Toca \"Ya voy\" para detenerla."
     },
     "action": {
-      "im_up": "Ya estoy despierto",
+      "im_up": "Ya voy",
       "done": "Listo",
       "ack": "ACK"
     },
@@ -38,7 +38,7 @@
       "awake_for": "Llevas {time} despierto",
       "open_for": "Abierto desde hace {time}",
       "opened_ago": "Abierto hace {time}",
-      "silenced": "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla.",
+      "silenced": "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya voy\" para apagarla.",
       "silenced_short": "Silenciada. Volverá a sonar en {seconds} s."
     },
     "widget": {
@@ -57,7 +57,7 @@
       "topics_name": "Temas",
       "topics_description": "Tus temas, primero los que están sonando.",
       "topic_name": "Tema",
-      "topic_description": "Un tema con los botones \"Ya estoy despierto\" y \"Listo\".",
+      "topic_description": "Un tema con los botones \"Ya voy\" y \"Listo\".",
       "count_name": "Incidentes abiertos",
       "count_description": "Número de incidentes abiertos ahora mismo."
     },
@@ -111,7 +111,7 @@
     "next": "Siguiente",
     "page_progress": "Página {page} de {count}",
     "rings_title": "Un curl y tu teléfono suena",
-    "rings_subtitle": "Sigue sonando hasta que toques \"Ya estoy despierto\".",
+    "rings_subtitle": "Sigue sonando hasta que toques \"Ya voy\".",
     "widgets_title": "Todo a la vista desde la pantalla de inicio",
     "widgets_subtitle": "Mira qué suena y responde sin abrir la app.",
     "widgets_pro": "Función Pro",
@@ -122,7 +122,7 @@
     "caption_rings": "Tu teléfono suena hasta que respondas.",
     "caption_rings_silent": "Tu teléfono suena hasta que respondas, incluso en silencio.",
     "caption_curl": "Cualquier cosa que envíe una petición web puede despertarte.",
-    "story_curl_label": "Un comando escrito en un terminal hace sonar un teléfono hasta que se toca \"Ya estoy despierto\".",
+    "story_curl_label": "Un comando escrito en un terminal hace sonar un teléfono hasta que se toca \"Ya voy\".",
     "story_critical": "CRÍTICA",
     "story_alarm_title": "Primary database down",
     "story_alarm_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
@@ -133,7 +133,7 @@
     "story_now": "ahora",
     "story_until_ack": "Suena hasta que confirmes. Toca para confirmar.",
     "story_open_app": "Abrir Crit Alarm",
-    "story_im_up": "Ya estoy despierto",
+    "story_im_up": "Ya voy",
     "story_silence": "Silenciar",
     "story_slide_to_stop": "desliza para detener",
     "story_acknowledged": "Confirmado",
@@ -161,7 +161,7 @@
     "feature_alarm": "Suena hasta que respondas",
     "feature_curl": "Un curl para que suene",
     "feature_priority": "Niveles de prioridad",
-    "feature_ack": "Toca \"Ya estoy despierto\" para detenerla",
+    "feature_ack": "Toca \"Ya voy\" para detenerla",
     "feature_sounds": "Tus propios sonidos de alarma",
     "feature_history": "Cada alarma queda registrada",
     "feature_search": "Busca en todo"
@@ -908,9 +908,9 @@
     "demo_body": "Una alarma de prueba para comprobar que tu dispositivo suena incluso en modo silencio.",
     "demo_body_time_sensitive": "Alarma de prueba para comprobar que tu dispositivo emite sonido. En este iPhone, el modo silencio impedirá que suene.",
     "back_aria_label": "Atrás",
-    "acknowledge_button": "Ya estoy despierto",
+    "acknowledge_button": "Ya voy",
     "silence_ringing_button": "Silenciar",
-    "silenced_message": "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla.",
+    "silenced_message": "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya voy\" para apagarla.",
     "alarm_count_pill": {
       "one": "1 alarma",
       "other": "{} alarmas"
@@ -1424,7 +1424,7 @@
       },
       "widgets": {
         "title": "Widgets en la pantalla de inicio",
-        "line": "Mira qué está sonando y toca \"Ya estoy despierto\" desde la pantalla de inicio."
+        "line": "Mira qué está sonando y toca \"Ya voy\" desde la pantalla de inicio."
       },
       "app_icons": {
         "line": "Tres más: corona, gafas de sol o ambas."
@@ -1944,7 +1944,7 @@
     "widget_ringing": "Sonando",
     "widget_awake": "Despierto",
     "widget_quiet": "En calma",
-    "widget_im_up": "Ya estoy despierto",
+    "widget_im_up": "Ya voy",
     "widget_done": "Listo",
     "challenge_locked": "En mi escritorio",
     "challenge_stopped": "Detenida",
@@ -2197,7 +2197,7 @@
   },
   "paywall_intro_wake_up": {
     "ping": "ping",
-    "line": "¡Ya estoy despierto!"
+    "line": "¡Ya voy!"
   },
   "paywall_intro_curtain": {
     "line": "Ah, hola.",
@@ -2317,7 +2317,7 @@
       "tile_off": "\"En mi escritorio\" cierra al instante",
       "pick_label": "Usar {name} para temas nuevos",
       "pick_label_locked": "Usar {name} para temas nuevos. Requiere {plan}.",
-      "page_note": "\"En mi escritorio\" requiere un reto. \"Ya estoy despierto\" siempre detiene la alarma.",
+      "page_note": "\"En mi escritorio\" requiere un reto. \"Ya voy\" siempre detiene la alarma.",
       "scope_note": "Los temas existentes no cambiarán.",
       "topic_label": "Reto para despertar de {topic}",
       "topic_scope_note": "Solo cambia {topic}.",
@@ -2340,7 +2340,7 @@
   },
   "challenges": {
     "off": "Desactivado",
-    "sheet_note": "\"En mi escritorio\" pide un reto. \"Ya estoy despierto\" detiene la alarma con un toque.",
+    "sheet_note": "\"En mi escritorio\" pide un reto. \"Ya voy\" detiene la alarma con un toque.",
     "strip_title": "Reto para despertar",
     "skip_hold": "Mantén pulsado {seconds} s para omitir",
     "skip_holding": "Mantén pulsado {seconds} s más",
