@@ -30,6 +30,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Debug, profile and desk builds (SKIP\_PAYWALL, QUIET\_ALARM, MOCK, PAYWALL\_LAB, NO\_TELEMETRY) and web pages off critalarm.app send no analytics or crash reports. Firebase collection starts off on Android and iOS until the app turns it on.
 - AppScreenColumns has gutterLeft and gutterRight, each the gutter or that side's safe area inset where it is deeper. Two panes, AppDetailPane, the pinned bottom bar, the shell's nav area (navAreaInsideSides), AppBottomSheet.sheetPaddingFor and dialogInsetPaddingFor count each side's inset on its own side only.
 - The responsive capture matrix washes the iPhone Duo inset strips in translucent grey.
+- AppNavRail.fitsInside: a side inset of 76 or more holds the rail, and navPlacementFor(padding:) puts the rail on that side in every posture. AppScreenColumns centres the column in the room left between uneven side insets. In book posture a page with no stage or detail draws in the end pane. The responsive capture matrix covers 40 more screens (remainingScreenRoutes).
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
