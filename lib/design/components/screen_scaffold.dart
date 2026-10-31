@@ -366,9 +366,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       ),
     );
 
-    if (fold.isNone ||
-        (fold.isTabletop && stage == null) ||
-        (fold.isBook && stage == null && detail == null)) {
+    if (fold.isNone || (fold.isTabletop && stage == null)) {
       return _wrap(
         context,
         list(
@@ -389,10 +387,28 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final Widget first;
     final Widget second;
     final bool hasStagePane;
-    if (fold.isBook && detail != null) {
+    if (fold.isBook && stage == null && detail == null) {
+      // A page with nothing of its own for the start pane reads as a phone
+      // page in the end pane, so no line runs across the spine. The start
+      // pane keeps the canvas, and the tab bar where the shell draws one.
       hasStagePane = false;
-      // List in the start pane, under the tab bar. Detail in the end pane.
-      first = list(detail: null, hasTabBar: widget.hasTabBar);
+      first = const SizedBox.shrink();
+      second = list(detail: null, hasTabBar: false);
+    } else if (fold.isBook && detail != null) {
+      hasStagePane = false;
+      // List in the start pane, over the pill where there is one. Detail in
+      // the end pane.
+      final pillInStartPane =
+          navPlacementFor(
+            AppSize.of(context),
+            fold,
+            padding: window.padding,
+          ) ==
+          AppNavPlacement.bottom;
+      first = list(
+        detail: null,
+        hasTabBar: widget.hasTabBar && pillInStartPane,
+      );
       second = AppDetailPane(
         child: KeyedSubtree(key: _detailKey, child: detail),
       );
@@ -477,7 +493,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // Inside a fold pane this is no fold. On the window it is the one the
     // shell reads, so both agree on where the bar is.
     final fold = AppFold.of(context);
-    final hasRail = navPlacementFor(size, fold) != AppNavPlacement.bottom;
+    final hasRail =
+        navPlacementFor(size, fold, padding: padding) != AppNavPlacement.bottom;
     final columns = AppScreenColumns.resolve(
       boxWidth: boxWidth,
       size: size,
@@ -1004,15 +1021,20 @@ class AppScreenColumns {
     // above the bottom edge. The display's own safe area on that side, the
     // notch on a phone turned sideways, comes on top. Past the frame width
     // the rail sits at the frame's edge, in from the window edge.
-    final placement = navPlacementFor(size, fold);
+    final placement = navPlacementFor(size, fold, padding: padding);
     final hasRail = placement != AppNavPlacement.bottom && hasTabBar;
     final railOnRight = placement == AppNavPlacement.right;
     final frameInset = boxWidth <= AppSize.frameMaxWidth
         ? 0.0
         : (boxWidth - AppSize.frameMaxWidth) / 2;
-    final railGap = hasRail
-        ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
-        : 0.0;
+    final railSideInset = railOnRight ? padding.right : padding.left;
+    // A rail standing inside a wide side inset (the iPhone Duo's strip) takes
+    // no room past the inset itself.
+    final railGap = !hasRail
+        ? 0.0
+        : AppNavRail.fitsInside(railSideInset)
+        ? railSideInset
+        : AppNavRail.contentGap + railSideInset;
     final railClearance = hasRail ? railGap + frameInset : 0.0;
 
     if (size.isExpanded && hasDetail && fold.isNone) {
@@ -1046,6 +1068,36 @@ class AppScreenColumns {
     // The safe area on each side is its own: a side with a deeper inset (the
     // iPhone Duo's system strip) keeps the content out of it, and the other
     // side stays where it was.
+    if (padding.left != padding.right) {
+      // One side inset deeper than the other (the iPhone Duo's strip): the
+      // column sits in the middle of what the insets and the rail leave,
+      // the same middle the pinned bottom bar finds, so a button under the
+      // content lines up with it.
+      final left = math.max(
+        padding.left,
+        hasRail && !railOnRight ? railClearance : 0.0,
+      );
+      final right = math.max(
+        padding.right,
+        hasRail && railOnRight ? railClearance : 0.0,
+      );
+      final extra = math.max<double>(
+        0,
+        (boxWidth - left - right - contentMaxWidth) / 2,
+      );
+      return AppScreenColumns._(
+        twoPane: false,
+        railOnRight: railOnRight,
+        railClearance: railClearance,
+        listLeft: 0,
+        listWidth: boxWidth,
+        gutter: extra,
+        gutterLeft: left + extra,
+        gutterRight: right + extra,
+        detailLeft: boxWidth,
+        detailWidth: 0,
+      );
+    }
     final gutter = math.max(railClearance, (boxWidth - contentMaxWidth) / 2);
     return AppScreenColumns._(
       twoPane: false,
@@ -1065,8 +1117,8 @@ class AppScreenColumns {
   /// folds included, laid out the way [AppScreenScaffold] lays it out:
   ///
   /// - Book posture with a detail: the start pane.
-  /// - Book posture with a stage ([hasStage]) and no detail: the end pane,
-  ///   with no tab bar (the bar is in the start pane).
+  /// - Book posture with no detail, stage ([hasStage]) or not: the end
+  ///   pane, with no tab bar (the bar is in the start pane).
   /// - Tabletop posture with a stage: the bottom half, with the bar.
   /// - Anything else: the whole window.
   ///
@@ -1103,8 +1155,18 @@ class AppScreenColumns {
   }) {
     final panes = fold.panes(window, direction: direction);
     final (Rect? pane, bool paneHasTabBar) = switch (fold.posture) {
-      AppPosture.book when hasDetail => (panes.first, hasTabBar),
-      AppPosture.book when hasStage => (panes.second, false),
+      AppPosture.book when hasDetail => (
+        panes.first,
+        hasTabBar &&
+            navPlacementFor(
+                  AppSize.from(window, isIphone: isIphone),
+                  fold,
+                  padding: padding,
+                ) ==
+                AppNavPlacement.bottom,
+      ),
+      // With a stage, or with nothing for the start pane: the end pane.
+      AppPosture.book => (panes.second, false),
       AppPosture.tabletop when hasStage => (panes.second, hasTabBar),
       _ => (null, hasTabBar),
     };
