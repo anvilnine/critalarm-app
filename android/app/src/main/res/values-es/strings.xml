@@ -11,10 +11,10 @@
     <string name="native_card_acknowledged">Confirmado</string>
     <string name="native_card_awake_for">Llevas {time} despierto</string>
     <string name="native_card_incident_acknowledged">Incidente confirmado</string>
-    <string name="native_card_open_for">Abierto hace {time}</string>
+    <string name="native_card_open_for">Abierto desde hace {time}</string>
     <string name="native_card_opened_ago">Abierto hace {time}</string>
-    <string name="native_card_silenced">Detenida. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para detenerla.</string>
-    <string name="native_card_silenced_short">Detenida. Volverá a sonar en {seconds} s.</string>
+    <string name="native_card_silenced">Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla.</string>
+    <string name="native_card_silenced_short">Silenciada. Volverá a sonar en {seconds} s.</string>
     <string name="native_card_still_open_line">Sigue abierto. Toca Listo si ya está resuelto.</string>
     <string name="native_channel_alarms">Alarmas críticas</string>
     <string name="native_channel_alarms_description">Alarmas sonoras de incidentes de guardia</string>
@@ -44,7 +44,7 @@
     <string name="native_widget_all_quiet">Todo en calma</string>
     <string name="native_widget_choose_topic">Elige un tema</string>
     <string name="native_widget_connect">Abre Crit Alarm para conectarte</string>
-    <string name="native_widget_count_description">Cuántos incidentes hay abiertos ahora.</string>
+    <string name="native_widget_count_description">Número de incidentes abiertos ahora mismo.</string>
     <string name="native_widget_count_name">Incidentes abiertos</string>
     <string name="native_widget_locked">Los widgets forman parte de Pro. Toca para ver los planes.</string>
     <string name="native_widget_locked_short">Pro</string>
@@ -54,7 +54,7 @@
     <string name="native_widget_open_count">{count} abiertos</string>
     <string name="native_widget_open_topic">abierto · {topic}</string>
     <string name="native_widget_open_word">abiertos</string>
-    <string name="native_widget_topic_description">Un tema con los botones \"Ya estoy despierto\" y Listo.</string>
+    <string name="native_widget_topic_description">Un tema con los botones \"Ya estoy despierto\" y \"Listo\".</string>
     <string name="native_widget_topic_name">Tema</string>
     <string name="native_widget_topic_not_found">No se encontró el tema</string>
     <string name="native_widget_topics_description">Tus temas, primero los que están sonando.</string>

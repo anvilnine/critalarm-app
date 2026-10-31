@@ -9,7 +9,7 @@
     <string name="native_alarm_stop">停止</string>
     <string name="native_card_acked_at">已于{time}确认</string>
     <string name="native_card_acknowledged">已确认</string>
-    <string name="native_card_awake_for">已醒来{time}</string>
+    <string name="native_card_awake_for">已清醒{time}</string>
     <string name="native_card_incident_acknowledged">事件已确认</string>
     <string name="native_card_open_for">未关闭，已持续{time}</string>
     <string name="native_card_opened_ago">{time}前触发</string>
@@ -21,7 +21,7 @@
     <string name="native_channel_messages">消息</string>
     <string name="native_channel_messages_description">优先级1至3的消息</string>
     <string name="native_channel_offers">优惠</string>
-    <string name="native_channel_offers_description">Pro的最新消息</string>
+    <string name="native_channel_offers_description">Pro的最新动态</string>
     <string name="native_channel_reminders">本地提醒</string>
     <string name="native_channel_reminders_description">测试检查、无消息的主题、备份和方案提醒</string>
     <string name="native_channel_status">事件状态</string>
@@ -43,13 +43,13 @@
     <string name="native_state_still_open">未关闭</string>
     <string name="native_widget_all_quiet">一切平静</string>
     <string name="native_widget_choose_topic">选择主题</string>
-    <string name="native_widget_connect">打开Crit Alarm连接服务器</string>
+    <string name="native_widget_connect">打开Crit Alarm以连接</string>
     <string name="native_widget_count_description">当前未关闭的事件数量。</string>
     <string name="native_widget_count_name">未关闭事件</string>
     <string name="native_widget_locked">小组件属于Pro功能。点按查看方案。</string>
     <string name="native_widget_locked_short">Pro</string>
-    <string name="native_widget_more">另有{count}个</string>
-    <string name="native_widget_no_topics">还没有主题</string>
+    <string name="native_widget_more">还有{count}个</string>
+    <string name="native_widget_no_topics">暂无主题</string>
     <string name="native_widget_open_app_first">请先打开Crit Alarm</string>
     <string name="native_widget_open_count">{count}个未关闭</string>
     <string name="native_widget_open_topic">未关闭 · {topic}</string>

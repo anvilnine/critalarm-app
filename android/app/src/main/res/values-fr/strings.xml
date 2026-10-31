@@ -5,7 +5,7 @@
     <string name="native_action_done">Terminé</string>
     <string name="native_action_im_up">Je suis debout</string>
     <string name="native_alarm_open_app">Ouvrir Crit Alarm</string>
-    <string name="native_alarm_still_ringing">Sonne toujours. Touchez Je suis debout pour arrêter.</string>
+    <string name="native_alarm_still_ringing">Sonne toujours. Touchez « Je suis debout » pour l’arrêter.</string>
     <string name="native_alarm_stop">Arrêter</string>
     <string name="native_card_acked_at">Acquitté à {time}</string>
     <string name="native_card_acknowledged">Acquitté</string>
@@ -13,9 +13,9 @@
     <string name="native_card_incident_acknowledged">Incident acquitté</string>
     <string name="native_card_open_for">Ouvert depuis {time}</string>
     <string name="native_card_opened_ago">Ouvert il y a {time}</string>
-    <string name="native_card_silenced">Son coupé. Sonne à nouveau dans {seconds} s. Touchez Je suis debout pour arrêter.</string>
+    <string name="native_card_silenced">Son coupé. Sonne à nouveau dans {seconds} s. Touchez « Je suis debout » pour l’arrêter.</string>
     <string name="native_card_silenced_short">Son coupé. Sonne à nouveau dans {seconds} s.</string>
-    <string name="native_card_still_open_line">Toujours ouvert. Touchez Terminé si c’est réglé.</string>
+    <string name="native_card_still_open_line">Toujours ouvert. Touchez « Terminé » si c’est réglé.</string>
     <string name="native_channel_alarms">Alarmes critiques</string>
     <string name="native_channel_alarms_description">Alarmes sonores pour les incidents d’astreinte</string>
     <string name="native_channel_messages">Messages</string>
@@ -36,7 +36,7 @@
     <string name="native_content_critical_open_to_see">Alerte critique. Ouvrez pour voir les détails.</string>
     <string name="native_content_open_to_see">Ouvrez Crit Alarm pour voir les détails</string>
     <string name="native_state_awake">Debout</string>
-    <string name="native_state_closed">Clos</string>
+    <string name="native_state_closed">Fermé</string>
     <string name="native_state_missed">Manqué</string>
     <string name="native_state_quiet">Calme</string>
     <string name="native_state_ringing">Sonne</string>
@@ -44,9 +44,9 @@
     <string name="native_widget_all_quiet">Tout est calme</string>
     <string name="native_widget_choose_topic">Choisir un topic</string>
     <string name="native_widget_connect">Ouvrez Crit Alarm pour vous connecter</string>
-    <string name="native_widget_count_description">Le nombre d’incidents ouverts en ce moment.</string>
+    <string name="native_widget_count_description">Nombre d’incidents ouverts en ce moment.</string>
     <string name="native_widget_count_name">Incidents ouverts</string>
-    <string name="native_widget_locked">Les widgets font partie de Pro. Touchez pour voir les offres.</string>
+    <string name="native_widget_locked">Les widgets sont inclus dans Pro. Touchez pour voir les offres.</string>
     <string name="native_widget_locked_short">Pro</string>
     <string name="native_widget_more">+{count} autres</string>
     <string name="native_widget_no_topics">Aucun topic pour le moment</string>
@@ -54,7 +54,7 @@
     <string name="native_widget_open_count">{count} ouverts</string>
     <string name="native_widget_open_topic">ouverts · {topic}</string>
     <string name="native_widget_open_word">ouverts</string>
-    <string name="native_widget_topic_description">Un topic, avec les boutons Je suis debout et Terminé.</string>
+    <string name="native_widget_topic_description">Un topic, avec les boutons « Je suis debout » et « Terminé ».</string>
     <string name="native_widget_topic_name">Topic</string>
     <string name="native_widget_topic_not_found">Topic introuvable</string>
     <string name="native_widget_topics_description">Vos topics, ceux qui sonnent en premier.</string>

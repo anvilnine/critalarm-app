@@ -7,7 +7,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "POTV."
+            "value" : "Potvrdit"
           }
         },
         "de" : {
@@ -352,7 +352,7 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abrir Crit Alarm"
+            "value" : "Abrir o Crit Alarm"
           }
         },
         "tr" : {
@@ -387,7 +387,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stále zvoní. Klepni na Už jsem vzhůru."
+            "value" : "Stále zvoní. Ukonči ho klepnutím na Už jsem vzhůru."
           }
         },
         "de" : {
@@ -411,13 +411,13 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sonne toujours. Touchez Je suis debout pour arrêter."
+            "value" : "Sonne toujours. Touchez « Je suis debout » pour l’arrêter."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suona ancora. Tocca Sono sveglio per fermarlo."
+            "value" : "Suona ancora. Tocca \"Sono sveglio\" per fermarlo."
           }
         },
         "ja" : {
@@ -429,31 +429,31 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "아직 울려요. '일어났어요'를 눌러 멈추세요."
+            "value" : "아직 울리고 있어요. '일어났어요'를 눌러 알람을 끄세요."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gaat nog af. Tik op Ik ben wakker om het te stoppen."
+            "value" : "Gaat nog af. Tik op \"Ik ben wakker\" om te stoppen."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nadal dzwoni. Stuknij „Już nie śpię”, aby zakończyć."
+            "value" : "Nadal dzwoni. Stuknij „Już nie śpię”, aby go wyłączyć."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ainda tocando. Toque em \"Já acordei\" para parar."
+            "value" : "Continua tocando. Toque em \"Já acordei\" para parar."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hâlâ çalıyor. Bitirmek için Uyandım'a dokun."
+            "value" : "Hâlâ çalıyor. Durdurmak için Uyandım'a dokun."
           }
         },
         "uk" : {
@@ -471,7 +471,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "還在響。點「我醒了」停止。"
+            "value" : "還在響鈴。點「我醒了」即可停止。"
           }
         }
       }
@@ -512,7 +512,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ferma"
+            "value" : "Stop"
           }
         },
         "ja" : {
@@ -524,7 +524,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "중지"
+            "value" : "끄기"
           }
         },
         "nl" : {
@@ -536,7 +536,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zatrzymaj"
+            "value" : "Wyłącz"
           }
         },
         "pt-BR" : {
@@ -619,7 +619,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "{time}에 확인"
+            "value" : "{time}에 확인됨"
           }
         },
         "nl" : {
@@ -833,7 +833,7 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "{time} boyunca uyanık"
+            "value" : "{time} süredir uyanık"
           }
         },
         "uk" : {
@@ -845,13 +845,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已醒来{time}"
+            "value" : "已清醒{time}"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已醒來 {time}"
+            "value" : "已清醒 {time}"
           }
         }
       }
@@ -975,7 +975,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abierto hace {time}"
+            "value" : "Abierto desde hace {time}"
           }
         },
         "fr" : {
@@ -999,7 +999,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "진행된 지 {time}"
+            "value" : "발생한 지 {time}"
           }
         },
         "nl" : {
@@ -1023,13 +1023,13 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "{time} boyunca açık"
+            "value" : "{time} süredir açık"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Відкритий уже {time}"
+            "value" : "Відкрито вже {time}"
           }
         },
         "zh-Hans" : {
@@ -1147,7 +1147,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ztišeno. Za {seconds} s zazvoní znovu. Ukonči klepnutím na Už jsem vzhůru."
+            "value" : "Ztišeno. Za {seconds} s zazvoní znovu. Ukonči ho klepnutím na Už jsem vzhůru."
           }
         },
         "de" : {
@@ -1165,19 +1165,19 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Detenida. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para detenerla."
+            "value" : "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Son coupé. Sonne à nouveau dans {seconds} s. Touchez Je suis debout pour arrêter."
+            "value" : "Son coupé. Sonne à nouveau dans {seconds} s. Touchez « Je suis debout » pour l’arrêter."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermato. Suonerà di nuovo tra {seconds} s. Tocca Sono sveglio per fermarlo."
+            "value" : "Silenziato. Suona di nuovo tra {seconds} s. Tocca \"Sono sveglio\" per fermarlo."
           }
         },
         "ja" : {
@@ -1189,7 +1189,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "소리 꺼짐. {seconds}초 후 다시 울려요. '일어났어요'를 눌러 멈추세요."
+            "value" : "소리 꺼짐. {seconds}초 후 다시 울려요. '일어났어요'를 눌러 알람을 끄세요."
           }
         },
         "nl" : {
@@ -1201,19 +1201,19 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wyciszony. Zadzwoni za {seconds} s. Stuknij „Już nie śpię”, aby zakończyć."
+            "value" : "Wyciszony. Zadzwoni ponownie za {seconds} s. Stuknij „Już nie śpię”, aby go wyłączyć."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Parou. Toca de novo em {seconds} s. Toque em \"Já acordei\" para parar."
+            "value" : "Parou. Toca de novo em {seconds} s. Toque em \"Já acordei\" para encerrar."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Durdu. {seconds} sn sonra yine çalacak. Bitirmek için Uyandım'a dokun."
+            "value" : "Susturuldu. {seconds} sn sonra tekrar çalacak. Durdurmak için Uyandım'a dokun."
           }
         },
         "uk" : {
@@ -1231,7 +1231,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已停止。{seconds} 秒後再響。點「我醒了」停止。"
+            "value" : "已暫停響鈴。{seconds} 秒後再次響鈴。點「我醒了」即可結束。"
           }
         }
       }
@@ -1260,7 +1260,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Detenida. Volverá a sonar en {seconds} s."
+            "value" : "Silenciada. Volverá a sonar en {seconds} s."
           }
         },
         "fr" : {
@@ -1272,7 +1272,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermato. Suonerà di nuovo tra {seconds} s."
+            "value" : "Silenziato. Suona di nuovo tra {seconds} s."
           }
         },
         "ja" : {
@@ -1296,7 +1296,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wyciszony. Zadzwoni za {seconds} s."
+            "value" : "Wyciszony. Zadzwoni ponownie za {seconds} s."
           }
         },
         "pt-BR" : {
@@ -1308,7 +1308,7 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Durdu. {seconds} sn sonra yine çalacak."
+            "value" : "Susturuldu. {seconds} sn sonra tekrar çalacak."
           }
         },
         "uk" : {
@@ -1326,7 +1326,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已停止。{seconds} 秒後再響。"
+            "value" : "已暫停響鈴。{seconds} 秒後再次響鈴。"
           }
         }
       }
@@ -1337,7 +1337,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stále otevřeno. Je to opravené? Klepni na Hotovo."
+            "value" : "Stále otevřeno. Je to vyřešené? Klepni na Hotovo."
           }
         },
         "de" : {
@@ -1361,13 +1361,13 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toujours ouvert. Touchez Terminé si c’est réglé."
+            "value" : "Toujours ouvert. Touchez « Terminé » si c’est réglé."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ancora aperto. Tocca Fatto se è risolto."
+            "value" : "Ancora aperto. Tocca \"Fatto\" se è risolto."
           }
         },
         "ja" : {
@@ -1391,7 +1391,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nadal otwarty. Stuknij „Gotowe”, jeśli problem rozwiązany."
+            "value" : "Nadal otwarty. Stuknij „Gotowe”, jeśli problem został rozwiązany."
           }
         },
         "pt-BR" : {
@@ -1403,13 +1403,13 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hâlâ açık. Düzeldiyse Bitti'ye dokun."
+            "value" : "Hâlâ açık. Çözüldüyse Bitti'ye dokun."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ще відкритий. Якщо все виправлено, натисни «Готово»."
+            "value" : "Досі відкрито. Якщо все виправлено, натисни «Готово»."
           }
         },
         "zh-Hans" : {
@@ -1575,7 +1575,7 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hoorbare incidentalarmen voor je bereikbaarheidsdienst"
+            "value" : "Hoorbare incidentalarmen als je on-call bent"
           }
         },
         "pl" : {
@@ -1587,19 +1587,19 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alarmes sonoros de incidentes de plantão"
+            "value" : "Alarmes sonoros para incidentes de plantão"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nöbette sesli olay alarmları"
+            "value" : "Nöbet için sesli olay alarmları"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Звукові сигнали про інциденти для чергових"
+            "value" : "Звукові будильники про інциденти для чергових"
           }
         },
         "zh-Hans" : {
@@ -1777,7 +1777,7 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mensagens de prioridade 1-3"
+            "value" : "Mensagens de prioridade 1 a 3"
           }
         },
         "tr" : {
@@ -1985,7 +1985,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pro的最新消息"
+            "value" : "Pro的最新动态"
           }
         },
         "zh-Hant" : {
@@ -2097,7 +2097,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zkušební kontroly, neaktivní témata, zálohy a upozornění na tarif"
+            "value" : "Zkušební kontroly, ztlumená témata, zálohy a upozornění k tarifu"
           }
         },
         "de" : {
@@ -2169,7 +2169,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Тестові перевірки, тихі топіки, резервні копії та нагадування про тариф"
+            "value" : "Тестові перевірки, тихі топіки, резервні копії та сповіщення про тариф"
           }
         },
         "zh-Hans" : {
@@ -2181,7 +2181,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "測試檢查、安靜的主題、備份與方案通知"
+            "value" : "測試檢查、久無活動的主題、備份與方案通知"
           }
         }
       }
@@ -2507,7 +2507,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Priorità 4 e priorità 5 nei topic non critici"
+            "value" : "Priorità 4 e priorità 5 su un topic non critico"
           }
         },
         "ja" : {
@@ -2525,7 +2525,7 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prioriteit 4, en prioriteit 5 op een niet-kritiek topic"
+            "value" : "Prioriteit 4 en prioriteit 5 bij een niet-kritiek topic"
           }
         },
         "pl" : {
@@ -2614,7 +2614,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "경고"
+            "value" : "알림"
           }
         },
         "nl" : {
@@ -2727,13 +2727,13 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Precisa de atenção imediata"
+            "value" : "Requer atenção imediata"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hemen ilgilenmen gerekiyor"
+            "value" : "Acil müdahale gerekiyor"
           }
         },
         "uk" : {
@@ -2804,19 +2804,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "긴급 알림: {topic}"
+            "value" : "{topic} 긴급 알림"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kritieke melding op {topic}"
+            "value" : "Kritieke melding voor {topic}"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alert krytyczny w temacie {topic}"
+            "value" : "Alert krytyczny: {topic}"
           }
         },
         "pt-BR" : {
@@ -2846,7 +2846,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "{topic} 的重大警示"
+            "value" : "{topic} 重大警報"
           }
         }
       }
@@ -2857,7 +2857,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kritické upozornění: {topic}. Otevři podrobnosti."
+            "value" : "Kritické upozornění: {topic}. Klepnutím zobrazíš podrobnosti."
           }
         },
         "de" : {
@@ -2899,19 +2899,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "긴급 알림: {topic}. 열어서 자세히 보세요."
+            "value" : "{topic} 긴급 알림. 열어서 자세한 내용을 확인하세요."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kritieke melding op {topic}. Open voor details."
+            "value" : "Kritieke melding voor {topic}. Open voor details."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alert krytyczny w temacie {topic}. Otwórz, aby zobaczyć szczegóły."
+            "value" : "Alert krytyczny: {topic}. Otwórz, aby zobaczyć szczegóły."
           }
         },
         "pt-BR" : {
@@ -2929,7 +2929,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Критичний сигнал у {topic}. Відкрий, щоб побачити деталі."
+            "value" : "Критичний сигнал у {topic}. Відкрий, щоб переглянути деталі."
           }
         },
         "zh-Hans" : {
@@ -2941,7 +2941,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "{topic} 的重大警示。開啟查看詳情。"
+            "value" : "{topic} 重大警報。開啟查看詳細資訊。"
           }
         }
       }
@@ -3047,7 +3047,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kritické upozornění. Otevři podrobnosti."
+            "value" : "Kritické upozornění. Klepnutím zobrazíš podrobnosti."
           }
         },
         "de" : {
@@ -3089,7 +3089,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "긴급 알림. 열어서 자세히 보세요."
+            "value" : "긴급 알림. 열어서 자세한 내용을 확인하세요."
           }
         },
         "nl" : {
@@ -3119,7 +3119,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Критичний сигнал. Відкрий, щоб побачити деталі."
+            "value" : "Критичний сигнал. Відкрий, щоб переглянути деталі."
           }
         },
         "zh-Hans" : {
@@ -3131,7 +3131,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重大警示。開啟查看詳情。"
+            "value" : "重大警報。開啟查看詳細資訊。"
           }
         }
       }
@@ -3184,7 +3184,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm을 열어 자세히 보기"
+            "value" : "Crit Alarm을 열어 자세한 내용을 확인해 보세요."
           }
         },
         "nl" : {
@@ -3214,7 +3214,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Відкрий Crit Alarm, щоб побачити деталі"
+            "value" : "Відкрий Crit Alarm, щоб переглянути деталі"
           }
         },
         "zh-Hans" : {
@@ -3226,7 +3226,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "開啟 Crit Alarm 查看詳情"
+            "value" : "開啟 Crit Alarm 查看詳細資訊"
           }
         }
       }
@@ -3321,7 +3321,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已醒來"
+            "value" : "已清醒"
           }
         }
       }
@@ -3356,7 +3356,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clos"
+            "value" : "Fermé"
           }
         },
         "it" : {
@@ -3398,7 +3398,7 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kapandı"
+            "value" : "Kapalı"
           }
         },
         "uk" : {
@@ -3784,7 +3784,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ще відкритий"
+            "value" : "Досі відкрито"
           }
         },
         "zh-Hans" : {
@@ -4039,13 +4039,13 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm을 열어 연결하세요"
+            "value" : "Crit Alarm을 열어 연결해 주세요"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open Crit Alarm om te verbinden"
+            "value" : "Open Crit Alarm om verbinding te maken"
           }
         },
         "pl" : {
@@ -4075,7 +4075,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开Crit Alarm连接服务器"
+            "value" : "打开Crit Alarm以连接"
           }
         },
         "zh-Hant" : {
@@ -4110,13 +4110,13 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cuántos incidentes hay abiertos ahora."
+            "value" : "Número de incidentes abiertos ahora mismo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le nombre d’incidents ouverts en ce moment."
+            "value" : "Nombre d’incidents ouverts en ce moment."
           }
         },
         "it" : {
@@ -4158,7 +4158,7 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Şu anda kaç olayın açık olduğu."
+            "value" : "Şu anda açık olan olay sayısı."
           }
         },
         "uk" : {
@@ -4229,13 +4229,13 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "진행 중 인시던트"
+            "value" : "진행 중인 인시던트"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open incidenten"
+            "value" : "Openstaande incidenten"
           }
         },
         "pl" : {
@@ -4306,7 +4306,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les widgets font partie de Pro. Touchez pour voir les offres."
+            "value" : "Les widgets sont inclus dans Pro. Touchez pour voir les offres."
           }
         },
         "it" : {
@@ -4324,7 +4324,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "위젯은 Pro 기능이에요. 눌러서 요금제를 보세요."
+            "value" : "위젯은 Pro 기능이에요. 눌러서 요금제를 확인해 보세요."
           }
         },
         "nl" : {
@@ -4336,7 +4336,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Widżety są częścią Pro. Stuknij, aby zobaczyć plany."
+            "value" : "Widżety są dostępne w Pro. Stuknij, aby zobaczyć plany."
           }
         },
         "pt-BR" : {
@@ -4502,7 +4502,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Altri {count}"
+            "value" : "+{count} altri"
           }
         },
         "ja" : {
@@ -4538,25 +4538,25 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "+{count} tane daha"
+            "value" : "+{count} daha"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ще +{count}"
+            "value" : "Ще {count}"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "另有{count}个"
+            "value" : "还有{count}个"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "另有 {count} 個"
+            "value" : "還有 {count} 個"
           }
         }
       }
@@ -4645,7 +4645,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "还没有主题"
+            "value" : "暂无主题"
           }
         },
         "zh-Hant" : {
@@ -4692,7 +4692,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prima apri Crit Alarm"
+            "value" : "Apri prima Crit Alarm"
           }
         },
         "ja" : {
@@ -4704,7 +4704,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "먼저 Crit Alarm을 여세요"
+            "value" : "먼저 Crit Alarm을 열어 주세요"
           }
         },
         "nl" : {
@@ -5060,19 +5060,19 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un tema con los botones \"Ya estoy despierto\" y Listo."
+            "value" : "Un tema con los botones \"Ya estoy despierto\" y \"Listo\"."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un topic, avec les boutons Je suis debout et Terminé."
+            "value" : "Un topic, avec les boutons « Je suis debout » et « Terminé »."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un topic con i pulsanti Sono sveglio e Fatto."
+            "value" : "Un topic con i pulsanti \"Sono sveglio\" e \"Fatto\"."
           }
         },
         "ja" : {
@@ -5090,7 +5090,7 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eén topic, met de knoppen Ik ben wakker en Klaar."
+            "value" : "Eén topic, met de knoppen \"Ik ben wakker\" en \"Klaar\"."
           }
         },
         "pl" : {
@@ -5327,7 +5327,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tvoje témata, zvonící nahoře."
+            "value" : "Tvoje témata, zvonící jako první."
           }
         },
         "de" : {

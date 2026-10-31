@@ -25,19 +25,19 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm necesita acceso a las alarmas para sonar incluso en modo silencio y con No molestar hasta que la detengas."
+            "value" : "Crit Alarm necesita acceso a las alarmas para sonar incluso en modo silencio o No molestar hasta que la detengas."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm a besoin d’accéder aux alarmes pour sonner malgré le mode silencieux et Ne pas déranger, jusqu’à ce que vous l’arrêtiez."
+            "value" : "Crit Alarm a besoin d’accéder aux alarmes pour sonner même en mode silencieux ou Ne pas déranger, jusqu’à ce que vous l’arrêtiez."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm ha bisogno dell’accesso agli allarmi per suonare anche in modalità Silenzioso e Non disturbare, finché non lo fermi."
+            "value" : "Crit Alarm ha bisogno dell’accesso agli allarmi per suonare anche in modalità Silenzioso e con Non disturbare attivo, finché non lo fermi."
           }
         },
         "ja" : {
@@ -55,13 +55,13 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm heeft toegang tot wekkers nodig om in de stille modus en bij Niet storen af te kunnen gaan tot je het stopt."
+            "value" : "Crit Alarm heeft toegang tot wekkers nodig zodat een alarm ook in de stille modus en bij Niet storen kan afgaan tot je het stopt."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm potrzebuje dostępu do alarmów, aby alarm dzwonił mimo trybu cichego i trybu Nie przeszkadzać, dopóki go nie zatrzymasz."
+            "value" : "Crit Alarm potrzebuje dostępu do alarmów, aby móc dzwonić mimo trybu cichego i trybu „Nie przeszkadzać”, dopóki go nie wyłączysz."
           }
         },
         "pt-BR" : {
@@ -79,7 +79,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crit Alarm потрібен доступ до будильників, щоб дзвонити в беззвучному режимі та режимі «Не турбувати», доки ти не зупиниш будильник."
+            "value" : "Crit Alarm потрібен доступ до будильників, щоб дзвонити в беззвучному режимі та режимі «Не турбувати», доки ти його не зупиниш."
           }
         },
         "zh-Hans" : {
