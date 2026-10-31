@@ -3,9 +3,9 @@
 <resources>
     <string name="native_action_ack">ACK</string>
     <string name="native_action_done">Listo</string>
-    <string name="native_action_im_up">Ya estoy despierto</string>
+    <string name="native_action_im_up">Ya voy</string>
     <string name="native_alarm_open_app">Abrir Crit Alarm</string>
-    <string name="native_alarm_still_ringing">Sigue sonando. Toca \"Ya estoy despierto\" para detenerla.</string>
+    <string name="native_alarm_still_ringing">Sigue sonando. Toca \"Ya voy\" para detenerla.</string>
     <string name="native_alarm_stop">Detener</string>
     <string name="native_card_acked_at">Confirmado a las {time}</string>
     <string name="native_card_acknowledged">Confirmado</string>
@@ -13,7 +13,7 @@
     <string name="native_card_incident_acknowledged">Incidente confirmado</string>
     <string name="native_card_open_for">Abierto desde hace {time}</string>
     <string name="native_card_opened_ago">Abierto hace {time}</string>
-    <string name="native_card_silenced">Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla.</string>
+    <string name="native_card_silenced">Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya voy\" para apagarla.</string>
     <string name="native_card_silenced_short">Silenciada. Volverá a sonar en {seconds} s.</string>
     <string name="native_card_still_open_line">Sigue abierto. Toca Listo si ya está resuelto.</string>
     <string name="native_channel_alarms">Alarmas críticas</string>
@@ -54,7 +54,7 @@
     <string name="native_widget_open_count">{count} abiertos</string>
     <string name="native_widget_open_topic">abierto · {topic}</string>
     <string name="native_widget_open_word">abiertos</string>
-    <string name="native_widget_topic_description">Un tema con los botones \"Ya estoy despierto\" y \"Listo\".</string>
+    <string name="native_widget_topic_description">Un tema con los botones \"Ya voy\" y \"Listo\".</string>
     <string name="native_widget_topic_name">Tema</string>
     <string name="native_widget_topic_not_found">No se encontró el tema</string>
     <string name="native_widget_topics_description">Tus temas, primero los que están sonando.</string>

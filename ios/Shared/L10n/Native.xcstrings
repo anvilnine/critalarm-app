@@ -215,7 +215,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ya estoy despierto"
+            "value" : "Ya voy"
           }
         },
         "fr" : {
@@ -227,7 +227,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sono sveglio"
+            "value" : "Arrivo"
           }
         },
         "ja" : {
@@ -405,7 +405,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sigue sonando. Toca \"Ya estoy despierto\" para detenerla."
+            "value" : "Sigue sonando. Toca \"Ya voy\" para detenerla."
           }
         },
         "fr" : {
@@ -417,7 +417,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suona ancora. Tocca \"Sono sveglio\" per fermarlo."
+            "value" : "Suona ancora. Tocca \"Arrivo\" per fermarlo."
           }
         },
         "ja" : {
@@ -1165,7 +1165,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya estoy despierto\" para apagarla."
+            "value" : "Silenciada. Volverá a sonar en {seconds} s. Toca \"Ya voy\" para apagarla."
           }
         },
         "fr" : {
@@ -1177,7 +1177,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Silenziato. Suona di nuovo tra {seconds} s. Tocca \"Sono sveglio\" per fermarlo."
+            "value" : "Silenziato. Suona di nuovo tra {seconds} s. Tocca \"Arrivo\" per fermarlo."
           }
         },
         "ja" : {
@@ -5060,7 +5060,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un tema con los botones \"Ya estoy despierto\" y \"Listo\"."
+            "value" : "Un tema con los botones \"Ya voy\" y \"Listo\"."
           }
         },
         "fr" : {
@@ -5072,7 +5072,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un topic con i pulsanti \"Sono sveglio\" e \"Fatto\"."
+            "value" : "Un topic con i pulsanti \"Arrivo\" e \"Fatto\"."
           }
         },
         "ja" : {
