@@ -29,6 +29,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - An alarm that rings during setup now shows its full screen background.
 - Tapping an alarm notification while the alarm screen is open no longer restarts it.
 - On iPhone Duo, screens, sheets, dialogs and the tab bar keep clear of the strip down the side of the screen.
+- Signing out now stops with an error if the store cannot be logged out, so a purchase never moves to your next account.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

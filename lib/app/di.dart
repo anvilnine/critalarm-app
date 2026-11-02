@@ -1054,7 +1054,14 @@ Future<void> configureDependencies({
         },
         signOutBilling: buildSkipsPaywall
             ? null
-            : () => getIt<RevenueCatService>().logOut(),
+            : () async {
+                final store = getIt<RevenueCatService>();
+                // A store that was never configured (no key in a dev build)
+                // never logged in to this account, so there is nothing to
+                // log out of.
+                if (!store.isConfigured) return;
+                await store.logOut();
+              },
         stopAlarm: getIt<AlarmHost>().stopRinging,
         holdings: getIt<Holdings>(),
       ),

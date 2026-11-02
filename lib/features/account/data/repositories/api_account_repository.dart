@@ -11,6 +11,9 @@ import 'package:critalarm/features/account/domain/repositories/identity_reposito
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:purchases_flutter/purchases_flutter.dart'
+    show PurchasesErrorCode, PurchasesErrorHelper;
 
 /// The account routes, plus the sign-out dance that needs four of them.
 final class ApiAccountRepository implements AccountRepository {
@@ -148,12 +151,9 @@ final class ApiAccountRepository implements AccountRepository {
     }
     // The next line registers a new anonymous account and logs the store in
     // to it, so the store has to be logged out of the old one first or the
-    // purchase is handed straight to the handset's next account. Anonymous
-    // already is not a failure: the store answers
-    // logOutWithAnonymousUserError and there is nothing to undo.
-    try {
-      await signOutBilling?.call();
-    } on Object catch (_) {}
+    // purchase is handed straight to the handset's next account. A failure
+    // here stops the sign-out before that happens.
+    await _signOutOfStore();
     // The device is deleted on the server, so this phone has left the
     // account. What the account left here goes before the next one starts.
     // A drop that fails never stops the registration below: without it the
@@ -186,12 +186,10 @@ final class ApiAccountRepository implements AccountRepository {
 
   Future<void> _wipe({required Future<void> Function()? forget}) async {
     // The store knows this phone as the account id that has just gone, so it
-    // goes back to an anonymous user before anything else. It is not a
-    // failure when it was anonymous already: the store answers
-    // logOutWithAnonymousUserError and there is nothing to undo.
-    try {
-      await signOutBilling?.call();
-    } on Object catch (_) {}
+    // goes back to an anonymous user before anything else. A failure here
+    // stops the wipe before the next account starts, so a purchase never
+    // moves to it.
+    await _signOutOfStore();
     // Everything here names something on the account that is gone: an
     // incident to acknowledge, a message id to poll since, a topic somebody
     // searched for.
@@ -217,6 +215,30 @@ final class ApiAccountRepository implements AccountRepository {
   @override
   Future<bool> readHoldsHosted() async =>
       await holdings?.holdsOnceReady(Holding.hosted) ?? false;
+
+  /// Logs the store out of the account this phone is leaving.
+  ///
+  /// Only the store's "already anonymous" answer
+  /// (`logOutWithAnonymousUserError`) is expected: there is nothing to undo.
+  /// Any other failure is rethrown, so the caller stops before the phone
+  /// starts over on a new account that the store would hand the purchase to.
+  Future<void> _signOutOfStore() async {
+    try {
+      await signOutBilling?.call();
+    } on PlatformException catch (e) {
+      if (!_isAnonymousLogOut(e)) rethrow;
+    }
+  }
+
+  static bool _isAnonymousLogOut(PlatformException e) {
+    try {
+      return PurchasesErrorHelper.getErrorCode(e) ==
+          PurchasesErrorCode.logOutWithAnonymousUserError;
+    } on FormatException {
+      // A code that is not a number is not the store's anonymous answer.
+      return false;
+    }
+  }
 
   /// Drops this phone's identity, its connection and its device credential,
   /// then registers again so it lands on a new anonymous account.
