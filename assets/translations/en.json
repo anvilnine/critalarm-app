@@ -1533,7 +1533,8 @@
     "registration_closed": "The relay is not accepting registrations.",
     "topic_mismatch": "That topic does not match the registered server.",
     "unknown": "Something went wrong on the server. Try again.",
-    "unknown_phone": "Something went wrong on this phone. Try again."
+    "unknown_phone": "Something went wrong on this phone. Try again.",
+    "unknown_answer": "Something went wrong. Try again."
   },
   "sound_library": {
     "names": {

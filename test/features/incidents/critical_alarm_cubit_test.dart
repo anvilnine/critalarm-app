@@ -381,7 +381,9 @@ void main() {
         expect(state.status, CriticalAlarmStatus.acknowledged);
         expect(
           state.errorMessage,
-          'Something went wrong on this phone. Try again.',
+          // The mock server words its 409 "incident is not acked", which the
+          // app has no line for, so the status (409) picks the conflict line.
+          'That alarm is no longer in the expected state.',
         );
       },
     );
