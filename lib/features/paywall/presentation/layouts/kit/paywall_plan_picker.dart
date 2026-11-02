@@ -100,9 +100,13 @@ class PaywallPlanPicker extends StatelessWidget {
                 children: [
                   for (var i = 0; i < count; i++) ...[
                     // A badge on a lower row stands in the gap above it.
+                    // While the store is asked there are no options yet,
+                    // and so no badge.
                     if (i > 0)
                       SizedBox(
-                        height: planCardBadge(state.options[i]) == null
+                        height:
+                            i >= state.options.length ||
+                                planCardBadge(state.options[i]) == null
                             ? _gap
                             : math.max(_gap, badgeRise * scale + 2),
                       ),

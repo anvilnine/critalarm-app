@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/access/store_access.dart';
+import '../../core/access/access_fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -89,6 +91,26 @@ void main() {
     await pumpEventQueue();
 
     expect(cubit.state.isFreeTier, isFalse);
+  });
+
+  test('an unread Cloud plan with no sure yes is not the free tier', () async {
+    final identity = await freeAccount();
+    final access = TestAccess()..hosted.set(HoldingState.unknown);
+    addTearDown(access.dispose);
+    final cubit = CreateTopicCubit(
+      createTopic,
+      null,
+      identity,
+      null,
+      PlanChanges(),
+      access.features,
+    );
+    addTearDown(cubit.close);
+
+    await cubit.loadConnection();
+
+    expect(cubit.state.isFreeTier, isFalse);
+    expect(cubit.state.showsCriticalCountCard, isFalse);
   });
 
   group('the count card', () {

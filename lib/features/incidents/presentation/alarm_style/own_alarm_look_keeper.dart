@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
@@ -130,16 +131,13 @@ class OwnAlarmLookKeeper {
       for (final stream in _recheck) {
         _subscriptions.add(stream.listen((_) => unawaited(refresh())));
       }
-      await _quietly(_store.discardPending);
-      await _quietly(_store.sweep);
+      await quietly(
+        'own_alarm_look_keeper.discardPending',
+        _store.discardPending,
+      );
+      await quietly('own_alarm_look_keeper.sweep', _store.sweep);
     }
     await refresh();
-  }
-
-  Future<void> _quietly(Future<void> Function() work) async {
-    try {
-      await work();
-    } on Object catch (_) {}
   }
 
   /// Brings what is held in line with what is saved. It ends when the

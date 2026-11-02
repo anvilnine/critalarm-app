@@ -4,14 +4,18 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/store/services/store_review.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_question.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cancel_question/cancel_question_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/consent_ask_sheet.dart';
@@ -24,7 +28,6 @@ import 'package:critalarm/features/local_reminders/presentation/widgets/local_re
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:in_app_review/in_app_review.dart';
 
 bool _isAsking = false;
 
@@ -72,6 +75,39 @@ Future<bool> _runSheets(BuildContext context) async {
   if (!context.mounted) return false;
   // Pro ending or ended comes first: it has a date attached.
   final pro = await getIt<ProEnding>().read();
+
+  // The cancel question goes before the "Cloud ends" sheet, once per end
+  // date. It is an ask like the others: nothing else shows in the same visit
+  // except the ending sheet that follows it. The plan comes from the store's
+  // own answer, so a cold start that has only stored data asks nothing.
+  final cancelQuestion = getIt<CancelQuestion>();
+  final due = cancelQuestion.dueFor(pro);
+  if (due != null) {
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!context.mounted || !await _stillFree(context)) return true;
+    if (!context.mounted) return true;
+    await cancelQuestion.ask(due, () async {
+      // The mark is written, so the person is not asked again. An alarm that
+      // started during that write still wins the screen.
+      if (!context.mounted || getIt<AlarmFocus>().on) return;
+      await showCancelQuestionSheet(
+        context,
+        endsAt: due.endsAt,
+        sink: getIt<CancelAnswerSender>(),
+      );
+    });
+    if (context.mounted &&
+        pro.sheet == ProPlanSheet.ending &&
+        await _stillFree(context) &&
+        context.mounted) {
+      await showProPlanSheet(context, pro);
+    }
+    if (context.mounted) {
+      unawaited(context.read<InAppNoticeCubit>().load());
+    }
+    return true;
+  }
+
   if (pro.sheet != ProPlanSheet.none) {
     await Future<void>.delayed(const Duration(milliseconds: 800));
     if (!context.mounted || !await _stillFree(context)) return true;
@@ -213,8 +249,8 @@ Future<void> _share({
 /// The store decides whether its popup really shows, and never says. So the
 /// ask counts the moment it is made.
 Future<void> _askForReview() async {
-  final review = InAppReview.instance;
+  final review = getIt<StoreReview>();
   if (!await review.isAvailable()) return;
   await getIt<InAppNoticeRepository>().markReviewAsked();
-  await review.requestReview();
+  await review.request();
 }

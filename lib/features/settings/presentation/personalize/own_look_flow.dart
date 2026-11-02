@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
@@ -92,12 +93,12 @@ Future<bool> addOwnPhoto(
     failure = ImportOwnPhotoUsecase.unreadableCode;
   } finally {
     // The picked file is not read again from here on.
-    try {
-      await picker.discard(picked.path);
-    } on Object catch (_) {}
-    try {
-      await store.discardPending();
-    } on Object catch (_) {}
+    final pickedPath = picked.path;
+    await quietly(
+      'own_look_flow.discardPicked',
+      () => picker.discard(pickedPath),
+    );
+    await quietly('own_look_flow.discardPending', store.discardPending);
   }
   if (photo == null) {
     if (context.mounted) _say(context, ownPhotoErrorText(failure));

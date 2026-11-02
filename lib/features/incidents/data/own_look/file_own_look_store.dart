@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_scrim.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:path/path.dart' as p;
@@ -229,11 +230,8 @@ class FileOwnLookStore implements OwnLookStore {
   Future<void> forgetAll() async {
     // Each step runs whatever the one before it did: a record that will
     // not go must not keep the file.
-    Future<void> step(Future<void> Function() drop) async {
-      try {
-        await drop();
-      } on Object catch (_) {}
-    }
+    Future<void> step(Future<void> Function() drop) =>
+        quietly('file_own_look_store.forgetAll', drop);
 
     await step(() => _prefs.remove(OwnLookStore.photoKey));
     await step(() => _deleteAllBut(null));

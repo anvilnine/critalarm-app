@@ -166,6 +166,25 @@ void main() {
     });
   });
 
+  group('a 401 on deleting the device', () {
+    test('throws without asking for a recovery', () async {
+      var recoveries = 0;
+      final client = clientAnswering(
+        jsonEncode({'error': 'unauthorized'}),
+        401,
+        onDeadCredential: () async => recoveries++,
+      );
+
+      await expectLater(
+        client.deleteDevice(deviceId: 'dev_1', deviceToken: 'dv_1'),
+        throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 401)),
+      );
+      // Sign-out reads this 401 as "already gone" and registers a new
+      // account itself. A recovery here would make a second one.
+      expect(recoveries, 0);
+    });
+  });
+
   group('the mock server answers the same rows', () {
     late MockServer server;
     late HttpApiClient client;

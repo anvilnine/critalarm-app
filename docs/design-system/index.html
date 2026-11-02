@@ -600,7 +600,7 @@ td .face{--size:32px}
             <a class="row is-quiet" href="#"><span class="face" data-face="calm"></span><span class="grow"><span class="name">home-ha</span><span class="meta">Quiet since yesterday</span></span><span class="chip chip-low"><i data-glyph="minus"></i>low</span></a>
           </div>
           <div class="code" style="margin-top:var(--s-4)"><button class="copy">Copy</button><pre>curl -X POST https://api.critalarm.app/t/prod-db \
-  -H <span class="s">"Authorization: Bearer ca_live_7Hq2mN9xPz4wKd8"</span> \
+  -H <span class="s">"Authorization: Bearer tk_example_not_a_real_token"</span> \
   -H <span class="s">"Priority: critical"</span> \
   -d <span class="s">"pg_isready failed 3 times in 90 s"</span></pre></div>
         </div>
@@ -644,7 +644,7 @@ td .face{--size:32px}
           <div class="curl">
             <div class="code"><button class="copy">Copy</button><pre><span class="c"># from the uptime-kuma webhook, or any shell</span>
 curl -X POST https://api.critalarm.app/t/prod-db \
-  -H <span class="s">"Authorization: Bearer ca_live_7Hq2mN9xPz4wKd8"</span> \
+  -H <span class="s">"Authorization: Bearer tk_example_not_a_real_token"</span> \
   -H <span class="s">"Priority: critical"</span> \
   -H <span class="s">"Title: Primary database down"</span> \
   -H <span class="s">"Tags: postgres,db-1"</span> \
@@ -870,7 +870,7 @@ curl -X POST https://api.critalarm.app/t/prod-db \
           <div class="tog"><span>Ring through silent mode<small>Repeats every 30 s until acknowledged</small></span><button class="tsw is-on" role="switch" aria-checked="true" aria-label="Ring through silent mode"></button></div>
           <h4>Generated</h4>
           <div class="kv"><span class="mono">https://api.critalarm.app/t/prod-db</span><button class="copy">Copy</button></div>
-          <div class="kv"><span class="mono">ca_live_7Hq2mN9xPz4wKd8</span><button class="copy">Copy</button></div>
+          <div class="kv"><span class="mono">tk_example_not_a_real_token</span><button class="copy">Copy</button></div>
           <button class="btn btn-primary" style="margin-top:auto">Create topic</button>
         </div>
       </div>

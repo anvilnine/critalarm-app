@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
@@ -422,12 +423,9 @@ abstract final class BreakLiftRingTimeline {
   /// upper cased and split on spaces. Past three words the rest join the
   /// third, and a line of fewer gives fewer.
   static List<String> words(String line) {
-    final parts = line
-        .trim()
-        .toUpperCase()
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList();
+    final parts = upperForCurrentLocale(
+      line.trim(),
+    ).split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
     if (parts.length <= rings.length) return parts;
     return [
       ...parts.take(rings.length - 1),

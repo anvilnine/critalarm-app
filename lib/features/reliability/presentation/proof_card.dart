@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_entry.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
@@ -203,7 +204,7 @@ class _ProofCardState extends State<ProofCard>
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                LocaleKeys.proof_card_label.tr().toUpperCase(),
+                upperInContext(LocaleKeys.proof_card_label.tr(), context),
                 style: AppTypography.monoBold(
                   colors.onPanel,
                   fontSize: 10.5,

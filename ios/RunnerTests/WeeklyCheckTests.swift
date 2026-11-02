@@ -260,9 +260,41 @@ final class WeeklyCheckTests: XCTestCase {
     func testTheRelayComesFromTheSessionAndTheDeviceFromItsOwnItem() {
         let parsed = RelayDevice.parse(
             apiSession: "https://alerts.example.com|https://relay.example.test|selfhosted|ad_secret",
-            identityJSON: #"{"device_id":"dev_3f2a","device_token":"dv_test","account_id":"acc_1"}"#
+            identityJSON: #"{"device_id":"dev_3f2a","device_token":"dv_test","device_token_relay":"https://relay.example.test","account_id":"acc_1"}"#
         )
         XCTAssertEqual(parsed, device)
+    }
+
+    func testTheTokenGoesOnlyToTheRelayThatIssuedIt() {
+        let session = "https://a.example|https://relay.example.test|selfhosted|ad_x"
+        func identity(_ relay: String?) -> String {
+            guard let relay else { return #"{"device_id":"dev_1","device_token":"dv_test"}"# }
+            return #"{"device_id":"dev_1","device_token":"dv_test","device_token_relay":"\#(relay)"}"#
+        }
+        // Another relay issued it, or none is written down, which counts as
+        // the hosted relay.
+        XCTAssertNil(RelayDevice.parse(apiSession: session, identityJSON: identity("https://relay.critalarm.app")))
+        XCTAssertNil(RelayDevice.parse(apiSession: session, identityJSON: identity(nil)))
+        XCTAssertNil(RelayDevice.parse(apiSession: session, identityJSON: identity(" ")))
+        let hosted = "https://api.critalarm.app|https://relay.critalarm.app|hosted|dv_test"
+        XCTAssertEqual(RelayDevice.parse(apiSession: hosted, identityJSON: identity(nil))?.deviceToken, "dv_test")
+        for written in [
+            "https://relay.example.test/", "HTTPS://Relay.Example.TEST",
+            "https://relay.example.test:443", " https://relay.example.test ",
+        ] {
+            XCTAssertEqual(
+                RelayDevice.parse(apiSession: session, identityJSON: identity(written))?.deviceToken,
+                "dv_test", written
+            )
+        }
+        for written in [
+            "http://relay.example.test", "https://relay.example.test:8443",
+            "https://relay.example.test.", "https://user@relay.example.test",
+            "https://relay.example.test/v2", "https://relay.example.test?x=1",
+            "https://relay.example.test.evil.example",
+        ] {
+            XCTAssertNil(RelayDevice.parse(apiSession: session, identityJSON: identity(written)), written)
+        }
     }
 
     func testWithAnyPartMissingThereIsNobodyToAnswer() {
@@ -672,7 +704,8 @@ final class WeeklyCheckTests: XCTestCase {
             forKey: RelayDevice.apiSessionKey
         )
         standard.set(
-            #"{"device_id":"dev_a92sim","device_token":"dv_a92sim_secret"}"#, forKey: seedKey
+            #"{"device_id":"dev_a92sim","device_token":"dv_a92sim_secret","device_token_relay":"http://127.0.0.1:8793"}"#,
+            forKey: seedKey
         )
         standard.removeObject(forKey: WeeklyCheckResponder.arrivalKey)
         let before = notificationCounts()

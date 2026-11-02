@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -46,7 +47,9 @@ void main() {
             message: 'unauthorized',
           ),
         ),
-        'Something went wrong on the server. Try again.',
+        // The text is not borrowed: 'unauthorized' would read as a refusal.
+        // The status (400) picks the line instead.
+        'The server could not read that request.',
       );
     });
   });
@@ -117,7 +120,9 @@ void main() {
       ]) {
         expect(
           networkFailureMessage(error),
-          LocaleKeys.api_errors_unknown.tr(),
+          error is ApiException
+              ? LocaleKeys.api_errors_unknown.tr()
+              : LocaleKeys.api_errors_unknown_phone.tr(),
         );
       }
     });
@@ -197,7 +202,7 @@ void main() {
     test('an unknown code falls back to a generic sentence', () {
       expect(
         apiErrorMessage('teapot_on_fire'),
-        'Something went wrong on the server. Try again.',
+        'Something went wrong on this phone. Try again.',
       );
       expect(apiErrorMessage('teapot_on_fire'), isNot(contains('teapot')));
     });
@@ -205,7 +210,7 @@ void main() {
     test('a missing code falls back to the same sentence', () {
       expect(
         apiErrorMessage(null),
-        'Something went wrong on the server. Try again.',
+        'Something went wrong on this phone. Try again.',
       );
     });
 
@@ -260,15 +265,246 @@ void main() {
         ),
       );
 
-      expect(message, 'Something went wrong on the server. Try again.');
+      expect(
+        message,
+        "Can't reach the server. Check your connection and try again.",
+      );
       expect(message, isNot(contains('PlatformException')));
     });
 
     test('a failure with no message still reads as a sentence', () {
       expect(
         failureMessage(const Failure.database()),
-        'Something went wrong on the server. Try again.',
+        'Something went wrong on this phone. Try again.',
       );
+    });
+  });
+
+  group('a server error kept by a network fault', () {
+    test('every word it keeps has a line of its own', () {
+      for (final word in NetworkFault.knownWireErrors) {
+        expect(
+          apiErrorMessage(word, cap: word == 'cap' ? 'topics' : null),
+          isNot(LocaleKeys.api_errors_unknown.tr()),
+          reason: word,
+        );
+      }
+    });
+
+    test('reads with the same line as the server error itself', () {
+      const error = ApiException(
+        statusCode: 429,
+        message: 'rate limited',
+        code: 42901,
+      );
+      expect(
+        networkFailureMessage(NetworkFault.of(error)),
+        networkFailureMessage(error),
+      );
+      expect(
+        networkFailureMessage(
+          NetworkFault.of(
+            const ApiException(statusCode: 500, message: 'Some prose'),
+          ),
+        ),
+        LocaleKeys.api_errors_unknown.tr(),
+      );
+    });
+  });
+
+  group('server fault or phone fault', () {
+    final server = LocaleKeys.api_errors_unknown.tr();
+    final phone = LocaleKeys.api_errors_unknown_phone.tr();
+    final answer = LocaleKeys.api_errors_unknown_answer.tr();
+
+    test('the two lines differ and only the server one blames the server', () {
+      expect(server, isNot(phone));
+      expect(server, contains('server'));
+      expect(phone, isNot(contains('server')));
+    });
+
+    test('a 5xx answer is the server', () {
+      for (final status in [500, 502, 503, 504, 599]) {
+        expect(
+          failureMessage(Failure.api(statusCode: status)),
+          server,
+          reason: '$status',
+        );
+        expect(
+          networkFailureMessage(
+            ApiException(statusCode: status, message: 'Some prose'),
+          ),
+          server,
+          reason: '$status',
+        );
+      }
+    });
+
+    test('an unknown 4xx reads by its status, never as the server', () {
+      final byStatus = {
+        401: LocaleKeys.api_errors_unauthorized.tr(),
+        403: LocaleKeys.api_errors_unauthorized.tr(),
+        404: LocaleKeys.api_errors_not_found.tr(),
+        400: LocaleKeys.api_errors_invalid_request.tr(),
+        422: LocaleKeys.api_errors_invalid_request.tr(),
+        429: LocaleKeys.api_errors_rate_limited.tr(),
+        409: LocaleKeys.api_errors_incident_state_conflict.tr(),
+        // Every other 4xx has the neutral line.
+        402: answer,
+        410: answer,
+        418: answer,
+        451: answer,
+      };
+      for (final entry in byStatus.entries) {
+        final status = entry.key;
+        for (final text in ['', 'Some prose']) {
+          expect(
+            failureMessage(Failure.api(statusCode: status, message: text)),
+            entry.value,
+            reason: '$status "$text"',
+          );
+          expect(
+            networkFailureMessage(
+              ApiException(statusCode: status, message: text),
+            ),
+            entry.value,
+            reason: '$status "$text"',
+          );
+        }
+        expect(entry.value, isNot(server), reason: '$status');
+        expect(entry.value, isNot(phone), reason: '$status');
+      }
+    });
+
+    test('the neutral line blames nobody', () {
+      expect(answer, 'Something went wrong. Try again.');
+      expect(answer, isNot(contains('server')));
+      expect(answer, isNot(contains('phone')));
+    });
+
+    test('no connection reads as unreachable whatever wrapped it', () {
+      final unreachable = LocaleKeys.onboarding_connect_network_unreachable
+          .tr();
+      for (final text in [
+        'SocketException: Connection refused',
+        "ClientException with SocketException: Failed host lookup: 'a.app'",
+        'ClientException: Failed host lookup: api.critalarm.app',
+        'Network is unreachable',
+      ]) {
+        expect(
+          failureMessage(Failure.unexpected(message: text)),
+          unreachable,
+          reason: text,
+        );
+      }
+    });
+
+    test('a timeout reads as the timeout line', () {
+      final timeout = LocaleKeys.onboarding_connect_connect_timeout.tr();
+      for (final text in [
+        TimeoutException('slow', const Duration(seconds: 4)).toString(),
+        'TimeoutException after 0:00:04.000000: Future not completed',
+      ]) {
+        expect(
+          failureMessage(Failure.unexpected(message: text)),
+          timeout,
+          reason: text,
+        );
+      }
+      expect(
+        networkFailureMessage(
+          Exception(TimeoutException('x').toString()),
+        ),
+        timeout,
+      );
+    });
+
+    test('a text that is not a transport error stays the phone line', () {
+      expect(
+        failureMessage(
+          const Failure.unexpected(message: 'FormatException: bad json'),
+        ),
+        phone,
+      );
+      expect(failureMessage(const Failure.unexpected()), phone);
+    });
+
+    test('NetworkFault.safeText reads back as the same kind', () {
+      for (final kind in [
+        NetworkFaultKind.timeout,
+        NetworkFaultKind.unreachable,
+        NetworkFaultKind.other,
+      ]) {
+        expect(
+          NetworkFault.ofText(NetworkFault(kind).safeText).kind,
+          kind,
+        );
+      }
+    });
+
+    test('a known code keeps its own line whatever the status', () {
+      expect(
+        failureMessage(const Failure.api(statusCode: 500, code: 42901)),
+        LocaleKeys.api_errors_rate_limited.tr(),
+      );
+    });
+
+    test('a failure raised on the phone is the phone', () {
+      for (final failure in [
+        const Failure.unexpected(),
+        const Failure.unexpected(message: 'FormatException: bad json'),
+        const Failure.database(),
+        const Failure.unsupported(),
+        const Failure.conflict(),
+        const Failure.badRequest(),
+        const Failure.unauthorized(),
+      ]) {
+        expect(failureMessage(failure), phone, reason: '$failure');
+      }
+    });
+
+    test('an exception thrown on the phone is the phone', () {
+      for (final error in [
+        const FormatException('bad body'),
+        StateError('no session'),
+        Exception('boom'),
+        const NetworkFault(NetworkFaultKind.other),
+      ]) {
+        expect(networkFailureMessage(error), phone, reason: '$error');
+      }
+    });
+
+    test('no connection and a timeout keep their own lines', () {
+      expect(
+        networkFailureMessage(const NetworkFault(NetworkFaultKind.timeout)),
+        LocaleKeys.onboarding_connect_connect_timeout.tr(),
+      );
+      expect(
+        networkFailureMessage(
+          const NetworkFault(NetworkFaultKind.unreachable),
+        ),
+        LocaleKeys.onboarding_connect_network_unreachable.tr(),
+      );
+    });
+
+    test('a server error kept by a network fault keeps its status', () {
+      expect(
+        networkFailureMessage(
+          NetworkFault.of(const ApiException(statusCode: 503, message: 'x')),
+        ),
+        server,
+      );
+      expect(
+        networkFailureMessage(
+          NetworkFault.of(const ApiException(statusCode: 404, message: 'x')),
+        ),
+        LocaleKeys.api_errors_not_found.tr(),
+      );
+    });
+
+    test('apiErrorMessage with no status falls to the phone line', () {
+      expect(apiErrorMessage('something else'), phone);
+      expect(apiErrorMessage(null, statusCode: 500), server);
     });
   });
 }

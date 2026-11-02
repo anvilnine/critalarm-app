@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
-import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/api/management_credential_probe.dart';
+import 'package:critalarm/core/api/network_fault.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/onboarding/domain/entities/device_registration.dart';
@@ -26,8 +27,23 @@ class InMemoryServerRepository implements ServerRepository {
         cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
-      return Failure.unexpected(message: networkFailureMessage(e)).toFailure();
+      // Only the kind of the error is kept, as a stand-in text that
+      // failureMessage reads back. The exception's own text can quote what
+      // was sent.
+      return Failure.unexpected(
+        message: NetworkFault.of(e).safeText,
+      ).toFailure();
     }
+  }
+
+  /// A client that cannot ask refuses, so no token is saved unproved.
+  @override
+  Future<void> checkAdminToken(Uri baseUri, String adminToken) {
+    final Object client = _client;
+    if (client is! ManagementCredentialProbe) {
+      throw StateError('This client cannot check an admin token');
+    }
+    return client.checkManagementCredential(baseUri, adminToken);
   }
 
   @override

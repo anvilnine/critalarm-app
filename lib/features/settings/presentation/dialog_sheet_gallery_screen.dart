@@ -1,9 +1,24 @@
+import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sink.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cancel_question/cancel_question_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+/// A sink for the cancel question preview. It sends nothing, so the sheet can
+/// be tried on a phone without a cancelled plan or a request.
+final class _PreviewCancelSink implements CancelAnswerSink {
+  const _PreviewCancelSink();
+
+  @override
+  Future<void> sendReason(CancelReason reason) async {}
+
+  @override
+  Future<void> sendText(CancelReason reason, String text) async {}
+}
 
 /// Dev-only preview of the dialog and bottom-sheet library. Reachable from
 /// Developer options. Every row opens a variant and toasts the value it
@@ -269,7 +284,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
             'promoted on db-2.',
           ),
           _line(context, 'Source: cron@prod / critical'),
-          _line(context, 'Token: ca_live_7Hq2mN9xPz4wKd8'),
+          _line(context, 'Token: tk_example_not_a_real_token'),
           const SizedBox(height: 8),
           AppButton(
             label: 'Acknowledge',
@@ -281,6 +296,15 @@ class DialogSheetGalleryScreen extends StatelessWidget {
     );
     if (!context.mounted) return;
     _toast(context, 'Result: $result');
+  }
+
+  Future<void> _cancelQuestion(BuildContext context) async {
+    AppHaptics.capture();
+    await showCancelQuestionSheet(
+      context,
+      endsAt: DateTime.now().add(const Duration(days: 7)),
+      sink: const _PreviewCancelSink(),
+    );
   }
 
   Widget _line(BuildContext context, String text) {
@@ -385,6 +409,13 @@ class DialogSheetGalleryScreen extends StatelessWidget {
                     'Auto-expanding',
                     'Peek, then drag to full',
                     () => _expanding(context),
+                  ),
+                  const SizedBox(height: 8),
+                  _row(
+                    context,
+                    'Cancel question',
+                    'Sends nothing',
+                    () => _cancelQuestion(context),
                   ),
                 ],
               ),

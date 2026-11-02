@@ -1,12 +1,14 @@
-// The two buy models over the real RevenueCat classes the composition root
-// hands them in a store build: RevenueCatSubscriptionRepository for Cloud and
-// RevenueCatProPackShop for Pro. Only RevenueCatService is faked, so every
-// store answer goes through the same mapping a phone runs.
+// The two buy models over the real classes the composition root hands them
+// in a Play or App Store build: StoreSubscriptionRepository for Cloud and
+// StoreProPackShop for Pro, both over RevenueCatBilling. Only
+// RevenueCatService is faked, so every store answer goes through the same
+// mapping a phone runs.
 
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/data/asset_price_book.dart';
-import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/data/repositories/store_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
@@ -14,7 +16,7 @@ import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_use
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hosted_paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/pro_paywall_buy_cubit.dart';
-import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/data/store_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -188,7 +190,9 @@ void main() {
     HostedPaywallBuyCubit build({
       PriceBook priceBook = const EmptyPriceBook(),
     }) {
-      final repository = RevenueCatSubscriptionRepository(service);
+      final repository = StoreSubscriptionRepository(
+        RevenueCatBilling(service),
+      );
       return HostedPaywallBuyCubit(
         getOfferings: GetOfferingsUsecase(repository),
         purchasePackage: PurchasePackageUsecase(repository),
@@ -319,7 +323,7 @@ void main() {
             override: const NoProPackOverride(),
             now: () => now,
           ),
-          shop: RevenueCatProPackShop(service),
+          shop: StoreProPackShop(RevenueCatBilling(service)),
           priceBook: priceBook,
           wait: (d) async => now = now.add(d),
         );

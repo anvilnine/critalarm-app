@@ -1,3 +1,4 @@
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,6 +11,11 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 /// using official Firebase plugins.
 /// Collection is strictly disabled at startup and enabled only
 /// via explicit user opt-in.
+///
+/// [collectionAllowed] false (a debug, profile or desk build, or a web page
+/// off the production host, see `telemetryAllowedFor`) means analytics and
+/// crash reports stay off for the whole run, whatever the user's switch
+/// says. Remote Config still works.
 class FirebaseTelemetryGate implements TelemetryGate {
   FirebaseTelemetryGate({
     this.app,
@@ -17,10 +23,19 @@ class FirebaseTelemetryGate implements TelemetryGate {
     this.analytics,
     this.crashlytics,
     this.remoteConfig,
+    this.collectionAllowed = true,
+    this.isWeb = false,
   });
 
   final FirebaseApp? app;
   final FirebaseOptions? options;
+
+  /// Whether this run may send analytics and crash reports at all.
+  final bool collectionAllowed;
+
+  /// Web, where asking for the analytics instance starts the JavaScript SDK
+  /// and its first request to Google.
+  final bool isWeb;
   FirebaseAnalytics? analytics;
   FirebaseCrashlytics? crashlytics;
   FirebaseRemoteConfig? remoteConfig;
@@ -55,18 +70,29 @@ class FirebaseTelemetryGate implements TelemetryGate {
       }
 
       final hasApp = app != null || Firebase.apps.isNotEmpty;
-      if (analytics == null && hasApp) {
+      if (!collectionAllowed && isWeb) {
+        // On web the first call on the analytics instance loads gtag.js
+        // and fetches the analytics config, before collection can be
+        // switched off. So in a run that may not send, it is never made.
+        analytics = null;
+        crashlytics = null;
+      }
+      if (analytics == null && hasApp && (collectionAllowed || !isWeb)) {
         try {
           analytics = app != null
               ? FirebaseAnalytics.instanceFor(app: app!)
               : FirebaseAnalytics.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.analytics', e);
+        }
       }
 
-      if (crashlytics == null && hasApp) {
+      if (crashlytics == null && hasApp && (collectionAllowed || !isWeb)) {
         try {
           crashlytics = FirebaseCrashlytics.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.crashlytics', e);
+        }
       }
 
       if (remoteConfig == null && hasApp) {
@@ -74,14 +100,23 @@ class FirebaseTelemetryGate implements TelemetryGate {
           remoteConfig = app != null
               ? FirebaseRemoteConfig.instanceFor(app: app!)
               : FirebaseRemoteConfig.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.remoteConfig', e);
+        }
       }
 
-      // By default, collection is DISABLED at startup
+      // By default, collection is DISABLED at startup. On a phone this is
+      // also saved by the SDK, so a run that may not send clears an "on"
+      // an earlier build left behind.
       await analytics?.setAnalyticsCollectionEnabled(false);
       await crashlytics?.setCrashlyticsCollectionEnabled(false);
       _analyticsEnabled = false;
       _crashlyticsEnabled = false;
+      if (!collectionAllowed) {
+        // Nothing past this point may reach either SDK.
+        analytics = null;
+        crashlytics = null;
+      }
 
       // Sets Remote Config settings (1 hour minimum fetch interval)
       await remoteConfig?.setConfigSettings(
@@ -109,6 +144,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setAnalyticsEnabled(bool enabled) async {
+    if (!collectionAllowed) {
+      _analyticsEnabled = false;
+      return;
+    }
     _analyticsEnabled = enabled;
     try {
       if (enabled) {
@@ -124,6 +163,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setCrashlyticsEnabled(bool enabled) async {
+    if (!collectionAllowed) {
+      _crashlyticsEnabled = false;
+      return;
+    }
     _crashlyticsEnabled = enabled;
     try {
       if (enabled) {

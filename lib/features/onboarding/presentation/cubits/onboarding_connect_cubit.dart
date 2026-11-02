@@ -488,9 +488,20 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
                 .tr(),
           ),
         );
+      case AdminTokenRefused():
+        emit(
+          state.copyWith(
+            status: OnboardingConnectStatus.idle,
+            adminTokenError: connectOutcomeMessage(outcome),
+          ),
+        );
       case ServerUnreachable() ||
           ServerAddressDiffers() ||
           ServerDowngrade() ||
+          ServerAnswerInvalid() ||
+          LinkServerNotSelfHosted() ||
+          RelayDiffers() ||
+          RegisteredElsewhere() ||
           ServerIncompatible() ||
           ConnectionNotSaved() ||
           ConnectTransportError():

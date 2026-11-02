@@ -10,8 +10,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Entries do not ship a language: only shippedLocaleTags controls the list.
 const languageNativeNames = <String, String>{
   'en': 'English',
+  'cs': 'Čeština',
   'de': 'Deutsch',
+  'es': 'Español',
+  'fr': 'Français',
+  'it': 'Italiano',
+  'nl': 'Nederlands',
+  'pl': 'Polski',
+  'pt-BR': 'Português (Brasil)',
+  'tr': 'Türkçe',
+  'uk': 'Українська',
   'ja': '日本語',
+  'ko': '한국어',
+  'zh-Hans': '简体中文',
+  'zh-Hant': '繁體中文',
 };
 
 class LanguageChoice {
@@ -35,10 +47,12 @@ class LanguageCubit extends Cubit<LanguageState> {
     required this.bridge,
     required this.replanReminders,
     required this.openReport,
-  }) : super(LanguageState(
-         selectedTag: host.savedTag,
-         effectiveTag: host.currentTag,
-       ));
+  }) : super(
+         LanguageState(
+           selectedTag: host.savedTag,
+           effectiveTag: host.currentTag,
+         ),
+       );
 
   final LanguageLocaleHost host;
   final NativeLocaleBridge bridge;

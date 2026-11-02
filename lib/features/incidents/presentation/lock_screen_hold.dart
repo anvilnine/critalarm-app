@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 
 /// Whether the alarm screen draws its ringing layout for [state]: an
@@ -119,7 +120,13 @@ final class LockScreenHold {
     _isCovered = true;
     // Nothing to wait for: the screen on top is what shows.
     final ringing = _ringing;
-    if (ringing != null) unawaited(_send(ringing).catchError((Object _) {}));
+    if (ringing != null) {
+      unawaited(
+        _send(ringing).catchError((Object e) {
+          noteQuiet('lock_screen_hold.cover', e);
+        }),
+      );
+    }
   }
 
   /// The screen on top closed. A screen that still rings holds the window.
@@ -140,6 +147,10 @@ final class LockScreenHold {
       timer.cancel();
     }
     _waiting.clear();
-    unawaited(_send(ringing ?? routeIncidentId).catchError((Object _) {}));
+    unawaited(
+      _send(ringing ?? routeIncidentId).catchError((Object e) {
+        noteQuiet('lock_screen_hold.leave', e);
+      }),
+    );
   }
 }

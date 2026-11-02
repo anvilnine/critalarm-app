@@ -128,10 +128,12 @@ final class Nothing extends LockTapAnswer {
 /// 2. Not offered: [Nothing]. Never a paywall, never a try.
 /// 3. The plan is not read: [WaitForPlan]. Nothing is sold, tried or saved
 ///    on a guess.
-/// 4. Open, confirming or unread, with [LockTapKind.tryIt] or
-///    [LockTapKind.keep]: [DoIt].
+/// 4. Usable (open, confirming, or unread with an open last sure answer),
+///    with [LockTapKind.tryIt] or [LockTapKind.keep]: [DoIt].
 /// 5. The same decisions with [LockTapKind.seePlan]: [Nothing]. There is
 ///    nothing to sell.
+/// 5b. Unread with no open last sure answer: [Nothing]. Nobody knows, so
+///    nothing is saved and nothing is sold.
 /// 6. Locked, [LockTapKind.tryIt] and [hasTry]: [TryIt].
 /// 7. Locked, [LockTapKind.tryIt] and no try: [OpenPaywall]. With no try,
 ///    the tap is the person reaching for the thing.
@@ -145,9 +147,10 @@ LockTapAnswer lockTapFor({
   if (tap == LockTapKind.open) return const OpenPage();
   if (decision is FeatureNotOffered) return const Nothing();
   if (!isPlanRead) return const WaitForPlan();
-  if (decision is! FeatureLocked) {
+  if (decision.isUsable) {
     return tap == LockTapKind.seePlan ? const Nothing() : const DoIt();
   }
+  if (decision is! FeatureLocked) return const Nothing();
   return switch (tap) {
     LockTapKind.tryIt when hasTry => const TryIt(),
     LockTapKind.tryIt ||

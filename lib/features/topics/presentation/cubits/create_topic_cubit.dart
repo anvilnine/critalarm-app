@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -99,11 +101,21 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
 
   /// Whether the cap on critical topics applies here. Waits for the plan
   /// to be read, so a paying person never sees the free count first.
-  Future<bool> _isCapped() async =>
-      !(await _featureAccess?.usableOnceReady(
-            AppFeature.unlimitedCriticalTopics,
-          ) ??
-          false);
+  ///
+  /// While the plan cannot be read the answer is no: the count card and the
+  /// Pro ask would sell on a guess, and the server enforces the cap anyway.
+  Future<bool> _isCapped() async {
+    final access = _featureAccess;
+    if (access == null) return true;
+    try {
+      final decision = await access.decideOnceReady(
+        AppFeature.unlimitedCriticalTopics,
+      );
+      return !decision.isUsable;
+    } on HoldingUnreadable {
+      return false;
+    }
+  }
 
   /// Reads the plan again and redraws the free-tier parts of the screen.
   void _onPlanChanged() {
@@ -470,7 +482,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             step: CreateTopicStep.topic,
             // failure.message is the server's wire code, e.g. "cap". Never
             // put that under a text field.
-            errorMessage: apiErrorMessage(failure.message, cap: cap?.name),
+            errorMessage: apiErrorMessage(
+              failure.message,
+              cap: cap?.name,
+              statusCode: failure is ApiFailure ? failure.statusCode : null,
+            ),
             capReached: cap,
             // The store says Pro but the server has not caught up, so a cap
             // here means "wait a moment", not "go Pro".

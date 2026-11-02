@@ -1,8 +1,10 @@
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
@@ -32,6 +34,14 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// 9. The topic list the phone kept to open with (the `topics` table of the
 ///    local store). It is also read only for the account and server it was
 ///    written for, so a copy that survives a failed drop is still never shown.
+/// 10. Cancel answers still waiting for a retry. Each names the account that
+///    is going.
+///
+/// The archive of incidents and messages is not on the list, on purpose. Its
+/// rows carry the scope of the account they were read for and every read asks
+/// for the current scope only, so a sign-out keeps the rows (they come back
+/// when the same account signs in) and no other account is ever shown them.
+/// [forgetDeleted] is the one that removes them, for an account that is gone.
 ///
 /// Not on the list, on purpose: a person's own sound files and which sound
 /// each topic rings with. Those are the person's recordings and choices,
@@ -44,8 +54,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 /// rings: a person's own picture must not stay on a phone they signed out
 /// of, deleted their account on, or pointed at another server.
 ///
-/// Settings, permissions and the archive are not here either. The connect
-/// to a different server drops the archive itself.
+/// Settings and permissions are not here either. The connect to a different
+/// server drops the whole archive, every scope of it, itself.
 class AccountData {
   AccountData({
     required this._acks,
@@ -56,7 +66,9 @@ class AccountData {
     required this._soundLock,
     required this._ownLook,
     this._proofLog,
+    this._cancelAnswers,
     this._heldTopics,
+    this._archive,
     this._afterForget,
   });
 
@@ -69,9 +81,16 @@ class AccountData {
   final OwnLookStore _ownLook;
   final ProofLog? _proofLog;
 
+  /// The cancel answers still waiting for a retry.
+  final CancelAnswerSender? _cancelAnswers;
+
   /// The topic list kept on the phone. Null where the local store is not
   /// open: the web build, or a store that would not open.
   final TopicStore? _heldTopics;
+
+  /// The phone's archive of incidents and messages, for [forgetDeleted].
+  /// Null where the local store is not open.
+  final LocalStore? _archive;
 
   /// Runs once everything is dropped: the two flag writers check again, so
   /// native reads the cleared state, the copy in the iOS app group is made
@@ -82,7 +101,7 @@ class AccountData {
   Future<void> forget() async {
     // The own photo first. It is the most private thing on the list, so
     // nothing that fails after it can leave it on the phone.
-    await _quietly(_ownLook.forgetAll);
+    await quietly('account_data.ownLook', _ownLook.forgetAll);
     // The three drops both callers always made, in the order they made
     // them. A failure here still stops the caller, as it did: the first
     // one is thrown again at the end. It no longer stops the rest of the
@@ -104,24 +123,44 @@ class AccountData {
     // The rest never stops the caller: a phone that could not drop a note
     // must still be able to register again. A flag that stays behind is
     // still not trusted, because its tag is not this account's.
-    await _quietly(_challenges.forgetAll);
-    await _quietly(_alarmStyles.forgetAll);
-    await _quietly(_soundLock.clear);
+    await quietly('account_data.challenges', _challenges.forgetAll);
+    await quietly('account_data.alarmStyles', _alarmStyles.forgetAll);
+    await quietly('account_data.soundLock', _soundLock.clear);
     final proofLog = _proofLog;
-    if (proofLog != null) await _quietly(proofLog.clear);
+    if (proofLog != null) {
+      await quietly('account_data.proofLog', proofLog.clear);
+    }
+    final cancelAnswers = _cancelAnswers;
+    if (cancelAnswers != null) {
+      await quietly('account_data.cancelAnswers', cancelAnswers.clear);
+    }
     final heldTopics = _heldTopics;
-    if (heldTopics != null) await _quietly(heldTopics.clear);
+    if (heldTopics != null) {
+      await quietly('account_data.heldTopics', heldTopics.clear);
+    }
     final after = _afterForget;
-    if (after != null) await _quietly(after);
+    if (after != null) await quietly('account_data.afterForget', after);
     final failed = failure;
     if (failed != null) {
       Error.throwWithStackTrace(failed, failedAt ?? StackTrace.current);
     }
   }
 
-  Future<void> _quietly(Future<void> Function() drop) async {
-    try {
-      await drop();
-    } on Object catch (_) {}
+  /// [forget], and the archive rows of the account that was deleted: the one
+  /// named by [scope], or the account the phone is on now when none is given.
+  ///
+  /// Nobody can sign in to a deleted account again, so the copy of its
+  /// history goes. A sign-out calls [forget] alone.
+  Future<void> forgetDeleted({String? scope}) async {
+    final archive = _archive;
+    if (archive != null) {
+      await quietly(
+        'account_data.archive',
+        scope == null
+            ? archive.deleteCurrentArchive
+            : () => archive.deleteArchiveOf(scope),
+      );
+    }
+    await forget();
   }
 }

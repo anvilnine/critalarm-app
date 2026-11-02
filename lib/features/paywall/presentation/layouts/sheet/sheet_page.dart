@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -440,7 +441,7 @@ class _LockBadge extends StatelessWidget {
           ),
           const SizedBox(width: Spacing.s1),
           Text(
-            label.toUpperCase(),
+            upperInContext(label, context),
             style: AppTypography.small(colors.inkFixed, fontSize: 11).copyWith(
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
