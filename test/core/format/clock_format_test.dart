@@ -10,8 +10,8 @@ void main() {
 
   final morning = DateTime(2026, 11, 2, 7, 5, 9);
   final evening = DateTime(2026, 11, 2, 19, 5, 9);
-  final midnight = DateTime(2026, 11, 2, 0, 0, 0);
-  final noon = DateTime(2026, 11, 2, 12, 0, 0);
+  final midnight = DateTime(2026, 11, 2);
+  final noon = DateTime(2026, 11, 2, 12);
 
   group('24-hour clock', () {
     test('is the padded HH:mm the app always printed', () {

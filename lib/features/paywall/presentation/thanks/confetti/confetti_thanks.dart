@@ -24,15 +24,6 @@ const PaywallThanks confettiThanks = PaywallThanks(
   builder: _build,
 );
 
-/// The box the mascot stands in at second [t], which its lift and squash
-/// move. After an outro it starts on the stage.
-Rect _critBox(PaywallThanksScope scope, ThanksStage stage, double t) =>
-    Rect.lerp(
-      thanksStartBox(scope.mascot) ?? stage.crit,
-      stage.crit,
-      ConfettiTimeline.travel(t),
-    )!;
-
 /// Where the mascot's box is at second [t], the box its moves are made
 /// on. Its lift and squash are not in it.
 Rect confettiMascotAt(PaywallThanksScope scope, double t) {
@@ -43,7 +34,11 @@ Rect confettiMascotAt(PaywallThanksScope scope, double t) {
     lines: lines,
     textScale: scope.textScale,
   );
-  return _critBox(scope, stage, t);
+  return thanksCritBox(
+    scope,
+    crit: stage.crit,
+    travel: ConfettiTimeline.travel(t),
+  );
 }
 
 /// What is felt on the way. While the purchase cue sounds every beat is a
@@ -104,7 +99,11 @@ class ConfettiThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - ConfettiTimeline.end;
-        final box = _critBox(scope, stage, t);
+        final box = thanksCritBox(
+          scope,
+          crit: stage.crit,
+          travel: ConfettiTimeline.travel(t),
+        );
         final button = ConfettiTimeline.button(t);
 
         return Stack(

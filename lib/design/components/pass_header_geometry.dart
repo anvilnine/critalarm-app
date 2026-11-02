@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/components/pass_page.dart';
 import 'package:critalarm/design/components/pass_route.dart';
+import 'package:critalarm/design/lerp_linear.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/foundation.dart';
 
@@ -185,13 +186,13 @@ PassHeaderPose passHeaderPoseAt({
   final collapsedRight = trailingWidth > 0
       ? width - kPassRingLeft - trailingWidth - kPassCollapsedGap
       : width - kPassSidePadding;
-  final left = _lerp(restLeft, collapsedLeft, sideways);
-  final right = math.max(left, _lerp(restRight, collapsedRight, sideways));
+  final left = lerpLinear(restLeft, collapsedLeft, sideways);
+  final right = math.max(left, lerpLinear(restRight, collapsedRight, sideways));
 
-  final top = _lerp(restTop, collapsedTop, t);
-  final size = _lerp(restValueSize, kPassCollapsedValueSize, t);
-  final scale = _lerp(textScale, collapsedScale, t);
-  final gap = _lerp(_kRestGap, _kCollapsedGap, t);
+  final top = lerpLinear(restTop, collapsedTop, t);
+  final size = lerpLinear(restValueSize, kPassCollapsedValueSize, t);
+  final scale = lerpLinear(textScale, collapsedScale, t);
+  final gap = lerpLinear(_kRestGap, _kCollapsedGap, t);
 
   // The value keeps the lines it had at rest and gives them all up but one
   // when it is collapsed.
@@ -217,7 +218,5 @@ PassHeaderPose passHeaderPoseAt({
     distance: distance,
   );
 }
-
-double _lerp(double a, double b, double t) => a + (b - a) * t;
 
 double _smooth(double x) => x * x * (3 - 2 * x);

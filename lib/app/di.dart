@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' show PlatformDispatcher;
 
 import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/observed_api_session_store.dart';

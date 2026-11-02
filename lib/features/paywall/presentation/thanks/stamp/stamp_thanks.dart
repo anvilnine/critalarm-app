@@ -25,14 +25,6 @@ const PaywallThanks stampThanks = PaywallThanks(
   builder: _build,
 );
 
-/// The box the mascot stands in at second [t], which its lift and squash
-/// move. After an outro it starts on the stage.
-Rect _critBox(PaywallThanksScope scope, StampPlan plan, double t) => Rect.lerp(
-  thanksStartBox(scope.mascot) ?? plan.crit,
-  plan.crit,
-  StampTimeline.travel(t),
-)!;
-
 /// Where the mascot's box is at second [t], the box its moves are made
 /// on. Its lift and squash are not in it.
 Rect stampMascotAt(PaywallThanksScope scope, double t) {
@@ -43,7 +35,11 @@ Rect stampMascotAt(PaywallThanksScope scope, double t) {
     lines: lines,
     textScale: scope.textScale,
   );
-  return _critBox(scope, plan, t);
+  return thanksCritBox(
+    scope,
+    crit: plan.crit,
+    travel: StampTimeline.travel(t),
+  );
 }
 
 /// What is felt on the way, and the one thing heard. While the purchase
@@ -108,7 +104,11 @@ class StampThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - StampTimeline.end;
-        final box = _critBox(scope, plan, t);
+        final box = thanksCritBox(
+          scope,
+          crit: plan.crit,
+          travel: StampTimeline.travel(t),
+        );
         final fed = StampTimeline.fed(t);
         final lift = StampTimeline.lift(t, lines: lines.length);
         final button = StampTimeline.button(t);
