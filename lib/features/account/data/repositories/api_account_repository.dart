@@ -2,6 +2,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -147,7 +148,15 @@ final class ApiAccountRepository implements AccountRepository {
     // that works, which is the difference between a failed sign-out and a
     // handset that can never talk to the server again.
     if (token != null) {
-      await api.deleteDevice(deviceId: current.deviceId, deviceToken: token);
+      try {
+        await api.deleteDevice(deviceId: current.deviceId, deviceToken: token);
+      } on ApiException catch (e) {
+        // 401 or 404 means the server no longer knows this device: an earlier
+        // sign-out deleted it and then stopped on the store logout. Nothing
+        // is left to delete, so a retry carries on to the rest. Any other
+        // answer is a real refusal and stops here as before.
+        if (e.statusCode != 401 && e.statusCode != 404) rethrow;
+      }
     }
     // The next line registers a new anonymous account and logs the store in
     // to it, so the store has to be logged out of the old one first or the

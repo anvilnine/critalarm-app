@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -74,13 +75,33 @@ final class _MemoryConnectionRepository implements ConnectionRepository {
 PlatformException _storeError(PurchasesErrorCode code) =>
     PlatformException(code: code.index.toString(), message: code.name);
 
+/// A client whose device delete can be made to answer with a given status.
+final class _ScriptedDeleteApiClient extends MockApiClient {
+  _ScriptedDeleteApiClient(super.server);
+
+  ApiException? deleteFailure;
+  int deleteCalls = 0;
+
+  @override
+  Future<void> deleteDevice({
+    required String deviceId,
+    required String deviceToken,
+    Uri? relayUri,
+  }) {
+    deleteCalls++;
+    final failure = deleteFailure;
+    if (failure != null) return Future<void>.error(failure);
+    return super.deleteDevice(deviceId: deviceId, deviceToken: deviceToken);
+  }
+}
+
 final class _Harness {
   late final SharedPreferences prefs;
   late final DeviceIdentityStore devices;
   late final ApiAccountRepository account;
   late final _MemoryConnectionRepository connections;
   late final FakeIdentityRepository identities;
-  late final MockApiClient api;
+  late final _ScriptedDeleteApiClient api;
   late final _MemoryApiSessionStore sessions;
 
   int forgets = 0;
@@ -101,7 +122,7 @@ final class _Harness {
         mode: ServerModes.hosted,
       ),
     );
-    api = MockApiClient(server);
+    api = _ScriptedDeleteApiClient(server);
     devices = DeviceIdentityStore(prefs);
     sessions = _MemoryApiSessionStore();
     connections = _MemoryConnectionRepository();
@@ -221,4 +242,81 @@ void main() {
       );
     });
   }
+
+  group('signOutDevice retry after a store failure', () {
+    late _Harness h;
+    late String? oldId;
+
+    setUp(() async {
+      h = _Harness();
+      await h.start();
+      oldId = h.deviceId;
+    });
+
+    // The first press deletes the device on the server and then stops on the
+    // store. The second finds the server no longer knows the device.
+    for (final status in [401, 404]) {
+      test(
+        'a $status on the delete is already deleted, so a retry finishes',
+        () async {
+          h.storeError = _storeError(PurchasesErrorCode.networkError);
+          await expectLater(
+            h.account.signOutDevice(),
+            throwsA(isA<PlatformException>()),
+          );
+          expect(h.api.deleteCalls, 1);
+          expect(h.deviceId, oldId);
+          expect(h.forgets, 0);
+
+          // The mock server dropped the device on the first press; a real one
+          // answers either status for a device it has forgotten.
+          h.api.deleteFailure = ApiException(
+            statusCode: status,
+            message: 'gone',
+          );
+          h.storeError = null;
+
+          await h.account.signOutDevice();
+
+          expect(h.api.deleteCalls, 2);
+          expect(h.storeLogOuts, 2);
+          expect(h.forgets, 1);
+          expect(h.deviceId, isNot(oldId));
+          expect(h.deviceToken, isNotNull);
+        },
+      );
+    }
+
+    test(
+      'without a scripted answer the mock server already says 401',
+      () async {
+        h.storeError = _storeError(PurchasesErrorCode.networkError);
+        await expectLater(
+          h.account.signOutDevice(),
+          throwsA(isA<PlatformException>()),
+        );
+        h.storeError = null;
+
+        await h.account.signOutDevice();
+
+        expect(h.deviceId, isNot(oldId));
+      },
+    );
+
+    test('a 500 on the delete still stops before the store logout', () async {
+      h.api.deleteFailure = const ApiException(
+        statusCode: 500,
+        message: 'server error',
+      );
+
+      await expectLater(
+        h.account.signOutDevice(),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(h.storeLogOuts, 0);
+      expect(h.forgets, 0);
+      expect(h.deviceId, oldId);
+    });
+  });
 }
