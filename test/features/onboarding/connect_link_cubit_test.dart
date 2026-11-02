@@ -384,6 +384,11 @@ void main() {
       await cubit.connect();
       expect(cubit.state.isFailed, isTrue);
       expect(cubit.state.errorMessage, isNot(contains(_token)));
+      // A throw on the phone does not blame the server.
+      expect(
+        cubit.state.errorMessage,
+        'Something went wrong on this phone. Try again.',
+      );
       await cubit.close();
     });
   });

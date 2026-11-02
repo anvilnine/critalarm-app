@@ -6,7 +6,9 @@ import 'package:critalarm/core/alarm/alarm_signals.dart';
 import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/format/clock_format.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -60,7 +62,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._proofLog,
     this._setupUse,
     this._screenFlashSignals,
+    bool Function()? use24Hour,
   ]) : _now = now ?? DateTime.now,
+       _use24Hour = use24Hour ?? _always24Hour,
        super(const CriticalAlarmState()) {
     current = this;
     // A second incident can open while the screen is already up. The shared
@@ -143,6 +147,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   List<String> _flashingTopics = const <String>[];
 
   final DateTime Function() _now;
+
+  /// Whether the phone is set to the 24-hour clock, asked each time a time is
+  /// written. The app passes the platform's setting; left out, 24 hours.
+  final bool Function() _use24Hour;
+
+  static bool _always24Hour() => true;
 
   /// What the server sent for the incident whose text the sample replaced,
   /// so the card handed to the native side keeps the real words. Null when
@@ -902,12 +912,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         case FirstToolVerdict.notIt:
           return null;
         case FirstToolVerdict.over:
-          unawaited(_quietly(ring.forgetFirstTool));
+          // A write the phone would not save never stops the alarm.
+          unawaited(
+            quietly('critical_alarm.forgetFirstTool', ring.forgetFirstTool),
+          );
           return null;
         case FirstToolVerdict.firstRing:
           if (held != null && !held.wasSeen) {
             unawaited(
-              _quietly(
+              quietly(
+                'critical_alarm.noteFirstToolSeen',
                 () => ring.noteFirstToolSeen(
                   openedAt: incident.openedAt,
                   lastMessageAt: incident.lastMessageAt,
@@ -916,21 +930,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             );
           }
           if (incident.isAcked && !(held?.wasAcked ?? true)) {
-            unawaited(_quietly(ring.noteFirstToolAcked));
+            unawaited(
+              quietly(
+                'critical_alarm.noteFirstToolAcked',
+                ring.noteFirstToolAcked,
+              ),
+            );
           }
           return incident.id;
       }
     } on Object catch (_) {
       return null;
-    }
-  }
-
-  /// Runs a write to the phone that must never surface as an error.
-  static Future<void> _quietly(Future<void> Function() write) async {
-    try {
-      await write();
-    } on Object catch (_) {
-      // The phone would not save it. The alarm goes on regardless.
     }
   }
 
@@ -1200,7 +1210,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
     // Done with, whether the server closed it or not: a close that failed
     // leaves a real incident, which rings and is answered like any other.
-    if (ring != null) await _quietly(ring.forgetFirstTool);
+    if (ring != null) {
+      await quietly('critical_alarm.forgetFirstTool', ring.forgetFirstTool);
+    }
     if (isClosed) return false;
     return state.incident?.id == incidentId;
   }
@@ -1404,9 +1416,5 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour.toString().padLeft(2, '0');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
+  String _formatTime(DateTime dt) => formatClock(dt, is24Hour: _use24Hour());
 }

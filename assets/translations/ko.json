@@ -1518,7 +1518,9 @@
     "challenge_failed": "릴레이가 서버를 검증하지 못했어요.",
     "registration_closed": "릴레이가 등록을 받지 않고 있어요.",
     "topic_mismatch": "토픽이 등록된 서버와 일치하지 않아요.",
-    "unknown": "서버에 문제가 생겼어요. 다시 시도해 주세요."
+    "unknown": "서버에 문제가 생겼어요. 다시 시도해 주세요.",
+    "unknown_phone": "이 휴대폰에서 문제가 생겼어요. 다시 시도해 주세요.",
+    "unknown_answer": "문제가 생겼어요. 다시 시도해 주세요."
   },
   "sound_library": {
     "names": {

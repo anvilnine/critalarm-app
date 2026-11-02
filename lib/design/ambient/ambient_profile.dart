@@ -1,4 +1,5 @@
 import 'package:critalarm/design/ambient/ambient_shape.dart';
+import 'package:critalarm/design/lerp_linear.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -36,7 +37,7 @@ class AmbientProfile {
 
     return AmbientProfile(
       canvas: Color.lerp(a.canvas, b.canvas, progress)!,
-      surfaceOpacity: _lerp(
+      surfaceOpacity: lerpLinear(
         a.surfaceOpacity,
         b.surfaceOpacity,
         progress,
@@ -60,5 +61,3 @@ class AmbientProfile {
   int get hashCode =>
       Object.hash(canvas, surfaceOpacity, Object.hashAll(shapes));
 }
-
-double _lerp(double a, double b, double t) => a + (b - a) * t;

@@ -311,8 +311,11 @@ class AccountCubit extends Cubit<AccountState> {
       await account.signOutDevice();
     } on Object catch (_) {
       if (isClosed) return;
-      // The delete failed, so the phone still holds its old credential and is
-      // still signed in. Say so rather than pretending it worked.
+      // Either the delete failed, so the phone still holds its old credential
+      // and is still signed in, or the delete went through and the store
+      // logout failed, so the phone is signed in on a credential the server
+      // has dropped. Pressing sign out again finishes the second case. Say
+      // so rather than pretending it worked.
       emit(
         state.copyWith(
           status: AccountStatus.signedIn,

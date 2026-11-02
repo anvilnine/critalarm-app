@@ -16,7 +16,11 @@ import 'package:flutter_test/flutter_test.dart';
 void translateErrors(String text) => Localization.load(
   const Locale('en'),
   translations: Translations({
-    'api_errors': {'unknown': text},
+    'api_errors': {
+      'unknown': text,
+      'unknown_phone': text,
+      'unknown_answer': text,
+    },
   }),
 );
 

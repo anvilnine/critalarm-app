@@ -1518,7 +1518,9 @@
     "challenge_failed": "中继无法验证服务器。",
     "registration_closed": "中继已关闭注册。",
     "topic_mismatch": "此主题与已注册的服务器不匹配。",
-    "unknown": "服务器异常，请重试。"
+    "unknown": "服务器异常，请重试。",
+    "unknown_phone": "这部手机上出了问题，请重试。",
+    "unknown_answer": "出了点问题，请重试。"
   },
   "sound_library": {
     "names": {

@@ -30,7 +30,7 @@ knows. It is a copy the server replaces on every answer, not an archive.
   call `forget`). A connect to a different server (`clearServerData`) and the auto-delete setting
   cover every scope.
 - Every answer that carries incidents or messages is checked against the account that asked.
-  `ScopedApiClient` (`lib/core/api/scoped_api_client.dart`, wraps `HttpApiClient` in `di.dart`)
+  `ScopedApiClient` (`lib/core/api/scoped_api_client.dart`, wraps `HttpApiClient` in `lib/app/di/register_core.dart`)
   reads the scope (`HeldAccountScope`, server and account) when `getIncidents`, `getIncident`,
   `ackIncident`, `closeIncident`, `publishMessage` or `pollMessages` starts and again when the
   answer or the error arrives. If the two differ it throws `StaleAccountException`. Only the

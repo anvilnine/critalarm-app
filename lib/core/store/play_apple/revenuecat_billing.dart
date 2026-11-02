@@ -63,15 +63,37 @@ final class RevenueCatBilling implements StoreBilling {
   Future<StoreCustomer> restore() =>
       _store(() async => storeCustomerOf(await service.restorePurchases()));
 
-  // The three account calls below hand back whatever the SDK throws, as
-  // they did before the seam. Their callers treat any throw the same way.
+  // The account calls below hand back whatever the SDK throws, as they did
+  // before the seam, except [logOut]. Their callers treat any throw the
+  // same way.
 
   @override
   Future<void> identifyAccount(String accountId) =>
       service.identifyAccount(accountId);
 
+  /// RevenueCat answers `logOutWithAnonymousUserError` when the store user
+  /// is already anonymous. That is the state [logOut] asks for, so it
+  /// returns quietly. Any other store error comes back as a
+  /// [StoreBillingException].
   @override
-  Future<void> logOut() => service.logOut();
+  Future<void> logOut() async {
+    try {
+      await service.logOut();
+    } on PlatformException catch (error) {
+      if (_isAnonymousLogOut(error)) return;
+      throw storeBillingExceptionOf(error);
+    }
+  }
+
+  static bool _isAnonymousLogOut(PlatformException error) {
+    try {
+      return PurchasesErrorHelper.getErrorCode(error) ==
+          PurchasesErrorCode.logOutWithAnonymousUserError;
+    } on Object catch (_) {
+      // A code that is not a number is not the store's anonymous answer.
+      return false;
+    }
+  }
 
   @override
   Future<void> invalidateCustomerCache() =>

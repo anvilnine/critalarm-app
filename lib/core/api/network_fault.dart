@@ -32,9 +32,22 @@ final class NetworkFault implements Exception {
     if (error is TimeoutException) {
       return const NetworkFault(NetworkFaultKind.timeout);
     }
-    if (error is SocketException ||
-        error is HttpException ||
-        readsAsUnreachable(error.toString())) {
+    if (error is SocketException || error is HttpException) {
+      return const NetworkFault(NetworkFaultKind.unreachable);
+    }
+    return NetworkFault.ofText(error.toString());
+  }
+
+  /// `of` for an error that is only its text, such as the message of a
+  /// `Failure.unexpected` the repositories built from `e.toString()`.
+  /// Anything that does not read as a transport error is
+  /// [NetworkFaultKind.other].
+  factory NetworkFault.ofText(String? text) {
+    if (text == null) return const NetworkFault(NetworkFaultKind.other);
+    if (readsAsTimeout(text)) {
+      return const NetworkFault(NetworkFaultKind.timeout);
+    }
+    if (readsAsUnreachable(text)) {
       return const NetworkFault(NetworkFaultKind.unreachable);
     }
     return const NetworkFault(NetworkFaultKind.other);
@@ -69,6 +82,18 @@ final class NetworkFault implements Exception {
     'topic mismatch',
     'topic must retain a token',
   };
+
+  /// A stand-in text for this fault that [NetworkFault.ofText] reads back as
+  /// the same kind, and that holds nothing the original exception said. For
+  /// a place that has to keep a text in a `Failure` and may not keep the
+  /// exception's own.
+  String get safeText => switch (kind) {
+    NetworkFaultKind.timeout => 'TimeoutException',
+    NetworkFaultKind.unreachable => 'SocketException',
+    NetworkFaultKind.server || NetworkFaultKind.other => 'Exception',
+  };
+
+  static bool readsAsTimeout(String text) => text.contains('TimeoutException');
 
   // http wraps the socket error in its own ClientException, so the type is
   // gone by the time it reaches us and the text is all that is left.

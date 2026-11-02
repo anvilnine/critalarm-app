@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
@@ -304,7 +305,9 @@ class PaywallDoor {
   void _rememberLeavingShown(DateTime endsOn) {
     try {
       unawaited(
-        _markLeavingShown(leavingSeenKeyFor(endsOn)).catchError((_) {}),
+        _markLeavingShown(leavingSeenKeyFor(endsOn)).catchError((Object e) {
+          noteQuiet('paywall_door.markLeavingShown', e);
+        }),
       );
     } on Object catch (_) {
       // The next open shows the sad opening again. Nothing else is lost.

@@ -10,8 +10,8 @@ import Foundation
 /// alarm.
 ///
 /// The same five inputs answer the same way in
-/// `android/app/src/main/kotlin/app/critalarm/alarm/RearmRule.kt` and
-/// `lib/core/alarm/rearm_rule.dart`. Change the three together.
+/// `android/app/src/main/kotlin/app/critalarm/alarm/RearmRule.kt`. Change the
+/// two together.
 ///
 /// The app never generates an alert of its own (PRD commitment 5). A re-arm
 /// re-delivers an incident the server opened, which is why every gate below

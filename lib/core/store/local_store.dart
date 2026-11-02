@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
@@ -83,7 +84,9 @@ class LocalStore {
           if (from < 4) {
             try {
               legacy = scope == null ? ArchiveScope.single : await scope();
-            } on Object catch (_) {}
+            } on Object catch (e) {
+              noteQuiet('local_store.upgradeScope', e);
+            }
           }
           await _upgrade(db, from, to, legacy);
         },

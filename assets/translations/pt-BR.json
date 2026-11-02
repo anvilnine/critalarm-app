@@ -1532,7 +1532,9 @@
     "challenge_failed": "O relay não conseguiu verificar o servidor.",
     "registration_closed": "O relay não está aceitando novos cadastros.",
     "topic_mismatch": "Esse tópico não corresponde ao servidor registrado.",
-    "unknown": "Algo deu errado no servidor. Tente de novo."
+    "unknown": "Algo deu errado no servidor. Tente de novo.",
+    "unknown_phone": "Algo deu errado neste celular. Tente de novo.",
+    "unknown_answer": "Algo deu errado. Tente de novo."
   },
   "sound_library": {
     "names": {

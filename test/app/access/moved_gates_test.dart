@@ -169,6 +169,19 @@ void main() {
         HomeWidgetsPlan.needsPro,
       );
     });
+
+    test('an unread Pro with no sure yes shows the steps and sells '
+        'nothing', () {
+      const unread = FeatureDecision.unread(Holding.pro);
+      expect(
+        homeWidgetsPlanFor(unread, isOwnServer: false),
+        HomeWidgetsPlan.pro,
+      );
+      expect(
+        homeWidgetsPlanFor(unread, isOwnServer: true),
+        HomeWidgetsPlan.selfHosted,
+      );
+    });
   });
 
   group('the weekly check row', () {

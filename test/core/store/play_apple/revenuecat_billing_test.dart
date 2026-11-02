@@ -111,6 +111,8 @@ PlatformException _error(PurchasesErrorCode code) =>
 class _FakeService extends RevenueCatService {
   Offerings offerings = _offerings;
   Exception? purchaseError;
+  Exception? logOutError;
+  int logOuts = 0;
   final List<String> bought = [];
 
   @override
@@ -132,6 +134,14 @@ class _FakeService extends RevenueCatService {
 
   @override
   Future<CustomerInfo> getCustomerInfo() async => _info(active: ['hosted']);
+
+  @override
+  Future<CustomerInfo> logOut() async {
+    logOuts++;
+    final error = logOutError;
+    if (error != null) throw error;
+    return _info();
+  }
 }
 
 void main() {
@@ -350,6 +360,55 @@ void main() {
     test('reads the customer in neutral types', () async {
       final customer = await billing.readCustomer();
       expect(customer.entitlements.active.keys, ['hosted']);
+    });
+
+    group('logOut', () {
+      test('logs the store user out', () async {
+        await billing.logOut();
+        expect(service.logOuts, 1);
+      });
+
+      test('an already anonymous store user is not an error', () async {
+        service.logOutError = _error(
+          PurchasesErrorCode.logOutWithAnonymousUserError,
+        );
+        await billing.logOut();
+        expect(service.logOuts, 1);
+      });
+
+      test('a network error comes back as a StoreBillingException', () async {
+        service.logOutError = _error(PurchasesErrorCode.networkError);
+        await expectLater(
+          billing.logOut(),
+          throwsA(
+            isA<StoreBillingException>().having(
+              (e) => e.error,
+              'error',
+              StoreBillingError.network,
+            ),
+          ),
+        );
+      });
+
+      test('a store code that is not a number is not the anonymous '
+          'answer', () async {
+        service.logOutError = PlatformException(code: 'not-a-number');
+        await expectLater(
+          billing.logOut(),
+          throwsA(
+            isA<StoreBillingException>().having(
+              (e) => e.error,
+              'error',
+              StoreBillingError.other,
+            ),
+          ),
+        );
+      });
+
+      test('an error that is not a store code passes through', () async {
+        service.logOutError = const FormatException('boom');
+        await expectLater(billing.logOut(), throwsFormatException);
+      });
     });
   });
 }

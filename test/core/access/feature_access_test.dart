@@ -104,13 +104,181 @@ void main() {
   });
 
   group('isUsable', () {
-    test('is true for open, confirming and unread, false for locked and '
-        'not offered', () {
+    test('is true for open and confirming, false for locked and not '
+        'offered', () {
       expect(const FeatureDecision.open().isUsable, isTrue);
       expect(const FeatureDecision.confirming(Holding.pro).isUsable, isTrue);
-      expect(const FeatureDecision.unread(Holding.pro).isUsable, isTrue);
       expect(const FeatureDecision.locked(Holding.pro).isUsable, isFalse);
       expect(const FeatureDecision.notOffered().isUsable, isFalse);
+    });
+
+    test('unread is usable only when the last sure answer was open', () {
+      expect(const FeatureDecision.unread(Holding.pro).isUsable, isFalse);
+      expect(
+        const FeatureDecision.unread(
+          Holding.pro,
+          wasOpenWhenLastSure: true,
+        ).isUsable,
+        isTrue,
+      );
+      expect(
+        const FeatureDecision.unread(Holding.pro),
+        isNot(
+          const FeatureDecision.unread(
+            Holding.pro,
+            wasOpenWhenLastSure: true,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('the last sure answer', () {
+    test('open and confirming are a yes, locked and not offered a no, '
+        'unread and nothing are no answer', () {
+      expect(lastSureAnswerOf(const FeatureDecision.open()), isTrue);
+      expect(
+        lastSureAnswerOf(const FeatureDecision.confirming(Holding.pro)),
+        isTrue,
+      );
+      expect(
+        lastSureAnswerOf(const FeatureDecision.locked(Holding.pro)),
+        isFalse,
+      );
+      expect(lastSureAnswerOf(const FeatureDecision.notOffered()), isFalse);
+      expect(
+        lastSureAnswerOf(
+          const FeatureDecision.unread(Holding.pro, wasOpenWhenLastSure: true),
+        ),
+        isNull,
+      );
+      expect(lastSureAnswerOf(null), isNull);
+    });
+
+    test('unknown with nothing sure before is not usable', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      await access.ready;
+      pro.set(HoldingState.unknown);
+      for (final feature in _proFeatures) {
+        expect(
+          access.decide(feature),
+          const FeatureDecision.unread(Holding.pro),
+          reason: feature.name,
+        );
+        expect(access.can(feature), isFalse, reason: feature.name);
+        expect(await access.usableOnceReady(feature), isFalse);
+      }
+    });
+
+    test('unknown after a sure yes stays usable', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      await access.ready;
+      pro.set(HoldingState.unknown);
+      for (final feature in _proFeatures) {
+        expect(
+          access.decide(feature),
+          const FeatureDecision.unread(Holding.pro, wasOpenWhenLastSure: true),
+          reason: feature.name,
+        );
+        expect(access.can(feature), isTrue, reason: feature.name);
+        expect(await access.usableOnceReady(feature), isTrue);
+      }
+      // Code that takes something away still hears "nobody knows".
+      await expectLater(
+        access.decideOnceReady(AppFeature.widgets),
+        throwsA(isA<HoldingUnreadable>()),
+      );
+    });
+
+    test('unknown after a sure yes from a purchase being confirmed stays '
+        'usable', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      hosted.set(HoldingState.pending);
+      await access.ready;
+      hosted.set(HoldingState.unknown);
+      expect(access.can(AppFeature.longHistory), isTrue);
+    });
+
+    test('unknown after a sure no is not usable', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      await access.ready;
+      expect(access.can(AppFeature.widgets), isFalse);
+      pro.set(HoldingState.unknown);
+      expect(access.can(AppFeature.widgets), isFalse);
+      expect(await access.usableOnceReady(AppFeature.widgets), isFalse);
+    });
+
+    test('the newest sure answer is the one kept', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      await access.ready;
+      pro.set(HoldingState.notHeld);
+      expect(access.can(AppFeature.widgets), isFalse);
+      pro.set(HoldingState.unknown);
+      expect(access.can(AppFeature.widgets), isFalse);
+
+      pro.set(HoldingState.held);
+      expect(access.can(AppFeature.widgets), isTrue);
+      pro.set(HoldingState.unknown);
+      expect(access.can(AppFeature.widgets), isTrue);
+    });
+
+    test('a yes from before the plan was read is not a sure one', () {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      expect(access.can(AppFeature.widgets), isTrue);
+      pro.set(HoldingState.unknown);
+      expect(access.can(AppFeature.widgets), isFalse);
+    });
+
+    test('a yes that nobody asked for after the read is still kept', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      await access.ready;
+      // Nothing calls decide between the read and the failed one.
+      pro.set(HoldingState.unknown);
+      await settle();
+      expect(access.can(AppFeature.ownSounds), isTrue);
+    });
+
+    test('is kept per feature', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      hosted.set(HoldingState.held);
+      await access.ready;
+      hosted.set(HoldingState.unknown);
+      expect(access.can(AppFeature.longHistory), isTrue);
+      // Pro was read as not held, so a Pro feature stays locked.
+      expect(
+        access.decide(AppFeature.widgets),
+        const FeatureDecision.locked(Holding.pro),
+      );
+    });
+
+    test('known answers do not change with what was kept', () async {
+      final access = build(serverMode: ServerMode.hosted);
+      pro.set(HoldingState.held);
+      await access.ready;
+      pro.set(HoldingState.unknown);
+      expect(access.can(AppFeature.widgets), isTrue);
+
+      pro.set(HoldingState.notHeld);
+      expect(
+        access.decide(AppFeature.widgets),
+        const FeatureDecision.locked(Holding.pro),
+      );
+      pro.set(HoldingState.pending);
+      expect(
+        access.decide(AppFeature.widgets),
+        const FeatureDecision.confirming(Holding.pro),
+      );
+      pro.set(HoldingState.held);
+      expect(access.decide(AppFeature.widgets), const FeatureDecision.open());
+      access.setServerMode(ServerMode.selfhosted);
+      expect(
+        access.decide(AppFeature.weeklyCheck),
+        const FeatureDecision.notOffered(),
+      );
     });
   });
 

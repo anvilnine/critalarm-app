@@ -148,7 +148,7 @@ final class HostedHoldingSource implements HoldingSource {
   /// into [PlanChanges] each time the store speaks, and that is the store
   /// input of [stateFor].
   static bool storeSaysHosted(StoreCustomer info) =>
-      info.entitlements.active.containsKey(SubscriptionTier.proEntitlement);
+      info.entitlements.active.containsKey(SubscriptionTier.cloudEntitlement);
 
   @override
   Holding get holding => Holding.hosted;

@@ -1532,7 +1532,9 @@
     "challenge_failed": "Das Relay konnte den Server nicht verifizieren.",
     "registration_closed": "Das Relay nimmt keine Registrierungen an.",
     "topic_mismatch": "Dieses Topic passt nicht zum registrierten Server.",
-    "unknown": "Auf dem Server ist etwas schiefgegangen. Versuche es erneut."
+    "unknown": "Auf dem Server ist etwas schiefgegangen. Versuche es erneut.",
+    "unknown_phone": "Auf diesem Handy ist etwas schiefgegangen. Versuche es erneut.",
+    "unknown_answer": "Etwas ist schiefgegangen. Versuche es erneut."
   },
   "sound_library": {
     "names": {

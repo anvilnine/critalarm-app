@@ -6,7 +6,7 @@ Moved out of AGENTS.md on 2026-10-17, text unchanged. Read before changing this 
 (api.md §4.2). The only one is `pro`. The code is in `lib/features/pro_pack/`.
 
 - Two things share a word. Identifiers that say Pro and are not `ProPack...`
-  (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
+  (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.cloudEntitlement`,
   `ProOverride`, `DevProSwitch`) mean the Cloud plan. The pack is always
   `ProPack...` in code and "Pro" in copy. Neither routes through the other.
 - `ProPackAccess` answers one question: does this install hold the pack.

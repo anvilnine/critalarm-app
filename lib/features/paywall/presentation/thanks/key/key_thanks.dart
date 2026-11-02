@@ -25,15 +25,15 @@ const PaywallThanks keyThanks = PaywallThanks(
   builder: _build,
 );
 
-/// The box the mascot stands in at second [t], which its lift and squash
-/// move. After an outro it starts on the stage.
+/// The key version's box: the mascot leans away as the key reaches in.
 Rect _critBox(PaywallThanksScope scope, KeyStage place, double t) {
-  final stage = place.stage;
-  return Rect.lerp(
-    thanksStartBox(scope.mascot) ?? stage.crit,
-    stage.crit.shift(Offset(-place.unit * 0.1 * KeyTimeline.reach(t), 0)),
-    KeyTimeline.travel(t),
-  )!;
+  final crit = place.stage.crit;
+  return thanksCritBox(
+    scope,
+    crit: crit,
+    end: crit.shift(Offset(-place.unit * 0.1 * KeyTimeline.reach(t), 0)),
+    travel: KeyTimeline.travel(t),
+  );
 }
 
 /// Where the mascot's box is at second [t], the box its moves are made

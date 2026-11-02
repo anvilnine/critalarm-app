@@ -1560,7 +1560,9 @@
     "challenge_failed": "Przekaźnik nie mógł zweryfikować serwera.",
     "registration_closed": "Przekaźnik nie przyjmuje rejestracji.",
     "topic_mismatch": "Ten temat nie zgadza się z zarejestrowanym serwerem.",
-    "unknown": "Coś poszło nie tak po stronie serwera. Spróbuj ponownie."
+    "unknown": "Coś poszło nie tak po stronie serwera. Spróbuj ponownie.",
+    "unknown_phone": "Coś poszło nie tak na tym telefonie. Spróbuj ponownie.",
+    "unknown_answer": "Coś poszło nie tak. Spróbuj ponownie."
   },
   "sound_library": {
     "names": {

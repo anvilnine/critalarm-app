@@ -97,7 +97,8 @@ void main() {
       expect(await access.features.canOnceReady(AppFeature.widgets), isFalse);
     });
 
-    test('never locks a feature and never sells one', () {
+    test('never locks a feature and never sells one, and with no sure yes '
+        'before it is not usable', () {
       for (final feature in AppFeature.values) {
         final decision = access.features.decide(feature);
         if (featureTable[feature]!.unlockedBy.contains(Holding.hosted)) {
@@ -106,7 +107,7 @@ void main() {
             const FeatureDecision.unread(Holding.hosted),
             reason: feature.name,
           );
-          expect(decision.isUsable, isTrue);
+          expect(decision.isUsable, isFalse);
           for (final source in LockSource.values) {
             expect(paywallLocationFor(decision, source), isNull);
           }
@@ -116,14 +117,33 @@ void main() {
       }
     });
 
-    test('a screen that draws gets "usable" and no error', () async {
+    test('a screen that draws gets no error, and "not usable" with no sure '
+        'yes before', () async {
+      expect(
+        await access.features.usableOnceReady(AppFeature.longHistory),
+        isFalse,
+      );
+      expect(
+        await access.features.usableOnceReady(AppFeature.widgets),
+        isFalse,
+      );
+    });
+
+    test('a screen that draws gets "usable" when the last sure answer was '
+        'yes', () async {
+      access.hosted.set(HoldingState.held);
+      await access.features.ready;
+      access.hosted.set(HoldingState.unknown);
       expect(
         await access.features.usableOnceReady(AppFeature.longHistory),
         isTrue,
       );
       expect(
-        await access.features.usableOnceReady(AppFeature.widgets),
-        isFalse,
+        access.features.decide(AppFeature.longHistory),
+        const FeatureDecision.unread(
+          Holding.hosted,
+          wasOpenWhenLastSure: true,
+        ),
       );
     });
 

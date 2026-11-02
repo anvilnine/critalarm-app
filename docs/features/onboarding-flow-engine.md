@@ -95,7 +95,7 @@ who already owns a topic, and flow `2026-10-c` lists it between
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
-`OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with
+`OnboardingFlowSource` registered in `lib/app/di/register_onboarding.dart`. A source answers with
 what it has in hand and never waits. `OnboardingFlowEngine.chooseFlowWithOrigin()`
 says which one won (`OnboardingFlowOrigin`: developer, remote, bundled).
 
@@ -204,7 +204,7 @@ Back, and `sweep` when the change crosses a chapter.
 Background connect: Continue with our server finishes the `connect`
 step at once. `BackgroundConnect`
 (`lib/features/onboarding/domain/connect/background_connect.dart`, one object
-for the whole app run, registered in `lib/app/di.dart`) does the work behind
+for the whole app run, registered in `lib/app/di/register_onboarding.dart`) does the work behind
 the user: `GET /v1/info`, the device registration, then saving the
 connection.
 

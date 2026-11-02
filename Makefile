@@ -226,7 +226,8 @@ run-quiet: google-xcconfig
 build-quiet-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(ANDROID_STORE_ARGS)
 
-# Cloud paywall layouts and benefit previews as frames, for the site. Ids,
+# Cloud paywall layouts and benefit previews as frames, for marketing media
+# (the site uses only cloud-proof.webp from them). Ids,
 # env and output are in the header of tool/capture_site_paywalls.dart; then
 # `sh tool/site_paywalls_to_web.sh <out-dir>` makes the web assets.
 site-paywalls:

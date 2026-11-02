@@ -5,7 +5,7 @@ import Foundation
 /// api.md §1.3 says `X-Tags` values that match an emoji shortcode are
 /// "rendered like ntfy": each match turns into the emoji and goes in front of
 /// the title, and anything that matches nothing stays plain text. Keep this in
-/// step with `lib/core/push/ntfy_emoji.dart` and `NtfyEmoji.kt`.
+/// step with `NtfyEmoji.kt`.
 enum NtfyEmoji {
     static let shortcodes: [String: String] = [
         "+1": "👍",

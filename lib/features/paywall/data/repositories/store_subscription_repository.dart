@@ -20,7 +20,8 @@ class StoreSubscriptionRepository implements SubscriptionRepository {
   @override
   Future<AppResult<bool>> isProActive() => _guard(() async {
     final info = await _billing.readCustomer();
-    final entitlement = info.entitlements.all[SubscriptionTier.proEntitlement];
+    final entitlement =
+        info.entitlements.all[SubscriptionTier.cloudEntitlement];
     return entitlement?.isActive ?? false;
   });
 

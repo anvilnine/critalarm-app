@@ -42,7 +42,7 @@ final class StorePlanStatusSource implements PlanStatusSource {
     // Not a gate: this reads when the plan renews or ends, for the wording
     // of the "plan is ending" notice.
     final active = info.entitlements.active; // access-ok: reads end dates
-    final pro = active[SubscriptionTier.proEntitlement];
+    final pro = active[SubscriptionTier.cloudEntitlement];
     if (pro == null) return null;
     final product = pro.productId.toLowerCase();
     // App Store products carry the period in the id (`...annual`); Play

@@ -1532,7 +1532,9 @@
     "challenge_failed": "Il relay non è riuscito a verificare il server.",
     "registration_closed": "Il relay non accetta registrazioni.",
     "topic_mismatch": "Il topic non corrisponde al server registrato.",
-    "unknown": "Si è verificato un problema sul server. Riprova."
+    "unknown": "Si è verificato un problema sul server. Riprova.",
+    "unknown_phone": "Si è verificato un problema su questo telefono. Riprova.",
+    "unknown_answer": "Si è verificato un problema. Riprova."
   },
   "sound_library": {
     "names": {

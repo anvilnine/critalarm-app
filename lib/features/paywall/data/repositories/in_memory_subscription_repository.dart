@@ -23,7 +23,7 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
   /// What a purchase or a restore leaves the account holding: Cloud, with
   /// nothing to renew or expire.
   static const _hosted = StoreEntitlement(
-    id: SubscriptionTier.proEntitlement,
+    id: SubscriptionTier.cloudEntitlement,
     isActive: true,
     willRenew: true,
     productId: 'lifetime',
@@ -51,8 +51,8 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
     isPro = true;
     const info = StoreCustomer(
       entitlements: StoreEntitlements(
-        all: {SubscriptionTier.proEntitlement: _hosted},
-        active: {SubscriptionTier.proEntitlement: _hosted},
+        all: {SubscriptionTier.cloudEntitlement: _hosted},
+        active: {SubscriptionTier.cloudEntitlement: _hosted},
       ),
     );
     customerInfo = info;

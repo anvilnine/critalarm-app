@@ -82,7 +82,7 @@ Service Extension.
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
 | Buy for real on a device | `make run-store DEVICE=<id>` (`run-release` skips the store). A desk build: no analytics, never uploaded |
-| Record paywall frames for site and marketing | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
+| Record paywall frames for marketing (the site takes only `cloud-proof.webp` from them, copied by hand, never the whole folder) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Android cold start | `make cold-start APK=<path>` |
 | Build another store's app to check it | `make build-store-apk STORE=galaxy` (or `huawei`; `play` is the default), `make build-store-appbundle STORE=...`. Desk builds: no analytics, never uploaded |
 | Store leak check | `make check-store-leaks`, or `sh tool/store_leak_check.sh <apk-or-aab> <play\|galaxy\|huawei> [mapping.txt]` |
@@ -118,10 +118,10 @@ Each rule carries its reason. Detail sits behind the link.
    label.
 5. **Ask `PlatformCapabilities`, never `kIsWeb` or `Platform.isIOS` inline.**
    Why: the dashboard is this codebase built for web (ARCHITECTURE section 2). `lib/app/di.dart`
-   is the one place that reads `kIsWeb` for feature code, and `check_layers.sh` fails on any
-   `kIsWeb` under `lib/features/`, comments included. A one-platform screen is its own route gated
-   by a capability, never a widget hidden behind a boolean. Breakpoints come from the design
-   system. Full rules: `docs/features/web.md`.
+   and the files in `lib/app/di/` are the only places that read `kIsWeb` for feature code, and
+   `check_layers.sh` fails on any `kIsWeb` under `lib/features/`, comments included. A
+   one-platform screen is its own route gated by a capability, never a widget hidden behind a
+   boolean. Breakpoints come from the design system. Full rules: `docs/features/web.md`.
 6. **No Apple Critical Alerts.** Apple denied the entitlement for `app.critalarm`. No code path may
    assume it. Copy that promises a ring through silent mode picks its words from `RingClaim`
    (`lib/core/alarm/ring_claim.dart`).
@@ -163,6 +163,13 @@ Each rule carries its reason. Detail sits behind the link.
     Why: a bare `fvm flutter run` on Android stops and asks for a flavor. The store is read once
     in `lib/app/di.dart` into `StoreKind`. Details, Firebase files in worktrees and the
     Play-only native code: `docs/features/store-flavors.md`.
+18. **Put a new registration in the `register<Name>` function of its feature, in
+    `lib/app/di/register_<feature>.dart`.** `configureDependencies` in `lib/app/di.dart` builds the
+    few locals the rest needs (preferences, local store, held scope, identity store, the store
+    services) and then calls one `register<Name>(getIt)` per run of registrations. Add a function
+    and its call only when a registration has to land between two existing runs.
+    Why: the order of the calls in `configureDependencies` is the order of registration, and a
+    step that reads `getIt` at once needs what it reads registered before it.
 
 ## Names
 

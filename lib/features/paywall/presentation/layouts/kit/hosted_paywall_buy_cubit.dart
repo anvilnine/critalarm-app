@@ -186,7 +186,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
         // The store was read. With no Hosted on it there is nothing to
         // wait for.
         final storeHasIt = info.entitlements.active.containsKey(
-          SubscriptionTier.proEntitlement,
+          SubscriptionTier.cloudEntitlement,
         );
         if (!storeHasIt && !await _readIsPaid()) {
           return show(

@@ -11,8 +11,8 @@ import app.critalarm.push.IncidentPushKind
  * only "I'm up" ends it. The server keeps repeating too; both are keyed to the
  * incident id, so they collapse into one alarm.
  *
- * The same five inputs answer the same way in `ios/Shared/Alarm/RearmRule.swift`
- * and `lib/core/alarm/rearm_rule.dart`. Change the three together.
+ * The same five inputs answer the same way in `ios/Shared/Alarm/RearmRule.swift`.
+ * Change the two together.
  *
  * The app never generates an alert of its own (PRD commitment 5). A re-arm
  * re-delivers an incident the server opened, which is why every gate below

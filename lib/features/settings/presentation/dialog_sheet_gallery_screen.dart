@@ -284,7 +284,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
             'promoted on db-2.',
           ),
           _line(context, 'Source: cron@prod / critical'),
-          _line(context, 'Token: ca_live_7Hq2mN9xPz4wKd8'),
+          _line(context, 'Token: tk_example_not_a_real_token'),
           const SizedBox(height: 8),
           AppButton(
             label: 'Acknowledge',

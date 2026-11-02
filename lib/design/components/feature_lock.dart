@@ -32,8 +32,10 @@ enum FeatureLockSeat {
 /// It wraps any option and draws it from a [FeatureDecision]:
 ///
 /// - Open, confirming or unread: the child, untouched. A purchase being
-///   confirmed and a plan that could not be read both count as usable, so
-///   neither draws a lock.
+///   confirmed counts as usable. A plan that could not be read draws no
+///   lock either, as nothing is sold on a guess. Whether it is usable is
+///   the last sure answer (`FeatureUnread.isUsable`), and what a tap on it
+///   does is `lockTapFor`'s answer.
 /// - Not offered: the child, untouched, with no badge and nothing to tap.
 ///   There is nothing to sell, so the caller says in its own words that
 ///   the feature is not available here.

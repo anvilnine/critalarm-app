@@ -17,39 +17,57 @@ import 'package:http/http.dart' as http;
 String networkFailureMessage(Object error) {
   if (error is NetworkFault) {
     return switch (error.kind) {
-      NetworkFaultKind.timeout =>
-        LocaleKeys.onboarding_connect_connect_timeout.tr(),
-      NetworkFaultKind.unreachable =>
-        LocaleKeys.onboarding_connect_network_unreachable.tr(),
+      NetworkFaultKind.timeout ||
+      NetworkFaultKind.unreachable => _transportLine(error.kind)!,
       NetworkFaultKind.server => apiErrorMessage(
         error.server?.message,
         code: error.server?.code,
         cap: error.server?.cap,
+        statusCode: error.server?.statusCode,
       ),
-      NetworkFaultKind.other => LocaleKeys.api_errors_unknown.tr(),
+      // Something threw on the phone that is not a network error.
+      NetworkFaultKind.other => LocaleKeys.api_errors_unknown_phone.tr(),
     };
   }
   // Device registration can throw a server response while connecting.
   if (error is ApiException) {
-    return apiErrorMessage(error.message, code: error.code, cap: error.cap);
+    return apiErrorMessage(
+      error.message,
+      code: error.code,
+      cap: error.cap,
+      statusCode: error.statusCode,
+    );
   }
-  if (error is TimeoutException) {
-    return LocaleKeys.onboarding_connect_connect_timeout.tr();
-  }
-  if (error is SocketException || error is HttpException) {
-    return LocaleKeys.onboarding_connect_network_unreachable.tr();
-  }
-  final text = error.toString();
-  if (NetworkFault.readsAsUnreachable(text)) {
-    return LocaleKeys.onboarding_connect_network_unreachable.tr();
-  }
-  return LocaleKeys.api_errors_unknown.tr();
+  return networkFailureMessage(NetworkFault.of(error));
 }
+
+/// The line for a transport fault with no server answer, or null for a fault
+/// that is not one.
+String? _transportLine(NetworkFaultKind kind) => switch (kind) {
+  NetworkFaultKind.timeout =>
+    LocaleKeys.onboarding_connect_connect_timeout.tr(),
+  NetworkFaultKind.unreachable =>
+    LocaleKeys.onboarding_connect_network_unreachable.tr(),
+  NetworkFaultKind.server || NetworkFaultKind.other => null,
+};
 
 /// Picks app-owned words for a server error. A numeric code is authoritative;
 /// only a response without one is matched by its known error text.
-/// Unknown codes and text both use the generic line, never server prose.
-String apiErrorMessage(String? wireError, {int? code, String? cap}) {
+/// Unknown codes and text both use a line chosen by [statusCode], never
+/// server prose:
+///
+/// - 5xx blames the server.
+/// - 401 and 403, 404, 400 and 422, 429, 409 reuse the line of the same
+///   meaning (unauthorized, not found, invalid request, rate limited,
+///   incident state conflict).
+/// - Any other status has a neutral line that blames nobody.
+/// - No status means the fault never left the phone, and says so.
+String apiErrorMessage(
+  String? wireError, {
+  int? code,
+  String? cap,
+  int? statusCode,
+}) {
   final error = code == null
       ? wireError?.trim().toLowerCase()
       : switch (code) {
@@ -89,20 +107,43 @@ String apiErrorMessage(String? wireError, {int? code, String? cap}) {
     'topic mismatch' => LocaleKeys.api_errors_topic_mismatch.tr(),
     'topic must retain a token' =>
       LocaleKeys.api_errors_topic_must_retain_a_token.tr(),
-    _ => LocaleKeys.api_errors_unknown.tr(),
+    _ => _lineForStatus(statusCode),
   };
 }
+
+String _lineForStatus(int? statusCode) => switch (statusCode) {
+  null => LocaleKeys.api_errors_unknown_phone.tr(),
+  >= 500 => LocaleKeys.api_errors_unknown.tr(),
+  401 || 403 => LocaleKeys.api_errors_unauthorized.tr(),
+  404 => LocaleKeys.api_errors_not_found.tr(),
+  400 || 422 => LocaleKeys.api_errors_invalid_request.tr(),
+  429 => LocaleKeys.api_errors_rate_limited.tr(),
+  409 => LocaleKeys.api_errors_incident_state_conflict.tr(),
+  _ => LocaleKeys.api_errors_unknown_answer.tr(),
+};
 
 /// [apiErrorMessage] read straight off a [Failure].
 ///
 /// `failure.message` is whatever the layer below put there: a server wire code
 /// like `cap`, or the text of a caught exception. Neither belongs on screen,
 /// so every cubit that shows an error runs it through here.
-String failureMessage(Failure failure) => apiErrorMessage(
-  failure.message,
-  code: failure is ApiFailure ? failure.code : null,
-  cap: CapReached.fromFailure(failure)?.name,
-);
+///
+/// The repositories wrap every exception as `Failure.unexpected` with its
+/// text, so a failure that is not an [ApiFailure] is read once for a
+/// transport error (no connection, a timeout) before it falls to the line
+/// for a fault on the phone.
+String failureMessage(Failure failure) {
+  if (failure is! ApiFailure) {
+    final line = _transportLine(NetworkFault.ofText(failure.message).kind);
+    if (line != null) return line;
+  }
+  return apiErrorMessage(
+    failure.message,
+    code: failure is ApiFailure ? failure.code : null,
+    cap: CapReached.fromFailure(failure)?.name,
+    statusCode: failure is ApiFailure ? failure.statusCode : null,
+  );
+}
 
 /// Default unauthenticated endpoint used to check connectivity for Crit Alarm
 /// Cloud.
