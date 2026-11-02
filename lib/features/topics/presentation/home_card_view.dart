@@ -1,4 +1,5 @@
 import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/duration_format.dart';
 import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
@@ -112,22 +113,16 @@ String homeCardNumeralText(HomeCardNumeral numeral, {required DateTime now}) =>
       Days(:final n) => LocaleKeys.home_card_numeral_days.tr(
         namedArgs: {'n': '$n'},
       ),
-      Elapsed(:final since) => _clock(now.difference(since)),
+      Elapsed(:final since) => formatMinutesSeconds(now.difference(since)),
       Remaining(:final until) => _remaining(until.difference(now)),
-      At(:final time) =>
-        DateFormat.Hm(currentFormatLocale()).format(time.toLocal()),
+      At(:final time) => DateFormat.Hm(
+        currentFormatLocale(),
+      ).format(time.toLocal()),
     };
-
-/// `m:ss`, never negative.
-String _clock(Duration d) {
-  final total = d.isNegative ? 0 : d.inSeconds;
-  final seconds = (total % 60).toString().padLeft(2, '0');
-  return '${total ~/ 60}:$seconds';
-}
 
 /// Whole minutes while there is a minute or more left, then `m:ss`.
 String _remaining(Duration left) {
-  if (left.inSeconds < 60) return _clock(left);
+  if (left.inSeconds < 60) return formatMinutesSeconds(left);
   return LocaleKeys.home_card_numeral_minutes.tr(
     namedArgs: {'n': '${(left.inSeconds / 60).ceil()}'},
   );

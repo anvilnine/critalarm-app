@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/format/duration_format.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
@@ -15,12 +16,6 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-/// "3:07" for a sound that is three minutes and seven seconds long.
-String formatSoundLength(Duration d) {
-  final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '${d.inMinutes}:$seconds';
-}
 
 /// Asks the picker's gate in front of an own sound: true when the tap goes
 /// no further because the paywall opened (or there is nothing to do).
@@ -318,7 +313,7 @@ class SoundRow extends StatelessWidget {
         : null;
     final hasWave = sound.peaks != null && sound.peaks!.isNotEmpty;
     final length = Text(
-      formatSoundLength(sound.duration),
+      formatMinutesSeconds(sound.duration),
       style: AppTypography.mono(
         colors.ink3,
         fontSize: 11,
