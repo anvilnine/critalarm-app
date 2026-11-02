@@ -88,6 +88,17 @@ void main() {
       ]);
     });
 
+    test('the Mac app shows Apple, then Google', () {
+      const mac = PlatformCapabilities(
+        isWeb: false,
+        platform: TargetPlatform.macOS,
+      );
+      expect(const PlayAppleSignInOptions(mac).providers, [
+        SignInProvider.apple,
+        SignInProvider.google,
+      ]);
+    });
+
     test('Android shows Google alone', () {
       expect(const PlayAppleSignInOptions(android).providers, [
         SignInProvider.google,
