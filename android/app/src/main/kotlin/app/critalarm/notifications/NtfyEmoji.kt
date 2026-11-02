@@ -7,7 +7,7 @@ package app.critalarm.notifications
  * way ntfy does it, which is to turn the tag into the emoji and put it in front
  * of the title. Tags that match nothing stay as plain text.
  *
- * Keep this in step with `lib/core/push/ntfy_emoji.dart`.
+ * Keep this in step with `ios/Shared/NtfyEmoji.swift`.
  */
 object NtfyEmoji {
     val shortcodes: Map<String, String> = mapOf(
