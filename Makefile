@@ -1,4 +1,4 @@
-.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols
+.PHONY: screens site-paywalls gen regen l10n l10n-pseudo test run analyze format quality check-layers check-l10n check-access check-store-leaks check-play-leaks doctor hooks sync-contract run-release run-store build-store-apk build-store-appbundle run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry release-both release-symbols screens-responsive
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -61,6 +61,17 @@ screens:
 	GIT_SHA="$$(git rev-parse --short HEAD)" \
 	GIT_DIRTY="$$(test -z "$$(git status --porcelain -- lib assets pubspec.yaml)" && echo false || echo true)" \
 	fvm flutter test tool/capture_marketing_screens.dart --reporter=compact
+
+# Every screen at tablet, foldable and desktop sizes, light and dark, plus a
+# contact sheet (index.html) and errors.json. A tool, not a test. Narrow it
+# with SIZES=ipad-11-landscape,desktop-1440 SCREENS=04_home_face,10_settings
+# THEMES=light and pick the folder with OUT=/abs/path. The default folder and
+# the size and screen ids are in the header of
+# tool/capture_responsive_matrix.dart.
+screens-responsive:
+	TZ=UTC SIZES="$(SIZES)" SCREENS="$(SCREENS)" THEMES="$(THEMES)" \
+	OUT="$(if $(OUT),$(abspath $(OUT)),)" \
+	fvm flutter test tool/capture_responsive_matrix.dart --reporter=compact
 
 # Fill ios/Flutter/Google.xcconfig from .env. Google Sign-In on iOS needs the
 # reversed client id registered as a URL scheme in the bundle, and Xcode reads
@@ -180,21 +191,30 @@ run-release: google-xcconfig
 # and restore. For a test purchase with an App Store sandbox account or a Play
 # licence tester. No Developer options and no layout pickers. Not obfuscated
 # and sends no symbols, so it never goes to a store: the release scripts do.
+# NO_TELEMETRY keeps analytics and crash reports off, as in every build made
+# here (lib/core/telemetry/telemetry_build_rule.dart). The release scripts
+# never pass it.
 # Pass a device with DEVICE=<id>, e.g. make run-store DEVICE=R5CXB30NDRV
+NO_TELEMETRY_ARGS = --dart-define=NO_TELEMETRY=true
 run-store: google-xcconfig
-	fvm flutter run --release $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
+	fvm flutter run --release $(NO_TELEMETRY_ARGS) $(RUN_STORE_ARGS) $(if $(DEVICE),-d $(DEVICE),)
 
 # Same, as an installable APK, for STORE=play (the default), galaxy or huawei.
 # Lands in build/app/outputs/flutter-apk/app-<store>-release.apk.
+# A desk build: no analytics, never uploaded. It deletes the release stamp,
+# so release-android.sh --upload-only refuses until a real release build.
+RELEASE_ANDROID_STAMP = build/release-android.stamp
 build-store-apk:
-	fvm flutter build apk --release $(ANDROID_STORE_ARGS)
+	rm -f $(RELEASE_ANDROID_STAMP)
+	fvm flutter build apk --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Same, as an app bundle: build/app/outputs/bundle/<store>Release/app-<store>-release.aab.
 # Not obfuscated and sends no symbols, so it is for checking a build, never for
 # a store upload. The Play upload is scripts/release-android.sh. Only the play
 # bundle carries the Play sound pack.
 build-store-appbundle:
-	fvm flutter build appbundle --release $(ANDROID_STORE_ARGS)
+	rm -f $(RELEASE_ANDROID_STAMP)
+	fvm flutter build appbundle --release $(NO_TELEMETRY_ARGS) $(ANDROID_STORE_ARGS)
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.

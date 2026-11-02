@@ -170,7 +170,7 @@ class _Glyphs extends CustomPainter {
   bool shouldRepaint(_Glyphs old) => old.color != color;
 }
 
-/// Records [seconds] of [boundary] into [dir]/frames (PNG, `outW` x `outH`)
+/// Records [seconds] of [boundary] into `dir`/frames (PNG, `outW` x `outH`)
 /// plus still.png at full size from the last frame. Writes meta.json.
 Future<void> _record(
   WidgetTester tester,

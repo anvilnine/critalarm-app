@@ -45,6 +45,20 @@ class HeroPips extends StatelessWidget {
   );
 }
 
+/// The room to add above a row of pips [gap] tall that sits [above] from
+/// the top of its column, so the pips start at least 16 under [safeTop].
+/// 0 under a stage tall enough. The pips are [HeroPipsPainter.thickness]
+/// thick and centred in their row.
+double heroPipsTopInsetFor({
+  required double safeTop,
+  required double gap,
+  double above = 0,
+}) {
+  final pipsTop = above + (gap - HeroPipsPainter.thickness) / 2;
+  final inset = safeTop + 16 - pipsTop;
+  return inset < 0 ? 0 : inset;
+}
+
 /// Paints the pips for one frame. Plain ink, thick enough to be found at a
 /// glance and no louder than that. [HeroPips] is the widget.
 class HeroPipsPainter extends CustomPainter {
@@ -62,7 +76,9 @@ class HeroPipsPainter extends CustomPainter {
   final double show;
   final Color color;
 
-  static const double _thick = 5;
+  /// How thick a pip is.
+  static const double thickness = 5;
+  static const double _thick = thickness;
   static const double _long = 26;
   static const double _gap = 6;
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
@@ -59,6 +61,94 @@ void main() {
       expect(at('/alarm'), ringing);
       expect(at('/incidents/123'), ringing);
       expect(at('/incidents/inc_demo'), ringing);
+    });
+  });
+
+  group('AppAmbientShell.skipsCanvasFor', () {
+    // The same shape as the app router: setup steps inside a ShellRoute, the
+    // alarm, incident and lock screen routes on the root navigator.
+    Widget page(BuildContext context, GoRouterState state) =>
+        const SizedBox.shrink();
+    final config = RouteConfiguration(
+      ValueNotifier(
+        RoutingConfig(
+          routes: [
+            GoRoute(path: '/', builder: page),
+            GoRoute(path: '/settings', builder: page),
+            ShellRoute(
+              builder: (context, state, child) => child,
+              routes: [
+                GoRoute(path: '/onboarding/permissions', builder: page),
+                GoRoute(path: '/onboarding/connect', builder: page),
+              ],
+            ),
+            GoRoute(path: '/alarm', builder: page),
+            GoRoute(path: '/incidents/:id', builder: page),
+            GoRoute(path: '/lockscreen', builder: page),
+          ],
+        ),
+      ),
+      navigatorKey: GlobalKey<NavigatorState>(),
+    );
+    var pushes = 0;
+    RouteMatchList at(String location) => config.findMatch(Uri.parse(location));
+    RouteMatchList push(RouteMatchList base, String location) => base.push(
+      ImperativeRouteMatch(
+        pageKey: ValueKey('push-${pushes++}'),
+        matches: at(location),
+        completer: Completer<Object?>(),
+      ),
+    );
+
+    test('a push keeps the base uri, which is why the top match decides', () {
+      final routes = push(at('/onboarding/permissions'), '/alarm');
+      expect(routes.uri.path, '/onboarding/permissions');
+      expect(routes.last.matchedLocation, '/alarm');
+    });
+
+    test('a setup step on its own draws no shell canvas', () {
+      expect(
+        AppAmbientShell.skipsCanvasFor(at('/onboarding/permissions')),
+        isTrue,
+      );
+    });
+
+    test('an alarm pushed over setup gets the shell canvas', () {
+      final routes = push(at('/onboarding/permissions'), '/alarm');
+      expect(AppAmbientShell.skipsCanvasFor(routes), isFalse);
+    });
+
+    test('an incident or the lock screen pushed over setup gets it too', () {
+      final setup = at('/onboarding/permissions');
+      expect(
+        AppAmbientShell.skipsCanvasFor(push(setup, '/incidents/inc_1')),
+        isFalse,
+      );
+      expect(
+        AppAmbientShell.skipsCanvasFor(push(setup, '/lockscreen')),
+        isFalse,
+      );
+    });
+
+    test('closing the alarm hands the stack back to setup', () {
+      final setup = at('/onboarding/permissions');
+      final routes = push(setup, '/alarm');
+      final popped = routes.remove(routes.last);
+      expect(AppAmbientShell.skipsCanvasFor(popped), isTrue);
+    });
+
+    test('setup opened over a screen keeps the canvas under that screen', () {
+      final routes = push(at('/settings'), '/onboarding/connect');
+      expect(AppAmbientShell.skipsCanvasFor(routes), isFalse);
+    });
+
+    test('screens outside setup keep the canvas', () {
+      expect(AppAmbientShell.skipsCanvasFor(at('/')), isFalse);
+      expect(AppAmbientShell.skipsCanvasFor(at('/alarm')), isFalse);
+      expect(
+        AppAmbientShell.skipsCanvasFor(push(at('/'), '/alarm')),
+        isFalse,
+      );
     });
   });
 

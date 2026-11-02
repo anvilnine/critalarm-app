@@ -114,39 +114,43 @@ class HeroStage extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: -bleedTop,
-              bottom: 0,
-              child: CustomPaint(
-                painter: HeroAtmospherePainter(
-                  focus: arrangement.kind == HeroStageKind.none
-                      ? Offset(size.width / 2, bleedTop + size.height / 2)
-                      : arrangement.group.center.translate(0, bleedTop),
-                  // As wide as the pair, and never past the stage's foot,
-                  // where the words start.
-                  radius: math.min(
-                    arrangement.kind == HeroStageKind.none
-                        ? size.shortestSide * 0.5
-                        : arrangement.group.longestSide * 0.56,
-                    size.height -
-                        (arrangement.kind == HeroStageKind.none
-                            ? size.height / 2
-                            : arrangement.group.center.dy),
+            // A stage with no room for a face draws no air either: a dot
+            // of disc over the headline reads as a stray mark.
+            if (arrangement.kind != HeroStageKind.none ||
+                size.height >= heroMascotMin)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: -bleedTop,
+                bottom: 0,
+                child: CustomPaint(
+                  painter: HeroAtmospherePainter(
+                    focus: arrangement.kind == HeroStageKind.none
+                        ? Offset(size.width / 2, bleedTop + size.height / 2)
+                        : arrangement.group.center.translate(0, bleedTop),
+                    // As wide as the pair, and never past the stage's foot,
+                    // where the words start.
+                    radius: math.min(
+                      arrangement.kind == HeroStageKind.none
+                          ? size.shortestSide * 0.5
+                          : arrangement.group.longestSide * 0.56,
+                      size.height -
+                          (arrangement.kind == HeroStageKind.none
+                              ? size.height / 2
+                              : arrangement.group.center.dy),
+                    ),
+                    seconds: seconds,
+                    entrance: e,
+                    showsShapes:
+                        showsShapes ?? arrangement.kind == HeroStageKind.pair,
+                    disc: air.disc,
+                    soft: air.soft,
+                    strong: air.strong,
+                    light: air.light,
+                    style: motion.atmosphere,
                   ),
-                  seconds: seconds,
-                  entrance: e,
-                  showsShapes:
-                      showsShapes ?? arrangement.kind == HeroStageKind.pair,
-                  disc: air.disc,
-                  soft: air.soft,
-                  strong: air.strong,
-                  light: air.light,
-                  style: motion.atmosphere,
                 ),
               ),
-            ),
             if (arrangement.kind == HeroStageKind.pair &&
                 (scene != null || beside != null))
               Positioned.fromRect(
