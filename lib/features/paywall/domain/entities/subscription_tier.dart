@@ -12,11 +12,12 @@ enum SubscriptionTier {
   yearly,
   monthly;
 
-  /// The paid entitlement in the RevenueCat dashboard. Both `hosted` store
+  /// The Cloud subscription's entitlement in the RevenueCat dashboard. Its
+  /// id stays `hosted`, the plan's old name. Both `hosted` store
   /// products hand it out, and the relay webhook turns it into
   /// `accounts.tier = 'hosted'`. The dashboard also has a `relay` entitlement
   /// with no products attached, so it never fires and the app never reads it.
-  static const String proEntitlement = 'hosted';
+  static const String cloudEntitlement = 'hosted';
 
   /// RevenueCat package identifiers in the `default` offering. The standard
   /// durations keep their `$rc_` names, so a comparison against

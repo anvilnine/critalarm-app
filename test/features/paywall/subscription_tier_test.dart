@@ -9,7 +9,7 @@ void main() {
     // products hand out; the other two are package identifiers in the
     // `default` offering.
     test('constants match the RevenueCat dashboard', () {
-      expect(SubscriptionTier.proEntitlement, equals('hosted'));
+      expect(SubscriptionTier.cloudEntitlement, equals('hosted'));
       expect(SubscriptionTier.yearlyId, equals(r'$rc_annual'));
       expect(SubscriptionTier.monthlyId, equals(r'$rc_monthly'));
     });

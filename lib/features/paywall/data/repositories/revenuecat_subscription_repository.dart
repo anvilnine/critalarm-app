@@ -22,7 +22,7 @@ class RevenueCatSubscriptionRepository implements SubscriptionRepository {
     try {
       final info = await _service.getCustomerInfo();
       final entitlement =
-          info.entitlements.all[SubscriptionTier.proEntitlement];
+          info.entitlements.all[SubscriptionTier.cloudEntitlement];
       return Success(entitlement?.isActive ?? false);
     } on PlatformException catch (e) {
       return _mapPlatformException(e).toFailure();
@@ -97,8 +97,7 @@ class RevenueCatSubscriptionRepository implements SubscriptionRepository {
           );
         case PurchasesErrorCode.productAlreadyPurchasedError:
           return Failure.conflict(
-            message:
-                LocaleKeys.purchase_errors_product_already_purchased.tr(),
+            message: LocaleKeys.purchase_errors_product_already_purchased.tr(),
           );
         case PurchasesErrorCode.networkError:
           return Failure.unexpected(
