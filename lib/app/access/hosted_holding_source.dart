@@ -5,10 +5,10 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:flutter/foundation.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// The Hosted subscription as a holding.
 ///
@@ -147,7 +147,7 @@ final class HostedHoldingSource implements HoldingSource {
   /// What the store's own answer says about Hosted. The app mirrors this
   /// into [PlanChanges] each time the store speaks, and that is the store
   /// input of [stateFor].
-  static bool storeSaysHosted(CustomerInfo info) =>
+  static bool storeSaysHosted(StoreCustomer info) =>
       info.entitlements.active.containsKey(SubscriptionTier.proEntitlement);
 
   @override

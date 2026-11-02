@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/store/services/store_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
@@ -12,7 +13,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// The Help block in Settings: two forms, a problem report by email, and
@@ -66,9 +66,7 @@ class HelpSection extends StatelessWidget {
         _row(
           context,
           LocaleKeys.settings_help_rate_row.tr(),
-          () => InAppReview.instance.openStoreListing(
-            appStoreId: FeedbackLinks.appStoreId,
-          ),
+          () => getIt<StoreLinks>().listing(),
           subtitle: on.platform == TargetPlatform.android
               ? LocaleKeys.settings_help_rate_sub_android.tr()
               : LocaleKeys.settings_help_rate_sub_ios.tr(),

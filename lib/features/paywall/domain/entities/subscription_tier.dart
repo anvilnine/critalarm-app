@@ -1,6 +1,6 @@
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Subscription plans offered by Crit Alarm.
 ///
@@ -20,7 +20,7 @@ enum SubscriptionTier {
 
   /// RevenueCat package identifiers in the `default` offering. The standard
   /// durations keep their `$rc_` names, so a comparison against
-  /// `Package.identifier` has to use these and not 'monthly' or 'yearly'.
+  /// `StoreCatalogEntry.id` has to use these and not 'monthly' or 'yearly'.
   static const String yearlyId = r'$rc_annual';
   static const String monthlyId = r'$rc_monthly';
 
@@ -56,23 +56,18 @@ enum SubscriptionTier {
     }
   }
 
-  /// Resolves the plan from a RevenueCat package. Anything that is not a
-  /// month or a year is not something this app sells, so it answers null and
-  /// the caller keeps whatever was already selected.
-  static SubscriptionTier? fromPackage(Package package) {
-    switch (package.packageType) {
-      case PackageType.annual:
+  /// Resolves the plan from a store entry. Anything that is not a month or
+  /// a year is not something this app sells, so it answers null and the
+  /// caller keeps whatever was already selected.
+  static SubscriptionTier? fromPackage(StoreCatalogEntry package) {
+    switch (package.period) {
+      case StorePeriod.yearly:
         return SubscriptionTier.yearly;
-      case PackageType.monthly:
+      case StorePeriod.monthly:
         return SubscriptionTier.monthly;
-      case PackageType.lifetime:
-      case PackageType.custom:
-      case PackageType.unknown:
-      case PackageType.weekly:
-      case PackageType.twoMonth:
-      case PackageType.threeMonth:
-      case PackageType.sixMonth:
-        final identifier = package.identifier.toLowerCase();
+      case StorePeriod.lifetime:
+      case StorePeriod.other:
+        final identifier = package.id.toLowerCase();
         if (identifier.contains('year') || identifier.contains('annual')) {
           return SubscriptionTier.yearly;
         }

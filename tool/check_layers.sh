@@ -6,6 +6,10 @@
 #   core    -> nothing app-specific (never features/)
 #   features never read kIsWeb: they ask PlatformCapabilities
 #   (lib/core/platform/platform_capabilities.dart), built in lib/app/di.dart.
+#   features never import a store SDK (purchases_flutter,
+#   purchases_ui_flutter, in_app_review, google_sign_in): they ask the store
+#   services in lib/core/store/services/, which lib/app/di.dart picks by
+#   StoreKind. The SDK calls live in lib/core/store/<store>/.
 # The app/ layer is the composition root and may import everything.
 set -eu
 
@@ -42,6 +46,9 @@ check "import .*package:critalarm/features/" "core must not import features" \
 check "kIsWeb" \
   "features must ask PlatformCapabilities (lib/core/platform/platform_capabilities.dart), the capabilities service, and never read kIsWeb" \
   lib/features
+check "import .*package:(purchases_flutter|purchases_ui_flutter|in_app_review|google_sign_in)/" \
+  "features must reach a store through lib/core/store/services/, never import a store SDK" \
+  -E lib/features
 
 if [ "$fail" -ne 0 ]; then
   echo "Dependency direction check FAILED."
