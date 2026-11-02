@@ -995,7 +995,6 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
 
   Widget _buildPage(BuildContext context, CreateTopicState state) {
     final colors = context.appColors;
-    final cubit = context.read<CreateTopicCubit>();
     final token = state.createdToken;
     final isSetup = _isSetup;
     final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
@@ -1025,8 +1024,16 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     // picture of Home, which is all there is to look at for that beat.
     final madeTopic = isSetup && _showsTopicMade ? state.createdTopic : null;
     if (madeTopic != null) {
-      return _TopicMadePicture(topic: madeTopic, onDone: _leaveSetup);
+      // The same AmbientOverride as the form's root below, so the swap
+      // between the two updates one override in place.
+      return AmbientOverride(
+        profile: AmbientAppProfiles.createTopic(colors),
+        direction: AmbientDirection.push,
+        child: _TopicMadePicture(topic: madeTopic, onDone: _leaveSetup),
+      );
     }
+
+    final cubit = context.read<CreateTopicCubit>();
 
     // The system back button and the back gesture do what the top bar's
     // Back does: on step 2 they return to step 1 with everything typed
@@ -1077,6 +1084,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       isSetup: isSetup,
       face: face,
       frame: frame,
+      faceBase: isSetup ? frame.setupFaceBaseOf(context) : 0,
       stepDuration: stepDuration,
       givesWayToForm: hasKeyboard && !splits,
     );

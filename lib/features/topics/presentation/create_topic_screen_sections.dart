@@ -14,29 +14,25 @@ class _TopicMadePicture extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AmbientOverride(
-      profile: AmbientAppProfiles.createTopic(context.appColors),
-      direction: AmbientDirection.push,
-      child: Semantics(
-        button: true,
-        label: LocaleKeys.onboarding_welcome_continue.tr(),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          // A tap anywhere skips the picture.
-          onTap: onDone,
-          child: AppScreenScaffold(
-            hasTabBar: false,
-            topBar: AppTopBar(title: setupTopBarTitle(context)),
-            slivers: [
-              SliverToBoxAdapter(
-                child: TopicMadeBeat(
-                  topicName: topic.name,
-                  ringsThroughSilent: topic.critical,
-                  onDone: onDone,
-                ),
+    return Semantics(
+      button: true,
+      label: LocaleKeys.onboarding_welcome_continue.tr(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        // A tap anywhere skips the picture.
+        onTap: onDone,
+        child: AppScreenScaffold(
+          hasTabBar: false,
+          topBar: AppTopBar(title: setupTopBarTitle(context)),
+          slivers: [
+            SliverToBoxAdapter(
+              child: TopicMadeBeat(
+                topicName: topic.name,
+                ringsThroughSilent: topic.critical,
+                onDone: onDone,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -102,6 +98,7 @@ class _CreateStage extends StatelessWidget {
     required this.isSetup,
     required this.face,
     required this.frame,
+    required this.faceBase,
     required this.stepDuration,
     required this.givesWayToForm,
   });
@@ -109,6 +106,9 @@ class _CreateStage extends StatelessWidget {
   final bool isSetup;
   final FaceState face;
   final ScreenFrame frame;
+
+  /// The setup face's size, read in the page's context. Unused outside setup.
+  final double faceBase;
   final Duration stepDuration;
 
   /// Setup only: the keyboard is up and the face has no pane of its own, so
@@ -142,7 +142,7 @@ class _CreateStage extends StatelessWidget {
                         SetupFace(
                           state: face,
                           gap: Spacing.s4,
-                          base: frame.setupFaceBaseOf(context),
+                          base: faceBase,
                         ),
                         Semantics(
                           header: true,
