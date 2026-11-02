@@ -41,7 +41,8 @@ ReliabilityHeadline readinessHeadline(ReadinessKind kind) => switch (kind) {
 FaceState readinessFace(ReadinessKind kind) =>
     reliabilityHeadlineView(readinessHeadline(kind)).face;
 
-/// The short lower-case line for a failing check ("battery optimization is on").
+/// The short lower-case line for a failing check ("battery optimization
+/// is on").
 String readinessCheckLine(ReliabilityCheckId? id) {
   final key = switch (id?.value) {
     'notifications' => LocaleKeys.home_card_check_notifications,
