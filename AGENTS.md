@@ -204,6 +204,7 @@ Read its doc first. Each one says what the code does and why. Docs are in `docs/
 | `LocalStore`, account-scoped archive, the held topic list and held rows | `local-store.md` |
 | Building for web, and the platform capability getters | `web.md` |
 | Store flavors (`play`, `galaxy`, `huawei`), desk builds, Firebase files in worktrees | `store-flavors.md` |
+| The native Mac app, which plugins and channels work there | `macos.md` |
 | The cancel question (the ask before the Cloud ends sheet) | `cancel-question.md` |
 
 What may show during and after onboarding (guides, notices, asks, Local Reminders) is under

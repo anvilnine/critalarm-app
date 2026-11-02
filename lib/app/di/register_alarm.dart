@@ -8,6 +8,7 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/alarm/ring_screen_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
+import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
@@ -47,7 +48,16 @@ void registerAlarmPath(GetIt getIt) {
         },
       ),
     )
-    ..registerLazySingleton<AlarmHost>(AlarmHost.new)
+    // AlarmKit and the Live Activity card on the iPhone, the alarm service on
+    // Android. The Mac rings nothing yet, so it sends none of these calls.
+    ..registerLazySingleton<AlarmHost>(
+      () => AlarmHost(
+        getIt<PlatformCapabilities>().hasSystemAlarmHost
+            ? null
+            : const OffPlatformChannel(AlarmHost.channelName),
+      ),
+    )
+    // Off iOS it calls nothing, so the Mac and Android never reach it.
     ..registerLazySingleton<RingScreenHost>(
       () => RingScreenHost(isIos: getIt<PlatformCapabilities>().isIos),
     )

@@ -11,8 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The language host, the native bridge and the language cubit.
 void registerLanguage(GetIt getIt, {required SharedPreferences prefs}) {
   getIt
+    // The Mac has no native strings yet (no notifications, no widgets), so
+    // nothing on its side needs to hear the language.
     ..registerLazySingleton<NativeLocaleBridge>(
-      () => kIsWeb
+      () => kIsWeb || defaultTargetPlatform == TargetPlatform.macOS
           ? const NoopNativeLocaleBridge()
           : const MethodChannelNativeLocaleBridge(),
     )

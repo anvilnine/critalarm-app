@@ -38,8 +38,8 @@ abstract interface class ProviderSignIn {
   Future<void> signOut();
 }
 
-/// The real sheets: `sign_in_with_apple` on iOS, and the store's Google
-/// sheet. Which providers show is the store's [SignInOptions].
+/// The real sheets: `sign_in_with_apple` on iOS and macOS, and the store's
+/// Google sheet. Which providers show is the store's [SignInOptions].
 final class NativeProviderSignIn implements ProviderSignIn {
   NativeProviderSignIn({required this._options, required this._google});
 

@@ -27,6 +27,7 @@ import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/native_fold.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -131,6 +132,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     navigate: _openPath,
     localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
     analytics: getIt<LocalReminderAnalytics>(),
+    isAvailable: getIt<PlatformCapabilities>().hasQuickActions,
   );
 
   /// The rule `openAppPath` follows, without a shell context: a path on
@@ -362,7 +364,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// waiting for the next cold start. Device registration also sends the
   /// unchanged token again here when a day has passed since the last call.
   Future<void> _retryFailedLaunchCalls() async {
-    if (!buildUsesMockApi) {
+    if (!buildUsesMockApi && getIt<PlatformCapabilities>().canRegisterPush) {
       unawaited(getIt<DeviceTokenRegistry>().onResumed());
       unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
     }

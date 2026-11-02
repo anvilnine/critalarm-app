@@ -25,10 +25,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -65,6 +62,18 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAgXEJB1gPHE-6kCE6qSAVIcv039VyHtvs',
+    appId: '1:114582883538:ios:f660c3c8df2290a11db10b',
+    messagingSenderId: '114582883538',
+    projectId: 'crit-alarm',
+    storageBucket: 'crit-alarm.firebasestorage.app',
+    iosBundleId: 'app.critalarm',
+  );
+
+  // The Mac app has the iPhone's bundle id, so it is the same Apple app in
+  // the Firebase project, the way the FlutterFire CLI sets up a macOS app
+  // that shares an iOS bundle id.
+  static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyAgXEJB1gPHE-6kCE6qSAVIcv039VyHtvs',
     appId: '1:114582883538:ios:f660c3c8df2290a11db10b',
     messagingSenderId: '114582883538',

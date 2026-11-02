@@ -46,7 +46,7 @@ void main() {
       topics: topics,
       navigate: (_) {},
       quickActions: quickActions,
-      isWeb: false,
+      isAvailable: true,
     )..start();
     await Future<void>.delayed(Duration.zero);
     expect(quickActions.setCalls, 1);

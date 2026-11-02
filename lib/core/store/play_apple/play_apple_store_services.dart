@@ -1,3 +1,4 @@
+import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
@@ -18,7 +19,6 @@ import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/core/store/services/store_links.dart';
 import 'package:critalarm/core/store/services/store_review.dart';
 import 'package:critalarm/core/store/services/store_services.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform;
 
 /// The [StoreServices] of a Google Play or App Store build: RevenueCat for
 /// billing, its Customer Center, `in_app_review`, the native Google sheet,
@@ -44,10 +44,11 @@ final class PlayAppleStoreServices implements StoreServices {
   final String _appStoreId;
 
   /// api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
-  /// raw APNs token. Android registers the FCM one (§5.2).
+  /// raw APNs token. Android registers the FCM one (§5.2). The Mac will
+  /// register an APNs token too. Until its push lands its [PushHost] answers
+  /// nothing, so it has no token and registers no device.
   @override
-  late final PushTokenProvider pushTokens =
-      _capabilities.platform == TargetPlatform.iOS
+  late final PushTokenProvider pushTokens = _capabilities.isApple
       ? ApnsPushTokenProvider(_pushHost())
       : FirebasePushTokenProvider();
 
@@ -78,6 +79,12 @@ final class PlayAppleStoreServices implements StoreServices {
   @override
   late final StoreLinks links = InAppStoreLinks(appStoreId: _appStoreId);
 
+  /// Store-hosted packs are Play Asset Delivery and Background Assets, both
+  /// phone only. The Mac lists the bundled sounds and its own imports.
   @override
-  late final SoundPackSource soundPacks = SoundPackHost();
+  late final SoundPackSource soundPacks = SoundPackHost(
+    _capabilities.isMacos
+        ? const OffPlatformChannel(SoundPackHost.channelName)
+        : null,
+  );
 }

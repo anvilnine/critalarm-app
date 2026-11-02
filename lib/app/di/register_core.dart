@@ -14,6 +14,7 @@ import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -33,6 +34,7 @@ import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,21 +73,57 @@ void registerPlatformSingletons(
 void registerAppHosts(
   GetIt getIt, {
   required DeviceIdentityStore identityStore,
+  required PlatformCapabilities capabilities,
 }) {
+  // The channels whose native half only the phones have. On a Mac each of
+  // these hosts gets a channel that answers "not on this platform" in Dart,
+  // so nothing is sent to a handler that does not exist. The hosts already
+  // treat that answer as their safe default.
+  MethodChannel? phoneOnly(String name) =>
+      capabilities.isMacos ? OffPlatformChannel(name) : null;
+
   // A connect link the user tapped waits here, in memory only, until a
   // screen takes it.
   getIt
     ..registerLazySingleton<ConnectLinkHolder>(ConnectLinkHolder.new)
     ..registerLazySingleton<PushHost>(
-      () => PushHost(null, getIt<ConnectLinkHolder>()),
+      () => PushHost(
+        phoneOnly(PushHost.channelName),
+        getIt<ConnectLinkHolder>(),
+      ),
     )
-    ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
-    ..registerLazySingleton<WidgetHost>(WidgetHost.new)
-    ..registerLazySingleton<AppIconHost>(AppIconHost.new)
+    ..registerLazySingleton<NseCredentialStore>(
+      () => NseCredentialStore(
+        phoneOnly(NseCredentialStore.channelName) ??
+            const MethodChannel(NseCredentialStore.channelName),
+      ),
+    )
+    ..registerLazySingleton<WidgetHost>(
+      () => WidgetHost(
+        phoneOnly(WidgetHost.channelName) ??
+            const MethodChannel(WidgetHost.channelName),
+      ),
+    )
+    ..registerLazySingleton<AppIconHost>(
+      () => AppIconHost(
+        capabilities.hasAlternateAppIcons
+            ? const MethodChannel(AppIconHost.channelName)
+            : const OffPlatformChannel(AppIconHost.channelName),
+      ),
+    )
     // The accelerometer, for the shake challenge. On the web and in a test
     // the channel has no native side, the stream says so, and the
-    // challenge offers taps.
-    ..registerLazySingleton<MotionSensor>(MotionSensorHost.new)
+    // challenge offers taps. A Mac has no accelerometer.
+    ..registerLazySingleton<MotionSensor>(
+      () => capabilities.isMacos
+          ? MotionSensorHost(
+              methods: const OffPlatformChannel(MotionSensorHost.methodsName),
+              events: const OffPlatformEventChannel(
+                MotionSensorHost.readingsName,
+              ),
+            )
+          : MotionSensorHost(),
+    )
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     // The same store as before, wrapped so feature access hears the server
     // mode of every session that is read or written.

@@ -313,6 +313,16 @@ void main() {
       }
     });
 
+    test('macOS plays the iPhone files, since it has no ogg reader', () {
+      for (final id in BundledSounds.ids) {
+        expect(
+          BundledSounds.assetPath(id, TargetPlatform.macOS),
+          BundledSounds.assetPath(id, TargetPlatform.iOS),
+          reason: id,
+        );
+      }
+    });
+
     test('iOS plays the emergency sounds and loops as m4a, Android as ogg', () {
       for (final id in [...emergency, ...loops]) {
         expect(

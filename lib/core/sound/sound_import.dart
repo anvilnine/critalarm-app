@@ -8,17 +8,23 @@ abstract final class SoundImportLimits {
   /// seconds or more.
   static const Duration iosNotificationLimit = Duration(seconds: 30);
 
-  /// The longest clip the app keeps. On iOS the notification plays the sound,
-  /// so it stays half a second under Apple's limit. Android rings through its
-  /// own alarm player, and past a minute it stops being an alarm sound.
-  static Duration maxClipDuration(TargetPlatform platform) =>
-      platform == TargetPlatform.iOS
+  /// iOS and macOS: the notification plays the sound on both, with the same
+  /// 30 second limit, and both decode with AVFoundation.
+  static bool _isApple(TargetPlatform platform) =>
+      platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+  /// The longest clip the app keeps. On iOS and macOS the notification plays
+  /// the sound, so it stays half a second under Apple's limit. Android rings
+  /// through its own alarm player, and past a minute it stops being an alarm
+  /// sound.
+  static Duration maxClipDuration(TargetPlatform platform) => _isApple(platform)
       ? const Duration(milliseconds: 29500)
       : const Duration(seconds: 60);
 
-  /// True for a sound that iOS will swap for the default when a push arrives.
+  /// True for a sound that iOS or macOS will swap for the default when a
+  /// push arrives.
   static bool tooLongToRing(TargetPlatform platform, Duration duration) =>
-      platform == TargetPlatform.iOS && duration >= iosNotificationLimit;
+      _isApple(platform) && duration >= iosNotificationLimit;
 
   /// 5 MB, checked on the clip that gets saved. A minute of the saved
   /// format is about 2.6 MB, so this only trips if a platform misbehaves.
@@ -41,10 +47,10 @@ abstract final class SoundImportLimits {
   };
 
   /// Extensions this platform can decode. Android has no reader for aiff or
-  /// caf. iOS also reads `qta`, which is what Voice Memos saves a layered
-  /// recording as.
+  /// caf. iOS and macOS also read `qta`, which is what Voice Memos saves a
+  /// layered recording as.
   static Set<String> readableExtensionsFor(TargetPlatform platform) =>
-      platform == TargetPlatform.iOS
+      _isApple(platform)
       ? const {..._sharedExtensions, 'aiff', 'aif', 'caf', 'qta'}
       : _sharedExtensions;
 }

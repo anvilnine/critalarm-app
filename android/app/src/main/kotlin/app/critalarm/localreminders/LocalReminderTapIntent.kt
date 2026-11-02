@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import app.critalarm.MainActivity
+import app.critalarm.taps.TapGate
 import org.json.JSONObject
 
 /**
@@ -15,9 +16,9 @@ import org.json.JSONObject
  */
 object LocalReminderTapIntent {
     const val OPEN = "open"
-    private const val EXTRA_KIND = "reminder_kind"
-    private const val EXTRA_ACTION = "reminder_action"
-    private const val EXTRA_PAYLOAD = "reminder_payload"
+    const val EXTRA_KIND = "reminder_kind"
+    const val EXTRA_ACTION = "reminder_action"
+    const val EXTRA_PAYLOAD = "reminder_payload"
 
     private var sequence = 0
 
@@ -35,7 +36,7 @@ object LocalReminderTapIntent {
         return PendingIntent.getActivity(
             context,
             requestCode,
-            intent,
+            TapGate.sign(context, intent),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
@@ -57,9 +58,12 @@ object LocalReminderTapIntent {
      * The reminder tap on [intent], read once, in the shape Dart's
      * NativeReminderScheduler.decodeTap reads. Null for anything else and
      * for an intent replayed from the recents list.
+     *
+     * [signed] is what [TapGate.admit] answered for this intent. Without it
+     * nothing is read and no notification is cancelled.
      */
-    fun read(context: Context, intent: Intent?): Map<String, Any>? {
-        if (intent == null) return null
+    fun read(context: Context, intent: Intent?, signed: Boolean): Map<String, Any>? {
+        if (!signed || intent == null) return null
         if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return null
         val kind = intent.getStringExtra(EXTRA_KIND) ?: return null
         val action = intent.getStringExtra(EXTRA_ACTION) ?: OPEN

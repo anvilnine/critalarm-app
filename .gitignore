@@ -27,6 +27,8 @@ migrate_working_dir/
 # Generated from .env by scripts/gen-google-xcconfig.sh. Holds the Google iOS
 # client id, which this public repo does not carry.
 **/ios/Flutter/Google.xcconfig
+# The macOS twin, from macos/gen-google-xcconfig.sh.
+**/macos/Flutter/Google.xcconfig
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

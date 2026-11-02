@@ -67,7 +67,11 @@ abstract final class BundledSounds {
   static String extensionFor(String id, TargetPlatform platform) {
     final ios = iosExtensions[id];
     if (ios == null) throw ArgumentError.value(id, 'id', 'not a bundled sound');
-    return platform == TargetPlatform.iOS ? ios : _androidExtension;
+    // macOS decodes with AVFoundation like iOS, which has no ogg reader, so
+    // it ships the iPhone's files.
+    final isApple =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+    return isApple ? ios : _androidExtension;
   }
 
   static String assetPath(String id, TargetPlatform platform) =>

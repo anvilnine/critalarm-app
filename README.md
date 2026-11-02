@@ -82,6 +82,29 @@ Both pass `--dart-define=QUIET_ALARM=true`, which skips the volume override and
 stops the ring after five seconds. The flag defaults to false, so a build that
 does not ask for it behaves exactly like a store build.
 
+### The Mac app
+
+`macos/` is a sandboxed macOS 13+ target built from the same Dart code, bundle
+id `app.critalarm`. It runs the screens that need no push and no ringer. On a
+Mac the app registers no push token, rings nothing and has no quick actions,
+alternate icons, widgets or Customer Center yet. `PlatformCapabilities.isMacos`
+and the getters next to it say which is which.
+
+```bash
+make run-macos                  # debug run on this Mac
+make build-macos                # sandboxed release app
+make run-macos SIGN=local       # a Mac with no macOS profile for app.critalarm
+```
+
+Sign in with Apple and the keychain group Google Sign-In uses need a macOS
+provisioning profile. `SIGN=local` signs with the Apple Development certificate
+and no profile, and leaves those two entitlements out
+(`macos/Runner/DebugProfileLocal.entitlements`, `ReleaseLocal.entitlements`). Both
+sign-in buttons fail in that build. Everything else runs.
+
+The Mac reads `GOOGLE_IOS_CLIENT_ID` from `.env` through
+`macos/gen-google-xcconfig.sh`, which the make targets run first.
+
 ## Docs
 
 - `docs/api.md` is a generated copy of the server's contract. Do not edit it
@@ -100,6 +123,7 @@ Firebase configuration files are intentionally gitignored and must never be comm
 
 - **Android**: one `google-services.json` per store flavor, in `android/app/src/<flavor>/`. The `play` one is the file that used to sit at `android/app/google-services.json`; Gradle stops when a copy is left there. The `galaxy` and `huawei` ones are symlinks into `secrets/`. Until those two exist, their builds go without one and start Firebase from `lib/firebase_options.dart`.
 - **iOS**: Place `GoogleService-Info.plist` in `ios/Runner/GoogleService-Info.plist`
+- **macOS**: nothing extra to place. The Mac app has the iPhone's bundle id, so it is the same Firebase iOS app: the Xcode project bundles `ios/Runner/GoogleService-Info.plist`, and Dart uses `DefaultFirebaseOptions.macos` in `lib/firebase_options.dart`.
 
 If these configuration files are absent (e.g. during local tests or CI builds), the telemetry subsystem initializes gracefully into a safe, disabled state without crashing.
 

@@ -55,7 +55,7 @@ void main() {
         navigate: (_) {},
         localeChanges: changes.stream,
         quickActions: actions,
-        isWeb: false,
+        isAvailable: true,
       )..start();
       await Future<void>.delayed(Duration.zero);
       expect(actions.titles.last, ['old history', 'old new']);
