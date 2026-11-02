@@ -3,12 +3,51 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ## Unreleased
 ### Added
+- Crit Alarm now speaks German and Japanese. Pick a language in Settings under Language, or keep System default to follow your phone. The alarm screen, notifications and widgets switch too.
+- The translations were made with AI. The Language screen and About have a link to tell us about a mistake.
+- A topic that rings can also flash the camera light and vibrate hard. Turn either on from the topic page. On iPhone the flash runs while the alarm screen is open.
+
+### Changed
+- Dates and times follow the format of the language you use.
+- When the server refuses something, the app explains it in its own words in your language.
+- Topics, History and a topic's messages open with the alarms and messages already on your phone, then update from the server.
+- A connect link only connects to a server you host yourself.
+- Tablets, foldables and the web app on a wide screen get layouts of their own. A wide window keeps every screen in a centred frame, a half-open foldable keeps everything you read or tap off the fold, and a small cover screen gets a compact tab bar.
+- The ringing alarm fits every screen size, and I'm up is always on screen without scrolling, at large text too. On a wide screen the face sits beside the message and the answers sit right under it.
+- On a tablet on its side, a wide window or a foldable held open like a book, Topics, History and Settings show the list on one side and the topic, alarm or page you pick on the other, opening on the first one.
+- On a tablet or a wide window, setup, New topic and the plans page keep their words and button in one centred column. On a half-open foldable the face sits on one side of the fold and the form or offer on the other.
+- On iPhone Duo, the tabs sit in the strip down the side of the screen, open or closed, flat or half folded, and the page uses the rest of the screen.
+
+### Fixed
+- After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
+- Connecting to your own server checks the admin token first. A token the server does not accept is no longer saved, and the server you were connected to stays connected.
+- Editing your server in Settings checks the server and the admin token before it saves. If the check fails, the sheet says why and the server you were connected to stays connected.
+- Your Crit Alarm Cloud device credential is sent to Crit Alarm Cloud only. On another relay the phone registers as a new device.
+- Signing in as a different account on the same phone no longer shows the alarm history of the account before it. Signing back in to the first account brings its history back.
+- Settings and the Storage page show the choice you saved. Before, they always read Keep all and a new pick did not show, even though old alarms were deleted on the schedule you picked.
+- In light mode, the setup screen you see after turning down a permission is now easy to read, with dark text on yellow and an Open Settings button that stands out.
+- An alarm that rings during setup now shows its full screen background.
+- Tapping an alarm notification while the alarm screen is open no longer restarts it.
+- On iPhone Duo, screens, sheets, dialogs and the tab bar keep clear of the strip down the side of the screen.
+
+### Security
+- On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.
+
+## 1.0.0+15 - 2026-10-16
+### Added
 - Setup asks what you want to be woken for and fills in your first topic to match.
 - After your first test alarm, setup shows what Hosted adds, or the Pro pack if you use Crit Alarm for your home, before it moves on to hooking up your tool. Close it at any time, and nothing rings falsely.
+- Settings shows whether you have Pro, and has a See Pro button if you do not.
+- Wake-up challenges are on the Pro page, and a locked challenge opens a page about challenges.
 
 ### Changed
 - The app keeps your topic list on the phone. After you open it, Home's setup card is right from the first frame, and a topic already knows whether Critical delivery is on before the server answers.
+- Every locked feature now opens the same full-screen plans page, for Hosted and for Pro. The small Pro sheet is gone.
+- After you buy Hosted or Pro, the app plays a short thank-you before it takes you back.
 - The Android back button during a Feature Guide now asks whether to leave it, with a switch to stop guides showing by themselves
+- The paid plan is now called Cloud everywhere in the app.
+- The server Crit Alarm runs is now called our server, so Cloud only ever means the paid plan.
+- Search results look like the screen they come from: topics as face cards, past alarms as History rows, settings as Settings rows, and documentation on its own sheet with an arrow that shows it opens in your browser.
 
 ### Fixed
 - With crash reporting on, errors inside the app are now reported, not only crashes of the phone's own code.
@@ -18,6 +57,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The walkthrough offer on Home scrolls at large text sizes on small phones, so Show me around and Not now are always on screen.
 - A long topic name no longer gets cut off in the name field during setup at a large text size.
 - The keyboard no longer opens over a Feature Guide on Search and on the new topic screen
+- On small phones the plans sheet no longer drops what Cloud or Pro includes. The list scrolls above the button instead.
+- Buying Pro when the payment still needs approval, such as Ask to Buy, now says the payment is pending and checks again, instead of saying the purchase failed.
+- Search section titles sit above their results again, with the best section still nearest the search bar.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added

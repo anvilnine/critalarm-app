@@ -1,5 +1,4 @@
 import 'package:critalarm/core/paywall/paywall_layout.dart';
-import 'package:critalarm/features/paywall/presentation/intros/alarm_snack/alarm_snack_intro.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_intro.dart';
 import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_intro.dart';
 import 'package:critalarm/features/paywall/presentation/intros/snooze/snooze_intro.dart';
@@ -14,7 +13,6 @@ final Map<PaywallIntroId, PaywallIntro> paywallIntroBuilders = {
   PaywallIntroId.snooze: snoozeIntro,
   PaywallIntroId.wakeUp: wakeUpIntro,
   PaywallIntroId.curtain: curtainIntro,
-  PaywallIntroId.alarmSnack: alarmSnackIntro,
 };
 
 /// Whether [intro] can be played as asked: `none` always can, and any other

@@ -42,11 +42,21 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:label="Crit Alarm"
+        android:localeConfig="@xml/locales_config"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
         <meta-data
             android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <!-- Off from the first moment of every launch, before Dart runs.
+             Dart switches each one on only in a store build whose user
+             said yes (telemetryAllowedFor and Settings > Privacy). -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
             android:value="false" />
         <activity
             android:name=".MainActivity"
@@ -153,7 +163,8 @@
              app. The filter is not on MainActivity or on a launcher alias:
              a link there could start a second Flutter engine inside the app
              that sent it, and would put a data URI on MainActivity's intent.
-             AppLinkActivity passes the link on as an extra and finishes.
+             AppLinkActivity holds the link in memory, puts a one-time pass
+             for it on MainActivity's intent and finishes.
              Flutter's own deep linking stays off. autoVerify needs
              https://critalarm.app/.well-known/assetlinks.json to list this
              app's signing certificate. -->
@@ -247,7 +258,7 @@
         <receiver
             android:name=".widgets.TopicListWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_topic_list_label">
+            android:label="@string/native_widget_topics_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -258,7 +269,7 @@
         <receiver
             android:name=".widgets.TopicWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_topic_label">
+            android:label="@string/native_widget_topic_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -269,7 +280,7 @@
         <receiver
             android:name=".widgets.OpenCountWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_open_count_label">
+            android:label="@string/native_widget_count_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

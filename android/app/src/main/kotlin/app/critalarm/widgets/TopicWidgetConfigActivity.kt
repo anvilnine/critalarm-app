@@ -6,7 +6,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.ListView
-import app.critalarm.R
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 
 /**
  * Picks the topic a per-topic widget shows, from the topics in the snapshot.
@@ -24,7 +25,9 @@ class TopicWidgetConfigActivity : Activity() {
             finish()
             return
         }
-        setTitle(R.string.widget_config_title)
+        // In the language picked in the app, also below Android 13.
+        val words = NativeWords.of(this)
+        title = words.text(NativeText.WIDGET_CHOOSE_TOPIC)
         val snapshot = WidgetSnapshotStore(this).read()
         val names = if (snapshot?.connected == true) snapshot.topics.map { it.name } else emptyList()
         val list = ListView(this)
@@ -32,7 +35,7 @@ class TopicWidgetConfigActivity : Activity() {
             list.adapter = ArrayAdapter(
                 this,
                 android.R.layout.simple_list_item_1,
-                listOf(getString(R.string.widget_config_empty)),
+                listOf(words.text(NativeText.WIDGET_OPEN_APP_FIRST)),
             )
             list.setOnItemClickListener { _, _, _, _ -> finish() }
         } else {

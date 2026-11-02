@@ -54,6 +54,7 @@ final class PlanStatus {
     this.billingIssueAt,
     this.priceString,
     this.managementUrl,
+    this.expiresAtInstant,
   });
 
   final bool isActive;
@@ -62,6 +63,12 @@ final class PlanStatus {
 
   /// Wall-clock.
   final DateTime? expiresAt;
+
+  /// The store's expiry exactly as the entitlement gives it, in UTC, with no
+  /// time zone applied. [expiresAt] is the same moment as wall-clock time on
+  /// this phone, so it differs from phone to phone. Anything that must agree
+  /// across phones (the cancel question's local key) reads this one.
+  final DateTime? expiresAtInstant;
 
   /// Wall-clock. Set while the store cannot take the payment.
   final DateTime? billingIssueAt;

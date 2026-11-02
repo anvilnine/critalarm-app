@@ -66,12 +66,27 @@ state-management library.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
+| Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store). A desk build: no analytics, never uploaded. An iOS archive for the store comes only from `make release-ios`, never from a manual Xcode archive after `make run-store` |
+| Record the Cloud paywall layouts and benefit previews as frames (site and marketing media) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
+| Build another store's app to check it | `make build-store-apk STORE=galaxy` (or `huawei`; `play` is the default), `make build-store-appbundle STORE=...`. Desk builds: no analytics, never uploaded. They delete `build/release-android.stamp`, so `release-android.sh --upload-only` refuses until a real release build. Store uploads go only through `make release-android` and `make release-ios` |
+| Store leak check | `make check-store-leaks` (builds under `build/`), or `sh tool/store_leak_check.sh <apk-or-aab> <play\|galaxy\|huawei> [mapping.txt]` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
 
 Fresh cold-start mode wipes all app data on the selected device and requires `--yes-wipe`; the Makefile target never passes it.
+
+**Store flavors.** Every Android build names a store: `--flavor play|galaxy|huawei`
+and the same name as `--dart-define=STORE`, read once in `lib/app/di.dart` into
+`StoreKind` (`lib/core/platform/store_kind.dart`). The Make targets pass both,
+`STORE=play` by default, and leave them out for an iPhone, whose store is
+`apple`. A bare `fvm flutter run` on Android stops and asks for a flavor.
+`play` is `app.critalarm`; `galaxy` and `huawei` add `.galaxy` and `.huawei`.
+Play-only native code (Play Asset Delivery, `SoundPackChannel`) lives in
+`android/app/src/play/` and comes in with `playImplementation`; the other two
+flavors have their own `SoundPackChannel` that answers `unavailable`. The play
+release bundle is `build/app/outputs/bundle/playRelease/app-play-release.aab`.
 
 **Work in a worktree, one per task.** `make worktree-new NAME=search-overlay`
 creates `worktrees/search-overlay` on branch `task/search-overlay` off `main`, so
@@ -81,6 +96,15 @@ runs all three in the background and drops a `.worktree-ready` marker when it ca
 build. `make worktree-list` shows what is still open; `make worktree-clean` removes
 only the worktrees that are clean and already merged. Details in
 `worktrees/README.md`.
+
+**Worktrees live in `worktrees/`, never in `.claude/worktrees/`.** This is a hard
+rule for every agent and session. Do not use Claude Code's built-in worktree
+option (`claude --worktree`, `EnterWorktree`, or an agent started with
+`isolation: "worktree"`): it puts the copy in `.claude/worktrees/<name>` on a
+`worktree-<name>` branch. Flutter skips folders whose names start with a dot, so
+nothing builds there, and `make worktree-list`, `make worktree-clean` and the
+prep hook never see it. Always run `make worktree-new NAME=<slug>`. If you find a
+worktree under `.claude/worktrees/`, stop and tell Z.
 
 **Most generated files are git-ignored.** `*.g.dart` and `*.freezed.dart` are not
 in the repo. FlutterGen's `lib/gen/*.gen.dart` is the exception and is committed,
@@ -125,12 +149,19 @@ names in code, strings, comments and PRs, and never one for another.
   replays them all. Formerly "tour" and, before that, "showcase". The prefs keys
   `tour_guides_seen` and `has_completed_showcase_tour` keep their old names
   because devices already hold them.
+- **Cloud** (the paid plan): the word in copy since the plan was renamed from
+  Hosted. The code keeps `hosted` everywhere it was already there: `Holding.hosted`,
+  `PaywallProduct.hosted`, translation key names such as `paywall_kit.name_hosted`,
+  route values, prefs keys, analytics, the store product ids, the server mode
+  and the account tier. Only the text a person reads or hears says Cloud. The
+  server we run is "our server" in copy, never "Crit Alarm Cloud", so that Cloud
+  means the plan only.
 - **In-App Notices** (`lib/features/in_app_notices/`): a reminder Home pins
   above the tab bar as an `AppPinnedNoticeBar`. `InAppNoticeCubit` picks two
-  of them: the Hosted plan ending and "back up your topics". A notice sits
+  of them: the Cloud plan ending and "back up your topics". A notice sits
   there until its condition clears or the user dismisses it. An **ask** is
   different: an interruptive sheet or popup (the Pro ask, the consent ask,
-  the Local reminders sheet, the store review), governed by `HomeAskRules`
+  the Local reminders sheet, the cancel question, the store review), governed by `HomeAskRules`
   and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
   `home_prompt_*` prefs keys and the `pro_prompt_answered` analytics event
   keep their names.
@@ -138,7 +169,7 @@ names in code, strings, comments and PRs, and never one for another.
   notice:
   - **Pinned bars** (`pinnedBarFor` in
     `lib/features/topics/domain/home_list_rules.dart`): one at a time, in
-    this order. The Hosted ending, the account backup reminder, then "One
+    this order. The Cloud ending, the account backup reminder, then "One
     topic so far", which is Home's own rule and not a notice.
   - **Status card kinds** (`HomeCardKind`): what Home reports about whether
     an alarm will ring, and where setup stands. No server, a missed alarm, a
@@ -180,7 +211,7 @@ names in code, strings, comments and PRs, and never one for another.
 **This app also builds for web.** The dashboard is this codebase run through
 `flutter build web` (ARCHITECTURE §2). Four rules keep that cheap:
 
-- Ask the capabilities service, never `kIsWeb` or `Platform.isIOS` inline. It is `PlatformCapabilities` in `lib/core/platform/platform_capabilities.dart`, registered in `get_it`. Its getters are `canRegisterPush`, `canRunAlarm`, `canComposeMessages`, `hasLocalNotifications` and `hasHaptics`, plus the two values it is built from, `isWeb` and `platform`, and `isIos` (the native iOS app, never a browser). Web gets no push, no alarm, no Local Reminders and no haptics, and it gets compose. `canImportSounds` is not on it: that is a question for the native side, so it lives on `SoundHost` (`SoundCapabilities`). `lib/app/di.dart` is the one place that reads `kIsWeb` for feature code. Data and domain classes get the class or a plain value through their constructor, and screens read it from `getIt`. `tool/check_layers.sh` fails on any `kIsWeb` under `lib/features/`, comments included.
+- Ask the capabilities service, never `kIsWeb` or `Platform.isIOS` inline. It is `PlatformCapabilities` in `lib/core/platform/platform_capabilities.dart`, registered in `get_it`. Its getters are `canRegisterPush`, `canRunAlarm`, `canComposeMessages`, `hasLocalNotifications`, `hasHaptics`, `hasStrongAlarmVibration` (Android only) and `flashNeedsAlarmScreen` (iPhone only), plus the two values it is built from, `isWeb` and `platform`, and `isIos` (the native iOS app, never a browser). Web gets no push, no alarm, no Local Reminders and no haptics, and it gets compose. `canImportSounds` is not on it: that is a question for the native side, so it lives on `SoundHost` (`SoundCapabilities`). `lib/app/di.dart` is the one place that reads `kIsWeb` for feature code. Data and domain classes get the class or a plain value through their constructor, and screens read it from `getIt`. `tool/check_layers.sh` fails on any `kIsWeb` under `lib/features/`, comments included.
 - A screen that exists on one platform only is its own route gated by a capability, never a widget hidden behind a boolean: the message composer is web only, the permissions screen is mobile only.
 - Shared widgets take no platform-specific dependencies.
 - Layout breakpoints come from the design system, never from the platform.
@@ -248,18 +279,6 @@ and for which page may play haptics are in that file.
 - While the pager moves, the first page's big title, face and rings fade and
   travel clear of the page edge instead of being cut by it
   (`welcomeWordPartingAt`, driven by the `PageController` page value).
-- The picture on page 1 is one choice, `welcomeFirstPage` in
-  `domain/welcome_pages.dart` (`WelcomeFirstPage`: `word`, the default,
-  `nightFalls` and `staysSilent`). The other two are built and do not ship.
-  Settings > Developer options > Setup flow > Open a step lists "Welcome: night
-  falls" and "Welcome: stays silent", which open the real three pages as a
-  replay (`?demo=true&first=night`, `?demo=true&first=silent`). Showing one on
-  first launch is a change of that constant. Each has a timeline in
-  `domain/welcome_night_falls_timeline.dart` or
-  `domain/welcome_stays_silent_timeline.dart` and a part file that paints a
-  frame. Both fade and travel clear of the page edge with the pager like the
-  word page does. `nightFalls` draws its own title and hides the small one,
-  `staysSilent` keeps the small one under the picture.
 - The shapes behind the welcome follow the page value: each page has its own
   arrangement (`OnboardingAmbientProfiles.welcomePages`), and the shell
   paints the blend of two neighbours (`welcomeAmbientAt`) while a swipe moves
@@ -303,10 +322,10 @@ it has no chapter, and it ships switched on.
   with a value it cannot have sets the whole object aside and the next
   source is asked. A build older than `auto`
   sets a value holding it aside the same way.
-- `auto` picks the product from the answer on Cloud: the Pro pack for the
-  home answer, Hosted for the rest. `pro`, `hosted` and `none` force one
+- `auto` picks the product from the answer on our server: the Pro pack for the
+  home answer, Cloud for the rest. `pro`, `hosted` and `none` force one
   answer for everyone. On a server of the user's own only
-  `self_hosted_product` counts, and Hosted is never offered there.
+  `self_hosted_product` counts, and Cloud is never offered there.
 - `decideOnboardingOffer` is the rule. The step skips itself on a replay
   (see below), when it is off, when the product is `none` for this kind of
   server, when the layout is not built in this version, when no account id is
@@ -353,7 +372,7 @@ it has no chapter, and it ships switched on.
   that replay (`SetupUseReplay`), then the made-up purchase or the cross, the
   thanks and hook up. On that made-up buy model a replay ignores the account
   and the products held (`offerIgnoresHoldings`), so a tester sees the paywall
-  with no account, with Hosted already held and with Pro already held. It
+  with no account, with Cloud already held and with Pro already held. It
   still follows the switches: the offer switched off (by the developer value
   or the remote one), no product for an own server, and an unbuilt layout all
   skip it. An own server gets the `self_hosted_product` offer, as a real run
@@ -491,7 +510,7 @@ round for Back. `finishOnboardingStep` and `goBackInOnboarding` start it, so
 a step route has no page transition of its own. The canvas gets `pop` for
 Back, and `sweep` when the change crosses a chapter.
 
-Background connect: Continue with Crit Alarm Cloud finishes the `connect`
+Background connect: Continue with our server finishes the `connect`
 step at once. `BackgroundConnect`
 (`lib/features/onboarding/domain/connect/background_connect.dart`, one object
 for the whole app run, registered in `lib/app/di.dart`) does the work behind
@@ -678,7 +697,7 @@ created stop either: the topic drops as a row into a small picture of Home
 (`TopicMadeBeat`, about 1.2 seconds, a tap skips it, still under reduce
 motion) and the screen moves on, because the hook-up step shows the address
 and the token where they are used. A replay makes no topic and shows no
-picture. It shows no ask, the Hosted ask included. Opened from Home, the
+picture. It shows no ask, the Cloud ask included. Opened from Home, the
 screen keeps its two steps and its created state, whatever the topic count.
 
 When finishing a step ends setup, `finishOnboardingStepInEngine` raises
@@ -1054,12 +1073,25 @@ changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
 page that was leaving, went down with it, and was read as "not now". An
 offer whose screen went away under it is not counted as declined.
 
+**Cancel question.** An ask, not a notice, and not a notification or an alarm:
+a sheet the person sees by opening Home, and it schedules nothing.
+`CancelQuestion.dueFor` reads `ProEndingView.endsAt` (not the sheet, so the
+pill still counts) and asks once per end date. The local key is the UTC date of
+`ProEndingView.endsAtInstant`, the store's expiry instant, never through
+`DeviceTimeZone`. The mark is written when the sheet opens, so any way of
+closing it counts as asked. A billing issue skips it. It shows before the Cloud
+ends sheet. The answer goes through `CancelAnswerSender`: the chip at once, the
+text second, a failed send tried on three later launches, then dropped (at once
+on another account, off Cloud or on a 403). `AccountData.forget` clears the
+queue. The `cancel_reason` event carries the wire name only. Prefs keys:
+`cancel_question_asked_for` and `cancel_question_pending_v1`.
+
 **Pro pack.** A pack is an add-on an account holds beside its tier
 (api.md §4.2). The only one is `pro`. The code is in `lib/features/pro_pack/`.
 
 - Two things share a word. Identifiers that say Pro and are not `ProPack...`
   (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
-  `ProOverride`, `DevProSwitch`) mean the Hosted plan. The pack is always
+  `ProOverride`, `DevProSwitch`) mean the Cloud plan. The pack is always
   `ProPack...` in code and "Pro" in copy. Neither routes through the other.
 - `ProPackAccess` answers one question: does this install hold the pack.
   `isHeld` is the value and `stream` carries its changes. It never says how
@@ -1087,45 +1119,62 @@ offer whose screen went away under it is not counted as declined.
   (`pro_pack_grant.dart`) is the one function that could grant the pack from
   another source, and it returns false.
 - `proPackRefreshOutcome` is the refresh table. `confirmed: false` with no
-  pack listed is `unknown`: what was showing stays, the sheet says it is still
-  checking and asks again. It is never "no pack" and never a failed purchase.
-- The sheet is `ProPackSheet`, a bottom sheet at its own route (`/pro`,
-  `AppRoute.proPack`). It lists the packages of the RevenueCat offering
-  `proPackOfferingId` with the store's own title and price strings. With no
-  such offering, or in a build that skips the store, it says Pro is not on
-  sale yet and offers nothing to buy. Restore is there whenever the sheet
-  rests, on sale or not.
+  pack listed is `unknown`: what was showing stays, the paywall says it is
+  still checking and asks again. It is never "no pack" and never a failed
+  purchase.
+- Pro is sold on a paywall layout (`/plans/<layout>?product=pro`), the same
+  route that sells Cloud. There is no Pro sheet and no `/pro` route.
+  `ProPaywallBuyCubit` lists the packages of the RevenueCat offering
+  `proPackOfferingId`. With no such offering the layout still draws, and
+  its buy block says Pro is not on sale yet and offers nothing to buy.
+  Restore is there either way.
+- **Paywalls are coded, never remote.** Every locked place asks
+  `PaywallDoor` (`lib/features/paywall/presentation/paywall_door.dart`), and
+  the door always answers with a layout location. `paywallOpeningFor`
+  (`lib/features/paywall/domain/paywall_routing.dart`) holds the defaults:
+  the place table picks the layout and the intro, Cloud ends on Receipt
+  party after Cloud climb, Pro on Stamp after Break, lift, ring. Remote
+  Config holds no paywall key, RevenueCat's dashboard draws no paywall
+  (`RevenueCatUI.presentPaywall` is never called), and only the customer
+  centre still comes from `purchases_ui_flutter`. Developer options can
+  set each of the four steps in a `SKIP_PAYWALL` or `PAYWALL_LAB` build,
+  with "Auto" (the coded default) first. `/paywall?source=...` is kept as a
+  path for reminders, the settings search result and a locked home screen
+  widget. It draws nothing and redirects to the layout for its source. If
+  the door fails, or none is registered, the plan layout for that product
+  opens. Details: `lib/features/paywall/presentation/layouts/kit/README.md`,
+  "What opens".
 - The pack unlocks features built into the app (`featureTable`). It has
   no row on the Reliability screen: the weekly delivery check there needs
-  Hosted (see "Weekly check").
-- Developer options has a switch for the pack beside the Hosted one, in a
+  Cloud (see "Weekly check").
+- Developer options has a switch for the pack beside the Cloud one, in a
   `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
   the mock relay hold the pack (`MockServer.grantedPacks`).
 
 **Weekly check.** Once a week the relay sends an enrolled phone a push that
 shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
-It needs Hosted, because the relay runs it, and it does not exist on a
+It needs Cloud, because the relay runs it, and it does not exist on a
 server of the user's own. The Pro pack does not unlock it. The code is in
 `lib/features/weekly_check/`, plus the native handlers.
 
-- `featureTable` holds the rule: `weeklyCheck` is unlocked by Hosted and is
+- `featureTable` holds the rule: `weeklyCheck` is unlocked by Cloud and is
   `OwnServerRule.notOffered`. `FeatureAccess.decide` answers
   `FeatureDecision.notOffered` there, which is its own answer: not open,
   and not a lock. A screen says in plain words that the feature is not
   available and opens no paywall. `weeklyCheckAccessFor` turns the decision
   into the four words this feature acts on (`WeeklyCheckAccess`).
 - The weekly row inside the proof card on Will it wake me (`WeeklyCheckCardRow`) is one of three: the switch
-  with Hosted held, a locked row that opens the Hosted paywall through
+  with Cloud held, a locked row that opens the Cloud paywall through
   `AccessLock`, or one line saying it is not available on a server of your
   own.
 - A lapse takes nothing away. The relay keeps the device enrolled and
   answers `off` with the reason `tier`. The row locks from what is held,
-  and when Hosted is back the check goes on with no new tap. A reason the
+  and when Cloud is back the check goes on with no new tap. A reason the
   app does not know, `pack` from before 1.19.0 included, is no reason.
 - A lapse is never a miss. `WeeklyCheckNoticeRule` answers no while the
   plan is away, and sets aside what the phone learned before it last saw
   the plan away (`weekly_check.plan_away_at`), so a clock that ran on
-  through a lapse raises nothing when Hosted is back.
+  through a lapse raises nothing when Cloud is back.
 - On a server of the user's own the app never sends `"enabled":true`. A
   phone that was enrolled before sends `"enabled":false` once
   (`WeeklyCheckMonitor.accessChanged`). A send that fails is tried again on
@@ -1178,7 +1227,7 @@ server of the user's own. The Pro pack does not unlock it. The code is in
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
   `openWeeklyCheckRound()` returns the id a push would carry. The mock
   gates the check on `MockServer.accountTier`, which the developer switch
-  for Hosted sets in a mock build.
+  for Cloud sets in a mock build.
 
 **Backups and restores.** A restored phone starts as a phone the relay has
 never seen, and a person's own alarm photo and own sounds are in no backup.
@@ -1220,13 +1269,59 @@ never seen, and a person's own alarm photo and own sounds are in no backup.
   treats as nothing to draw and nothing to ring.
 
 **Local store and the held topic list.** `LocalStore` (`lib/core/store/local_store.dart`,
-`critalarm.db`, schema version 3) holds three tables. `incidents` and `messages` are the
-archive: the user's own copy, deleted only by the auto-delete setting. `topics` is the last list
-the server gave, kept so the app opens with the topics it already knows. It is a copy the server
-replaces on every answer, not an archive.
+`critalarm.db`, schema version 4) holds three tables. `incidents` and `messages` are the
+archive: the user's own copy, deleted by the auto-delete setting and by an account delete.
+`topics` is the last list the server gave, kept so the app opens with the topics it already
+knows. It is a copy the server replaces on every answer, not an archive.
 
 - A table change bumps `LocalStore.schemaVersion` and adds a step in `_upgrade`. A test builds
   the previous version's file by hand and checks the old rows survive (`test/core/store/`).
+- Archive rows are scoped by account, like topics. `incidents` and `messages` carry a `scope`
+  column (the same `heldScopeFor` hash) and the primary key is `(scope, id)`. Every read in
+  `IncidentStore` and `MessageStore` asks for the current scope inside the store, so no caller
+  can forget to filter, and a read for no scope returns nothing. This includes the `since`
+  cursor (`newestUpdatedAt`): an account that signs in on a phone another account used asks the
+  server for its whole window.
+- The scope comes from `HeldAccountScope` (`lib/app/held_account_scope.dart`), which the topic
+  list uses too. The account is the one the person signed in to (`identity_account_id`) and, when
+  nobody is, the device's own. The device's account id is saved only at a registration, so after a
+  link, a switch or a merge it still names the old anonymous account until the next launch. Never
+  build a scope from the device's account id alone.
+- A merge ("keep both") moves the old account's archive rows to the new account
+  (`LocalStore.mergeArchive`, called from `ApiAccountRepository.merge`). A row the new account
+  already holds under the same id stays.
+- A sign-out keeps the archive rows, so the same account finds its history again. They are never
+  shown to another account. An account delete removes that account's rows
+  (`AccountData.forgetDeleted`, called by `wipeAfterDelete` only; a dead credential and a sign-out
+  call `forget`). A connect to a different server (`clearServerData`) and the auto-delete setting
+  cover every scope.
+- Every answer that carries incidents or messages is checked against the account that asked.
+  `ScopedApiClient` (`lib/core/api/scoped_api_client.dart`, wraps `HttpApiClient` in `di.dart`)
+  reads the scope (`HeldAccountScope`, server and account) when `getIncidents`, `getIncident`,
+  `ackIncident`, `closeIncident`, `publishMessage` or `pollMessages` starts and again when the
+  answer or the error arrives. If the two differ it throws `StaleAccountException`. Only the
+  scopes are compared, so a sign-in, a purchase or a connect that leaves the account as it was
+  changes nothing, and an account that was left and came back keeps its answer. Every caller
+  treats the exception as "nothing happened": the repository hands back what the phone holds
+  for the account it is on (lists, polls) or a failure (single incidents), the ack queue counts
+  the send as done, and the alarm controller, the first message watcher and the message sync
+  skip the item. A new direct read of those routes belongs on this client, never on
+  `HttpApiClient`.
+- Archive writes use a ticket as a second guard (`beginWrite`, `ArchiveScope` in
+  `lib/core/store/archive_scope.dart`) taken before the request or event the data came from.
+  The write is stored under the scope it started with, and only when the phone is still on that
+  scope. The check runs inside the write's transaction, and every delete or merge invalidates
+  open tickets first, so a late write cannot bring deleted rows back. Otherwise the write is
+  dropped and never stored under the next account. Alarms are received, sounded and
+  acknowledged before and without this, so a dropped write costs a row and nothing else. The
+  next sync fetches the incident again.
+- `AccountCubit.deleteAccount` reads the account it is deleting at the start and passes it to
+  `wipeAfterDelete(accountId:)`. The repository holds no state about it.
+- The upgrade to version 4 stamps every existing incident and message with the scope the phone
+  is on (`LocalStore.open(scope: ...)`, read once during the upgrade, so it must not touch the
+  database). A file whose tables already have the column is left as it is. With no saved server
+  the rows get the empty scope, which no read asks for. A `LocalStore` opened with no `scope`
+  (unit tests, capture tools) keeps every row under one scope.
 - What a `topics` row holds: name, Critical delivery, the three timers, the relay content
   setting, when the topic was made (milliseconds, because the Topic screen matches what it
   remembered about a topic by that exact time) and the order the server gave. A topic token, its
@@ -1252,6 +1347,30 @@ replaces on every answer, not an archive.
   setup's real ring step), a delete the server took, and `noteCreated`, which
   `CreateTopicUsecase.onCreated` calls for a new topic (stored without its token, memory left
   to the next refresh). Nothing is written before a list is loaded.
+- **Held rows.** `HeldRows` (`lib/app/state/held_rows.dart`) reads the current scope's incidents and
+  each held topic's messages once at launch, through `HeldArchive` (the incident repository reads the
+  stores; no raw SQL), right after `loadHeld()` and inside the same 800 ms limit. The plan
+  (`HeldPlan`) is read first and a snapshot is never taken without it, because the history window
+  decides which rows show. It also notes each topic's rows in `TopicGlances`. Home (`_seedFromHeld`),
+  History (`_seedFromHeld`) and the Topic screen (`seedFor`) draw their first frame from the
+  snapshot and make no request; the full build, which polls each topic, still waits for the server's
+  lists and runs once.
+- The snapshot is never put in `IncidentsCubit`. Everything that rings, badges, hands over to the
+  alarm screen or syncs widgets reads that list, so a stored open alarm there could act. Home
+  keeps `ringingIncidentId` null while its rows are the phone's copy (`_fromPhone`, also on the
+  timer's repaints) unless the shared list holds that incident, shows them as old when the server
+  never answers, and the first answer replaces every row. The snapshot is dropped by any change
+  of the shared incident list (an alarm the alarm screen applies before the first answer counts)
+  and by any change of account (`AccountIdentityChanges`). While rows are still the copy, Home
+  (`_reseedFromShared`) and the Topic screen (`_applySharedToCopy`) lay the shared list over it,
+  before the answer and after it while the topic list is still the stored one, so a real alarm is
+  never shown as calm. The Topic screen applies an update that came during its own change when
+  that change ends. A new reader of stored alarms at launch goes through
+  `HeldRows`, never through `IncidentsCubit`.
+- Launch cost: `main` skips the `HeldRows` read when the first location is an alarm screen
+  (`HeldRows.skipsLaunchAt`), `heldPlanFrom` answers from the plan already read and never waits
+  for it (no plan, no snapshot), and a read that outlives the 800 ms limit is abandoned
+  (`HeldRows.abandon`) so it builds nothing under the first frames.
 - Where the store is not open (the web build, or `local_store_open_failed` at launch) the list
   stays in memory and the app behaves as it did before the copy existed. Push, alarms and
   incident handling never read the `topics` table.
@@ -1283,7 +1402,7 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
   or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
   plain words, no em dashes. Write user entries from the user's side ("History
-  keeps 90 days on Hosted"), not the code's.
+  keeps 90 days on Cloud"), not the code's.
 - Add the entry in the same branch as the change. When branches merge, keep
   both sides' lines.
 - This repo is public. Neither file names prices, keys, task numbers or

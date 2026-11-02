@@ -3,11 +3,14 @@ import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
+import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/core/l10n/app_locales.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
@@ -17,6 +20,7 @@ import 'package:critalarm/core/telemetry/crash_hooks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -31,6 +35,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// Registers the bundled font faces' OFL licenses so they surface in
 /// Settings > Acknowledgements (`showLicensePage`). Bundled asset fonts need
@@ -64,6 +69,15 @@ void _registerSoundPackCredits() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const pseudoRequested = bool.fromEnvironment('PSEUDO_LOCALE');
+  final supportedLocales = localesForBuild(
+    isDebug: kDebugMode,
+    pseudoRequested: pseudoRequested,
+  );
+  // Load symbols before dependencies or push callbacks can format a date.
+  for (final locale in supportedLocales) {
+    await initializeDateFormatting(locale.toString());
+  }
   _registerFontLicenses();
   _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
@@ -112,10 +126,13 @@ Future<void> main() async {
 
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
+  // The plan is read in the background from here on, so the copy of the
+  // phone's alarms can use it at launch without waiting for it.
+  unawaited(getIt<FeatureAccess>().ready);
   final tappedRoute = await pushHost.takePendingRoute();
-  // A locked widget tapped while the app was closed names the shipped
-  // paywall. This is where it learns which paywall that is (the widgets
-  // decision picks the product) and what it is set to open.
+  // A locked widget tapped while the app was closed names the raw paywall
+  // path. This is where it learns which paywall that is (the widgets
+  // decision picks the product) and which layout it opens.
   final initialLocation = await resolvePaywallLocationWhenReady(
     await getIt<InitialRouteResolver>()(deepLink: tappedRoute),
   );
@@ -135,6 +152,10 @@ Future<void> main() async {
 
   // Acks queued offline go out as soon as the network is back.
   unawaited(getIt<AckQueue>().start());
+
+  // A cancel answer that did not get through goes out once more per launch,
+  // three launches at most. It waits on nothing and posts nothing.
+  unawaited(getIt<CancelAnswerSender>().retryPending());
 
   // The first tool alarm's own acknowledged screen is owed once. If it was
   // acknowledged in an earlier run, that moment is over. Awaited, so no
@@ -182,17 +203,34 @@ Future<void> main() async {
   // know. It is a read from the local store; a store that is slow or will not
   // open costs the first frame at most this wait, and then the list loads
   // from the server as it always did.
+  //
+  // The alarms and messages the phone holds are read right behind it, inside
+  // the same limit, so Home's rows, History and a topic's messages open with
+  // them too. Each is a read of the phone's own archive for the account it is
+  // on; nothing is asked of the server.
+  //
+  // An alarm's own screen as the first location skips the second read: the
+  // alarm comes first, and the copy would only hold its first frame back.
   try {
-    await getIt<TopicsCubit>().loadHeld().timeout(
-      const Duration(milliseconds: 800),
-    );
+    await (() async {
+      await getIt<TopicsCubit>().loadHeld();
+      if (!HeldRows.skipsLaunchAt(initialLocation)) {
+        await getIt<HeldRows>().load();
+      }
+    })().timeout(const Duration(milliseconds: 800));
   } on Object catch (_) {
-    // Never stops the app from opening.
+    // Never stops the app from opening. A read that ran out of time stops
+    // at its next step instead of building rows under the first frames.
+    getIt<HeldRows>().abandon();
   }
 
   runApp(
     EasyLocalization(
-      supportedLocales: const [Locale('en')],
+      supportedLocales: supportedLocales,
+      startLocale: pseudoStartLocale(
+        isDebug: kDebugMode,
+        pseudoRequested: pseudoRequested,
+      ),
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
       child: CritAlarmApp(initialLocation: initialLocation),

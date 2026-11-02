@@ -45,6 +45,10 @@ class PaywallPlanOption {
   static const String yearlyId = 'yearly';
   static const String monthlyId = 'monthly';
 
+  /// The id of the Pro option the price book gives, before the store has
+  /// sent one of its own.
+  static const String proOnceId = 'once';
+
   final String id;
   final String title;
 

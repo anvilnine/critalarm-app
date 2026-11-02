@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
@@ -11,6 +13,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -19,6 +22,9 @@ import 'package:critalarm/features/onboarding/domain/usecases/save_connection_us
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +39,10 @@ class MockCompleteOnboardingUsecase extends Mock
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
+
+class MockConnectToServer extends Mock implements ConnectToServerUsecase {}
+
+class MockGetTopics extends Mock implements GetTopicsUsecase {}
 
 class MockBackgroundConnect extends Mock implements BackgroundConnect {}
 
@@ -52,6 +62,7 @@ void main() {
       ),
     );
     registerFallbackValue(const NoParams());
+    registerFallbackValue(const SessionCheckpoint(null, <String, String?>{}));
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
     );
@@ -59,6 +70,15 @@ void main() {
 
   setUp(() {
     mockEstablishSession = MockEstablishSession();
+    when(
+      () => mockEstablishSession.relayTrust(any()),
+    ).thenAnswer((_) async => DeviceTokenRelayTrust.noToken);
+    when(
+      () => mockEstablishSession.checkpoint(),
+    ).thenAnswer(
+      (_) async => const SessionCheckpoint(null, <String, String?>{}),
+    );
+    when(() => mockEstablishSession.rollBack(any())).thenAnswer((_) async {});
     when(() => mockEstablishSession(any(), any())).thenAnswer((
       invocation,
     ) async {
@@ -71,6 +91,9 @@ void main() {
       );
     });
     mockGetServerInfo = MockGetServerInfoUsecase();
+    when(
+      () => mockGetServerInfo.proveAdminToken(any(), any()),
+    ).thenAnswer((_) async {});
     mockSaveConnection = MockSaveConnectionUsecase();
     mockCompleteOnboarding = MockCompleteOnboardingUsecase();
     when(() => mockGetServerInfo(any())).thenAnswer(
@@ -83,6 +106,76 @@ void main() {
   });
 
   group('OnboardingConnectCubit', () {
+    test('unknown server text is mapped when loading the test topic', () async {
+      final getTopics = MockGetTopics();
+      when(() => getTopics(any())).thenAnswer(
+        (_) async => const Failure.api(
+          statusCode: 500,
+          message: 'An unknown English server sentence.',
+        ).toFailure(),
+      );
+      final cubit = OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        establishSession: mockEstablishSession,
+        getTopics: getTopics,
+      );
+      addTearDown(cubit.close);
+      final states = <OnboardingConnectState>[];
+      final subscription = cubit.stream.listen(states.add);
+      addTearDown(subscription.cancel);
+      await cubit.loadTestTopic();
+      await pumpEventQueue();
+      expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+      expect(
+        states.last.errorMessage,
+        isNot(contains('English server sentence')),
+      );
+    });
+
+    for (final duringRegistration in [false, true]) {
+      test(
+        'connect maps unknown server text during '
+        '${duringRegistration ? 'registration' : 'server info'}',
+        () async {
+          if (duringRegistration) {
+            when(() => mockEstablishSession(any(), any())).thenThrow(
+              const ApiException(
+                statusCode: 500,
+                message: 'An unknown English server sentence.',
+              ),
+            );
+          } else {
+            when(() => mockGetServerInfo(any())).thenAnswer(
+              (_) async => const Failure.api(
+                statusCode: 500,
+                message: 'An unknown English server sentence.',
+              ).toFailure(),
+            );
+          }
+          final cubit =
+              OnboardingConnectCubit(
+                  mockGetServerInfo,
+                  mockSaveConnection,
+                  establishSession: mockEstablishSession,
+                )
+                ..serverUrlChanged('https://api.critalarm.app')
+                ..adminTokenChanged('ad_test');
+          addTearDown(cubit.close);
+          final states = <OnboardingConnectState>[];
+          final subscription = cubit.stream.listen(states.add);
+          addTearDown(subscription.cancel);
+          await cubit.connect();
+          await pumpEventQueue();
+          expect(states.last.errorMessage, LocaleKeys.api_errors_unknown.tr());
+          expect(
+            states.last.errorMessage,
+            isNot(contains('English server sentence')),
+          );
+        },
+      );
+    }
+
     test('initial state has no server URL and idle status', () async {
       final cubit = OnboardingConnectCubit(
         mockGetServerInfo,
@@ -214,6 +307,44 @@ void main() {
           adminToken: '   ',
           requiresAdminToken: true,
           adminTokenError: 'Admin token cannot be empty',
+        ),
+      ],
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'a token the server refuses is said under the token field, and the '
+      'form stays open',
+      build: () {
+        final connect = MockConnectToServer();
+        when(
+          () => connect(
+            serverUrl: any(named: 'serverUrl'),
+            adminToken: any(named: 'adminToken'),
+          ),
+        ).thenAnswer((_) async => const AdminTokenRefused());
+        return OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          establishSession: mockEstablishSession,
+          connectToServer: connect,
+        );
+      },
+      seed: () => const OnboardingConnectState(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'ad_mistyped',
+      ),
+      act: (cubit) => cubit.connect(),
+      expect: () => [
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          status: OnboardingConnectStatus.connecting,
+        ),
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          adminTokenError:
+              'The server did not accept this admin token. Not connected.',
         ),
       ],
     );

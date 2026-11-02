@@ -105,6 +105,12 @@ void main() {
             200,
           );
         }
+        // The one read that proves an admin token, on the server's own
+        // address.
+        if (request.url.host == 'canonical.example' &&
+            request.url.path == '/v1/incidents') {
+          return http.Response('[]', 200);
+        }
         expect(request.url.host, 'relay.example');
         expect(request.url.path, startsWith('/prefix/relay/v1/devices'));
         if (request.method == 'PATCH') patches++;

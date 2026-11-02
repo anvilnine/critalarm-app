@@ -42,6 +42,19 @@ class $AssetsAppIconsGen {
   ];
 }
 
+class $AssetsConfigGen {
+  const $AssetsConfigGen();
+
+  /// File path: assets/config/price_book.json
+  String get priceBook => 'assets/config/price_book.json';
+
+  /// Directory path: assets/config
+  String get path => 'assets/config';
+
+  /// List of all assets
+  List<String> get values => [priceBook];
+}
+
 class $AssetsDocsGen {
   const $AssetsDocsGen();
 
@@ -376,14 +389,20 @@ class $AssetsSoundsGen {
 class $AssetsTranslationsGen {
   const $AssetsTranslationsGen();
 
+  /// File path: assets/translations/de.json
+  String get de => 'assets/translations/de.json';
+
   /// File path: assets/translations/en.json
   String get en => 'assets/translations/en.json';
+
+  /// File path: assets/translations/ja.json
+  String get ja => 'assets/translations/ja.json';
 
   /// Directory path: assets/translations
   String get path => 'assets/translations';
 
   /// List of all assets
-  List<String> get values => [en];
+  List<String> get values => [de, en, ja];
 }
 
 class $AssetsUiSoundsGen {
@@ -467,14 +486,6 @@ class $AssetsUiSoundsGen {
 
   /// File path: assets/ui_sounds/ui_roll.m4a
   String get uiRoll => 'assets/ui_sounds/ui_roll.m4a';
-
-  /// File path: assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a
-  String get uiScoreAlarmSnackKalimba =>
-      'assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a';
-
-  /// File path: assets/ui_sounds/ui_score_alarm_snack_piano.m4a
-  String get uiScoreAlarmSnackPiano =>
-      'assets/ui_sounds/ui_score_alarm_snack_piano.m4a';
 
   /// File path: assets/ui_sounds/ui_score_break_lift.m4a
   String get uiScoreBreakLift => 'assets/ui_sounds/ui_score_break_lift.m4a';
@@ -569,8 +580,6 @@ class $AssetsUiSoundsGen {
     uiRestore,
     uiRise,
     uiRoll,
-    uiScoreAlarmSnackKalimba,
-    uiScoreAlarmSnackPiano,
     uiScoreBreakLift,
     uiScoreBreakLiftRing,
     uiScoreCloudClimb,
@@ -596,6 +605,7 @@ class Assets {
   const Assets._();
 
   static const $AssetsAppIconsGen appIcons = $AssetsAppIconsGen();
+  static const $AssetsConfigGen config = $AssetsConfigGen();
   static const $AssetsDocsGen docs = $AssetsDocsGen();
   static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsReminderFacesGen reminderFaces =

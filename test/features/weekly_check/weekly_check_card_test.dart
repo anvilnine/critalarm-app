@@ -70,11 +70,11 @@ void main() {
 
     test('the button needs a way to open the paywall', () {
       expect(
-        weeklyCheckCardShowsSeePlan(planWord: 'Hosted', canUnlock: false),
+        weeklyCheckCardShowsSeePlan(planWord: 'Cloud', canUnlock: false),
         isFalse,
       );
       expect(
-        weeklyCheckCardShowsSeePlan(planWord: 'Hosted', canUnlock: true),
+        weeklyCheckCardShowsSeePlan(planWord: 'Cloud', canUnlock: true),
         isTrue,
       );
     });

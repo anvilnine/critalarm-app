@@ -5,9 +5,11 @@ import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
+import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
@@ -24,6 +26,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/device/native_fold.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -44,6 +47,8 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
@@ -81,6 +86,15 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     initialLocation: widget.initialLocation,
   );
 
+  /// An iPhone tells an unfolded iPhone Fold from an iPad, and is the one
+  /// device whose fold comes over [_foldSource].
+  late final bool _isIphone =
+      getIt.isRegistered<DeviceForm>() && getIt<DeviceForm>().isIphone;
+
+  /// The folding iPhone's fold. One instance, so the scope's stream is not
+  /// opened again on every build.
+  final NativeFoldSource _foldSource = const NativeFoldChannel();
+
   /// Taps, foreground pushes and the resume reload. A notification tapped
   /// while the app is already running does not go through the initial route,
   /// so the platform hands the route over here.
@@ -89,7 +103,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<IncidentsCubit>(),
     getIt<TopicsCubit>(),
     _router.go,
-    () => _router.routerDelegate.currentConfiguration.uri.path,
+    () => topPathOf(_router.routerDelegate.currentConfiguration),
     (incidentId) => CriticalAlarmCubit.current?.select(incidentId),
     getIt<AlarmFocus>(),
   );
@@ -112,9 +126,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
+  StreamSubscription<LanguageState>? _languageSub;
+
   late final QuickActionBindings _quickActions = QuickActionBindings(
     topics: getIt<TopicsCubit>(),
     navigate: _openPath,
+    localeChanges: getIt<LanguageCubit>().stream.map<void>((_) {}),
     analytics: getIt<LocalReminderAnalytics>(),
   );
 
@@ -125,8 +142,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void _openPath(String tapped) => unawaited(_openResolvedPath(tapped));
 
   Future<void> _openResolvedPath(String tapped) async {
-    // A reminder or a widget tap names the shipped paywall. This is where
-    // it learns which paywall that is and what it is set to open.
+    // A reminder or a widget tap names the raw paywall path. This is where
+    // it learns which paywall that is and which layout it opens.
     final path = await resolvePaywallLocationWhenReady(tapped);
     if (!mounted) return;
     final from = _router.routerDelegate.currentConfiguration.uri.toString();
@@ -202,9 +219,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     if (getIt<AlarmFocus>().on) return;
     final location = paywallLocationFor(decision, LockSource.sounds);
     if (location == null) return;
-    final top = _router.routerDelegate.currentConfiguration.last.route;
-    if (top.name == AppRoute.proPack) return;
-    unawaited(_router.push<void>(location));
+    openPaywallOnce(_router, location);
   }
 
   StreamSubscription<FeatureGuideState>? _guideSub;
@@ -213,6 +228,11 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(getIt<LanguageCubit>().synchronizeNative());
+    _languageSub = getIt<LanguageCubit>().stream.listen((_) {
+      getIt<TopicsCubit>().refreshTranslations();
+      getIt<IncidentsCubit>().refreshTranslations();
+    });
     _push.start();
     _reminders.start();
     // Sign-in, sign-out, a linked provider and an account delete all bump
@@ -233,6 +253,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
       _checkAppIcon();
+      _stopRingsHandledElsewhere();
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
@@ -249,11 +270,24 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    getIt<EasyLocalizationLanguageHost>().attach(context);
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    unawaited(getIt<LanguageCubit>().followSystemLocale());
+  }
+
+  @override
   void dispose() {
+    getIt<EasyLocalizationLanguageHost>().detach();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_push.dispose());
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
+    unawaited(_languageSub?.cancel());
     appAccountIdentityChanges
       ..removeListener(_replan)
       ..removeListener(_checkAccountNotes);
@@ -291,11 +325,33 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<ChallengeFlagSync>().check());
     unawaited(getIt<AlarmStyleGate>().check());
     unawaited(_retryFailedLaunchCalls());
+    _stopRingsHandledElsewhere();
+    // The alarm screen, if it is up and ringing, asks about its own
+    // incident. The sweep above leaves that one to it.
+    unawaited(CriticalAlarmCubit.current?.recheck());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.
     unawaited(getIt<BackgroundConnect>().retryNow());
     _autoDelete();
     _checkAppIcon();
+  }
+
+  /// A ring left on this phone for an incident another device already
+  /// answered stops here, on launch and on every resume. The alarm screen
+  /// checks the incident it shows itself, so it is left to do that and to
+  /// say why the phone went quiet.
+  void _stopRingsHandledElsewhere() {
+    unawaited(
+      getIt<IncidentAlarmController>().stopRingsHandledElsewhere(
+        skip: (incidentId) {
+          final screen = CriticalAlarmCubit.current;
+          if (screen == null || screen.isClosed) return false;
+          // Still loading: it is about to check its own incident.
+          if (screen.state.status == CriticalAlarmStatus.loading) return true;
+          return screen.state.incident?.id == incidentId;
+        },
+      ),
+    );
   }
 
   /// A Pro icon goes back to the default once Pro has ended, including an
@@ -366,17 +422,20 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           builder: (context, child) => _AppearanceScope(
             child: _OnTranslationsLoaded(
               onLoaded: _quickActions.start,
-              child: AppDeviceScope(
-                isIphone:
-                    getIt.isRegistered<DeviceForm>() &&
-                    getIt<DeviceForm>().isIphone,
-                child: FeatureGuideHost(
-                  router: _router,
-                  child: ConnectLinkHost(
+              // On an iPhone the fold comes from the native side, since
+              // Flutter reports none on iOS. Elsewhere this adds nothing.
+              child: NativeFoldScope(
+                source: _isIphone ? _foldSource : null,
+                child: AppDeviceScope(
+                  isIphone: _isIphone,
+                  child: FeatureGuideHost(
                     router: _router,
-                    child: AppAmbientShell(
+                    child: ConnectLinkHost(
                       router: _router,
-                      child: child ?? const SizedBox.shrink(),
+                      child: AppAmbientShell(
+                        router: _router,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

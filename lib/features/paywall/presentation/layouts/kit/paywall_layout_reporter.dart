@@ -52,8 +52,8 @@ PaywallBuyOutcome? paywallBuyOutcomeOf(PaywallBuyState state) {
 
 /// Turns what one paywall layout did into analytics events.
 ///
-/// It sends an event only where the shipped surface for the same product
-/// sends one, plus the restore and the close, which only layouts report.
+/// It sends the events the surface before the layouts sent for the same
+/// product, plus the restore and the close.
 class PaywallLayoutReporter implements PaywallBuyReporter {
   PaywallLayoutReporter(this._analytics, {required this.source});
 
@@ -66,7 +66,7 @@ class PaywallLayoutReporter implements PaywallBuyReporter {
 
   @override
   void started(PaywallBuyAction action, PaywallBuyState state) {
-    // The shipped surfaces have no event for a restore that starts.
+    // There is no event for a restore that starts.
     if (action != PaywallBuyAction.purchase) return;
     unawaited(
       _analytics.purchaseStarted(
@@ -102,8 +102,8 @@ class PaywallLayoutReporter implements PaywallBuyReporter {
         _analytics.thanksLeft(kind: kind, how: how, skipped: skipped),
       );
 
-  /// The shipped paywall says completed as soon as the store takes the
-  /// purchase, and failed for everything else.
+  /// Hosted says completed as soon as the store takes the purchase, and
+  /// failed for everything else.
   Future<void>? _hostedPurchase(PaywallBuyOutcome outcome, String? plan) {
     if (plan == null) return null;
     return switch (outcome) {
@@ -122,7 +122,7 @@ class PaywallLayoutReporter implements PaywallBuyReporter {
     };
   }
 
-  /// The Pro sheet reports a purchase only once the store has finished.
+  /// Pro reports a purchase only once the store has finished.
   Future<void>? _proPurchase(PaywallBuyOutcome outcome) => switch (outcome) {
     PaywallBuyOutcome.held => _analytics.proPurchaseFinished(result: 'held'),
     PaywallBuyOutcome.checking => _analytics.proPurchaseFinished(
@@ -139,7 +139,7 @@ class PaywallLayoutReporter implements PaywallBuyReporter {
     PaywallBuyOutcome.none => _analytics.restoreFinished(result: 'none'),
     PaywallBuyOutcome.checking ||
     PaywallBuyOutcome.pending => _analytics.restoreFinished(result: 'checking'),
-    // The Pro sheet says nothing when the store itself fails a restore.
+    // Pro says nothing when the store itself fails a restore.
     PaywallBuyOutcome.failed =>
       _analytics.isHosted ? _analytics.restoreFinished(result: 'failed') : null,
     PaywallBuyOutcome.cancelled => null,

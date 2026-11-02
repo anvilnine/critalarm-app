@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_entry.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
@@ -62,7 +63,7 @@ final class ProofCardView {
 
 /// The words for a dot of [mark] in the week of [monday].
 String proofDotLabel(DateTime monday, ProofMark mark) {
-  final date = DateFormat('d MMM').format(monday);
+  final date = DateLabel.dayMonth(monday);
   return switch (mark) {
     ProofMark.rang => LocaleKeys.proof_card_dot_rang,
     ProofMark.failed => LocaleKeys.proof_card_dot_failed,

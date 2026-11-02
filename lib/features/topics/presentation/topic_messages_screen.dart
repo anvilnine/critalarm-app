@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/topics/domain/topic_messages_page.dart';
@@ -21,6 +23,28 @@ import 'package:go_router/go_router.dart';
 /// flies between the two instead of the list appearing from nowhere.
 String topicLatestMessageHeroTag(String topicName, String timestamp) =>
     'topic-message-$topicName-$timestamp';
+
+/// The card in flight between the topic screen and this one. The two ends
+/// can be different widths (Home's detail pane is wider than this page's
+/// column), so the text wraps to a different height partway. The card keeps
+/// its own height and the flight's box clips it, rather than squeezing it.
+Widget topicMessageHeroShuttle(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final hero = toHeroContext.widget as Hero;
+  return ClipRect(
+    child: OverflowBox(
+      alignment: Alignment.topLeft,
+      minHeight: 0,
+      maxHeight: double.infinity,
+      child: hero.child,
+    ),
+  );
+}
 
 /// Every message on one topic. The topic screen shows only the newest so its
 /// action button stays on screen; this is where the rest live.
@@ -318,9 +342,9 @@ class _Days extends StatelessWidget {
   String _dayName(MessageDay<_Entry> group) => switch (group.kind) {
     MessageDayKind.today => LocaleKeys.topic_messages_day_today.tr(),
     MessageDayKind.yesterday => LocaleKeys.home_card_row_yesterday.tr(),
-    MessageDayKind.earlier => DateFormat(
-      group.day.year == now.year ? 'EEEE d MMMM' : 'EEEE d MMMM y',
-    ).format(group.day),
+    MessageDayKind.earlier => group.day.year == now.year
+        ? DateLabel.weekdayDayMonth(group.day)
+        : DateLabel.weekdayDayMonthYear(group.day),
   };
 
   String? _rangText(RangLine? line) {
@@ -349,7 +373,7 @@ class _Days extends StatelessWidget {
       title: item.title,
       time: item.sentAt == null
           ? item.timestamp
-          : DateFormat.Hm().format(entry.at.toLocal()),
+          : DateFormat.Hm(currentFormatLocale()).format(entry.at.toLocal()),
       body: item.body,
       tags: item.source,
       mark: entry.match != null
@@ -365,6 +389,7 @@ class _Days extends StatelessWidget {
     // The newest message flies in from the topic screen.
     return Hero(
       tag: topicLatestMessageHeroTag(topicName, item.timestamp),
+      flightShuttleBuilder: topicMessageHeroShuttle,
       child: Material(color: Colors.transparent, child: row),
     );
   }

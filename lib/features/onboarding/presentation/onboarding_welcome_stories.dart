@@ -190,10 +190,7 @@ class _IosLock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat(
-      'EEEE d MMMM',
-      context.locale.toString(),
-    ).format(DateTime(2026, 9, 24));
+    final date = DateLabel.weekdayDayMonth(DateTime(2026, 9, 24));
     return Stack(
       children: [
         const Positioned.fill(child: ColoredBox(color: Color(0xFF14121C))),
@@ -491,7 +488,7 @@ class _AlarmKitAlert extends StatelessWidget {
                 borderRadius: BorderRadius.circular(46),
               ),
               child: Text(
-                LocaleKeys.onboarding_welcome_story_im_up.tr(),
+                LocaleKeys.onboarding_welcome_story_open_app.tr(),
                 style: const TextStyle(
                   color: _white,
                   fontSize: 26,
@@ -780,10 +777,7 @@ class _AndroidLock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat(
-      'EEE, d MMM',
-      context.locale.toString(),
-    ).format(DateTime(2026, 9, 24));
+    final date = DateLabel.shortWeekdayDayMonth(DateTime(2026, 9, 24));
     const clock = TextStyle(
       color: Color(0xFFDCE4FF),
       fontSize: 150,

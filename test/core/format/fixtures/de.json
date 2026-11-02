@@ -1,0 +1,13 @@
+{
+  "dart_format": {
+    "locale": "de",
+    "seconds": "{seconds} Sek.",
+    "minutes": "{minutes} Min.",
+    "minutes_seconds": "{seconds} Sek., {minutes} Min.",
+    "hours": "{hours} Std.",
+    "hours_minutes": "{minutes} Min., {hours} Std.",
+    "countdown_seconds": "{seconds}s",
+    "days": "{days}T",
+    "clip_time": "{minutes}:{seconds},{tenths}"
+  }
+}

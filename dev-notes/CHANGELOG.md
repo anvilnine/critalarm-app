@@ -3,6 +3,49 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ## Unreleased
 ### Added
+- assets/translations has de.json and ja.json. make check-l10n runs tool/l10n\_parity.dart and checks the native strings tool/l10n\_native.dart generates.
+- make l10n-pseudo writes a debug-only en-XA pseudo-locale, loaded with --dart-define=PSEUDO\_LOCALE=true.
+- DateLabel in lib/core/format/date\_label.dart formats every date label for the current locale and keeps the English patterns unchanged.
+- The relay that issued the device token is kept beside it: prefs key device\_token\_relay on Android and the same field in the iOS Keychain device item. deviceTokenRelayTrust in lib/core/push/device\_token\_relay.dart is the rule RegisterDeviceUsecase and EstablishApiSessionUsecase follow.
+- The server a device token is the credential for is kept beside it: prefs key device\_token\_server on Android and the same field in the iOS Keychain device item. EstablishApiSessionUsecase refuses a non-selfhosted session for another address, and undoes its writes when it throws (DeviceIdentityStore.snapshot and restore, SessionCheckpoint).
+- Per-topic flash and strong vibration switches, kept on the phone in the prefs keys alarm\_flash\_topics and alarm\_strong\_vibration\_topics. Android runs both from RingSignals in the alarm service, iOS blinks the torch from AlarmScreenTorch while the alarm screen rings.
+- test/core/links/android\_link\_filters\_test.dart fails when an Android manifest gains a scheme other than https, a critalarm:// one included.
+- Android store flavors play, galaxy and huawei (app.critalarm, app.critalarm.galaxy, app.critalarm.huawei). Every Android build passes --flavor and --dart-define=STORE, read into StoreKind. The Play bundle is now build/app/outputs/bundle/playRelease/app-play-release.aab.
+- tool/store\_leak\_check.sh fails when a store build carries another store's SDK. make quality runs it on the Play build, and the Android release script runs it on the bundle before upload.
+- Settings detail pane: SettingsPage, settingsPaneSelection, settingsRowTapFor and SettingsPaneScope in settings\_pane.dart, AppPassStack.showsBack, and tap captures in the responsive capture matrix (tapScreenRoutes, capture\_settings\_checks.dart).
+- Layout API for tablets, foldables and wide windows: AppFold, AppPosture, AppFoldSplit, AppFoldPane, foldPaneMediaQuery and navPlacementFor in lib/design/fold.dart; AppScreenScaffold.foldStage, showsDetail, showsDetailFor, its frame and detail panes, and AppScreenColumns; the AppSize caps and isCover; ScreenFrame for setup and New topic; PaywallLayoutScope split and paywallSplitFor; the capture matrix (make screens-responsive, tool/capture\_responsive\_matrix.dart).
+- DisplayFoldChannel (app.critalarm/display, events on app.critalarm/display/fold) sends the iPhone Duo's division reserved region on iOS 27.1 or later, and NativeFoldScope in lib/core/device/native\_fold.dart adds it to MediaQuery.displayFeatures as a half-opened fold, so AppFold works on iOS.
+
+### Changed
+- IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
+- The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+- A server error during a connect becomes NetworkFaultKind.server and keeps its status, numeric code, cap and a known error word (NetworkFault.knownWireErrors), so it reads with the same line as elsewhere. DeviceIdentityStore.restore notifies changes listeners.
+- ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RegisteredElsewhere.
+- SettingsCubit.saveConnection goes through ConnectToServerUsecase and answers a ConnectOutcome. The proof and the relay check are built into ConnectToServerUsecase (GetServerInfoUsecase.proveAdminToken, EstablishApiSessionUsecase.relayTrust) and no longer need wiring. ConnectTransportError keeps a NetworkFault (the kind of error) in place of the thrown object.
+- A relay credential with no relay written beside it (a device token from an older version, the synced iPhone join token, the old shared iPhone row) counts as issued by hostedRelayUrl in lib/core/push/device\_token\_relay.dart and goes only there. On any other relay RegisterDeviceUsecase calls DeviceIdentityStore.startFresh and registers as a new device. The join token and the shared row release go to the hosted relay only, and the iPhone synced account item is written only from it. The relay of the saved session no longer stands in for a missing issuer.
+- A device token with no server written beside it counts as the management credential for hostedServerUrl (https://api.critalarm.app) only. EstablishApiSessionUsecase starts the identity fresh (DeviceIdentityStore.startFresh, inside the checkpoint) for a token whose relay or server does not match when no server is saved, and refuses as before when one is. The join token is used, and the iPhone synced account item written (saveRegistration isHostedAccount), only for the hosted relay and the hosted server. RegisterDeviceUsecase takes readSession and forServer, and writes the hosted server beside a token used on its own session.
+- The native weekly check receipt (RelayDevice.parse in CheckReceipt.kt and WeeklyCheckResponder.swift) sends the device token only when its saved device\_token\_relay, or the hosted relay when none is saved, is the relay of the saved session.
+- The incidents and messages tables carry a scope column, the primary key is scope and id, and the local store is at schema version 4. IncidentStore and MessageStore read the current scope only, and ArchiveScope drops a write that lands after an account change. AccountData.forgetDeleted removes an account's rows on delete.
+- New topic scrolls Next with the form on a cover screen and a tabletop fold (actionsFlowFor). Setup faces are 120 in book panes 360 or wider (setupFaceBaseFor). The setup tracker starts on the 480 group edge on wide windows (trackerGutterFor). The book alarm lifts its pinned buttons so card and buttons sit mid pane (ringingBookLiftFor), and the book acknowledged screen keeps its hint with the card above the pinned buttons. The paywall one column is 520 wide (paywallColumnMaxWidth), the Razr paywall pips start 16 under the top (heroPipsTopInsetFor), and a folded sheet paywall plays no landing cue.
+- Debug, profile and desk builds (SKIP\_PAYWALL, QUIET\_ALARM, MOCK, PAYWALL\_LAB, NO\_TELEMETRY) and web pages off critalarm.app send no analytics or crash reports. Firebase collection starts off on Android and iOS until the app turns it on.
+- AppScreenColumns has gutterLeft and gutterRight, each the gutter or that side's safe area inset where it is deeper. Two panes, AppDetailPane, the pinned bottom bar, the shell's nav area (navAreaInsideSides), AppBottomSheet.sheetPaddingFor and dialogInsetPaddingFor count each side's inset on its own side only.
+- The responsive capture matrix washes the iPhone Duo inset strips in translucent grey.
+- AppNavRail.fitsInside: a side inset of 76 or more holds the rail, and navPlacementFor(padding:) puts the rail on that side in every posture. AppScreenColumns centres the column in the room left between uneven side insets. In book posture a page with no stage or detail draws in the end pane. The responsive capture matrix covers 40 more screens (remainingScreenRoutes).
+
+### Fixed
+- MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
+- IncomingAudio answers a shared path that fails isShareCopyPath with the unreadable rejection, so an iOS share copy that could not be made shows the could not read message. The path is still never opened or deleted.
+- SettingsState.adminToken, which fills the Edit server form, holds the credential only for a self-hosted server. On any other server the device token stays out of it.
+
+### Security
+- Android: MainActivity takes pending\_audio\_path only when ShareReceiverActivity issued it in this process and it names a file directly inside cache/incoming\_audio (ShareCopyRule). Dart checks the same before it opens or deletes a shared file (isShareCopyPath), so another app can no longer make Crit Alarm delete one of its own files.
+- Android: MainActivity shows over the lock screen only for an alarm\_incident\_id the alarm service holds or the delivery store has open and unacknowledged (AlarmLockRule), on a cold start and on onNewIntent. The alarm screen calls AlarmHost.releaseLockScreen when it stops ringing, opens the topic or goes away (LockScreenHold), and the window then asks for the unlock and stops showing over the lock screen. onStart, onResume and onStop let go of an alarm answered from the notification.
+- iOS: the sign-in session token (identity\_session\_token) moved from the preferences to an unsynced, ThisDeviceOnly Keychain item, service app.critalarm.identity\_session (KeychainIdentityTokenStore). The first read moves an existing token and removes the old key once the Keychain write succeeds. DeviceIdentityKeychain takes a this\_device\_only flag on write. Android keeps the preferences key, which no backup carries.
+- iOS: MovedPhoneReset deletes the flutter.identity\_session\_token preferences key that a backup made before the Keychain move still carries, and never moves it into the Keychain (IdentityTokenStore.readAfterMove). The one-time move on the same phone is unchanged.
+- Android: the alarm screen keeps its ringing layout until releaseLockScreen answers (LockScreenHold.mayShowOverLock), and MainActivity answers it only once the window has left the lock screen, after the unlock prompt on a locked phone (LockReleaseAnswers). The acknowledged, answered elsewhere and failure layouts no longer draw over the lock screen.
+
+## 1.0.0+15 - 2026-10-16
+### Added
 - Release builds hide Dart names with --obfuscate. Both release scripts keep each build's symbol files under symbols/<version>/ and send them to Crashlytics before the store upload. New flags --symbols-only and --skip-symbols, new target make release-symbols, shared steps in scripts/release-lib.sh.
 - TelemetryGate.recordError and installCrashHooks send uncaught Dart errors to Crashlytics while crash reporting is on. The report holds the error's type and stack trace, never its message.
 - tool/capture\_offer\_sequence.dart takes ONLY=tag\_ to capture just the tag frame for every answer, phone, theme and text size.
@@ -17,6 +60,13 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Sheet and Proof draw the lead on its own and the other benefits under paywall\_also.label. The Sheet shows the person's own critical topic count, and Proof and Wipe show their own older alarms, hidden on Free.
 - A Hosted plan that is ending opens a leaving Receipt or a Wipe run backwards, picked on the phone by LeavingNumbers and leaving\_floors.dart. HeroFace gains sad and calm.
 - A paywall with no outro set takes its product's own: cloudClimb for Hosted, breakLiftRing for Pro. It still plays only when a thanks is set.
+- Display prices come from assets/config/price\_book.json through PriceBook. The store's price wins when the store returns the plan. Buying a plan the store did not return fails with a plain message.
+- StoreCatalog and RevenueCatStoreCatalog: read plans, buy and restore over the RevenueCat API in app types. Tested, not registered.
+- Settings plan section has a Pro row (SettingsProRow) that follows Holdings. ProPackSheetSource.settingsPlan maps to the plan place.
+- tool/capture\_paywall\_walk.dart captures what each paywall place opens with no settings.
+- make run-store and make build-store-apk build a release that sells through the real store with the RevenueCat keys in .env, for a sandbox or licence tester purchase. make run-release still passes SKIP\_PAYWALL and buys nothing.
+- ProPackStoreResult.pending: RevenueCatProPackShop maps paymentPendingError to it, and ProPaywallBuyCubit rests on a paused check with the pending line and keeps the purchase written down. paywall\_store\_wiring\_test.dart runs both buy models over the real RevenueCat repository and Pro shop with a faked RevenueCatService.
+- tool/capture\_search\_panel.dart draws the search panel with every result kind, light and dark, into build/search\_shots.
 
 ### Changed
 - The success outros hand over exactly: PaywallThanks.mascotPoseAt gives the lift and stretch the end state draws its mascot with, the outro lands on thanksCritSeen of its box, Confetti is picked up at 0.2 s so it does not lean at the swap, and the Pro flight is tested by its leaning box and starts further in. The Hosted outro's words use the on-panel colour so they read in dark. The developer picker capture takes PICKER=outro and both text sizes.
@@ -47,7 +97,14 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Break and lift now flies like a rocket: a crouch before the lift, a lean and a slight stretch on an arcing path, a soft tapered plume that follows the lift speed, and three layers of cloud plus the stars falling past at fixed multiples of the one eased lift (BreakLiftTimeline.reach, cloudAt, plumeLength).
 - Break and lift draws its 56 wall pieces with one Canvas.drawVertices (the wall picture as an ImageShader, the fade in the vertex colours) and one outline path through BreakLiftPieceBatch, with no layer, clip, blur or picture draw per piece, no piece shadow, and a plume and stars that need no blur or star path.
 - The false alarm intro plays at the critical topic limit, once per install, Hosted only. A layout value that names doors opens hero.
+- Paywall defaults: Hosted ends on Cloud climb then Receipt party, Pro on Break, lift, ring then Stamp. Developer options pickers start at Auto. paywall\_\* events no longer carry variant.
+- Pro lists four benefits with wake-up challenges first. A place whose lead the product has no benefit for opens the product's plan place.
 - FeatureGuideCubit.takesScreenFor tells a screen to hold its own keyboard when a guide is up or about to start; FeatureGuideHost takes the Android back button while a guide runs and answers for the screens underneath
+- The False Alarm paywall intro has an entrance: the red floods out from the mascot (FalseAlarmTimeline.flood), the mascot pops up (arrive) and the word lands (wordIn) before the ringing starts at ringStart. The intro is 2.3 seconds, and its score rises in with the red and no longer stops dead before the arrival.
+- Display word for the paid plan is Cloud (paywall\_kit.name\_hosted and every plan string). Code names, keys, routes, analytics and store ids keep hosted. plan\_name\_copy\_test fails on a visible Hosted or a server called Crit Alarm Cloud.
+- Every paywall draws PaywallCloseCross: the bare cross with a 48 point tap area. The Sheet and Reel lost the disc behind it. The Reel passes its ink through PaywallFrameController.closeInk.
+- Problem reports send plan as cloud or free, and a separate pro field as yes, no or unknown.
+- tool/capture\_paywall\_walk.dart takes TEXT\_SCALE and NARROW. Sheets need SETTLE=40 to capture after their entrance.
 
 ### Fixed
 - toolStepsFor takes isCritical, so the last hook up step says it lands on this phone for a topic with Critical off, and FirstTopicHandoffEntry carries isCritical so the first frame has it.
@@ -61,6 +118,11 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ### Removed
 - Ringing faces no longer flush toward red or swap head and ink: RingingFrame.flush, RingingFrame.flash, ringingFaceColors, RingingFacePainter.keepsFill and RingingFaceFill are gone. FaceState.characteristicColor and the palette modes of the face gallery are gone too.
+- Paywalls are coded. Removed Remote Config keys paywall\_layout, pro\_paywall\_layout, paywall\_intro, pro\_paywall\_intro, paywall\_thanks, pro\_paywall\_thanks, paywall\_outro, pro\_paywall\_outro, paywall\_variant, paywall\_enabled. onboarding\_flow and onboarding\_offer stay.
+- Route /pro, ProPackSheet, HostedPaywallScreen, PaywallScreen, PaywallVariant and PaywallCubit.presentNativePaywall. /paywall?source= redirects to /plans/<layout>.
+- The Alarm Snack paywall intro is gone: PaywallIntroId.alarmSnack, its timeline, PaywallCue.scoreAlarmSnack and its two sound files. A stored or remote value alarm\_snack plays no intro.
+- The two unused first pages of the welcome are gone: night falls and stays silent, WelcomeFirstPage, the first= query and their Developer options entries. The welcome is the word page, the curl page and the widgets page.
+- HeroComposition no longer drops whole lines (showsWholeLinesOnly, heroWholeLinesFor). Words that do not fit scroll above the buy block.
 
 ## 1.0.0+13 - 2026-10-10
 ### Added

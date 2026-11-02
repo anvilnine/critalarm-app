@@ -39,7 +39,6 @@ lib/features/paywall/data/repositories/dev_subscription_repository.dart
 lib/features/paywall/data/repositories/in_memory_subscription_repository.dart
 lib/features/paywall/data/repositories/revenuecat_subscription_repository.dart
 lib/features/paywall/presentation/cubits/paywall_cubit.dart
-lib/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart
 lib/features/paywall/presentation/layouts/
 '
 # Why each entry is there:
@@ -68,12 +67,10 @@ lib/features/paywall/presentation/layouts/
 #   paywall/data/repositories/  the store. They define and answer
 #                               isProActive from entitlements.active, and
 #                               run buy and restore.
-#   paywall_cubit.dart          the shipped Hosted paywall: buy and restore.
-#                               It reads AccountAccess.isPaid fresh (line
-#                               82) beside the cached Holdings, and waits
-#                               for the server tier after a purchase. Left
-#                               alone: it is the shipped paywall.
-#   pro_pack_sheet_cubit.dart   the Pro sheet: buy and restore.
+#   paywall_cubit.dart          Hosted buy and restore, and the customer
+#                               centre. It reads AccountAccess.isPaid fresh
+#                               beside the cached Holdings, and waits for
+#                               the server tier after a purchase.
 #   paywall/presentation/layouts/
 #                               a folder, because this task may not edit or
 #                               list the files in it: the layout buy cubits

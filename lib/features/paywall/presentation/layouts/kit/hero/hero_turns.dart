@@ -185,7 +185,7 @@ const Map<PaywallPreviewId, HeroScript> heroDefaultScripts = {
     ],
     props: {HeroProp.crown: 0.7, HeroProp.shades: 1.2},
   ),
-  // The alarm rings behind a locked button. The code is scanned, the lock
+  // The alarm rings behind a locked button. The challenge is done, the lock
   // opens and the alarm stops: a breath let go.
   PaywallPreviewId.wakeUpChallenges: HeroScript(
     seconds: 3.1,

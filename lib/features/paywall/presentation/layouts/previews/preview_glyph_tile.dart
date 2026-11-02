@@ -34,8 +34,8 @@ enum PreviewMark {
   /// A calendar page with a tick on it.
   weeklyCheck,
 
-  /// A code in a viewfinder: four corner marks around a few squares.
-  scanCode,
+  /// A text box with a few typed letters and the caret after them.
+  challenge,
 
   /// A waveform: five bars of a sound.
   soundWave,
@@ -194,28 +194,17 @@ class _MarkPainter extends CustomPainter {
             stroke,
           );
 
-      case PreviewMark.scanCode:
+      case PreviewMark.challenge:
         canvas
+          ..drawRRect(box(2.5, 6.5, 19, 11, 3.2), stroke)
           ..drawPath(
             Path()
-              ..moveTo(3.5, 8)
-              ..lineTo(3.5, 3.5)
-              ..lineTo(8, 3.5)
-              ..moveTo(16, 3.5)
-              ..lineTo(20.5, 3.5)
-              ..lineTo(20.5, 8)
-              ..moveTo(20.5, 16)
-              ..lineTo(20.5, 20.5)
-              ..lineTo(16, 20.5)
-              ..moveTo(8, 20.5)
-              ..lineTo(3.5, 20.5)
-              ..lineTo(3.5, 16),
+              ..moveTo(6.8, 12)
+              ..lineTo(11.4, 12)
+              ..moveTo(15, 9.8)
+              ..lineTo(15, 14.2),
             stroke,
-          )
-          ..drawRRect(box(8, 8, 3.6, 3.6, 0.8), fill)
-          ..drawRRect(box(12.6, 8, 3.4, 3.4, 0.8), fill)
-          ..drawRRect(box(8, 12.6, 3.4, 3.4, 0.8), fill)
-          ..drawRRect(box(13.4, 13.4, 2.6, 2.6, 0.6), fill);
+          );
 
       case PreviewMark.soundWave:
         canvas.drawPath(

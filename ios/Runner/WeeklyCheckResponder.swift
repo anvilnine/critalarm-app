@@ -19,11 +19,18 @@ struct RelayDevice: Equatable {
   static let identityService = "app.critalarm.device_identity"
   static let identityAccount = "identity"
 
+  /// The relay a device token with no relay saved beside it counts as issued
+  /// by. `lib/core/push/device_token_relay.dart` keeps the same address.
+  static let hostedRelay = "https://relay.critalarm.app"
+
   /// Built from the saved session and the device item.
   ///
   /// The relay is the second part of the session. The fourth part is the
   /// credential for the user's own server, which on a self-hosted phone is
-  /// not the device token, so it is never used here.
+  /// not the device token, so it is never used here. The token is paired
+  /// with that relay only when the relay is its issuer: the
+  /// `device_token_relay` of the device item, or [hostedRelay] when the item
+  /// has none.
   static func parse(apiSession: String?, identityJSON: String?) -> RelayDevice? {
     guard let parts = apiSession?.components(separatedBy: "|"), parts.count == 4,
           let relay = URL(string: parts[1]),
@@ -36,7 +43,45 @@ struct RelayDevice: Equatable {
           let deviceToken = identity["device_token"] as? String,
           !deviceToken.trimmingCharacters(in: .whitespaces).isEmpty
     else { return nil }
+    let recorded = (identity["device_token_relay"] as? String)?
+      .trimmingCharacters(in: .whitespaces)
+    let issuer = (recorded?.isEmpty ?? true) ? hostedRelay : recorded!
+    guard sameAddress(issuer, parts[1]) else { return nil }
     return RelayDevice(relay: relay, deviceId: deviceId, deviceToken: deviceToken)
+  }
+
+  /// The same address, written another way at most: spaces around it,
+  /// closing slashes, the letter case of scheme and host, and the usual port
+  /// written out. Anything else, a user name, a query or a fragment
+  /// included, is another address.
+  static func sameAddress(_ a: String, _ b: String) -> Bool {
+    guard let left = normalized(a), let right = normalized(b) else { return false }
+    return left == right
+  }
+
+  private static func normalized(_ address: String) -> [String]? {
+    guard let parts = URLComponents(string: address.trimmingCharacters(in: .whitespaces)),
+          let scheme = parts.scheme?.lowercased(),
+          let host = parts.host?.lowercased(), !host.isEmpty
+    else { return nil }
+    let usual: Int
+    switch scheme {
+    case "https": usual = 443
+    case "http": usual = 80
+    default: return nil
+    }
+    var path = parts.percentEncodedPath
+    while path.hasSuffix("/") { path.removeLast() }
+    return [
+      scheme,
+      parts.percentEncodedUser ?? "",
+      parts.percentEncodedPassword ?? "",
+      host,
+      String(parts.port ?? usual),
+      path,
+      parts.percentEncodedQuery ?? "",
+      parts.percentEncodedFragment ?? "",
+    ]
   }
 
   static func read(defaults: UserDefaults = .standard) -> RelayDevice? {

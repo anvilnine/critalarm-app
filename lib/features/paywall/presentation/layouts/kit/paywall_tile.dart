@@ -25,7 +25,7 @@ const EdgeInsets paywallTilePhoneInsets = EdgeInsets.only(top: 47, bottom: 34);
 
 /// The key of the name a person reads for [layout], in the picker's rows
 /// and under its tiles. The wire key (`PaywallLayoutId.key`) is for routes
-/// and remote values and is never shown.
+/// and saved values and is never shown.
 String paywallLayoutNameKey(PaywallLayoutId layout) => switch (layout) {
   PaywallLayoutId.hero => LocaleKeys.paywall_picker_layout_names_hero,
   PaywallLayoutId.sheet => LocaleKeys.paywall_picker_layout_names_sheet,
@@ -48,8 +48,6 @@ String paywallIntroNameKey(PaywallIntroId intro) => switch (intro) {
   PaywallIntroId.snooze => LocaleKeys.paywall_picker_intro_names_snooze,
   PaywallIntroId.wakeUp => LocaleKeys.paywall_picker_intro_names_wake_up,
   PaywallIntroId.curtain => LocaleKeys.paywall_picker_intro_names_curtain,
-  PaywallIntroId.alarmSnack =>
-    LocaleKeys.paywall_picker_intro_names_alarm_snack,
 };
 
 /// The key of the name a person reads for [thanks]. See

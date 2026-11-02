@@ -17,11 +17,45 @@ Flutter is pinned in `.fvmrc`. Use `fvm` so you get the same version CI does.
 fvm flutter pub get
 make gen        # freezed, json_serializable, flutter_gen
 make l10n       # locale keys, a separate generator
-fvm flutter run
+make run        # or: fvm flutter run --flavor play --dart-define=STORE=play
 ```
 
 Generated files are not committed. Skip `make gen` or `make l10n` and nothing
 compiles.
+
+### Store flavors
+
+Android builds come in three store flavors. Each one is a Gradle flavor plus
+the same name as `--dart-define=STORE`, which the app reads into `StoreKind`.
+
+| Flavor | Package | Firebase config |
+|---|---|---|
+| `play` | `app.critalarm` | `android/app/src/play/google-services.json` |
+| `galaxy` | `app.critalarm.galaxy` | `android/app/src/galaxy/google-services.json` |
+| `huawei` | `app.critalarm.huawei` | `android/app/src/huawei/google-services.json` |
+
+The three install side by side. Only `play` has Play Asset Delivery and the
+store-hosted sound pack. A bare `fvm flutter run` on an Android device stops
+with "You must specify a --flavor option", so use the Make targets, which pass
+`--flavor` and `STORE` for you (`STORE=play` unless you say otherwise). An
+iPhone run takes no flavor and its store is `apple`.
+
+`make run-store`, `make build-store-apk` and `make build-store-appbundle` are
+desk builds. They send no analytics and are never uploaded to a store. The two
+build targets delete `build/release-android.stamp`, so
+`scripts/release-android.sh --upload-only` refuses until a real release build.
+Store builds come only from `make release-android` and `make release-ios`. An
+iOS archive for the store is never made by hand in Xcode after `make run-store`.
+
+```bash
+make build-store-apk STORE=galaxy        # build/app/outputs/flutter-apk/app-galaxy-release.apk
+make build-store-appbundle STORE=huawei  # build/app/outputs/bundle/huaweiRelease/app-huawei-release.aab
+sh tool/store_leak_check.sh build/app/outputs/flutter-apk/app-galaxy-release.apk galaxy \
+  build/app/outputs/mapping/galaxyRelease/mapping.txt
+```
+
+`tool/store_leak_check.sh` fails when a build carries another store's SDK.
+`make check-store-leaks` runs it on every store build it finds under `build/`.
 
 ```bash
 make test           # unit tests
@@ -64,7 +98,7 @@ The app uses official Firebase plugins for Analytics, Crashlytics, and Remote Co
 
 Firebase configuration files are intentionally gitignored and must never be committed to the repository:
 
-- **Android**: Place `google-services.json` in `android/app/google-services.json`
+- **Android**: one `google-services.json` per store flavor, in `android/app/src/<flavor>/`. The `play` one is the file that used to sit at `android/app/google-services.json`; Gradle stops when a copy is left there. The `galaxy` and `huawei` ones are symlinks into `secrets/`. Until those two exist, their builds go without one and start Firebase from `lib/firebase_options.dart`.
 - **iOS**: Place `GoogleService-Info.plist` in `ios/Runner/GoogleService-Info.plist`
 
 If these configuration files are absent (e.g. during local tests or CI builds), the telemetry subsystem initializes gracefully into a safe, disabled state without crashing.
@@ -76,7 +110,7 @@ Telemetry collection is strictly opt-in:
 - **Disabled by default**: Analytics and Crashlytics collection are explicitly disabled at startup before any events or metrics can be transmitted (`setAnalyticsCollectionEnabled(false)` and `setCrashlyticsCollectionEnabled(false)`).
 - **Explicit user consent**: Telemetry collection is only enabled when the user explicitly toggles Analytics or Crash Reporting ON in **Settings > Privacy**.
 - **Instant disable & purge**: Toggling Analytics OFF immediately halts collection and invokes `resetAnalyticsData()` to purge cached client-side analytics identifiers.
-- **Remote Config defaults**: Remote Config runs with a 1-hour fetch interval (`minimumFetchInterval: const Duration(hours: 1)`) and safe typed defaults (`paywall_enabled: false`).
+- **Remote Config defaults**: Remote Config runs with a 1-hour fetch interval (`minimumFetchInterval: const Duration(hours: 1)`) and typed defaults for its two keys, `onboarding_flow` and `onboarding_offer`, both empty. No paywall value is remote: the paywall layouts and what plays around them are coded in the app.
 
 ## Security
 

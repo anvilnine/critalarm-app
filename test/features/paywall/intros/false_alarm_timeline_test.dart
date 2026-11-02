@@ -8,7 +8,12 @@ void main() {
   const tl = FalseAlarmTimeline.end + 1;
 
   group('the order of the joke', () {
-    test('ring, admit, reveal, hand over, gone', () {
+    test('enter, ring, admit, reveal, hand over, gone', () {
+      expect(FalseAlarmTimeline.ringStart, greaterThan(0));
+      expect(
+        FalseAlarmTimeline.ringStart,
+        lessThan(FalseAlarmTimeline.ringEnd),
+      );
       expect(FalseAlarmTimeline.ringEnd, lessThan(FalseAlarmTimeline.admit));
       expect(FalseAlarmTimeline.admit, lessThan(FalseAlarmTimeline.reveal));
       expect(FalseAlarmTimeline.reveal, lessThan(FalseAlarmTimeline.handover));
@@ -18,8 +23,10 @@ void main() {
         FalseAlarmTimeline.wipe(FalseAlarmTimeline.handover),
         greaterThan(0.5),
       );
-      // About a second and a half of joke, never a long one.
-      expect(FalseAlarmTimeline.end, lessThanOrEqualTo(1.8));
+      // An entrance and about a second and a half of joke, never a long
+      // one.
+      expect(FalseAlarmTimeline.ringStart, lessThanOrEqualTo(0.5));
+      expect(FalseAlarmTimeline.end, lessThanOrEqualTo(2.4));
     });
 
     test('the intro is registered with the seconds of the timeline', () {
@@ -27,7 +34,7 @@ void main() {
       expect(falseAlarmIntro.seconds, FalseAlarmTimeline.end);
       expect(falseAlarmIntro.handover, FalseAlarmTimeline.handover);
       expect(falseAlarmIntro.skipTo, FalseAlarmTimeline.reveal);
-      for (final t in [0.0, 0.7, 1.1, 1.25, 1.6, 3.0]) {
+      for (final t in [0.0, 0.7, 1.1, 1.25, 1.6, 1.8, 2.1, 3.0]) {
         expect(
           paywallIntroSkip(falseAlarmIntro, t),
           FalseAlarmTimeline.skip(t),
@@ -46,14 +53,57 @@ void main() {
       expect(FalseAlarmTimeline.leave(FalseAlarmTimeline.handover), 1);
     });
 
-    test('the first frame is the whole alarm', () {
+    test('the first frame is bare: no red, no mascot, no word', () {
+      expect(FalseAlarmTimeline.flood(0), 0);
+      expect(FalseAlarmTimeline.arrive(0), 0);
+      expect(FalseAlarmTimeline.wordIn(0), 0);
+      expect(FalseAlarmTimeline.ringing(0), 0);
+      expect(FalseAlarmTimeline.shake(0), 0);
+      expect(FalseAlarmTimeline.ring(0, 0), isNull);
+      expect(FalseAlarmTimeline.ring(1, 0), isNull);
       expect(FalseAlarmTimeline.wipe(0), 0);
       expect(FalseAlarmTimeline.leave(0), 0);
-      expect(FalseAlarmTimeline.saysAlarm(0), isTrue);
-      expect(FalseAlarmTimeline.face(0).from, FalseAlarmFace.alarmed);
-      expect(FalseAlarmTimeline.face(0).blend, 0);
-      expect(FalseAlarmTimeline.ring(0, 0), 0);
-      expect(FalseAlarmTimeline.ring(1, 0), isNull);
+    });
+
+    test('the red comes first, then the mascot, then the word', () {
+      // The mascot pops up on red: where it stands is red before it shows.
+      expect(FalseAlarmTimeline.flood(0.08), greaterThan(0.2));
+      expect(FalseAlarmTimeline.arrive(0.08), 0);
+      // The red has the whole screen before the mascot is all the way up.
+      expect(FalseAlarmTimeline.flood(0.38), 1);
+      expect(FalseAlarmTimeline.arrive(0.38), lessThan(1));
+      expect(FalseAlarmTimeline.wordIn(0.26), 0);
+      // Each part only comes in, never back out.
+      var last = (flood: 0.0, arrive: 0.0, word: 0.0);
+      for (var t = 0.0; t <= FalseAlarmTimeline.ringStart; t += 0.01) {
+        final now = (
+          flood: FalseAlarmTimeline.flood(t),
+          arrive: FalseAlarmTimeline.arrive(t),
+          word: FalseAlarmTimeline.wordIn(t),
+        );
+        expect(now.flood, greaterThanOrEqualTo(last.flood));
+        expect(now.arrive, greaterThanOrEqualTo(last.arrive));
+        expect(now.word, greaterThanOrEqualTo(last.word));
+        last = now;
+      }
+    });
+
+    test('the ringing starts on the whole alarm', () {
+      const at = FalseAlarmTimeline.ringStart;
+      expect(FalseAlarmTimeline.flood(at), 1);
+      expect(FalseAlarmTimeline.arrive(at), 1);
+      expect(FalseAlarmTimeline.wordIn(at), 1);
+      expect(FalseAlarmTimeline.saysAlarm(at), isTrue);
+      expect(FalseAlarmTimeline.face(at).from, FalseAlarmFace.alarmed);
+      expect(FalseAlarmTimeline.face(at).blend, 0);
+      expect(FalseAlarmTimeline.ring(0, at), 0);
+      expect(FalseAlarmTimeline.ring(1, at), isNull);
+      // Nothing rings during the entrance.
+      for (var t = 0.0; t <= at; t += 0.01) {
+        expect(FalseAlarmTimeline.ringing(t), 0);
+        expect(FalseAlarmTimeline.shake(t), 0);
+        expect(FalseAlarmTimeline.ring(0, t - 0.001), isNull);
+      }
     });
 
     test('the face goes alarmed, sheepish, glad', () {
@@ -66,8 +116,11 @@ void main() {
     });
 
     test('it blinks once, between the ring and the admission', () {
-      expect(FalseAlarmTimeline.blink(0.5), 0);
-      expect(FalseAlarmTimeline.blink(0.96), greaterThan(0.8));
+      expect(FalseAlarmTimeline.blink(FalseAlarmTimeline.ringStart + 0.5), 0);
+      expect(
+        FalseAlarmTimeline.blink(FalseAlarmTimeline.ringEnd + 0.06),
+        greaterThan(0.8),
+      );
       expect(FalseAlarmTimeline.blink(FalseAlarmTimeline.reveal), 0);
     });
 
@@ -81,7 +134,7 @@ void main() {
 
   group('the shake', () {
     test('never leans past five degrees', () {
-      for (var t = 0.0; t < 2; t += 0.004) {
+      for (var t = 0.0; t < 3; t += 0.004) {
         expect(
           FalseAlarmTimeline.shake(t).abs(),
           lessThanOrEqualTo(FalseAlarmTimeline.shakeReach + 1e-9),
@@ -100,6 +153,7 @@ void main() {
 
     test('starts and ends at zero and stays there', () {
       expect(FalseAlarmTimeline.shake(0), 0);
+      expect(FalseAlarmTimeline.shake(FalseAlarmTimeline.ringStart), 0);
       expect(FalseAlarmTimeline.shake(FalseAlarmTimeline.ringEnd), 0);
       for (var t = FalseAlarmTimeline.ringEnd; t < 6; t += 0.05) {
         expect(FalseAlarmTimeline.shake(t), 0);
@@ -108,7 +162,7 @@ void main() {
     });
 
     test('no ring starts once the ringing has stopped', () {
-      for (var t = 1.25; t < 6; t += 0.05) {
+      for (var t = FalseAlarmTimeline.reveal; t < 6; t += 0.05) {
         expect(FalseAlarmTimeline.ring(0, t), isNull);
         expect(FalseAlarmTimeline.ring(1, t), isNull);
       }
@@ -118,8 +172,9 @@ void main() {
   group('the skip', () {
     test('a tap during the joke jumps to the reveal', () {
       expect(FalseAlarmTimeline.skip(0), FalseAlarmTimeline.reveal);
+      expect(FalseAlarmTimeline.skip(0.2), FalseAlarmTimeline.reveal);
       expect(FalseAlarmTimeline.skip(0.7), FalseAlarmTimeline.reveal);
-      expect(FalseAlarmTimeline.skip(1.1), FalseAlarmTimeline.reveal);
+      expect(FalseAlarmTimeline.skip(1.6), FalseAlarmTimeline.reveal);
     });
 
     test('a tap after it changes nothing', () {
@@ -135,6 +190,9 @@ void main() {
       expect(FalseAlarmTimeline.shake(at), 0);
       expect(FalseAlarmTimeline.admission(at), 1);
       expect(FalseAlarmTimeline.saysAlarm(at), isFalse);
+      // A tap during the entrance lands on the whole red too.
+      expect(FalseAlarmTimeline.flood(at), 1);
+      expect(FalseAlarmTimeline.arrive(at), 1);
     });
   });
 

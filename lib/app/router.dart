@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
@@ -17,13 +19,16 @@ import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/pass_route.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
+import 'package:critalarm/features/language/presentation/language_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
@@ -38,20 +43,17 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/domain/history_own.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
-import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
-import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
+import 'package:critalarm/features/search/presentation/screens/docs_list_screen.dart';
 import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
@@ -80,6 +82,7 @@ import 'package:critalarm/features/settings/presentation/sound_recorder_screen.d
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
@@ -124,11 +127,13 @@ abstract final class AppRoute {
   static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
   static const priorities = 'priorities';
+  static const docs = 'docs';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const languageSettings = 'languageSettings';
   static const personalize = 'personalize';
   static const personalizeLook = 'personalizeLook';
   static const topicLook = 'topicLook';
@@ -148,7 +153,6 @@ abstract final class AppRoute {
   static const paywall = 'paywall';
   static const paywallLayout = 'paywallLayout';
   static const paywallLayoutsDev = 'paywallLayoutsDev';
-  static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -158,6 +162,21 @@ abstract final class AppRoute {
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
+
+/// Whether [matches] put a page on the root navigator, above the tabs: a
+/// top-level route such as the ringing alarm, pushed or gone to. The tabs
+/// themselves are a shell match, and a page pushed onto a tab is an
+/// imperative match that holds a shell match.
+bool _hasPageAboveShell(List<RouteMatchBase> matches) {
+  for (final match in matches) {
+    if (match is ImperativeRouteMatch) {
+      if (_hasPageAboveShell(match.matches.matches)) return true;
+    } else if (match is RouteMatch) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /// The card a Personalize pass page grows from: the `PassOrigin` the root
 /// passed as `extra`, or null when the page was opened another way (a deep
@@ -173,6 +192,22 @@ PassOrigin? _passOriginOf(GoRouterState state) {
 /// route draws only what the remote values send a user to.
 const bool _isDeveloperPaywallBuild =
     kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
+
+/// Whether the page on top of [router] is a paywall. Every paywall is a
+/// layout, so this is the layout route and no other.
+bool paywallIsOnTop(GoRouter router) {
+  final matches = router.routerDelegate.currentConfiguration;
+  if (matches.isEmpty) return false;
+  return matches.last.route.name == AppRoute.paywallLayout;
+}
+
+/// Pushes the paywall at [location], unless a paywall is already up: a
+/// second one never stacks on the first. Answers whether it pushed.
+bool openPaywallOnce(GoRouter router, String location) {
+  if (paywallIsOnTop(router)) return false;
+  unawaited(router.push<void>(location));
+  return true;
+}
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
@@ -355,6 +390,31 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     // curl line": the token sheet opens as the screen does.
                     final startCurlFlow =
                         state.uri.queryParameters['curl'] == '1';
+                    // On an expanded window the topic opens in Home's detail
+                    // pane, beside the list: this page is a see-through
+                    // stand-in that hands the topic to the pane once it is
+                    // the page in front (at once, or on the way back from
+                    // Messages or Tokens). With a page over the tabs, such
+                    // as the ringing alarm, the topic opens as a page of its
+                    // own and the alarm stays put.
+                    final isCurlTopic =
+                        startCurlFlow &&
+                        state.uri.path == state.matchedLocation;
+                    if (!isCurlTopic &&
+                        opensTopicInHomePane(
+                          AppSize.of(context),
+                          AppFold.of(context),
+                          hasPageAboveShell: _hasPageAboveShell(
+                            GoRouter.of(
+                              context,
+                            ).routerDelegate.currentConfiguration.matches,
+                          ),
+                        )) {
+                      return PaneHandOffPage<void>(
+                        key: state.pageKey,
+                        child: HomePaneHandOff(topicName: name),
+                      );
+                    }
                     return AmbientPage(
                       key: state.pageKey,
                       child: TopicDetailScreen(
@@ -579,6 +639,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     child: const PrioritiesScreen(),
                   ),
                 ),
+                // The bundled docs index as a list. Settings > Help opens it,
+                // and search can link here.
+                GoRoute(
+                  path: 'docs',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.docs,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const DocsListScreen(),
+                  ),
+                ),
                 GoRoute(
                   path: 'server',
                   parentNavigatorKey: _rootKey,
@@ -685,6 +758,17 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     opaque: true,
                     leavesTabBehind: true,
                     child: const AppearanceSettingsScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'language',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.languageSettings,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const LanguageScreen(),
                   ),
                 ),
                 GoRoute(
@@ -834,34 +918,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: paywallPath,
       name: AppRoute.paywall,
-      // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
-      // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
-      // is never configured and so has nothing to show.
-      pageBuilder: (context, state) {
-        // `?source=` names what opened it, for the paywall_viewed event.
-        // A missing or unknown one reads as direct.
-        final source = PaywallSource.parse(
-          state.uri.queryParameters['source'],
-        ).wire;
-        return AmbientPage(
-          key: state.pageKey,
-          child: buildSkipsPaywall
-              ? PaywallScreen(source: source)
-              : HostedPaywallScreen(source: source),
-        );
-      },
+      // The path reminders, the settings search index and a locked home
+      // screen widget build raw. It draws nothing of its own: it always
+      // opens the layout for its `?source=`. A missing or unknown source
+      // reads as direct.
+      redirect: (context, state) =>
+          resolvePaywallLocation(state.uri.toString()),
     ),
     // One paywall layout, selling Hosted or Pro. Every opener asks the
-    // paywall door, which sends a user here only when the product's remote
-    // value says so. In a store build the route checks that again: with the
-    // value at its default it opens the shipped surface in its place.
-    // Developer options and the capture tool open any layout.
+    // paywall door for its location. Developer options and the capture tool
+    // open any layout.
     GoRoute(
       path: paywallLayoutPath,
       name: AppRoute.paywallLayout,
       parentNavigatorKey: _rootKey,
-      redirect: (context, state) =>
-          _isDeveloperPaywallBuild ? null : shippedPaywallInsteadOf(state.uri),
       pageBuilder: (context, state) {
         final query = state.uri.queryParameters;
         final intro =
@@ -915,18 +985,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           ),
         );
       },
-    ),
-    // The Pro pack's sheet. It is a bottom sheet with its own route, over
-    // whatever opened it, and has nothing to do with the paywall above.
-    GoRoute(
-      path: proPackSheetPath,
-      name: AppRoute.proPack,
-      parentNavigatorKey: _rootKey,
-      pageBuilder: (context, state) => ProPackSheetPage(
-        key: state.pageKey,
-        // `?source=` names what opened it, for the analytics event.
-        source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
-      ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
     // it.
@@ -1070,3 +1128,59 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
   ],
 );
+
+/// The page `/topics/<name>` puts on the Home branch while it hands the topic
+/// to Home's detail pane: see-through, with no transition of its own, and
+/// one Home never transitions to. See [PaneHandOffRoute].
+class PaneHandOffPage<T> extends Page<T> {
+  const PaneHandOffPage({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) =>
+      PaneHandOffRoute<T>(settings: this, child: child);
+}
+
+/// The route of a [PaneHandOffPage]. It lives for a frame or two and draws
+/// nothing, so the page under it must not move for it. A page route under
+/// a new page route runs its exit transition (Home's fade and drift) on the
+/// new route's clock, and with no transition that clock jumps to the end
+/// for a frame: Home would blink out. Saying no to [canTransitionFrom] keeps
+/// that clock at rest for the route below.
+class PaneHandOffRoute<T> extends PageRoute<T> {
+  PaneHandOffRoute({required this.child, super.settings});
+
+  final Widget child;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  bool canTransitionFrom(TransitionRoute<dynamic> previousRoute) => false;
+
+  @override
+  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => child;
+}

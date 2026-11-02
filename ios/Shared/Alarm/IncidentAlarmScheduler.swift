@@ -151,18 +151,22 @@ public enum IncidentAlarmScheduler {
         try? AlarmManager.shared.cancel(id: id)
 
         // Two buttons, and they are not the same thing. Stop silences and
-        // sets the next ring; "I'm up" opens the app to the active incident
+        // sets the next ring; "Open Crit Alarm" opens the app to the active incident
         // without stopping the alarm in the background. The secondary button is
         // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
+        //
+        // The button words are looked up here, in the language picked in the
+        // app, and handed over as finished text: AlarmKit draws them outside
+        // this process, where only the phone's language is known.
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: title),
             stopButton: AlarmButton(
-                text: "Stop",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmStop)),
                 textColor: .white,
                 systemImageName: "bell.slash.fill"
             ),
             secondaryButton: AlarmButton(
-                text: "I'm up",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmOpenApp)),
                 textColor: .white,
                 systemImageName: "checkmark.circle.fill"
             ),

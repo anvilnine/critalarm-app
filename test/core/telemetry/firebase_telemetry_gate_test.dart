@@ -56,8 +56,6 @@ void main() {
       () async {
         final unconfiguredGate = FirebaseTelemetryGate();
         expect(unconfiguredGate.initialize, returnsNormally);
-        expect(unconfiguredGate.paywallEnabled, isFalse);
-        expect(unconfiguredGate.isPaywallEnabled, isFalse);
         expect(unconfiguredGate.onboardingFlowJson, isEmpty);
         expect(
           () => unconfiguredGate.setAnalyticsEnabled(true),
@@ -99,19 +97,11 @@ void main() {
           equals(const Duration(seconds: 10)),
         );
 
-        // Typed config defaults with paywall_enabled: false
+        // Typed config defaults: the two setup keys and no paywall key.
         verify(
           () => remoteConfig.setDefaults(const {
-            'paywall_enabled': false,
-            'paywall_variant': 'straight',
             'onboarding_flow': '',
             'onboarding_offer': '',
-            'paywall_layout': '',
-            'pro_paywall_layout': '',
-            'paywall_intro': '',
-            'pro_paywall_intro': '',
-            'paywall_thanks': '',
-            'pro_paywall_thanks': '',
           }),
         ).called(1);
 
@@ -240,107 +230,121 @@ void main() {
         );
       });
     });
-
-    test('paywallEnabled returns typed bool from Remote Config', () {
-      when(() => remoteConfig.getBool('paywall_enabled')).thenReturn(true);
-
-      expect(gate.paywallEnabled, isTrue);
-      expect(gate.isPaywallEnabled, isTrue);
-      verify(() => remoteConfig.getBool('paywall_enabled')).called(2);
-    });
-
-    test('paywallEnabled returns false when remoteConfig throws', () {
-      when(
-        () => remoteConfig.getBool('paywall_enabled'),
-      ).thenThrow(Exception('Config missing'));
-
-      expect(gate.paywallEnabled, isFalse);
-      expect(gate.isPaywallEnabled, isFalse);
-    });
   });
 
-  group('the paywall layout values', () {
+  group('a run that may not send', () {
+    late MockFirebaseAnalytics analytics;
+    late MockFirebaseCrashlytics crashlytics;
     late MockFirebaseRemoteConfig remoteConfig;
-    late FirebaseTelemetryGate gate;
 
     setUp(() {
+      analytics = MockFirebaseAnalytics();
+      crashlytics = MockFirebaseCrashlytics();
       remoteConfig = MockFirebaseRemoteConfig();
-      gate = FirebaseTelemetryGate(remoteConfig: remoteConfig);
-    });
-
-    test('both default to an empty string, the shipped paywall', () {
-      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
-      expect(defaults['paywall_layout'], isEmpty);
-      expect(defaults['pro_paywall_layout'], isEmpty);
-      expect(FirebaseTelemetryGate().paywallLayoutKey, isEmpty);
-      expect(FirebaseTelemetryGate().proPaywallLayoutKey, isEmpty);
-    });
-
-    test('the intro values default to empty, which is no intro', () {
-      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
-      expect(defaults['paywall_intro'], isEmpty);
-      expect(defaults['pro_paywall_intro'], isEmpty);
-      expect(FirebaseTelemetryGate().paywallIntroKey, isEmpty);
-      expect(FirebaseTelemetryGate().proPaywallIntroKey, isEmpty);
-
       when(
-        () => remoteConfig.getString('paywall_intro'),
-      ).thenReturn('false_alarm');
-      when(() => remoteConfig.getString('pro_paywall_intro')).thenReturn('');
-      expect(gate.paywallIntroKey, 'false_alarm');
-      expect(gate.proPaywallIntroKey, isEmpty);
-      verifyNever(() => remoteConfig.fetchAndActivate());
-    });
-
-    test('the outro values read empty, which is no outro', () {
-      expect(FirebaseTelemetryGate().paywallOutroKey, isEmpty);
-      expect(FirebaseTelemetryGate().proPaywallOutroKey, isEmpty);
-      expect(const NoopTelemetryGate().paywallOutroKey, isEmpty);
-      expect(const NoopTelemetryGate().proPaywallOutroKey, isEmpty);
-
-      when(() => remoteConfig.getString('paywall_outro')).thenReturn('');
+        () => analytics.setAnalyticsCollectionEnabled(any()),
+      ).thenAnswer((_) async {});
+      when(() => analytics.resetAnalyticsData()).thenAnswer((_) async {});
       when(
-        () => remoteConfig.getString('pro_paywall_outro'),
-      ).thenReturn('break_lift_ring');
-      expect(gate.paywallOutroKey, isEmpty);
-      expect(gate.proPaywallOutroKey, 'break_lift_ring');
-      verifyNever(() => remoteConfig.fetchAndActivate());
-    });
-
-    test('the thanks values default to empty, which is no thanks', () {
-      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
-      expect(defaults['paywall_thanks'], isEmpty);
-      expect(defaults['pro_paywall_thanks'], isEmpty);
-      expect(FirebaseTelemetryGate().paywallThanksKey, isEmpty);
-      expect(FirebaseTelemetryGate().proPaywallThanksKey, isEmpty);
-      expect(const NoopTelemetryGate().paywallThanksKey, isEmpty);
-      expect(const NoopTelemetryGate().proPaywallThanksKey, isEmpty);
-
-      when(() => remoteConfig.getString('paywall_thanks')).thenReturn('');
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      ).thenAnswer((_) async {});
       when(
-        () => remoteConfig.getString('pro_paywall_thanks'),
-      ).thenReturn('confetti');
-      expect(gate.paywallThanksKey, isEmpty);
-      expect(gate.proPaywallThanksKey, 'confetti');
-      verifyNever(() => remoteConfig.fetchAndActivate());
-    });
-
-    test('each reads its own key, already activated, with no fetch', () {
-      when(() => remoteConfig.getString('paywall_layout')).thenReturn('auto');
+        () => crashlytics.setCrashlyticsCollectionEnabled(any()),
+      ).thenAnswer((_) async {});
       when(
-        () => remoteConfig.getString('pro_paywall_layout'),
-      ).thenReturn('sheet');
-
-      expect(gate.paywallLayoutKey, 'auto');
-      expect(gate.proPaywallLayoutKey, 'sheet');
-      verifyNever(() => remoteConfig.fetchAndActivate());
+        () => crashlytics.recordError(
+          any<dynamic>(),
+          any(),
+          reason: any<dynamic>(named: 'reason'),
+          fatal: any(named: 'fatal'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => remoteConfig.setConfigSettings(any()),
+      ).thenAnswer((_) async {});
+      when(() => remoteConfig.setDefaults(any())).thenAnswer((_) async {});
+      when(() => remoteConfig.fetchAndActivate()).thenAnswer((_) async => true);
     });
 
-    test('a read that throws is empty', () {
-      when(() => remoteConfig.getString(any())).thenThrow(Exception('gone'));
+    FirebaseTelemetryGate gateOn({required bool isWeb}) =>
+        FirebaseTelemetryGate(
+          analytics: analytics,
+          crashlytics: crashlytics,
+          remoteConfig: remoteConfig,
+          collectionAllowed: false,
+          isWeb: isWeb,
+        );
 
-      expect(gate.paywallLayoutKey, isEmpty);
-      expect(gate.proPaywallLayoutKey, isEmpty);
+    test('on a phone it saves both switches off, then never turns them '
+        'on', () async {
+      final gate = gateOn(isWeb: false);
+      await gate.initialize();
+      await gate.setAnalyticsEnabled(true);
+      await gate.setCrashlyticsEnabled(true);
+      await gate.logEvent('onboarding_step_viewed', {'step': 'welcome'});
+      await gate.recordError(StateError('x'), StackTrace.current);
+
+      verify(() => analytics.setAnalyticsCollectionEnabled(false)).called(1);
+      verifyNever(() => analytics.setAnalyticsCollectionEnabled(true));
+      verify(
+        () => crashlytics.setCrashlyticsCollectionEnabled(false),
+      ).called(1);
+      verifyNever(() => crashlytics.setCrashlyticsCollectionEnabled(true));
+      verifyNever(
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      );
+      verifyNever(
+        () => crashlytics.recordError(
+          any<dynamic>(),
+          any(),
+          reason: any<dynamic>(named: 'reason'),
+          fatal: any(named: 'fatal'),
+        ),
+      );
+      expect(gate.isAnalyticsEnabled, isFalse);
+      expect(gate.isCrashlyticsEnabled, isFalse);
+    });
+
+    test('on web it never touches analytics or crash reporting', () async {
+      final gate = gateOn(isWeb: true);
+      await gate.initialize();
+      await gate.setAnalyticsEnabled(true);
+      await gate.setAnalyticsEnabled(false);
+      await gate.setCrashlyticsEnabled(true);
+      await gate.logEvent('onboarding_step_viewed');
+      await gate.recordError(StateError('x'), StackTrace.current);
+
+      verifyZeroInteractions(analytics);
+      verifyZeroInteractions(crashlytics);
+      expect(gate.isAnalyticsEnabled, isFalse);
+    });
+
+    test('Remote Config still loads', () async {
+      final gate = gateOn(isWeb: true);
+      await gate.initialize();
+
+      verify(() => remoteConfig.fetchAndActivate()).called(1);
+      expect(gate.isInitialized, isTrue);
+    });
+
+    test('the user switch is ignored even before initialize', () async {
+      final gate = gateOn(isWeb: false);
+      await gate.setAnalyticsEnabled(true);
+      await gate.logEvent('x');
+
+      verifyNever(() => analytics.setAnalyticsCollectionEnabled(true));
+      verifyNever(
+        () => analytics.logEvent(
+          name: any(named: 'name'),
+          parameters: any(named: 'parameters'),
+        ),
+      );
     });
   });
 
@@ -418,19 +422,13 @@ void main() {
 
   group('NoopTelemetryGate', () {
     test(
-      'provides safe no-op implementation with default or custom flag',
+      'provides safe no-op implementation',
       () async {
         const defaultGate = NoopTelemetryGate();
-        expect(defaultGate.paywallEnabled, isFalse);
-        expect(defaultGate.isPaywallEnabled, isFalse);
         expect(defaultGate.onboardingFlowJson, isEmpty);
         await defaultGate.initialize();
         await defaultGate.setAnalyticsEnabled(true);
         await defaultGate.setCrashlyticsEnabled(true);
-
-        const activeGate = NoopTelemetryGate(paywallEnabled: true);
-        expect(activeGate.paywallEnabled, isTrue);
-        expect(activeGate.isPaywallEnabled, isTrue);
       },
     );
   });

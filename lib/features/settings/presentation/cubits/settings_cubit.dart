@@ -6,6 +6,7 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
@@ -16,10 +17,12 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/model/connect_outcome_message.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
@@ -28,6 +31,8 @@ import 'package:critalarm/features/settings/domain/usecases/set_analytics_enable
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state and preferences on the Settings screen.
@@ -46,6 +51,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.apiSessions,
     this.getServerInfo,
     this.establishSession,
+    this.connectToServer,
     this.getTopics,
     this.quietHoursStore,
     this.storageSettings,
@@ -78,6 +84,24 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Null in the tests that only care about the saved URL.
   final GetServerInfoUsecase? getServerInfo;
   final EstablishApiSessionUsecase? establishSession;
+
+  /// The one way a server is connected, shared with setup and a connect
+  /// link. Built from the parts above when the app does not hand it over.
+  final ConnectToServerUsecase? connectToServer;
+
+  ConnectToServerUsecase? get _connect {
+    final shared = connectToServer;
+    if (shared != null) return shared;
+    final info = getServerInfo;
+    final establish = establishSession;
+    final repository = connectionRepository;
+    final save =
+        saveConnectionUsecase ??
+        (repository == null ? null : SaveConnectionUsecase(repository));
+    if (info == null || establish == null || save == null) return null;
+    return ConnectToServerUsecase(info, establish, save);
+  }
+
   final GetTopicsUsecase? getTopics;
 
   /// Where the quiet hours window lives. Null in the tests that do not care
@@ -134,6 +158,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       state.copyWith(
         access: _access(state.access.identity),
         holdsHosted: _holdsHosted,
+        // Not before the first read: that one waits for the holdings to be
+        // current, and an early answer can say "not held" for a held Pro.
+        proState: state.proState == null ? null : _proState,
       ),
     );
   }
@@ -144,11 +171,16 @@ class SettingsCubit extends Cubit<SettingsState> {
     await holdings?.ready;
     if (isClosed) return;
     final holdsHosted = _holdsHosted;
-    if (state.holdsHosted == holdsHosted) return;
-    emit(state.copyWith(holdsHosted: holdsHosted));
+    final proState = _proState;
+    if (state.holdsHosted == holdsHosted && state.proState == proState) return;
+    emit(state.copyWith(holdsHosted: holdsHosted, proState: proState));
   }
 
   bool get _holdsHosted => holdings?.holds(Holding.hosted) ?? false;
+
+  /// Pro as the Pro row draws it, or null when there are no holdings to ask
+  /// (a test that does not look at it).
+  HoldingState? get _proState => holdings?.stateOf(Holding.pro);
 
   @override
   Future<void> close() {
@@ -157,9 +189,6 @@ class SettingsCubit extends Cubit<SettingsState> {
     unawaited(_holdingsSub?.cancel());
     return super.close();
   }
-
-  bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
-  bool get paywallEnabled => isPaywallEnabled;
 
   /// How long the phone keeps alarms before deleting them itself.
   Future<void> setRetention(HistoryRetention retention) async {
@@ -221,6 +250,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           isConnected: false,
+          connectionKnown: true,
           serverUrl: '',
           adminToken: '',
         ),
@@ -232,13 +262,14 @@ class SettingsCubit extends Cubit<SettingsState> {
           emit(
             state.copyWith(
               serverUrl: conn.serverUrl,
-              adminToken: conn.adminToken,
+              adminToken: _formToken(conn.adminToken, session?.mode),
               isConnected: true,
+              connectionKnown: true,
             ),
           );
         },
         (_) {
-          emit(state.copyWith(isConnected: false));
+          emit(state.copyWith(isConnected: false, connectionKnown: true));
         },
       );
     } else if (connectionRepository != null) {
@@ -248,13 +279,14 @@ class SettingsCubit extends Cubit<SettingsState> {
           emit(
             state.copyWith(
               serverUrl: conn.serverUrl,
-              adminToken: conn.adminToken,
+              adminToken: _formToken(conn.adminToken, session?.mode),
               isConnected: true,
+              connectionKnown: true,
             ),
           );
         },
         (_) {
-          emit(state.copyWith(isConnected: false));
+          emit(state.copyWith(isConnected: false, connectionKnown: true));
         },
       );
     }
@@ -308,15 +340,19 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
+    final failure = result?.exceptionOrNull();
     await holdings?.ready;
     if (isClosed) return;
     emit(
       state.copyWith(
         status: SettingsStatus.success,
+        // A cubit with no connection source has nothing to read, so the
+        // connection counts as read once the load is done.
+        connectionKnown: true,
         access: _access(identity),
         holdsHosted: _holdsHosted,
         topics: result?.getOrNull() ?? [],
-        errorMessage: result?.exceptionOrNull()?.message,
+        errorMessage: failure == null ? null : failureMessage(failure),
       ),
     );
   }
@@ -411,55 +447,88 @@ class SettingsCubit extends Cubit<SettingsState> {
     await onConnectionChanged?.call();
   }
 
-  Future<void> saveConnection({
+  /// Edit server. Connects the way setup does: the server's answer and the
+  /// admin token are checked first, and a connect that is refused saves
+  /// nothing and leaves the server that was connected as it was.
+  ///
+  /// Answers how it ended, or null for a cubit with no server to ask (a
+  /// test that only cares about the saved address), where the connection is
+  /// saved as given.
+  Future<ConnectOutcome?> saveConnection({
     required String serverUrl,
     required String adminToken,
   }) async {
-    emit(state.copyWith(isSavingConnection: true));
+    emit(state.copyWith(isSavingConnection: true, clearError: true));
+    final connect = _connect;
+    if (connect == null) {
+      await _saveUnchecked(serverUrl, adminToken);
+      return null;
+    }
+    final outcome = await connect(
+      serverUrl: serverUrl,
+      adminToken: adminToken,
+    );
+    if (isClosed) return outcome;
+    if (outcome is! Connected) {
+      emit(
+        state.copyWith(
+          isSavingConnection: false,
+          errorMessage:
+              connectOutcomeMessage(outcome) ??
+              LocaleKeys.onboarding_connect_admin_token_error_empty.tr(),
+        ),
+      );
+      return outcome;
+    }
+    final session = await apiSessions?.read();
+    emit(
+      state.copyWith(
+        isSavingConnection: false,
+        isConnected: true,
+        serverUrl: outcome.info.baseUrl,
+        adminToken: _formToken(
+          session?.managementCredential ?? adminToken.trim(),
+          session?.mode,
+        ),
+        serverMode: session?.mode,
+      ),
+    );
+    await onConnectionChanged?.call();
+    return outcome;
+  }
+
+  /// What the Edit server form may be filled with. Only a self-hosted
+  /// server's credential is an admin token the person typed. On any other
+  /// server it is the device token, which is never shown, so the form gets
+  /// nothing. With no session to say which, a device token is still kept
+  /// out by its prefix.
+  static String _formToken(String credential, ServerMode? mode) {
+    if (mode == null) return credential.startsWith('dv_') ? '' : credential;
+    return mode ==
+            ServerMode
+                .selfhosted // access-ok: which credential this is
+        ? credential
+        : '';
+  }
+
+  Future<void> _saveUnchecked(String serverUrl, String adminToken) async {
     final connection = ServerConnection(
       serverUrl: serverUrl,
       adminToken: adminToken,
     );
-
     if (saveConnectionUsecase != null) {
       await saveConnectionUsecase!(connection);
     } else if (connectionRepository != null) {
       await connectionRepository!.saveConnection(connection);
     }
-
-    final session = await _establishSession(serverUrl, adminToken);
-
     emit(
       state.copyWith(
         isSavingConnection: false,
         isConnected: true,
         serverUrl: serverUrl,
         adminToken: adminToken,
-        serverMode: session?.mode,
       ),
     );
     await onConnectionChanged?.call();
-  }
-
-  /// Rewrites the stored session so the very next request goes to the server
-  /// that was just saved. Without this the screen shows the new server while
-  /// every request still goes to the old one until the app restarts.
-  ///
-  /// Returns null when the new server cannot be reached. The URL is saved
-  /// either way, and the next launch establishes the session from it.
-  Future<ApiSession?> _establishSession(
-    String serverUrl,
-    String adminToken,
-  ) async {
-    if (getServerInfo == null || establishSession == null) return null;
-    final uri = Uri.tryParse(serverUrl);
-    if (uri == null) return null;
-    final info = (await getServerInfo!(uri)).getOrNull();
-    if (info == null) return null;
-    try {
-      return await establishSession!(info, adminToken);
-    } on Object {
-      return null;
-    }
   }
 }

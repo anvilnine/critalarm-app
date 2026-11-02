@@ -115,6 +115,26 @@ void main() {
       expect(read.retention, HistoryRetention.threeMonths);
       expect(read.keepCriticalForever, isFalse);
     });
+
+    // Settings and the Storage page once always read Keep all: the state's
+    // equality left storage out, so the emit that carried the saved choice
+    // was dropped as a repeat.
+    test('load ends with the saved choice in the state', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repo = SharedPrefsStorageSettingsRepository(prefs);
+      await repo.setRetention(HistoryRetention.oneMonth);
+      await repo.setKeepCriticalForever(keep: false);
+
+      final cubit = SettingsCubit(
+        storageSettings: SharedPrefsStorageSettingsRepository(prefs),
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+
+      expect(cubit.state.storage.retention, HistoryRetention.oneMonth);
+      expect(cubit.state.storage.keepCriticalForever, isFalse);
+    });
   });
 
   group('auto-delete', () {

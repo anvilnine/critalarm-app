@@ -11,6 +11,7 @@ import 'package:critalarm/features/paywall/domain/paywall_lead.dart';
 import 'package:critalarm/features/paywall/domain/paywall_leaving.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame_geometry.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -98,6 +99,7 @@ class PaywallLayoutScope {
     required this.close,
     this.intro = PaywallIntroId.none,
     this.lead,
+    this.split,
   });
 
   /// Edge of the square the close cross takes in a top corner of the
@@ -145,6 +147,15 @@ class PaywallLayoutScope {
   /// its words.
   final PaywallLead? lead;
 
+  /// Where the stage and the offer go when the frame splits the paywall: a
+  /// wide window or a half-open foldable. Null is the one column, with the
+  /// buy block pinned under the layout by the frame.
+  ///
+  /// Only a frame made with `splits: true` sets it, and a layout under such
+  /// a frame places the stage, the words and [PaywallSplitScope.buyBlock]
+  /// itself.
+  final PaywallSplitScope? split;
+
   /// True when the layout comes in under the end of an intro, which ends
   /// on the mascot. A layout may then shorten or skip its own entrance pop.
   bool get followsIntro => intro != PaywallIntroId.none;
@@ -160,6 +171,28 @@ class PaywallLayoutScope {
   static PaywallLayoutScope? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<PaywallLayoutScopeProvider>()
       ?.scope;
+}
+
+/// What a split frame hands its layout: where the parts go, and the buy
+/// block to place under the words.
+@immutable
+class PaywallSplitScope {
+  const PaywallSplitScope({required this.geometry, required this.buyBlock});
+
+  /// The stage and offer boxes, in the coordinates of the layout's box,
+  /// which is the whole window.
+  final PaywallSplit geometry;
+
+  /// The frame's buy block: plans, button, legal lines and links. Place it
+  /// once, at the foot of the offer.
+  final Widget buyBlock;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PaywallSplitScope && other.geometry == geometry;
+
+  @override
+  int get hashCode => geometry.hashCode;
 }
 
 /// Carries the scope down a layout's tree. The frame puts it there.
@@ -181,6 +214,7 @@ class PaywallLayoutScopeProvider extends InheritedWidget {
       scope.closeOnLeft != oldWidget.scope.closeOnLeft ||
       scope.intro != oldWidget.scope.intro ||
       scope.lead != oldWidget.scope.lead ||
+      scope.split != oldWidget.scope.split ||
       scope.benefits.length != oldWidget.scope.benefits.length;
 }
 

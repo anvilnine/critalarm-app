@@ -11,6 +11,7 @@ class DeviceReport {
     required this.os,
     required this.server,
     required this.plan,
+    required this.pro,
     required this.locale,
   });
 
@@ -29,8 +30,12 @@ class DeviceReport {
   /// `hosted`, `selfhosted` or `none`.
   final String server;
 
-  /// `free` or `pro`.
+  /// The subscription: `cloud` or `free`.
   final String plan;
+
+  /// The Pro pack, separate from the subscription: `yes`, `no`, or `unknown`
+  /// when the phone could not read it.
+  final String pro;
 
   /// `en-PH`
   final String locale;
@@ -38,8 +43,16 @@ class DeviceReport {
   /// The lines added to the bottom of a problem report email.
   String get mailFooter =>
       '--\n'
-      'App: $appVersion ($buildNumber)\n'
-      'Phone: $device · $os\n'
-      'Server: $server · Plan: $plan\n'
-      'Language: $locale';
+      'App: ' // l10n-ok: support report read by the team in English
+      '$appVersion ($buildNumber)\n'
+      'Phone: ' // l10n-ok: support report read by the team in English
+      '$device · $os\n'
+      'Server: ' // l10n-ok: support report read by the team in English
+      '$server · '
+      'Plan: ' // l10n-ok: support report read by the team in English
+      '$plan · '
+      'Pro: ' // l10n-ok: support report read by the team in English
+      '$pro\n'
+      'Language: ' // l10n-ok: support report read by the team in English
+      '$locale';
 }

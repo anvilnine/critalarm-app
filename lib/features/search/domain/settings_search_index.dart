@@ -101,6 +101,14 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['privacy', 'analytics', 'crash', 'telemetry', 'data'],
     ),
+    // The docs list under Help. The About screen keeps its own docs link.
+    const SettingsDestination(
+      id: 'docs',
+      routePath: '/settings/docs',
+      titleKey: LocaleKeys.docs_list_title,
+      parentTitleKey: LocaleKeys.settings_help_header,
+      keywords: <String>['docs', 'documentation', 'help', 'guide', 'manual'],
+    ),
     const SettingsDestination(
       id: 'about',
       routePath: '/settings/about',
@@ -226,6 +234,7 @@ abstract final class SettingsSearchIndex {
         'home screen',
         'crown',
         'shades',
+        'cloud',
         'hosted',
       ],
     ),
@@ -263,6 +272,7 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: const <String>[
         'plan',
+        'cloud',
         'hosted',
         'free',
         'upgrade',
@@ -271,6 +281,23 @@ abstract final class SettingsSearchIndex {
         'pay',
       ],
       hiddenWhenSelfHosted: true,
+    ),
+    // The Pro row sits under the plan card on the Settings tab. Pro is bought
+    // in the app, so an own server finds it too.
+    const SettingsDestination(
+      id: 'pro',
+      routePath: '/settings',
+      titleKey: LocaleKeys.settings_pro_title,
+      parentTitleKey: LocaleKeys.settings_plan_header,
+      keywords: <String>[
+        'pro',
+        'looks',
+        'own sound',
+        'widgets',
+        'one time',
+        'purchase',
+        'buy',
+      ],
     ),
     const SettingsDestination(
       id: 'version',

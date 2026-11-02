@@ -10,6 +10,11 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 /// using official Firebase plugins.
 /// Collection is strictly disabled at startup and enabled only
 /// via explicit user opt-in.
+///
+/// [collectionAllowed] false (a debug, profile or desk build, or a web page
+/// off the production host, see `telemetryAllowedFor`) means analytics and
+/// crash reports stay off for the whole run, whatever the user's switch
+/// says. Remote Config still works.
 class FirebaseTelemetryGate implements TelemetryGate {
   FirebaseTelemetryGate({
     this.app,
@@ -17,40 +22,31 @@ class FirebaseTelemetryGate implements TelemetryGate {
     this.analytics,
     this.crashlytics,
     this.remoteConfig,
+    this.collectionAllowed = true,
+    this.isWeb = false,
   });
 
   final FirebaseApp? app;
   final FirebaseOptions? options;
+
+  /// Whether this run may send analytics and crash reports at all.
+  final bool collectionAllowed;
+
+  /// Web, where asking for the analytics instance starts the JavaScript SDK
+  /// and its first request to Google.
+  final bool isWeb;
   FirebaseAnalytics? analytics;
   FirebaseCrashlytics? crashlytics;
   FirebaseRemoteConfig? remoteConfig;
 
   static const Duration defaultFetchTimeout = Duration(seconds: 10);
   static const Duration minimumFetchInterval = Duration(hours: 1);
-  static const String paywallEnabledKey = 'paywall_enabled';
-  static const String paywallVariantKeyName = 'paywall_variant';
   static const String onboardingFlowKey = 'onboarding_flow';
   static const String onboardingOfferKey = 'onboarding_offer';
-  static const String paywallLayoutKeyName = 'paywall_layout';
-  static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
-  static const String paywallIntroKeyName = 'paywall_intro';
-  static const String proPaywallIntroKeyName = 'pro_paywall_intro';
-  static const String paywallThanksKeyName = 'paywall_thanks';
-  static const String proPaywallThanksKeyName = 'pro_paywall_thanks';
-  static const String paywallOutroKeyName = 'paywall_outro';
-  static const String proPaywallOutroKeyName = 'pro_paywall_outro';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
-    paywallEnabledKey: false,
-    paywallVariantKeyName: 'straight',
     onboardingFlowKey: '',
     onboardingOfferKey: '',
-    paywallLayoutKeyName: '',
-    proPaywallLayoutKeyName: '',
-    paywallIntroKeyName: '',
-    proPaywallIntroKeyName: '',
-    paywallThanksKeyName: '',
-    proPaywallThanksKeyName: '',
   };
 
   bool _isInitialized = false;
@@ -73,7 +69,14 @@ class FirebaseTelemetryGate implements TelemetryGate {
       }
 
       final hasApp = app != null || Firebase.apps.isNotEmpty;
-      if (analytics == null && hasApp) {
+      if (!collectionAllowed && isWeb) {
+        // On web the first call on the analytics instance loads gtag.js
+        // and fetches the analytics config, before collection can be
+        // switched off. So in a run that may not send, it is never made.
+        analytics = null;
+        crashlytics = null;
+      }
+      if (analytics == null && hasApp && (collectionAllowed || !isWeb)) {
         try {
           analytics = app != null
               ? FirebaseAnalytics.instanceFor(app: app!)
@@ -81,7 +84,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
         } on Object catch (_) {}
       }
 
-      if (crashlytics == null && hasApp) {
+      if (crashlytics == null && hasApp && (collectionAllowed || !isWeb)) {
         try {
           crashlytics = FirebaseCrashlytics.instance;
         } on Object catch (_) {}
@@ -95,11 +98,18 @@ class FirebaseTelemetryGate implements TelemetryGate {
         } on Object catch (_) {}
       }
 
-      // By default, collection is DISABLED at startup
+      // By default, collection is DISABLED at startup. On a phone this is
+      // also saved by the SDK, so a run that may not send clears an "on"
+      // an earlier build left behind.
       await analytics?.setAnalyticsCollectionEnabled(false);
       await crashlytics?.setCrashlyticsCollectionEnabled(false);
       _analyticsEnabled = false;
       _crashlyticsEnabled = false;
+      if (!collectionAllowed) {
+        // Nothing past this point may reach either SDK.
+        analytics = null;
+        crashlytics = null;
+      }
 
       // Sets Remote Config settings (1 hour minimum fetch interval)
       await remoteConfig?.setConfigSettings(
@@ -109,7 +119,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
         ),
       );
 
-      // Sets Remote Config defaults ({'paywall_enabled': false})
+      // Sets Remote Config defaults
       await remoteConfig?.setDefaults(remoteConfigDefaults);
 
       // Attempt to fetch and activate remote config values
@@ -127,6 +137,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setAnalyticsEnabled(bool enabled) async {
+    if (!collectionAllowed) {
+      _analyticsEnabled = false;
+      return;
+    }
     _analyticsEnabled = enabled;
     try {
       if (enabled) {
@@ -142,6 +156,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setCrashlyticsEnabled(bool enabled) async {
+    if (!collectionAllowed) {
+      _crashlyticsEnabled = false;
+      return;
+    }
     _crashlyticsEnabled = enabled;
     try {
       if (enabled) {
@@ -196,27 +214,6 @@ class FirebaseTelemetryGate implements TelemetryGate {
   }
 
   @override
-  bool get paywallEnabled {
-    try {
-      return remoteConfig?.getBool(paywallEnabledKey) ?? false;
-    } on Object catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  bool get isPaywallEnabled => paywallEnabled;
-
-  @override
-  String get paywallVariantKey {
-    try {
-      return remoteConfig?.getString(paywallVariantKeyName) ?? '';
-    } on Object catch (_) {
-      return '';
-    }
-  }
-
-  @override
   String get onboardingFlowJson {
     try {
       return remoteConfig?.getString(onboardingFlowKey) ?? '';
@@ -229,39 +226,6 @@ class FirebaseTelemetryGate implements TelemetryGate {
   String get onboardingOfferJson {
     try {
       return remoteConfig?.getString(onboardingOfferKey) ?? '';
-    } on Object catch (_) {
-      return '';
-    }
-  }
-
-  @override
-  String get paywallLayoutKey => _layoutValue(paywallLayoutKeyName);
-
-  @override
-  String get proPaywallLayoutKey => _layoutValue(proPaywallLayoutKeyName);
-
-  @override
-  String get paywallIntroKey => _layoutValue(paywallIntroKeyName);
-
-  @override
-  String get proPaywallIntroKey => _layoutValue(proPaywallIntroKeyName);
-
-  @override
-  String get paywallThanksKey => _layoutValue(paywallThanksKeyName);
-
-  @override
-  String get proPaywallThanksKey => _layoutValue(proPaywallThanksKeyName);
-
-  @override
-  String get paywallOutroKey => _layoutValue(paywallOutroKeyName);
-
-  @override
-  String get proPaywallOutroKey => _layoutValue(proPaywallOutroKeyName);
-
-  /// Empty when Firebase is missing or the read fails: the shipped paywall.
-  String _layoutValue(String key) {
-    try {
-      return remoteConfig?.getString(key) ?? '';
     } on Object catch (_) {
       return '';
     }

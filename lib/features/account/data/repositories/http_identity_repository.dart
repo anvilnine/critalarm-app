@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
+import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
@@ -20,22 +21,32 @@ final class HttpIdentityRepository implements IdentityRepository {
     required this.sessions,
     required this.prefs,
     required this.providers,
+    IdentityTokenStore? tokens,
     AccountIdentityChanges? identityChanges,
-  }) : identityChanges = identityChanges ?? appAccountIdentityChanges;
+  }) : tokens = tokens ?? PrefsIdentityTokenStore(prefs),
+       identityChanges = identityChanges ?? appAccountIdentityChanges;
 
   final http.Client httpClient;
   final ApiSessionStore sessions;
   final SharedPreferences prefs;
   final ProviderSignIn providers;
 
+  /// The session token itself. The Keychain on iOS, the preferences
+  /// elsewhere. The provider, email and account id stay in [prefs].
+  final IdentityTokenStore tokens;
+
   /// Bumped whenever the stored identity changes, so screens that show a
   /// signed-in or signed-out state look again on their own.
   final AccountIdentityChanges identityChanges;
 
-  static const _tokenKey = 'identity_session_token';
   static const _providerKey = 'identity_provider';
   static const _emailKey = 'identity_email';
-  static const _accountKey = 'identity_account_id';
+
+  /// The preference key of the account the person is signed in to. A reader
+  /// that has to answer before this repository exists (the local store, at
+  /// its upgrade) reads it from here.
+  static const String accountIdKey = 'identity_account_id';
+  static const String _accountKey = accountIdKey;
 
   /// Every provider that reaches the account, comma separated. Missing on an
   /// install saved before linking existed, which reads as the one provider in
@@ -84,7 +95,7 @@ final class HttpIdentityRepository implements IdentityRepository {
       provider: provider,
       email: credential.email ?? user?['email'] as String?,
     );
-    await prefs.setString(_tokenKey, identity.token);
+    await tokens.write(identity.token);
     await prefs.setString(_providerKey, provider.wireValue);
     final email = identity.email;
     if (email != null) await prefs.setString(_emailKey, email);
@@ -93,7 +104,7 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   @override
   Future<IdentitySession?> readSession() async {
-    final token = prefs.getString(_tokenKey);
+    final token = await tokens.read();
     final provider = _readProvider();
     if (token == null || provider == null) return null;
     return IdentitySession(
@@ -135,12 +146,25 @@ final class HttpIdentityRepository implements IdentityRepository {
 
   @override
   Future<void> clearSession() async {
-    await prefs.remove(_tokenKey);
+    await tokens.clear();
     await prefs.remove(_providerKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_accountKey);
     await prefs.remove(_providersKey);
     await providers.signOut();
+    identityChanges.bump();
+  }
+
+  @override
+  Future<void> forgetRestoredSignIn() async {
+    // Not [IdentityTokenStore.read]: that would move a token left in the
+    // preferences by a backup made before the Keychain held it.
+    if (await tokens.readAfterMove() != null) return;
+    final saved = [_providerKey, _emailKey, _accountKey, _providersKey];
+    if (!saved.any(prefs.containsKey)) return;
+    for (final key in saved) {
+      await prefs.remove(key);
+    }
     identityChanges.bump();
   }
 

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_args.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_candidate.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_dates.dart';
@@ -39,7 +40,10 @@ abstract final class MorningAfterRule {
       id: LocalReminderIds.morningAfter,
       fireAt: fireAt,
       args: {
-        LocalReminderArgs.time: DateFormat('HH:mm').format(opened),
+        LocalReminderArgs.time: DateFormat(
+          'HH:mm',
+          currentFormatLocale(),
+        ).format(opened),
         LocalReminderArgs.topic: first.topic,
         LocalReminderArgs.seconds: '${seconds < 0 ? 0 : seconds}',
         LocalReminderArgs.incidentId: first.id,

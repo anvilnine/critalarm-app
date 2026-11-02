@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/search_edge_swipe.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -103,6 +106,10 @@ class _AppShellContentState extends State<_AppShellContent>
   late final AnimationController _reveal;
 
   bool _isSearching = false;
+
+  /// An edge swipe is moving the panel, or settling it after the finger lifts.
+  /// While it is set the panel also slides sideways with [_reveal].
+  bool _edgeSwiping = false;
 
   /// The guide opened search to show it off, so the guide closes it again.
   bool _guideOpenedSearch = false;
@@ -205,7 +212,12 @@ class _AppShellContentState extends State<_AppShellContent>
     _search.clearQuery();
     unawaited(
       _reveal.reverse().whenComplete(() {
-        if (mounted) setState(() => _isSearching = false);
+        if (mounted) {
+          setState(() {
+            _isSearching = false;
+            _edgeSwiping = false;
+          });
+        }
       }),
     );
   }
@@ -248,8 +260,8 @@ class _AppShellContentState extends State<_AppShellContent>
 
     final listed = result.routePath;
     if (listed == null) return;
-    // The plan result lists the shipped paywall. This is where it learns
-    // what that paywall is set to open.
+    // The plan result lists the raw paywall path. This is where it learns
+    // which layout that opens.
     final path = resolvePaywallLocation(listed);
     _closeSearch();
 
@@ -282,13 +294,33 @@ class _AppShellContentState extends State<_AppShellContent>
     final bottomInset = padding.bottom;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
 
+    // On a folding display the bar never crosses the fold. In book posture
+    // it floats at the foot of the start pane, in tabletop posture in the
+    // bottom half, and search opens in that same pane.
+    // The side insets come off it too, so the pill and the search panel
+    // stay out of a system strip down one edge (the iPhone Duo's).
+    final fold = AppFold.of(context);
+    final navArea = navAreaInsideSides(
+      navAreaFor(screen, fold, direction: Directionality.of(context)),
+      screen,
+      padding,
+    );
+    final placement = navPlacementFor(size, fold, padding: padding);
+    final hasRail = placement != AppNavPlacement.bottom;
+
     // The bar rides above the keyboard while searching, the way the pill in
     // ProblemStack does, so the field is never hidden behind it.
     final barBottom = keyboard > 0
         ? keyboard + _panelGap
-        : bottomInset + AppFloatingTabBar.edgeGap;
+        : bottomInset + AppFloatingTabBar.edgeGapFor(size);
     final panelBottom = barBottom + AppFloatingTabBar.height + _panelGap;
-    final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
+    final width = (navArea.width - _gutter * 2).clamp(0.0, _maxWidth);
+    final navLeft = navArea.left;
+    final navRight = screen.width - navArea.right;
+    // Icons only where three tab names do not fit: a narrow display, a cover
+    // screen, or the start pane of a book fold.
+    final iconsOnly =
+        size.isNarrow || size.isCover || navArea.width < AppSize.narrowMaxWidth;
 
     final currentPath = GoRouterState.of(context).uri.path;
     final hideTabBar =
@@ -331,25 +363,54 @@ class _AppShellContentState extends State<_AppShellContent>
                 // row above the bar, and scrolls under both rather than being
                 // cut off short of them.
                 Positioned(
-                  left: 0,
-                  right: 0,
+                  left: navLeft,
+                  right: navRight,
                   bottom: 0,
-                  child: _panel(width, screen.height, panelBottom),
+                  child: _panel(
+                    width,
+                    screen.height - navArea.top,
+                    panelBottom,
+                    screen.width,
+                    // Below the fold the status bar is not in the way.
+                    navArea.top > 0 ? 0 : padding.top,
+                  ),
                 ),
+                // iOS has no system back for an overlay, so the left edge
+                // closes search the way it closes a pushed screen. Translucent
+                // and only 20 wide: taps and vertical scrolls go through.
+                if (Theme.of(context).platform == TargetPlatform.iOS)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: SearchEdgeSwipe.edgeWidth,
+                    child: SearchEdgeSwipe(
+                      reveal: _reveal,
+                      screenWidth: screen.width,
+                      onStart: () {
+                        _focusNode.unfocus();
+                        setState(() => _edgeSwiping = true);
+                      },
+                      onClose: _closeSearch,
+                      onSettled: () {
+                        if (mounted) setState(() => _edgeSwiping = false);
+                      },
+                    ),
+                  ),
               ],
 
               // On its side or wide enough for two panes, the rail stands up
               // down one edge and leaves the content the full height of the
               // display. The search bar still comes up at the bottom, where the
               // thumb is.
-              if (size.hasRail && !_isSearching)
-                _rail(items, size, padding, hideTabBar)
+              if (hasRail && !_isSearching)
+                _rail(items, placement, size, padding, navArea, hideTabBar)
               else
                 AnimatedPositioned(
                   duration: context.motion(AppDurations.slow),
                   curve: AppCurves.easeOut,
-                  left: 0,
-                  right: 0,
+                  left: navLeft,
+                  right: navRight,
                   bottom: hideTabBar ? -100 : barBottom,
                   child: Center(
                     child: IgnorePointer(
@@ -358,7 +419,7 @@ class _AppShellContentState extends State<_AppShellContent>
                         duration: context.motion(AppDurations.slow),
                         curve: AppCurves.easeOut,
                         opacity: hideTabBar ? 0.0 : 1.0,
-                        child: _bar(items, size, width),
+                        child: _bar(items, width, iconsOnly: iconsOnly),
                       ),
                     ),
                   ),
@@ -372,24 +433,39 @@ class _AppShellContentState extends State<_AppShellContent>
 
   /// The rail slides off its own edge on a pushed screen, the way the bar
   /// drops off the bottom.
+  ///
+  /// It sits at the edge of the frame, [AppSize.frameInset] in from the
+  /// window edge on a very wide window, and centres down the height of
+  /// [area]: the bottom half in tabletop posture, the window otherwise.
   Widget _rail(
     List<AppTabItem> items,
+    AppNavPlacement placement,
     AppSize size,
     EdgeInsets padding,
+    Rect area,
     bool hide,
   ) {
-    final onRight = size.navPlacement == AppNavPlacement.right;
-    final inset =
-        AppNavRail.edgeInset + (onRight ? padding.right : padding.left);
+    final onRight = placement == AppNavPlacement.right;
+    final sideInset = onRight ? padding.right : padding.left;
+    // A side inset wide enough to hold the rail (the iPhone Duo's system
+    // strip) gets the rail down its middle, under the clock at its top.
+    final inside = AppNavRail.fitsInside(sideInset);
+    final inset = inside
+        ? size.frameInset + (sideInset - AppNavRail.width) / 2
+        : size.frameInset + AppNavRail.edgeInset + sideInset;
     final offset = hide ? -(AppNavRail.width + inset + 20) : inset;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final top = area.top > 0 ? area.top : padding.top;
 
     return AnimatedPositioned(
       duration: context.motion(AppDurations.slow),
       curve: AppCurves.easeOut,
       left: onRight ? null : offset,
       right: onRight ? offset : null,
-      top: padding.top,
-      bottom: padding.bottom,
+      top: inside ? math.max(top, AppNavRail.insideInsetTop) : top,
+      bottom: area.bottom < screenHeight
+          ? screenHeight - area.bottom
+          : padding.bottom,
       child: Center(
         child: IgnorePointer(
           ignoring: hide,
@@ -438,7 +514,13 @@ class _AppShellContentState extends State<_AppShellContent>
     );
   }
 
-  Widget _panel(double width, double maxHeight, double bottomInset) {
+  Widget _panel(
+    double width,
+    double maxHeight,
+    double bottomInset,
+    double screenWidth,
+    double topInset,
+  ) {
     return BlocBuilder<SearchCubit, SearchState>(
       bloc: _search,
       builder: (context, state) => AnimatedBuilder(
@@ -450,7 +532,12 @@ class _AppShellContentState extends State<_AppShellContent>
             // Rises the last few pixels into place, so the list reads as
             // coming up out of the bar rather than appearing on top of it.
             child: Transform.translate(
-              offset: Offset(0, _panelGap * (1 - t)),
+              // Following the finger: the panel leaves to the right as the
+              // reveal drops, the way a pushed screen does.
+              offset: Offset(
+                _edgeSwiping ? (1 - _reveal.value) * screenWidth : 0,
+                _edgeSwiping ? 0 : _panelGap * (1 - t),
+              ),
               child: child,
             ),
           );
@@ -463,7 +550,7 @@ class _AppShellContentState extends State<_AppShellContent>
               child: SearchPanel(
                 state: state,
                 maxHeight: maxHeight < 0 ? 0 : maxHeight,
-                topInset: MediaQuery.paddingOf(context).top,
+                topInset: topInset,
                 bottomInset: bottomInset,
                 onTapResult: (result) => unawaited(_openResult(result)),
                 onTapRecent: _fillFromRecent,
@@ -492,10 +579,14 @@ class _AppShellContentState extends State<_AppShellContent>
         child: child,
       );
 
-  Widget _bar(List<AppTabItem> items, AppSize size, double width) {
+  Widget _bar(
+    List<AppTabItem> items,
+    double width, {
+    required bool iconsOnly,
+  }) {
     final bar = AppFloatingTabBar(
       currentIndex: widget.navigationShell.currentIndex,
-      iconsOnly: size.isNarrow,
+      iconsOnly: iconsOnly,
       items: items,
       onSelect: _goBranch,
       composeLabel: LocaleKeys.nav_new_topic.tr(),

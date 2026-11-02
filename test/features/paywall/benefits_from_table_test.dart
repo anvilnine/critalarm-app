@@ -147,9 +147,11 @@ void main() {
         PaywallBenefitId.customAlarmScreens,
       ]);
       // What this build really has. The alarm screen looks joined the
-      // day the own photo look was built, and the own sounds once Pro
-      // gated them.
+      // day the own photo look was built, the own sounds once Pro gated
+      // them, and the wake-up challenges once their line and picture
+      // showed the challenges the app has.
       expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
+        PaywallBenefitId.wakeUpChallenges,
         PaywallBenefitId.widgets,
         PaywallBenefitId.customSounds,
         PaywallBenefitId.customAlarmScreens,
