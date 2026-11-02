@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -130,7 +131,7 @@ class PassLabelLine extends StatelessWidget {
       context,
     ).clamp(maxScaleFactor: kChromeMaxTextScale);
     final labelText = Text(
-      text.toUpperCase(),
+      upperInContext(text, context),
       maxLines: isSingleLine ? 1 : null,
       overflow: isSingleLine ? TextOverflow.ellipsis : TextOverflow.clip,
       style: TextStyle(

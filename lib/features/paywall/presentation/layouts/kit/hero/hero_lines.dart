@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -224,7 +225,7 @@ class HeroLinesMetrics {
         : (leadIsDrawn ? HeroAlso.beforeGap : 0) +
               paywallTextHeight(
                 context,
-                alsoIncluded!.toUpperCase(),
+                upperInContext(alsoIncluded!, context),
                 labelStyle,
                 width,
               ) +
@@ -378,7 +379,7 @@ class HeroBenefitLines extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: HeroAlso.labelGap),
                       child: Text(
-                        metrics.alsoLabel!.toUpperCase(),
+                        upperInContext(metrics.alsoLabel!, context),
                         style: metrics.labelStyle,
                       ),
                     ),

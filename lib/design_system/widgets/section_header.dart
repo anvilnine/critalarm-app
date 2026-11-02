@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design_system/tokens/colors.dart';
 import 'package:flutter/material.dart';
 
@@ -22,7 +23,10 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(title.toUpperCase(), style: textTheme.titleMedium),
+          child: Text(
+            upperInContext(title, context),
+            style: textTheme.titleMedium,
+          ),
         ),
         if (actionLabel != null)
           TextButton(
