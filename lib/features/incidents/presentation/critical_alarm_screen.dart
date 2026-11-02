@@ -5,6 +5,7 @@ import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/format/clock_format.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -948,8 +949,13 @@ class AcknowledgedScreen extends StatelessWidget {
     final ringDuration = (startedAt != null && ackedAt != null)
         ? ackedAt.difference(startedAt)
         : null;
-    final startedLabel = startedAt != null ? _formatClock(startedAt) : '';
-    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '';
+    final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
+    final startedLabel = startedAt != null
+        ? formatClock(startedAt, is24Hour: is24Hour, withSeconds: true)
+        : '';
+    final ackedLabel = ackedAt != null
+        ? formatClock(ackedAt, is24Hour: is24Hour, withSeconds: true)
+        : '';
     final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
       namedArgs: {
         'duration': ringDuration == null
@@ -2039,13 +2045,6 @@ class _FinishFirstToolButtonState extends State<_FinishFirstToolButton> {
       onPressed: _finish,
     );
   }
-}
-
-String _formatClock(DateTime dt) {
-  final hour = dt.hour.toString().padLeft(2, '0');
-  final minute = dt.minute.toString().padLeft(2, '0');
-  final second = dt.second.toString().padLeft(2, '0');
-  return '$hour:$minute:$second';
 }
 
 /// Holds the confetti back until the screen knows it may fly.

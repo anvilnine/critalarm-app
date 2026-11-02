@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/observed_api_session_store.dart';
@@ -60,6 +61,7 @@ import 'package:critalarm/core/device/os_version_reader.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/format/clock_format.dart';
 import 'package:critalarm/core/l10n/native_locale_bridge.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
@@ -2732,6 +2734,8 @@ Future<void> configureDependencies({
         getIt<PlatformCapabilities>().flashNeedsAlarmScreen
             ? getIt<AlarmSignalStore>().read
             : null,
+        // The times on the alarm follow the phone's 12 or 24 hour setting.
+        () => PlatformDispatcher.instance.alwaysUse24HourFormat,
       ),
     )
     ..registerFactory(
@@ -3139,9 +3143,10 @@ Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
       // A malformed optional account cache should not fail the whole report.
     }
   }
+  // The report shows the quiet hours the way the phone shows a time.
+  final is24Hour = PlatformDispatcher.instance.alwaysUse24HourFormat;
   String clockText(int minutes) =>
-      '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
-      '${(minutes % 60).toString().padLeft(2, '0')}';
+      formatMinuteOfDay(minutes, is24Hour: is24Hour);
   return DebugEnvironment(
     serverMode: session?.mode.wireValue,
     baseUrl: session?.baseUri.toString(),

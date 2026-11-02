@@ -245,6 +245,39 @@ void main() {
       },
     );
 
+    test('the acknowledged time is 24-hour unless the phone says 12', () async {
+      server.seedAcked();
+      await cubit.load(incidentId: 'inc_acked_proddb');
+      expect(cubit.state.subtext, matches(RegExp(r'at \d\d:\d\d$')));
+
+      final twelve = CriticalAlarmCubit(
+        getIncidentUsecase,
+        getIncidentsUsecase,
+        acknowledgeIncidentUsecase,
+        closeIncidentUsecase,
+        null,
+        null,
+        const Duration(seconds: 1),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        () => false,
+      );
+      addTearDown(twelve.close);
+      await twelve.load(incidentId: 'inc_acked_proddb');
+      expect(
+        twelve.state.subtext,
+        matches(RegExp(r'at \d{1,2}:\d\d\s(AM|PM)$')),
+      );
+    });
+
     test(
       'acknowledge transitions incident on mock server and updates state',
       () async {

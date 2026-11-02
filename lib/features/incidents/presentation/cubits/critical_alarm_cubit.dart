@@ -8,6 +8,7 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/format/clock_format.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -61,7 +62,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._proofLog,
     this._setupUse,
     this._screenFlashSignals,
+    bool Function()? use24Hour,
   ]) : _now = now ?? DateTime.now,
+       _use24Hour = use24Hour ?? _always24Hour,
        super(const CriticalAlarmState()) {
     current = this;
     // A second incident can open while the screen is already up. The shared
@@ -144,6 +147,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   List<String> _flashingTopics = const <String>[];
 
   final DateTime Function() _now;
+
+  /// Whether the phone is set to the 24-hour clock, asked each time a time is
+  /// written. The app passes the platform's setting; left out, 24 hours.
+  final bool Function() _use24Hour;
+
+  static bool _always24Hour() => true;
 
   /// What the server sent for the incident whose text the sample replaced,
   /// so the card handed to the native side keeps the real words. Null when
@@ -1407,9 +1416,5 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour.toString().padLeft(2, '0');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
+  String _formatTime(DateTime dt) => formatClock(dt, is24Hour: _use24Hour());
 }
