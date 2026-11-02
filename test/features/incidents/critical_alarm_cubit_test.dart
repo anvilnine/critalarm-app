@@ -381,7 +381,7 @@ void main() {
         expect(state.status, CriticalAlarmStatus.acknowledged);
         expect(
           state.errorMessage,
-          'Something went wrong on the server. Try again.',
+          'Something went wrong on this phone. Try again.',
         );
       },
     );

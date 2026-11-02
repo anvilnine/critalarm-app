@@ -32,6 +32,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On iPhone Duo, screens, sheets, dialogs and the tab bar keep clear of the strip down the side of the screen.
 - Signing out now stops with an error if the store cannot be logged out, so a purchase never moves to your next account.
 - If Crit Alarm cannot read your plan for a moment, Pro and Cloud features stay as they were the last time it could.
+- When something goes wrong on your phone, the error no longer blames the server. Only a real server error does.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

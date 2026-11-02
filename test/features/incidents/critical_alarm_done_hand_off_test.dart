@@ -209,7 +209,7 @@ void main() {
       expect(cubit.state.status, CriticalAlarmStatus.failure);
       expect(
         cubit.state.errorMessage,
-        'Something went wrong on the server. Try again.',
+        'Something went wrong on this phone. Try again.',
       );
       expect(cubit.state.doneIncidentId, isNull);
 

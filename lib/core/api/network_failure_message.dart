@@ -25,13 +25,20 @@ String networkFailureMessage(Object error) {
         error.server?.message,
         code: error.server?.code,
         cap: error.server?.cap,
+        statusCode: error.server?.statusCode,
       ),
-      NetworkFaultKind.other => LocaleKeys.api_errors_unknown.tr(),
+      // Something threw on the phone that is not a network error.
+      NetworkFaultKind.other => LocaleKeys.api_errors_unknown_phone.tr(),
     };
   }
   // Device registration can throw a server response while connecting.
   if (error is ApiException) {
-    return apiErrorMessage(error.message, code: error.code, cap: error.cap);
+    return apiErrorMessage(
+      error.message,
+      code: error.code,
+      cap: error.cap,
+      statusCode: error.statusCode,
+    );
   }
   if (error is TimeoutException) {
     return LocaleKeys.onboarding_connect_connect_timeout.tr();
@@ -43,13 +50,22 @@ String networkFailureMessage(Object error) {
   if (NetworkFault.readsAsUnreachable(text)) {
     return LocaleKeys.onboarding_connect_network_unreachable.tr();
   }
-  return LocaleKeys.api_errors_unknown.tr();
+  return LocaleKeys.api_errors_unknown_phone.tr();
 }
 
 /// Picks app-owned words for a server error. A numeric code is authoritative;
 /// only a response without one is matched by its known error text.
-/// Unknown codes and text both use the generic line, never server prose.
-String apiErrorMessage(String? wireError, {int? code, String? cap}) {
+/// Unknown codes and text both use a generic line, never server prose.
+///
+/// The generic line blames the server only when [statusCode] is 5xx. Without
+/// a status, or with a 4xx the app has no words for, the fault is on the
+/// phone's side (a bad request, a parse failure, anything thrown here).
+String apiErrorMessage(
+  String? wireError, {
+  int? code,
+  String? cap,
+  int? statusCode,
+}) {
   final error = code == null
       ? wireError?.trim().toLowerCase()
       : switch (code) {
@@ -89,7 +105,10 @@ String apiErrorMessage(String? wireError, {int? code, String? cap}) {
     'topic mismatch' => LocaleKeys.api_errors_topic_mismatch.tr(),
     'topic must retain a token' =>
       LocaleKeys.api_errors_topic_must_retain_a_token.tr(),
-    _ => LocaleKeys.api_errors_unknown.tr(),
+    _ =>
+      statusCode != null && statusCode >= 500
+          ? LocaleKeys.api_errors_unknown.tr()
+          : LocaleKeys.api_errors_unknown_phone.tr(),
   };
 }
 
@@ -102,6 +121,7 @@ String failureMessage(Failure failure) => apiErrorMessage(
   failure.message,
   code: failure is ApiFailure ? failure.code : null,
   cap: CapReached.fromFailure(failure)?.name,
+  statusCode: failure is ApiFailure ? failure.statusCode : null,
 );
 
 /// Default unauthenticated endpoint used to check connectivity for Crit Alarm

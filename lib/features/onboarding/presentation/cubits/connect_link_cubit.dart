@@ -119,7 +119,7 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
       // The use case answers with an outcome and does not throw. This is
       // for a failure outside it. Its text is dropped: it is not a sentence,
       // and nothing that might hold the token is shown.
-      _fail(LocaleKeys.api_errors_unknown.tr(), token);
+      _fail(LocaleKeys.api_errors_unknown_phone.tr(), token);
       return;
     }
     if (outcome is Connected) {
@@ -150,14 +150,14 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   }
 
   /// Shows [message], unless it holds the token, which a wrapped exception
-  /// could. That one gets the plain unknown-error line.
+  /// could. That one gets the plain line for a fault on the phone.
   void _fail(String message, String token, {bool canRetry = true}) {
     if (isClosed) return;
     emit(
       state.copyWith(
         phase: ConnectLinkPhase.failed,
         errorMessage: _holdsToken(message, token)
-            ? LocaleKeys.api_errors_unknown.tr()
+            ? LocaleKeys.api_errors_unknown_phone.tr()
             : message,
         canRetry: canRetry,
       ),

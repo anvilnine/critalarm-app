@@ -7,6 +7,7 @@ import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -470,7 +471,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             step: CreateTopicStep.topic,
             // failure.message is the server's wire code, e.g. "cap". Never
             // put that under a text field.
-            errorMessage: apiErrorMessage(failure.message, cap: cap?.name),
+            errorMessage: apiErrorMessage(
+              failure.message,
+              cap: cap?.name,
+              statusCode: failure is ApiFailure ? failure.statusCode : null,
+            ),
             capReached: cap,
             // The store says Pro but the server has not caught up, so a cap
             // here means "wait a moment", not "go Pro".

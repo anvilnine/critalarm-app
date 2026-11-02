@@ -611,7 +611,7 @@ void main() {
       act: (cubit) => cubit.navigateToHome(),
       expect: () => [
         const OnboardingConnectState(
-          errorMessage: 'Something went wrong on the server. Try again.',
+          errorMessage: 'Something went wrong on this phone. Try again.',
         ),
       ],
     );
