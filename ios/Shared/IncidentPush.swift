@@ -21,6 +21,11 @@ struct IncidentPush {
     let title: String?
     let body: String?
 
+    /// The topic's name (api.md §5.1, 1.27.0). The local chain reads the
+    /// topic's ring timers and its critical switch by this name. Nil from a
+    /// server older than 1.27.0, and the chain then uses its defaults.
+    let topic: String?
+
     /// `aps.mutable-content: 1`. api.md §5.1 sets it only when the text in
     /// `aps.alert` is a placeholder; `relay_content: full` drops it.
     let mutableContent: Bool
@@ -61,6 +66,7 @@ struct IncidentPush {
         self.priority = priority
         self.title = (alert?["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         self.body = (alert?["body"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        self.topic = (payload["topic"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         self.mutableContent = (aps?["mutable-content"] as? NSNumber)?.intValue == 1
         let ringUntilSeconds = (payload["ring_until"] as? NSNumber)?.doubleValue
             ?? Double(payload["ring_until"] as? String ?? "")

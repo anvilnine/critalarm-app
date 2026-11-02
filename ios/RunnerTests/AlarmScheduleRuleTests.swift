@@ -49,6 +49,24 @@ final class AlarmScheduleRuleTests: XCTestCase {
         return IncidentPush(payload: payload)
     }
 
+    // api.md §5.1, 1.27.0. The chain picks the topic's timers and critical
+    // switch by this name (W1). An older server sends none.
+    func testThePushNamesItsTopic() {
+        for kind in ["open", "repeat", "reopen"] {
+            var payload: [AnyHashable: Any] = [
+                "kind": kind, "server": "https://alerts.example.com",
+                "incident_id": "inc_9", "topic": "db-prod",
+            ]
+            XCTAssertEqual(IncidentPush(payload: payload)?.topic, "db-prod", kind)
+            payload["aps"] = ["alert": ["title": "Database", "body": "db01 is down"]]
+            XCTAssertEqual(IncidentPush(payload: payload)?.topic, "db-prod", "\(kind) full")
+        }
+        XCTAssertNil(push("open")?.topic)
+        XCTAssertNil(IncidentPush(payload: [
+            "kind": "open", "server": "https://alerts.example.com", "incident_id": "inc_9", "topic": "",
+        ])?.topic)
+    }
+
     func testAPriorityFiveAlarmKindNamesItsIncident() {
         for kind in ["open", "repeat", "reopen"] {
             XCTAssertEqual(

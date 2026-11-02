@@ -989,7 +989,7 @@ import AlarmKit
     // A reopen is a new stage, so it drops the mark and rings. Old marks are
     // pruned on every run so the set never outlives the incident.
     AckedIncidentStore.prune(
-      olderThan: AckedIncidentStore.pruneWindow(topic: userInfo["topic"] as? String)
+      olderThan: AckedIncidentStore.pruneWindow(topic: push.topic)
     )
     if AlarmScheduleRule.clearsAck(kind: push.kind) {
       AckedIncidentStore.clear(incidentId: incidentId)
@@ -1022,7 +1022,9 @@ import AlarmKit
     // arming step is queued, so a stop that asked before this push is
     // refused, and one already running finishes before the new ring is set.
     RingGeneration.bump(incidentId: incidentId)
-    let topic = userInfo["topic"] as? String ?? ""
+    // api.md §5.1 since 1.27.0. With it the chain uses this topic's timers and
+    // sees its critical switch; an older server leaves it out.
+    let topic = push.topic ?? ""
     let title = push.title ?? "Crit Alarm"
     let sound = userInfo["sound"] as? String
     let alarmKit = IncidentChain.usesAlarmKit
