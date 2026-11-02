@@ -18,6 +18,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Layout API for tablets, foldables and wide windows: AppFold, AppPosture, AppFoldSplit, AppFoldPane, foldPaneMediaQuery and navPlacementFor in lib/design/fold.dart; AppScreenScaffold.foldStage, showsDetail, showsDetailFor, its frame and detail panes, and AppScreenColumns; the AppSize caps and isCover; ScreenFrame for setup and New topic; PaywallLayoutScope split and paywallSplitFor; the capture matrix (make screens-responsive, tool/capture\_responsive\_matrix.dart).
 - DisplayFoldChannel (app.critalarm/display, events on app.critalarm/display/fold) sends the iPhone Duo's division reserved region on iOS 27.1 or later, and NativeFoldScope in lib/core/device/native\_fold.dart adds it to MediaQuery.displayFeatures as a half-opened fold, so AppFold works on iOS.
 - ReceivedAlarmPushStore (iOS) and RingAudibility (Android) record what a setup test proves; AlarmHost gains ringWasMuted, canAckFromScreen and ackFromScreen.
+- DeviceWord (lib/core/platform/device\_word.dart) names the device at launch, and DeviceWordAssetLoader swaps in the \_ipad, \_tablet and \_computer sibling of every key listed in deviceVariantKeys as the translations load. make screens draws an Android tablet (playtablet10), takes SCREENS\_LOCALE, and draws setup.\* screens when SCREENS\_ONLY names them.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.

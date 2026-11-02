@@ -11,6 +11,8 @@ import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/l10n/app_locales.dart';
+import 'package:critalarm/core/platform/device_text.dart';
+import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -244,6 +246,9 @@ Future<void> main() async {
           ),
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
+      // Names this device (phone, iPad, tablet or computer) in every
+      // string that talks about it.
+      assetLoader: DeviceWordAssetLoader(getIt<DeviceWord>()),
       child: CritAlarmApp(initialLocation: initialLocation),
     ),
   );

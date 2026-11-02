@@ -16,6 +16,18 @@ void main() {
       expect(upperForLocale('iş', const Locale('tr', 'TR')), 'İŞ');
     });
 
+    test('iPad keeps its case, in Turkish too', () {
+      expect(upperForLocale('iPad checks', const Locale('en')), 'iPad CHECKS');
+      expect(
+        upperForLocale('iPad-Prüfungen', const Locale('de')),
+        'iPad-PRÜFUNGEN',
+      );
+      expect(
+        upperForLocale('iPad kontrolleri', const Locale('tr')),
+        'iPad KONTROLLERİ',
+      );
+    });
+
     test('other languages use plain toUpperCase', () {
       expect(upperForLocale('in time', const Locale('en')), 'IN TIME');
       expect(upperForLocale('ısı', const Locale('de')), 'ISI');

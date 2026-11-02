@@ -18,6 +18,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On a tablet or a wide window, setup, New topic and the plans page keep their words and button in one centred column. On a half-open foldable the face sits on one side of the fold and the form or offer on the other.
 - On iPhone Duo, the tabs sit in the strip down the side of the screen, open or closed, flat or half folded, and the page uses the rest of the screen.
 - Times on the alarm screen follow your phone's 12 or 24 hour clock.
+- On an iPad, an Android tablet, the Mac and the web app, the app names that device instead of saying phone, in every language.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.

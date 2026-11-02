@@ -14,6 +14,7 @@ import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
@@ -46,11 +47,13 @@ void registerPlatformSingletons(
   required PlatformCapabilities capabilities,
   required StoreKind store,
   required DeviceForm deviceForm,
+  required DeviceWord deviceWord,
 }) {
   final storeServices = getIt<StoreServices>();
 
   getIt
     ..registerSingleton<PlatformCapabilities>(capabilities)
+    ..registerSingleton<DeviceWord>(deviceWord)
     ..registerSingleton<StoreKind>(store)
     // Each part of the store set on its own, so feature code asks for the
     // one it needs.

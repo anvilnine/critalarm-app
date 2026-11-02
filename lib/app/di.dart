@@ -29,6 +29,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -42,6 +43,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -136,6 +138,13 @@ Future<void> configureDependencies({
   await registerPriceBook(getIt);
 
   final deviceForm = await DeviceForm.read();
+  // The word the copy uses for this device: phone, iPad, tablet or
+  // computer. Read once, like the capabilities, and handed to the
+  // translations as they load (main.dart).
+  final deviceWord = await readDeviceWord(
+    capabilities: capabilities,
+    dispatcher: WidgetsBinding.instance.platformDispatcher,
+  );
   appEdgeEffect.value = autoEdgeEffect(
     platform: defaultTargetPlatform,
     shaderSupported: await loadEdgeBlurShader(),
@@ -148,6 +157,7 @@ Future<void> configureDependencies({
     capabilities: capabilities,
     store: store,
     deviceForm: deviceForm,
+    deviceWord: deviceWord,
   );
   registerTopicListPrefs(getIt);
   registerAppHosts(

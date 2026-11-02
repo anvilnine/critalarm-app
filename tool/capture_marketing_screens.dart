@@ -5,6 +5,13 @@
 // passes the output folder in SCREENS_OUT. Nothing it writes belongs in this
 // repo.
 //
+// `make screens SCREENS_LOCALE=de` draws the same screens in another shipped
+// language, into a `<locale>/` folder of its own. English stays where it was.
+//
+// The setup screens (`setup.*` in `_setupScreens`) are drawn only when
+// SCREENS_ONLY names them, so a plain run draws what it always drew:
+// `make screens SCREENS_ONLY=setup.permissions,setup.real_ring`.
+//
 // `make screens STORIES=1` draws something else: the ringing and the answered
 // alarm screen once per story in `_stories`, at the social size only. It
 // writes stories.json and leaves manifest.json alone.
@@ -29,6 +36,8 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/platform/device_text.dart';
+import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/store/local_store.dart';
@@ -50,6 +59,8 @@ import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/src/localization.dart';
+import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -73,6 +84,7 @@ typedef _Device = ({
   double ratio,
   TargetPlatform platform,
   bool isIphone,
+  DeviceWord word,
 });
 
 // The 1080 x 1920 sizes use a 411 x 731 point phone at 2.625x, the common
@@ -87,6 +99,7 @@ const List<_Device> _devices = [
     ratio: 3,
     platform: TargetPlatform.iOS,
     isIphone: true,
+    word: DeviceWord.phone,
   ),
   (
     id: 'iphone65',
@@ -96,6 +109,7 @@ const List<_Device> _devices = [
     ratio: 3,
     platform: TargetPlatform.iOS,
     isIphone: true,
+    word: DeviceWord.phone,
   ),
   (
     id: 'ipad13',
@@ -105,6 +119,7 @@ const List<_Device> _devices = [
     ratio: 2,
     platform: TargetPlatform.iOS,
     isIphone: false,
+    word: DeviceWord.ipad,
   ),
   (
     id: 'playphone',
@@ -114,6 +129,7 @@ const List<_Device> _devices = [
     ratio: 2.625,
     platform: TargetPlatform.android,
     isIphone: false,
+    word: DeviceWord.phone,
   ),
   (
     id: 'social916',
@@ -123,6 +139,19 @@ const List<_Device> _devices = [
     ratio: 2.625,
     platform: TargetPlatform.iOS,
     isIphone: true,
+    word: DeviceWord.phone,
+  ),
+  // A 10 inch Android tablet, the size Google Play asks tablet screenshots
+  // for: 1600 x 2560 pixels.
+  (
+    id: 'playtablet10',
+    label: 'Android tablet 10 inch (Play)',
+    width: 800,
+    height: 1280,
+    ratio: 2,
+    platform: TargetPlatform.android,
+    isIphone: false,
+    word: DeviceWord.tablet,
   ),
 ];
 
@@ -238,6 +267,61 @@ final List<_Screen> _screens = [
     story: null,
   ),
 ];
+
+/// Setup screens that name the device, for checking the device word. Drawn
+/// only when SCREENS_ONLY names them, so a plain run's output is unchanged.
+final List<_Screen> _setupScreens = [
+  (
+    id: 'setup.welcome',
+    route: '/onboarding/welcome',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'setup.permissions',
+    route: '/onboarding/permissions',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'setup.connect',
+    route: '/onboarding/connect',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'setup.real_ring',
+    route: '/onboarding/real-ring',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+];
+
+/// Puts [tag]'s translations in place, with the strings that name the device
+/// in [word]'s words, the way `DeviceWordAssetLoader` does in the app. English
+/// stays the fallback, as in the app.
+void _useTranslations(String tag, DeviceWord word) {
+  Map<String, dynamic> read(String t) => withDeviceWord(
+    jsonDecode(File('assets/translations/$t.json').readAsStringSync())
+        as Map<String, dynamic>,
+    word,
+  );
+  final parts = tag.split('-');
+  final locale = parts.length == 1
+      ? Locale(parts.first)
+      : parts[1].length == 4
+      ? Locale.fromSubtags(languageCode: parts.first, scriptCode: parts[1])
+      : Locale(parts.first, parts[1]);
+  Localization.load(
+    locale,
+    translations: Translations(read(tag)),
+    fallbackTranslations: Translations(read('en')),
+  );
+}
 
 /// One alarm a video tells the story of: the topic it rings on and the words
 /// its sender put in it.
@@ -733,7 +817,11 @@ void main() {
   // other, whatever SCREENS_DEVICES says.
   final storiesOnly = const {'1', 'true'}.contains(_env('SCREENS_STORIES', ''));
   final onlyDevices = storiesOnly ? 'social916' : _env('SCREENS_DEVICES', '');
-  final screens = storiesOnly ? _storyScreens() : _screens;
+  final localeTag = _env('SCREENS_LOCALE', 'en');
+  final named = only.split(',');
+  final screens = storiesOnly
+      ? _storyScreens()
+      : [..._screens, ..._setupScreens.where((s) => named.contains(s.id))];
   final entries = <Map<String, Object?>>[];
 
   setUpAll(() async {
@@ -812,6 +900,21 @@ void main() {
     // time: the row then shows the answer it already holds.
     await getIt<ReliabilityCubit>().refresh();
     await loadAppFonts();
+    // No Japanese, Korean or Chinese font ships in the app: a phone brings
+    // its own. On this Mac, Hiragino stands in as the fallback the engine
+    // reaches for, so those languages draw at all. Glyph shapes are an
+    // approximation of the phone's.
+    if (const {'ja', 'ko', 'zh'}.contains(localeTag.split('-').first)) {
+      final hiragino = File('/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc');
+      if (hiragino.existsSync()) {
+        final bytes = ByteData.sublistView(hiragino.readAsBytesSync());
+        for (final family in const ['sans-serif', 'monospace']) {
+          await (FontLoader(family)..addFont(Future.value(bytes))).load();
+        }
+      } else {
+        print('warning: no Hiragino font, CJK text will draw as boxes');
+      }
+    }
   });
 
   tearDownAll(() {
@@ -825,11 +928,12 @@ void main() {
       'app_commit_dirty': _env('GIT_DIRTY', 'false') == 'true',
       'generated_at': DateTime.now().toUtc().toIso8601String(),
       'generator': 'critalarm-app tool/capture_marketing_screens.dart',
-      'locale': 'en',
+      'locale': localeTag,
       'devices': {
         for (final d in _devices)
           d.id: {
             'label': d.label,
+            'device_word': d.word.name,
             'platform': d.platform.name,
             'points': [d.width, d.height],
             'pixel_ratio': d.ratio,
@@ -853,9 +957,13 @@ void main() {
       'screens': entries,
     };
     final name = storiesOnly ? 'stories.json' : 'manifest.json';
-    File('${outDir.path}/$name').writeAsStringSync(
-      '${const JsonEncoder.withIndent('  ').convert(manifest)}\n',
-    );
+    // Another language keeps its manifest beside its own pictures.
+    final folder = localeTag == 'en' ? '' : '$localeTag/';
+    File('${outDir.path}/$folder$name')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(
+        '${const JsonEncoder.withIndent('  ').convert(manifest)}\n',
+      );
     print('Wrote ${entries.length} screens to ${outDir.path}');
   });
 
@@ -866,7 +974,8 @@ void main() {
     for (final theme in const [ThemeMode.light, ThemeMode.dark]) {
       for (final screen in screens) {
         if (only.isNotEmpty && !only.split(',').contains(screen.id)) continue;
-        final rel = '${device.id}/${theme.name}/${screen.id}.png';
+        final folder = localeTag == 'en' ? '' : '$localeTag/';
+        final rel = '$folder${device.id}/${theme.name}/${screen.id}.png';
         testWidgets('screen $rel', (tester) async {
           _seed(getIt<MockServer>(), screen.fixture, story: screen.story);
           // The store keeps what the last capture synced. Empty it so this
@@ -878,6 +987,9 @@ void main() {
             await db.delete('incidents');
           });
           debugDefaultTargetPlatformOverride = device.platform;
+          // The app reads its device word once, at launch, and the
+          // translations load with it. Say it again for this device.
+          _useTranslations(localeTag, device.word);
           // The app works out its platform once, at launch. Say it again for
           // this size, or an iPhone shot names the other platform's store.
           getIt
@@ -991,7 +1103,8 @@ void main() {
               'device': device.id,
               'platform': device.platform.name,
               'theme': theme.name,
-              'locale': 'en',
+              'locale': localeTag,
+              'device_word': device.word.name,
               'size': [image.width, image.height],
               'file': rel,
               'sha256': sha256.convert(bytes).toString(),

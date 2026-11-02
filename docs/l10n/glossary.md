@@ -48,6 +48,9 @@ Register: informal du in explanatory text. Fixed button labels identical whereve
 | history | Alarmverlauf | no | one word everywhere |
 | device | Gerät | no | |
 | phone | Handy | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | Tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | Computer | no | the Mac app and the web app |
 | account | Konto | no | |
 | check | Prüfung / prüfen | no | |
 | delivery | Zustellung | no | |
@@ -100,6 +103,9 @@ Register: neutral です・ます in sentences, short labels for controls, first
 | history | アラーム履歴 | no | one word everywhere |
 | device | デバイス | no | |
 | phone | スマホ / スマートフォン | no | スマホ in short labels, スマートフォン in sentences |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | タブレット | no | an Android tablet, in strings about the device the app runs on |
+| computer | パソコン | no | the Mac app and the web app |
 | account | アカウント | no | |
 | check | チェック | no | keeps it apart from 確認 (acknowledge) |
 | delivery | 配信 | no | |
@@ -152,6 +158,9 @@ Register: tú. Español neutro para España y América Latina, sin usted ni voso
 | history | historial | no | Historial de alarmas cuando haga falta aclararlo. |
 | device | dispositivo | no | |
 | phone | teléfono | no | Para España y América Latina. |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tableta | no | an Android tablet, in strings about the device the app runs on |
+| computer | computadora | no | the Mac app and the web app |
 | account | cuenta | no | |
 | check | comprobación / comprobar | no | Distinguir de confirmar una alarma. |
 | delivery | entrega | no | |
@@ -204,6 +213,9 @@ Register: vouvoiement dans les phrases, infinitif pour les boutons. Déclaration
 | history | historique | no | |
 | device | appareil | no | |
 | phone | téléphone | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablette | no | an Android tablet, in strings about the device the app runs on |
+| computer | ordinateur | no | the Mac app and the web app |
 | account | compte | no | |
 | check | vérification / vérifier | no | Distinct d’acquitter. |
 | delivery | réception | no | Envoi quand il s’agit de l’action du serveur. |
@@ -256,6 +268,9 @@ Register: você, tom acolhedor e direto. Botões curtos, sem formalidade nem exc
 | history | Histórico | no |  |
 | device | dispositivo | no |  |
 | phone | celular | no |  |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | computador | no | the Mac app and the web app |
 | account | conta | no |  |
 | check | verificação / verificar | no | diferente de confirmar um alarme |
 | delivery | entrega | no |  |
@@ -308,6 +323,9 @@ Register: tu nelle frasi, verbi brevi nei pulsanti. Virgolette dritte e apostrof
 | history | cronologia | no | cronologia degli allarmi dove serve esplicitare |
 | device | dispositivo | no | |
 | phone | telefono | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | computer | no | the Mac app and the web app |
 | account | account | yes | maschile, plurale invariato |
 | check | verifica / verificare | no | distinto dalla conferma di un allarme |
 | delivery | invio | no | ricezione quando la frase parla del telefono |
@@ -360,6 +378,9 @@ Register: informeel je/jij. Korte, directe zinnen en vaste knopteksten. Gebruik 
 | history | geschiedenis | no | Alarmgeschiedenis waar de context dat vraagt. |
 | device | apparaat | no | |
 | phone | telefoon | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | computer | no | the Mac app and the web app |
 | account | account | yes | Het account. |
 | check | controle / controleren | no | Onderscheid van bevestigen. |
 | delivery | aflevering | no | |
@@ -412,6 +433,9 @@ Register: nieformalne „ty”, małą literą. Przyciski w trybie rozkazującym
 | history | historia alarmów | no | |
 | device | urządzenie | no | |
 | phone | telefon | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | komputer | no | the Mac app and the web app |
 | account | konto | no | |
 | check | test / sprawdź | no | test jako nazwa kontroli, sprawdź jako polecenie |
 | delivery | dostarczanie | no | „dostarczenie” dla pojedynczej wiadomości |
@@ -464,6 +488,9 @@ Register: Tykání v pokynech i vysvětleních. Tlačítka v infinitivu jako v �
 | history | historie alarmů | no | |
 | device | zařízení | no | |
 | phone | telefon | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | počítač | no | the Mac app and the web app |
 | account | účet | no | |
 | check | kontrola / zkontrolovat | no | odlišit od potvrzení alarmu |
 | delivery | doručování | no | u jednotlivé zprávy doručení |
@@ -516,6 +543,9 @@ Register: Açıklamalarda sen dili, kontrollerde kısa ve doğrudan emir kipi ku
 | history | alarm geçmişi | no | Gezinmede de aynı terim. |
 | device | cihaz | no | |
 | phone | telefon | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | tablet | no | an Android tablet, in strings about the device the app runs on |
+| computer | bilgisayar | no | the Mac app and the web app |
 | account | hesap | no | |
 | check | kontrol / kontrol et | no | Alarm onayından farklı. |
 | delivery | iletim | no | |
@@ -568,6 +598,9 @@ Register: неформальне «ти», коротко й прямо. Кно�
 | history | Історія будильників | no | короткий заголовок: Історія |
 | device | пристрій | no | |
 | phone | телефон | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | планшет | no | an Android tablet, in strings about the device the app runs on |
+| computer | комп’ютер | no | the Mac app and the web app |
 | account | обліковий запис | no | |
 | check | перевірка / перевірити | no | |
 | delivery | доставка | no | |
@@ -621,6 +654,9 @@ Register: 문장은 부드러운 해요체로 써요. 버튼은 짧은 명사나
 | history | 알람 기록 | no |  |
 | device | 기기 | no |  |
 | phone | 휴대폰 | no |  |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | 태블릿 | no | an Android tablet, in strings about the device the app runs on |
+| computer | 컴퓨터 | no | the Mac app and the web app |
 | account | 계정 | no |  |
 | check | 점검 | no |  |
 | delivery | 전달 | no |  |
@@ -673,6 +709,9 @@ Register: 使用“你”，不用“您”。语气直接、友好，句子简�
 | history | 警报记录 | no | 统一用词 |
 | device | 设备 | no | |
 | phone | 手机 | no | |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | 平板 | no | an Android tablet, in strings about the device the app runs on |
+| computer | 电脑 | no | the Mac app and the web app |
 | account | 账号 | no | |
 | check | 检查 | no | 与事件“确认”区分 |
 | delivery | 送达 | no | 视句法用“送达”或“发送” |
@@ -725,6 +764,9 @@ Register: 使用「你」，語氣親切直接。說明簡短自然，按鈕用�
 | history | 警報紀錄 | no |  |
 | device | 裝置 | no |  |
 | phone | 手機 | no | 一律用手機。 |
+| iPad | iPad | yes | the iPad app names itself with this word |
+| tablet | 平板 | no | an Android tablet, in strings about the device the app runs on |
+| computer | 電腦 | no | the Mac app and the web app |
 | account | 帳號 | no |  |
 | check | 檢查 | no |  |
 | delivery | 傳送 | no |  |
