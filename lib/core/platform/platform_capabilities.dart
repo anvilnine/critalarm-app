@@ -26,21 +26,60 @@ class PlatformCapabilities {
   /// The native iOS app. False in a browser on an iPhone.
   bool get isIos => !isWeb && platform == TargetPlatform.iOS;
 
-  /// Whether the build registers a push token with the server. Web has none.
-  bool get canRegisterPush => !isWeb;
+  /// The native macOS app. False in a browser on a Mac.
+  ///
+  /// The Mac build runs every screen that needs no push and no ringer. It
+  /// registers no push token, rings nothing, and has none of the iPhone's
+  /// system extras (AlarmKit, Live Activities, quick actions, alternate app
+  /// icons) or RevenueCat's Customer Center. Each of those is a getter here
+  /// that answers false on a Mac.
+  bool get isMacos => !isWeb && platform == TargetPlatform.macOS;
 
-  /// Whether the build can ring an alarm on this device. Web cannot.
-  bool get canRunAlarm => !isWeb;
+  /// The native apps that sell through Apple and decode audio with
+  /// AVFoundation: the iPhone and the Mac. They share the App Store key, the
+  /// bundled sound files and the 30 second notification sound limit.
+  bool get isApple => isIos || isMacos;
+
+  /// The two phone apps, where every native channel has a handler.
+  bool get _isPhone =>
+      !isWeb &&
+      (platform == TargetPlatform.iOS || platform == TargetPlatform.android);
+
+  /// Whether the build registers a push token with the server. Web has none,
+  /// and the Mac has none yet.
+  bool get canRegisterPush => _isPhone;
+
+  /// Whether the build can ring an alarm on this device. Web cannot, and the
+  /// Mac cannot yet.
+  bool get canRunAlarm => _isPhone;
 
   /// Whether the build has the message composer. It is a web only screen.
   bool get canComposeMessages => isWeb;
 
   /// Whether the build can schedule notifications on the device, which
-  /// Local Reminders need. Web cannot.
-  bool get hasLocalNotifications => !isWeb;
+  /// Local Reminders need. Web cannot, and the Mac does not schedule them
+  /// yet.
+  bool get hasLocalNotifications => _isPhone;
 
-  /// Whether the build can play haptics. Web cannot.
-  bool get hasHaptics => !isWeb;
+  /// Whether the build can play haptics. Web and the Mac cannot.
+  bool get hasHaptics => _isPhone;
+
+  /// Whether the app icon has quick actions (a long press on the home screen
+  /// icon). The phones only. The Mac gets Dock items instead, later.
+  bool get hasQuickActions => _isPhone;
+
+  /// Whether the home screen icon can be swapped for an alternate one. The
+  /// phones only. macOS has no alternate app icons.
+  bool get hasAlternateAppIcons => _isPhone;
+
+  /// Whether the system alarm and the acknowledge card exist: AlarmKit and
+  /// Live Activities on the iPhone. The Android side answers the same
+  /// channel with its own alarm. Never on the Mac.
+  bool get hasSystemAlarmHost => _isPhone;
+
+  /// Whether RevenueCat's Customer Center can open. `purchases_ui_flutter`
+  /// has no macOS side, so the Mac has no Manage button for now.
+  bool get hasCustomerCenter => _isPhone;
 
   /// Whether the app itself runs a vibration pattern while an alarm rings.
   /// Android only: its alarm is the app's own service. An iPhone alarm is

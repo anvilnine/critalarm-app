@@ -150,7 +150,11 @@ Future<void> configureDependencies({
     deviceForm: deviceForm,
   );
   registerTopicListPrefs(getIt);
-  registerAppHosts(getIt, identityStore: identityStore);
+  registerAppHosts(
+    getIt,
+    identityStore: identityStore,
+    capabilities: capabilities,
+  );
   registerApiClient(
     getIt,
     heldScope: heldScope,

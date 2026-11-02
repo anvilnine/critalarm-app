@@ -49,9 +49,10 @@ void registerLocalReminders(GetIt getIt) {
         notices: getIt<InAppNoticeRepository>(),
       ),
     )
-    // Web has no local notifications, so the dashboard gets the no-op.
+    // Web has no local notifications, so the dashboard gets the no-op. The
+    // Mac schedules none yet either.
     ..registerLazySingleton<LocalReminderScheduler>(
-      () => kIsWeb
+      () => !getIt<PlatformCapabilities>().hasLocalNotifications
           ? const NoopLocalReminderScheduler()
           : NativeLocalReminderScheduler(),
     )

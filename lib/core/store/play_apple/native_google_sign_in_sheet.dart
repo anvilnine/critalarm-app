@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// [GoogleSignInSheet] as the native `google_sign_in` sheet, on Android
-/// with Google Play services and on iOS.
+/// with Google Play services, on iOS and on macOS.
 final class NativeGoogleSignInSheet implements GoogleSignInSheet {
   NativeGoogleSignInSheet({
     required this._platform,
@@ -20,17 +20,20 @@ final class NativeGoogleSignInSheet implements GoogleSignInSheet {
   final String _iosClientId;
   final String _serverClientId;
 
+  bool get _isApple =>
+      _platform == TargetPlatform.iOS || _platform == TargetPlatform.macOS;
+
   bool _ready = false;
 
   @override
   Future<GoogleSheetAnswer> signIn() async {
     if (!_ready) {
       await _google.initialize(
-        // The iOS client belongs to iOS alone. Android reads its client from
-        // the platform config, so passing one there would be wrong.
-        clientId: _platform == TargetPlatform.iOS && _iosClientId.isNotEmpty
-            ? _iosClientId
-            : null,
+        // The iOS client belongs to the Apple apps. The Mac app has the same
+        // bundle id, and Google's macOS sign-in takes an iOS client. Android
+        // reads its client from the platform config, so passing one there
+        // would be wrong.
+        clientId: _isApple && _iosClientId.isNotEmpty ? _iosClientId : null,
         serverClientId: _serverClientId.isNotEmpty ? _serverClientId : null,
       );
       _ready = true;

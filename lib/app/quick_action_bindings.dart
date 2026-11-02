@@ -15,7 +15,9 @@ class QuickActionBindings {
     required void Function(String path) navigate,
     this.localeChanges,
     QuickActions quickActions = const QuickActions(),
-    bool isWeb = kIsWeb,
+    // Off on the web and on the Mac, which have no home screen icon to
+    // long press. `PlatformCapabilities.hasQuickActions` is the answer.
+    bool isAvailable = !kIsWeb,
     LocalReminderAnalytics? analytics,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
@@ -32,7 +34,7 @@ class QuickActionBindings {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _isWeb = isWeb,
+       _isAvailable = isAvailable,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -43,14 +45,14 @@ class QuickActionBindings {
   final TopicsCubit _topics;
   final void Function(String path) _navigate;
   final QuickActions _quickActions;
-  final bool _isWeb;
+  final bool _isAvailable;
   final LocalReminderAnalytics? _analytics;
 
   StreamSubscription<TopicsState>? _subscription;
   bool? _hasCriticalTopic;
 
   void start() {
-    if (_isWeb) return;
+    if (!_isAvailable) return;
     _localeSubscription = localeChanges?.listen(
       (_) => unawaited(refreshTitles()),
     );
@@ -61,7 +63,7 @@ class QuickActionBindings {
 
   /// Locale changes must bypass the unchanged-topic shortcut.
   Future<void> refreshTitles() async {
-    if (_isWeb) return;
+    if (!_isAvailable) return;
     _hasCriticalTopic = null;
     await _update(_topics.state);
   }

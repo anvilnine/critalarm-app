@@ -36,6 +36,9 @@ class PlatformSoundFilePicker implements SoundFilePicker {
 
   @override
   Future<void> discard(String path) async {
+    // The phones hand over a copy in the app's own folders. The Mac's open
+    // panel hands over the person's own file, which is never ours to delete.
+    if (defaultTargetPlatform == TargetPlatform.macOS) return;
     try {
       await File(path).delete();
     } on FileSystemException {

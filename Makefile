@@ -245,6 +245,38 @@ build-release-apk:
 build-release-ios: google-xcconfig
 	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true
 
+# --- macOS --------------------------------------------------------------------
+# The Mac app: the same Dart code in a sandboxed macOS target, bundle id
+# app.critalarm and team N358LNAWS2 like the iPhone. It runs every screen that
+# needs no push and no ringer. Push, the ringer, purchases and widgets are not
+# on the Mac yet. Pass extra flutter flags with ARGS, e.g.
+# make run-macos ARGS=--dart-define=MOCK=true
+#
+# Sign in with Apple and keychain-access-groups need a macOS provisioning
+# profile for app.critalarm. A Mac without one builds with SIGN=local: the
+# Apple Development certificate, no profile, and the same entitlements minus
+# those two (macos/Runner/DebugProfileLocal.entitlements and ReleaseLocal.entitlements). Native Apple and Google
+# sign-in do not work in that build.
+.PHONY: google-xcconfig-macos run-macos build-macos
+
+# Both variables are read by the Runner target alone, so the plugin packages
+# keep their own signing.
+MACOS_SIGNING = $(if $(filter local,$(SIGN)),FLUTTER_XCODE_CRIT_SIGN_STYLE=Manual FLUTTER_XCODE_CRIT_ENTITLEMENTS_SUFFIX=Local,)
+
+# Fill macos/Flutter/Google.xcconfig from .env, for Google Sign-In on macOS.
+google-xcconfig-macos:
+	./macos/gen-google-xcconfig.sh
+
+# Debug run on this Mac.
+run-macos: google-xcconfig-macos
+	$(MACOS_SIGNING) fvm flutter run -d macos $(ARGS)
+
+# Sandboxed release app at build/macos/Build/Products/Release/Crit Alarm.app.
+# Check what it was signed with:
+#   codesign -d --entitlements - "build/macos/Build/Products/Release/Crit Alarm.app"
+build-macos: google-xcconfig-macos
+	$(MACOS_SIGNING) fvm flutter build macos --release $(ARGS)
+
 # --- Store upload -------------------------------------------------------------
 # One command from a clean main to a build sitting in App Store Connect.
 # Auth is an App Store Connect API key, so there is no password and no two

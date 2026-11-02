@@ -128,9 +128,13 @@ Future<void> startStoreBilling(
   final revenueCatService = services.revenueCat.service;
 
   // RevenueCat issues a public SDK key per store and the SDK rejects the
-  // other store's key, so the platform picks which one is passed.
+  // other store's key, so the platform picks which one is passed. The Mac app
+  // is the same App Store app record as the iPhone one (universal purchase),
+  // so it takes the iPhone's key.
   final sellsThroughAppStore =
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
   final revenueCatKey = sellsThroughAppStore
       ? Env.revenueCatIosApiKey
       : Env.revenueCatAndroidApiKey;

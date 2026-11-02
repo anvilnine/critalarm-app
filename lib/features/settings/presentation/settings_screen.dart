@@ -249,6 +249,9 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
     // A purchase the store confirmed counts as Hosted before the server has
     // registered it.
     final isHosted = state.holdsHosted;
+    // The Manage button opens RevenueCat's customer centre, which the Mac
+    // does not have.
+    final hasCustomerCenter = getIt<PlatformCapabilities>().hasCustomerCenter;
     final access = state.access;
     final limit = access.caps?.criticalTopics;
     return SettingsPlanCard(
@@ -268,7 +271,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
             ),
       actionLabel: !isHosted
           ? LocaleKeys.settings_card_plan_upgrade.tr()
-          : !buildSkipsPaywall
+          : !buildSkipsPaywall && hasCustomerCenter
           // The store's own subscription page, through the RevenueCat
           // customer centre. A build that skips the paywall never
           // configures RevenueCat, and has no subscription to manage.
@@ -283,7 +286,7 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
                 ),
               );
             }
-          : !buildSkipsPaywall
+          : !buildSkipsPaywall && hasCustomerCenter
           ? () {
               AppHaptics.capture();
               unawaited(getIt<PaywallCubit>().presentCustomerCenter());
