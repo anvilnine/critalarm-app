@@ -219,8 +219,11 @@ void main() {
 
       await cubit.acknowledge();
 
-      final cancelled = alarm.argsOnce('cancelAlarm');
-      expect(cancelled['incident_id'], testId);
+      // The phone-only test alarm is cancelled too (W6); this is the card
+      // for the server's test.
+      final cancelled = alarm
+          .argsTo('cancelAlarm')
+          .singleWhere((args) => args['incident_id'] == testId);
       expect(cancelled['title'], serverTitle);
       expect(cancelled['body'], serverBody);
     });

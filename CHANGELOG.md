@@ -33,6 +33,14 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Signing out now stops with an error if the store cannot be logged out, so a purchase never moves to your next account.
 - If Crit Alarm cannot read your plan for a moment, Pro and Cloud features stay as they were the last time it could, for as long as the app keeps running. After a restart they wait until the plan can be read again, and nothing asks you to buy in the meantime.
 - When something goes wrong on your phone, the error no longer blames the server. Only a real server error does.
+- On iPhone, an alarm that keeps ringing on its own now uses its topic's ring timers and Critical switch.
+- On Android, after you tap I'm up, the phone still rings again when the desk timer runs out, also with no connection.
+- On Android with no connection, the alarm screen has I'm up. It is sent when your server answers.
+- The setup test only says it works when the alarm reached your phone and could be heard. A muted ring or a push that never arrived now says so.
+- On Android, an alarm that rings on its own stops at the end of its ring time, also with no connection.
+- Acknowledging the setup test also stops the test alarm of this phone.
+- Started and Acknowledged on the alarm screen show your own time zone.
+- The readiness line says battery optimization is on, which is what it checks, instead of battery saver.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

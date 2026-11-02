@@ -16,6 +16,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Settings detail pane: SettingsPage, settingsPaneSelection, settingsRowTapFor and SettingsPaneScope in settings\_pane.dart, AppPassStack.showsBack, and tap captures in the responsive capture matrix (tapScreenRoutes, capture\_settings\_checks.dart).
 - Layout API for tablets, foldables and wide windows: AppFold, AppPosture, AppFoldSplit, AppFoldPane, foldPaneMediaQuery and navPlacementFor in lib/design/fold.dart; AppScreenScaffold.foldStage, showsDetail, showsDetailFor, its frame and detail panes, and AppScreenColumns; the AppSize caps and isCover; ScreenFrame for setup and New topic; PaywallLayoutScope split and paywallSplitFor; the capture matrix (make screens-responsive, tool/capture\_responsive\_matrix.dart).
 - DisplayFoldChannel (app.critalarm/display, events on app.critalarm/display/fold) sends the iPhone Duo's division reserved region on iOS 27.1 or later, and NativeFoldScope in lib/core/device/native\_fold.dart adds it to MediaQuery.displayFeatures as a half-opened fold, so AppFold works on iOS.
+- ReceivedAlarmPushStore (iOS) and RingAudibility (Android) record what a setup test proves; AlarmHost gains ringWasMuted, canAckFromScreen and ackFromScreen.
 
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
@@ -39,6 +40,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FeatureAccess keeps the last sure answer per feature. FeatureDecision.unread is usable only when that answer was open, and lockTapFor does nothing on an unread with no sure yes.
 - One shared quietly helper replaces three private copies, and 16 empty catches now print a debug-only trace
 - Paywall frame tools no longer point at the site checkout; the site takes only cloud-proof.webp from them, copied by hand.
+- The iOS alarm push carries topic (api.md 1.27.0); IncidentPush parses it in Swift and Dart.
+- RingVolumeWatch raises once more when the sound starts and logs a refused put-back once per run.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
