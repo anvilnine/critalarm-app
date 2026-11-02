@@ -29,10 +29,16 @@ String formatClock(
   final pattern = own.pattern ?? '';
   if (!pattern.contains(RegExp('[Hk]'))) return own.format(at);
   // Japanese and Chinese write the marker first and close up to the hour.
-  final markerFirst = resolved.startsWith('ja') || resolved.startsWith('zh');
-  final fallback = markerFirst
-      ? (withSeconds ? 'ah:mm:ss' : 'ah:mm')
-      : (withSeconds ? 'h:mm:ss a' : 'h:mm a');
+  // Japanese counts the hour from 0, so just past midnight is 午前0:05 and
+  // just past noon is 午後0:05. Chinese counts from 12, as CLDR has it.
+  final String fallback;
+  if (resolved.startsWith('ja')) {
+    fallback = withSeconds ? 'aK:mm:ss' : 'aK:mm';
+  } else if (resolved.startsWith('zh')) {
+    fallback = withSeconds ? 'ah:mm:ss' : 'ah:mm';
+  } else {
+    fallback = withSeconds ? 'h:mm:ss a' : 'h:mm a';
+  }
   return DateFormat(fallback, resolved).format(at);
 }
 

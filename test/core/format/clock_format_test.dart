@@ -100,6 +100,20 @@ void main() {
       expect(formatClock(evening, is24Hour: false, locale: 'ja'), '午後7:05');
       expect(formatClock(morning, is24Hour: false, locale: 'ja'), '午前7:05');
     });
+
+    test('Japanese counts the hour from 0 at midnight and noon', () {
+      expect(formatClock(midnight, is24Hour: false, locale: 'ja'), '午前0:00');
+      expect(formatClock(noon, is24Hour: false, locale: 'ja'), '午後0:00');
+      expect(
+        formatClock(
+          midnight.add(const Duration(minutes: 5, seconds: 9)),
+          is24Hour: false,
+          withSeconds: true,
+          locale: 'ja',
+        ),
+        '午前0:05:09',
+      );
+    });
   });
 
   group('minutes from midnight', () {
