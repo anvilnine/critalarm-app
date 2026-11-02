@@ -230,10 +230,18 @@ Future<void> main() async {
   runApp(
     EasyLocalization(
       supportedLocales: supportedLocales,
-      startLocale: pseudoStartLocale(
-        isDebug: kDebugMode,
-        pseudoRequested: pseudoRequested,
-      ),
+      // easy_localization uses startLocale only when no language is saved.
+      // The Chinese start locale puts a zh_TW phone on Traditional, which its
+      // own language-code match would not.
+      startLocale:
+          pseudoStartLocale(
+            isDebug: kDebugMode,
+            pseudoRequested: pseudoRequested,
+          ) ??
+          chinesePhoneStartLocale(
+            WidgetsBinding.instance.platformDispatcher.locales,
+            supportedLocales,
+          ),
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
       child: CritAlarmApp(initialLocation: initialLocation),

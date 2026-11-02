@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
@@ -75,7 +76,7 @@ class SettingsReadinessView {
 /// The first letter of [text] in capitals. The card's title is a sentence, and
 /// the check lines are written to sit after a label.
 String sentenceCase(String text) =>
-    text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+    text.isEmpty ? text : upperForCurrentLocale(text[0]) + text.substring(1);
 
 /// The Settings card that answers "will it wake me?". It reads the overall
 /// state from `ReliabilityCubit` and asks it to read again when Settings
@@ -170,7 +171,10 @@ class _SettingsReadinessCardState extends State<SettingsReadinessCard>
         }
         return AppStatusCard.strip(
           face: view.face,
-          label: LocaleKeys.home_card_label_will_it_wake_me.tr().toUpperCase(),
+          label: upperInContext(
+            LocaleKeys.home_card_label_will_it_wake_me.tr(),
+            context,
+          ),
           title: title,
           numeral: summary.numeralText,
           numeralLabel: numeralLabel,

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/leaving_numbers.dart';
@@ -130,9 +131,12 @@ class LeavingReceiptComposition extends StatelessWidget {
       headlineWidth,
     );
 
-    final afterLabel = LocaleKeys.paywall_leaving_receipt_after_label
-        .tr(namedArgs: {'date': endsText})
-        .toUpperCase();
+    final afterLabel = upperInContext(
+      LocaleKeys.paywall_leaving_receipt_after_label.tr(
+        namedArgs: {'date': endsText},
+      ),
+      context,
+    );
     final afterLabelStyle = AppTypography.small(
       tones.ink,
       fontSize: HeroAlso.labelSize,
@@ -252,7 +256,11 @@ class LeavingReceiptComposition extends StatelessWidget {
                           lines: lines,
                           active: active,
                           stampText: LocaleKeys.paywall_leaving_receipt_stamp
-                              .tr(namedArgs: {'date': endsText.toUpperCase()}),
+                              .tr(
+                                namedArgs: {
+                                  'date': upperInContext(endsText, context),
+                                },
+                              ),
                         ),
                       ),
                     ),

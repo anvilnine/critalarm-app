@@ -1,4 +1,5 @@
 import 'package:critalarm/core/format/when_label.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/ambient/hero_disc.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
@@ -289,7 +290,7 @@ class _TopicCriticalCardState extends State<TopicCriticalCard> {
         ? LocaleKeys.topic_hero_numeral_on.tr()
         : LocaleKeys.topic_hero_numeral_off.tr();
     return AppStatusCard(
-      label: LocaleKeys.topic_hero_card_label.tr().toUpperCase(),
+      label: upperInContext(LocaleKeys.topic_hero_card_label.tr(), context),
       numeral: numeral,
       numeralTone: card.isOn ? AppStatusTone.yellow : AppStatusTone.muted,
       foot: foot == null ? null : topicFootText(foot),

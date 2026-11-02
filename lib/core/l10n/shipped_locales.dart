@@ -9,7 +9,23 @@
 /// builds only, and the native code fakes it at run time.
 ///
 /// Pure Dart, no Flutter import, so command line tools can read it.
-const List<String> shippedLocaleTags = ['en', 'de', 'ja'];
+const List<String> shippedLocaleTags = [
+  'en',
+  'cs',
+  'de',
+  'es',
+  'fr',
+  'it',
+  'nl',
+  'pl',
+  'pt-BR',
+  'tr',
+  'uk',
+  'ja',
+  'ko',
+  'zh-Hans',
+  'zh-Hant',
+];
 
 /// The debug pseudo-locale's tag (`make l10n-pseudo`).
 const String pseudoLocaleTag = 'en-XA';
