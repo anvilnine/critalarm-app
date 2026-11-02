@@ -155,8 +155,20 @@ void main() {
       });
 
       test('an unread plan that was open before keeps the look usable', () {
-        final a = action(decision: const FeatureDecision.unread(Holding.pro));
+        final a = action(
+          decision: const FeatureDecision.unread(
+            Holding.pro,
+            wasOpenWhenLastSure: true,
+          ),
+        );
         expect(a.keep, const DoIt());
+        expect(a.badge, isNull);
+      });
+
+      test('an unread plan with no sure yes keeps nothing and sells '
+          'nothing', () {
+        final a = action(decision: const FeatureDecision.unread(Holding.pro));
+        expect(a.keep, const Nothing());
         expect(a.badge, isNull);
       });
     });

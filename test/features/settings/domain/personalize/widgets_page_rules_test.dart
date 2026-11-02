@@ -144,14 +144,23 @@ void main() {
       );
     });
 
-    test('confirming and unreadable are usable', () {
+    test('confirming, and unreadable after a sure yes, are usable', () {
       expect(
         plan(const FeatureDecision.confirming(Holding.pro)),
         HomeWidgetsPlan.pro,
       );
       expect(
-        plan(const FeatureDecision.unread(Holding.pro)),
+        plan(
+          const FeatureDecision.unread(Holding.pro, wasOpenWhenLastSure: true),
+        ),
         HomeWidgetsPlan.pro,
+      );
+    });
+
+    test('unreadable with no sure yes is not usable', () {
+      expect(
+        plan(const FeatureDecision.unread(Holding.pro)),
+        HomeWidgetsPlan.needsPro,
       );
     });
   });

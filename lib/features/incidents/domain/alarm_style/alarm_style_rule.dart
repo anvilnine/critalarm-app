@@ -84,18 +84,18 @@ bool openNoteCountsFor({
 /// answer was for, or null for no note.
 ///
 /// [decision] is the answer asked once the plan was read, or null when
-/// nobody knows. Only a sure answer changes the note:
+/// nobody knows. Only a sure answer ([lastSureAnswerOf]) changes the note:
 ///
 /// - Open, or a purchase being confirmed: the note is [accountTag]. With
 ///   no account known there is nobody to note it for, and the note goes.
-/// - Locked: the note goes.
+/// - Locked, or not offered: the note goes.
 /// - Anything else: the note stays as it is.
 String? openNoteAfter({
   required String? written,
   required FeatureDecision? decision,
   required String? accountTag,
-}) => switch (decision) {
-  FeatureOpen() || FeatureConfirming() => accountTag,
-  FeatureLocked() || FeatureNotOffered() => null,
-  FeatureUnread() || null => written,
+}) => switch (lastSureAnswerOf(decision)) {
+  true => accountTag,
+  false => null,
+  null => written,
 };

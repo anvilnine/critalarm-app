@@ -8,7 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 const _open = FeatureDecision.open();
 const _locked = FeatureDecision.locked(Holding.pro);
 const _confirming = FeatureDecision.confirming(Holding.pro);
-const _unread = FeatureDecision.unread(Holding.pro);
+
+/// Unread, and the last sure answer was open: usable.
+const _unread = FeatureDecision.unread(Holding.pro, wasOpenWhenLastSure: true);
+
+/// Unread, with no sure yes before it: not usable, and nothing sold.
+const _unreadNoYes = FeatureDecision.unread(Holding.pro);
 const _notOffered = FeatureDecision.notOffered();
 
 void main() {
@@ -142,6 +147,11 @@ void main() {
       expect(tap(ShelfTap.pick, _unread), isA<DoIt>());
     });
 
+    test('the pick control does nothing while unread with no sure yes', () {
+      expect(tap(ShelfTap.pick, _unreadNoYes), isA<Nothing>());
+      expect(tap(ShelfTap.plan, _unreadNoYes), isA<Nothing>());
+    });
+
     test('the pick control opens the Pro paywall when locked', () {
       expect(tap(ShelfTap.pick, _locked), const OpenPaywall(Holding.pro));
     });
@@ -226,8 +236,12 @@ void main() {
       );
     });
 
-    test('plan unreadable: usable, nothing sold, so open', () {
+    test('plan unreadable after a sure yes: usable, nothing sold, so open', () {
       expect(of(shake, decision: _unread), ShelfPick.open);
+    });
+
+    test('plan unreadable with no sure yes: a plain ring, nothing sold', () {
+      expect(of(shake, decision: _unreadNoYes), ShelfPick.unread);
     });
 
     test('own server without Pro is the free case', () {
@@ -268,6 +282,7 @@ void main() {
         _locked,
         _confirming,
         _unread,
+        _unreadNoYes,
         _notOffered,
       ]) {
         for (final isPlanRead in [true, false]) {

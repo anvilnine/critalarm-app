@@ -19,7 +19,11 @@ const _open = FeatureDecision.open();
 const _lockedHosted = FeatureDecision.locked(Holding.hosted);
 const _lockedPro = FeatureDecision.locked(Holding.pro);
 const _confirming = FeatureDecision.confirming(Holding.pro);
-const _unread = FeatureDecision.unread(Holding.hosted);
+const _unreadWasOpen = FeatureDecision.unread(
+  Holding.hosted,
+  wasOpenWhenLastSure: true,
+);
+const _unreadNoYes = FeatureDecision.unread(Holding.hosted);
 const _notOffered = FeatureDecision.notOffered();
 
 const _decisions = <String, FeatureDecision>{
@@ -27,7 +31,8 @@ const _decisions = <String, FeatureDecision>{
   'locked with Hosted': _lockedHosted,
   'locked with Pro': _lockedPro,
   'confirming': _confirming,
-  'unread': _unread,
+  'unread, last sure answer open': _unreadWasOpen,
+  'unread, no sure yes': _unreadNoYes,
   'not offered': _notOffered,
 };
 
@@ -94,7 +99,7 @@ void main() {
   });
 
   group('row 4: nothing locked, try and keep just do it', () {
-    for (final decision in [_open, _confirming, _unread]) {
+    for (final decision in [_open, _confirming, _unreadWasOpen]) {
       for (final tap in [LockTapKind.tryIt, LockTapKind.keep]) {
         for (final hasTry in [true, false]) {
           test('$decision, ${tap.name}, try $hasTry', () {
@@ -106,13 +111,27 @@ void main() {
   });
 
   group('row 5: nothing locked, a plan button does nothing', () {
-    for (final decision in [_open, _confirming, _unread]) {
+    for (final decision in [_open, _confirming, _unreadWasOpen]) {
       for (final hasTry in [true, false]) {
         test('$decision, try $hasTry', () {
           expect(
             _ask(decision, LockTapKind.seePlan, hasTry: hasTry),
             const Nothing(),
           );
+        });
+      }
+    }
+  });
+
+  group('row 5b: unread with no sure yes does nothing', () {
+    for (final tap in [
+      LockTapKind.tryIt,
+      LockTapKind.keep,
+      LockTapKind.seePlan,
+    ]) {
+      for (final hasTry in [true, false]) {
+        test('${tap.name}, try $hasTry', () {
+          expect(_ask(_unreadNoYes, tap, hasTry: hasTry), const Nothing());
         });
       }
     }
