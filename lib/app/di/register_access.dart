@@ -8,6 +8,7 @@ import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
@@ -109,7 +110,7 @@ void registerAccess(GetIt getIt) {
         // its own server before the saved session says so.
         serverModeRead: sessions.read().then<void>(
           (_) {},
-          onError: (Object _) {},
+          onError: (Object e) => noteQuiet('access.serverModeRead', e),
         ),
       );
       mode.changes.addListener(() => access.setServerMode(mode.value));

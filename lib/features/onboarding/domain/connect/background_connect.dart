@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/push/device_token_relay.dart';
@@ -277,7 +278,8 @@ class BackgroundConnect {
       // for it can finish.
       _tokenArrivals = _tokens?.tokenRefreshes.listen(
         (_) => unawaited(retryNow()),
-        onError: (Object _) {},
+        onError: (Object e) =>
+            noteQuiet('background_connect.tokenRefreshes', e),
       );
     } on Object catch (_) {
       // A build with no push service has no stream to listen to. The timer

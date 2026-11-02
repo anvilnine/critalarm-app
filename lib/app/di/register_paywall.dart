@@ -10,6 +10,7 @@ import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -158,7 +159,7 @@ Future<void> registerRevenueCat(
         unawaited(
           revenueCatService.getCustomerInfo().then(
             _mirrorStorePro,
-            onError: (Object _) {},
+            onError: (Object e) => noteQuiet('paywall.getCustomerInfo', e),
           ),
         );
       }
