@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
@@ -141,9 +143,34 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
             ? LocaleKeys.device_permissions_stage_sub_all_granted.tr()
             : LocaleKeys.device_permissions_stage_sub_required.tr();
 
+        // On a half-open foldable the face and its line hold still on one
+        // side of the fold (the top half, or the start pane) and the
+        // permission rows scroll on the other, so no row sits on the fold.
+        final fold = AppFold.of(context);
+        final onFold = !fold.isNone;
+
         return AppScreenScaffold(
           hasTabBar: false,
           onRefresh: cubit.refresh,
+          // In the rows' column. Over a tabletop fold it rests in the middle
+          // of the top half; beside a book fold it sits under the title.
+          foldStage: onFold
+              ? Align(
+                  alignment: fold.isTabletop
+                      ? Alignment.center
+                      : Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSize.contentMaxWidth,
+                    ),
+                    child: AppStage(
+                      faceState: stageFace,
+                      faceSize: 120,
+                      sub: stageSub,
+                    ),
+                  ),
+                )
+              : null,
           topBar: AppTopBar(
             title: LocaleKeys.device_permissions_title.tr(),
             leading: AppIconButton(
@@ -159,12 +186,13 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
             ),
           ),
           slivers: [
-            SliverToBoxAdapter(
-              child: AppStage.horizontal(
-                faceState: stageFace,
-                sub: stageSub,
+            if (!onFold)
+              SliverToBoxAdapter(
+                child: AppStage.horizontal(
+                  faceState: stageFace,
+                  sub: stageSub,
+                ),
               ),
-            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 16),

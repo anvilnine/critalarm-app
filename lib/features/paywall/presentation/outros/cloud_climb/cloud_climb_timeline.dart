@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/outros/outro_lerp.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
 
 // The Hosted outro as numbers. One climb drives everything: a single
@@ -46,11 +47,8 @@ abstract final class CloudClimbTimeline {
   static double sine(double x) =>
       (1 - math.cos(math.pi * x.clamp(0.0, 1.0))) / 2;
 
-  static double _lerp(double a, double b, double x) =>
-      x >= 1 ? b : a + (b - a) * x;
-
   static Offset _lerpOffset(Offset a, Offset b, double x) =>
-      Offset(_lerp(a.dx, b.dx, x), _lerp(a.dy, b.dy, x));
+      Offset(outroLerp(a.dx, b.dx, x), outroLerp(a.dy, b.dy, x));
 
   /// How far through the climb, 0 to 1.
   static double climb(double t) => phase(t, climbFrom, climbTo);
@@ -203,8 +201,8 @@ abstract final class CloudClimbTimeline {
     final mp = moonProgress(t);
     final across = _across(size);
     return Offset(
-      _lerp(262 + across, size.width / 2, mp),
-      _lerp(-130, size.height * 300 / 844, mp),
+      outroLerp(262 + across, size.width / 2, mp),
+      outroLerp(-130, size.height * 300 / 844, mp),
     );
   }
 
@@ -223,7 +221,7 @@ abstract final class CloudClimbTimeline {
       640,
       corners.map((c) => (c - centre).distance).reduce(math.max) + 8,
     );
-    return _lerp(64, full, mp * mp);
+    return outroLerp(64, full, mp * mp);
   }
 
   /// The thin ring round the moon fades as it grows.
@@ -273,13 +271,13 @@ abstract final class CloudClimbTimeline {
       land.center,
       lift,
     );
-    final width = _lerp(
-      _lerp(start.width, hover.width, settle),
+    final width = outroLerp(
+      outroLerp(start.width, hover.width, settle),
       land.width,
       lift,
     );
-    final height = _lerp(
-      _lerp(start.height, hover.height, settle),
+    final height = outroLerp(
+      outroLerp(start.height, hover.height, settle),
       land.height,
       lift,
     );
@@ -349,7 +347,7 @@ abstract final class CloudClimbTimeline {
   /// The two dots glow in turn on a smooth sine, never on and off.
   static CloudClimbGlow glow(double t) {
     final g = (math.sin(t * 2.4) + 1) / 2;
-    return (a: _lerp(0.25, 1, g), b: _lerp(0.25, 1, 1 - g));
+    return (a: outroLerp(0.25, 1, g), b: outroLerp(0.25, 1, 1 - g));
   }
 
   /// How solid trail disc [i] is. How far it hangs back follows [speed], so

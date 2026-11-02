@@ -2,7 +2,11 @@
 # Turns the frames from tool/capture_site_paywalls.sh into web assets.
 #
 #   sh tool/site_paywalls_to_web.sh <out-dir>
-#   sh tool/site_paywalls_to_web.sh ../critalarm-site/public/pricing/paywall
+#   sh tool/site_paywalls_to_web.sh build/site_paywalls_web
+#
+# Write into a folder of your own, not into the site checkout. The site copies
+# only cloud-proof.webp into its public/pricing/ and no longer ships the paywall
+# clips, so do not copy this folder over there.
 #
 # Per id, in <out-dir>: <id>.mp4 (H.264), <id>.webm (VP9), <id>.webp (poster,
 # the first frame) and <id>.still.webp (660 wide, the settled frame). Clips are

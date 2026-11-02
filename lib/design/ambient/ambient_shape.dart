@@ -1,3 +1,4 @@
+import 'package:critalarm/design/lerp_linear.dart';
 import 'package:flutter/material.dart';
 
 /// A single decorative geometric shape floating in depth on an ambient canvas.
@@ -53,12 +54,12 @@ class AmbientShape {
 
     return AmbientShape(
       color: Color.lerp(a.color, b.color, progress)!,
-      opacity: _lerp(a.opacity, b.opacity, progress).clamp(0.0, 1.0),
+      opacity: lerpLinear(a.opacity, b.opacity, progress).clamp(0.0, 1.0),
       anchor: Alignment.lerp(a.anchor, b.anchor, progress)!,
-      scale: _lerp(a.scale, b.scale, progress).clamp(0.0, maxScale),
-      turns: _lerp(a.turns, b.turns, progress),
-      depth: _lerp(a.depth, b.depth, progress).clamp(0.0, 1.0),
-      ring: _lerp(a.ring, b.ring, progress).clamp(0.0, 1.0),
+      scale: lerpLinear(a.scale, b.scale, progress).clamp(0.0, maxScale),
+      turns: lerpLinear(a.turns, b.turns, progress),
+      depth: lerpLinear(a.depth, b.depth, progress).clamp(0.0, 1.0),
+      ring: lerpLinear(a.ring, b.ring, progress).clamp(0.0, 1.0),
     );
   }
 
@@ -78,5 +79,3 @@ class AmbientShape {
   int get hashCode =>
       Object.hash(color, opacity, anchor, scale, turns, depth, ring);
 }
-
-double _lerp(double a, double b, double t) => a + (b - a) * t;

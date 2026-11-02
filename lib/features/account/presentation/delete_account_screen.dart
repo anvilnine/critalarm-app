@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
@@ -242,7 +243,12 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
 
   void _onChanged() {
     final word = LocaleKeys.account_delete_dialog_word.tr();
-    final matches = _controller.text.trim().toUpperCase() == word.toUpperCase();
+    final typed = _controller.text.trim();
+    // Turkish capitals differ (`sil` is `SİL`), so match in the app language
+    // as well as with the plain mapping.
+    final matches =
+        upperForCurrentLocale(typed) == upperForCurrentLocale(word) ||
+        typed.toUpperCase() == word.toUpperCase();
     if (matches != _matches) setState(() => _matches = matches);
   }
 
@@ -254,7 +260,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: dialogInsetPaddingFor(MediaQuery.paddingOf(context)),
       child: AppDialog(
         title: LocaleKeys.account_delete_dialog_title.tr(),
         content: Column(

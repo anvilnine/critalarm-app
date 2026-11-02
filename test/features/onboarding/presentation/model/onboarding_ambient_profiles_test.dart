@@ -28,6 +28,44 @@ void main() {
       }
     });
 
+    // Setup screens draw their words in onCanvas and onCanvasMuted straight
+    // on the canvas, so every step's canvas must keep them at WCAG AA: 3 to 1
+    // for the 30 pt title, 4.5 to 1 for the body. The denial step on cobalt
+    // read at 2.4 and 1.8 in light.
+    test('every canvas keeps the setup words at WCAG AA in both themes', () {
+      const themes = {'light': AppColors.light, 'dark': AppColors.dark};
+      for (final MapEntry(key: theme, value: colors) in themes.entries) {
+        final catalog = OnboardingAmbientProfiles.forColors(colors);
+        for (final step in OnboardingAmbientStep.values) {
+          final canvas = catalog[step]!.canvas;
+          final label = '${step.name} in $theme';
+          expect(
+            ColorContrast.contrastRatio(colors.onCanvas, canvas),
+            greaterThanOrEqualTo(3.0),
+            reason: 'title on $label',
+          );
+          expect(
+            ColorContrast.contrastRatio(colors.onCanvasMuted, canvas),
+            greaterThanOrEqualTo(4.5),
+            reason: 'body on $label',
+          );
+        }
+      }
+    });
+
+    // The cobalt Open Settings button sat on a cobalt canvas (1 to 1). In
+    // light it now stands at 3 to 1 or better against its canvas.
+    test('the denial canvas sets the primary button apart in light', () {
+      const colors = AppColors.light;
+      final canvas = OnboardingAmbientProfiles.forColors(
+        colors,
+      )[OnboardingAmbientStep.denied]!.canvas;
+      expect(
+        ColorContrast.contrastRatio(colors.highlight, canvas),
+        greaterThanOrEqualTo(3.0),
+      );
+    });
+
     test('step profiles interpolate deterministically', () {
       const colors = AppColors.dark;
       final catalog = OnboardingAmbientProfiles.forColors(colors);

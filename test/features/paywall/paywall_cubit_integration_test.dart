@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
@@ -58,9 +59,11 @@ void main() {
       monthly: monthlyPackage,
     );
 
-    const mockOfferings = Offerings(
-      <String, Offering>{'default': defaultOffering},
-      current: defaultOffering,
+    final mockOfferings = storeOfferingsOf(
+      const Offerings(
+        <String, Offering>{'default': defaultOffering},
+        current: defaultOffering,
+      ),
     );
 
     setUp(() async {
@@ -96,11 +99,11 @@ void main() {
     test('selectTier updates selectedTier and finds matching package', () {
       final cubit = buildCubit()
         ..emit(
-          const PaywallState(offerings: mockOfferings),
+          PaywallState(offerings: mockOfferings),
         )
         ..selectTier(SubscriptionTier.monthly);
       expect(cubit.state.selectedTier, equals(SubscriptionTier.monthly));
-      expect(cubit.state.selectedPackage?.identifier, equals('monthly'));
+      expect(cubit.state.selectedPackage?.id, equals('monthly'));
     });
 
     blocTest<PaywallCubit, PaywallState>(
@@ -116,7 +119,7 @@ void main() {
               s.status == PaywallStatus.initial &&
               !s.isPro &&
               s.offerings != null &&
-              s.selectedPackage?.identifier == 'yearly',
+              s.selectedPackage?.id == 'yearly',
         ),
       ],
     );
@@ -124,7 +127,9 @@ void main() {
     blocTest<PaywallCubit, PaywallState>(
       'upgradeToPro with real usecase purchases package and unlocks Pro',
       build: buildCubit,
-      act: (cubit) => cubit.upgradeToPro(yearlyPackage),
+      act: (cubit) => cubit.upgradeToPro(
+        storeCatalogEntryOf(yearlyPackage, offeringId: 'default'),
+      ),
       expect: () => [
         predicate<PaywallState>((s) => s.status == PaywallStatus.loading),
         predicate<PaywallState>(

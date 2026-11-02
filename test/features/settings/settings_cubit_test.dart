@@ -13,6 +13,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_u
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/settings/domain/entities/privacy_settings.dart';
+import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
@@ -180,6 +181,10 @@ void main() {
       act: (cubit) => cubit.load(),
       expect: () => [
         const SettingsState(status: SettingsStatus.loading),
+        const SettingsState(
+          status: SettingsStatus.loading,
+          connectionKnown: true,
+        ),
         isA<SettingsState>().having(
           (s) => s.status,
           'status',
@@ -483,6 +488,125 @@ void main() {
 
       expect(cubit.state.serverMode, isNull);
       expect(cubit.state.hasAccounts, isFalse);
+    });
+  });
+  group('SettingsCubit connectionKnown', () {
+    test('starts unknown', () {
+      final cubit = SettingsCubit();
+      addTearDown(cubit.close);
+      expect(cubit.state.connectionKnown, isFalse);
+    });
+
+    test('is set with isConnected, before the topics call answers', () async {
+      when(() => connectionRepo.getConnection()).thenAnswer(
+        (_) async =>
+            const Failure.notFound(message: 'No saved connection').toFailure(),
+      );
+      final topicRepo = MockTopicRepository();
+      final topics = Completer<AppResult<List<Topic>>>();
+      when(topicRepo.getTopics).thenAnswer((_) => topics.future);
+
+      final cubit = SettingsCubit(
+        getConnectionUsecase: getConnectionUsecase,
+        getTopics: GetTopicsUsecase(topicRepo),
+      );
+      addTearDown(cubit.close);
+
+      final loading = cubit.load();
+      await pumpEventQueue();
+
+      expect(cubit.state.status, SettingsStatus.loading);
+      expect(cubit.state.connectionKnown, isTrue);
+      expect(cubit.state.isConnected, isFalse);
+
+      topics.complete(const <Topic>[].toSuccess());
+      await loading;
+      expect(cubit.state.status, SettingsStatus.success);
+      expect(cubit.state.connectionKnown, isTrue);
+    });
+
+    test('a saved connection is known and connected', () async {
+      when(() => connectionRepo.getConnection()).thenAnswer(
+        (_) async => const ServerConnection(
+          serverUrl: 'https://my-server.lan',
+          adminToken: 'token_123',
+        ).toSuccess(),
+      );
+      final topicRepo = MockTopicRepository();
+      final topics = Completer<AppResult<List<Topic>>>();
+      when(topicRepo.getTopics).thenAnswer((_) => topics.future);
+
+      final cubit = SettingsCubit(
+        getConnectionUsecase: getConnectionUsecase,
+        getTopics: GetTopicsUsecase(topicRepo),
+      );
+      addTearDown(cubit.close);
+
+      final loading = cubit.load();
+      await pumpEventQueue();
+      expect(cubit.state.connectionKnown, isTrue);
+      expect(cubit.state.isConnected, isTrue);
+
+      topics.complete(const <Topic>[].toSuccess());
+      await loading;
+    });
+
+    test('the lost-server screen knows at once, with no read', () async {
+      final cubit = SettingsCubit(getConnectionUsecase: getConnectionUsecase);
+      addTearDown(cubit.close);
+
+      await cubit.load(forceDisconnected: true);
+
+      expect(cubit.state.connectionKnown, isTrue);
+      expect(cubit.state.isConnected, isFalse);
+      verifyNever(() => connectionRepo.getConnection());
+    });
+
+    test(
+      'with no connection source it is known once the load is done',
+      () async {
+        final cubit = SettingsCubit();
+        addTearDown(cubit.close);
+
+        await cubit.load();
+
+        expect(cubit.state.status, SettingsStatus.success);
+        expect(cubit.state.connectionKnown, isTrue);
+      },
+    );
+
+    test('is part of state equality', () {
+      expect(
+        const SettingsState(),
+        isNot(const SettingsState(connectionKnown: true)),
+      );
+    });
+  });
+
+  group('SettingsCubit storage', () {
+    test('a new retention reaches listeners', () async {
+      final cubit = SettingsCubit();
+      addTearDown(cubit.close);
+      final states = <SettingsState>[];
+      final subscription = cubit.stream.listen(states.add);
+      addTearDown(subscription.cancel);
+
+      await cubit.setRetention(HistoryRetention.oneMonth);
+      await pumpEventQueue();
+
+      expect(states, hasLength(1));
+      expect(states.single.storage.retention, HistoryRetention.oneMonth);
+    });
+
+    test('storage is part of state equality', () {
+      expect(
+        const SettingsState(),
+        isNot(
+          const SettingsState(
+            storage: StorageSettings(retention: HistoryRetention.oneMonth),
+          ),
+        ),
+      );
     });
   });
 }

@@ -6,6 +6,8 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_service.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
@@ -14,7 +16,6 @@ import 'package:critalarm/features/onboarding/domain/usecases/register_device_us
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
@@ -104,6 +105,12 @@ void main() {
             }),
             200,
           );
+        }
+        // The one read that proves an admin token, on the server's own
+        // address.
+        if (request.url.host == 'canonical.example' &&
+            request.url.path == '/v1/incidents') {
+          return http.Response('[]', 200);
         }
         expect(request.url.host, 'relay.example');
         expect(request.url.path, startsWith('/prefix/relay/v1/devices'));
@@ -266,7 +273,9 @@ void main() {
             StoreProduct('test', 'Test', 'Test', 0, '', 'USD'),
             PresentedOfferingContext('test', null, null),
           );
-          await paywall.upgradeToPro(package);
+          await paywall.upgradeToPro(
+            storeCatalogEntryOf(package, offeringId: 'test'),
+          );
         } else {
           await paywall.restorePurchases();
         }
@@ -321,7 +330,9 @@ void main() {
           StoreProduct('test', 'Test', 'Test', 0, '', 'USD'),
           PresentedOfferingContext('test', null, null),
         );
-        await paywall.upgradeToPro(package);
+        await paywall.upgradeToPro(
+          storeCatalogEntryOf(package, offeringId: 'test'),
+        );
 
         if (lateBy == 2) {
           // Two PATCHes answered free, the third carried the new tier.

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/typography.dart';
@@ -50,7 +51,7 @@ class ProBadge extends StatelessWidget {
         ? MediaQuery.textScalerOf(context).scale(10)
         : 11.0;
     final word = Text(
-      label.toUpperCase(),
+      upperInContext(label, context),
       maxLines: 1,
       softWrap: false,
       style: TextStyle(

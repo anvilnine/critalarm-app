@@ -1,8 +1,10 @@
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:flutter/foundation.dart';
@@ -20,6 +22,8 @@ final class RegisterDeviceUsecase {
     this.identifyAccount,
     this.onPacks,
     this.beforePacksRequest,
+    this.readSessionRelay,
+    this.readSession,
     PlanChanges? planChanges,
   }) : _platform = platform ?? defaultPushPlatform,
        _planChanges = planChanges ?? appPlanChanges;
@@ -45,17 +49,62 @@ final class RegisterDeviceUsecase {
   /// request, so the keeper of the packs can tell an answer that came back
   /// late from a newer one.
   final int Function()? beforePacksRequest;
+
+  /// The relay of the saved session, or null when no server is saved. It is
+  /// where a call that names no relay goes.
+  final Future<Uri?> Function()? readSessionRelay;
+
+  /// The saved session, or null when no server is saved. Tells which server
+  /// a device token is the credential for when the caller names none.
+  final Future<ApiSession?> Function()? readSession;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
   final String Function() _platform;
 
+  /// [forServer] is the server the device token is about to be the
+  /// credential for, when the caller knows. Left out, it is the saved
+  /// session's server when that session uses the device token.
   Future<DeviceRegistrationResponse> call({
     required String appVersion,
     String? pushToken,
     Uri? relayUri,
+    Uri? forServer,
   }) async {
-    final identity = await _identity.readOrCreate();
+    final session = await readSession?.call();
+    final target =
+        relayUri ?? await readSessionRelay?.call() ?? session?.relayUri;
+    // How to connect, not a plan: only a server with accounts takes the
+    // device token as its credential.
+    final sessionUsesDeviceToken =
+        session != null &&
+        session.mode != ServerMode.selfhosted; // access-ok: connect
+    final server =
+        forServer ?? (sessionUsesDeviceToken ? session.baseUri : null);
+    // A held device token goes to the relay that issued it and to no other.
+    // Checked before anything is read for sending or written.
+    final trust = target == null
+        ? null
+        : deviceTokenRelayTrust(
+            identity: await _identity.read(),
+            relay: target,
+          );
+    if (trust == DeviceTokenRelayTrust.otherRelay) {
+      throw const DeviceTokenRelayMismatch();
+    }
+    // A token with no issuer written down counts as the hosted relay's. On
+    // any other relay this phone registers as a new device, and the old
+    // token is not sent.
+    final identity = trust == DeviceTokenRelayTrust.unknownIssuer
+        ? await _identity.startFresh()
+        : await _identity.readOrCreate();
+    // The join token and the shared row's token were never written down
+    // with an issuer, so they count as the hosted relay's too. A join hands
+    // the new device token to the server it is for, so that must be the
+    // hosted server as well.
+    final isHosted = target != null && isHostedRelay(target);
+    final isHostedAccount = server == null || isHostedServer(server);
+    final mayJoin = isHosted && isHostedAccount;
     final registration = DeviceRegistration(
       deviceId: identity.deviceId,
       platform: _platform(),
@@ -66,7 +115,12 @@ final class RegisterDeviceUsecase {
     // api.md §4.2: the first call mints the device token, later calls PATCH the
     // same device id with the new push token. Re-POSTing would answer 401.
     final response = identity.deviceToken == null
-        ? await _firstRegistration(registration, identity, relayUri)
+        ? await _firstRegistration(
+            registration,
+            identity,
+            relayUri,
+            mayJoin: mayJoin,
+          )
         : await _api.refreshDevice(
             registration,
             identity.deviceToken!,
@@ -82,7 +136,18 @@ final class RegisterDeviceUsecase {
       tier: response.tier, // access-ok: saves what the server answered
       caps: response.caps,
       accountJoinToken: response.accountJoinToken,
+      relay: target,
+      isHostedAccount: isHostedAccount,
     );
+    // A token from before the server was written beside it, on the hosted
+    // server's own session, gets that server written down.
+    if (identity.tokenServer == null &&
+        token == identity.deviceToken &&
+        sessionUsesDeviceToken &&
+        session.managementCredential == token &&
+        isHostedServer(session.baseUri)) {
+      await _identity.saveTokenOrigin(server: session.baseUri);
+    }
     // Screens that read the tier once, like Settings and History, reload on
     // this. Only a real change bumps, so the launch registration stays quiet.
     final tierMoved = response.tier != identity.tier; // access-ok: announces
@@ -99,7 +164,7 @@ final class RegisterDeviceUsecase {
       // Keeping the packs is not part of registering. A phone that could not
       // save them is still registered.
     }
-    await _releaseRetiredDevice(identity, relayUri);
+    if (isHosted) await _releaseRetiredDevice(identity, relayUri);
     await identifyAccount?.call(response.accountId);
     return response;
   }
@@ -108,13 +173,15 @@ final class RegisterDeviceUsecase {
   ///
   /// With a join token in hand the device attaches to an account another
   /// handset on the same Apple ID already made. Without one it creates its
-  /// own account, which is what every device did before.
+  /// own account, which is what every device did before. [mayJoin] is false
+  /// on a relay other than the hosted one, which never gets the join token.
   Future<DeviceRegistrationResponse> _firstRegistration(
     DeviceRegistration registration,
     DeviceIdentity identity,
-    Uri? relayUri,
-  ) async {
-    final join = identity.accountJoinToken;
+    Uri? relayUri, {
+    required bool mayJoin,
+  }) async {
+    final join = mayJoin ? identity.accountJoinToken : null;
     if (join == null) {
       return _api.registerDevice(registration, relayUri: relayUri);
     }
@@ -137,8 +204,9 @@ final class RegisterDeviceUsecase {
   /// Retires the row an iPhone and an iPad shared before the Keychain split.
   ///
   /// Runs only once this handset has a row of its own, so nothing is released
-  /// before its replacement exists. A call that fails leaves the pair on disk
-  /// and the next launch tries again (api.md §4.2).
+  /// before its replacement exists, and only on the hosted relay, where the
+  /// shared row lived. A call that fails leaves the pair on disk and the next
+  /// launch tries again (api.md §4.2).
   Future<void> _releaseRetiredDevice(
     DeviceIdentity identity,
     Uri? relayUri,

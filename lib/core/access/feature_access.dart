@@ -13,6 +13,14 @@ import 'package:flutter/foundation.dart';
 /// It reads three things and nothing else: the feature table, [Holdings]
 /// and the server mode. It keeps the last server mode it was told, so
 /// [can] and [decide] are synchronous.
+///
+/// It also keeps, per feature, the last sure answer: the last open or
+/// locked it gave once the plan was read. When a holding cannot be read,
+/// that answer stands. With no sure answer in this run, the feature is not
+/// usable. The rule for what counts as sure is [lastSureAnswerOf], the
+/// same one the alarm screen's note follows. It is kept in memory only:
+/// a holding is unknown when the stored identity cannot be read, and the
+/// account a kept answer would belong to is read from the same place.
 final class FeatureAccess {
   FeatureAccess({
     required this._holdings,
@@ -35,6 +43,11 @@ final class FeatureAccess {
   bool _isDisposed = false;
   bool _isReadStarted = false;
 
+  /// The last sure answer per feature: true for open, false for locked.
+  /// Written by [decide] once the plan is read, read when a holding
+  /// cannot be.
+  final Map<AppFeature, bool> _lastSure = {};
+
   /// Done once the holdings are current and the saved server mode has been
   /// read. Never fails.
   ///
@@ -51,7 +64,11 @@ final class FeatureAccess {
     } on Object catch (_) {
       // A mode that could not be read stays unknown.
     }
-    if (!_isDisposed) _planRead.value = true;
+    if (_isDisposed) return;
+    _planRead.value = true;
+    // Asks every feature once, so what is sure now is kept even when
+    // nothing asks again before a holding stops being readable.
+    _announce();
   }
 
   /// Whether the plan has been read: true once [ready] has completed, and
@@ -100,7 +117,8 @@ final class FeatureAccess {
   }
 
   /// Whether [feature] may be drawn as usable, asked once [ready] is done.
-  /// Never throws: when nobody knows, the answer is yes.
+  /// Never throws: when nobody knows, the answer is the last sure one, and
+  /// no when there was none.
   ///
   /// For a screen that draws from the answer and would otherwise trim a
   /// list, hide a section or show a count card with an offer on it. Code
@@ -120,10 +138,28 @@ final class FeatureAccess {
   ServerMode? get serverMode => _serverMode;
 
   /// Whether [feature] may be used now. True while a purchase that unlocks
-  /// it is waiting to be confirmed.
+  /// it is waiting to be confirmed. While a holding that would unlock it
+  /// cannot be read, the last sure answer, and false when there was none.
   bool can(AppFeature feature) => decide(feature).isUsable;
 
   FeatureDecision decide(AppFeature feature) {
+    final decision = _decideNow(feature);
+    if (decision is FeatureUnread) {
+      return FeatureDecision.unread(
+        decision.holding,
+        wasOpenWhenLastSure: _lastSure[feature] ?? false,
+      );
+    }
+    // Before the plan is read a "locked" can be wrong, so only an answer
+    // given after it is kept.
+    final sure = lastSureAnswerOf(decision);
+    if (sure != null && _planRead.value) _lastSure[feature] = sure;
+    return decision;
+  }
+
+  /// [decide] from the holdings and the server alone, with nothing kept
+  /// from before.
+  FeatureDecision _decideNow(AppFeature feature) {
     final rule = _table[feature];
     // A feature with no row is open to everyone.
     if (rule == null || rule.unlockedBy.isEmpty) {
@@ -147,7 +183,7 @@ final class FeatureAccess {
     }
     if (waiting != null) return FeatureDecision.confirming(waiting);
     // One of the holdings that would unlock it could not be read. That is
-    // never a lock.
+    // never a lock and never sells. [decide] adds the last sure answer.
     if (unread != null) return FeatureDecision.unread(unread);
     return FeatureDecision.locked(rule.offered);
   }

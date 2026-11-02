@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -132,6 +133,17 @@ ThanksFace thanksIdleFace(
 /// a little larger, so the one under it does not show at its edge in the
 /// moment before the cover reaches it. Null with no mascot to start from.
 Rect? thanksStartBox(Rect? mascot) => mascot?.inflate(mascot.width * 0.04);
+
+/// The box the mascot stands in, which its lift and squash move. It starts
+/// on the layout's own mascot (see [thanksStartBox]), or on [crit] when
+/// there is none, and travels by [travel] (0 to 1) to [end], which is [crit]
+/// unless a version moves it. After an outro it starts on the stage.
+Rect thanksCritBox(
+  PaywallThanksScope scope, {
+  required Rect crit,
+  required double travel,
+  Rect? end,
+}) => Rect.lerp(thanksStartBox(scope.mascot) ?? crit, end ?? crit, travel)!;
 
 /// Up and back down across a window, 0 at both ends and 1 in the middle.
 double thanksArc(double p) => 4 * p * (1 - p);
@@ -930,7 +942,7 @@ class ThanksStampMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.xs + 1),
       ),
       child: Text(
-        text.toUpperCase(),
+        upperInContext(text, context),
         maxLines: 1,
         style: AppTypography.monoBold(
           color,

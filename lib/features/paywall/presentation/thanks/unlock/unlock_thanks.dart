@@ -23,15 +23,6 @@ const PaywallThanks unlockThanks = PaywallThanks(
   builder: _build,
 );
 
-/// The box the mascot stands in at second [t], which its lift and squash
-/// move. After an outro it starts on the stage.
-Rect _critBox(PaywallThanksScope scope, ThanksStage stage, double t) =>
-    Rect.lerp(
-      thanksStartBox(scope.mascot) ?? stage.crit,
-      stage.crit,
-      UnlockTimeline.travel(t),
-    )!;
-
 /// Where the mascot's box is at second [t], the box its moves are made
 /// on. Its lift and squash are not in it.
 Rect unlockMascotAt(PaywallThanksScope scope, double t) {
@@ -42,7 +33,11 @@ Rect unlockMascotAt(PaywallThanksScope scope, double t) {
     lines: count,
     textScale: scope.textScale,
   );
-  return _critBox(scope, stage, t);
+  return thanksCritBox(
+    scope,
+    crit: stage.crit,
+    travel: UnlockTimeline.travel(t),
+  );
 }
 
 /// What is felt on the way. The purchase cue is sounding the whole time,
@@ -95,7 +90,11 @@ class UnlockThanks extends StatelessWidget {
       clock: scope.clock,
       builder: (context, t, _) {
         final rest = t - UnlockTimeline.end;
-        final box = _critBox(scope, stage, t);
+        final box = thanksCritBox(
+          scope,
+          crit: stage.crit,
+          travel: UnlockTimeline.travel(t),
+        );
         final ring = UnlockTimeline.ring(t, count: count);
 
         return Stack(

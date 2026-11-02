@@ -112,7 +112,7 @@ class FakeAccountRepo implements AccountRepository {
       const AccountDeleteResult.deleted();
 
   @override
-  Future<void> wipeAfterDelete() async {}
+  Future<void> wipeAfterDelete({String? accountId}) async {}
 
   @override
   Future<void> recoverFromDeadCredential() async {}

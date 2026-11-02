@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/reliability/domain/wake_answer.dart';
 import 'package:critalarm/features/reliability/presentation/readiness_view.dart';
@@ -82,7 +83,7 @@ class WakeHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              LocaleKeys.wake_label.tr().toUpperCase(),
+              upperInContext(LocaleKeys.wake_label.tr(), context),
               style: AppTypography.monoBold(
                 colors.onCanvas,
                 fontSize: 10.5,

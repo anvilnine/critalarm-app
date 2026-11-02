@@ -5,6 +5,7 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_rules.dart';
 import 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/outros/outro_lerp.dart';
 
 export 'package:critalarm/features/paywall/presentation/outros/break_lift_ring/break_lift_ring_timeline.dart'
     show BreakLiftRingPose, BreakPiece;
@@ -74,9 +75,6 @@ abstract final class BreakLiftTimeline {
 
   static double phase(double t, double a, double b) =>
       BreakLiftRingTimeline.phase(t, a, b);
-
-  static double _lerp(double a, double b, double x) =>
-      x >= 1 ? b : a + (b - a) * x;
 
   /// How far through the lift, 0 to 1. One sine ease, fastest at its
   /// middle, 1.65.
@@ -324,8 +322,8 @@ abstract final class BreakLiftTimeline {
       );
     }
     final hang = sine(phase(t, hit, liftFrom));
-    final hangSize = _lerp(300, 252, hang) * k;
-    final hangCentre = Offset(195 * sx, _lerp(350, 388, hang) * sy);
+    final hangSize = outroLerp(300, 252, hang) * k;
+    final hangCentre = Offset(195 * sx, outroLerp(350, 388, hang) * sy);
     final rise = lift(t);
     final fly = speed(t);
     final sunk = crouch(t);
@@ -333,13 +331,13 @@ abstract final class BreakLiftTimeline {
     return BreakLiftRingPose(
       // He sinks, goes, and arcs a little to one side on the way up.
       centre: Offset(
-        _lerp(hangCentre.dx, land.center.dx, rise) + 24 * k * bend,
-        _lerp(hangCentre.dy, land.center.dy, rise) + 16 * k * sunk,
+        outroLerp(hangCentre.dx, land.center.dx, rise) + 24 * k * bend,
+        outroLerp(hangCentre.dy, land.center.dy, rise) + 16 * k * sunk,
       ),
-      size: _lerp(hangSize, land.width, rise),
+      size: outroLerp(hangSize, land.width, rise),
       // Squashed in the crouch, a little long in the flight.
       squashX: (1 - 0.05 * fly) * (1 + 0.05 * sunk),
-      squashY: _lerp(1, aspect, rise) * (1 + 0.1 * fly) * (1 - 0.08 * sunk),
+      squashY: outroLerp(1, aspect, rise) * (1 + 0.1 * fly) * (1 - 0.08 * sunk),
       // He leans into the arc: one way going out, the other coming back.
       angle: 0.06 * math.sin(2 * math.pi * rise),
       face: face(t),

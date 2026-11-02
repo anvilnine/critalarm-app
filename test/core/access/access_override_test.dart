@@ -356,7 +356,8 @@ void main() {
         final decision = stack.features.decide(feature);
         expect(decision, isA<FeatureUnread>(), reason: feature.name);
         expect(decision, isNot(isA<FeatureLocked>()), reason: feature.name);
-        expect(stack.features.can(feature), isTrue, reason: feature.name);
+        // Nothing was sure before the preset, so nothing is usable either.
+        expect(stack.features.can(feature), isFalse, reason: feature.name);
         await expectLater(
           stack.features.canOnceReady(feature),
           throwsA(isA<HoldingUnreadable>()),

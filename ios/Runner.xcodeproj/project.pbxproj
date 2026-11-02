@@ -54,6 +54,7 @@
 		A191A0000000000000000011 /* MotionSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000001 /* MotionSensor.swift */; };
 		A191A0000000000000000012 /* MotionSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000001 /* MotionSensor.swift */; };
 		A191A0000000000000000021 /* MotionSensorChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000002 /* MotionSensorChannel.swift */; };
+		D1F0D0000000000000000011 /* DisplayFoldChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F0D0000000000000000001 /* DisplayFoldChannel.swift */; };
 		A191A0000000000000000031 /* MotionSensorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000003 /* MotionSensorTests.swift */; };
 		A30200000000000000000011 /* RingScreenRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30200000000000000000001 /* RingScreenRule.swift */; };
 		A30200000000000000000012 /* RingScreenRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30200000000000000000001 /* RingScreenRule.swift */; };
@@ -296,6 +297,7 @@
 		A93A00000000000000000001 /* UiSoundPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UiSoundPlayer.swift; sourceTree = "<group>"; };
 		A191A0000000000000000001 /* MotionSensor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensor.swift; sourceTree = "<group>"; };
 		A191A0000000000000000002 /* MotionSensorChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensorChannel.swift; sourceTree = "<group>"; };
+		D1F0D0000000000000000001 /* DisplayFoldChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayFoldChannel.swift; sourceTree = "<group>"; };
 		A191A0000000000000000003 /* MotionSensorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensorTests.swift; sourceTree = "<group>"; };
 		A30200000000000000000001 /* RingScreenRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RingScreenRule.swift; sourceTree = "<group>"; };
 		A30200000000000000000002 /* RingScreenEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RingScreenEffects.swift; sourceTree = "<group>"; };
@@ -618,6 +620,7 @@
 				A30200000000000000000001 /* RingScreenRule.swift */,
 				A30200000000000000000002 /* RingScreenEffects.swift */,
 				A30200000000000000000004 /* Haptics */,
+				D1F0D0000000000000000001 /* DisplayFoldChannel.swift */,
 				A53A00000000000000000001 /* GaplessCaf.swift */,
 				A54A00000000000000000001 /* SoundPackBridge.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -1135,6 +1138,7 @@
 				A191A0000000000000000021 /* MotionSensorChannel.swift in Sources */,
 				A30200000000000000000011 /* RingScreenRule.swift in Sources */,
 				A30200000000000000000021 /* RingScreenEffects.swift in Sources */,
+				D1F0D0000000000000000011 /* DisplayFoldChannel.swift in Sources */,
 				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,
 				FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */,
 				C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */,

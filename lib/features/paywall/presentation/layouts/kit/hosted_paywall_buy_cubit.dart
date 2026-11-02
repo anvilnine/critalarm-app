@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
@@ -11,7 +12,6 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 Future<void> _realWait(Duration d) => Future<void>.delayed(d);
 
@@ -61,8 +61,8 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   final List<Duration> _confirmWaits;
   final Future<void> Function(Duration) _wait;
 
-  /// The store packages behind the options, by option id.
-  final Map<String, Package> _packages = {};
+  /// The store entries behind the options, by option id.
+  final Map<String, StoreCatalogEntry> _packages = {};
   bool _afterPurchase = false;
 
   @override
@@ -96,7 +96,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     );
   }
 
-  Future<Offering?> _readOffering() async {
+  Future<StoreOffering?> _readOffering() async {
     try {
       return (await _getOfferings(const NoParams())).fold(
         (offerings) => offerings.current,
@@ -107,8 +107,8 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     }
   }
 
-  /// Asks the store once more for the package behind the plan [id] names.
-  Future<Package?> _readPackage(String? id) async {
+  /// Asks the store once more for the entry behind the plan [id] names.
+  Future<StoreCatalogEntry?> _readPackage(String? id) async {
     final tier = switch (id) {
       PaywallPlanOption.yearlyId => SubscriptionTier.yearly,
       PaywallPlanOption.monthlyId => SubscriptionTier.monthly,
@@ -118,25 +118,27 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     return _packageFor(await _readOffering(), tier);
   }
 
-  static Package? _packageFor(Offering? offering, SubscriptionTier tier) {
+  static StoreCatalogEntry? _packageFor(
+    StoreOffering? offering,
+    SubscriptionTier tier,
+  ) {
     if (offering == null) return null;
     final named = tier == SubscriptionTier.yearly
         ? offering.annual
         : offering.monthly;
     if (named != null) return named;
-    for (final package in offering.availablePackages) {
+    for (final package in offering.entries) {
       if (SubscriptionTier.fromPackage(package) == tier) return package;
     }
     return null;
   }
 
-  static HostedPlanQuote? _quote(Package? package) {
+  static HostedPlanQuote? _quote(StoreCatalogEntry? package) {
     if (package == null) return null;
-    final product = package.storeProduct;
     return HostedPlanQuote(
-      priceString: product.priceString,
-      price: product.price,
-      pricePerMonthString: product.pricePerMonthString,
+      priceString: package.priceString,
+      price: package.price,
+      pricePerMonthString: package.pricePerMonthString,
     );
   }
 
@@ -184,7 +186,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
         // The store was read. With no Hosted on it there is nothing to
         // wait for.
         final storeHasIt = info.entitlements.active.containsKey(
-          SubscriptionTier.proEntitlement,
+          SubscriptionTier.cloudEntitlement,
         );
         if (!storeHasIt && !await _readIsPaid()) {
           return show(

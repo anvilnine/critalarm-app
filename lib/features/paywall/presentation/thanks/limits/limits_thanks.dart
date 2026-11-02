@@ -88,13 +88,14 @@ List<LimitsRow>? limitsCapRowsFor(List<PaywallBenefit> benefits) {
   ];
 }
 
-/// The box the mascot stands in at second [t], which its lift and squash
-/// move. After an outro it starts on the stage.
-Rect _critBox(PaywallThanksScope scope, LimitsPlan plan, double t) => Rect.lerp(
-  thanksStartBox(scope.mascot) ?? plan.crit,
-  plan.critAt(LimitsTimeline.size(t, count: scope.benefits.length)),
-  LimitsTimeline.travel(t),
-)!;
+/// The limits version's box: it ends where the plan sizes it at second [t].
+Rect _critBox(PaywallThanksScope scope, LimitsPlan plan, double t) =>
+    thanksCritBox(
+      scope,
+      crit: plan.crit,
+      end: plan.critAt(LimitsTimeline.size(t, count: scope.benefits.length)),
+      travel: LimitsTimeline.travel(t),
+    );
 
 /// Where the mascot's box is at second [t], the box its moves are made
 /// on. Its lift and squash are not in it.

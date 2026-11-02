@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
+import 'package:critalarm/core/format/duration_format.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -153,10 +154,6 @@ class _RecorderBody extends StatelessWidget {
 
   final RecorderState state;
 
-  /// `0:12`.
-  static String formatTimer(Duration d) =>
-      '${d.inMinutes}:${d.inSeconds.remainder(60).toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -195,7 +192,7 @@ class _RecorderBody extends StatelessWidget {
                 Opacity(
                   opacity: state.showsTimer(reduceMotion: reduceMotion) ? 1 : 0,
                   child: Text(
-                    formatTimer(state.elapsed),
+                    formatMinutesSeconds(state.elapsed),
                     style:
                         AppTypography.display(
                           state.isLastSeconds ? colors.crit : colors.onCanvas,

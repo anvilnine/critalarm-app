@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_rules.dart';
 import 'package:flutter/material.dart';
@@ -236,7 +237,7 @@ class ReceiptPaper extends StatelessWidget {
                           opacity: _ink(0),
                           child: Center(
                             child: Text(
-                              title.toUpperCase(),
+                              upperInContext(title, context),
                               maxLines: 1,
                               style: AppTypography.monoBold(
                                 inks.quiet,
@@ -447,7 +448,7 @@ class _StampMark extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.xs),
         ),
         child: Text(
-          text.toUpperCase(),
+          upperInContext(text, context),
           maxLines: 1,
           style: AppTypography.monoBold(
             color,

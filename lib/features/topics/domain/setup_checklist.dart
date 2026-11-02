@@ -331,10 +331,16 @@ enum HomeWidgetsPlan {
 /// The plan the Home widgets card words itself for, from the widgets
 /// decision. [isOwnServer] only picks the words for an open card: whether
 /// the card is locked is [decision]'s answer alone.
+///
+/// An unread holding with no sure yes is a guess, so the card shows the
+/// steps and sells nothing, as the steps sheet does before the plan is read.
 HomeWidgetsPlan homeWidgetsPlanFor(
   FeatureDecision decision, {
   required bool isOwnServer,
 }) {
+  if (decision is FeatureUnread && !decision.isUsable) {
+    return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.pro;
+  }
   if (!decision.isUsable) return HomeWidgetsPlan.needsPro;
   return isOwnServer ? HomeWidgetsPlan.selfHosted : HomeWidgetsPlan.pro;
 }

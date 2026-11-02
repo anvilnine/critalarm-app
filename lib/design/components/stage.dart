@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/skeleton.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -10,6 +12,21 @@ import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
+
+/// The face size an [AppStage] draws for a [requested] size on a display of
+/// [size].
+///
+/// - A cover screen (the Razr cover): 72, beside the words.
+/// - Any other short display: [requested], at most 96, beside the words.
+/// - A medium or expanded display at least 360 wide: [requested], at least
+///   120, so a tablet never shows a phone-sized face in a wide column.
+/// - Otherwise [requested].
+double stageFaceSizeFor({required double requested, required AppSize size}) {
+  if (size.isCover) return 72;
+  if (size.isShort) return math.min(requested, 96);
+  if (!size.isCompact && size.width >= 360) return math.max(requested, 120);
+  return requested;
+}
 
 /// Expressive stage container matching index.html .stage.
 /// Displays a face, primary word headline, optional mono topic name,
@@ -87,7 +104,10 @@ class AppStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isShort = AppSize.of(context).isShort;
+    // Inside a fold pane this is the pane's size, so the phone layout runs.
+    final size = AppSize.of(context);
+    final isShort = size.isShort;
+    final shownFaceSize = stageFaceSizeFor(requested: faceSize, size: size);
 
     if (isHorizontal) {
       return Padding(
@@ -170,7 +190,7 @@ class AppStage extends StatelessWidget {
               stageFace(
                 context,
                 state: faceState!,
-                size: faceSize.clamp(0.0, 96.0),
+                size: shownFaceSize,
                 isLive: isLive,
                 idleWhenCalm: idleWhenCalm,
               ),
@@ -269,7 +289,7 @@ class AppStage extends StatelessWidget {
             stageFace(
               context,
               state: faceState!,
-              size: faceSize,
+              size: shownFaceSize,
               isLive: isLive,
               idleWhenCalm: idleWhenCalm,
             ),

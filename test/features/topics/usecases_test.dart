@@ -6,7 +6,6 @@ import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repo
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +15,6 @@ void main() {
   late MockApiClient apiClient;
   late TopicRepository repository;
   late GetTopicsUsecase getTopicsUsecase;
-  late GetTopicUsecase getTopicUsecase;
   late CreateTopicUsecase createTopicUsecase;
   late UpdateTopicUsecase updateTopicUsecase;
   late DeleteTopicUsecase deleteTopicUsecase;
@@ -26,7 +24,6 @@ void main() {
     apiClient = MockApiClient(server);
     repository = InMemoryTopicRepository(apiClient);
     getTopicsUsecase = GetTopicsUsecase(repository);
-    getTopicUsecase = GetTopicUsecase(repository);
     createTopicUsecase = CreateTopicUsecase(repository);
     updateTopicUsecase = UpdateTopicUsecase(repository);
     deleteTopicUsecase = DeleteTopicUsecase(repository);
@@ -40,25 +37,6 @@ void main() {
       final topics = result.getOrNull()!;
       expect(topics.length, 4);
       expect(topics.map((t) => t.name), contains('prod-db'));
-    });
-  });
-
-  group('GetTopicUsecase', () {
-    test('returns the requested topic when found', () async {
-      final result = await getTopicUsecase('prod-db');
-
-      expect(result.isSuccess(), isTrue);
-      final topic = result.getOrNull()!;
-      expect(topic.name, 'prod-db');
-      expect(topic.critical, isTrue);
-    });
-
-    test('returns NotFoundFailure when topic does not exist', () async {
-      final result = await getTopicUsecase('non-existent');
-
-      expect(result.isError(), isTrue);
-      final failure = result.exceptionOrNull()!;
-      expect(failure, isA<NotFoundFailure>());
     });
   });
 
@@ -114,9 +92,8 @@ void main() {
       final deleteResult = await deleteTopicUsecase('home-ha');
       expect(deleteResult.isSuccess(), isTrue);
 
-      final fetchResult = await getTopicUsecase('home-ha');
-      expect(fetchResult.isError(), isTrue);
-      expect(fetchResult.exceptionOrNull(), isA<NotFoundFailure>());
+      final topics = (await getTopicsUsecase(const NoParams())).getOrNull()!;
+      expect(topics.map((t) => t.name), isNot(contains('home-ha')));
     });
   });
 }

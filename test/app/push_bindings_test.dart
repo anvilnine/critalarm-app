@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/push_bindings.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
@@ -15,7 +16,9 @@ import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 /// Repositories that answer with nothing and write down that they were asked,
 /// in the order everything else happened.
@@ -150,6 +153,39 @@ void main() {
 
   test('a tap while /alarm is up selects, not navigates', () async {
     currentLocation = '/alarm';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['select inc_9a8b7c']);
+  });
+
+  test('a tap while /alarm is pushed over Home selects, not navigates: '
+      'the reader the app wires in names the top page', () async {
+    final config = RouteConfiguration(
+      ValueNotifier(
+        RoutingConfig(
+          routes: [
+            GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
+            GoRoute(
+              path: '/alarm',
+              builder: (_, _) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+      navigatorKey: GlobalKey<NavigatorState>(),
+    );
+    final pushed = config
+        .findMatch(Uri.parse('/'))
+        .push(
+          ImperativeRouteMatch(
+            pageKey: const ValueKey('alarm'),
+            matches: config.findMatch(Uri.parse('/alarm')),
+            completer: Completer<Object?>(),
+          ),
+        );
+    currentLocation = topPathOf(pushed);
     await sendFromPlatform('onNotificationTap', {
       'incident_id': 'inc_9a8b7c',
       'tap_id': '1',

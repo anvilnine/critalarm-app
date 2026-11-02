@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -276,7 +278,8 @@ class BackgroundConnect {
       // for it can finish.
       _tokenArrivals = _tokens?.tokenRefreshes.listen(
         (_) => unawaited(retryNow()),
-        onError: (Object _) {},
+        onError: (Object e) =>
+            noteQuiet('background_connect.tokenRefreshes', e),
       );
     } on Object catch (_) {
       // A build with no push service has no stream to listen to. The timer
@@ -422,7 +425,13 @@ class BackgroundConnect {
       if (isStale()) return;
       // The relay answered without a device token. Asking again gets the
       // same answer.
-      if (error is StateError) {
+      // A relay or a server other than the one this phone's device token
+      // belongs to is the same: nothing was sent and a retry changes
+      // nothing. So is a token the session cannot hold.
+      if (error is StateError ||
+          error is ArgumentError ||
+          error is DeviceTokenRelayMismatch ||
+          error is DeviceTokenServerMismatch) {
         return _fail(BackgroundConnectFailure.refused, isStale);
       }
       // Offline, DNS failure, timeout: keep it and try later.

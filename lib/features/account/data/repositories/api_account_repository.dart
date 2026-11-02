@@ -2,7 +2,9 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/version/app_version.dart';
@@ -22,6 +24,9 @@ final class ApiAccountRepository implements AccountRepository {
     required this.identities,
     required this.connections,
     this.forgetAccountData,
+    this.forgetDeletedAccountData,
+    this.forgetMergedAccount,
+    this.readAccountId,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -41,6 +46,23 @@ final class ApiAccountRepository implements AccountRepository {
   /// `lib/app/account_data.dart`, which a connect to a different server
   /// calls too.
   final Future<void> Function()? forgetAccountData;
+
+  /// [forgetAccountData], and the phone's copy of the account's alarm
+  /// history, for an account that was deleted. Falls back to
+  /// [forgetAccountData] when not given.
+  ///
+  /// Called with the account that was deleted, as [readAccountId] named it
+  /// when the delete started, or null when that is not known.
+  final Future<void> Function(String? accountId)? forgetDeletedAccountData;
+
+  /// The account this phone is on now: the one the person signed in to, or
+  /// the device's own.
+  final Future<String?> Function()? readAccountId;
+
+  /// Called with the account folded away and the one it went into once the
+  /// server has merged, so what the phone kept for the first moves to the
+  /// second. A failure here never turns a merge into an error.
+  final Future<void> Function(String from, String into)? forgetMergedAccount;
 
   /// Drops the store's idea of who this is, back to an anonymous user.
   ///
@@ -74,10 +96,39 @@ final class ApiAccountRepository implements AccountRepository {
   Future<AccountMergeResult> merge({
     required String identityToken,
     required String intoAccount,
-  }) => api.mergeAccount(
-    identityToken: identityToken,
-    intoAccount: intoAccount,
-  );
+  }) async {
+    final result = await api.mergeAccount(
+      identityToken: identityToken,
+      intoAccount: intoAccount,
+    );
+    String? from;
+    String? into;
+    switch (result) {
+      case AccountMerged(:final accountId, :final mergedFrom):
+        from = mergedFrom;
+        into = accountId;
+      case AccountMergeAlreadyMerged():
+        // A retry after a reply that never arrived: the server merged the
+        // first time. The phone still names its own account until the next
+        // registration, so that is the one that was folded in.
+        try {
+          from = await readAccountId?.call();
+        } on Object catch (e) {
+          noteQuiet('api_account.readAccountId.merged', e);
+        }
+        into = intoAccount;
+      case _:
+        break;
+    }
+    if (from != null && into != null && from != into) {
+      try {
+        await forgetMergedAccount?.call(from, into);
+      } on Object catch (e) {
+        noteQuiet('api_account.forgetMergedAccount', e);
+      }
+    }
+    return result;
+  }
 
   @override
   Future<AccountSwitchResult> switchTo({
@@ -99,23 +150,30 @@ final class ApiAccountRepository implements AccountRepository {
     // that works, which is the difference between a failed sign-out and a
     // handset that can never talk to the server again.
     if (token != null) {
-      await api.deleteDevice(deviceId: current.deviceId, deviceToken: token);
+      try {
+        await api.deleteDevice(deviceId: current.deviceId, deviceToken: token);
+      } on ApiException catch (e) {
+        // 401 or 404 means the server no longer knows this device: an earlier
+        // sign-out deleted it and then stopped on the store logout. Nothing
+        // is left to delete, so a retry carries on to the rest. Any other
+        // answer is a real refusal and stops here as before.
+        if (e.statusCode != 401 && e.statusCode != 404) rethrow;
+      }
     }
     // The next line registers a new anonymous account and logs the store in
     // to it, so the store has to be logged out of the old one first or the
-    // purchase is handed straight to the handset's next account. Anonymous
-    // already is not a failure: the store answers
-    // logOutWithAnonymousUserError and there is nothing to undo.
-    try {
-      await signOutBilling?.call();
-    } on Object catch (_) {}
+    // purchase is handed straight to the handset's next account. A failure
+    // here stops the sign-out before that happens.
+    await _signOutOfStore();
     // The device is deleted on the server, so this phone has left the
     // account. What the account left here goes before the next one starts.
     // A drop that fails never stops the registration below: without it the
     // phone has no credential at all.
     try {
       await forgetAccountData?.call();
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      noteQuiet('api_account.forgetAccountData', e);
+    }
     await _startOverOnFreshAccount();
   }
 
@@ -124,18 +182,33 @@ final class ApiAccountRepository implements AccountRepository {
       api.deleteAccount(identityToken: identityToken);
 
   @override
-  Future<void> wipeAfterDelete() async {
+  Future<void> wipeAfterDelete({String? accountId}) async {
+    final forgetDeleted = forgetDeletedAccountData;
+    if (forgetDeleted == null) return _wipe(forget: forgetAccountData);
+    // The caller names the account it asked the server to delete. Only when
+    // it could not (nobody was signed in) is it read here, and then nothing
+    // has changed the phone's account since the delete went out.
+    var deleted = accountId;
+    if (deleted == null) {
+      try {
+        deleted = await readAccountId?.call();
+      } on Object catch (e) {
+        noteQuiet('api_account.readAccountId.deleted', e);
+      }
+    }
+    return _wipe(forget: () => forgetDeleted(deleted));
+  }
+
+  Future<void> _wipe({required Future<void> Function()? forget}) async {
     // The store knows this phone as the account id that has just gone, so it
-    // goes back to an anonymous user before anything else. It is not a
-    // failure when it was anonymous already: the store answers
-    // logOutWithAnonymousUserError and there is nothing to undo.
-    try {
-      await signOutBilling?.call();
-    } on Object catch (_) {}
+    // goes back to an anonymous user before anything else. A failure here
+    // stops the wipe before the next account starts, so a purchase never
+    // moves to it.
+    await _signOutOfStore();
     // Everything here names something on the account that is gone: an
     // incident to acknowledge, a message id to poll since, a topic somebody
     // searched for.
-    await forgetAccountData?.call();
+    await forget?.call();
     await _startOverOnFreshAccount();
   }
 
@@ -147,7 +220,8 @@ final class ApiAccountRepository implements AccountRepository {
       // Whatever is ringing belongs to an incident on an account that no
       // longer exists, so there is nobody left to acknowledge it to.
       await stopAlarm?.call();
-      await wipeAfterDelete();
+      // The credential is dead, not the account, so the history stays.
+      await _wipe(forget: forgetAccountData);
     } finally {
       _recovering = false;
     }
@@ -156,6 +230,16 @@ final class ApiAccountRepository implements AccountRepository {
   @override
   Future<bool> readHoldsHosted() async =>
       await holdings?.holdsOnceReady(Holding.hosted) ?? false;
+
+  /// Logs the store out of the account this phone is leaving.
+  ///
+  /// An already anonymous store user is not a failure: `StoreBilling.logOut`
+  /// returns quietly for it. Any throw propagates, so the caller stops
+  /// before the phone starts over on a new account that the store would
+  /// hand the purchase to.
+  Future<void> _signOutOfStore() async {
+    await signOutBilling?.call();
+  }
 
   /// Drops this phone's identity, its connection and its device credential,
   /// then registers again so it lands on a new anonymous account.

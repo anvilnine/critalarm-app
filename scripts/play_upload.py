@@ -18,7 +18,7 @@ What it does, in the order Play requires:
   5. Commit.
 
 Usage:
-  play_upload.py --aab build/app/outputs/bundle/release/app-release.aab \\
+  play_upload.py --aab build/app/outputs/bundle/playRelease/app-play-release.aab \\
                  --package app.critalarm \\
                  --key ../secrets/play-publisher.json \\
                  --track internal

@@ -55,10 +55,12 @@ class EasyLocalizationLanguageHost implements LanguageLocaleHost {
   }
 
   @override
-  String get currentTag => _operations?.locale.toLanguageTag() ??
-      savedTag ?? _readPhoneLocale().toLanguageTag();
+  String get currentTag =>
+      _operations?.locale.toLanguageTag() ??
+      savedTag ??
+      _readPhoneLocale().toLanguageTag();
 
-  static Locale _resolvePhoneLocale() => basicLocaleListResolution(
+  static Locale _resolvePhoneLocale() => resolvePhoneLocales(
     WidgetsBinding.instance.platformDispatcher.locales,
     shippedLocales,
   );

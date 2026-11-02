@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/settings/domain/personalize/widgets_page_rules.dart';
@@ -161,7 +162,10 @@ class _RingingPill extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
-          LocaleKeys.paywall_previews_extras_widget_ringing.tr().toUpperCase(),
+          upperInContext(
+            LocaleKeys.paywall_previews_extras_widget_ringing.tr(),
+            context,
+          ),
           maxLines: 1,
           softWrap: false,
           style: AppTypography.label(colors.inkFixed).copyWith(

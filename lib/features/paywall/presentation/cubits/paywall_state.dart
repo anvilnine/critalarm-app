@@ -1,6 +1,7 @@
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:flutter/foundation.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 enum PaywallStatus { initial, loading, success, failure }
 
@@ -22,20 +23,20 @@ class PaywallState {
   final bool isPro;
   final String? feedbackMessage;
   final String? errorMessage;
-  final Offerings? offerings;
-  final CustomerInfo? customerInfo;
+  final StoreOfferings? offerings;
+  final StoreCustomer? customerInfo;
   final SubscriptionTier selectedTier;
-  final Package? selectedPackage;
+  final StoreCatalogEntry? selectedPackage;
 
   PaywallState copyWith({
     PaywallStatus? status,
     bool? isPro,
     String? feedbackMessage,
     String? errorMessage,
-    Offerings? offerings,
-    CustomerInfo? customerInfo,
+    StoreOfferings? offerings,
+    StoreCustomer? customerInfo,
     SubscriptionTier? selectedTier,
-    Package? selectedPackage,
+    StoreCatalogEntry? selectedPackage,
     bool clearFeedback = false,
     bool clearError = false,
   }) {
