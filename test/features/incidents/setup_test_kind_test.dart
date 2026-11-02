@@ -150,16 +150,48 @@ void main() {
   });
 
   group('setupProofFor', () {
+    const seen = (pushArrived: true, heard: true);
+
     test('a server-sent test proves the server, the push and the phone', () {
-      expect(setupProofFor(SetupTestKind.serverSent), const [
+      expect(setupProofFor(SetupTestKind.serverSent, evidence: seen), const [
         (point: ProofPoint.serverSent, isProved: true),
         (point: ProofPoint.pushArrived, isProved: true),
         (point: ProofPoint.phoneRang, isProved: true),
       ]);
+      expect(setupTestRang(SetupTestKind.serverSent, evidence: seen), isTrue);
+    });
+
+    // W4: the incident id alone used to tick all three.
+    test('a server-sent test whose push never reached the phone proves only '
+        'the server', () {
+      const lost = (pushArrived: false, heard: true);
+      expect(setupProofFor(SetupTestKind.serverSent, evidence: lost), const [
+        (point: ProofPoint.serverSent, isProved: true),
+        (point: ProofPoint.pushArrived, isProved: false),
+        (point: ProofPoint.phoneRang, isProved: false),
+      ]);
+      expect(setupTestRang(SetupTestKind.serverSent, evidence: lost), isFalse);
+    });
+
+    test('a muted ring never proves the phone rang', () {
+      const muted = (pushArrived: true, heard: false);
+      expect(setupProofFor(SetupTestKind.serverSent, evidence: muted), const [
+        (point: ProofPoint.serverSent, isProved: true),
+        (point: ProofPoint.pushArrived, isProved: true),
+        (point: ProofPoint.phoneRang, isProved: false),
+      ]);
+      expect(setupTestRang(SetupTestKind.serverSent, evidence: muted), isFalse);
+      expect(
+        setupProofFor(SetupTestKind.phoneOnly, evidence: muted),
+        everyElement(
+          predicate<ProofLine>((line) => !line.isProved, 'not proved'),
+        ),
+      );
+      expect(setupTestRang(SetupTestKind.phoneOnly, evidence: muted), isFalse);
     });
 
     test('a phone-only test proves the phone and nothing else', () {
-      final proof = setupProofFor(SetupTestKind.phoneOnly);
+      final proof = setupProofFor(SetupTestKind.phoneOnly, evidence: seen);
 
       expect(proof.first, (point: ProofPoint.phoneRang, isProved: true));
       expect(proof.where((line) => line.isProved), hasLength(1));
@@ -173,7 +205,8 @@ void main() {
     });
 
     test('an alarm that is not a test proves nothing here', () {
-      expect(setupProofFor(SetupTestKind.none), isEmpty);
+      expect(setupProofFor(SetupTestKind.none, evidence: seen), isEmpty);
+      expect(setupTestRang(SetupTestKind.none, evidence: seen), isFalse);
     });
   });
 

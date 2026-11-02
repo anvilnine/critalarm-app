@@ -105,6 +105,20 @@ class AcknowledgedScreen extends StatelessWidget {
     // what the ring proved.
     final provesSetup =
         exits == AckedExits.continueSetup || exits == AckedExits.firstToolAlarm;
+    // A setup test says "It works" only on what this phone recorded: the
+    // push arrived and the ring could be heard. Until that is read, nothing
+    // is claimed.
+    final evidence = state.setupEvidence;
+    final isSetupProof = provesSetup && exits != AckedExits.firstToolAlarm;
+    final setupRang =
+        evidence != null && setupTestRang(setupTest, evidence: evidence);
+    final setupTitle = evidence == null
+        ? ''
+        : setupRang
+        ? LocaleKeys.onboarding_real_ring_works_title.tr()
+        : setupTest == SetupTestKind.serverSent && !evidence.pushArrived
+        ? LocaleKeys.onboarding_real_ring_not_reached_title.tr()
+        : LocaleKeys.onboarding_real_ring_muted_title.tr();
 
     if (isDemo) {
       return _demoBody(
@@ -114,15 +128,19 @@ class AcknowledgedScreen extends StatelessWidget {
         exits: exits,
         // Setup going on says what the ring proved, as a short list of
         // ticks. The other exits keep the welcome they always had.
-        title: provesSetup
+        title: isSetupProof
+            ? setupTitle
+            : provesSetup
             ? LocaleKeys.onboarding_real_ring_works_title.tr()
             : LocaleKeys.onboarding_connect_welcome_title.tr(),
         detail: provesSetup
             ? ProofList(
                 lines: _proofLines(
-                  exits == AckedExits.firstToolAlarm
+                  !isSetupProof
                       ? firstToolAlarmProof
-                      : setupProofFor(setupTest),
+                      : evidence == null
+                      ? const <ProofLine>[]
+                      : setupProofFor(setupTest, evidence: evidence),
                 ),
               )
             : Text(
@@ -134,7 +152,7 @@ class AcknowledgedScreen extends StatelessWidget {
         // differ in feel as well as in words.
         restFaces:
             exits == AckedExits.continueSetup &&
-                setupTest != SetupTestKind.serverSent
+                (setupTest != SetupTestKind.serverSent || !setupRang)
             ? quietRestFaces
             : celebrationRestFaces,
       );

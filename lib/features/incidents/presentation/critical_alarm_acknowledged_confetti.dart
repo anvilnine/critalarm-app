@@ -12,10 +12,17 @@ part of 'critical_alarm_screen.dart';
 /// frames after the screen opened. Every other exit builds it at once. See
 /// [ackConfettiMayFly].
 class _AckConfettiGate extends StatefulWidget {
-  const _AckConfettiGate({required this.exits, required this.colors});
+  const _AckConfettiGate({
+    required this.exits,
+    required this.colors,
+    this.setupProved = true,
+  });
 
   final AckedExits exits;
   final AppColors colors;
+
+  /// See [ackConfettiMayFly].
+  final bool setupProved;
 
   @override
   State<_AckConfettiGate> createState() => _AckConfettiGateState();
@@ -49,6 +56,7 @@ class _AckConfettiGateState extends State<_AckConfettiGate> {
       exits: widget.exits,
       offer: _offer,
       reduceMotion: context.reduceMotion,
+      setupProved: widget.setupProved,
     );
     if (!mayFly) return const SizedBox.shrink();
     return _AckConfetti(colors: widget.colors);

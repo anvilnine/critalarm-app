@@ -116,6 +116,51 @@ void main() {
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
+  // W4: what the acknowledged screen proves comes from what native recorded,
+  // never from the incident id alone.
+  group('setup test evidence', () {
+    Future<SetupTestEvidence?> evidenceAfterAck() async {
+      await cubit.load(incidentId: testId);
+      await cubit.acknowledge();
+      await settle();
+      await settle();
+      return cubit.state.setupEvidence;
+    }
+
+    test('a push that reached the phone and a ring that was heard', () async {
+      alarm.answers['receivedAlarmFor'] = true;
+      alarm.answers['ringWasMuted'] = false;
+      final evidence = await evidenceAfterAck();
+      expect(evidence, (pushArrived: true, heard: true));
+      expect(alarm.argsTo('receivedAlarmFor').last, {'incident_id': testId});
+    });
+
+    test('a push that never reached the phone', () async {
+      alarm.answers['receivedAlarmFor'] = false;
+      final evidence = await evidenceAfterAck();
+      expect(evidence?.pushArrived, isFalse);
+      expect(
+        setupTestRang(SetupTestKind.serverSent, evidence: evidence!),
+        isFalse,
+      );
+    });
+
+    test('a ring the phone recorded as muted', () async {
+      alarm.answers['receivedAlarmFor'] = true;
+      alarm.answers['ringWasMuted'] = true;
+      final evidence = await evidenceAfterAck();
+      expect(evidence, (pushArrived: true, heard: false));
+    });
+
+    test('a real alarm reads nothing', () async {
+      await cubit.load(incidentId: realId);
+      await cubit.acknowledge();
+      await settle();
+      expect(cubit.state.setupEvidence, isNull);
+      expect(alarm.callsTo('ringWasMuted'), isEmpty);
+    });
+  });
+
   test('Continue closes the setup test and may move on', () async {
     await ackTheTest();
 

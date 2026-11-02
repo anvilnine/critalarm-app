@@ -15,12 +15,18 @@ import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule
 /// no offer follows, and when the store has not answered yet, the confetti
 /// flies: a session is never left with no celebration, and an offer that
 /// still shows after it is the one case where the two differ.
+///
+/// [setupProved] is false while a setup test has not proved this phone rang
+/// out loud (`setupTestRang`), including while that is still being read. A
+/// test that did not reach the phone, or rang muted, throws nothing.
 bool ackConfettiMayFly({
   required AckedExits exits,
   required OfferOutlook? offer,
   required bool reduceMotion,
+  bool setupProved = true,
 }) {
   if (reduceMotion) return false;
   if (exits != AckedExits.continueSetup) return true;
+  if (!setupProved) return false;
   return offer != null && offer != OfferOutlook.coming;
 }

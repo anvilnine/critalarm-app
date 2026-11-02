@@ -330,6 +330,8 @@
     "send_message": "Deneme alarmı",
     "send_cancel": "Vazgeç",
     "works_title": "Çalışıyor",
+    "not_reached_title": "Alarm bu telefona ulaşmadı",
+    "muted_title": "Bu telefon sessiz çaldı",
     "proof_server_sent": "Sunucu gönderdi",
     "proof_push_arrived": "Anlık bildirim geldi",
     "proof_phone_rang": "Bu telefon çaldı",

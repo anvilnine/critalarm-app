@@ -46,6 +46,7 @@ class CriticalAlarmState {
     this.isAckHandedOff = false,
     this.isHandledElsewhere = false,
     this.isAckPending = false,
+    this.setupEvidence,
   });
 
   final CriticalAlarmStatus status;
@@ -132,6 +133,11 @@ class CriticalAlarmState {
   /// acknowledge: it ends on [isHandledElsewhere] instead.
   final bool isAckPending;
 
+  /// What native recorded about the setup test on screen: whether its push
+  /// reached this phone and whether the ring could be heard. Null until it
+  /// has been read, and for any alarm that is not a setup test.
+  final SetupTestEvidence? setupEvidence;
+
   /// The topic of every alarm ringing on this screen, the one shown first.
   /// Empty unless the screen is ringing: an acknowledged alarm, a closed one
   /// and a developer preview ring nothing.
@@ -194,6 +200,7 @@ class CriticalAlarmState {
     bool? isPreview,
     bool? isHandledElsewhere,
     bool? isAckPending,
+    SetupTestEvidence? setupEvidence,
     bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
@@ -233,6 +240,7 @@ class CriticalAlarmState {
       isAckHandedOff: !clearDoneHandOff && isAckHandedOff,
       isHandledElsewhere: isHandledElsewhere ?? this.isHandledElsewhere,
       isAckPending: isAckPending ?? this.isAckPending,
+      setupEvidence: setupEvidence ?? this.setupEvidence,
     );
   }
 
@@ -269,7 +277,8 @@ class CriticalAlarmState {
           offlineAckIncidentId == other.offlineAckIncidentId &&
           isAckHandedOff == other.isAckHandedOff &&
           isHandledElsewhere == other.isHandledElsewhere &&
-          isAckPending == other.isAckPending;
+          isAckPending == other.isAckPending &&
+          setupEvidence == other.setupEvidence;
 
   @override
   int get hashCode => Object.hash(
@@ -303,6 +312,7 @@ class CriticalAlarmState {
       isAckHandedOff,
       isHandledElsewhere,
       isAckPending,
+      setupEvidence,
     ),
   );
 }

@@ -330,6 +330,8 @@
     "send_message": "測試警報",
     "send_cancel": "取消",
     "works_title": "成功了",
+    "not_reached_title": "警報沒有送達這支手機",
+    "muted_title": "這支手機響鈴時沒有聲音",
     "proof_server_sent": "伺服器已送出",
     "proof_push_arrived": "推播已送達",
     "proof_phone_rang": "這支手機已響鈴",

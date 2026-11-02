@@ -330,6 +330,8 @@
     "send_message": "Testalarm",
     "send_cancel": "Annuleren",
     "works_title": "Het werkt",
+    "not_reached_title": "Het alarm is niet op deze telefoon aangekomen",
+    "muted_title": "Deze telefoon ging af zonder geluid",
     "proof_server_sent": "De server heeft het verstuurd",
     "proof_push_arrived": "Het pushbericht is aangekomen",
     "proof_phone_rang": "Deze telefoon ging af",

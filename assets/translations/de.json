@@ -330,6 +330,8 @@
     "send_message": "Testalarm",
     "send_cancel": "Abbrechen",
     "works_title": "Es klappt",
+    "not_reached_title": "Der Alarm hat dieses Handy nicht erreicht",
+    "muted_title": "Dieses Handy hat ohne Ton geklingelt",
     "proof_server_sent": "Der Server hat ihn gesendet",
     "proof_push_arrived": "Der Push ist angekommen",
     "proof_phone_rang": "Dieses Handy hat geklingelt",

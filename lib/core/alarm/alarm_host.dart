@@ -402,12 +402,18 @@ final class AlarmHost {
   }) => _invoke<void>('setScreenFlash', {'on': on, 'topics': topics});
 
   /// Whether a push that rings reached this phone for [incidentId]. Android
-  /// answers from the record its push service keeps, with no network call.
-  /// iOS has no such record and answers false; the alarm it schedules is
-  /// reported on [alarmsScheduled] instead.
+  /// answers from the record its push service keeps, iOS from the one its
+  /// push handler and notification extension keep, with no network call.
+  /// No answer reads as false.
   Future<bool> receivedAlarmFor(String incidentId) async =>
       await _invoke<bool>('receivedAlarmFor', {'incident_id': incidentId}) ??
       false;
+
+  /// Whether a ring for [incidentId] played muted: Android records the alarm
+  /// stream at 0, muted, or under total-silence Do Not Disturb a moment after
+  /// the sound starts. Every platform with no such record answers false.
+  Future<bool> ringWasMuted(String incidentId) async =>
+      await _invoke<bool>('ringWasMuted', {'incident_id': incidentId}) ?? false;
 
   /// Raw native diagnostic state. Unsupported hosts return empty sections.
   Future<Map<String, Object?>> debugSnapshot() async =>

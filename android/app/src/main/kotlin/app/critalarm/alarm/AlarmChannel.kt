@@ -14,6 +14,7 @@ import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.push.PushRouter
 import app.critalarm.push.RingLocks
 import app.critalarm.push.RemoteStateRule
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -337,6 +338,17 @@ class AlarmChannel(
             }
             // Whether a push that rings reached this phone for the incident.
             // Read from what the push service wrote, with no network call.
+            // Whether a ring for the incident played with the alarm stream at
+            // 0, muted, or under total-silence Do Not Disturb. A setup test
+            // never says the phone rang on such a ring.
+            "ringWasMuted" -> {
+                val incidentId = call.argument<String>("incident_id")
+                result.success(
+                    !incidentId.isNullOrEmpty() && runCatching {
+                        RingAudibility.wasMuted(BootStorage.prefs(context, RingAudibility.PREFS), incidentId)
+                    }.getOrDefault(false),
+                )
+            }
             "receivedAlarmFor" -> {
                 val incidentId = call.argument<String>("incident_id")
                 val deliveries = IncidentDeliveryStore(context)

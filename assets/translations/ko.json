@@ -330,6 +330,8 @@
     "send_message": "테스트 알람",
     "send_cancel": "취소",
     "works_title": "잘 작동해요",
+    "not_reached_title": "알람이 이 휴대폰에 도착하지 않았어요",
+    "muted_title": "이 휴대폰에서 소리 없이 울렸어요",
     "proof_server_sent": "서버가 보냈어요",
     "proof_push_arrived": "푸시가 도착했어요",
     "proof_phone_rang": "이 휴대폰이 울렸어요",

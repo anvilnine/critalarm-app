@@ -35,6 +35,9 @@ final class NotificationService: UNNotificationServiceExtension {
 
         content.interruptionLevel = interruptionLevel(for: push)
         PushEventLog.record("push_received", ["kind": push.kind.rawValue, "priority": push.priority])
+        if push.kind != .p4, let incidentId = push.incidentId {
+            ReceivedAlarmPushStore.record(incidentId: incidentId)
+        }
         NSLog(
             "CritAlarmNSE push_received kind=%@ priority=%d incident_id=%@ fetch=%@",
             push.kind.rawValue, push.priority, push.incidentId ?? "-",

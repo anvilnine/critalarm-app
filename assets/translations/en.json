@@ -330,6 +330,8 @@
     "send_message": "Test alarm",
     "send_cancel": "Cancel",
     "works_title": "It works",
+    "not_reached_title": "The alarm did not reach this phone",
+    "muted_title": "This phone rang without sound",
     "proof_server_sent": "The server sent it",
     "proof_push_arrived": "The push arrived",
     "proof_phone_rang": "This phone rang",

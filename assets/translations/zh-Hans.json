@@ -330,6 +330,8 @@
     "send_message": "测试警报",
     "send_cancel": "取消",
     "works_title": "成功了",
+    "not_reached_title": "警报没有送达这部手机",
+    "muted_title": "这部手机响铃时没有声音",
     "proof_server_sent": "服务器已发送",
     "proof_push_arrived": "推送已送达",
     "proof_phone_rang": "手机已响铃",

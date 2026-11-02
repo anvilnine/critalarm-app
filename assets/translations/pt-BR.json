@@ -330,6 +330,8 @@
     "send_message": "Alarme de teste",
     "send_cancel": "Cancelar",
     "works_title": "Funcionou",
+    "not_reached_title": "O alarme não chegou a este celular",
+    "muted_title": "Este celular tocou sem som",
     "proof_server_sent": "O servidor enviou",
     "proof_push_arrived": "O push chegou",
     "proof_phone_rang": "Este celular tocou",

@@ -330,6 +330,8 @@
     "send_message": "テストアラーム",
     "send_cancel": "キャンセル",
     "works_title": "動作しました",
+    "not_reached_title": "アラームがこのスマートフォンに届きませんでした",
+    "muted_title": "このスマートフォンは音なしで鳴りました",
     "proof_server_sent": "サーバーが送信しました",
     "proof_push_arrived": "プッシュが届きました",
     "proof_phone_rang": "このスマートフォンが鳴りました",

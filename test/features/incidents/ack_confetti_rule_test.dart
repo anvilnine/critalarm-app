@@ -14,6 +14,32 @@ void main() {
     ];
     const answers = <OfferOutlook?>[...OfferOutlook.values, null];
 
+    // W4: a setup test that did not reach the phone, or rang muted, is not
+    // celebrated.
+    test('a setup test not proved throws nothing, whatever the offer', () {
+      for (final offer in answers) {
+        expect(
+          ackConfettiMayFly(
+            exits: AckedExits.continueSetup,
+            offer: offer,
+            reduceMotion: false,
+            setupProved: false,
+          ),
+          isFalse,
+          reason: '$offer',
+        );
+      }
+      expect(
+        ackConfettiMayFly(
+          exits: AckedExits.incident,
+          offer: null,
+          reduceMotion: false,
+          setupProved: false,
+        ),
+        isTrue,
+      );
+    });
+
     test('every exit but the setup test ignores the offer answer', () {
       for (final exits in others) {
         for (final offer in answers) {

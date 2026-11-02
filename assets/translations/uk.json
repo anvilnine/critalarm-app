@@ -330,6 +330,8 @@
     "send_message": "Тестовий будильник",
     "send_cancel": "Скасувати",
     "works_title": "Працює",
+    "not_reached_title": "Будильник не дійшов до цього телефона",
+    "muted_title": "Цей телефон дзвонив без звуку",
     "proof_server_sent": "Сервер надіслав",
     "proof_push_arrived": "Push-сповіщення надійшло",
     "proof_phone_rang": "Цей телефон задзвонив",

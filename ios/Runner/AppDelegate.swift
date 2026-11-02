@@ -304,6 +304,11 @@ import AlarmKit
     let isLocalReminder = LocalReminderNotifications.isLocalReminder(notification.request)
     if !isLocalReminder {
       NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
+      if let shown = IncidentPush(payload: notification.request.content.userInfo),
+        shown.kind != .p4, let shownId = shown.incidentId
+      {
+        ReceivedAlarmPushStore.record(incidentId: shownId)
+      }
       // Nobody is going to tap this: the app is already open. Tell Dart so the
       // screen the user is on reloads. What changed is on the server and Dart
       // asks it. The incident id goes over only when this push is one that
@@ -358,6 +363,9 @@ import AlarmKit
 
     let info = response.notification.request.content.userInfo
     let incidentId = info["incident_id"] as? String
+    if let tapped = IncidentPush(payload: info), tapped.kind != .p4, let tappedId = tapped.incidentId {
+      ReceivedAlarmPushStore.record(incidentId: tappedId)
+    }
 
     if response.actionIdentifier == Self.ackAction, let incidentId {
       // Tapping "I'm up" opens the app to the active incident screen.
@@ -782,6 +790,12 @@ import AlarmKit
       }
       result(nil)
 
+    case "receivedAlarmFor":
+      // Whether an alarm push reached this phone for the incident. A setup
+      // test ticks "the push arrived" only on this answer.
+      let incidentId = args["incident_id"] as? String ?? ""
+      result(!incidentId.isEmpty && ReceivedAlarmPushStore.contains(incidentId: incidentId))
+
     case "isRinging":
       // True while an AlarmKit alarm is going off. Dart holds a shared sound
       // file until this is false, so the cropper never covers an alarm.
@@ -971,6 +985,8 @@ import AlarmKit
       completionHandler(.noData)
       return
     }
+    // What a setup test proves reads this (W4): the push reached this phone.
+    if push.kind != .p4 { ReceivedAlarmPushStore.record(incidentId: incidentId) }
 
     // A push that says the incident is done cancels the alarm and ends the card.
     if push.kind == .p4 {

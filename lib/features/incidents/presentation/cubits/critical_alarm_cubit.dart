@@ -1022,6 +1022,31 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         clearFirstTool: firstToolId == null,
       ),
     );
+    unawaited(_readSetupEvidence(incident.id));
+  }
+
+  /// Reads what native recorded about a setup test alarm, for the proof
+  /// list ([setupProofFor]). Nothing for an alarm that is not a setup test.
+  /// With no native side (the web build) the old full proof stands.
+  Future<void> _readSetupEvidence(String incidentId) async {
+    final kind = state.setupTest;
+    if (kind == SetupTestKind.none) return;
+    final alarm = _alarm;
+    var evidence = (pushArrived: true, heard: true);
+    if (alarm != null) {
+      try {
+        final arrived =
+            kind == SetupTestKind.serverSent &&
+            await alarm.receivedAlarmFor(incidentId);
+        final muted = await alarm.ringWasMuted(incidentId);
+        evidence = (pushArrived: arrived, heard: !muted);
+      } on Object catch (_) {
+        // Nothing read, nothing proved beyond what the server said.
+        evidence = (pushArrived: false, heard: false);
+      }
+    }
+    if (isClosed || state.incident?.id != incidentId) return;
+    emit(state.copyWith(setupEvidence: evidence));
   }
 
   /// Redraws the ringing line every [ringTick]. The duration used to be worked

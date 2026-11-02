@@ -330,6 +330,8 @@
     "send_message": "Zkušební alarm",
     "send_cancel": "Zrušit",
     "works_title": "Funguje to",
+    "not_reached_title": "Alarm se do tohoto telefonu nedostal",
+    "muted_title": "Tento telefon zvonil bez zvuku",
     "proof_server_sent": "Server ho odeslal",
     "proof_push_arrived": "Push oznámení dorazilo",
     "proof_phone_rang": "Telefon zazvonil",
