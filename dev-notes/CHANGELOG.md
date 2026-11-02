@@ -40,6 +40,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FeatureAccess keeps the last sure answer per feature. FeatureDecision.unread is usable only when that answer was open, and lockTapFor does nothing on an unread with no sure yes.
 - One shared quietly helper replaces three private copies, and 16 empty catches now print a debug-only trace
 - Paywall frame tools no longer point at the site checkout; the site takes only cloud-proof.webp from them, copied by hand.
+- Android: TapGate.admit also takes Flutter's engine start extras (FlutterShellExtras.NAMES) off every intent in a build that is not debuggable, and clears all extras if one cannot be read back. FlutterShellExtrasTest fails when a Flutter upgrade adds a start option that is not listed.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.

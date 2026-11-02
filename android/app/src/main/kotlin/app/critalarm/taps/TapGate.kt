@@ -2,6 +2,8 @@ package app.critalarm.taps
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.os.Bundle
 import app.critalarm.localreminders.LocalReminderAlarms
 import java.io.File
 
@@ -35,7 +37,8 @@ object TapGate {
      * Checks [intent] before anything reads it. True only for an intent the
      * app built itself. When it is not, every routing extra comes off, so
      * the launch goes on as a plain one. The mark comes off either way, and
-     * Flutter's own start route always does. Nothing is logged.
+     * Flutter's own start route always does. So do Flutter's engine start
+     * options ([FlutterShellExtras]) in a build that is not debuggable. Nothing is logged.
      */
     fun admit(context: Context, intent: Intent?): Boolean {
         if (intent == null) return false
@@ -44,10 +47,21 @@ object TapGate {
                 keyFor(context)
             }
         }.getOrDefault(TapVerdict.REFUSED)
-        intent.removeExtra(TapSignature.EXTRA)
-        intent.removeExtra(TapSignature.FLUTTER_ROUTE)
-        if (verdict == TapVerdict.REFUSED) {
-            TapSignature.FIELDS.forEach(intent::removeExtra)
+        val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        // An extra that cannot be read back (a class this app does not have)
+        // can throw on any touch. Then nothing on the intent is trusted and
+        // the launch goes on with no extras at all.
+        val clean = runCatching {
+            intent.removeExtra(TapSignature.EXTRA)
+            intent.removeExtra(TapSignature.FLUTTER_ROUTE)
+            if (!debuggable) FlutterShellExtras.NAMES.forEach(intent::removeExtra)
+            if (verdict == TapVerdict.REFUSED) {
+                TapSignature.FIELDS.forEach(intent::removeExtra)
+            }
+        }.isSuccess
+        if (!clean) {
+            intent.replaceExtras(null as Bundle?)
+            return false
         }
         return verdict == TapVerdict.SIGNED
     }
