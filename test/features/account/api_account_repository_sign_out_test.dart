@@ -8,14 +8,13 @@ import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:purchases_flutter/purchases_flutter.dart'
-    show PurchasesErrorCode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'account_fakes.dart';
@@ -70,10 +69,8 @@ final class _MemoryConnectionRepository implements ConnectionRepository {
   }
 }
 
-/// What the store's SDK throws: a [PlatformException] whose code is the
-/// index of a [PurchasesErrorCode].
-PlatformException _storeError(PurchasesErrorCode code) =>
-    PlatformException(code: code.index.toString(), message: code.name);
+/// What `StoreBilling.logOut` throws when the store could not be reached.
+const _storeError = StoreBillingException(StoreBillingError.network);
 
 /// A client whose device delete can be made to answer with a given status.
 final class _ScriptedDeleteApiClient extends MockApiClient {
@@ -188,58 +185,25 @@ void main() {
         expect(h.deviceToken, isNotNull);
       });
 
-      test('the store answering already-anonymous is not a failure', () async {
-        h.storeError = _storeError(
-          PurchasesErrorCode.logOutWithAnonymousUserError,
-        );
+      // "Already anonymous" is the store's own business: StoreBilling.logOut
+      // returns quietly for it (revenuecat_billing_test.dart). Here any throw
+      // stops the sign-out.
+      for (final MapEntry(key: label, value: error) in <String, Object>{
+        'a store error': _storeError,
+        'an app fault': StateError('boom'),
+        'a raw platform error': PlatformException(code: 'not-a-number'),
+      }.entries) {
+        test('$label stops before the fresh account', () async {
+          h.storeError = error;
 
-        await entry.value(h);
+          await expectLater(entry.value(h), throwsA(same(error)));
 
-        expect(h.storeLogOuts, 1);
-        expect(h.forgets, 1);
-        expect(h.deviceId, isNot(oldId));
-      });
-
-      test('a network error stops before the fresh account', () async {
-        h.storeError = _storeError(PurchasesErrorCode.networkError);
-
-        await expectLater(
-          entry.value(h),
-          throwsA(
-            isA<PlatformException>().having(
-              (e) => e.code,
-              'code',
-              PurchasesErrorCode.networkError.index.toString(),
-            ),
-          ),
-        );
-
-        // Nothing moved: same device, same connection, nothing forgotten.
-        expect(h.deviceId, oldId);
-        expect(h.forgets, 0);
-        expect(h.connections.connection, isNotNull);
-      });
-
-      test('an error that is not a store code stops it too', () async {
-        h.storeError = StateError('boom');
-
-        await expectLater(entry.value(h), throwsStateError);
-
-        expect(h.deviceId, oldId);
-        expect(h.forgets, 0);
-      });
-
-      test(
-        'a store code that is not a number is not the anonymous answer',
-        () async {
-          h.storeError = PlatformException(code: 'not-a-number');
-
-          await expectLater(entry.value(h), throwsA(isA<PlatformException>()));
-
+          // Nothing moved: same device, same connection, nothing forgotten.
           expect(h.deviceId, oldId);
           expect(h.forgets, 0);
-        },
-      );
+          expect(h.connections.connection, isNotNull);
+        });
+      }
     });
   }
 
@@ -259,10 +223,10 @@ void main() {
       test(
         'a $status on the delete is already deleted, so a retry finishes',
         () async {
-          h.storeError = _storeError(PurchasesErrorCode.networkError);
+          h.storeError = _storeError;
           await expectLater(
             h.account.signOutDevice(),
-            throwsA(isA<PlatformException>()),
+            throwsA(isA<StoreBillingException>()),
           );
           expect(h.api.deleteCalls, 1);
           expect(h.deviceId, oldId);
@@ -290,10 +254,10 @@ void main() {
     test(
       'without a scripted answer the mock server already says 401',
       () async {
-        h.storeError = _storeError(PurchasesErrorCode.networkError);
+        h.storeError = _storeError;
         await expectLater(
           h.account.signOutDevice(),
-          throwsA(isA<PlatformException>()),
+          throwsA(isA<StoreBillingException>()),
         );
         h.storeError = null;
 

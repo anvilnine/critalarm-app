@@ -13,9 +13,6 @@ import 'package:critalarm/features/account/domain/repositories/identity_reposito
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
-import 'package:flutter/services.dart' show PlatformException;
-import 'package:purchases_flutter/purchases_flutter.dart'
-    show PurchasesErrorCode, PurchasesErrorHelper;
 
 /// The account routes, plus the sign-out dance that needs four of them.
 final class ApiAccountRepository implements AccountRepository {
@@ -236,26 +233,12 @@ final class ApiAccountRepository implements AccountRepository {
 
   /// Logs the store out of the account this phone is leaving.
   ///
-  /// Only the store's "already anonymous" answer
-  /// (`logOutWithAnonymousUserError`) is expected: there is nothing to undo.
-  /// Any other failure is rethrown, so the caller stops before the phone
-  /// starts over on a new account that the store would hand the purchase to.
+  /// An already anonymous store user is not a failure: `StoreBilling.logOut`
+  /// returns quietly for it. Any throw propagates, so the caller stops
+  /// before the phone starts over on a new account that the store would
+  /// hand the purchase to.
   Future<void> _signOutOfStore() async {
-    try {
-      await signOutBilling?.call();
-    } on PlatformException catch (e) {
-      if (!_isAnonymousLogOut(e)) rethrow;
-    }
-  }
-
-  static bool _isAnonymousLogOut(PlatformException e) {
-    try {
-      return PurchasesErrorHelper.getErrorCode(e) ==
-          PurchasesErrorCode.logOutWithAnonymousUserError;
-    } on FormatException {
-      // A code that is not a number is not the store's anonymous answer.
-      return false;
-    }
+    await signOutBilling?.call();
   }
 
   /// Drops this phone's identity, its connection and its device credential,

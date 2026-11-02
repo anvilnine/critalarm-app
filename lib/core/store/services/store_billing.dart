@@ -70,7 +70,10 @@ abstract interface class StoreBilling {
   /// the id is kept and used once it is.
   Future<void> identifyAccount(String accountId);
 
-  /// Goes back to an anonymous store user.
+  /// Goes back to an anonymous store user. A store user that is already
+  /// anonymous is not an error: the call returns as if it had logged out.
+  /// Any other failure throws, so a sign-out can stop before the next
+  /// account is handed the purchase.
   Future<void> logOut();
 
   /// Drops the store's cached [readCustomer] answer, so the next read asks
