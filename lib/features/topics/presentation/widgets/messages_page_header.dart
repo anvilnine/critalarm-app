@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/screen_clock.dart';
 import 'package:critalarm/features/topics/domain/topic_messages_page.dart';
@@ -121,7 +122,7 @@ class _Words extends StatelessWidget {
     final value = count;
 
     final label = Text(
-      LocaleKeys.topic_detail_messages_header.tr().toUpperCase(),
+      upperInContext(LocaleKeys.topic_detail_messages_header.tr(), context),
       style: AppTypography.monoBold(
         colors.onCanvas,
         fontSize: 10.5,

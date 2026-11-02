@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
@@ -404,7 +405,7 @@ class _StateWord extends StatelessWidget {
           vertical: fontSize * 0.32,
         ),
         child: Text(
-          word.toUpperCase(),
+          upperInContext(word, context),
           maxLines: 1,
           softWrap: false,
           style: AppTypography.label(ink, fontSize: fontSize).copyWith(

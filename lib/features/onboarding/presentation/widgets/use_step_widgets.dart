@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:flutter/material.dart';
 
@@ -189,7 +190,7 @@ class UseSkipButton extends StatelessWidget {
       child: AppTapTarget(
         onTap: onTap,
         child: Text(
-          label.toUpperCase(),
+          upperInContext(label, context),
           maxLines: 1,
           style: AppTypography.monoBold(
             colors.onCanvasMuted,

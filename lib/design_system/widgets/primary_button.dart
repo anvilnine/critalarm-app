@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design_system/tokens/colors.dart';
 import 'package:critalarm/design_system/tokens/durations.dart';
@@ -78,7 +79,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                         ),
                       )
                     : Text(
-                        widget.label.toUpperCase(),
+                        upperInContext(widget.label, context),
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
                               fontSize: 17,
