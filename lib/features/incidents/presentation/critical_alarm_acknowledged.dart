@@ -33,10 +33,10 @@ class AcknowledgedScreen extends StatelessWidget {
         : null;
     final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
     final startedLabel = startedAt != null
-        ? formatClock(startedAt, is24Hour: is24Hour, withSeconds: true)
+        ? formatLocalClock(startedAt, is24Hour: is24Hour, withSeconds: true)
         : '';
     final ackedLabel = ackedAt != null
-        ? formatClock(ackedAt, is24Hour: is24Hour, withSeconds: true)
+        ? formatLocalClock(ackedAt, is24Hour: is24Hour, withSeconds: true)
         : '';
     final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
       namedArgs: {

@@ -42,6 +42,21 @@ String formatClock(
   return DateFormat(fallback, resolved).format(at);
 }
 
+/// [formatClock] for a moment that may be in UTC, such as an incident's
+/// `opened_at` or `acked_at` from the server, shown in the phone's own time
+/// zone. Without this a Manila phone showed 11:15 next to a 19:15 source.
+String formatLocalClock(
+  DateTime at, {
+  required bool is24Hour,
+  bool withSeconds = false,
+  String? locale,
+}) => formatClock(
+  at.toLocal(),
+  is24Hour: is24Hour,
+  withSeconds: withSeconds,
+  locale: locale,
+);
+
 /// A time given as minutes from local midnight (07:00 is 420), shown with
 /// [formatClock]. Values past a day wrap, so 1500 reads as 01:00.
 String formatMinuteOfDay(
