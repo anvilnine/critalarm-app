@@ -971,6 +971,8 @@
     "load_failed_title": "Nie udało się wczytać alarmu",
     "close_queued_title": "Zostanie zamknięty, gdy serwer odpowie",
     "close_queued_body": "Żądanie zamknięcia zostanie wysłane, gdy telefon połączy się z twoim serwerem. Do tego czasu alarm może zadzwonić ponownie.",
+    "ack_queued_title": "„Już nie śpię” zostanie wysłane, gdy serwer odpowie",
+    "ack_queued_body": "Na tym telefonie alarm przestał dzwonić. „Już nie śpię” zostanie wysłane, gdy telefon połączy się z twoim serwerem.",
     "load_failed_body": "Alarm nadal jest otwarty na serwerze. Spróbuj ponownie lub wycisz ten telefon i otwórz alarm z listy tematów.",
     "retry_button": "Spróbuj ponownie",
     "silence_button": "Wycisz ten telefon",

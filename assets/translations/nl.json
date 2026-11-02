@@ -949,6 +949,8 @@
     "load_failed_title": "Kon het alarm niet laden",
     "close_queued_title": "Wordt gesloten zodra je server reageert",
     "close_queued_body": "Het sluitverzoek wordt verstuurd zodra deze telefoon je server kan bereiken. Tot die tijd kan het alarm opnieuw afgaan.",
+    "ack_queued_title": "Ik ben wakker wordt verstuurd zodra je server reageert",
+    "ack_queued_body": "Het alarm is op deze telefoon gestopt. Ik ben wakker wordt verstuurd zodra deze telefoon je server kan bereiken.",
     "load_failed_body": "Het alarm staat nog open op de server. Probeer het opnieuw of stop het geluid op deze telefoon en open het alarm via je topics.",
     "retry_button": "Opnieuw proberen",
     "silence_button": "Stop het geluid op deze telefoon",

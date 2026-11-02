@@ -949,6 +949,8 @@
     "load_failed_title": "Alarm yüklenemedi",
     "close_queued_title": "Sunucun yanıt verdiğinde kapanacak",
     "close_queued_body": "Bu telefon sunucuna ulaşır ulaşmaz kapatma isteği gönderilir. O zamana kadar alarm tekrar çalabilir.",
+    "ack_queued_title": "Sunucun yanıt verdiğinde Uyandım gönderilecek",
+    "ack_queued_body": "Bu telefonda çalma durdu. Bu telefon sunucuna ulaşır ulaşmaz Uyandım gönderilir.",
     "load_failed_body": "Alarm sunucuda hâlâ açık. Tekrar dene veya bu telefondaki sesi durdurup konularından aç.",
     "retry_button": "Tekrar dene",
     "silence_button": "Bu telefondaki sesi durdur",

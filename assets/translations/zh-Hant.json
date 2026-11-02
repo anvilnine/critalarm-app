@@ -938,6 +938,8 @@
     "load_failed_title": "無法載入警報",
     "close_queued_title": "等待伺服器回應以結束警報",
     "close_queued_body": "這支手機一連上伺服器，就會送出結束請求。在此之前，警報可能會再次響起。",
+    "ack_queued_title": "等伺服器回應後送出「我醒了」",
+    "ack_queued_body": "這支手機已停止響鈴。這支手機一連上伺服器，就會送出「我醒了」。",
     "load_failed_body": "警報在伺服器上仍未結束。請再試一次，或先停止這支手機的聲音，再從主題開啟警報。",
     "retry_button": "再試一次",
     "silence_button": "停止這支手機的聲音",

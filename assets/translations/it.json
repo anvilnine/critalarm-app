@@ -949,6 +949,8 @@
     "load_failed_title": "Impossibile caricare l’allarme",
     "close_queued_title": "Si chiude appena il server risponde",
     "close_queued_body": "La richiesta di chiusura verrà inviata non appena il telefono riuscirà a contattare il server. Fino ad allora l’allarme potrebbe suonare di nuovo.",
+    "ack_queued_title": "\"Arrivo\" verrà inviato appena il server risponde",
+    "ack_queued_body": "Il telefono ha smesso di suonare. \"Arrivo\" verrà inviato non appena il telefono riuscirà a contattare il server.",
     "load_failed_body": "L’allarme è ancora aperto sul server. Riprova, oppure silenzia questo telefono e aprilo dai tuoi topic.",
     "retry_button": "Riprova",
     "silence_button": "Silenzia questo telefono",

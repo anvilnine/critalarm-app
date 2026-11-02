@@ -68,18 +68,26 @@ Widget _noAlarmContent(BuildContext context, CriticalAlarmState state) {
   // Set only when a native Done opened the screen and the server
   // gave no answer. Without it this screen is what it always was.
   final doneId = isLoading ? null : state.doneIncidentId;
-  final isHandedOff = !isLoading && state.isDoneHandedOff;
+  final isAckHandedOff = !isLoading && state.isAckHandedOff;
+  final isHandedOff = !isLoading && (state.isDoneHandedOff || isAckHandedOff);
   final didFail = !isLoading && (state.errorMessage != null || doneId != null);
+  // Set when the load got no answer for an incident this phone rang: the
+  // failed screen still has "I'm up", handed to native.
+  final offlineAckId = isLoading ? null : state.offlineAckIncidentId;
 
   final emptyState = AppEmptyState(
     title: isLoading
         ? LocaleKeys.critical_alarm_loading_title.tr()
+        : isAckHandedOff
+        ? LocaleKeys.critical_alarm_ack_queued_title.tr()
         : isHandedOff
         ? LocaleKeys.critical_alarm_close_queued_title.tr()
         : didFail
         ? LocaleKeys.critical_alarm_load_failed_title.tr()
         : LocaleKeys.critical_alarm_no_alarm_title.tr(),
-    description: isHandedOff
+    description: isAckHandedOff
+        ? LocaleKeys.critical_alarm_ack_queued_body.tr()
+        : isHandedOff
         ? LocaleKeys.critical_alarm_close_queued_body.tr()
         : didFail
         ? LocaleKeys.critical_alarm_load_failed_body.tr()
@@ -138,6 +146,21 @@ Widget _noAlarmContent(BuildContext context, CriticalAlarmState state) {
               // signal. It opened the app instead, so the close is
               // still one tap away, handed back to the same native
               // code.
+              // Offline, the phone this alarm rings on still answers it:
+              // the notification's own "I'm up", pressed from here.
+              if (offlineAckId != null) ...[
+                AppButton(
+                  label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
+                  isFullWidth: true,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    unawaited(
+                      context.read<CriticalAlarmCubit>().handAckToNative(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
               if (doneId != null) ...[
                 AppButton(
                   label: LocaleKeys.critical_alarm_at_my_desk_button.tr(),
@@ -154,6 +177,9 @@ Widget _noAlarmContent(BuildContext context, CriticalAlarmState state) {
               ],
               AppButton(
                 label: LocaleKeys.critical_alarm_retry_button.tr(),
+                variant: offlineAckId == null
+                    ? AppButtonVariant.primary
+                    : AppButtonVariant.ghost,
                 isFullWidth: true,
                 // A try again from the screen a Done button opened
                 // asks for the same incident, so one more failure

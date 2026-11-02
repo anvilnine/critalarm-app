@@ -938,6 +938,8 @@
     "load_failed_title": "无法加载警报",
     "close_queued_title": "服务器响应后将关闭",
     "close_queued_body": "本机一旦连上你的服务器，就会发送关闭请求。在此之前，警报可能会再次响起。",
+    "ack_queued_title": "服务器响应后将发送“我醒了”",
+    "ack_queued_body": "本机已停止响铃。本机一旦连上你的服务器，就会发送“我醒了”。",
     "load_failed_body": "服务器上的警报仍未关闭。请重试，或先停止本机声音，再从主题列表中打开。",
     "retry_button": "重试",
     "silence_button": "停止本机声音",

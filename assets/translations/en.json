@@ -949,6 +949,8 @@
     "load_failed_title": "Could not load the alarm",
     "close_queued_title": "Closing when your server answers",
     "close_queued_body": "The close is sent as soon as this phone can reach your server. Until then the alarm can ring again.",
+    "ack_queued_title": "Sending I'm up when your server answers",
+    "ack_queued_body": "The ring stopped on this phone. I'm up is sent as soon as this phone can reach your server.",
     "load_failed_body": "The alarm is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
     "retry_button": "Try again",
     "silence_button": "Stop the noise on this phone",

@@ -949,6 +949,8 @@
     "load_failed_title": "No se pudo cargar la alarma",
     "close_queued_title": "Se cerrará cuando responda tu servidor",
     "close_queued_body": "La solicitud de cierre se enviará en cuanto este teléfono pueda conectarse con tu servidor. Hasta entonces, la alarma puede volver a sonar.",
+    "ack_queued_title": "\"Ya voy\" se enviará cuando responda tu servidor",
+    "ack_queued_body": "La alarma dejó de sonar en este teléfono. \"Ya voy\" se enviará en cuanto este teléfono pueda conectarse con tu servidor.",
     "load_failed_body": "La alarma sigue abierta en el servidor. Inténtalo de nuevo o detén el sonido en este teléfono y ábrela desde tus temas.",
     "retry_button": "Reintentar",
     "silence_button": "Detener el sonido en este teléfono",

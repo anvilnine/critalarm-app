@@ -34,4 +34,21 @@ object DoneHandOffRule {
         ringing: Boolean,
         rearmPending: Boolean,
     ): Boolean = acknowledged && !closed && !active && !ringing && !rearmPending
+
+    /**
+     * Whether the alarm screen that could not load the incident may hand
+     * "I'm up" to the receiver, the way the notification's "I'm up" does.
+     *
+     * Only for an incident this phone itself rang and nobody answered yet:
+     * ringing now, set to ring again, or open and silenced. The receiver
+     * then queues the ack with no signal and sets the desk timer chain.
+     * Nothing comes from Dart but the id.
+     */
+    fun mayAckFromScreen(
+        acknowledged: Boolean,
+        closed: Boolean,
+        active: Boolean,
+        ringing: Boolean,
+        rearmPending: Boolean,
+    ): Boolean = !acknowledged && !closed && (ringing || active || rearmPending)
 }

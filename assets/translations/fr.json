@@ -949,6 +949,8 @@
     "load_failed_title": "Impossible de charger l’alarme",
     "close_queued_title": "Clôture dès que votre serveur répondra",
     "close_queued_body": "La demande de clôture sera envoyée dès que ce téléphone pourra joindre votre serveur. D’ici là, l’alarme peut sonner à nouveau.",
+    "ack_queued_title": "« Je suis debout » envoyé dès que votre serveur répondra",
+    "ack_queued_body": "La sonnerie s’est arrêtée sur ce téléphone. « Je suis debout » sera envoyé dès que ce téléphone pourra joindre votre serveur.",
     "load_failed_body": "L’alarme reste ouverte sur le serveur. Réessayez, ou coupez le son de ce téléphone et ouvrez-la depuis vos topics.",
     "retry_button": "Réessayer",
     "silence_button": "Couper le son de ce téléphone",

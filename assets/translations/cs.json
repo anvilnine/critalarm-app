@@ -960,6 +960,8 @@
     "load_failed_title": "Alarm se nepodařilo načíst",
     "close_queued_title": "Uzavře se, až tvůj server odpoví",
     "close_queued_body": "Uzavření se odešle, jakmile se telefon spojí s tvým serverem. Do té doby může alarm znovu zazvonit.",
+    "ack_queued_title": "Už jsem vzhůru se odešle, až tvůj server odpoví",
+    "ack_queued_body": "Na tomto telefonu zvonění přestalo. Už jsem vzhůru se odešle, jakmile se telefon spojí s tvým serverem.",
     "load_failed_body": "Alarm je na serveru stále otevřený. Zkus to znovu, nebo ztiš telefon a otevři ho ze seznamu témat.",
     "retry_button": "Zkusit znovu",
     "silence_button": "Ztišit telefon",

@@ -949,6 +949,8 @@
     "load_failed_title": "Não foi possível carregar o alarme",
     "close_queued_title": "Encerra quando seu servidor responder",
     "close_queued_body": "O pedido de encerramento é enviado assim que este celular conseguir acessar seu servidor. Até lá, o alarme pode tocar de novo.",
+    "ack_queued_title": "\"Já acordei\" é enviado quando seu servidor responder",
+    "ack_queued_body": "O alarme parou de tocar neste celular. \"Já acordei\" é enviado assim que este celular conseguir acessar seu servidor.",
     "load_failed_body": "O alarme continua aberto no servidor. Tente de novo ou pare o som neste celular e abra pelos seus tópicos.",
     "retry_button": "Tentar de novo",
     "silence_button": "Parar o som neste celular",

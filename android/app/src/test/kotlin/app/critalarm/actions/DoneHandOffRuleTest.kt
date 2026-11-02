@@ -13,6 +13,30 @@ class DoneHandOffRuleTest {
         rearmPending: Boolean = false,
     ) = DoneHandOffRule.mayClose(acknowledged, closed, active, ringing, rearmPending)
 
+    private fun mayAck(
+        acknowledged: Boolean = false,
+        closed: Boolean = false,
+        active: Boolean = false,
+        ringing: Boolean = false,
+        rearmPending: Boolean = false,
+    ) = DoneHandOffRule.mayAckFromScreen(acknowledged, closed, active, ringing, rearmPending)
+
+    @Test
+    fun `an incident this phone rings, holds or will ring again may be acked from the screen`() {
+        assertTrue(mayAck(ringing = true))
+        assertTrue(mayAck(active = true))
+        assertTrue(mayAck(rearmPending = true))
+        assertTrue(mayAck(active = true, ringing = true, rearmPending = true))
+    }
+
+    @Test
+    fun `an id this phone never rang, or one already answered, is not acked from the screen`() {
+        assertFalse(mayAck())
+        assertFalse(mayAck(acknowledged = true))
+        assertFalse(mayAck(closed = true, active = true))
+        assertFalse(mayAck(acknowledged = true, ringing = true))
+    }
+
     @Test
     fun `acknowledged here and quiet may be closed`() {
         assertTrue(mayClose(acknowledged = true))

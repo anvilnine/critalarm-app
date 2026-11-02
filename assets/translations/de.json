@@ -949,6 +949,8 @@
     "load_failed_title": "Alarm konnte nicht geladen werden",
     "close_queued_title": "Wird geschlossen, sobald dein Server antwortet",
     "close_queued_body": "Das Schließen wird gesendet, sobald dieses Handy deinen Server erreicht. Bis dahin kann der Alarm erneut klingeln.",
+    "ack_queued_title": "Ich bin wach wird gesendet, sobald dein Server antwortet",
+    "ack_queued_body": "Auf diesem Handy hat das Klingeln aufgehört. Ich bin wach wird gesendet, sobald dieses Handy deinen Server erreicht.",
     "load_failed_body": "Der Alarm ist auf dem Server noch offen. Versuche es erneut oder stoppe den Ton auf diesem Handy und öffne ihn über deine Topics.",
     "retry_button": "Erneut versuchen",
     "silence_button": "Ton auf diesem Handy stoppen",

@@ -136,6 +136,34 @@ class AlarmChannel(
                 result.success(null)
             }
 
+            // "I'm up" on the alarm screen that could not load the incident,
+            // for an incident this phone rang (DoneHandOffRule.mayAckFromScreen).
+            // "canAckFromScreen" asks before the button is drawn;
+            // "ackFromScreen" is the notification's "I'm up", pressed from the
+            // screen: the same broadcast to the same receiver, which stops the
+            // ring, queues the ack with no signal and sets the desk timer chain.
+            "canAckFromScreen", "ackFromScreen" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(false)
+                    return
+                }
+                val deliveries = IncidentDeliveryStore(context)
+                val mayAck = DoneHandOffRule.mayAckFromScreen(
+                    acknowledged = deliveries.isAcknowledged(incidentId),
+                    closed = deliveries.isClosed(incidentId),
+                    active = deliveries.isActive(incidentId),
+                    ringing = AlarmForegroundService.isRinging(incidentId),
+                    rearmPending = AlarmChain.of(context)
+                        .ringPending(incidentId, System.currentTimeMillis()),
+                )
+                if (mayAck && call.method == "ackFromScreen") {
+                    Log.i(TAG, "ack_from_screen incident_id=$incidentId")
+                    context.sendBroadcast(imUpBroadcast(context, incidentId))
+                }
+                result.success(mayAck)
+            }
+
             // "At my desk" on the screen a Done button opened and could not
             // load. This is that Done button, pressed late: the same
             // broadcast to the same receiver, which sends the close, queues
@@ -426,6 +454,15 @@ class AlarmChannel(
      * The broadcast Done on an acknowledged card sends, as
      * StatusNotificationFactory and the widgets build it.
      */
+    private fun imUpBroadcast(context: Context, incidentId: String): Intent =
+        Intent(context, IncidentActionReceiver::class.java).apply {
+            action = IncidentActionReceiver.ACTION_STOP
+            putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
+            NativeConnectionStore(context).canonicalServer()?.let {
+                putExtra(IncidentActionReceiver.EXTRA_SERVER, it.toString())
+            }
+        }
+
     private fun doneBroadcast(context: Context, incidentId: String): Intent =
         Intent(context, IncidentActionReceiver::class.java).apply {
             action = IncidentActionReceiver.ACTION_ACKNOWLEDGE

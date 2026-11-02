@@ -218,6 +218,23 @@ final class AlarmHost {
         'incident_id': incidentId,
       });
 
+  /// Whether the alarm screen that could not load [incidentId] may offer
+  /// "I'm up" for it: this phone rang it and nobody answered it yet. Native
+  /// decides from its own record. False where the platform has no such call
+  /// (iOS answers "I'm up" through the alarm itself).
+  Future<bool> canAckFromScreen(String incidentId) async =>
+      await _invoke<bool>('canAckFromScreen', {'incident_id': incidentId}) ??
+      false;
+
+  /// "I'm up" from the screen that could not load [incidentId]: native runs
+  /// the notification's own "I'm up", which stops the ring, sends the ack or
+  /// keeps it until the server can be reached, and starts the desk timer.
+  /// Answers false when native refused or has no such call, and then nothing
+  /// was done.
+  Future<bool> ackFromScreen(String incidentId) async =>
+      await _invoke<bool>('ackFromScreen', {'incident_id': incidentId}) ??
+      false;
+
   /// The error code native answers when the incident is not acknowledged
   /// on this phone. `AlarmChannel.NOT_ACKNOWLEDGED` on Android and the
   /// same word in `AppDelegate` hold it too.
