@@ -28,6 +28,7 @@ import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/domain/paywall_lead_facts.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
+import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -47,6 +48,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+part 'create_topic_screen_sections.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
@@ -884,8 +887,6 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
     return BlocConsumer<CreateTopicCubit, CreateTopicState>(
       // Only on a change of status, or a name the field does not hold yet (a
       // tool chip filled it), so typing after a failed create does not drag
@@ -894,644 +895,316 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           previous.status != current.status ||
           (previous.name != current.name &&
               current.name != _nameController.text),
-      listener: (context, state) {
-        if (state.name != _nameController.text) {
-          _nameController.value = TextEditingValue(
-            text: state.name,
-            selection: TextSelection.collapsed(offset: state.name.length),
-          );
-        }
-        if (_isSetup) {
-          // The small face beside the setup tracker is worried after a
-          // failed create. Back is held while the topic is being made and
-          // once it exists: there is no going back behind a topic.
-          OnboardingAmbientScope.maybeOf(context)
-            ?..setFaceMood(
-              state.status == CreateTopicStatus.failure
-                  ? TravellingFaceMood.worried
-                  : null,
-            )
-            ..holdBack(
-              isHeld:
-                  state.status == CreateTopicStatus.submitting ||
-                  state.status == CreateTopicStatus.success,
-            );
-        }
-        if (state.status == CreateTopicStatus.success) {
-          AppHaptics.success();
-          final created = LocaleKeys.create_topic_toast_created.tr();
-          if (_isSetup) {
-            // The screen is about to move on, so a toast would only flash.
-            // The face says it, and a screen reader hears it.
-            unawaited(
-              SemanticsService.sendAnnouncement(
-                View.of(context),
-                created,
-                Directionality.of(context),
-              ),
-            );
-          } else {
-            _showToast(created);
-          }
-          _onCreated();
-          // One critical topic left on the free plan. The user is closer to
-          // the wall than they may know, so this is a fair time to mention
-          // it, after the topic they came for is safely made. Never in
-          // setup, which shows no ask.
-          if (!_isSetup && state.isFreeTier && state.criticalRemaining == 1) {
-            unawaited(_askAboutPro(context, HostedAskTrigger.lastCriticalUsed));
-          }
-        }
-        // Hitting the limit is the one moment the user is actually thinking
-        // about limits, so it is the moment worth asking about Pro. Only the
-        // critical topic cap: a device or daily cap is a different problem
-        // and Pro is not the answer to it.
-        if (state.capReached?.name == 'critical_topics') {
-          // Just bought Pro and the server has not heard yet. Asking them to
-          // buy it again would be wrong, so say it is on its way.
-          if (state.isPlanConfirming) {
-            _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
-          } else if (!_isSetup) {
-            unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));
-          }
-        }
-        if (state.status == CreateTopicStatus.failure) {
-          // A failed create sends the user back to step 1 with the message
-          // under the topic name field. Focus it, so the keyboard is up on
-          // the field they have to fix.
+      listener: _onStateChanged,
+      builder: _buildPage,
+    );
+  }
+
+  void _onStateChanged(BuildContext context, CreateTopicState state) {
+    if (state.name != _nameController.text) {
+      _nameController.value = TextEditingValue(
+        text: state.name,
+        selection: TextSelection.collapsed(offset: state.name.length),
+      );
+    }
+    if (_isSetup) {
+      // The small face beside the setup tracker is worried after a
+      // failed create. Back is held while the topic is being made and
+      // once it exists: there is no going back behind a topic.
+      OnboardingAmbientScope.maybeOf(context)
+        ?..setFaceMood(
+          state.status == CreateTopicStatus.failure
+              ? TravellingFaceMood.worried
+              : null,
+        )
+        ..holdBack(
+          isHeld:
+              state.status == CreateTopicStatus.submitting ||
+              state.status == CreateTopicStatus.success,
+        );
+    }
+    if (state.status == CreateTopicStatus.success) {
+      AppHaptics.success();
+      final created = LocaleKeys.create_topic_toast_created.tr();
+      if (_isSetup) {
+        // The screen is about to move on, so a toast would only flash.
+        // The face says it, and a screen reader hears it.
+        unawaited(
+          SemanticsService.sendAnnouncement(
+            View.of(context),
+            created,
+            Directionality.of(context),
+          ),
+        );
+      } else {
+        _showToast(created);
+      }
+      _onCreated();
+      // One critical topic left on the free plan. The user is closer to
+      // the wall than they may know, so this is a fair time to mention
+      // it, after the topic they came for is safely made. Never in
+      // setup, which shows no ask.
+      if (!_isSetup && state.isFreeTier && state.criticalRemaining == 1) {
+        unawaited(_askAboutPro(context, HostedAskTrigger.lastCriticalUsed));
+      }
+    }
+    // Hitting the limit is the one moment the user is actually thinking
+    // about limits, so it is the moment worth asking about Pro. Only the
+    // critical topic cap: a device or daily cap is a different problem
+    // and Pro is not the answer to it.
+    if (state.capReached?.name == 'critical_topics') {
+      // Just bought Pro and the server has not heard yet. Asking them to
+      // buy it again would be wrong, so say it is on its way.
+      if (state.isPlanConfirming) {
+        _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
+      } else if (!_isSetup) {
+        unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));
+      }
+    }
+    if (state.status == CreateTopicStatus.failure) {
+      // A failed create sends the user back to step 1 with the message
+      // under the topic name field. Focus it, so the keyboard is up on
+      // the field they have to fix.
+      _focusNameField();
+    }
+  }
+
+  /// Leaves the screen: setup moves on, a made topic opens, anything else
+  /// pops (or goes home when there is nothing to pop).
+  void _close(BuildContext context, CreateTopicState state) {
+    if (_isSetup) {
+      _leaveSetup();
+      return;
+    }
+    final created = state.createdTopic;
+    if (created != null) {
+      if (context.canPop()) {
+        context.pop();
+        unawaited(context.push('/topics/${created.name}'));
+      } else {
+        context.go('/topics/${created.name}');
+      }
+      return;
+    }
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
+  }
+
+  Widget _buildPage(BuildContext context, CreateTopicState state) {
+    final colors = context.appColors;
+    final cubit = context.read<CreateTopicCubit>();
+    final token = state.createdToken;
+    final isSetup = _isSetup;
+    final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+
+    final isSubmitting = state.status == CreateTopicStatus.submitting;
+    final isSuccess = state.status == CreateTopicStatus.success;
+    final isTokenStep = state.step == CreateTopicStep.token;
+    final face = createTopicFace(
+      hasError: state.errorMessage != null,
+      isCreated: isSuccess,
+      hasSettled: _faceSettled,
+      isCritical: state.isCritical,
+    );
+    final stepKey = ValueKey<CreateTopicStep>(state.step);
+    // Duration.zero under reduce motion, so the step swaps instead of
+    // sliding. Same flag the ambient canvas below is handed.
+    final stepDuration = context.motion(AppDurations.base);
+    // Nothing to do with a name the app already knows is taken.
+    final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
+    // Setup has no created stop: the picture of Home takes the form's
+    // place for a beat and the screen moves on.
+    final showsForm = !isSuccess || isSetup;
+    // The step where the topic gets made is the one with something to
+    // agree to.
+    final showsLegal = !isSuccess && (isSetup || isTokenStep);
+    // Setup made the topic: the form and the button give way to the
+    // picture of Home, which is all there is to look at for that beat.
+    final madeTopic = isSetup && _showsTopicMade ? state.createdTopic : null;
+    if (madeTopic != null) {
+      return _TopicMadePicture(topic: madeTopic, onDone: _leaveSetup);
+    }
+
+    // The system back button and the back gesture do what the top bar's
+    // Back does: on step 2 they return to step 1 with everything typed
+    // still there. Once the topic exists the form is over, so back leaves
+    // the screen like it does on step 1.
+    final canPop = !isTokenStep || isSuccess;
+
+    void close() => _close(context, state);
+
+    final button = _CreateButton(
+      isSuccess: isSuccess,
+      isSetup: isSetup,
+      isTokenStep: isTokenStep,
+      isSubmitting: isSubmitting,
+      isNameTaken: isNameTaken,
+      onClose: close,
+      onSubmit: _submit,
+      onNext: _next,
+    );
+
+    // Where the form sits: a phone column, a centred group on a tablet
+    // or desktop window, or split at the fold of a half-open foldable.
+    final frame = ScreenFrame.of(context);
+    final splits = frame.splitsAtFold;
+    final centresGroup =
+        frame == ScreenFrame.centred || frame == ScreenFrame.book;
+    // On the Razr cover and in the bottom half of a tabletop fold a
+    // pinned button would sit on the form (the name field, the ring
+    // card), so it scrolls with the form, after the card.
+    final flowsActions = actionsFlowFor(frame);
+    final isInline = actionsInlineFor(
+      frame,
+      hasKeyboard: hasKeyboard,
+      fits: groupFits(
+        group: _formHeight,
+        actions:
+            _actionsHeight ??
+            MediaQuery.textScalerOf(context).scale(isSetup ? 60 : 48) +
+                (showsLegal ? 48 : 0),
+        gap: _actionsGap,
+        available: _groupRoom,
+      ),
+    );
+
+    // The face and what names the step. In setup it gives way to the
+    // form when the keyboard is up, unless it has a pane of its own.
+    final stageBox = _CreateStage(
+      isSetup: isSetup,
+      face: face,
+      frame: frame,
+      stepDuration: stepDuration,
+      givesWayToForm: hasKeyboard && !splits,
+    );
+
+    final formCard = _FormCard(
+      state: state,
+      token: token,
+      stepKey: stepKey,
+      stepDuration: stepDuration,
+      isSetup: isSetup,
+      isTokenStep: isTokenStep,
+      showsForm: showsForm,
+      splits: splits,
+      frame: frame,
+      hasKeyboard: hasKeyboard,
+      onCopied: _showToast,
+      stepBody: showsForm
+          ? (isTokenStep
+                ? _tokenStepBody(context, state)
+                : _topicStepBody(context, state))
+          : null,
+    );
+
+    // The button, the toast above it and the legal line under it. Pinned
+    // to the bottom, or right under the form on a wide window.
+    Widget actions({required bool isPinned}) => _Actions(
+      toast: _toast,
+      button: button,
+      showsLegal: showsLegal,
+      isSetup: isSetup,
+      isPinned: isPinned,
+    );
+
+    final content = _PageScaffold(
+      canPop: canPop,
+      onStepBack: () {
+        cubit.previousStep();
+        _focusNameField();
+      },
+      scroll: _scroll,
+      topBar: _CreateTopBar(
+        isSetup: isSetup,
+        isTokenStep: isTokenStep,
+        isSuccess: isSuccess,
+        face: face,
+        // Only asked in setup with the keyboard up, as before.
+        showsSmallFace:
+            isSetup &&
+            hasKeyboard &&
+            !splits &&
+            !OnboardingAmbientScope.showsTrackerOf(context),
+        onBack: () {
+          cubit.previousStep();
+          // Step 1 is one field too, so the keyboard moves back
+          // to it instead of coming down.
           _focusNameField();
-        }
-      },
-      builder: (context, state) {
-        final cubit = context.read<CreateTopicCubit>();
-        final token = state.createdToken;
-        final isSetup = _isSetup;
-        final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
-
-        final isSubmitting = state.status == CreateTopicStatus.submitting;
-        final isSuccess = state.status == CreateTopicStatus.success;
-        final isTokenStep = state.step == CreateTopicStep.token;
-        final face = createTopicFace(
-          hasError: state.errorMessage != null,
-          isCreated: isSuccess,
-          hasSettled: _faceSettled,
-          isCritical: state.isCritical,
-        );
-        final stepKey = ValueKey<CreateTopicStep>(state.step);
-        // Duration.zero under reduce motion, so the step swaps instead of
-        // sliding. Same flag the ambient canvas below is handed.
-        final stepDuration = context.motion(AppDurations.base);
-        // Nothing to do with a name the app already knows is taken.
-        final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
-        // Setup has no created stop: the picture of Home takes the form's
-        // place for a beat and the screen moves on.
-        final showsForm = !isSuccess || isSetup;
-        final showsCreated = token != null && !isSetup;
-        // The step where the topic gets made is the one with something to
-        // agree to.
-        final showsLegal = !isSuccess && (isSetup || isTokenStep);
-        // Setup made the topic: the form and the button give way to the
-        // picture of Home, which is all there is to look at for that beat.
-        final madeTopic = isSetup && _showsTopicMade
-            ? state.createdTopic
-            : null;
-        if (madeTopic != null) {
-          return AmbientOverride(
-            profile: AmbientAppProfiles.createTopic(colors),
-            direction: AmbientDirection.push,
-            child: Semantics(
-              button: true,
-              label: LocaleKeys.onboarding_welcome_continue.tr(),
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                // A tap anywhere skips the picture.
-                onTap: _leaveSetup,
-                child: AppScreenScaffold(
-                  hasTabBar: false,
-                  topBar: AppTopBar(title: setupTopBarTitle(context)),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: TopicMadeBeat(
-                        topicName: madeTopic.name,
-                        ringsThroughSilent: madeTopic.critical,
-                        onDone: _leaveSetup,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        },
+        onClose: close,
+      ),
+      // Pinned, so the button is at one height in every state and
+      // stays above the keyboard.
+      bottomBar: isInline || flowsActions ? null : actions(isPinned: true),
+      // On a half-open foldable the face and the step stay put in
+      // one pane (beside or above the fold) and the form scrolls in
+      // the other one.
+      foldStage: splits
+          ? _FoldStage(
+              isSetup: isSetup,
+              showsStepLabel: showsForm && !isSetup,
+              face: face,
+              stage: stageBox,
+              isTokenStep: isTokenStep,
+            )
+          : null,
+      slivers: [
+        if (centresGroup)
+          _CentredGroup(
+            // With the keyboard up the field is what counts, and
+            // the button pins above the keyboard.
+            isCentred: !hasKeyboard,
+            onAvailable: (room) {
+              if ((room - _groupRoom).abs() > 0.5) {
+                _setMeasure(() => _groupRoom = room);
+              }
+            },
+            onFormSize: (size) {
+              if ((size.height - _formHeight).abs() > 0.5) {
+                _setMeasure(() => _formHeight = size.height);
+              }
+            },
+            onActionsSize: (size) {
+              if ((size.height - (_actionsHeight ?? 0)).abs() > 0.5) {
+                _setMeasure(() => _actionsHeight = size.height);
+              }
+            },
+            stage: splits ? null : stageBox,
+            formCard: formCard,
+            inlineActions: isInline ? actions(isPinned: false) : null,
+          )
+        else ...[
+          if (!splits) SliverToBoxAdapter(child: stageBox),
+          SliverToBoxAdapter(child: formCard),
+          if (flowsActions)
+            SliverToBoxAdapter(
+              child: _FlowingActions(child: actions(isPinned: false)),
             ),
-          );
-        }
-
-        // The system back button and the back gesture do what the top bar's
-        // Back does: on step 2 they return to step 1 with everything typed
-        // still there. Once the topic exists the form is over, so back leaves
-        // the screen like it does on step 1.
-        final canPop = !isTokenStep || isSuccess;
-
-        void close() {
-          if (isSetup) {
-            _leaveSetup();
-            return;
-          }
-          final created = state.createdTopic;
-          if (created != null) {
-            if (context.canPop()) {
-              context.pop();
-              unawaited(context.push('/topics/${created.name}'));
-            } else {
-              context.go('/topics/${created.name}');
-            }
-            return;
-          }
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go('/');
-          }
-        }
-
-        final button = AppButton(
-          label: switch ((isSuccess && !isSetup, isTokenStep || isSetup)) {
-            (true, _) => LocaleKeys.create_topic_done_button.tr(),
-            (false, true) => LocaleKeys.create_topic_create_button.tr(),
-            (false, false) => LocaleKeys.create_topic_next_button.tr(),
-          },
-          size: isSetup ? AppButtonSize.lg : AppButtonSize.md,
-          isFullWidth: true,
-          // In setup the button keeps spinning through the glad beat, so
-          // it cannot be tapped twice on the way out.
-          isLoading: isSubmitting || (isSetup && isSuccess),
-          onPressed: isNameTaken
-              ? null
-              : () {
-                  AppHaptics.capture();
-                  if (isSuccess) {
-                    close();
-                  } else if (isTokenStep || isSetup) {
-                    _submit();
-                  } else {
-                    _next();
-                  }
-                },
-        );
-
-        // Where the form sits: a phone column, a centred group on a tablet
-        // or desktop window, or split at the fold of a half-open foldable.
-        final frame = ScreenFrame.of(context);
-        final splits = frame.splitsAtFold;
-        final centresGroup =
-            frame == ScreenFrame.centred || frame == ScreenFrame.book;
-        // On the Razr cover and in the bottom half of a tabletop fold a
-        // pinned button would sit on the form (the name field, the ring
-        // card), so it scrolls with the form, after the card.
-        final flowsActions = actionsFlowFor(frame);
-        final isInline = actionsInlineFor(
-          frame,
-          hasKeyboard: hasKeyboard,
-          fits: groupFits(
-            group: _formHeight,
-            actions:
-                _actionsHeight ??
-                MediaQuery.textScalerOf(context).scale(isSetup ? 60 : 48) +
-                    (showsLegal ? 48 : 0),
-            gap: _actionsGap,
-            available: _groupRoom,
-          ),
-        );
-
-        // The face and what names the step. In setup it gives way to the
-        // form when the keyboard is up, unless it has a pane of its own.
-        final stageBox = isSetup
-            ? AnimatedSize(
-                duration: stepDuration,
-                curve: AppCurves.easeOut,
-                alignment: Alignment.topCenter,
-                child: hasKeyboard && !splits
-                    ? const SizedBox(width: double.infinity)
-                    : Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.s5,
-                          Spacing.s4,
-                          Spacing.s5,
-                          0,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // The face every setup step shares, so
-                            // it flies in from the step before. It
-                            // shrinks and goes with a large text size.
-                            SetupFace(
-                              state: face,
-                              gap: Spacing.s4,
-                              base: frame.setupFaceBaseOf(context),
-                            ),
-                            Semantics(
-                              header: true,
-                              child: AppFittedTitle(
-                                LocaleKeys.create_topic_first_topic_title.tr(),
-                                minFontSize: setupTitleMinFontSize,
-                                style: AppTypography.headline(
-                                  colors.onCanvas,
-                                  fontSize: 30,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              )
-            : AppStage(
-                faceState: face,
-                faceSize: 110,
-                isLive: true,
-                // The cover is 388 tall: the face sits right under the top
-                // bar, so the name field is whole on screen at rest.
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  frame == ScreenFrame.cover ? 0 : Spacing.s3,
-                  24,
-                  0,
-                ),
-              );
-
-        // Step 1 of 2, under the face when the form is in the other pane.
-        final stepLabel = Text(
-          LocaleKeys.create_topic_step_label.tr(
-            namedArgs: {'current': isTokenStep ? '2' : '1', 'total': '2'},
-          ),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colors.ink3,
-          ),
-        );
-
-        final formCard = Padding(
-          // Tighter with the keyboard up in setup, where every
-          // point decides whether the form fits above the button.
-          padding: isSetup && hasKeyboard
-              ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
-              : EdgeInsets.fromLTRB(
-                  12,
-                  frame == ScreenFrame.cover ? Spacing.s2 : Spacing.s4,
-                  12,
-                  16,
-                ),
-          child: AppSheet(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (state.capReached != null)
-                  AppEmptyState(
-                    title: state.capReached!.message,
-                    description: LocaleKeys.create_topic_limit_review_plan_hint
-                        .tr(),
-                    showFace: false,
-                  ),
-                // One step needs no counter.
-                if (showsForm && !isSetup && !splits) ...[
-                  Text(
-                    LocaleKeys.create_topic_step_label.tr(
-                      namedArgs: {
-                        'current': isTokenStep ? '2' : '1',
-                        'total': '2',
-                      },
-                    ),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colors.ink3,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (showsForm)
-                  AnimatedSize(
-                    duration: stepDuration,
-                    curve: AppCurves.easeOut,
-                    alignment: Alignment.topCenter,
-                    child: AnimatedSwitcher(
-                      duration: stepDuration,
-                      switchInCurve: AppCurves.easeOut,
-                      switchOutCurve: AppCurves.easeOut,
-                      layoutBuilder: (currentChild, previousChildren) => Stack(
-                        alignment: Alignment.topLeft,
-                        children: [
-                          ...previousChildren,
-                          ?currentChild,
-                        ],
-                      ),
-                      transitionBuilder: (child, animation) {
-                        // Next slides the new step in from the right
-                        // and the old one out to the left. Back runs
-                        // the other way, so the movement matches the
-                        // travel.
-                        final isIncoming = child.key == stepKey;
-                        final fromRight = isTokenStep == isIncoming;
-                        return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: Offset(
-                              fromRight ? 0.12 : -0.12,
-                              0,
-                            ),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: SizedBox(
-                        key: stepKey,
-                        width: double.infinity,
-                        child: isTokenStep
-                            ? _tokenStepBody(context, state)
-                            : _topicStepBody(context, state),
-                      ),
-                    ),
-                  ),
-                if (showsCreated) ...[
-                  Text(
-                    LocaleKeys.create_topic_generated_label.tr(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.ink3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (state.serverUrl.isNotEmpty) ...[
-                    AppKeyValueRow(
-                      value: '${state.serverUrl}/${state.name}',
-                      trailingFillsRow: true,
-                      trailing: TokenActions(
-                        value: '${state.serverUrl}/${state.name}',
-                        onCopied: _showToast,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (state.createdTopic?.tokenName case final tokenName?
-                      when tokenName.isNotEmpty) ...[
-                    Text(
-                      tokenName,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: colors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  AppKeyValueRow(
-                    value: token,
-                    trailingFillsRow: true,
-                    trailing: TokenActions(
-                      value: token,
-                      onCopied: _showToast,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    LocaleKeys.create_topic_token_warning.tr(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colors.ink3,
-                    ),
-                  ),
-                ],
-              ],
+        ],
+        if (isSetup && showsLegal && !hasKeyboard && !isInline && !flowsActions)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: Spacing.s2),
+              child: _LegalLinks(),
             ),
           ),
-        );
+      ],
+    );
 
-        // The button, the toast above it and the legal line under it. Pinned
-        // to the bottom, or right under the form on a wide window.
-        Widget actions({required bool isPinned}) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_toast case final message?) ...[
-              AppToast(message: message),
-              const SizedBox(height: Spacing.s2),
-            ],
-            FeatureGuideAnchor(
-              id: FeatureGuideAnchorId.createButton,
-              child: button,
-            ),
-            // Pinned under the button where the topic is made in two
-            // steps. Setup puts it at the end of the page instead: a
-            // line of small text pinned over a page that scrolls has
-            // the rows behind it showing through. Under the form, both
-            // keep it under the button.
-            if (showsLegal && (!isSetup || !isPinned))
-              const Padding(
-                padding: EdgeInsets.only(top: Spacing.s2),
-                child: _LegalLinks(),
-              ),
-          ],
-        );
+    // A different profile per step, so the canvas drifts the background
+    // along with the card instead of holding still.
+    final profile = AmbientAppProfiles.createTopic(
+      colors,
+      step: isTokenStep ? 2 : 1,
+    );
 
-        final content = PopScope(
-          canPop: canPop,
-          onPopInvokedWithResult: (didPop, result) {
-            // Something else on the page can hold the pop too, such as Back
-            // in setup. This one only acts when it is the one holding it.
-            if (didPop || canPop) return;
-            cubit.previousStep();
-            _focusNameField();
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: AppScreenScaffold(
-              hasTabBar: false,
-              resizeForKeyboard: true,
-              scrollController: _scroll,
-              topBar: AppTopBar(
-                // In setup the top bar reads like every other step's, and
-                // the title sits under the face.
-                title: isSetup
-                    ? setupTopBarTitle(context)
-                    : LocaleKeys.create_topic_title.tr(),
-                // With the keyboard up the big face makes room for the form.
-                // It moves up here, smaller, so a worried face after a
-                // failed create and the glad one after a good one are
-                // still seen. While the setup tracker is up there, its own
-                // small face does that and no second one is drawn.
-                leading:
-                    isSetup &&
-                        hasKeyboard &&
-                        !splits &&
-                        !OnboardingAmbientScope.showsTrackerOf(context)
-                    ? ExcludeSemantics(
-                        child: FaceWidget(state: face, size: 32, isLive: true),
-                      )
-                    : isTokenStep && !isSuccess
-                    ? AppIconButton(
-                        glyph: GlyphType.back,
-                        ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
-                        onPressed: () {
-                          cubit.previousStep();
-                          // Step 1 is one field too, so the keyboard moves back
-                          // to it instead of coming down.
-                          _focusNameField();
-                        },
-                      )
-                    : null,
-                // Setup has no way out of this step but making the topic.
-                trailing: isSetup
-                    ? null
-                    // The house close: a bare x, no circle.
-                    : AppDismissCross(
-                        label: LocaleKeys.create_topic_cancel_aria_label.tr(),
-                        color: colors.onCanvas,
-                        tapSize: kMinTapTarget,
-                        onPressed: close,
-                      ),
-                // The cross sits where the old 40 circle sat in its 48 box.
-                trailingTapRoom: isSetup ? null : AppIconButton.tapRoom(40),
-              ),
-              // Pinned, so the button is at one height in every state and
-              // stays above the keyboard.
-              bottomBar: isInline || flowsActions
-                  ? null
-                  : actions(isPinned: true),
-              // On a half-open foldable the face and the step stay put in
-              // one pane (beside or above the fold) and the form scrolls in
-              // the other one.
-              foldStage: splits
-                  ? FoldStageBox(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // The face on its own: a half is too short for
-                          // the stage, which would put it beside its words.
-                          if (isSetup)
-                            stageBox
-                          else
-                            FaceWidget(state: face, isLive: true),
-                          if (showsForm && !isSetup) ...[
-                            const SizedBox(height: Spacing.s3),
-                            stepLabel,
-                          ],
-                        ],
-                      ),
-                    )
-                  : null,
-              slivers: [
-                if (centresGroup)
-                  CentredGroupSliver(
-                    // With the keyboard up the field is what counts, and
-                    // the button pins above the keyboard.
-                    isCentred: !hasKeyboard,
-                    onAvailable: (room) {
-                      if ((room - _groupRoom).abs() > 0.5) {
-                        _setMeasure(() => _groupRoom = room);
-                      }
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ReportSize(
-                          onSize: (size) {
-                            if ((size.height - _formHeight).abs() > 0.5) {
-                              _setMeasure(() => _formHeight = size.height);
-                            }
-                          },
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [if (!splits) stageBox, formCard],
-                          ),
-                        ),
-                        if (isInline)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              12,
-                              _actionsGap,
-                              12,
-                              0,
-                            ),
-                            child: ReportSize(
-                              onSize: (size) {
-                                if ((size.height - (_actionsHeight ?? 0))
-                                        .abs() >
-                                    0.5) {
-                                  _setMeasure(
-                                    () => _actionsHeight = size.height,
-                                  );
-                                }
-                              },
-                              child: InlineActions(
-                                child: actions(isPinned: false),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else ...[
-                  if (!splits) SliverToBoxAdapter(child: stageBox),
-                  SliverToBoxAdapter(child: formCard),
-                  if (flowsActions)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          12,
-                          _actionsGap,
-                          12,
-                          0,
-                        ),
-                        child: InlineActions(
-                          child: actions(isPinned: false),
-                        ),
-                      ),
-                    ),
-                ],
-                if (isSetup &&
-                    showsLegal &&
-                    !hasKeyboard &&
-                    !isInline &&
-                    !flowsActions)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: Spacing.s2),
-                      child: _LegalLinks(),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-
-        // A different profile per step, so the canvas drifts the background
-        // along with the card instead of holding still.
-        final profile = AmbientAppProfiles.createTopic(
-          colors,
-          step: isTokenStep ? 2 : 1,
-        );
-
-        return AmbientOverride(
-          profile: profile,
-          direction: AmbientDirection.push,
-          child: content,
-        );
-      },
+    return AmbientOverride(
+      profile: profile,
+      direction: AmbientDirection.push,
+      child: content,
     );
   }
 }
