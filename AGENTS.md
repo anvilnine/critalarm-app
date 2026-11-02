@@ -55,6 +55,14 @@ Bloc for state, `go_router` for navigation, `freezed` for models, `get_it` for
 the composition root, `easy_localization` for strings. Do not add another
 state-management library.
 
+**Registrations.** `configureDependencies` in `lib/app/di.dart` builds the few
+locals the rest needs (preferences, local store, held scope, identity store)
+and then calls one `register<Name>(getIt)` per run of registrations. The
+functions live in `lib/app/di/register_<feature>.dart`, and the order of the
+calls in `configureDependencies` is the order of registration. Put a new
+registration in the function of its feature. Add a function and its call only
+when it has to land between two existing runs.
+
 **Commands.** Every one of these goes through `fvm`.
 
 | What | Command |
@@ -211,7 +219,7 @@ names in code, strings, comments and PRs, and never one for another.
 **This app also builds for web.** The dashboard is this codebase run through
 `flutter build web` (ARCHITECTURE §2). Four rules keep that cheap:
 
-- Ask the capabilities service, never `kIsWeb` or `Platform.isIOS` inline. It is `PlatformCapabilities` in `lib/core/platform/platform_capabilities.dart`, registered in `get_it`. Its getters are `canRegisterPush`, `canRunAlarm`, `canComposeMessages`, `hasLocalNotifications`, `hasHaptics`, `hasStrongAlarmVibration` (Android only) and `flashNeedsAlarmScreen` (iPhone only), plus the two values it is built from, `isWeb` and `platform`, and `isIos` (the native iOS app, never a browser). Web gets no push, no alarm, no Local Reminders and no haptics, and it gets compose. `canImportSounds` is not on it: that is a question for the native side, so it lives on `SoundHost` (`SoundCapabilities`). `lib/app/di.dart` is the one place that reads `kIsWeb` for feature code. Data and domain classes get the class or a plain value through their constructor, and screens read it from `getIt`. `tool/check_layers.sh` fails on any `kIsWeb` under `lib/features/`, comments included.
+- Ask the capabilities service, never `kIsWeb` or `Platform.isIOS` inline. It is `PlatformCapabilities` in `lib/core/platform/platform_capabilities.dart`, registered in `get_it`. Its getters are `canRegisterPush`, `canRunAlarm`, `canComposeMessages`, `hasLocalNotifications`, `hasHaptics`, `hasStrongAlarmVibration` (Android only) and `flashNeedsAlarmScreen` (iPhone only), plus the two values it is built from, `isWeb` and `platform`, and `isIos` (the native iOS app, never a browser). Web gets no push, no alarm, no Local Reminders and no haptics, and it gets compose. `canImportSounds` is not on it: that is a question for the native side, so it lives on `SoundHost` (`SoundCapabilities`). `lib/app/di.dart` and the files in `lib/app/di/` are the only places that read `kIsWeb` for feature code. Data and domain classes get the class or a plain value through their constructor, and screens read it from `getIt`. `tool/check_layers.sh` fails on any `kIsWeb` under `lib/features/`, comments included.
 - A screen that exists on one platform only is its own route gated by a capability, never a widget hidden behind a boolean: the message composer is web only, the permissions screen is mobile only.
 - Shared widgets take no platform-specific dependencies.
 - Layout breakpoints come from the design system, never from the platform.
@@ -404,7 +412,7 @@ it has no chapter, and it ships switched on.
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
-`OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with
+`OnboardingFlowSource` registered in `lib/app/di/register_onboarding.dart`. A source answers with
 what it has in hand and never waits. `OnboardingFlowEngine.chooseFlowWithOrigin()`
 says which one won (`OnboardingFlowOrigin`: developer, remote, bundled).
 
@@ -513,7 +521,7 @@ Back, and `sweep` when the change crosses a chapter.
 Background connect: Continue with our server finishes the `connect`
 step at once. `BackgroundConnect`
 (`lib/features/onboarding/domain/connect/background_connect.dart`, one object
-for the whole app run, registered in `lib/app/di.dart`) does the work behind
+for the whole app run, registered in `lib/app/di/register_onboarding.dart`) does the work behind
 the user: `GET /v1/info`, the device registration, then saving the
 connection.
 
