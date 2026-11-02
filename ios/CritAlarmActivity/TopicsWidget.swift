@@ -10,8 +10,8 @@ struct TopicsWidget: Widget {
         StaticConfiguration(kind: Self.kind, provider: TopicsProvider()) { entry in
             TopicsWidgetView(snapshot: entry.snapshot)
         }
-        .configurationDisplayName("Topics")
-        .description("Your topics, ringing ones first.")
+        .configurationDisplayName(NativeL10n.text(.widgetTopicsName))
+        .description(NativeL10n.text(.widgetTopicsDescription))
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -75,7 +75,7 @@ struct SmallCount: View {
                     .foregroundStyle(WidgetColors.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
-                Text(top.map { "open · \($0.name)" } ?? "open")
+                Text(top.map { WidgetCopy.open(topic: $0.name) } ?? WidgetCopy.openWord)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(WidgetColors.muted)
                     .lineLimit(1)

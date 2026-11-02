@@ -2,6 +2,84 @@
   "app": {
     "title": "Crit Alarm"
   },
+  "native": {
+    "alarm": {
+      "stop": "Stop",
+      "open_app": "Open Crit Alarm",
+      "still_ringing": "Still ringing. Tap I'm up to end it."
+    },
+    "action": {
+      "im_up": "I'm up",
+      "done": "Done",
+      "ack": "ACK"
+    },
+    "content": {
+      "alert": "Alert",
+      "open_to_see": "Open Crit Alarm to see details",
+      "critical_open_to_see": "Critical alert. Open to see details.",
+      "critical_incident": "Critical incident",
+      "attention": "Immediate attention required",
+      "critical_alert_on": "Critical alert on {topic}",
+      "critical_alert_on_details": "Critical alert on {topic}. Open to see details."
+    },
+    "state": {
+      "ringing": "Ringing",
+      "awake": "Awake",
+      "quiet": "Quiet",
+      "still_open": "Still open",
+      "closed": "Closed",
+      "missed": "Missed"
+    },
+    "card": {
+      "still_open_line": "Still open. Tap Done if it's fixed.",
+      "acked_at": "Acknowledged at {time}",
+      "acknowledged": "Acknowledged",
+      "incident_acknowledged": "Incident acknowledged",
+      "awake_for": "Awake for {time}",
+      "open_for": "Open for {time}",
+      "opened_ago": "Opened {time} ago",
+      "silenced": "Stopped. Rings again in {seconds} s. Tap I'm up to end it.",
+      "silenced_short": "Stopped. Rings again in {seconds} s."
+    },
+    "widget": {
+      "locked": "Widgets are part of Pro. Tap to see plans.",
+      "locked_short": "Pro",
+      "connect": "Open Crit Alarm to connect",
+      "all_quiet": "All quiet",
+      "no_topics": "No topics yet",
+      "topic_not_found": "Topic not found",
+      "choose_topic": "Choose a topic",
+      "open_app_first": "Open Crit Alarm first",
+      "more": "+{count} more",
+      "open_count": "{count} open",
+      "open_word": "open",
+      "open_topic": "open · {topic}",
+      "topics_name": "Topics",
+      "topics_description": "Your topics, ringing ones first.",
+      "topic_name": "Topic",
+      "topic_description": "One topic, with I'm up and Done buttons.",
+      "count_name": "Open incidents",
+      "count_description": "How many incidents are open right now."
+    },
+    "channel": {
+      "messages": "Messages",
+      "messages_description": "Priority 1-3 messages",
+      "urgent": "Urgent messages",
+      "urgent_description": "Priority 4, and priority 5 on a topic that is not critical",
+      "alarms": "Critical alarms",
+      "alarms_description": "Audible on-call incident alarms",
+      "status": "Incident status",
+      "status_description": "Ongoing incident status",
+      "reminders": "Local reminders",
+      "reminders_description": "Test checks, silent topics, backups and plan notices",
+      "offers": "Offers",
+      "offers_description": "News about Pro"
+    },
+    "permission": {
+      "microphone": "Crit Alarm uses the microphone to record alarm sounds.",
+      "alarmkit": "Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it."
+    }
+  },
   "nav": {
     "topics": "Topics",
     "settings": "Settings",
@@ -111,6 +189,10 @@
     "server_url_error_empty": "Server URL cannot be empty",
     "server_url_error_invalid": "Enter a valid URL (e.g. https://api.critalarm.app)",
     "admin_token_error_empty": "Admin token cannot be empty",
+    "admin_token_error_wrong": "The server did not accept this admin token. Not connected.",
+    "answer_invalid": "This address did not answer like a Crit Alarm server. Not connected.",
+    "relay_differs": "This server uses another relay than the one this phone is registered with. Disconnect first, then connect again.",
+    "registered_elsewhere": "This phone is registered with another server. Disconnect first, then connect again.",
     "version_incompatible": "Your server is {version}. Update it to 0.x, then connect again.",
     "connected_status": "Connected: {serverUrl}",
     "hook_title": "Test your alarm",
@@ -205,6 +287,7 @@
     "not_encrypted": "This address is not encrypted.",
     "address_differs": "This server says its address is {host}. Not connected.",
     "downgrade": "This server answered with an unencrypted address. Not connected.",
+    "not_self_hosted": "A link only connects to a server you host yourself. Not connected.",
     "close": "Close"
   },
   "onboarding_real_ring": {
@@ -559,6 +642,19 @@
     "pro_ended_action": "See plans",
     "pro_ended_dismiss": "OK"
   },
+  "cancel_question": {
+    "title": "What made you cancel?",
+    "reason_price": "Costs too much",
+    "reason_unused": "Not using it enough",
+    "reason_selfhost": "Moving to my own server",
+    "reason_missing": "Missing a feature",
+    "reason_broken": "Something broke",
+    "reason_other": "Other",
+    "explain_hint": "Optional note. We can't reply.",
+    "send": "Send note",
+    "thanks_title": "Thanks. That helps.",
+    "keeps": "Cloud stays on until {date}. Your alarms keep ringing."
+  },
   "asks": {
     "pro_title": "Cloud adds:",
     "pro_cap_refused": "Free allows {free_critical_topics} critical topics. This one was not created. What you typed is still there.",
@@ -658,6 +754,11 @@
       "other": "{count} messages. Rings at {priority} priority."
     },
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it an alarm arrives as a quiet notification.",
+    "flash_row_title": "Flash the camera light",
+    "flash_row_subtitle": "Blinks once a second while this topic rings",
+    "flash_row_subtitle_ios": "Blinks once a second while the alarm screen is open",
+    "vibration_row_title": "Strong vibration",
+    "vibration_row_subtitle": "Vibrates hard while this topic rings",
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
@@ -692,6 +793,7 @@
       "other": "{} messages today."
     },
     "summary_last_alarm": "Last alarm {time}.",
+    "summary_join": "{count} {last}",
     "summary_yesterday": "yesterday",
     "all_messages": {
       "one": "All 1 message",
@@ -1419,6 +1521,17 @@
     "invalid_request": "The server could not read that request.",
     "not_found": "The server could not find that.",
     "topic_must_retain_a_token": "A topic keeps at least one token. Make a new token first, then revoke this one.",
+    "message_too_large": "The message is too large.",
+    "invalid_priority": "That priority is not allowed.",
+    "incident_state_conflict": "That alarm is no longer in the expected state.",
+    "scheduled_delivery_not_supported": "The server does not support scheduled delivery.",
+    "streaming_not_supported": "The server does not support streaming.",
+    "pack": "Your account does not have the pack needed for that.",
+    "tier": "Your account is not on the plan needed for that.",
+    "invalid_base_url": "The server address is not allowed.",
+    "challenge_failed": "The relay could not verify the server.",
+    "registration_closed": "The relay is not accepting registrations.",
+    "topic_mismatch": "That topic does not match the registered server.",
     "unknown": "Something went wrong on the server. Try again."
   },
   "sound_library": {
@@ -2416,5 +2529,34 @@
   "first_topic_answer": {
     "or": "or",
     "what_sends_it": "What sends it"
+  },
+  "dart_format": {
+    "locale": "en",
+    "seconds": "{seconds} s",
+    "minutes_seconds": "{minutes} min {seconds} s",
+    "minutes": "{minutes} min",
+    "hours": "{hours} h",
+    "hours_minutes": "{hours} h {minutes} min",
+    "countdown_seconds": "{seconds}s",
+    "days": "{days}d",
+    "clip_time": "{minutes}:{seconds}.{tenths}"
+  },
+  "dart_labels": {
+    "priority_min": "min",
+    "priority_low": "low",
+    "priority_default": "default",
+    "priority_high": "high",
+    "priority_critical": "critical",
+    "cap_critical_topics": "Critical topics",
+    "cap_devices": "Devices",
+    "cap_daily_pushes": "Daily high-priority pushes",
+    "cap_reached": "{label} limit reached",
+    "no_purchase": "No purchase is available."
+  },
+  "language": {
+    "title": "Language",
+    "system_default": "System default",
+    "ai_line": "Translated with AI. Spot a mistake?",
+    "report_link": "Tell us."
   }
 }

@@ -1,3 +1,5 @@
+import 'package:critalarm/core/format/date_label.dart';
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -75,7 +77,9 @@ String weeklyCheckMoment(int seconds, {required DateTime now}) {
       local.year == today.year &&
       local.month == today.month &&
       local.day == today.day;
-  return DateFormat(sameDay ? 'HH:mm' : 'EEE d MMM, HH:mm').format(local);
+  return sameDay
+      ? DateFormat('HH:mm', currentFormatLocale()).format(local)
+      : DateLabel.shortWeekdayDayMonth(local, withTime: true);
 }
 
 /// Whether the way to the list of rounds shows: once the relay has sent this
@@ -183,7 +187,10 @@ bool weeklyCheckCardShowsSeePlan({
 
 /// The next round as `Monday 09:00`, in the phone's own time.
 String weeklyCheckNextRound(int seconds) =>
-    DateFormat('EEEE HH:mm').format(_at(seconds).toLocal());
+    DateFormat(
+      'EEEE HH:mm',
+      currentFormatLocale(),
+    ).format(_at(seconds).toLocal());
 
 /// The line under the title in the proof card, in the mono type.
 ///

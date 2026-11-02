@@ -18,16 +18,64 @@ data class RelayDevice(val relay: URI, val deviceId: String, val deviceToken: St
          * fourth is the credential for the user's own server, which on a
          * self-hosted phone is not the device token, so it is not used here.
          * [deviceId] and [deviceToken] are what `DeviceIdentityStore` saved
-         * when the relay registered this device (api.md §4.2).
+         * when the relay registered this device (api.md §4.2). [tokenRelay]
+         * is the relay saved beside the token as its issuer. A token with
+         * none counts as issued by [HOSTED_RELAY], as on the Dart side. The
+         * token is paired with the session's relay only when that relay is
+         * its issuer.
          */
-        fun parse(apiSession: String?, deviceId: String?, deviceToken: String?): RelayDevice? {
+        fun parse(
+            apiSession: String?,
+            deviceId: String?,
+            deviceToken: String?,
+            tokenRelay: String?,
+        ): RelayDevice? {
             val parts = apiSession?.split('|') ?: return null
             if (parts.size != 4) return null
             val relay = runCatching { URI(parts[1]) }.getOrNull()
                 ?.takeIf { (it.scheme == "http" || it.scheme == "https") && !it.host.isNullOrBlank() }
                 ?: return null
             if (deviceId.isNullOrBlank() || deviceToken.isNullOrBlank()) return null
+            val issuer = tokenRelay?.takeIf { it.isNotBlank() } ?: HOSTED_RELAY
+            if (!sameAddress(issuer, parts[1])) return null
             return RelayDevice(relay = relay, deviceId = deviceId, deviceToken = deviceToken)
+        }
+
+        /** `lib/core/push/device_token_relay.dart` keeps the same address. */
+        const val HOSTED_RELAY = "https://relay.critalarm.app"
+
+        /**
+         * The same address, written another way at most: spaces around it,
+         * closing slashes, the letter case of scheme and host, and the usual
+         * port written out. Anything else, a user name, a query or a
+         * fragment included, is another address.
+         */
+        internal fun sameAddress(a: String, b: String): Boolean {
+            val left = normalized(a) ?: return false
+            val right = normalized(b) ?: return false
+            return left == right
+        }
+
+        private fun normalized(address: String): String? {
+            val uri = runCatching { URI(address.trim()) }.getOrNull() ?: return null
+            val scheme = uri.scheme?.lowercase() ?: return null
+            val host = uri.host?.lowercase()?.takeIf { it.isNotBlank() } ?: return null
+            val usual = when (scheme) {
+                "https" -> 443
+                "http" -> 80
+                else -> return null
+            }
+            val port = if (uri.port == -1) usual else uri.port
+            val path = (uri.rawPath ?: "").trimEnd('/')
+            return listOf(
+                scheme,
+                uri.rawUserInfo ?: "",
+                host,
+                port.toString(),
+                path,
+                uri.rawQuery ?: "",
+                uri.rawFragment ?: "",
+            ).joinToString("\u0000")
         }
     }
 }

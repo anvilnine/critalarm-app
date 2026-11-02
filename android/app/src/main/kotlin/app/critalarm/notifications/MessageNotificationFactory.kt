@@ -9,6 +9,8 @@ import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.l10n.NativeText
+import app.critalarm.l10n.NativeWords
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 
@@ -109,7 +111,7 @@ object MessageNotificationFactory {
             }
             builder.addAction(
                 0,
-                "ACK",
+                NativeWords.of(context).text(NativeText.ACTION_ACK),
                 PendingIntent.getBroadcast(context, id, ack, immutable),
             )
         }

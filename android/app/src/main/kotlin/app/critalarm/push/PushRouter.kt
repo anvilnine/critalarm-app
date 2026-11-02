@@ -20,6 +20,7 @@ import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
+import app.critalarm.l10n.NativeWords
 import app.critalarm.widgets.WidgetSnapshotPatch
 import app.critalarm.widgets.WidgetSnapshotStore
 import java.net.URI
@@ -189,7 +190,7 @@ class PushRouter(private val context: Context) {
                     AlarmNotificationFactory.create(
                         context,
                         payload,
-                        IncidentContentFetcher.fallback(payload),
+                        IncidentContentFetcher.fallback(payload, NativeWords.of(context)),
                     ),
                 )
             }
@@ -374,7 +375,7 @@ class PushRouter(private val context: Context) {
         // throws NetworkOnMainThreadException. Even off the main thread,
         // holding a heads-up for up to ten seconds is worse than showing it
         // twice.
-        postMessage(payload, IncidentContentFetcher.fallback(payload), channelId, withAck)
+        postMessage(payload, IncidentContentFetcher.fallback(payload, NativeWords.of(context)), channelId, withAck)
         if (payload.needsContentFetch) enrichMessageLater(payload, channelId, withAck)
     }
 

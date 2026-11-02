@@ -37,6 +37,7 @@ object WeeklyCheckResponder {
     private const val API_SESSION_KEY = "flutter.api_session"
     private const val DEVICE_ID_KEY = "flutter.device_id"
     private const val DEVICE_TOKEN_KEY = "flutter.device_token"
+    private const val DEVICE_TOKEN_RELAY_KEY = "flutter.device_token_relay"
 
     /** Job ids from here up, one per check and attempt. No other job in the app uses them. */
     private const val JOB_ID_BASE = 0x43480000
@@ -88,6 +89,7 @@ object WeeklyCheckResponder {
             apiSession = preferences.getString(API_SESSION_KEY, null),
             deviceId = preferences.getString(DEVICE_ID_KEY, null),
             deviceToken = preferences.getString(DEVICE_TOKEN_KEY, null),
+            tokenRelay = preferences.getString(DEVICE_TOKEN_RELAY_KEY, null),
         )
     }
 

@@ -20,14 +20,22 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 ///    cursors, the recent searches, the challenge choices and flags, the
 ///    alarm looks and their note, the own sounds lock flag, the own photo.
 ///    Nothing else here drops account data.
-/// 2. The saved session and connection, when the token in them is this
+/// 2. A sign-in that came without its token: the provider, email and
+///    account id stay in the preferences, and the session token is in the
+///    Keychain only, on this phone only. With no token the account screen
+///    would show signed in while the account routes get nothing, so it
+///    reads as signed out and the person signs in again. A phone that still
+///    holds its token keeps the sign-in. The account itself stays. A
+///    backup made before the token moved to the Keychain still holds it in
+///    the preferences: that copy is deleted here, never moved in.
+/// 3. The saved session and connection, when the token in them is this
 ///    phone's device token (every server but one of the person's own). A
 ///    server of the person's own keeps its connection: that token was typed
 ///    in by the person and names no phone.
-/// 3. The device identity: the device id and the device token. The synced
+/// 4. The device identity: the device id and the device token. The synced
 ///    account item stays, the same as on a fresh install on the same Apple
 ///    ID, so the new phone can join the person's account.
-/// 4. The record of the push token last sent, so the launch registration
+/// 5. The record of the push token last sent, so the launch registration
 ///    sends this phone's own, and the old phone's Live Activity tokens.
 ///
 /// Then it asks for a connect to the server the old phone was on, which is
@@ -45,6 +53,7 @@ class MovedPhoneReset {
   MovedPhoneReset({
     required this._host,
     required this._forgetAccountData,
+    required this._forgetRestoredSignIn,
     required this._sessions,
     required this._connections,
     required this._devices,
@@ -56,6 +65,9 @@ class MovedPhoneReset {
 
   /// `AccountData.forget()`.
   final Future<void> Function() _forgetAccountData;
+
+  /// `IdentityRepository.forgetRestoredSignIn()`.
+  final Future<void> Function() _forgetRestoredSignIn;
   final ApiSessionStore _sessions;
   final ConnectionRepository _connections;
   final DeviceIdentityStore _devices;
@@ -89,6 +101,7 @@ class MovedPhoneReset {
     }
 
     await step(_forgetAccountData);
+    await step(_forgetRestoredSignIn);
 
     // Read before anything is cleared: where to connect again afterwards.
     ApiSession? session;

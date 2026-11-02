@@ -3,6 +3,8 @@ import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Priority levels corresponding to ntfy / Crit Alarm server specification.
@@ -69,35 +71,35 @@ class AppPriorityChip extends StatelessWidget {
 
     final (label, glyph, bg, fg, border) = switch (priority) {
       PriorityLevel.min => (
-        'min',
+        LocaleKeys.dart_labels_priority_min.tr(),
         GlyphType.down,
         Colors.transparent,
         colors.ink2,
         Border.all(color: colors.hairline, width: 1.5),
       ),
       PriorityLevel.low => (
-        'low',
+        LocaleKeys.dart_labels_priority_low.tr(),
         GlyphType.minus,
         colors.ash,
         colors.ink2,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.defaultPriority => (
-        'default',
+        LocaleKeys.dart_labels_priority_default.tr(),
         GlyphType.dot,
         colors.yellow,
         colors.inkFixed,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.high => (
-        'high',
+        LocaleKeys.dart_labels_priority_high.tr(),
         GlyphType.up,
         colors.high,
         colors.inkFixed,
         Border.all(color: Colors.transparent, width: 1.5),
       ),
       PriorityLevel.critical => (
-        'critical',
+        LocaleKeys.dart_labels_priority_critical.tr(),
         GlyphType.bell,
         colors.crit,
         colors.inkFixed,

@@ -81,9 +81,11 @@ Service Extension.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
-| Buy for real on a device | `make run-store DEVICE=<id>` (`run-release` skips the store) |
+| Buy for real on a device | `make run-store DEVICE=<id>` (`run-release` skips the store). A desk build: no analytics, never uploaded |
 | Record paywall frames for site and marketing | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Android cold start | `make cold-start APK=<path>` |
+| Build another store's app to check it | `make build-store-apk STORE=galaxy` (or `huawei`; `play` is the default), `make build-store-appbundle STORE=...`. Desk builds: no analytics, never uploaded |
+| Store leak check | `make check-store-leaks`, or `sh tool/store_leak_check.sh <apk-or-aab> <play\|galaxy\|huawei> [mapping.txt]` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
@@ -146,12 +148,21 @@ Each rule carries its reason. Detail sits behind the link.
     Why: the gate respects the user's crash-reporting switch and drops the message, which can
     quote a server answer.
 14. **Only `scripts/release-ios.sh` and `scripts/release-android.sh` put a build in a store.**
-    Symbols, bump and tag, and reading a trace: `docs/release.md`.
+    Never archive for the store by hand in Xcode after `make run-store`. The `run-store` and
+    `build-store-*` builds are desk builds.
+    Why: a desk build sends no analytics and `build-store-*` deletes
+    `build/release-android.stamp`, so `release-android.sh --upload-only` refuses until a real
+    release build. Symbols, bump and tag, and reading a trace: `docs/release.md`.
 15. **`docs/api.md` and `docs/ARCHITECTURE.md` are generated copies.** Refresh them with
     `make sync-contract`. Never edit them.
 16. **On the Apple developer portal, a wrong team looks like a missing item.** The portal never
     says "wrong team". Its team switcher is top right and does not follow Xcode. The team is
     `N358LNAWS2`.
+17. **Every Android build names a store: `--flavor play|galaxy|huawei` plus the same name as
+    `--dart-define=STORE`.** Use the Make targets, which pass both (`STORE=play` by default).
+    Why: a bare `fvm flutter run` on Android stops and asks for a flavor. The store is read once
+    in `lib/app/di.dart` into `StoreKind`. Details, Firebase files in worktrees and the
+    Play-only native code: `docs/features/store-flavors.md`.
 
 ## Names
 
@@ -183,8 +194,10 @@ Read its doc first. Each one says what the code does and why. Docs are in `docs/
 | The Pro pack | `pro-pack.md` |
 | The weekly delivery check | `weekly-check.md` |
 | Backups and restores | `backups.md` |
-| `LocalStore` and the held topic list | `local-store.md` |
-| Building for web | `web.md` |
+| `LocalStore`, account-scoped archive, the held topic list and held rows | `local-store.md` |
+| Building for web, and the platform capability getters | `web.md` |
+| Store flavors (`play`, `galaxy`, `huawei`), desk builds, Firebase files in worktrees | `store-flavors.md` |
+| The cancel question (the ask before the Cloud ends sheet) | `cancel-question.md` |
 
 What may show during and after onboarding (guides, notices, asks, Local Reminders) is under
 "Setup order" in `docs/glossary.md`. Do not route Feature Guides through `SetupGate`: it waits for

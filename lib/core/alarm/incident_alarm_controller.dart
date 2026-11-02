@@ -7,6 +7,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/net/launch_retry.dart';
@@ -215,6 +216,10 @@ final class IncidentAlarmController {
       final Incident incident;
       try {
         incident = await api.getIncident(incidentId);
+      } on StaleAccountException {
+        // The answer is for the account the phone left. It is dropped, and
+        // the card is left for the run that follows.
+        continue;
       } on ApiException catch (error) {
         // 404 and 410 are answers, not failures. The incident is gone from the
         // server, which relays do after a retention window, so the card comes

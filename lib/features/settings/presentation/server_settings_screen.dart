@@ -5,8 +5,10 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
+import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -24,10 +26,22 @@ String serverModeLabelKey(ServerMode mode) => switch (mode) {
 /// The server this phone is paged by: which host, and the admin token used
 /// to talk to it.
 class ServerSettingsScreen extends StatelessWidget {
-  const ServerSettingsScreen({super.key});
+  const ServerSettingsScreen({super.key, this.cubit});
+
+  /// The Settings screen's own cubit, when the page draws in its detail
+  /// pane, so the row beside the page and the page read one state. A pushed
+  /// page leaves it null and loads its own.
+  final SettingsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    final shared = cubit;
+    if (shared != null) {
+      return BlocProvider.value(
+        value: shared,
+        child: const _ServerSettingsView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();
@@ -38,6 +52,12 @@ class ServerSettingsScreen extends StatelessWidget {
     );
   }
 }
+
+/// Which field of the Edit server sheet a refused connect is about: the
+/// admin token when the server asked for one or did not accept it, the
+/// address for everything else.
+bool editServerErrorIsOnToken(ConnectOutcome outcome) =>
+    outcome is AdminTokenRefused || outcome is AdminTokenMissing;
 
 class _ServerSettingsView extends StatelessWidget {
   const _ServerSettingsView();
@@ -78,6 +98,9 @@ class _ServerSettingsView extends StatelessWidget {
     final urlController = TextEditingController(text: state.serverUrl);
     final tokenController = TextEditingController(text: state.adminToken ?? '');
     final colors = context.appColors;
+    String? urlError;
+    String? tokenError;
+    var isSaving = false;
 
     unawaited(
       showModalBottomSheet<void>(
@@ -87,116 +110,147 @@ class _ServerSettingsView extends StatelessWidget {
         useRootNavigator: true,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (sheetContext) {
-          final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
-          final viewInsetsBottom = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+            final viewInsetsBottom = MediaQuery.viewInsetsOf(
+              sheetContext,
+            ).bottom;
 
-          return SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                12,
-                0,
-                12,
-                16 + bottomInset + viewInsetsBottom,
-              ),
-              // The close button is a 32 circle in a 48 tap box. The sheet
-              // gives up 8 of its top and right padding for the box, and the
-              // rest of the sheet takes the right 8 back, so nothing moves.
-              child: AppSheet(
-                padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            LocaleKeys.settings_edit_server_title.tr(),
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontDisplay,
-                              fontFamilyFallback:
-                                  AppTypography.fontDisplayFallbacks,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: colors.ink,
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  0,
+                  12,
+                  16 + bottomInset + viewInsetsBottom,
+                ),
+                // The close button is a 32 circle in a 48 tap box. The sheet
+                // gives up 8 of its top and right padding for the box, and
+                // the rest of the sheet takes the right 8 back, so nothing
+                // moves.
+                child: AppSheet(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              LocaleKeys.settings_edit_server_title.tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontDisplay,
+                                fontFamilyFallback:
+                                    AppTypography.fontDisplayFallbacks,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: colors.ink,
+                              ),
                             ),
                           ),
-                        ),
-                        AppIconButton(
-                          glyph: GlyphType.back,
-                          size: 32,
-                          glyphSize: 14,
-                          ariaLabel: LocaleKeys.common_close.tr(),
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 8 less than the 14 it was: the box reaches 8
-                          // below the circle.
-                          const SizedBox(height: 6),
-                          AppTextField(
-                            label: LocaleKeys.settings_server_url_label.tr(),
-                            controller: urlController,
-                            placeholder: 'https://api.critalarm.app',
-                          ),
-                          const SizedBox(height: 12),
-                          AppTextField(
-                            label: LocaleKeys.settings_admin_token_label.tr(),
-                            controller: tokenController,
-                            placeholder: LocaleKeys
-                                .settings_admin_token_placeholder
-                                .tr(),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: AppButton(
-                                  label: LocaleKeys.common_cancel.tr(),
-                                  variant: AppButtonVariant.ghost,
-                                  onPressed: () =>
-                                      Navigator.of(sheetContext).pop(),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: AppButton(
-                                  label: LocaleKeys.common_save.tr(),
-                                  onPressed: () {
-                                    final newUrl = urlController.text.trim();
-                                    final newToken = tokenController.text
-                                        .trim();
-                                    if (newUrl.isNotEmpty) {
-                                      unawaited(
-                                        cubit.saveConnection(
-                                          serverUrl: newUrl,
-                                          adminToken: newToken,
-                                        ),
-                                      );
-                                      Navigator.of(sheetContext).pop();
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
+                          AppIconButton(
+                            glyph: GlyphType.back,
+                            size: 32,
+                            glyphSize: 14,
+                            ariaLabel: LocaleKeys.common_close.tr(),
+                            onPressed: () => Navigator.of(sheetContext).pop(),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 8 less than the 14 it was: the box reaches 8
+                            // below the circle.
+                            const SizedBox(height: 6),
+                            AppTextField(
+                              label: LocaleKeys.settings_server_url_label.tr(),
+                              controller: urlController,
+                              placeholder: 'https://api.critalarm.app',
+                              errorText: urlError,
+                            ),
+                            const SizedBox(height: 12),
+                            AppTextField(
+                              label: LocaleKeys.settings_admin_token_label.tr(),
+                              controller: tokenController,
+                              placeholder: LocaleKeys
+                                  .settings_admin_token_placeholder
+                                  .tr(),
+                              errorText: tokenError,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: AppButton(
+                                    label: LocaleKeys.common_cancel.tr(),
+                                    variant: AppButtonVariant.ghost,
+                                    onPressed: () =>
+                                        Navigator.of(sheetContext).pop(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: AppButton(
+                                    label: LocaleKeys.common_save.tr(),
+                                    isLoading: isSaving,
+                                    onPressed: () async {
+                                      final newUrl = urlController.text.trim();
+                                      final newToken = tokenController.text
+                                          .trim();
+                                      if (newUrl.isEmpty) return;
+                                      setSheetState(() {
+                                        isSaving = true;
+                                        urlError = null;
+                                        tokenError = null;
+                                      });
+                                      // The sheet stays up until the server
+                                      // is checked, and closes only on a
+                                      // connect that landed. Nothing is
+                                      // saved before that.
+                                      final outcome = await cubit
+                                          .saveConnection(
+                                            serverUrl: newUrl,
+                                            adminToken: newToken,
+                                          );
+                                      if (!sheetContext.mounted) return;
+                                      if (outcome == null ||
+                                          outcome is Connected) {
+                                        Navigator.of(sheetContext).pop();
+                                        return;
+                                      }
+                                      final line = cubit.state.errorMessage;
+                                      setSheetState(() {
+                                        isSaving = false;
+                                        if (editServerErrorIsOnToken(
+                                          outcome,
+                                        )) {
+                                          tokenError = line;
+                                        } else {
+                                          urlError = line;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -387,17 +441,8 @@ class _ServerSettingsView extends StatelessWidget {
           hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_server_connection_header.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
-            ),
+            // Beside the Settings rows, in the detail pane, there is no back.
+            leading: settingsBackButton(context),
           ),
           slivers: [
             // One line of context under the title, as Health has, so the page

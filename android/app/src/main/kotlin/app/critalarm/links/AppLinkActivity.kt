@@ -14,9 +14,10 @@ import app.critalarm.MainActivity
  *   task would start a second Flutter engine inside that app's task and take
  *   the push channel away from the real one. The audio share has its own
  *   activity for the same reason.
- * - MainActivity never sees a data URI this way. The link travels as an
- *   extra, which is read once and removed, so nothing can hand it to
- *   go_router as a location and a replay from recents carries no link.
+ * - MainActivity never sees a data URI this way. The link is held by
+ *   [LinkHandover] and the intent carries a pass for it, which is read once
+ *   and removed, so nothing can hand the link to go_router as a location and
+ *   a replay from recents carries no link.
  * - Only one launcher alias is enabled at a time. A filter on an alias would
  *   stop working when the user picks another icon.
  *
@@ -38,7 +39,7 @@ class AppLinkActivity : Activity() {
             startActivity(
                 Intent(this, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    if (link != null) putExtra(MainActivity.EXTRA_LINK, link)
+                    if (link != null) putExtra(MainActivity.EXTRA_LINK, LinkHandover.hold(link))
                 },
             )
         }

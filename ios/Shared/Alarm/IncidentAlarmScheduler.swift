@@ -154,15 +154,19 @@ public enum IncidentAlarmScheduler {
         // sets the next ring; "Open Crit Alarm" opens the app to the active incident
         // without stopping the alarm in the background. The secondary button is
         // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
+        //
+        // The button words are looked up here, in the language picked in the
+        // app, and handed over as finished text: AlarmKit draws them outside
+        // this process, where only the phone's language is known.
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: title),
             stopButton: AlarmButton(
-                text: "Stop",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmStop)),
                 textColor: .white,
                 systemImageName: "bell.slash.fill"
             ),
             secondaryButton: AlarmButton(
-                text: "Open Crit Alarm",
+                text: LocalizedStringResource(stringLiteral: NativeL10n.text(.alarmOpenApp)),
                 textColor: .white,
                 systemImageName: "checkmark.circle.fill"
             ),

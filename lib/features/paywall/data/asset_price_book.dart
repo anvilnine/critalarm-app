@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:critalarm/core/format/number_format.dart';
 import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -57,7 +58,7 @@ final class AssetPriceBook implements PriceBook {
     final entry = _entries[plan];
     if (entry == null) return null;
     final format = NumberFormat.simpleCurrency(
-      locale: _locale ?? Intl.getCurrentLocale(),
+      locale: currentFormatLocale(_locale),
       name: entry.currency,
     );
     return BookPrice(

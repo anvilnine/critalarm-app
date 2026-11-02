@@ -22,8 +22,8 @@ names in code, strings, comments and PRs, and never one for another.
   of them: the Cloud plan ending and "back up your topics". A notice sits
   there until its condition clears or the user dismisses it. An **ask** is
   different: an interruptive sheet or popup (the Pro ask, the consent ask,
-  the Local reminders sheet, the store review), governed by `HomeAskRules`
-  and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
+  the Local reminders sheet, the cancel question, the store review),
+  governed by `HomeAskRules` and `SetupGate`. Never call a sheet a notice. Formerly "home prompts"; the
   `home_prompt_*` prefs keys and the `pro_prompt_answered` analytics event
   keep their names.
   Home puts three kinds of thing on the screen, and only the first is a

@@ -56,6 +56,11 @@ final class FakeIdentityRepository implements IdentityRepository {
     saved = null;
     session = null;
   }
+
+  @override
+  Future<void> forgetRestoredSignIn() async {
+    if (session == null) saved = null;
+  }
 }
 
 final class FakeAccountRepository implements AccountRepository {
@@ -85,6 +90,9 @@ final class FakeAccountRepository implements AccountRepository {
   /// that an anonymous account sent no identity token at all.
   final List<String?> deleteIdentityTokens = [];
   int wipeCalls = 0;
+
+  /// The account the cubit named for each wipe, in order.
+  final List<String?> wipedAccounts = [];
   int recoverCalls = 0;
   bool holdsHosted = false;
 
@@ -166,7 +174,10 @@ final class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> wipeAfterDelete() async => wipeCalls++;
+  Future<void> wipeAfterDelete({String? accountId}) async {
+    wipeCalls++;
+    wipedAccounts.add(accountId);
+  }
 
   @override
   Future<void> recoverFromDeadCredential() async => recoverCalls++;

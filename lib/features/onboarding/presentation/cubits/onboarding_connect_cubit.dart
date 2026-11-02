@@ -488,9 +488,20 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
                 .tr(),
           ),
         );
+      case AdminTokenRefused():
+        emit(
+          state.copyWith(
+            status: OnboardingConnectStatus.idle,
+            adminTokenError: connectOutcomeMessage(outcome),
+          ),
+        );
       case ServerUnreachable() ||
           ServerAddressDiffers() ||
           ServerDowngrade() ||
+          ServerAnswerInvalid() ||
+          LinkServerNotSelfHosted() ||
+          RelayDiffers() ||
+          RegisteredElsewhere() ||
           ServerIncompatible() ||
           ConnectionNotSaved() ||
           ConnectTransportError():
@@ -518,10 +529,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   Future<void> loadTestTopic() async {
     final result = await getTopics?.call(const NoParams());
     final topics = result?.getOrNull() ?? [];
+    final failure = result?.exceptionOrNull();
     emit(
       state.copyWith(
         topic: topics.where((t) => t.critical).firstOrNull?.name ?? '',
-        errorMessage: result?.exceptionOrNull()?.message,
+        errorMessage: failure == null ? null : failureMessage(failure),
       ),
     );
   }

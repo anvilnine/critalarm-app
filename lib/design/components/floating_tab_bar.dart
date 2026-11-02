@@ -1,6 +1,7 @@
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -76,6 +77,21 @@ class AppFloatingTabBar extends StatelessWidget {
   /// the bar and never above it. Add the view's own bottom inset on top.
   static const double fadeHeight = height + edgeGap;
 
+  /// [edgeGap] on a cover screen, where every row of height counts.
+  static const double coverEdgeGap = 8;
+
+  /// The gap under the bar on a display of [size]: [coverEdgeGap] on a cover
+  /// screen, [edgeGap] everywhere else.
+  static double edgeGapFor(AppSize size) =>
+      size.isCover ? coverEdgeGap : edgeGap;
+
+  /// [contentGap] on a display of [size].
+  static double contentGapFor(AppSize size) =>
+      contentGap - edgeGap + edgeGapFor(size);
+
+  /// [fadeHeight] on a display of [size].
+  static double fadeHeightFor(AppSize size) => height + edgeGapFor(size);
+
   final List<AppTabItem> items;
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -89,8 +105,9 @@ class AppFloatingTabBar extends StatelessWidget {
   final String? composeLabel;
   final String? searchLabel;
 
-  /// Draw glyphs instead of word labels. For a Galaxy Fold cover screen and
-  /// anything else too narrow to spell out three tab names.
+  /// Draw glyphs instead of word labels. For a Galaxy Fold cover screen, a
+  /// Razr cover, the start pane of a book-posture fold, and anything else too
+  /// narrow to spell out three tab names.
   final bool iconsOnly;
 
   /// Turns the bar into the search field. The pill itself does not move or

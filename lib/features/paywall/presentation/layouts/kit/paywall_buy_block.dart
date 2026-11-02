@@ -59,6 +59,28 @@ class PaywallBuyBlockStyle {
   /// False leaves the small print out altogether, [note] or the promise,
   /// and the renewal lines follow the button.
   final bool showsNote;
+
+  /// This style with the fields given changed. [note] and [buttonLabel]
+  /// keep their value when left out.
+  PaywallBuyBlockStyle copyWith({
+    PaywallPlanPickerStyle? pickerStyle,
+    PaywallTone? tone,
+    AppButtonVariant? buttonVariant,
+    bool? showsPicker,
+    double? horizontalPadding,
+    String? buttonLabel,
+    String? note,
+    bool? showsNote,
+  }) => PaywallBuyBlockStyle(
+    pickerStyle: pickerStyle ?? this.pickerStyle,
+    tone: tone ?? this.tone,
+    buttonVariant: buttonVariant ?? this.buttonVariant,
+    showsPicker: showsPicker ?? this.showsPicker,
+    horizontalPadding: horizontalPadding ?? this.horizontalPadding,
+    buttonLabel: buttonLabel ?? this.buttonLabel,
+    note: note ?? this.note,
+    showsNote: showsNote ?? this.showsNote,
+  );
 }
 
 /// The product's name as copy says it.
