@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/models/topic_token.dart';
@@ -170,7 +171,9 @@ class InMemoryTopicRepository implements TopicRepository {
         }
       }
     });
-    return _moves = run.catchError((Object _) {});
+    return _moves = run.catchError((Object e) {
+      noteQuiet('in_memory_topic_repository.moves', e);
+    });
   }
 
   /// The topic's `relay_name`, from this run's list or, failing that, from the

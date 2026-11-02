@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/cancel_reason.dart';
 import 'package:critalarm/core/models/device_registration.dart';
@@ -2523,7 +2524,9 @@ class MockServer {
             if (jsonBody.containsKey('markdown')) {
               markdown = jsonBody['markdown'] as bool? ?? false;
             }
-          } on FormatException catch (_) {}
+          } on FormatException catch (e) {
+            noteQuiet('mock_server.publishJson', e);
+          }
         } else if (message == null && bodyString.isNotEmpty) {
           message = bodyString;
         }

@@ -4,6 +4,7 @@ import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/version/app_version.dart';
@@ -115,7 +116,9 @@ final class ApiAccountRepository implements AccountRepository {
         // registration, so that is the one that was folded in.
         try {
           from = await readAccountId?.call();
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('api_account.readAccountId.merged', e);
+        }
         into = intoAccount;
       case _:
         break;
@@ -123,7 +126,9 @@ final class ApiAccountRepository implements AccountRepository {
     if (from != null && into != null && from != into) {
       try {
         await forgetMergedAccount?.call(from, into);
-      } on Object catch (_) {}
+      } on Object catch (e) {
+        noteQuiet('api_account.forgetMergedAccount', e);
+      }
     }
     return result;
   }
@@ -169,7 +174,9 @@ final class ApiAccountRepository implements AccountRepository {
     // phone has no credential at all.
     try {
       await forgetAccountData?.call();
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      noteQuiet('api_account.forgetAccountData', e);
+    }
     await _startOverOnFreshAccount();
   }
 
@@ -188,7 +195,9 @@ final class ApiAccountRepository implements AccountRepository {
     if (deleted == null) {
       try {
         deleted = await readAccountId?.call();
-      } on Object catch (_) {}
+      } on Object catch (e) {
+        noteQuiet('api_account.readAccountId.deleted', e);
+      }
     }
     return _wipe(forget: () => forgetDeleted(deleted));
   }

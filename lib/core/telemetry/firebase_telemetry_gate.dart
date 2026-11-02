@@ -1,3 +1,4 @@
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -81,13 +82,17 @@ class FirebaseTelemetryGate implements TelemetryGate {
           analytics = app != null
               ? FirebaseAnalytics.instanceFor(app: app!)
               : FirebaseAnalytics.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.analytics', e);
+        }
       }
 
       if (crashlytics == null && hasApp && (collectionAllowed || !isWeb)) {
         try {
           crashlytics = FirebaseCrashlytics.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.crashlytics', e);
+        }
       }
 
       if (remoteConfig == null && hasApp) {
@@ -95,7 +100,9 @@ class FirebaseTelemetryGate implements TelemetryGate {
           remoteConfig = app != null
               ? FirebaseRemoteConfig.instanceFor(app: app!)
               : FirebaseRemoteConfig.instance;
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          noteQuiet('firebase_telemetry_gate.remoteConfig', e);
+        }
       }
 
       // By default, collection is DISABLED at startup. On a phone this is

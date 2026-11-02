@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +9,7 @@ void main() {
   setUp(() {
     lines = <String?>[];
     original = debugPrint;
-    debugPrint = (String? message, {int? wrapWidth}) => lines.add(message);
+    debugPrint = (message, {wrapWidth}) => lines.add(message);
   });
 
   tearDown(() => debugPrint = original);
@@ -42,9 +40,11 @@ void main() {
 
     test('swallows an Error and a thrown non-Exception', () async {
       await quietly('t.error', () => throw ArgumentError('nope'));
-      await quietly('t.string', () => throw 'plain string');
+      // A caller can throw anything, and the helper still has to hold.
+      // ignore: only_throw_errors
+      await quietly('t.int', () => throw 42);
       expect(lines, hasLength(2));
-      expect(lines.last, contains('plain string'));
+      expect(lines.last, contains('42'));
     });
 
     test('accepts a synchronous action', () async {

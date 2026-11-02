@@ -6,6 +6,7 @@ import 'package:critalarm/core/alarm/alarm_signals.dart';
 import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/diagnostics/quietly.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -902,12 +903,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         case FirstToolVerdict.notIt:
           return null;
         case FirstToolVerdict.over:
-          unawaited(_quietly(ring.forgetFirstTool));
+          // A write the phone would not save never stops the alarm.
+          unawaited(
+            quietly('critical_alarm.forgetFirstTool', ring.forgetFirstTool),
+          );
           return null;
         case FirstToolVerdict.firstRing:
           if (held != null && !held.wasSeen) {
             unawaited(
-              _quietly(
+              quietly(
+                'critical_alarm.noteFirstToolSeen',
                 () => ring.noteFirstToolSeen(
                   openedAt: incident.openedAt,
                   lastMessageAt: incident.lastMessageAt,
@@ -916,21 +921,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             );
           }
           if (incident.isAcked && !(held?.wasAcked ?? true)) {
-            unawaited(_quietly(ring.noteFirstToolAcked));
+            unawaited(
+              quietly(
+                'critical_alarm.noteFirstToolAcked',
+                ring.noteFirstToolAcked,
+              ),
+            );
           }
           return incident.id;
       }
     } on Object catch (_) {
       return null;
-    }
-  }
-
-  /// Runs a write to the phone that must never surface as an error.
-  static Future<void> _quietly(Future<void> Function() write) async {
-    try {
-      await write();
-    } on Object catch (_) {
-      // The phone would not save it. The alarm goes on regardless.
     }
   }
 
@@ -1200,7 +1201,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
     // Done with, whether the server closed it or not: a close that failed
     // leaves a real incident, which rings and is answered like any other.
-    if (ring != null) await _quietly(ring.forgetFirstTool);
+    if (ring != null) {
+      await quietly('critical_alarm.forgetFirstTool', ring.forgetFirstTool);
+    }
     if (isClosed) return false;
     return state.incident?.id == incidentId;
   }
