@@ -1518,7 +1518,9 @@
     "challenge_failed": "中繼服務無法驗證伺服器。",
     "registration_closed": "中繼服務目前不接受註冊。",
     "topic_mismatch": "這個主題與註冊的伺服器不符。",
-    "unknown": "伺服器發生問題，請再試一次。"
+    "unknown": "伺服器發生問題，請再試一次。",
+    "unknown_phone": "這支手機發生問題，請再試一次。",
+    "unknown_answer": "發生問題，請再試一次。"
   },
   "sound_library": {
     "names": {

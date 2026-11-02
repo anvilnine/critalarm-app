@@ -1532,7 +1532,9 @@
     "challenge_failed": "Le relais n’a pas pu vérifier le serveur.",
     "registration_closed": "Le relais n’accepte pas les inscriptions.",
     "topic_mismatch": "Ce topic ne correspond pas au serveur enregistré.",
-    "unknown": "Une erreur s’est produite sur le serveur. Réessayez."
+    "unknown": "Une erreur s’est produite sur le serveur. Réessayez.",
+    "unknown_phone": "Une erreur s’est produite sur ce téléphone. Réessayez.",
+    "unknown_answer": "Une erreur s’est produite. Réessayez."
   },
   "sound_library": {
     "names": {

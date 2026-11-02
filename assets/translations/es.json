@@ -1532,7 +1532,9 @@
     "challenge_failed": "El relay no pudo verificar el servidor.",
     "registration_closed": "El relay no acepta registros.",
     "topic_mismatch": "Ese tema no corresponde al servidor registrado.",
-    "unknown": "Algo salió mal en el servidor. Inténtalo de nuevo."
+    "unknown": "Algo salió mal en el servidor. Inténtalo de nuevo.",
+    "unknown_phone": "Algo salió mal en este teléfono. Inténtalo de nuevo.",
+    "unknown_answer": "Algo salió mal. Inténtalo de nuevo."
   },
   "sound_library": {
     "names": {

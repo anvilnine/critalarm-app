@@ -1532,7 +1532,9 @@
     "challenge_failed": "De relay kon de server niet verifiëren.",
     "registration_closed": "De relay accepteert geen registraties.",
     "topic_mismatch": "Dat topic hoort niet bij de geregistreerde server.",
-    "unknown": "Er ging iets mis op de server. Probeer het opnieuw."
+    "unknown": "Er ging iets mis op de server. Probeer het opnieuw.",
+    "unknown_phone": "Er ging iets mis op deze telefoon. Probeer het opnieuw.",
+    "unknown_answer": "Er ging iets mis. Probeer het opnieuw."
   },
   "sound_library": {
     "names": {

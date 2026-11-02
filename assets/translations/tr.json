@@ -1532,7 +1532,9 @@
     "challenge_failed": "Aktarıcı sunucuyu doğrulayamadı.",
     "registration_closed": "Aktarıcı kayıt kabul etmiyor.",
     "topic_mismatch": "Bu konu kayıtlı sunucuyla eşleşmiyor.",
-    "unknown": "Sunucuda bir sorun oluştu. Tekrar dene."
+    "unknown": "Sunucuda bir sorun oluştu. Tekrar dene.",
+    "unknown_phone": "Bu telefonda bir sorun oluştu. Tekrar dene.",
+    "unknown_answer": "Bir sorun oluştu. Tekrar dene."
   },
   "sound_library": {
     "names": {

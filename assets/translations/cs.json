@@ -1546,7 +1546,9 @@
     "challenge_failed": "Přenosovému serveru se nepodařilo tento server ověřit.",
     "registration_closed": "Přenosový server nepřijímá registrace.",
     "topic_mismatch": "Téma neodpovídá registrovanému serveru.",
-    "unknown": "Na serveru se něco pokazilo. Zkus to znovu."
+    "unknown": "Na serveru se něco pokazilo. Zkus to znovu.",
+    "unknown_phone": "V tomto telefonu se něco pokazilo. Zkus to znovu.",
+    "unknown_answer": "Něco se pokazilo. Zkus to znovu."
   },
   "sound_library": {
     "names": {
