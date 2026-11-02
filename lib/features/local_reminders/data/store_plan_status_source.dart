@@ -1,14 +1,16 @@
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/features/local_reminders/domain/device_time_zone.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs.dart';
 import 'package:critalarm/features/local_reminders/domain/plan_status_source.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
-/// Reads idea 8's three facts off RevenueCat's `CustomerInfo`: a billing
-/// issue, a yearly renewal coming up, and a plan that will not renew.
-final class RevenueCatPlanStatusSource implements PlanStatusSource {
-  RevenueCatPlanStatusSource(this._subscriptions);
+/// Reads idea 8's three facts off what the store knows about the account: a
+/// billing issue, a yearly renewal coming up, and a plan that will not
+/// renew.
+final class StorePlanStatusSource implements PlanStatusSource {
+  StorePlanStatusSource(this._subscriptions);
 
   final SubscriptionRepository _subscriptions;
 
@@ -20,9 +22,9 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
     return planStatusFrom(
       info,
       pricesByProduct: {
-        for (final offering in offerings?.all.values ?? const <Offering>[])
-          for (final package in offering.availablePackages)
-            package.storeProduct.identifier: package.storeProduct.priceString,
+        for (final offering in offerings?.all.values ?? const <StoreOffering>[])
+          for (final entry in offering.entries)
+            entry.productId: entry.priceString,
       },
       timeZone: timeZone,
     );
@@ -33,7 +35,7 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
   /// null and the renewal notice is not sent, rather than quoting another
   /// product's price.
   static PlanStatus? planStatusFrom(
-    CustomerInfo info, {
+    StoreCustomer info, {
     required Map<String, String> pricesByProduct,
     required DeviceTimeZone timeZone,
   }) {
@@ -42,11 +44,11 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
     final active = info.entitlements.active; // access-ok: reads end dates
     final pro = active[SubscriptionTier.cloudEntitlement];
     if (pro == null) return null;
-    final product = pro.productIdentifier.toLowerCase();
+    final product = pro.productId.toLowerCase();
     // App Store products carry the period in the id (`...annual`); Play
     // products carry it in the base plan id (`yearly`).
     final isYearly =
-        pro.productPlanIdentifier == 'yearly' ||
+        pro.productPlanId == 'yearly' ||
         product.contains('annual') ||
         product.contains('yearly');
 
@@ -63,16 +65,16 @@ final class RevenueCatPlanStatusSource implements PlanStatusSource {
       expiresAtInstant: DateTime.tryParse(pro.expirationDate ?? '')?.toUtc(),
       billingIssueAt: wall(pro.billingIssueDetectedAt),
       priceString: isYearly ? _priceOf(pro, pricesByProduct) : null,
-      managementUrl: info.managementURL,
+      managementUrl: info.managementUrl,
     );
   }
 
   /// App Store ids match as they are. A Play subscription's store product
   /// id is `<product>:<base plan>`.
-  static String? _priceOf(EntitlementInfo pro, Map<String, String> prices) {
-    final exact = prices[pro.productIdentifier];
+  static String? _priceOf(StoreEntitlement pro, Map<String, String> prices) {
+    final exact = prices[pro.productId];
     if (exact != null) return exact;
-    final plan = pro.productPlanIdentifier;
-    return plan == null ? null : prices['${pro.productIdentifier}:$plan'];
+    final plan = pro.productPlanId;
+    return plan == null ? null : prices['${pro.productId}:$plan'];
   }
 }

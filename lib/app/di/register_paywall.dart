@@ -18,6 +18,11 @@ import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/core/store/play_apple/play_apple_store_services.dart';
+import 'package:critalarm/core/store/services/manage_subscription.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
+import 'package:critalarm/core/store/services/store_services.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
@@ -34,8 +39,7 @@ import 'package:critalarm/features/paywall/data/asset_price_book.dart';
 import 'package:critalarm/features/paywall/data/history_own_reader.dart';
 import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/data/repositories/store_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
@@ -55,7 +59,6 @@ import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:get_it/get_it.dart';
-import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The developer paywall layout switches.
@@ -115,58 +118,58 @@ void registerDevPaywallLayoutSwitches(
   }
 }
 
-/// The RevenueCat service, started with the saved account.
-Future<void> registerRevenueCat(
-  GetIt getIt, {
-  required DeviceIdentityStore identityStore,
-}) async {
-  if (!getIt.isRegistered<RevenueCatService>()) {
-    final revenueCatService = RevenueCatService();
-    // RevenueCat issues a public SDK key per store and the SDK rejects the
-    // other store's key, so the platform picks which one is passed.
-    final sellsThroughAppStore =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-    final revenueCatKey = sellsThroughAppStore
-        ? Env.revenueCatIosApiKey
-        : Env.revenueCatAndroidApiKey;
-    // Thrown above the catch below on purpose. A build that cannot sell has to
-    // stop here, not be swallowed and look like a build nobody bought from.
-    if (releaseBuildCannotSell(
-      isRelease: kReleaseMode,
-      skipsPaywall: buildSkipsPaywall,
-      apiKey: revenueCatKey,
-    )) {
-      final varName = sellsThroughAppStore
-          ? 'REVENUECAT_IOS_API_KEY'
-          : 'REVENUECAT_ANDROID_API_KEY';
-      throw StateError(
-        'This release build has no RevenueCat key, so it cannot sell '
-        'anything. Put $varName in .env. The key comes from RevenueCat, '
-        'Project settings > API keys. Build with '
-        '--dart-define=SKIP_PAYWALL=true if you meant to leave the paywall '
-        'out.',
+/// Sets up the store set's billing for this run: RevenueCat with the key for
+/// the store it sells through.
+Future<void> startStoreBilling(
+  StoreServices services,
+  DeviceIdentityStore identityStore,
+) async {
+  if (services is! PlayAppleStoreServices) return;
+  final revenueCatService = services.revenueCat.service;
+
+  // RevenueCat issues a public SDK key per store and the SDK rejects the
+  // other store's key, so the platform picks which one is passed.
+  final sellsThroughAppStore =
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  final revenueCatKey = sellsThroughAppStore
+      ? Env.revenueCatIosApiKey
+      : Env.revenueCatAndroidApiKey;
+  // Thrown above the catch below on purpose. A build that cannot sell has to
+  // stop here, not be swallowed and look like a build nobody bought from.
+  if (releaseBuildCannotSell(
+    isRelease: kReleaseMode,
+    skipsPaywall: buildSkipsPaywall,
+    apiKey: revenueCatKey,
+  )) {
+    final varName = sellsThroughAppStore
+        ? 'REVENUECAT_IOS_API_KEY'
+        : 'REVENUECAT_ANDROID_API_KEY';
+    throw StateError(
+      'This release build has no RevenueCat key, so it cannot sell '
+      'anything. Put $varName in .env. The key comes from RevenueCat, '
+      'Project settings > API keys. Build with '
+      '--dart-define=SKIP_PAYWALL=true if you meant to leave the paywall '
+      'out.',
+    );
+  }
+  try {
+    if (!buildSkipsPaywall && revenueCatKey.isNotEmpty) {
+      await revenueCatService.initialize(
+        apiKey: revenueCatKey,
+        appUserId: (await identityStore.readOrCreate()).accountId,
+      );
+      // The store knows about a purchase before our server does. Mirror its
+      // Pro entitlement so the app turns Pro the moment the buyer pays.
+      services.billing.customerChanges.listen(_mirrorStorePro);
+      unawaited(
+        services.billing.readCustomer().then(
+          _mirrorStorePro,
+          onError: (Object e) => noteQuiet('paywall.readCustomer', e),
+        ),
       );
     }
-    try {
-      if (!buildSkipsPaywall && revenueCatKey.isNotEmpty) {
-        await revenueCatService.initialize(
-          apiKey: revenueCatKey,
-          appUserId: (await identityStore.readOrCreate()).accountId,
-        );
-        // The store knows about a purchase before our server does. Mirror its
-        // Pro entitlement so the app turns Pro the moment the buyer pays.
-        revenueCatService.customerInfoStream.listen(_mirrorStorePro);
-        unawaited(
-          revenueCatService.getCustomerInfo().then(
-            _mirrorStorePro,
-            onError: (Object e) => noteQuiet('paywall.getCustomerInfo', e),
-          ),
-        );
-      }
-    } on Object catch (_) {
-      // Ignored for tests or unsupported environments
-    }
-    getIt.registerSingleton<RevenueCatService>(revenueCatService);
+  } on Object catch (_) {
+    // Ignored for tests or unsupported environments
   }
 }
 
@@ -184,7 +187,7 @@ void registerSubscriptionRepository(GetIt getIt) {
   getIt.registerLazySingleton<SubscriptionRepository>(
     () => buildSkipsPaywall
         ? DevSubscriptionRepository(getIt<DevProSwitch>())
-        : RevenueCatSubscriptionRepository(getIt<RevenueCatService>()),
+        : StoreSubscriptionRepository(getIt<StoreBilling>()),
   );
 }
 
@@ -216,12 +219,13 @@ void registerPaywall(GetIt getIt, {required LocalStore? localStore}) {
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
         getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
         subscriptionRepository: getIt<SubscriptionRepository>(),
+        manageSubscription: getIt<ManageSubscription>(),
         analytics: getIt.isRegistered<TelemetryGate>()
             ? PaywallAnalytics(getIt<TelemetryGate>())
             : null,
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
-            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+            await getIt<StoreBilling>().invalidateCustomerCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
           getIt<WidgetSync>().rewrite();
@@ -333,7 +337,7 @@ void registerPaywall(GetIt getIt, {required LocalStore? localStore}) {
             readIsPaid: holdsHosted, // access-ok: the buy cubit's name
             readIsRegisteredPaid: hostedByServer, // access-ok: same
             refreshRegistration: () async {
-              await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+              await getIt<StoreBilling>().invalidateCustomerCache();
               await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
               getIt<WidgetSync>().rewrite();
             },
@@ -349,6 +353,6 @@ void registerPaywall(GetIt getIt, {required LocalStore? localStore}) {
     );
 }
 
-void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
+void _mirrorStorePro(StoreCustomer info) => appPlanChanges.setStoreSaysPro(
   value: HostedHoldingSource.storeSaysHosted(info),
 );

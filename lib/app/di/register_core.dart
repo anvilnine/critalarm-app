@@ -16,14 +16,19 @@ import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
-import 'package:critalarm/core/push/apns_push_token_provider.dart';
-import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/services/google_sign_in_sheet.dart';
+import 'package:critalarm/core/store/services/manage_subscription.dart';
+import 'package:critalarm/core/store/services/sign_in_options.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
+import 'package:critalarm/core/store/services/store_links.dart';
+import 'package:critalarm/core/store/services/store_review.dart';
+import 'package:critalarm/core/store/services/store_services.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
@@ -40,9 +45,23 @@ void registerPlatformSingletons(
   required StoreKind store,
   required DeviceForm deviceForm,
 }) {
+  final storeServices = getIt<StoreServices>();
+
   getIt
     ..registerSingleton<PlatformCapabilities>(capabilities)
     ..registerSingleton<StoreKind>(store)
+    // Each part of the store set on its own, so feature code asks for the
+    // one it needs.
+    ..registerLazySingleton<StoreBilling>(() => storeServices.billing)
+    ..registerLazySingleton<ManageSubscription>(
+      () => storeServices.manageSubscription,
+    )
+    ..registerLazySingleton<SignInOptions>(() => storeServices.signInOptions)
+    ..registerLazySingleton<GoogleSignInSheet>(
+      () => storeServices.googleSignIn,
+    )
+    ..registerLazySingleton<StoreReview>(() => storeServices.review)
+    ..registerLazySingleton<StoreLinks>(() => storeServices.links)
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm);
 }
@@ -88,12 +107,9 @@ void registerAppHosts(
           ? const ChannelBackupHost()
           : const NoBackupHost(),
     )
-    // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
-    // raw APNs token. Android registers the FCM one (§5.2).
+    // APNs on iOS and FCM on Android, as the store set says.
     ..registerLazySingleton<PushTokenProvider>(
-      () => defaultTargetPlatform == TargetPlatform.iOS
-          ? ApnsPushTokenProvider(getIt<PushHost>())
-          : FirebasePushTokenProvider(),
+      () => getIt<StoreServices>().pushTokens,
     );
 }
 

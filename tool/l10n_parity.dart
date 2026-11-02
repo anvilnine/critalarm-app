@@ -8,9 +8,16 @@ const requiredPluralForms = <String, Set<String>>{
   'es': {'one', 'other'},
   'fr': {'one', 'other'},
   'pt-BR': {'one', 'other'},
+  'it': {'one', 'other'},
+  'nl': {'one', 'other'},
+  'tr': {'one', 'other'},
+  'pl': {'one', 'few', 'many', 'other'},
+  'uk': {'one', 'few', 'many', 'other'},
+  'cs': {'one', 'few', 'other'},
   'ja': {'other'},
   'ko': {'other'},
   'zh-Hans': {'other'},
+  'zh-Hant': {'other'},
 };
 
 final placeholderPattern = RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)?\}');

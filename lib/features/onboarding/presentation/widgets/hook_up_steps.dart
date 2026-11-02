@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
@@ -127,7 +128,10 @@ class _HookUpStepsLayoutState extends State<HookUpStepsLayout> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                LocaleKeys.onboarding_hook_up_steps_label.tr().toUpperCase(),
+                upperInContext(
+                  LocaleKeys.onboarding_hook_up_steps_label.tr(),
+                  context,
+                ),
                 style: AppTypography.monoBold(
                   colors.onCanvasMuted,
                   fontSize: 11,

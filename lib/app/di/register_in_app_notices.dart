@@ -10,6 +10,7 @@ import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/cancel_reason_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -39,7 +40,6 @@ import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.d
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -164,7 +164,7 @@ void registerNotices(GetIt getIt) {
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
-            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+            await getIt<StoreBilling>().invalidateCustomerCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
         },

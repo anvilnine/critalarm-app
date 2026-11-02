@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design_system/tokens/colors.dart';
 import 'package:critalarm/design_system/tokens/radii.dart';
 import 'package:critalarm/design_system/tokens/spacing.dart';
@@ -82,7 +83,7 @@ class PermissionPrimer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: Spacing.lg),
-            Text(title.toUpperCase(), style: text.titleLarge),
+            Text(upperInContext(title, context), style: text.titleLarge),
             const SizedBox(height: Spacing.sm),
             Text(
               body,
@@ -93,7 +94,7 @@ class PermissionPrimer extends StatelessWidget {
             const SizedBox(height: Spacing.xs),
             TextButton(
               onPressed: onNotNow,
-              child: Text(notNowLabel.toUpperCase()),
+              child: Text(upperInContext(notNowLabel, context)),
             ),
           ],
         ),

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_assignments.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
-import 'package:critalarm/core/sound/sound_pack_host.dart';
+import 'package:critalarm/core/store/services/sound_pack_source.dart';
 
 /// Downloads sound packs from the store and turns their files into sounds the
 /// picker lists and the alarm rings.
@@ -21,7 +21,7 @@ class SoundPackRepository {
     _hostChanges = _host.changes.listen(_onHostChange);
   }
 
-  final SoundPackHost _host;
+  final SoundPackSource _host;
   final List<SoundPack> packs;
 
   /// How long a question to the store or the sound folder may take. Offline,
@@ -122,7 +122,7 @@ class SoundPackRepository {
     return wanted.difference(present);
   }
 
-  /// [SoundPackHost.installedPackSounds] with [storeTimeout]. A late answer
+  /// [SoundPackSource.installedPackSounds] with [storeTimeout]. A late answer
   /// counts as no answer.
   Future<Map<String, String>?> _installed(String packId, List<String> ids) =>
       _host

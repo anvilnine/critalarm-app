@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
@@ -303,10 +304,9 @@ class _Screen extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.topLeft,
                 child: Text(
-                  LocaleKeys.paywall_previews_extras_screen_wake_up
-                      .tr()
-                      .toUpperCase()
-                      .replaceFirst(' ', '\n'),
+                  upperForCurrentLocale(
+                    LocaleKeys.paywall_previews_extras_screen_wake_up.tr(),
+                  ).replaceFirst(' ', '\n'),
                   maxLines: 2,
                   style: AppTypography.display(
                     colors.inkFixed,

@@ -12,11 +12,13 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
-import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/core/store/services/google_sign_in_sheet.dart';
+import 'package:critalarm/core/store/services/sign_in_options.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
@@ -34,7 +36,6 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 import 'package:flutter/foundation.dart';
@@ -51,7 +52,10 @@ void registerAccount(
 }) {
   getIt
     ..registerLazySingleton<ProviderSignIn>(
-      () => NativeProviderSignIn(capabilities: getIt<PlatformCapabilities>()),
+      () => NativeProviderSignIn(
+        options: getIt<SignInOptions>(),
+        google: getIt<GoogleSignInSheet>(),
+      ),
     )
     ..registerLazySingleton<IdentityRepository>(
       () => HttpIdentityRepository(
@@ -95,12 +99,12 @@ void registerAccount(
         signOutBilling: buildSkipsPaywall
             ? null
             : () async {
-                final store = getIt<RevenueCatService>();
+                final billing = getIt<StoreBilling>();
                 // A store that was never configured (no key in a dev build)
                 // never logged in to this account, so there is nothing to
                 // log out of.
-                if (!store.isConfigured) return;
-                await store.logOut();
+                if (!billing.isConfigured) return;
+                await billing.logOut();
               },
         stopAlarm: getIt<AlarmHost>().stopRinging,
         holdings: getIt<Holdings>(),

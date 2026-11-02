@@ -1,3 +1,4 @@
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -365,7 +366,7 @@ class _TabSlot extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          item.label.toUpperCase(),
+                          upperInContext(item.label, context),
                           maxLines: 1,
                           style: TextStyle(
                             fontFamily: AppTypography.fontDisplay,

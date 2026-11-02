@@ -31,9 +31,13 @@ import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/platform/store_kind.dart';
+import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/core/store/play_apple/play_apple_store_services.dart';
+import 'package:critalarm/core/store/services/store_services.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
+import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
@@ -106,15 +110,6 @@ Future<void> configureDependencies({
   await registerTelemetryGate(getIt);
   registerDevAccessSwitches(getIt, prefs: prefs);
   registerDevPaywallLayoutSwitches(getIt, prefs: prefs);
-  await registerRevenueCat(getIt, identityStore: identityStore);
-  await registerPriceBook(getIt);
-
-  final deviceForm = await DeviceForm.read();
-  appEdgeEffect.value = autoEdgeEffect(
-    platform: defaultTargetPlatform,
-    shaderSupported: await loadEdgeBlurShader(),
-    isLowRamDevice: deviceForm.isLowRamDevice,
-  );
 
   // The one place that reads `kIsWeb` for feature code. Features ask
   // `PlatformCapabilities` and never read the global themselves.
@@ -124,10 +119,27 @@ Future<void> configureDependencies({
   );
 
   // The store this build is for, from `--dart-define=STORE=...`, read here
-  // and nowhere else.
+  // and nowhere else, and the set of store services it picks.
   final store = StoreKind.resolve(
     define: const String.fromEnvironment('STORE'),
     platform: defaultTargetPlatform,
+  );
+  if (!getIt.isRegistered<StoreServices>()) {
+    final storeServices = storeServicesFor(
+      store,
+      capabilities: capabilities,
+      pushHost: getIt.get<PushHost>,
+    );
+    await startStoreBilling(storeServices, identityStore);
+    getIt.registerSingleton<StoreServices>(storeServices);
+  }
+  await registerPriceBook(getIt);
+
+  final deviceForm = await DeviceForm.read();
+  appEdgeEffect.value = autoEdgeEffect(
+    platform: defaultTargetPlatform,
+    shaderSupported: await loadEdgeBlurShader(),
+    isLowRamDevice: deviceForm.isLowRamDevice,
   );
 
   registerPlatformSingletons(
@@ -244,3 +256,24 @@ void startMissedAlarmWatch() {
   seen(topics.state);
   topics.stream.listen(seen);
 }
+
+/// The store services for [store]: everything a store decides, in one set.
+///
+/// Google Play and the App Store share the RevenueCat set. The Galaxy and
+/// Huawei builds get it too until their own sets exist, so they run the
+/// code the Play build runs today.
+StoreServices storeServicesFor(
+  StoreKind store, {
+  required PlatformCapabilities capabilities,
+  required PushHost Function() pushHost,
+}) => switch (store) {
+  StoreKind.play ||
+  StoreKind.apple ||
+  StoreKind.galaxy ||
+  StoreKind.huawei => PlayAppleStoreServices(
+    store: store,
+    capabilities: capabilities,
+    pushHost: pushHost,
+    appStoreId: FeedbackLinks.appStoreId,
+  ),
+};

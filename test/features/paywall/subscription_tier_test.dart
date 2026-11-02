@@ -1,6 +1,13 @@
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+
+/// The store-neutral entry the RevenueCat billing hands the paywall for
+/// [package].
+StoreCatalogEntry _entry(Package package) =>
+    storeCatalogEntryOf(package, offeringId: 'default');
 
 void main() {
   group('SubscriptionTier', () {
@@ -57,11 +64,11 @@ void main() {
       );
 
       expect(
-        SubscriptionTier.fromPackage(annualPkg),
+        SubscriptionTier.fromPackage(_entry(annualPkg)),
         equals(SubscriptionTier.yearly),
       );
       expect(
-        SubscriptionTier.fromPackage(monthlyPkg),
+        SubscriptionTier.fromPackage(_entry(monthlyPkg)),
         equals(SubscriptionTier.monthly),
       );
     });
@@ -83,8 +90,8 @@ void main() {
         PresentedOfferingContext('default', null, null),
       );
 
-      expect(SubscriptionTier.fromPackage(lifetimePkg), isNull);
-      expect(SubscriptionTier.fromPackage(customLifetime), isNull);
+      expect(SubscriptionTier.fromPackage(_entry(lifetimePkg)), isNull);
+      expect(SubscriptionTier.fromPackage(_entry(customLifetime)), isNull);
     });
 
     test('fromPackage resolves custom packages by identifier substring', () {
@@ -102,11 +109,11 @@ void main() {
       );
 
       expect(
-        SubscriptionTier.fromPackage(customYearly),
+        SubscriptionTier.fromPackage(_entry(customYearly)),
         equals(SubscriptionTier.yearly),
       );
       expect(
-        SubscriptionTier.fromPackage(customMonthly),
+        SubscriptionTier.fromPackage(_entry(customMonthly)),
         equals(SubscriptionTier.monthly),
       );
     });

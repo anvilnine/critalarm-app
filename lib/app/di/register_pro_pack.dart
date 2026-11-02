@@ -4,9 +4,9 @@ import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
-import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/data/store_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
@@ -40,6 +40,6 @@ void registerProPackShop(GetIt getIt) {
   getIt.registerLazySingleton<ProPackShop>(
     () => buildSkipsPaywall
         ? const ClosedProPackShop()
-        : RevenueCatProPackShop(getIt<RevenueCatService>()),
+        : StoreProPackShop(getIt<StoreBilling>()),
   );
 }

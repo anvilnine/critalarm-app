@@ -8,6 +8,7 @@ import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
@@ -1041,15 +1042,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
               child: Text(
-                LocaleKeys.home_card_stale_caption
-                    .tr(
-                      namedArgs: {
-                        'time': DateFormat.Hm(
-                          currentFormatLocale(),
-                        ).format(at.toLocal()),
-                      },
-                    )
-                    .toUpperCase(),
+                upperInContext(
+                  LocaleKeys.home_card_stale_caption.tr(
+                    namedArgs: {
+                      'time': DateFormat.Hm(
+                        currentFormatLocale(),
+                      ).format(at.toLocal()),
+                    },
+                  ),
+                  context,
+                ),
                 style: AppTypography.mono(colors.ink3, fontSize: 11),
               ),
             ),

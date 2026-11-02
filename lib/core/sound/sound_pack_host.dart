@@ -1,24 +1,21 @@
 import 'dart:async';
 
 import 'package:critalarm/core/sound/sound_pack.dart';
+import 'package:critalarm/core/store/services/sound_pack_source.dart';
 import 'package:flutter/services.dart';
 
-/// A pack state the platform sent without being asked: download progress, a
-/// finished download, a failure.
-class SoundPackChange {
-  const SoundPackChange(this.packId, this.status);
-
-  final String packId;
-  final SoundPackStatus status;
-}
+export 'package:critalarm/core/store/services/sound_pack_source.dart'
+    show SoundPackChange;
 
 /// The native half of the sound packs: Play Asset Delivery on Android, and
 /// Apple-hosted Background Assets on iOS 26 and later. Both answer the same
-/// calls on one channel.
+/// calls on one channel. It is the [SoundPackSource] of the Play and App
+/// Store builds. The Galaxy and Huawei flavors register a channel of their
+/// own that answers `unavailable`.
 ///
 /// Every call is safe with no native side: a missing handler answers
 /// [SoundPackState.unsupported], or an empty list.
-final class SoundPackHost {
+final class SoundPackHost implements SoundPackSource {
   SoundPackHost([MethodChannel? channel])
     : _channel = channel ?? const MethodChannel(channelName) {
     _channel.setMethodCallHandler(_handle);
@@ -29,6 +26,7 @@ final class SoundPackHost {
   final MethodChannel _channel;
   final _changes = StreamController<SoundPackChange>.broadcast();
 
+  @override
   Stream<SoundPackChange> get changes => _changes.stream;
 
   Future<Object?> _handle(MethodCall call) async {
@@ -46,18 +44,21 @@ final class SoundPackHost {
   }
 
   /// Where [packId] is right now. Asks the store, never downloads.
+  @override
   Future<SoundPackStatus> packState(String packId) =>
       _status('packState', packId);
 
   /// Asks the store for [packId]. Android answers at once and sends the end
   /// on [changes]; iOS answers when the download is over. Progress arrives
   /// on [changes] on both.
+  @override
   Future<SoundPackStatus> download(String packId) =>
       _status('download', packId);
 
   /// The folder the store unpacked [packId] into, or null when it is not on
   /// the device. iOS finds the folder through one of the pack's files, so
   /// [soundIds] names them.
+  @override
   Future<String?> packPath(
     String packId, {
     List<String> soundIds = const [],
@@ -72,6 +73,7 @@ final class SoundPackHost {
   /// Copies [soundIds] out of the downloaded pack into the app's sound
   /// folder, where the alarm and the notifications find them. Hands back id
   /// to path for the ones that made it.
+  @override
   Future<Map<String, String>> installPack(
     String packId,
     List<String> soundIds,
@@ -85,6 +87,7 @@ final class SoundPackHost {
   /// Which of [soundIds] have a copy in the app's sound folder now, id to
   /// path. Null when the platform could not be asked, which is not the same
   /// as "none": nothing should fall back on a failed question.
+  @override
   Future<Map<String, String>?> installedPackSounds(
     String packId,
     List<String> soundIds,

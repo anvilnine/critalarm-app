@@ -24,6 +24,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -87,7 +88,6 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/offer_sale_probe.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
@@ -151,7 +151,7 @@ void registerDeviceRegistration(GetIt getIt) {
         getIt<ApiClient>(),
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
-        identifyAccount: getIt<RevenueCatService>().identifyAccount,
+        identifyAccount: getIt<StoreBilling>().identifyAccount,
         beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
         readSessionRelay: () async =>
             (await getIt<ApiSessionStore>().read())?.relayUri,

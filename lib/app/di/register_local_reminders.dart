@@ -14,8 +14,8 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
-import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/data/store_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs_reader.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_pass.dart';
@@ -56,7 +56,7 @@ void registerLocalReminders(GetIt getIt) {
           : NativeLocalReminderScheduler(),
     )
     ..registerLazySingleton<PlanStatusSource>(
-      () => RevenueCatPlanStatusSource(getIt<SubscriptionRepository>()),
+      () => StorePlanStatusSource(getIt<SubscriptionRepository>()),
     )
     ..registerLazySingleton(
       () => LocalReminderInputsReader(

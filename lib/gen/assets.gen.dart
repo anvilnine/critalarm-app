@@ -389,20 +389,72 @@ class $AssetsSoundsGen {
 class $AssetsTranslationsGen {
   const $AssetsTranslationsGen();
 
+  /// File path: assets/translations/cs.json
+  String get cs => 'assets/translations/cs.json';
+
   /// File path: assets/translations/de.json
   String get de => 'assets/translations/de.json';
 
   /// File path: assets/translations/en.json
   String get en => 'assets/translations/en.json';
 
+  /// File path: assets/translations/es.json
+  String get es => 'assets/translations/es.json';
+
+  /// File path: assets/translations/fr.json
+  String get fr => 'assets/translations/fr.json';
+
+  /// File path: assets/translations/it.json
+  String get it => 'assets/translations/it.json';
+
   /// File path: assets/translations/ja.json
   String get ja => 'assets/translations/ja.json';
+
+  /// File path: assets/translations/ko.json
+  String get ko => 'assets/translations/ko.json';
+
+  /// File path: assets/translations/nl.json
+  String get nl => 'assets/translations/nl.json';
+
+  /// File path: assets/translations/pl.json
+  String get pl => 'assets/translations/pl.json';
+
+  /// File path: assets/translations/pt-BR.json
+  String get ptBR => 'assets/translations/pt-BR.json';
+
+  /// File path: assets/translations/tr.json
+  String get tr => 'assets/translations/tr.json';
+
+  /// File path: assets/translations/uk.json
+  String get uk => 'assets/translations/uk.json';
+
+  /// File path: assets/translations/zh-Hans.json
+  String get zhHans => 'assets/translations/zh-Hans.json';
+
+  /// File path: assets/translations/zh-Hant.json
+  String get zhHant => 'assets/translations/zh-Hant.json';
 
   /// Directory path: assets/translations
   String get path => 'assets/translations';
 
   /// List of all assets
-  List<String> get values => [de, en, ja];
+  List<String> get values => [
+    cs,
+    de,
+    en,
+    es,
+    fr,
+    it,
+    ja,
+    ko,
+    nl,
+    pl,
+    ptBR,
+    tr,
+    uk,
+    zhHans,
+    zhHant,
+  ];
 }
 
 class $AssetsUiSoundsGen {

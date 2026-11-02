@@ -1,6 +1,7 @@
 import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/format/duration_format.dart';
 import 'package:critalarm/core/format/number_format.dart';
+import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
@@ -145,7 +146,7 @@ String? _label(HomeCardLabel label) {
     HomeCardLabel.firstMessage => LocaleKeys.home_card_label_first_message,
     HomeCardLabel.quietFor => LocaleKeys.home_card_label_quiet_for,
   };
-  return key?.tr().toUpperCase();
+  return key == null ? null : upperForCurrentLocale(key.tr());
 }
 
 String _time(DateTime at, DateTime now) {

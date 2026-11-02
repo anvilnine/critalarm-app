@@ -9,10 +9,11 @@ import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/share_copy_path.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
-import 'package:critalarm/core/sound/sound_pack_host.dart';
 import 'package:critalarm/core/sound/sound_pack_repository.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/sound_pack_source.dart';
+import 'package:critalarm/core/store/services/store_services.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
@@ -28,9 +29,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void registerSoundHosts(GetIt getIt) {
   getIt
     ..registerLazySingleton<SoundHost>(SoundHost.new)
-    ..registerLazySingleton<SoundPackHost>(SoundPackHost.new)
+    ..registerLazySingleton<SoundPackSource>(
+      () => getIt<StoreServices>().soundPacks,
+    )
     ..registerLazySingleton<SoundPackRepository>(
-      () => SoundPackRepository(getIt<SoundPackHost>()),
+      () => SoundPackRepository(getIt<SoundPackSource>()),
     )
     ..registerLazySingleton<SoundPeaksCache>(
       () => SoundPeaksCache(getIt<SoundHost>()),
