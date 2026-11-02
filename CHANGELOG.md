@@ -19,6 +19,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On iPhone Duo, the tabs sit in the strip down the side of the screen, open or closed, flat or half folded, and the page uses the rest of the screen.
 - Times on the alarm screen follow your phone's 12 or 24 hour clock.
 - On an iPad, an Android tablet, the Mac and the web app, the app names that device instead of saying phone, in every language.
+- On an iPad, the app says a critical alert comes through silent mode as a notification, since the iPad does not show the full-screen alarm. The Mac and the web app keep saying your phone rings.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.

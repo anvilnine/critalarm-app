@@ -116,7 +116,12 @@ void main() {
             // to change, so its variants repeat it. Any other variant names
             // the iPad.
             final repeatsPhone = jsonEncode(phone) == jsonEncode(variant);
+            final namesPhone = RegExp(
+              'phone',
+              caseSensitive: false,
+            ).hasMatch(jsonEncode(_at(english, entry.key)));
             if (word == DeviceWord.ipad &&
+                namesPhone &&
                 !repeatsPhone &&
                 !jsonEncode(variant).contains('iPad')) {
               problems.add('$tag $key: does not say iPad');
@@ -125,6 +130,45 @@ void main() {
         }
       }
       expect(problems, isEmpty);
+    });
+
+    test('no English iPad variant promises a full-screen alarm', () {
+      final promise = RegExp(
+        'as an alarm|like an alarm|full.screen|takes over|rings until|'
+        'Do Not Disturb',
+        caseSensitive: false,
+      );
+      final wrong = <String>[];
+      for (final keys in deviceVariantKeys.values) {
+        final key = keys.ipad;
+        if (key == null) continue;
+        if (promise.hasMatch(jsonEncode(_at(english, key)))) wrong.add(key);
+      }
+      expect(wrong, isEmpty);
+    });
+
+    test('the iOS alarm promises have an iPad variant', () {
+      for (final key in const [
+        'priorities.alarm_ios',
+        'onboarding_welcome.caption_rings_silent',
+        'feature_guides.topic_critical_body',
+        'onboarding_permissions.ios.alarms.subtitle',
+        'topic_detail.critical_toggle_subtitle',
+        'create_topic.critical_toggle_subtitle',
+      ]) {
+        expect(deviceVariantKeys[key]?.ipad, isNotNull, reason: key);
+      }
+    });
+
+    test('no English computer variant says the computer rings', () {
+      final rings = RegExp(r'\bring', caseSensitive: false);
+      final wrong = <String>[];
+      for (final keys in deviceVariantKeys.values) {
+        final key = keys.computer;
+        if (key == null) continue;
+        if (rings.hasMatch(jsonEncode(_at(english, key)))) wrong.add(key);
+      }
+      expect(wrong, isEmpty);
     });
 
     test('no language ships an English variant', () {
@@ -159,7 +203,17 @@ void main() {
       expect(stop(DeviceWord.phone), 'This phone');
       expect(stop(DeviceWord.ipad), 'This iPad');
       expect(stop(DeviceWord.tablet), 'This tablet');
-      expect(stop(DeviceWord.computer), 'This computer');
+      // The Mac and the web app cannot ring, so the wake path keeps the
+      // phone there.
+      expect(stop(DeviceWord.computer), 'This phone');
+    });
+
+    test('a computer is named where the sentence is true on it', () {
+      final computer = withDeviceWord(english, DeviceWord.computer);
+      expect(
+        _at(computer, 'settings.storage_row_subtitle'),
+        'How long old alarms stay on this computer',
+      );
     });
 
     test('a plural string swaps all its forms', () {
