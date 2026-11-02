@@ -156,4 +156,29 @@ class RingVolumeTest {
         runCatching { volume.restore() }
         assertNull(disk.value)
     }
+
+    // W10: under total-silence Do Not Disturb the phone ignores the put-back,
+    // and the watch logged it every second.
+    @Test
+    fun aPutBackThePhoneIgnoresIsToldApartFromOneThatWorked() {
+        val stream = FakeStream(level = 7)
+        val volume = RingVolume(stream, FakeDisk())
+        assertEquals(RingVolume.Hold.AT_MAX, volume.hold())
+
+        stream.level = 2
+        assertEquals(RingVolume.Hold.PUT_BACK, volume.hold())
+        assertEquals(7, stream.level)
+
+        val ignoring = object : AlarmStream {
+            override val volume = 0
+            override val max = 7
+            override fun set(volume: Int) = Unit
+        }
+        assertEquals(RingVolume.Hold.REFUSED, RingVolume(ignoring, FakeDisk()).hold())
+
+        stream.level = 1
+        stream.fails = true
+        assertEquals(RingVolume.Hold.REFUSED, volume.hold())
+        assertTrue(volume.holdAtMax())
+    }
 }

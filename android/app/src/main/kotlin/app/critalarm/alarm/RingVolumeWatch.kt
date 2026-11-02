@@ -79,15 +79,40 @@ class RingVolumeWatch(private val context: Context, private val volume: RingVolu
         main.postDelayed(poll, POLL_MS)
     }
 
+    /**
+     * The sound has started playing. Android 17 refuses a volume change from
+     * an app that plays nothing yet, so the raise at the start of a ring can
+     * be ignored (W8). This is the same look, made the moment there is a
+     * sound to raise.
+     */
+    fun soundStarted() {
+        check("sound_started")
+    }
+
     fun stop() {
+        refusedLogged = false
         main.removeCallbacks(poll)
         receiver?.let { runCatching { context.unregisterReceiver(it) } }
         receiver = null
     }
 
+    /** One line for a run of refused put-backs, not one a second (W10). */
+    private var refusedLogged = false
+
     private fun check(source: String) {
-        runCatching { if (volume.holdAtMax()) Log.i(TAG, "alarm_volume_put_back source=$source") }
-            .onFailure { Log.w(TAG, "alarm_volume_put_back_failed error=$it") }
+        runCatching {
+            when (volume.hold()) {
+                RingVolume.Hold.AT_MAX -> refusedLogged = false
+                RingVolume.Hold.PUT_BACK -> {
+                    refusedLogged = false
+                    Log.i(TAG, "alarm_volume_put_back source=$source")
+                }
+                RingVolume.Hold.REFUSED -> {
+                    if (!refusedLogged) Log.i(TAG, "alarm_volume_put_back_refused source=$source")
+                    refusedLogged = true
+                }
+            }
+        }.onFailure { Log.w(TAG, "alarm_volume_put_back_failed error=$it") }
     }
 
     companion object {

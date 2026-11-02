@@ -43,11 +43,33 @@ class RingVolume(private val stream: AlarmStream, private val saved: SavedVolume
      * While ringing: puts a lowered stream back to its maximum. Returns
      * whether it had to.
      */
-    fun holdAtMax(): Boolean {
+    fun holdAtMax(): Boolean = hold() != Hold.AT_MAX
+
+    /** What one look at the stream found and did. */
+    enum class Hold {
+        /** Already at its maximum. Nothing done. */
+        AT_MAX,
+
+        /** It was lower and is back at its maximum. */
+        PUT_BACK,
+
+        /**
+         * It was lower and stayed lower: the phone ignored or refused the
+         * change, as total-silence Do Not Disturb does with a muted stream.
+         */
+        REFUSED,
+    }
+
+    /** [holdAtMax], telling a put-back that worked from one the phone refused. */
+    fun hold(): Hold {
         val max = stream.max
-        if (stream.volume >= max) return false
-        stream.set(max)
-        return true
+        if (stream.volume >= max) return Hold.AT_MAX
+        try {
+            stream.set(max)
+        } catch (error: Exception) {
+            return Hold.REFUSED
+        }
+        return if (stream.volume >= max) Hold.PUT_BACK else Hold.REFUSED
     }
 
     /**

@@ -122,6 +122,7 @@ class AlarmPlayer(
                 }
                 main.post {
                     if (AlarmPlayerRules.isCurrent(started, loopPlayer)) {
+                        if (!quiet) volumeWatch.soundStarted()
                         haptics.onSoundStarted(mode, sessionId, waveform)
                     }
                 }
@@ -178,6 +179,7 @@ class AlarmPlayer(
             opened.prepare()
             opened.start()
             player = opened
+            if (!QuietAlarm.isOn(context)) volumeWatch.soundStarted()
             // No decoded sound here, so the pattern is a plain pulse.
             haptics.onSoundStarted(hapticMode, opened.audioSessionId, null)
             true
