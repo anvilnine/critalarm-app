@@ -59,17 +59,17 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/motion/motion_sensor.dart';
-import 'package:critalarm/design/components/switches.dart';
-import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
-import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/theme/theme.dart';
+import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
@@ -78,8 +78,8 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
-import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
@@ -91,8 +91,8 @@ import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/reliability/domain/proof/proof_log.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
-import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_hero_parts.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -172,16 +172,16 @@ final String _theme = _env('MOTION_THEME', 'light') == 'dark'
 // The clock
 // ---------------------------------------------------------------------------
 
-typedef _SetenvC =
-    ffi.Int32 Function(ffi.Pointer<Utf8>, ffi.Pointer<Utf8>, ffi.Int32);
-typedef _SetenvDart = int Function(ffi.Pointer<Utf8>, ffi.Pointer<Utf8>, int);
-
 /// Moves this process's time zone so the wall clock reads [_clipStartsAt]
 /// right now. Dart has no clock to swap under `DateTime.now()`, and the mock
 /// server and most screens read it, so the zone is what moves.
 void _setWallClockToClipStart() {
   final lib = ffi.DynamicLibrary.process();
-  final setenv = lib.lookupFunction<_SetenvC, _SetenvDart>('setenv');
+  final setenv = lib
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Pointer<Utf8>, ffi.Pointer<Utf8>, ffi.Int32),
+        int Function(ffi.Pointer<Utf8>, ffi.Pointer<Utf8>, int)
+      >('setenv');
   final tzset = lib.lookupFunction<ffi.Void Function(), void Function()>(
     'tzset',
   );
@@ -722,7 +722,7 @@ void main() {
     getIt
       ..unregister<DevicePermissionsRepository>()
       ..registerSingleton<DevicePermissionsRepository>(_AllGranted(real));
-    _giveAlarmScreenThePumpedClock();
+    await _giveAlarmScreenThePumpedClock();
     await getIt<ReliabilityCubit>().refresh();
     await loadAppFonts();
   });
@@ -807,7 +807,10 @@ void main() {
       getIt
         ..unregister<PlatformCapabilities>()
         ..registerSingleton<PlatformCapabilities>(
-          PlatformCapabilities(isWeb: false, platform: TargetPlatform.iOS),
+          const PlatformCapabilities(
+            isWeb: false,
+            platform: TargetPlatform.iOS,
+          ),
         );
 
       tester.view.physicalSize = Size(
@@ -830,65 +833,65 @@ void main() {
 
       _setWallClockToClipStart();
       _clock.restart();
-      final scene = _Scene(tester, server);
-      // The clip seeds the mock, then names its first route. Nothing is
-      // recorded until it calls `record` on the take it gets back.
-      scene._open = (String route) async {
-        await tester.runAsync(() async {
-          await getIt<TopicsCubit>().refresh();
-          await getIt<IncidentsCubit>().refresh(full: true);
-        });
-        final router = buildRouter(initialLocation: route);
-        await tester.pumpWidget(
-          MultiBlocProvider(
-            providers: [
-              BlocProvider<IncidentsCubit>.value(
-                value: getIt<IncidentsCubit>(),
-              ),
-              BlocProvider<TopicsCubit>.value(value: getIt<TopicsCubit>()),
-              BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
-              BlocProvider<AppearanceCubit>.value(
-                value: getIt<AppearanceCubit>(),
-              ),
-            ],
-            child: MaterialApp.router(
-              debugShowCheckedModeBanner: false,
-              theme: buildLightTheme(),
-              darkTheme: buildDarkTheme(),
-              themeMode: themeMode,
-              routerConfig: router,
-              builder: (context, child) => RepaintBoundary(
-                key: boundary,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    AppDeviceScope(
-                      isIphone: true,
-                      child: AppAmbientShell(
-                        router: router,
-                        child: child ?? const SizedBox.shrink(),
-                      ),
-                    ),
-                    if (_hasStatusBar)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        child: _StatusBar(
-                          tick: statusTick,
-                          fallbackDark: themeMode == ThemeMode.dark,
+      final scene = _Scene(tester, server)
+        // The clip seeds the mock, then names its first route. Nothing is
+        // recorded until it calls `record` on the take it gets back.
+        .._open = (route) async {
+          await tester.runAsync(() async {
+            await getIt<TopicsCubit>().refresh();
+            await getIt<IncidentsCubit>().refresh(full: true);
+          });
+          final router = buildRouter(initialLocation: route);
+          await tester.pumpWidget(
+            MultiBlocProvider(
+              providers: [
+                BlocProvider<IncidentsCubit>.value(
+                  value: getIt<IncidentsCubit>(),
+                ),
+                BlocProvider<TopicsCubit>.value(value: getIt<TopicsCubit>()),
+                BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
+                BlocProvider<AppearanceCubit>.value(
+                  value: getIt<AppearanceCubit>(),
+                ),
+              ],
+              child: MaterialApp.router(
+                debugShowCheckedModeBanner: false,
+                theme: buildLightTheme(),
+                darkTheme: buildDarkTheme(),
+                themeMode: themeMode,
+                routerConfig: router,
+                builder: (context, child) => RepaintBoundary(
+                  key: boundary,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      AppDeviceScope(
+                        isIphone: true,
+                        child: AppAmbientShell(
+                          router: router,
+                          child: child ?? const SizedBox.shrink(),
                         ),
                       ),
-                  ],
+                      if (_hasStatusBar)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          child: _StatusBar(
+                            tick: statusTick,
+                            fallbackDark: themeMode == ThemeMode.dark,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        final take = _Take(tester, boundary, router, dir, statusTick);
-        await take.settle();
-        return take;
-      };
+          );
+          final take = _Take(tester, boundary, router, dir, statusTick);
+          await take.settle();
+          return take;
+        };
 
       Object? failure;
       try {

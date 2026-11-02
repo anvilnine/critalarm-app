@@ -16,32 +16,31 @@ part of 'capture_motion.dart';
 /// The cubit takes a clock so a test can hand it one. With the real clock a
 /// clip's "Ringing 3 s." would count as fast as frames are saved, several
 /// seconds a second.
-void _giveAlarmScreenThePumpedClock() {
-  getIt
-    ..unregister<CriticalAlarmCubit>()
-    ..registerFactory(
-      () => CriticalAlarmCubit(
-        _LocalGet(getIt<GetIncidentUsecase>()),
-        getIt<GetIncidentsUsecase>(),
-        _LocalAck(getIt<AcknowledgeIncidentUsecase>()),
-        _LocalClose(getIt<CloseIncidentUsecase>()),
-        getIt<IncidentsCubit>(),
-        getIt<AlarmHost>(),
-        const Duration(seconds: 1),
-        _clock.now,
-        getIt<GetOnboardingCompletedUsecase>(),
-        () => getIt<OnboardingFlowEngine>().isStepSatisfied(
-          OnboardingStepId.firstTopic,
-        ),
-        () => getIt<SetupTestRing>().incidentIds,
-        () => getIt<OnboardingFlowEngine>().runningFlow().contains(
-          OnboardingStepId.realRing,
-        ),
-        getIt<EndSetupTestUsecase>(),
-        getIt<SetupTestRing>(),
-        getIt<ProofLog>(),
+Future<void> _giveAlarmScreenThePumpedClock() async {
+  await getIt.unregister<CriticalAlarmCubit>();
+  getIt.registerFactory(
+    () => CriticalAlarmCubit(
+      _LocalGet(getIt<GetIncidentUsecase>()),
+      getIt<GetIncidentsUsecase>(),
+      _LocalAck(getIt<AcknowledgeIncidentUsecase>()),
+      _LocalClose(getIt<CloseIncidentUsecase>()),
+      getIt<IncidentsCubit>(),
+      getIt<AlarmHost>(),
+      const Duration(seconds: 1),
+      _clock.now,
+      getIt<GetOnboardingCompletedUsecase>(),
+      () => getIt<OnboardingFlowEngine>().isStepSatisfied(
+        OnboardingStepId.firstTopic,
       ),
-    );
+      () => getIt<SetupTestRing>().incidentIds,
+      () => getIt<OnboardingFlowEngine>().runningFlow().contains(
+        OnboardingStepId.realRing,
+      ),
+      getIt<EndSetupTestUsecase>(),
+      getIt<SetupTestRing>(),
+      getIt<ProofLog>(),
+    ),
+  );
 }
 
 /// The same incident with its times as local times.
@@ -270,7 +269,6 @@ class _Scene {
           time: _unix(n.subtract(const Duration(hours: 5))),
           title: 'Disk at 85% on db-1',
           message: '/var/lib/postgresql has 31 GB left.',
-          priority: 3,
           tags: const ['postgres', 'disk'],
         ),
       )
@@ -485,7 +483,7 @@ const double _takeoverS = 0.8;
 /// as anything but 0.
 const Duration _takeoverLead = Duration(milliseconds: 900);
 
-const _lookNames = {
+const Map<AlarmStyleId, String> _lookNames = {
   AlarmStyleId.standard: 'Standard',
   AlarmStyleId.minimal: 'Minimal',
   AlarmStyleId.terminal: 'Terminal',
@@ -507,7 +505,7 @@ _Clip _alarmArrives(AlarmStyleId look, _Story story) => (
     if (look != AlarmStyleId.standard) 'F-alarm-looks',
   ],
   note:
-      'Home is calm for 0.7 s. Then the open alarm reaches the app\'s '
+      "Home is calm for 0.7 s. Then the open alarm reaches the app's "
       'shared list, as it does when a push lands, and the app itself swaps '
       'Home for the alarm screen, which rings from 0 s.',
   run: (scene) async {
@@ -589,7 +587,7 @@ _Clip _alarmSilenced(_Story story) => (
 /// A finger taps "Read the full message" and the topic's messages open.
 _Clip _alarmReadMessage(_Story story) => (
   id: 'alarm.read-full-message.standard',
-  screen: 'Ringing alarm screen, then the topic\'s messages',
+  screen: "Ringing alarm screen, then the topic's messages",
   look: 'Standard',
   story: story.slug,
   theme: _theme,
@@ -747,12 +745,12 @@ const double _db1LeadIn = 50 / 60;
 const Map<String, Map<String, Object?>> _joins = {
   'story.db-1.3-alarm-arrives': {
     'continued_by': 'story.db-1.4-im-up',
-    'cut': 'this clip\'s last frame, then frame 0 of the next clip',
+    'cut': "this clip's last frame, then frame 0 of the next clip",
     'ring_s_at_last_frame': _db1RingsS,
   },
   'story.db-1.4-im-up': {
     'continues': 'story.db-1.3-alarm-arrives',
-    'cut': 'the last frame of that clip, then this clip\'s frame 0',
+    'cut': "the last frame of that clip, then this clip's frame 0",
     'ring_s_at_frame_0': _db1RingsS,
     'same_between_the_two': 'the ring count, the words, the clock',
     'can_differ': 'the ringing face, which the app picks at random',
@@ -849,12 +847,12 @@ List<_Clip> _db1Story() {
       features: ['F-alarm-screen', 'F-ack-im-up', 'F-alarm-stopped-screen'],
       note:
           'Carries on from clip 3 with no gap: at frame 0 the alarm is one '
-          'frame further into its ring than at clip 3\'s last frame (4.7 s), '
+          "frame further into its ring than at clip 3's last frame (4.7 s), "
           'so the count reads "Ringing 4 s." on both sides of the cut and '
-          'goes up from there. "I\'m up" is tapped at about 2 s and the answered screen '
-          'draws. There is no confetti: the app throws it only on its setup '
-          'demo. The ringing face is picked at random, so it can differ '
-          'from clip 3\'s.',
+          'goes up from there. "I\'m up" is tapped at about 2 s and the '
+          'answered screen draws. There is no confetti: the app throws it only '
+          'on its setup demo. The ringing face is picked at random, so it can '
+          "differ from clip 3's.",
       run: (scene) async {
         // Recording starts where clip 3 stops: the alarm is _db1RingsS
         // into its ring at the last frame of clip 3, and a frame further
@@ -900,7 +898,7 @@ List<_Clip> _db1Story() {
           'The answered screen of the same alarm. It reads "Rang for 0 min '
           '6 s.", as the end of clip 4 does. "At my '
           'desk" is tapped at 1.6 s, then "Back to topics", and Home is '
-          'calm again with the alarm in db-1\'s row.',
+          "calm again with the alarm in db-1's row.",
       run: (scene) async {
         scene
           ..seedHome()
@@ -1425,7 +1423,7 @@ _Clip _widgets() => (
 );
 
 /// Which story each look is recorded with, so no two looks tell one story.
-const _lookStories = [
+const List<(AlarmStyleId, _Story)> _lookStories = [
   (AlarmStyleId.standard, _db1),
   (AlarmStyleId.minimal, _sumpPump),
   (AlarmStyleId.terminal, _paymentWebhook),
