@@ -13,6 +13,7 @@ import app.critalarm.l10n.NativeText
 import app.critalarm.l10n.NativeWords
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
+import app.critalarm.taps.TapGate
 
 /**
  * The notification for everything that is not the alarm: priority 1-3 on the
@@ -141,6 +142,7 @@ object MessageNotificationFactory {
                 data = Uri.parse("critalarm://topics/${Uri.encode(it)}")
                 putExtra(MainActivity.EXTRA_TOPIC, it)
             }
+            TapGate.sign(context, this)
         }
     }
 }

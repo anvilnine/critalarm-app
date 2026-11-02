@@ -21,6 +21,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Changed
 - IncidentAlarmScheduler sets the iOS AlarmKit secondary button text to Open Crit Alarm.
 - The iOS system alarm in the onboarding stories shows Open Crit Alarm on its button.
+- Android: TapKeyFile makes a key only when tap\_mark\_key is missing. A failed read keeps the file and signs with a key for that process only, so marks already posted stay good after a restart.
 - A server error during a connect becomes NetworkFaultKind.server and keeps its status, numeric code, cap and a known error word (NetworkFault.knownWireErrors), so it reads with the same line as elsewhere. DeviceIdentityStore.restore notifies changes listeners.
 - ConnectToServerUsecase checks the whole /v1/info answer and makes one authenticated read (ManagementCredentialProbe, GET /v1/incidents?limit=1) before it writes the session or the connection. New outcomes: ServerAnswerInvalid, LinkServerNotSelfHosted, AdminTokenRefused, RelayDiffers and RegisteredElsewhere.
 - SettingsCubit.saveConnection goes through ConnectToServerUsecase and answers a ConnectOutcome. The proof and the relay check are built into ConnectToServerUsecase (GetServerInfoUsecase.proveAdminToken, EstablishApiSessionUsecase.relayTrust) and no longer need wiring. ConnectTransportError keeps a NetworkFault (the kind of error) in place of the thrown object.
@@ -40,6 +41,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FeatureAccess keeps the last sure answer per feature. FeatureDecision.unread is usable only when that answer was open, and lockTapFor does nothing on an unread with no sure yes.
 - One shared quietly helper replaces three private copies, and 16 empty catches now print a debug-only trace
 - Paywall frame tools no longer point at the site checkout; the site takes only cloud-proof.webp from them, copied by hand.
+- Android: TapGate.admit also takes Flutter's engine start extras (FlutterShellExtras.NAMES) off every intent in a build that is not debuggable, and clears all extras if one cannot be read back. FlutterShellExtrasTest fails when a Flutter upgrade adds a start option that is not listed.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
@@ -52,6 +54,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - iOS: the sign-in session token (identity\_session\_token) moved from the preferences to an unsynced, ThisDeviceOnly Keychain item, service app.critalarm.identity\_session (KeychainIdentityTokenStore). The first read moves an existing token and removes the old key once the Keychain write succeeds. DeviceIdentityKeychain takes a this\_device\_only flag on write. Android keeps the preferences key, which no backup carries.
 - iOS: MovedPhoneReset deletes the flutter.identity\_session\_token preferences key that a backup made before the Keychain move still carries, and never moves it into the Keychain (IdentityTokenStore.readAfterMove). The one-time move on the same phone is unchanged.
 - Android: the alarm screen keeps its ringing layout until releaseLockScreen answers (LockScreenHold.mayShowOverLock), and MainActivity answers it only once the window has left the lock screen, after the unlock prompt on a locked phone (LockReleaseAnswers). The acknowledged, answered elsewhere and failure layouts no longer draw over the lock screen.
+- Android: every intent the app builds for MainActivity (notifications, widgets, reminders) carries tap\_mark, an HMAC-SHA256 of its routing extras under a per-install key in no\_backup/tap\_mark\_key (TapSignature, TapGate). MainActivity checks it before reading anything: a missing or wrong mark drops alarm\_incident\_id, incident\_id, topic, open, from and the reminder extras, so the start opens Home and never shows over the lock screen. getInitialRoute no longer falls back to Flutter's route extra. A notification posted by an older build has no mark and opens Home.
+- Android: MainActivity answers Flutter's start options itself (no cached engine or engine group, opaque window, no Dart entrypoint arguments) and no longer reads cached\_engine\_id, cached\_engine\_group\_id, background\_mode or dart\_entrypoint\_args off the intent, where a bad value from another app crashed the process. The home screen shortcuts' quick\_actions extra is not covered by tap\_mark: any app can still open a shortcut's screen (/ring, /history, /topics/new).
 
 ## 1.0.0+15 - 2026-10-16
 ### Added
