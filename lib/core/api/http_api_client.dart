@@ -553,6 +553,11 @@ final class HttpApiClient
       'DELETE',
       _rawPath(base, 'relay/v1/devices/${Uri.encodeComponent(deviceId)}'),
       auth: deviceToken,
+      // A 401 here says the server already forgot this device. Both callers
+      // handle that themselves: sign-out goes on to register a new account,
+      // and a retired device's token is not this phone's credential. A
+      // recovery would make a second, orphaned anonymous account.
+      recoversDeadCredential: false,
     );
   }
 
