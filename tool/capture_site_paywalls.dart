@@ -1,6 +1,7 @@
 // Records the Cloud paywall layouts and the Cloud benefit previews as frame
-// sequences, from the real widgets, off the device. Made for the marketing
-// site (/pricing), usable for any still or clip of a paywall.
+// sequences, from the real widgets, off the device. Usable for any still or
+// clip of a paywall. The marketing site takes only cloud-proof.webp from the
+// output, copied by hand into its public/pricing/.
 //
 //   make site-paywalls                      every id
 //   SITE_ONLY=cloud-proof,preview-topics make site-paywalls

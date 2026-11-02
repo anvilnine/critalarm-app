@@ -34,6 +34,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - SubscriptionTier.proEntitlement is now cloudEntitlement. The RevenueCat id stays hosted.
 - FeatureAccess keeps the last sure answer per feature. FeatureDecision.unread is usable only when that answer was open, and lockTapFor does nothing on an unread with no sure yes.
 - One shared quietly helper replaces three private copies, and 16 empty catches now print a debug-only trace
+- Paywall frame tools no longer point at the site checkout; the site takes only cloud-proof.webp from them, copied by hand.
 
 ### Fixed
 - MovedPhoneReset calls IdentityRepository.forgetRestoredSignIn, which drops identity\_provider, identity\_email, identity\_account\_id and identity\_providers when the phone holds no session token.
