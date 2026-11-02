@@ -3,6 +3,7 @@ package app.critalarm.alarm
 import android.content.Context
 import android.util.Log
 import app.critalarm.localreminders.LocalReminderReceiver
+import app.critalarm.push.IncidentPushKind
 import app.critalarm.storage.IncidentDeliveryStore
 
 /**
@@ -68,6 +69,17 @@ object IncidentRearm {
         ScheduledAlarmReceiver.cancel(context, incidentId)
         AlarmChain.of(context).cancelChain(incidentId)
         Log.i(TAG, "rearm_cancelled incident_id=$incidentId")
+    }
+
+    /**
+     * What a state push does to this phone's own rings: the old single
+     * re-arm always goes, and the chain goes unless the push is the server's
+     * `ack` for this phone's own "I'm up" ([AlarmChains.onStatePush]).
+     */
+    fun onStatePush(context: Context, incidentId: String, kind: IncidentPushKind) {
+        ScheduledAlarmReceiver.cancel(context, incidentId)
+        val kept = AlarmChain.of(context).onStatePush(incidentId, kind)
+        Log.i(TAG, "state_push_rings incident_id=$incidentId kind=${kind.wireValue} desk_chain_kept=$kept")
     }
 
     internal fun cancelAll(context: Context) {

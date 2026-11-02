@@ -188,6 +188,46 @@ class AlarmChainsTest {
     }
 
     @Test
+    fun `the server's ack for this phone's own I'm up keeps the desk timer chain`() {
+        pushRings("inc_a")
+        imUp("inc_a", now + minute)
+        val deskSlots = alarms.slotsOf("inc_a")
+        assertTrue(deskSlots.isNotEmpty())
+
+        // PushRouter.applyStateChange, for the ack push that follows the tap.
+        val kept = chains.onStatePush("inc_a", IncidentPushKind.ACK)
+        store.markAcknowledged("inc_a", now + minute)
+
+        assertTrue(kept)
+        assertEquals(deskSlots, alarms.slotsOf("inc_a"))
+        assertEquals(ChainRule.Kind.DESK.wire, store.chainOf("inc_a")?.kind)
+    }
+
+    @Test
+    fun `an ack push for a ring chain, from another phone, removes every slot`() {
+        pushRings("inc_a")
+
+        val kept = chains.onStatePush("inc_a", IncidentPushKind.ACK)
+
+        assertFalse(kept)
+        assertTrue(alarms.set.isEmpty())
+        assertNull(store.chainOf("inc_a"))
+    }
+
+    @Test
+    fun `a close or expire push removes the desk timer chain too`() {
+        for (kind in listOf(IncidentPushKind.CLOSE, IncidentPushKind.EXPIRE)) {
+            val id = "inc_${kind.wireValue}"
+            pushRings(id)
+            imUp(id, now + minute)
+            assertTrue(alarms.slotsOf(id).isNotEmpty())
+
+            assertFalse(chains.onStatePush(id, kind))
+            assertTrue(kind.wireValue, alarms.slotsOf(id).isEmpty())
+        }
+    }
+
+    @Test
     fun `a slot that fires past ring_until ends the chain`() {
         pushRings("inc_a")
         val chain = store.chainOf("inc_a")!!

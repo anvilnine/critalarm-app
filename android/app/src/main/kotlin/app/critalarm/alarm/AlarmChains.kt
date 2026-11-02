@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import app.critalarm.push.IncidentPushKind
 import app.critalarm.push.RingLocks
+import app.critalarm.push.StateKindRule
 import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
@@ -155,6 +156,23 @@ class AlarmChains(
             body = body,
         )
     }
+
+    /**
+     * A state push (`ack`, `close`, `expire`) arrived. Cancels the chain
+     * unless it is this phone's own desk timer chain and the push is the
+     * server's `ack` for it ([StateKindRule.keepsDeskChain]). Answers true
+     * when the chain was kept.
+     */
+    fun onStatePush(incidentId: String, kind: IncidentPushKind): Boolean =
+        synchronized(RingLocks.of(incidentId)) {
+            val isDesk = ChainRule.Kind.fromWire(store.chainOf(incidentId)?.kind) == ChainRule.Kind.DESK
+            if (StateKindRule.keepsDeskChain(kind, chainIsDesk = isDesk)) {
+                log("chain_kept_for_own_ack incident_id=$incidentId")
+                return@synchronized true
+            }
+            cancelChain(incidentId)
+            false
+        }
 
     /** Removes every slot of the incident's chain, whichever kind it is. */
     fun cancelChain(incidentId: String) = synchronized(RingLocks.of(incidentId)) {

@@ -338,7 +338,9 @@ class PushRouter(private val context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
 
         AlarmForegroundService.stopIncident(context, incidentId)
-        IncidentRearm.cancel(context, incidentId)
+        // The server's ack for this phone's own "I'm up" keeps its desk timer
+        // chain. Anything else drops every ring this phone set.
+        IncidentRearm.onStatePush(context, incidentId, kind)
         manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
         manager.cancel(MessageNotificationFactory.notificationId(incidentId))
 

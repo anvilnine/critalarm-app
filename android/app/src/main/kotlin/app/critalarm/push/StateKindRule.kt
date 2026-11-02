@@ -32,4 +32,16 @@ object StateKindRule {
 
     /** True when the id should be marked acknowledged and not closed. */
     fun marksAcknowledgedOnly(kind: IncidentPushKind): Boolean = kind == IncidentPushKind.ACK
+
+    /**
+     * True when a state push leaves this phone's chain alone.
+     *
+     * Only this phone's own "I'm up" sets a desk timer chain, so an `ack`
+     * that finds one is the server's report of that same tap. Cancelling it
+     * would leave nothing to ring when the desk timer runs out while the
+     * phone is offline. An `ack` from another phone finds a ring chain, or
+     * none, and every `close` and `expire` ends the incident: those cancel.
+     */
+    fun keepsDeskChain(kind: IncidentPushKind, chainIsDesk: Boolean): Boolean =
+        kind == IncidentPushKind.ACK && chainIsDesk
 }
