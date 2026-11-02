@@ -89,6 +89,33 @@ class AlarmForegroundService : Service() {
         // first go, write down whether the ring could be heard. A setup test
         // reads it (RingAudibility).
         main.postDelayed(::recordAudibility, AUDIBILITY_CHECK_MS)
+        watchWindowEnd(next.incidentId)
+    }
+
+    /**
+     * Stops the ring for [incidentId] once its `ring_until` has passed, read
+     * again when the time comes, so a reopen that moved the window keeps it
+     * ringing. Offline no `expire` arrives to do this (W5).
+     */
+    private fun watchWindowEnd(incidentId: String) {
+        val stopIn = RingWindowEndRule.stopInMillis(
+            IncidentDeliveryStore(this).ringUntilMillis(incidentId),
+            System.currentTimeMillis(),
+        ) ?: return
+        main.postDelayed({ windowEndCheck(incidentId) }, stopIn)
+    }
+
+    private fun windowEndCheck(incidentId: String) {
+        if (destroyed) return
+        val ringUntil = IncidentDeliveryStore(this).ringUntilMillis(incidentId)
+        if (!RingWindowEndRule.isOver(ringUntil, System.currentTimeMillis())) {
+            watchWindowEnd(incidentId)
+            return
+        }
+        if (!isHolding(incidentId)) return
+        Log.i(TAG, "alarm_window_over incident_id=$incidentId")
+        IncidentRearm.endRingWindow(this, incidentId)
+        stopIncident(this, incidentId)
     }
 
     private fun recordAudibility() {

@@ -3,6 +3,7 @@ package app.critalarm.alarm
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -173,5 +174,17 @@ class ChainRuleTest {
         assertTrue(keeps(acknowledged = true, closed = false))
         assertFalse(keeps(acknowledged = true, closed = true))
         assertFalse(keeps(acknowledged = false, closed = false))
+    }
+
+    // W5: offline, the last slot rang on 6 minutes past ring_until.
+    @Test
+    fun `a ring stops at ring_until plus the margin, and one with no window never does`() {
+        val until = 1_000_000L
+        assertEquals(RingWindowEndRule.MARGIN_MILLIS + 60_000L, RingWindowEndRule.stopInMillis(until, until - 60_000L))
+        assertEquals(0L, RingWindowEndRule.stopInMillis(until, until + 3_600_000L))
+        assertNull(RingWindowEndRule.stopInMillis(null, until))
+        assertFalse(RingWindowEndRule.isOver(until, until))
+        assertTrue(RingWindowEndRule.isOver(until, until + RingWindowEndRule.MARGIN_MILLIS))
+        assertFalse(RingWindowEndRule.isOver(null, until * 2))
     }
 }

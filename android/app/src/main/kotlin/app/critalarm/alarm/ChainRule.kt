@@ -186,3 +186,29 @@ object ChainRule {
         return times
     }
 }
+
+/**
+ * When a ring that is still going must stop because its window is over
+ * (api.md §5.1: a phone stops at `ring_until` or an `expire`, whichever
+ * comes first). Offline no `expire` arrives, and the last slot of a chain,
+ * set just before `ring_until`, used to ring on until the app was opened
+ * (W5).
+ */
+object RingWindowEndRule {
+    /** The small margin api.md §5.1 allows for server time against phone time. */
+    const val MARGIN_MILLIS = 5_000L
+
+    /**
+     * Milliseconds from [nowMillis] until a ring for an incident whose window
+     * ends at [ringUntilMillis] must stop, or null when it has no window
+     * (a local test ring or the demo, which stop on their own).
+     */
+    fun stopInMillis(ringUntilMillis: Long?, nowMillis: Long): Long? {
+        val until = ringUntilMillis ?: return null
+        return maxOf(0L, until + MARGIN_MILLIS - nowMillis)
+    }
+
+    /** True once the window is over, margin included. */
+    fun isOver(ringUntilMillis: Long?, nowMillis: Long): Boolean =
+        ringUntilMillis != null && nowMillis >= ringUntilMillis + MARGIN_MILLIS
+}
