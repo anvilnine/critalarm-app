@@ -913,7 +913,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
               _typeRow(
                 'mono 700 / 14 / -.01em',
                 Text(
-                  'ca_live_7Hq2mN9xPz4wKd8',
+                  'tk_example_not_a_real_token',
                   style: AppTypography.monoBold(colors.ink),
                 ),
                 colors,
@@ -1587,7 +1587,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           code:
               '# from the uptime-kuma webhook, or any shell\n'
               'curl -X POST https://api.critalarm.app/t/prod-db \\\n'
-              '  -H "Authorization: Bearer ca_live_7Hq2mN9xPz4wKd8" \\\n'
+              '  -H "Authorization: Bearer tk_example_not_a_real_token" \\\n'
               '  -H "Priority: critical" \\\n'
               '  -d "pg_isready failed 3 times in 90 s"',
         ),
@@ -1800,7 +1800,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   const SizedBox(height: 12),
                   const AppKeyValueRow(
                     label: 'Bearer token',
-                    value: 'ca_live_7Hq2mN9xPz4wKd8',
+                    value: 'tk_example_not_a_real_token',
                     showCopyButton: true,
                   ),
                 ],
