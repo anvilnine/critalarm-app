@@ -116,6 +116,35 @@ void main() {
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
+  // W6: the phone-only test alarm kept alerting after the server test was
+  // acknowledged.
+  test('acknowledging the server test also stops the phone-only test '
+      'alarm', () async {
+    await cubit.load(incidentId: testId);
+    await cubit.acknowledge();
+
+    final cancelled = [
+      for (final args in alarm.argsTo('cancelAlarm')) args['incident_id'],
+    ];
+    expect(cancelled, [testId, phoneOnlyTestIncidentId]);
+    expect(
+      alarm.argsTo('cancelAlarm').last['hand_over_to_status_card'],
+      isFalse,
+    );
+  });
+
+  test('acknowledging a real alarm leaves any other alarm alone', () async {
+    await cubit.load(incidentId: realId);
+    await cubit.acknowledge();
+
+    expect(
+      [
+        for (final args in alarm.argsTo('cancelAlarm')) args['incident_id'],
+      ],
+      [realId],
+    );
+  });
+
   // W4: what the acknowledged screen proves comes from what native recorded,
   // never from the incident id alone.
   group('setup test evidence', () {

@@ -858,6 +858,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       title: ackTitle,
       body: ackBody,
     );
+    // A setup test answered here also ends the phone-only test alarm, when
+    // setup set both. On an iPhone it kept alerting for minutes after the
+    // server's test was acknowledged (W6).
+    if (ringing.setupTest == SetupTestKind.serverSent) {
+      await _silence(phoneOnlyTestIncidentId, handOverToStatusCard: false);
+    }
 
     // Marked before the send, so a repeat push that lands while the request
     // is in flight does not ring. A reopen clears it again.
@@ -1488,5 +1494,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  String _formatTime(DateTime dt) => formatClock(dt, is24Hour: _use24Hour());
+  String _formatTime(DateTime dt) =>
+      formatLocalClock(dt, is24Hour: _use24Hour());
 }
