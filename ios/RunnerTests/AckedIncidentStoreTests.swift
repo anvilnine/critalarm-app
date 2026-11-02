@@ -11,6 +11,34 @@ final class AckedIncidentStoreTests: XCTestCase {
         store.removeObject(forKey: AckedIncidentStore.localKey)
     }
 
+    // W4: a setup test ticks "the push arrived" only for an incident recorded
+    // here.
+    func testAReceivedPushIsRecordedAndOthersAreNot() {
+        store.removeObject(forKey: ReceivedAlarmPushStore.key)
+        XCTAssertFalse(ReceivedAlarmPushStore.contains(incidentId: "inc_1", in: store))
+
+        ReceivedAlarmPushStore.record(incidentId: "inc_1", in: store)
+
+        XCTAssertTrue(ReceivedAlarmPushStore.contains(incidentId: "inc_1", in: store))
+        XCTAssertFalse(ReceivedAlarmPushStore.contains(incidentId: "inc_2", in: store))
+    }
+
+    func testReceivedPushesArePrunedByAgeAndCount() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let ms = Int(now.timeIntervalSince1970 * 1_000)
+        var entries = ["old": ms - Int(ReceivedAlarmPushStore.keepFor * 1_000) - 1]
+        for n in 0..<(ReceivedAlarmPushStore.maxEntries + 5) {
+            entries["inc_\(n)"] = ms - n
+        }
+
+        let kept = ReceivedAlarmPushStore.pruned(entries, now: now)
+
+        XCTAssertNil(kept["old"])
+        XCTAssertEqual(kept.count, ReceivedAlarmPushStore.maxEntries)
+        XCTAssertNotNil(kept["inc_0"])
+        XCTAssertNil(kept["inc_\(ReceivedAlarmPushStore.maxEntries + 4)"])
+    }
+
     func testMarkThenContains() {
         XCTAssertFalse(AckedIncidentStore.contains(incidentId: "inc_1", in: store))
 

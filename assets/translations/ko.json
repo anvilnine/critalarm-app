@@ -330,6 +330,8 @@
     "send_message": "테스트 알람",
     "send_cancel": "취소",
     "works_title": "잘 작동해요",
+    "not_reached_title": "알람이 이 휴대폰에 도착하지 않았어요",
+    "muted_title": "이 휴대폰에서 소리 없이 울렸어요",
     "proof_server_sent": "서버가 보냈어요",
     "proof_push_arrived": "푸시가 도착했어요",
     "proof_phone_rang": "이 휴대폰이 울렸어요",
@@ -790,7 +792,8 @@
     "all_messages": {
       "other": "전체 메시지 {}개"
     },
-    "no_messages": "아직 메시지가 없어요."
+    "no_messages": "아직 메시지가 없어요.",
+    "ring_length": "'일어났어요'를 누를 때까지 {every}마다, 총 {total} 동안 울려요."
   },
   "topic_tokens": {
     "header": "토큰",
@@ -937,6 +940,8 @@
     "load_failed_title": "알람을 불러오지 못했어요",
     "close_queued_title": "서버가 응답하면 종료돼요",
     "close_queued_body": "이 휴대폰이 서버에 연결되는 대로 종료 요청을 보낼게요. 그전까지는 알람이 다시 울릴 수 있어요.",
+    "ack_queued_title": "서버가 응답하면 '일어났어요'를 보내요",
+    "ack_queued_body": "이 휴대폰에서는 알람이 멈췄어요. 이 휴대폰이 서버에 연결되는 대로 '일어났어요'를 보낼게요.",
     "load_failed_body": "서버에서는 알람이 아직 진행 중이에요. 다시 시도하거나 이 휴대폰 소리를 끄고 토픽에서 열어 보세요.",
     "retry_button": "다시 시도",
     "silence_button": "이 휴대폰 소리 끄기",
@@ -998,6 +1003,10 @@
     "alarm_sound_row_subtitle": "따로 소리를 고르지 않은 모든 토픽에서 울려요",
     "priorities_row_title": "우선순위",
     "priorities_row_subtitle": "이 휴대폰에서 우선순위별로 동작하는 방식",
+    "ring_bright_screen_title": "울릴 때 화면 밝게",
+    "ring_bright_screen_subtitle": "알람 화면을 최대 밝기로 보여줘요.",
+    "ring_vibrate_title": "알람과 함께 진동",
+    "ring_vibrate_subtitle": "소리의 박자에 맞춰 진동해요.",
     "app_header": "앱",
     "storage_header": "저장 공간",
     "storage_delete_after_title": "알람 자동 삭제 기간",
@@ -1045,6 +1054,7 @@
     "alarm_debug_clear_acked": "지우기",
     "alarm_debug_flush_now": "지금 전송",
     "alarm_debug_reconcile": "지금 상태 맞추기",
+    "alarm_debug_probe_alarms": "알람 60개 테스트",
     "alarm_debug_report_copied": "보고서를 복사했어요",
     "alarm_debug_error": "새로고침 실패: {error}",
     "alarm_debug_device_time": "기기 시각",
@@ -2448,7 +2458,7 @@
     "setup_row_first_message": "첫 메시지",
     "check_notifications": "알림이 꺼져 있어요",
     "check_full_screen_alarm": "전체 화면 알람이 꺼져 있어요",
-    "check_battery_optimization": "절전 모드가 켜져 있어요",
+    "check_battery_optimization": "배터리 최적화가 켜져 있어요",
     "check_alarms": "알람이 꺼져 있어요",
     "check_time_sensitive": "시간 민감형 알림이 꺼져 있어요",
     "check_push_token_confirmed": "푸시가 확인되지 않았어요",
@@ -2534,5 +2544,20 @@
     "system_default": "시스템 기본값",
     "ai_line": "AI로 번역했어요. 잘못된 표현이 있나요?",
     "report_link": "알려 주세요."
+  },
+  "alarm_loudness": {
+    "ask": "충분히 큰가요?",
+    "ask_yes": "네",
+    "ask_no": "아니요",
+    "title": "더 크게 만들기",
+    "line": "iPhone에서는 알람이 벨소리 음량으로 울려요.",
+    "step_aria": "{number}단계",
+    "step_1": "설정에서 사운드 및 햅틱을 열고 벨소리 및 알림을 끝까지 올려요.",
+    "step_2": "버튼으로 변경을 꺼서 음량 버튼으로 알람 소리를 줄일 수 없게 해요.",
+    "open_settings": "설정 열기",
+    "opened_note": "설정이 Crit Alarm 페이지에서 열려요. 사운드 및 햅틱은 한 단계 뒤로 가면 있어요.",
+    "open_failed": "설정을 열 수 없어요. 단계를 따라 해 주세요.",
+    "ring_again": "다시 울리기",
+    "back_aria": "뒤로"
   }
 }

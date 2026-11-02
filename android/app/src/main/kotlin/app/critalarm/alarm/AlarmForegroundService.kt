@@ -12,6 +12,7 @@ import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import android.util.Log
 
@@ -84,6 +85,47 @@ class AlarmForegroundService : Service() {
             ringTimedOut = false
             refreshSignals()
         }
+        // A moment after the sound starts, once the volume watch has had its
+        // first go, write down whether the ring could be heard. A setup test
+        // reads it (RingAudibility).
+        main.postDelayed(::recordAudibility, AUDIBILITY_CHECK_MS)
+        watchWindowEnd(next.incidentId)
+    }
+
+    /**
+     * Stops the ring for [incidentId] once its `ring_until` has passed, read
+     * again when the time comes, so a reopen that moved the window keeps it
+     * ringing. Offline no `expire` arrives to do this (W5).
+     */
+    private fun watchWindowEnd(incidentId: String) {
+        val stopIn = RingWindowEndRule.stopInMillis(
+            IncidentDeliveryStore(this).ringUntilMillis(incidentId),
+            System.currentTimeMillis(),
+        ) ?: return
+        main.postDelayed({ windowEndCheck(incidentId) }, stopIn)
+    }
+
+    private fun windowEndCheck(incidentId: String) {
+        if (destroyed) return
+        val ringUntil = IncidentDeliveryStore(this).ringUntilMillis(incidentId)
+        if (!RingWindowEndRule.isOver(ringUntil, System.currentTimeMillis())) {
+            watchWindowEnd(incidentId)
+            return
+        }
+        if (!isHolding(incidentId)) return
+        Log.i(TAG, "alarm_window_over incident_id=$incidentId")
+        IncidentRearm.endRingWindow(this, incidentId)
+        stopIncident(this, incidentId)
+    }
+
+    private fun recordAudibility() {
+        if (destroyed || ringTimedOut) return
+        val ids = synchronized(held) { held.map { it.incidentId } }
+        if (ids.isEmpty()) return
+        val audible = runCatching { RingAudibility.readNow(this) }.getOrDefault(true)
+        runCatching { RingAudibility.record(BootStorage.prefs(this, RingAudibility.PREFS), ids, audible) }
+            .onFailure { Log.w(TAG, "alarm_audibility_record_failed error=$it") }
+        Log.i(TAG, "alarm_audibility audible=$audible ringing=${ids.size}")
     }
 
     /**
@@ -183,6 +225,8 @@ class AlarmForegroundService : Service() {
     )
 
     companion object {
+        /** After the 1 s volume watch has run once. */
+        private const val AUDIBILITY_CHECK_MS = 2_000L
         private const val TAG = "CritAlarmAlarm"
         private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 

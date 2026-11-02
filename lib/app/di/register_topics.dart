@@ -69,6 +69,9 @@ void registerTopicRepository(GetIt getIt) {
       sessions: getIt<ApiSessionStore>(),
       identity: getIt<DeviceIdentityStore>(),
       prefs: getIt<SharedPreferences>(),
+      syncAlarmChains: (topics) => getIt<AlarmHost>().syncChains(topics),
+      cancelAlarmChains: (topic) =>
+          getIt<AlarmHost>().cancelChainsForTopic(topic),
     ),
   );
 }

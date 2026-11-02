@@ -378,4 +378,70 @@ void main() {
       expect(cubit.state.doneIncidentId, 'inc_1');
     });
   });
+
+  // W3: offline, the alarm screen of a ringing Android phone had no "I'm up".
+  // It hands the ack to the notification's own native "I'm up", and only for
+  // an incident native says this phone rang and nobody answered.
+  group('"I\'m up" on the failed screen', () {
+    Future<void> openRinging(Failure failure, {bool nativeSaysRinging = true}) {
+      server.getFails = failure;
+      alarm.answers['canAckFromScreen'] = nativeSaysRinging;
+      return cubit.load(incidentId: 'inc_2');
+    }
+
+    for (final failure in [_offline, _status(503), _status(429)]) {
+      test('is offered when the server gives no answer ($failure) and '
+          'native rang the incident', () async {
+        await openRinging(failure);
+        expect(cubit.state.status, CriticalAlarmStatus.failure);
+        expect(cubit.state.offlineAckIncidentId, 'inc_2');
+        expect(alarm.argsOnce('canAckFromScreen'), {'incident_id': 'inc_2'});
+        // The load alone hands nothing over.
+        expect(alarm.callsTo('ackFromScreen'), isEmpty);
+      });
+    }
+
+    test('is not offered when native did not ring it', () async {
+      await openRinging(_offline, nativeSaysRinging: false);
+      expect(cubit.state.status, CriticalAlarmStatus.failure);
+      expect(cubit.state.offlineAckIncidentId, isNull);
+    });
+
+    test('is not offered where the platform has no such call', () async {
+      server.getFails = _offline;
+      alarm.answers.remove('canAckFromScreen');
+      await cubit.load(incidentId: 'inc_2');
+      expect(cubit.state.offlineAckIncidentId, isNull);
+    });
+
+    for (final code in [401, 404, 410]) {
+      test('is not offered when the server answered $code', () async {
+        await openRinging(_status(code));
+        expect(cubit.state.offlineAckIncidentId, isNull);
+        expect(alarm.callsTo('canAckFromScreen'), isEmpty);
+      });
+    }
+
+    test('hands the ack to native and says it will be sent', () async {
+      await openRinging(_offline);
+      alarm.answers['ackFromScreen'] = true;
+
+      await cubit.handAckToNative();
+
+      expect(alarm.argsOnce('ackFromScreen'), {'incident_id': 'inc_2'});
+      expect(cubit.state.isAckHandedOff, isTrue);
+      expect(cubit.state.offlineAckIncidentId, isNull);
+    });
+
+    test('a refusal leaves the failed screen without the button', () async {
+      await openRinging(_offline);
+      alarm.answers['ackFromScreen'] = false;
+
+      await cubit.handAckToNative();
+
+      expect(cubit.state.status, CriticalAlarmStatus.failure);
+      expect(cubit.state.offlineAckIncidentId, isNull);
+      expect(cubit.state.isAckHandedOff, isFalse);
+    });
+  });
 }

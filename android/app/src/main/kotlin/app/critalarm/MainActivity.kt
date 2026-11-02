@@ -13,13 +13,17 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import app.critalarm.alarm.AlarmChain
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.AlarmLockRule
 import app.critalarm.alarm.LockReleaseAnswers
+import app.critalarm.alarm.RingVolumeWatch
+import app.critalarm.alarm.RingWindow
 import app.critalarm.appicon.AppIconChannel
 import app.critalarm.l10n.LocaleChannel
 import app.critalarm.notifications.LiveUpdate
@@ -32,6 +36,7 @@ import app.critalarm.motion.MotionSensorChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
+import app.critalarm.storage.BootMirror
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.taps.TapGate
 import app.critalarm.taps.TapLockRule
@@ -79,14 +84,26 @@ class MainActivity : FlutterFragmentActivity() {
     /** An unlock prompt is up. The window lets go when it answers. */
     private var unlockPending = false
 
+    /** Full brightness and no volume down while the alarm screen rings. */
+    private val ringWindow = RingWindow(this)
+
     /** Releases that wait for the unlock prompt to answer. */
     private val releaseAnswers = LockReleaseAnswers()
 
     private val lockScreen = object : AlarmChannel.LockScreen {
-        override fun release(incidentId: String?, done: () -> Unit) =
+        override fun release(incidentId: String?, done: () -> Unit) {
+            ringWindow.ended(incidentId)
             releaseLockScreen(incidentId, done)
-        override fun hold(incidentId: String) = holdLockScreen(incidentId)
+        }
+
+        override fun hold(incidentId: String) {
+            if (owesAck(incidentId)) ringWindow.ringing(incidentId)
+            holdLockScreen(incidentId)
+        }
     }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        ringWindow.swallows(event) || super.dispatchKeyEvent(event)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -366,6 +383,7 @@ class MainActivity : FlutterFragmentActivity() {
         soundChannel?.endPreview()
         uiSounds?.stop()
         checkLockScreen()
+        BootMirror.sync(this)
         super.onStop()
     }
 
@@ -524,6 +542,14 @@ class MainActivity : FlutterFragmentActivity() {
         // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
+        // A ring the process died in left the alarm volume at full.
+        RingVolumeWatch.recoverOnLaunch(this)
+        // Any ring chain whose incident is over goes, which heals a slot a
+        // cancel missed.
+        AlarmChain.of(this).sweep(System.currentTimeMillis())
+        // The copy of the ring settings a reboot reads before the first
+        // unlock, kept in step with every change Dart makes from here on.
+        BootMirror.follow(this)
         // Before anything reads the intent. Another app's intent loses its
         // routing extras here and goes on as a plain launch.
         val signed = TapGate.admit(this, intent)

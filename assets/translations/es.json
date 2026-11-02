@@ -330,6 +330,8 @@
     "send_message": "Alarma de prueba",
     "send_cancel": "Cancelar",
     "works_title": "Funciona",
+    "not_reached_title": "La alarma no llegó a este teléfono",
+    "muted_title": "Este teléfono sonó sin sonido",
     "proof_server_sent": "El servidor la envió",
     "proof_push_arrived": "Llegó la notificación push",
     "proof_phone_rang": "Este teléfono sonó",
@@ -799,7 +801,8 @@
       "one": "Ver el único mensaje",
       "other": "Ver los {} mensajes"
     },
-    "no_messages": "Aún no hay mensajes."
+    "no_messages": "Aún no hay mensajes.",
+    "ring_length": "Suena durante {total}, cada {every}, hasta que toques \"Ya voy\"."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "No se pudo cargar la alarma",
     "close_queued_title": "Se cerrará cuando responda tu servidor",
     "close_queued_body": "La solicitud de cierre se enviará en cuanto este teléfono pueda conectarse con tu servidor. Hasta entonces, la alarma puede volver a sonar.",
+    "ack_queued_title": "\"Ya voy\" se enviará cuando responda tu servidor",
+    "ack_queued_body": "La alarma dejó de sonar en este teléfono. \"Ya voy\" se enviará en cuanto este teléfono pueda conectarse con tu servidor.",
     "load_failed_body": "La alarma sigue abierta en el servidor. Inténtalo de nuevo o detén el sonido en este teléfono y ábrela desde tus temas.",
     "retry_button": "Reintentar",
     "silence_button": "Detener el sonido en este teléfono",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Suena en todos los temas que no tengan un sonido propio",
     "priorities_row_title": "Prioridades",
     "priorities_row_subtitle": "Qué hace cada prioridad en este teléfono",
+    "ring_bright_screen_title": "Pantalla brillante al sonar",
+    "ring_bright_screen_subtitle": "Brillo al máximo en la pantalla de la alarma.",
+    "ring_vibrate_title": "Vibrar con la alarma",
+    "ring_vibrate_subtitle": "Vibra al ritmo del sonido.",
     "app_header": "App",
     "storage_header": "Almacenamiento",
     "storage_delete_after_title": "Eliminar alarmas después de",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Borrar",
     "alarm_debug_flush_now": "Enviar pendientes ahora",
     "alarm_debug_reconcile": "Reconciliar ahora",
+    "alarm_debug_probe_alarms": "Probar 60 alarmas",
     "alarm_debug_report_copied": "Informe copiado",
     "alarm_debug_error": "No se pudo actualizar: {error}",
     "alarm_debug_device_time": "Hora del dispositivo",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "primer mensaje",
     "check_notifications": "las notificaciones están desactivadas",
     "check_full_screen_alarm": "la pantalla completa está desactivada",
-    "check_battery_optimization": "el ahorro de batería está activado",
+    "check_battery_optimization": "la optimización de batería está activada",
     "check_alarms": "las alarmas están desactivadas",
     "check_time_sensitive": "las notificaciones importantes están desactivadas",
     "check_push_token_confirmed": "push sin confirmar",
@@ -2560,5 +2570,20 @@
     "system_default": "Predeterminado del sistema",
     "ai_line": "Traducido con IA. ¿Ves algún error?",
     "report_link": "Cuéntanos."
+  },
+  "alarm_loudness": {
+    "ask": "¿Suena bastante fuerte?",
+    "ask_yes": "Sí",
+    "ask_no": "No",
+    "title": "Subir el volumen",
+    "line": "En iPhone, la alarma suena con el volumen del tono.",
+    "step_aria": "Paso {number}",
+    "step_1": "En Ajustes, abre Sonidos y vibraciones y sube Tono y avisos al máximo.",
+    "step_2": "Desactiva Cambiar con botones para que los botones de volumen no puedan bajar la alarma.",
+    "open_settings": "Abrir Ajustes",
+    "opened_note": "Ajustes se abre en la página de Crit Alarm. Vuelve un paso atrás para ir a Sonidos y vibraciones.",
+    "open_failed": "No se pudo abrir Ajustes. Sigue los pasos.",
+    "ring_again": "Sonar otra vez",
+    "back_aria": "Atrás"
   }
 }

@@ -330,6 +330,8 @@
     "send_message": "Test alarm",
     "send_cancel": "Cancel",
     "works_title": "It works",
+    "not_reached_title": "The alarm did not reach this phone",
+    "muted_title": "This phone rang without sound",
     "proof_server_sent": "The server sent it",
     "proof_push_arrived": "The push arrived",
     "proof_phone_rang": "This phone rang",
@@ -799,7 +801,8 @@
       "one": "All 1 message",
       "other": "All {} messages"
     },
-    "no_messages": "No messages yet."
+    "no_messages": "No messages yet.",
+    "ring_length": "Rings for {total}, every {every}, until you're up."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "Could not load the alarm",
     "close_queued_title": "Closing when your server answers",
     "close_queued_body": "The close is sent as soon as this phone can reach your server. Until then the alarm can ring again.",
+    "ack_queued_title": "Sending I'm up when your server answers",
+    "ack_queued_body": "The ring stopped on this phone. I'm up is sent as soon as this phone can reach your server.",
     "load_failed_body": "The alarm is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
     "retry_button": "Try again",
     "silence_button": "Stop the noise on this phone",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own",
     "priorities_row_title": "Priorities",
     "priorities_row_subtitle": "What each priority does on this phone",
+    "ring_bright_screen_title": "Bright screen when it rings",
+    "ring_bright_screen_subtitle": "Full brightness on the alarm screen.",
+    "ring_vibrate_title": "Vibrate with the alarm",
+    "ring_vibrate_subtitle": "Vibrates on the beat of the sound.",
     "app_header": "App",
     "storage_header": "Storage",
     "storage_delete_after_title": "Delete alarms after",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Clear",
     "alarm_debug_flush_now": "Flush now",
     "alarm_debug_reconcile": "Reconcile now",
+    "alarm_debug_probe_alarms": "Test 60 alarms",
     "alarm_debug_report_copied": "Report copied",
     "alarm_debug_error": "Could not refresh: {error}",
     "alarm_debug_device_time": "Device time",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "first message",
     "check_notifications": "notifications are off",
     "check_full_screen_alarm": "full-screen is off",
-    "check_battery_optimization": "battery saver is on",
+    "check_battery_optimization": "battery optimization is on",
     "check_alarms": "alarms are off",
     "check_time_sensitive": "time-sensitive is off",
     "check_push_token_confirmed": "push is not confirmed",
@@ -2560,5 +2570,20 @@
     "system_default": "System default",
     "ai_line": "Translated with AI. Spot a mistake?",
     "report_link": "Tell us."
+  },
+  "alarm_loudness": {
+    "ask": "Loud enough?",
+    "ask_yes": "Yes",
+    "ask_no": "No",
+    "title": "Make it louder",
+    "line": "On iPhone the alarm rings at your ringer volume.",
+    "step_aria": "Step {number}",
+    "step_1": "In Settings, open Sounds & Haptics and turn Ringtone and Alerts all the way up.",
+    "step_2": "Turn off Change with Buttons, so the volume buttons cannot turn the alarm down.",
+    "open_settings": "Open Settings",
+    "opened_note": "Settings opens on the Crit Alarm page. Go back one step for Sounds & Haptics.",
+    "open_failed": "Could not open Settings. Follow the steps.",
+    "ring_again": "Ring again",
+    "back_aria": "Back"
   }
 }

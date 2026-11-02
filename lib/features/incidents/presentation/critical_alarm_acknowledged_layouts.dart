@@ -484,7 +484,17 @@ extension _AcknowledgedLayouts on AcknowledgedScreen {
       children: [
         scaffold,
         Positioned.fill(
-          child: _AckConfettiGate(exits: exits, colors: colors),
+          child: _AckConfettiGate(
+            exits: exits,
+            colors: colors,
+            setupProved: switch (state.setupEvidence) {
+              final evidence? => setupTestRang(
+                state.setupTest,
+                evidence: evidence,
+              ),
+              null => false,
+            },
+          ),
         ),
       ],
     );

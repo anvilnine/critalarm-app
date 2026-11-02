@@ -7,13 +7,17 @@ import android.content.SharedPreferences
  * What this device knows about one incident, kept on disk because the cards are
  * built with no Flutter engine running.
  *
+ * Kept in device-protected storage ([BootStorage.INCIDENTS]), because a
+ * phone that restarted overnight re-sets the chain from here before anyone
+ * unlocks it. Nothing in it is a token or account data.
+ *
  * Two flags and two instants. The flags are what a late network answer checks
  * before it puts a card back: a fetch started at 0s can land at 10s, by which
  * time the user may have stopped the alarm, closed the incident, or both.
  */
 class IncidentDeliveryStore internal constructor(private val preferences: SharedPreferences) {
     constructor(context: Context) :
-        this(context.getSharedPreferences("incident_delivery", Context.MODE_PRIVATE))
+        this(BootStorage.prefs(context, BootStorage.INCIDENTS))
 
     fun isActive(incidentId: String) = preferences.getBoolean("active:$incidentId", false)
     fun isAcknowledged(incidentId: String) = preferences.getBoolean("acknowledged:$incidentId", false)
@@ -169,6 +173,48 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
         preferences.edit().putString("topic:$incidentId", topic).apply()
     }
 
+    /**
+     * The title and body the incident's rings were last set with. A reboot
+     * drops every alarm and the text that rode on it, so the chain set again
+     * after one reads it back from here. A null keeps what was there.
+     */
+    fun rememberContent(incidentId: String, title: String?, body: String?) {
+        if (title == null && body == null) return
+        preferences.edit().apply {
+            title?.let { putString("$TITLE_PREFIX$incidentId", it) }
+            body?.let { putString("$BODY_PREFIX$incidentId", it) }
+        }.apply()
+    }
+
+    fun titleOf(incidentId: String): String? =
+        preferences.getString("$TITLE_PREFIX$incidentId", null)?.takeIf(String::isNotEmpty)
+
+    fun bodyOf(incidentId: String): String? =
+        preferences.getString("$BODY_PREFIX$incidentId", null)?.takeIf(String::isNotEmpty)
+
+    /**
+     * The server the incident's alarm push came from. A chain set again after
+     * a reboot needs it for its rings, before the session can be read.
+     */
+    fun rememberServer(incidentId: String, server: String) {
+        if (server.isEmpty()) return
+        preferences.edit().putString("$SERVER_PREFIX$incidentId", server).apply()
+    }
+
+    fun serverOf(incidentId: String): String? =
+        preferences.getString("$SERVER_PREFIX$incidentId", null)?.takeIf(String::isNotEmpty)
+
+    /**
+     * The boot count the chains were last set again for, so the boot that
+     * follows the unlock does not set them a second time.
+     */
+    fun rearmedBootCount(): Int? =
+        preferences.getInt(REARMED_BOOT, -1).takeIf { it >= 0 }
+
+    fun rememberRearmedBoot(bootCount: Int) {
+        preferences.edit().putInt(REARMED_BOOT, bootCount).commit()
+    }
+
     internal data class DebugEntry(
         val incidentId: String,
         val active: Boolean,
@@ -178,7 +224,7 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
         val locallyAcknowledgedAtMillis: Long?,
         val deskTimerFiresAtMillis: Long?,
         val ringUntilMillis: Long?,
-        val rearmFiresAtMillis: Long?,
+        val chain: StoredChain?,
         val topic: String?,
     )
 
@@ -187,17 +233,30 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
             incidentId, isActive(incidentId), isAcknowledged(incidentId), isClosed(incidentId),
             acknowledgedAtMillis(incidentId), locallyAcknowledgedAtMillis(incidentId),
             deskTimerFiresAtMillis(incidentId), ringUntilMillis(incidentId),
-            rearmFiresAtMillis(incidentId), topicOf(incidentId),
+            chainOf(incidentId), topicOf(incidentId),
         )
     }
 
-    internal fun rememberRearmFiresAt(incidentId: String, millis: Long) {
-        preferences.edit().putLong("rearm_fires_at:$incidentId", millis).apply()
+    /**
+     * The rings this phone set for itself for the incident, or null when it
+     * holds none. One record per incident: a new chain replaces the old one.
+     */
+    fun chainOf(incidentId: String): StoredChain? =
+        StoredChain.parse(preferences.getString("$CHAIN_PREFIX$incidentId", null))
+
+    fun rememberChain(incidentId: String, chain: StoredChain) {
+        preferences.edit().putString("$CHAIN_PREFIX$incidentId", chain.format()).apply()
     }
 
-    internal fun clearRearm(incidentId: String) {
-        preferences.edit().remove("rearm_fires_at:$incidentId").apply()
+    fun clearChain(incidentId: String) {
+        preferences.edit().remove("$CHAIN_PREFIX$incidentId").apply()
     }
+
+    /** Every incident with a chain on record, for the sweeps. */
+    fun chainIncidentIds(): List<String> = preferences.all.keys
+        .filter { it.startsWith(CHAIN_PREFIX) }
+        .map { it.removePrefix(CHAIN_PREFIX) }
+        .filter { it.isNotEmpty() }
 
     internal fun clearAcknowledgedMarks() {
         val edit = preferences.edit()
@@ -206,9 +265,6 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
         }
         edit.apply()
     }
-
-    internal fun rearmFiresAtMillis(incidentId: String): Long? =
-        preferences.getLong("rearm_fires_at:$incidentId", 0L).takeIf { it > 0L }
 
     /**
      * Drops every key of every incident past the retention window. See
@@ -257,6 +313,17 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
     private companion object {
         const val GENERATION_PREFIX = "ring_generation:"
 
+        const val CHAIN_PREFIX = "chain:"
+
+        const val TITLE_PREFIX = "title:"
+
+        const val BODY_PREFIX = "body:"
+
+        const val SERVER_PREFIX = "server:"
+
+        /** No incident prefix, so [prune] never drops it. */
+        const val REARMED_BOOT = "rearmed_boot_count"
+
         /** No incident prefix, so [prune] never drops it. */
         const val GENERATION_FLOOR = "ring_generation_floor"
 
@@ -271,9 +338,45 @@ class IncidentDeliveryStore internal constructor(private val preferences: Shared
             "desk_timer_fires_at:",
             "ring_until:",
             "topic:",
+            // Written by the single re-arm before the chain replaced it.
+            // Only kept here so a phone that updated drops the old keys.
             "rearm_fires_at:",
             "local_acked_at:",
             GENERATION_PREFIX,
+            CHAIN_PREFIX,
+            TITLE_PREFIX,
+            BODY_PREFIX,
+            SERVER_PREFIX,
         )
+    }
+}
+
+/**
+ * One chain as it is kept on disk: its kind (`ring` or `desk`), the instant
+ * it may not ring past, the interval it was set with, and every slot's
+ * instant in order. A slot's place in [slots] is its index, which is part of
+ * its alarm's request code.
+ */
+data class StoredChain(
+    val kind: String,
+    val untilMillis: Long,
+    val intervalS: Int,
+    val slots: List<Long>,
+) {
+    fun format(): String = "$kind|$untilMillis|$intervalS|${slots.joinToString(",")}"
+
+    companion object {
+        fun parse(raw: String?): StoredChain? {
+            val parts = raw?.split('|') ?: return null
+            if (parts.size != 4 || parts[0].isEmpty()) return null
+            val until = parts[1].toLongOrNull() ?: return null
+            val interval = parts[2].toIntOrNull() ?: return null
+            val slots = if (parts[3].isEmpty()) {
+                emptyList()
+            } else {
+                parts[3].split(',').map { it.toLongOrNull() ?: return null }
+            }
+            return StoredChain(parts[0], until, interval, slots)
+        }
     }
 }

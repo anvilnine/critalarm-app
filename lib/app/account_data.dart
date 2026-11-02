@@ -36,6 +36,8 @@ import 'package:critalarm/features/search/domain/repositories/recent_searches_re
 ///    written for, so a copy that survives a failed drop is still never shown.
 /// 10. Cancel answers still waiting for a retry. Each names the account that
 ///    is going.
+/// 11. The rings the phone set for itself for the account's incidents (the
+///    alarm chains). Nobody is left to acknowledge them to.
 ///
 /// The archive of incidents and messages is not on the list, on purpose. Its
 /// rows carry the scope of the account they were read for and every read asks
@@ -68,6 +70,7 @@ class AccountData {
     this._proofLog,
     this._cancelAnswers,
     this._heldTopics,
+    this._cancelAlarmChains,
     this._archive,
     this._afterForget,
   });
@@ -88,6 +91,9 @@ class AccountData {
   /// open: the web build, or a store that would not open.
   final TopicStore? _heldTopics;
 
+  /// Drops every ring the phone set for itself. Null where no alarm runs,
+  /// such as the web build and tests that do not care.
+  final Future<void> Function()? _cancelAlarmChains;
   /// The phone's archive of incidents and messages, for [forgetDeleted].
   /// Null where the local store is not open.
   final LocalStore? _archive;
@@ -137,6 +143,10 @@ class AccountData {
     final heldTopics = _heldTopics;
     if (heldTopics != null) {
       await quietly('account_data.heldTopics', heldTopics.clear);
+    }
+    final cancelAlarmChains = _cancelAlarmChains;
+    if (cancelAlarmChains != null) {
+      await quietly('account_data.alarmChains', cancelAlarmChains);
     }
     final after = _afterForget;
     if (after != null) await quietly('account_data.afterForget', after);

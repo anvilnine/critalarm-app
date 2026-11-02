@@ -38,6 +38,7 @@ void main() {
       expect(push.priority, 5);
       expect(push.title, 'Uptime Kuma');
       expect(push.body, 'db01 is down');
+      expect(push.topic, isNull);
       expect(push.needsContentFetch, isFalse);
       expect(push.isIncident, isTrue);
     });
@@ -245,6 +246,28 @@ void main() {
 
     test('an unknown kind is rejected', () {
       expect(IncidentPush.fromApnsPayload(payload(kind: 'closed')), isNull);
+    });
+
+    // api.md 5.1, 1.27.0. The iPhone chain picks the topic's timers and
+    // critical switch by this name.
+    test('the topic name lands on the model, for none and full content', () {
+      for (final kind in ['open', 'repeat', 'reopen', 'p5']) {
+        for (final full in [false, true]) {
+          final push = IncidentPush.fromApnsPayload({
+            ...payload(kind: kind, mutableContent: !full),
+            'topic': 'db-prod',
+          })!;
+          expect(push.topic, 'db-prod', reason: '$kind full=$full');
+        }
+      }
+    });
+
+    test('a push from a server before 1.27.0 has no topic', () {
+      expect(IncidentPush.fromApnsPayload(payload())!.topic, isNull);
+      expect(
+        IncidentPush.fromApnsPayload({...payload(), 'topic': ''})!.topic,
+        isNull,
+      );
     });
 
     test('a missing aps block still parses the custom keys', () {

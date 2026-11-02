@@ -3,6 +3,7 @@ package app.critalarm.alarm
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Build
 import android.os.Process
 import android.util.Log
 import app.critalarm.sound.DecodedPcm
@@ -28,6 +29,10 @@ class PcmLoopPlayer(
     private val loop: Boolean,
     private val onFailed: () -> Unit,
     private val onPassDone: () -> Unit = {},
+    /** Lets the phone's haptic generator add vibration to this track. */
+    private val hapticChannels: Boolean = false,
+    /** A track started playing from frame 0, on the writer thread. */
+    private val onPlaying: (sessionId: Int, pcm: DecodedPcm) -> Unit = { _, _ -> },
 ) {
     private val lock = Any()
 
@@ -104,6 +109,7 @@ class PcmLoopPlayer(
             if (!running) return LoopEnd.STOPPED
             built.play()
         }
+        runCatching { onPlaying(built.audioSessionId, pcm) }
         Log.i(TAG, "alarm_loop_started frames=${pcm.frames} rate=${pcm.sampleRate} channels=${pcm.channels} loop=$loop")
         val end = PcmWriter.feed(
             samples = pcm.samples,
@@ -148,10 +154,7 @@ class PcmLoopPlayer(
         // A quarter second of headroom, so a busy CPU does not starve the track.
         val quarterSecond = pcm.sampleRate * pcm.channels * 2 / 4
         return AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
-            )
+            .setAudioAttributes(alarmAttributes(hapticChannels))
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
@@ -180,3 +183,13 @@ class PcmLoopPlayer(
         const val RETRY_DELAY_MS = 250L
     }
 }
+
+/**
+ * The alarm's audio attributes. Haptic channels are muted by default, so a
+ * haptic generator on the track is heard by the motor only when they are not.
+ */
+internal fun alarmAttributes(hapticChannels: Boolean): AudioAttributes =
+    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .apply { if (hapticChannels && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) setHapticChannelsMuted(false) }
+        .build()

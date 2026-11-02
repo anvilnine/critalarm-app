@@ -13,6 +13,37 @@ void main() {
   final midnight = DateTime(2026, 11, 2);
   final noon = DateTime(2026, 11, 2, 12);
 
+  // W7: incident times come from the server in UTC and were shown as UTC.
+  group('formatLocalClock', () {
+    final utc = DateTime.utc(2026, 10, 22, 11, 15, 9);
+
+    test('shows a UTC moment in the phone time zone', () {
+      expect(
+        formatLocalClock(utc, is24Hour: true, withSeconds: true, locale: 'en'),
+        formatClock(
+          utc.toLocal(),
+          is24Hour: true,
+          withSeconds: true,
+          locale: 'en',
+        ),
+      );
+    });
+
+    test('gives the same text for the same moment, UTC or local', () {
+      expect(
+        formatLocalClock(utc, is24Hour: false, locale: 'en'),
+        formatLocalClock(utc.toLocal(), is24Hour: false, locale: 'en'),
+      );
+    });
+
+    test('differs from the raw UTC text wherever the zone is not UTC', () {
+      final offset = utc.toLocal().timeZoneOffset;
+      final local = formatLocalClock(utc, is24Hour: true, locale: 'en');
+      final raw = formatClock(utc, is24Hour: true, locale: 'en');
+      expect(local == raw, offset.inMinutes % (24 * 60) == 0);
+    });
+  });
+
   group('24-hour clock', () {
     test('is the padded HH:mm the app always printed', () {
       expect(formatClock(morning, is24Hour: true), '07:05');

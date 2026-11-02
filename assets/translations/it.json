@@ -330,6 +330,8 @@
     "send_message": "Allarme di prova",
     "send_cancel": "Annulla",
     "works_title": "Funziona",
+    "not_reached_title": "L’allarme non è arrivato su questo telefono",
+    "muted_title": "Questo telefono ha suonato senza audio",
     "proof_server_sent": "Il server l’ha inviato",
     "proof_push_arrived": "La notifica push è arrivata",
     "proof_phone_rang": "Questo telefono ha suonato",
@@ -799,7 +801,8 @@
       "one": "1 messaggio in tutto",
       "other": "Tutti i {} messaggi"
     },
-    "no_messages": "Ancora nessun messaggio."
+    "no_messages": "Ancora nessun messaggio.",
+    "ring_length": "Suona per {total}, ogni {every}, finché non tocchi \"Arrivo\"."
   },
   "topic_tokens": {
     "header": "Token",
@@ -948,6 +951,8 @@
     "load_failed_title": "Impossibile caricare l’allarme",
     "close_queued_title": "Si chiude appena il server risponde",
     "close_queued_body": "La richiesta di chiusura verrà inviata non appena il telefono riuscirà a contattare il server. Fino ad allora l’allarme potrebbe suonare di nuovo.",
+    "ack_queued_title": "\"Arrivo\" verrà inviato appena il server risponde",
+    "ack_queued_body": "Il telefono ha smesso di suonare. \"Arrivo\" verrà inviato non appena il telefono riuscirà a contattare il server.",
     "load_failed_body": "L’allarme è ancora aperto sul server. Riprova, oppure silenzia questo telefono e aprilo dai tuoi topic.",
     "retry_button": "Riprova",
     "silence_button": "Silenzia questo telefono",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Suona per tutti i topic che non hanno un suono proprio",
     "priorities_row_title": "Priorità",
     "priorities_row_subtitle": "Cosa fa ogni priorità su questo telefono",
+    "ring_bright_screen_title": "Schermo luminoso quando suona",
+    "ring_bright_screen_subtitle": "Luminosità massima sulla schermata dell’allarme.",
+    "ring_vibrate_title": "Vibra con l’allarme",
+    "ring_vibrate_subtitle": "Vibra a tempo con il suono.",
     "app_header": "App",
     "storage_header": "Archiviazione",
     "storage_delete_after_title": "Elimina gli allarmi dopo",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Svuota",
     "alarm_debug_flush_now": "Invia la coda ora",
     "alarm_debug_reconcile": "Riconcilia ora",
+    "alarm_debug_probe_alarms": "Prova 60 allarmi",
     "alarm_debug_report_copied": "Report copiato",
     "alarm_debug_error": "Impossibile aggiornare: {error}",
     "alarm_debug_device_time": "Ora del dispositivo",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "primo messaggio",
     "check_notifications": "le notifiche sono disattivate",
     "check_full_screen_alarm": "lo schermo intero è disattivato",
-    "check_battery_optimization": "il risparmio energetico è attivo",
+    "check_battery_optimization": "l’ottimizzazione della batteria è attiva",
     "check_alarms": "gli allarmi sono disattivati",
     "check_time_sensitive": "le notifiche urgenti sono disattivate",
     "check_push_token_confirmed": "la notifica push non è confermata",
@@ -2560,5 +2570,20 @@
     "system_default": "Predefinita di sistema",
     "ai_line": "Tradotto con l’IA. Hai notato un errore?",
     "report_link": "Segnalacelo."
+  },
+  "alarm_loudness": {
+    "ask": "Abbastanza forte?",
+    "ask_yes": "Sì",
+    "ask_no": "No",
+    "title": "Alza il volume",
+    "line": "Su iPhone l’allarme suona al volume della suoneria.",
+    "step_aria": "Passo {number}",
+    "step_1": "In Impostazioni apri Suoni e feedback aptico e porta Suoneria e avvisi al massimo.",
+    "step_2": "Disattiva Modifica con tasti, così i tasti del volume non possono abbassare l’allarme.",
+    "open_settings": "Apri Impostazioni",
+    "opened_note": "Impostazioni si apre sulla pagina di Crit Alarm. Torna indietro di un passo per Suoni e feedback aptico.",
+    "open_failed": "Impossibile aprire Impostazioni. Segui i passi.",
+    "ring_again": "Suona di nuovo",
+    "back_aria": "Indietro"
   }
 }

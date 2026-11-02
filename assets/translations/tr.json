@@ -330,6 +330,8 @@
     "send_message": "Deneme alarmı",
     "send_cancel": "Vazgeç",
     "works_title": "Çalışıyor",
+    "not_reached_title": "Alarm bu telefona ulaşmadı",
+    "muted_title": "Bu telefon sessiz çaldı",
     "proof_server_sent": "Sunucu gönderdi",
     "proof_push_arrived": "Anlık bildirim geldi",
     "proof_phone_rang": "Bu telefon çaldı",
@@ -799,7 +801,8 @@
       "one": "1 mesajın tümü",
       "other": "{} mesajın tümü"
     },
-    "no_messages": "Henüz mesaj yok."
+    "no_messages": "Henüz mesaj yok.",
+    "ring_length": "Uyandım'a dokunana kadar {every} arayla, toplam {total} boyunca çalar."
   },
   "topic_tokens": {
     "header": "Erişim anahtarları",
@@ -948,6 +951,8 @@
     "load_failed_title": "Alarm yüklenemedi",
     "close_queued_title": "Sunucun yanıt verdiğinde kapanacak",
     "close_queued_body": "Bu telefon sunucuna ulaşır ulaşmaz kapatma isteği gönderilir. O zamana kadar alarm tekrar çalabilir.",
+    "ack_queued_title": "Sunucun yanıt verdiğinde Uyandım gönderilecek",
+    "ack_queued_body": "Bu telefonda çalma durdu. Bu telefon sunucuna ulaşır ulaşmaz Uyandım gönderilir.",
     "load_failed_body": "Alarm sunucuda hâlâ açık. Tekrar dene veya bu telefondaki sesi durdurup konularından aç.",
     "retry_button": "Tekrar dene",
     "silence_button": "Bu telefondaki sesi durdur",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Özel bir ses seçilmemiş tüm konularda çalar",
     "priorities_row_title": "Öncelikler",
     "priorities_row_subtitle": "Her öncelik düzeyinin bu telefondaki işlevi",
+    "ring_bright_screen_title": "Çalarken parlak ekran",
+    "ring_bright_screen_subtitle": "Alarm ekranında tam parlaklık.",
+    "ring_vibrate_title": "Alarmla birlikte titreş",
+    "ring_vibrate_subtitle": "Sesin ritmiyle titrer.",
     "app_header": "Uygulama",
     "storage_header": "Depolama",
     "storage_delete_after_title": "Alarmları silme süresi",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Temizle",
     "alarm_debug_flush_now": "Kuyruğu şimdi gönder",
     "alarm_debug_reconcile": "Şimdi eşitle",
+    "alarm_debug_probe_alarms": "60 alarmı test et",
     "alarm_debug_report_copied": "Rapor kopyalandı",
     "alarm_debug_error": "Yenilenemedi: {error}",
     "alarm_debug_device_time": "Cihaz saati",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "ilk mesaj",
     "check_notifications": "bildirimler kapalı",
     "check_full_screen_alarm": "tam ekran kapalı",
-    "check_battery_optimization": "pil tasarrufu açık",
+    "check_battery_optimization": "pil optimizasyonu açık",
     "check_alarms": "alarmlar kapalı",
     "check_time_sensitive": "zamana duyarlı bildirimler kapalı",
     "check_push_token_confirmed": "anlık bildirim onaylanmadı",
@@ -2560,5 +2570,20 @@
     "system_default": "Sistem varsayılanı",
     "ai_line": "Yapay zekâ ile çevrildi. Bir hata mı gördün?",
     "report_link": "Bize bildir."
+  },
+  "alarm_loudness": {
+    "ask": "Yeterince yüksek mi?",
+    "ask_yes": "Evet",
+    "ask_no": "Hayır",
+    "title": "Sesi yükselt",
+    "line": "iPhone'da alarm, zil sesi seviyesinde çalar.",
+    "step_aria": "Adım {number}",
+    "step_1": "Ayarlar'da Sesler ve Dokunuş'u aç ve Zil Sesi ve Uyarılar'ı sonuna kadar yükselt.",
+    "step_2": "Ses düğmeleri alarmı kısamasın diye Düğmelerle Değiştir'i kapat.",
+    "open_settings": "Ayarlar'ı aç",
+    "opened_note": "Ayarlar, Crit Alarm sayfasında açılır. Sesler ve Dokunuş için bir adım geri git.",
+    "open_failed": "Ayarlar açılamadı. Adımları izle.",
+    "ring_again": "Tekrar çal",
+    "back_aria": "Geri"
   }
 }

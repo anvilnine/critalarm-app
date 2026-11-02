@@ -586,14 +586,24 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         _noteTestForProof(loaded);
         return;
       }
-      result.fold(
-        (_) {},
-        (failure) => _showFailure(
-          failure,
-          doneIncidentId: cameFromDone && serverGaveNoAnswer(failure)
-              ? incidentId
-              : null,
-        ),
+      final failure = result.fold((_) => null, (failure) => failure);
+      if (failure == null) return;
+      final noAnswer = serverGaveNoAnswer(failure);
+      // Offline, a ringing phone still needs its "I'm up". Native says
+      // whether this phone rang the incident and nobody answered it yet.
+      var offlineAck = false;
+      if (noAnswer && !cameFromDone) {
+        try {
+          offlineAck = await _alarm?.canAckFromScreen(incidentId) ?? false;
+        } on Object catch (_) {
+          offlineAck = false;
+        }
+        if (isClosed) return;
+      }
+      _showFailure(
+        failure,
+        doneIncidentId: cameFromDone && noAnswer ? incidentId : null,
+        offlineAckIncidentId: offlineAck ? incidentId : null,
       );
       return;
     }
@@ -642,15 +652,52 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }());
   }
 
-  void _showFailure(Failure failure, {String? doneIncidentId}) {
+  void _showFailure(
+    Failure failure, {
+    String? doneIncidentId,
+    String? offlineAckIncidentId,
+  }) {
     _stopRingTicker();
     emit(
       CriticalAlarmState(
         status: CriticalAlarmStatus.failure,
         errorMessage: failure.message == null ? null : failureMessage(failure),
         doneIncidentId: doneIncidentId,
+        offlineAckIncidentId: offlineAckIncidentId,
       ),
     );
+  }
+
+  /// "I'm up" on the failed screen, for an incident this phone rang
+  /// ([CriticalAlarmState.offlineAckIncidentId]). Hands the ack to the
+  /// native code the notification's "I'm up" runs: it stops the ring, sends
+  /// the ack or keeps it until the server answers, and starts the desk
+  /// timer. Nothing is decided here. A refusal leaves the failed screen,
+  /// without the button.
+  Future<void> handAckToNative() async {
+    final incidentId = state.offlineAckIncidentId;
+    final alarm = _alarm;
+    if (incidentId == null || alarm == null || _isHandingOff) return;
+    _isHandingOff = true;
+    var handed = false;
+    try {
+      handed = await alarm.ackFromScreen(incidentId);
+    } on Object catch (_) {
+      handed = false;
+    } finally {
+      _isHandingOff = false;
+    }
+    if (isClosed || state.offlineAckIncidentId != incidentId) return;
+    if (!handed) {
+      emit(
+        state.copyWith(
+          clearDoneHandOff: true,
+          errorMessage: state.errorMessage ?? '',
+        ),
+      );
+      return;
+    }
+    emit(const CriticalAlarmState(isAckHandedOff: true));
   }
 
   bool _isHandingOff = false;
@@ -811,6 +858,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       title: ackTitle,
       body: ackBody,
     );
+    // A setup test answered here also ends the phone-only test alarm, when
+    // setup set both. On an iPhone it kept alerting for minutes after the
+    // server's test was acknowledged (W6).
+    if (ringing.setupTest == SetupTestKind.serverSent) {
+      await _silence(phoneOnlyTestIncidentId, handOverToStatusCard: false);
+    }
 
     // Marked before the send, so a repeat push that lands while the request
     // is in flight does not ring. A reopen clears it again.
@@ -975,6 +1028,31 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         clearFirstTool: firstToolId == null,
       ),
     );
+    unawaited(_readSetupEvidence(incident.id));
+  }
+
+  /// Reads what native recorded about a setup test alarm, for the proof
+  /// list ([setupProofFor]). Nothing for an alarm that is not a setup test.
+  /// With no native side (the web build) the old full proof stands.
+  Future<void> _readSetupEvidence(String incidentId) async {
+    final kind = state.setupTest;
+    if (kind == SetupTestKind.none) return;
+    final alarm = _alarm;
+    var evidence = (pushArrived: true, heard: true);
+    if (alarm != null) {
+      try {
+        final arrived =
+            kind == SetupTestKind.serverSent &&
+            await alarm.receivedAlarmFor(incidentId);
+        final muted = await alarm.ringWasMuted(incidentId);
+        evidence = (pushArrived: arrived, heard: !muted);
+      } on Object catch (_) {
+        // Nothing read, nothing proved beyond what the server said.
+        evidence = (pushArrived: false, heard: false);
+      }
+    }
+    if (isClosed || state.incident?.id != incidentId) return;
+    emit(state.copyWith(setupEvidence: evidence));
   }
 
   /// Redraws the ringing line every [ringTick]. The duration used to be worked
@@ -1416,5 +1494,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
-  String _formatTime(DateTime dt) => formatClock(dt, is24Hour: _use24Hour());
+  String _formatTime(DateTime dt) =>
+      formatLocalClock(dt, is24Hour: _use24Hour());
 }

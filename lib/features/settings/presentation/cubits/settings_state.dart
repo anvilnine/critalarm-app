@@ -3,6 +3,7 @@ import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/features/settings/domain/entities/ring_settings.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:flutter/foundation.dart';
 
@@ -35,6 +36,7 @@ class SettingsState {
     this.errorMessage,
     this.serverMode,
     this.storage = const StorageSettings(),
+    this.ring = const RingSettings(),
   });
 
   final List<Topic> topics;
@@ -83,6 +85,9 @@ class SettingsState {
   /// How long the phone keeps alarms, and whether P5 alarms are exempt.
   final StorageSettings storage;
 
+  /// The two ring switches: bright screen and vibrate with the alarm.
+  final RingSettings ring;
+
   /// About what the server is, not about plans: a self-hosted server has
   /// one operator and no accounts to sign in to.
   bool get hasAccounts {
@@ -113,6 +118,7 @@ class SettingsState {
     String? errorMessage,
     ServerMode? serverMode,
     StorageSettings? storage,
+    RingSettings? ring,
     bool clearError = false,
   }) {
     return SettingsState(
@@ -141,6 +147,7 @@ class SettingsState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       serverMode: serverMode ?? this.serverMode,
       storage: storage ?? this.storage,
+      ring: ring ?? this.ring,
     );
   }
 
@@ -169,7 +176,8 @@ class SettingsState {
           isSavingConnection == other.isSavingConnection &&
           errorMessage == other.errorMessage &&
           serverMode == other.serverMode &&
-          storage == other.storage;
+          storage == other.storage &&
+          ring == other.ring;
 
   @override
   int get hashCode => Object.hashAll([
@@ -194,5 +202,6 @@ class SettingsState {
     holdsHosted,
     proState,
     storage,
+    ring,
   ]);
 }

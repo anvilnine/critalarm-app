@@ -6,9 +6,9 @@ import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.alarm.AlarmChain
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
-import app.critalarm.alarm.ScheduledAlarmReceiver
 import app.critalarm.check.CheckPush
 import app.critalarm.check.WeeklyCheckResponder
 import app.critalarm.notifications.AlarmNotificationFactory
@@ -17,6 +17,7 @@ import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderReceiver
+import app.critalarm.storage.BootStorage
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
@@ -88,6 +89,12 @@ class PushRouter(private val context: Context) {
         // sound, no card, and nothing below this line runs for it. Every
         // other push is not a check and goes on exactly as before.
         CheckPush.fromData(data)?.let { check ->
+            // The receipt needs the session, which cannot be read before the
+            // first unlock after a reboot. That check goes unanswered.
+            if (!BootStorage.isUnlocked(context)) {
+                Log.i(TAG, "check_skipped reason=locked")
+                return null
+            }
             WeeklyCheckResponder.answer(context, check)
             return null
         }
@@ -166,6 +173,19 @@ class PushRouter(private val context: Context) {
         // later and the re-arm reads this with no network call. A reopen moves
         // opened_at, so the server sends a new value and it lands here too.
         payload.ringUntilMillis?.let { store.rememberRingUntil(incidentId, it) }
+        // A chain set again after a reboot needs the server for its rings
+        // before the session can be read.
+        store.rememberServer(incidentId, payload.server.toString())
+        // Every ring from now to ring_until, held by the system, so the phone
+        // keeps ringing with no network until someone answers. A later push
+        // for the incident sets it again from now, in place of the old one.
+        AlarmChain.of(context).setRingChain(
+            incidentId = incidentId,
+            nowMillis = System.currentTimeMillis(),
+            kind = payload.kind,
+            title = payload.title,
+            body = payload.body,
+        )
 
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!alreadyActive || reopen) {
@@ -302,11 +322,9 @@ class PushRouter(private val context: Context) {
 
     private fun isLiveHere(incidentId: String, nowMillis: Long): Boolean {
         val store = IncidentDeliveryStore(context)
-        val rearmAt = store.rearmFiresAtMillis(incidentId)
         return RemoteStateRule.isLiveHere(
             holding = AlarmForegroundService.isHolding(incidentId),
-            rearmPending = rearmAt != null &&
-                ScheduledAlarmReceiver.isScheduled(context, incidentId, rearmAt),
+            rearmPending = AlarmChain.of(context).ringPending(incidentId, nowMillis),
             active = store.isActive(incidentId),
             acknowledged = store.isAcknowledged(incidentId),
             closed = store.isClosed(incidentId),
@@ -320,7 +338,9 @@ class PushRouter(private val context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
 
         AlarmForegroundService.stopIncident(context, incidentId)
-        IncidentRearm.cancel(context, incidentId)
+        // The server's ack for this phone's own "I'm up" keeps its desk timer
+        // chain. Anything else drops every ring this phone set.
+        IncidentRearm.onStatePush(context, incidentId, kind)
         manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
         manager.cancel(MessageNotificationFactory.notificationId(incidentId))
 
@@ -424,7 +444,17 @@ class PushRouter(private val context: Context) {
             }
             // The push carries no topic (api.md §5.2), and the re-arm needs one
             // to read the repeat interval and the critical switch.
-            content.topic?.let { IncidentDeliveryStore(context).rememberTopic(incidentId, it) }
+            content.topic?.let {
+                IncidentDeliveryStore(context).rememberTopic(incidentId, it)
+                // The chain went out on the default interval before the topic
+                // was known.
+                AlarmChain.of(context).topicLearned(
+                    incidentId = incidentId,
+                    nowMillis = System.currentTimeMillis(),
+                    title = payload.title,
+                    body = payload.body,
+                )
+            }
             placeOnWidgets(incidentId, content)
             // Re-read rather than trust the state from before the network call.
             // The fetch waits up to ten seconds for connect and ten for read,

@@ -111,6 +111,8 @@ class TopicDetailState {
     this.messageTimes = const [],
     this.areMessageTimesKnown = true,
     this.lastAlarmAt,
+    this.maxRingS,
+    this.repeatIntervalS,
     this.flashOn = false,
     this.strongVibrationOn = false,
     this.hasTorch = false,
@@ -156,6 +158,13 @@ class TopicDetailState {
   /// When this topic last raised an alarm, or null if it never has.
   final DateTime? lastAlarmAt;
 
+  /// How long an alarm on this topic rings, in seconds (`max_ring_s`), or null
+  /// until the topic has been read.
+  final int? maxRingS;
+
+  /// How often it rings again inside that time, in seconds
+  /// (`repeat_interval_s`), or null until the topic has been read.
+  final int? repeatIntervalS;
   /// Whether this topic's ring also blinks the camera flash. Kept on this
   /// phone only, and off until the user turns it on.
   final bool flashOn;
@@ -198,6 +207,8 @@ class TopicDetailState {
     List<DateTime>? messageTimes,
     bool? areMessageTimesKnown,
     DateTime? lastAlarmAt,
+    int? maxRingS,
+    int? repeatIntervalS,
     bool? flashOn,
     bool? strongVibrationOn,
     bool? hasTorch,
@@ -222,6 +233,8 @@ class TopicDetailState {
       messageTimes: messageTimes ?? this.messageTimes,
       areMessageTimesKnown: areMessageTimesKnown ?? this.areMessageTimesKnown,
       lastAlarmAt: lastAlarmAt ?? this.lastAlarmAt,
+      maxRingS: maxRingS ?? this.maxRingS,
+      repeatIntervalS: repeatIntervalS ?? this.repeatIntervalS,
       flashOn: flashOn ?? this.flashOn,
       strongVibrationOn: strongVibrationOn ?? this.strongVibrationOn,
       hasTorch: hasTorch ?? this.hasTorch,
@@ -251,6 +264,8 @@ class TopicDetailState {
           listEquals(messageTimes, other.messageTimes) &&
           areMessageTimesKnown == other.areMessageTimesKnown &&
           lastAlarmAt == other.lastAlarmAt &&
+          maxRingS == other.maxRingS &&
+          repeatIntervalS == other.repeatIntervalS &&
           flashOn == other.flashOn &&
           strongVibrationOn == other.strongVibrationOn &&
           hasTorch == other.hasTorch;
@@ -275,7 +290,9 @@ class TopicDetailState {
     Object.hashAll(messageTimes),
     areMessageTimesKnown,
     lastAlarmAt,
-    // One slot for the three switches: Object.hash takes 20 at most.
+    // One slot each for the ring length pair and the three switches:
+    // Object.hash takes 20 at most.
+    Object.hash(maxRingS, repeatIntervalS),
     Object.hash(flashOn, strongVibrationOn, hasTorch),
   );
 }

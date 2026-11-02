@@ -1,6 +1,7 @@
 package app.critalarm.storage
 
 import android.content.Context
+import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -12,11 +13,21 @@ import org.json.JSONObject
  * the list on the next launch and reports it only if the user turned analytics
  * on. The list is capped so a phone that was offline for a week does not come
  * back with thousands of rows.
+ *
+ * Dart's preferences cannot be read before the first unlock after a reboot,
+ * so nothing is recorded then. A push that lands before the unlock still
+ * rings; it just leaves no row.
  */
 class PushEventLog(context: Context) {
-    private val preferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    private val preferences: SharedPreferences? =
+        if (BootStorage.isUnlocked(context)) {
+            context.getSharedPreferences(BootStorage.FLUTTER, Context.MODE_PRIVATE)
+        } else {
+            null
+        }
 
     fun record(name: String, params: Map<String, String>) {
+        val preferences = preferences ?: return
         val existing = runCatching { JSONArray(preferences.getString(KEY, "[]")) }.getOrNull() ?: JSONArray()
         val row = JSONObject().apply {
             put("name", name)
@@ -30,12 +41,19 @@ class PushEventLog(context: Context) {
         preferences.edit().putString(KEY, trimmed.toString()).apply()
     }
 
-    /** Stores the token FCM handed out while Dart was not running. */
-    fun recordPendingToken(token: String) {
+    /**
+     * Stores the token FCM handed out while Dart was not running. False
+     * before the first unlock, when there is nowhere it may go: a token is
+     * never written to device-protected storage.
+     */
+    fun recordPendingToken(token: String): Boolean {
+        val preferences = preferences ?: return false
         preferences.edit().putString(PENDING_TOKEN_KEY, token).apply()
+        return true
     }
 
     internal fun recent(): List<Map<String, Any>> {
+        val preferences = preferences ?: return emptyList()
         val rows = runCatching { JSONArray(preferences.getString(KEY, "[]")) }.getOrNull() ?: return emptyList()
         return (rows.length() - 1 downTo 0).mapNotNull { index ->
             rows.optJSONObject(index)?.let { row ->

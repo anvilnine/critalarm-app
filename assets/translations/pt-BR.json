@@ -330,6 +330,8 @@
     "send_message": "Alarme de teste",
     "send_cancel": "Cancelar",
     "works_title": "Funcionou",
+    "not_reached_title": "O alarme não chegou a este celular",
+    "muted_title": "Este celular tocou sem som",
     "proof_server_sent": "O servidor enviou",
     "proof_push_arrived": "O push chegou",
     "proof_phone_rang": "Este celular tocou",
@@ -799,7 +801,8 @@
       "one": "Ver 1 mensagem",
       "other": "Ver todas as {} mensagens"
     },
-    "no_messages": "Nenhuma mensagem ainda."
+    "no_messages": "Nenhuma mensagem ainda.",
+    "ring_length": "Toca por {total}, a cada {every}, até você tocar em \"Já acordei\"."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "Não foi possível carregar o alarme",
     "close_queued_title": "Encerra quando seu servidor responder",
     "close_queued_body": "O pedido de encerramento é enviado assim que este celular conseguir acessar seu servidor. Até lá, o alarme pode tocar de novo.",
+    "ack_queued_title": "\"Já acordei\" é enviado quando seu servidor responder",
+    "ack_queued_body": "O alarme parou de tocar neste celular. \"Já acordei\" é enviado assim que este celular conseguir acessar seu servidor.",
     "load_failed_body": "O alarme continua aberto no servidor. Tente de novo ou pare o som neste celular e abra pelos seus tópicos.",
     "retry_button": "Tentar de novo",
     "silence_button": "Parar o som neste celular",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Toca em todos os tópicos que não têm um som próprio",
     "priorities_row_title": "Prioridades",
     "priorities_row_subtitle": "O que cada prioridade faz neste celular",
+    "ring_bright_screen_title": "Tela clara quando tocar",
+    "ring_bright_screen_subtitle": "Brilho máximo na tela do alarme.",
+    "ring_vibrate_title": "Vibrar com o alarme",
+    "ring_vibrate_subtitle": "Vibra no ritmo do som.",
     "app_header": "App",
     "storage_header": "Armazenamento",
     "storage_delete_after_title": "Excluir alarmes após",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Limpar",
     "alarm_debug_flush_now": "Enviar fila agora",
     "alarm_debug_reconcile": "Reconciliar agora",
+    "alarm_debug_probe_alarms": "Testar 60 alarmes",
     "alarm_debug_report_copied": "Relatório copiado",
     "alarm_debug_error": "Não foi possível atualizar: {error}",
     "alarm_debug_device_time": "Hora do dispositivo",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "primeira mensagem",
     "check_notifications": "notificações desativadas",
     "check_full_screen_alarm": "tela cheia desativada",
-    "check_battery_optimization": "economia de bateria ativada",
+    "check_battery_optimization": "otimização de bateria ativada",
     "check_alarms": "alarmes desativados",
     "check_time_sensitive": "notificações relevantes desativadas",
     "check_push_token_confirmed": "push não confirmado",
@@ -2560,5 +2570,20 @@
     "system_default": "Padrão do sistema",
     "ai_line": "Traduzido com IA. Viu algum erro?",
     "report_link": "Avise a gente."
+  },
+  "alarm_loudness": {
+    "ask": "Alto o suficiente?",
+    "ask_yes": "Sim",
+    "ask_no": "Não",
+    "title": "Deixar mais alto",
+    "line": "No iPhone, o alarme toca no volume do toque.",
+    "step_aria": "Passo {number}",
+    "step_1": "Em Ajustes, abra Sons e Tato e aumente Toque e Alertas até o máximo.",
+    "step_2": "Desative Alterar com Botões, para que os botões de volume não possam abaixar o alarme.",
+    "open_settings": "Abrir Ajustes",
+    "opened_note": "Ajustes abre na página do Crit Alarm. Volte um passo para chegar a Sons e Tato.",
+    "open_failed": "Não foi possível abrir Ajustes. Siga os passos.",
+    "ring_again": "Tocar de novo",
+    "back_aria": "Voltar"
   }
 }

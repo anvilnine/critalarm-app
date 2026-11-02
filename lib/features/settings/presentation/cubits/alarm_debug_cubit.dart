@@ -10,7 +10,8 @@ enum AlarmDebugAction {
   cancelAllRearms('cancel_all_rearms'),
   clearContentCache('clear_content_cache'),
   clearAckedSet('clear_acked_set'),
-  reconcileNow('reconcile_now');
+  reconcileNow('reconcile_now'),
+  probeAlarmCapacity('probe_alarm_capacity');
 
   const AlarmDebugAction(this.wireName);
   final String wireName;
@@ -31,8 +32,10 @@ final class AlarmDebugCubit extends Cubit<AlarmDebugState> {
     required this._clearAckedSet,
     required this._reconcileNow,
     required this._recordDebugAction,
+    Future<void> Function()? probeAlarmCapacity,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now,
+  }) : _probeAlarmCapacity = probeAlarmCapacity ?? _nothing,
+       _clock = clock ?? DateTime.now,
        super(const AlarmDebugState());
 
   final Future<Map<String, Object?>> Function() _readNative;
@@ -47,6 +50,9 @@ final class AlarmDebugCubit extends Cubit<AlarmDebugState> {
   final Future<void> Function() _clearAckedSet;
   final Future<void> Function() _reconcileNow;
   final void Function(String action) _recordDebugAction;
+  final Future<void> Function() _probeAlarmCapacity;
+
+  static Future<void> _nothing() async {}
   final DateTime Function() _clock;
   int _refreshGeneration = 0;
 
@@ -108,6 +114,8 @@ final class AlarmDebugCubit extends Cubit<AlarmDebugState> {
         case AlarmDebugAction.reconcileNow:
           _recordDebugAction(action.wireName);
           await _reconcileNow();
+        case AlarmDebugAction.probeAlarmCapacity:
+          await _probeAlarmCapacity();
       }
     } on Object catch (error) {
       actionError = error;

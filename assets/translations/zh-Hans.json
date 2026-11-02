@@ -330,6 +330,8 @@
     "send_message": "测试警报",
     "send_cancel": "取消",
     "works_title": "成功了",
+    "not_reached_title": "警报没有送达这部手机",
+    "muted_title": "这部手机响铃时没有声音",
     "proof_server_sent": "服务器已发送",
     "proof_push_arrived": "推送已送达",
     "proof_phone_rang": "手机已响铃",
@@ -790,7 +792,8 @@
     "all_messages": {
       "other": "全部{}条消息"
     },
-    "no_messages": "还没有消息。"
+    "no_messages": "还没有消息。",
+    "ring_length": "每{every}响一次，共响{total}，直到你点“我醒了”。"
   },
   "topic_tokens": {
     "header": "令牌",
@@ -937,6 +940,8 @@
     "load_failed_title": "无法加载警报",
     "close_queued_title": "服务器响应后将关闭",
     "close_queued_body": "本机一旦连上你的服务器，就会发送关闭请求。在此之前，警报可能会再次响起。",
+    "ack_queued_title": "服务器响应后将发送“我醒了”",
+    "ack_queued_body": "本机已停止响铃。本机一旦连上你的服务器，就会发送“我醒了”。",
     "load_failed_body": "服务器上的警报仍未关闭。请重试，或先停止本机声音，再从主题列表中打开。",
     "retry_button": "重试",
     "silence_button": "停止本机声音",
@@ -998,6 +1003,10 @@
     "alarm_sound_row_subtitle": "未单独选择声音的主题都使用此声音",
     "priorities_row_title": "优先级",
     "priorities_row_subtitle": "各优先级在本机上的表现",
+    "ring_bright_screen_title": "响铃时屏幕调亮",
+    "ring_bright_screen_subtitle": "警报画面使用最高亮度。",
+    "ring_vibrate_title": "随警报振动",
+    "ring_vibrate_subtitle": "跟着声音的节拍振动。",
     "app_header": "应用",
     "storage_header": "存储",
     "storage_delete_after_title": "自动删除警报",
@@ -1045,6 +1054,7 @@
     "alarm_debug_clear_acked": "清除",
     "alarm_debug_flush_now": "立即发送队列",
     "alarm_debug_reconcile": "立即核对状态",
+    "alarm_debug_probe_alarms": "测试60个警报",
     "alarm_debug_report_copied": "报告已复制",
     "alarm_debug_error": "无法刷新：{error}",
     "alarm_debug_device_time": "设备时间",
@@ -2448,7 +2458,7 @@
     "setup_row_first_message": "第一条消息",
     "check_notifications": "通知已关闭",
     "check_full_screen_alarm": "全屏警报已关闭",
-    "check_battery_optimization": "省电模式已开启",
+    "check_battery_optimization": "电池优化已开启",
     "check_alarms": "闹钟已关闭",
     "check_time_sensitive": "时效性通知已关闭",
     "check_push_token_confirmed": "推送未确认",
@@ -2534,5 +2544,20 @@
     "system_default": "跟随系统",
     "ai_line": "由AI翻译。发现错误？",
     "report_link": "向我们反馈。"
+  },
+  "alarm_loudness": {
+    "ask": "够响吗？",
+    "ask_yes": "够",
+    "ask_no": "不够",
+    "title": "调大音量",
+    "line": "在iPhone上，警报以铃声音量响起。",
+    "step_aria": "第{number}步",
+    "step_1": "在“设置”中打开“声音与触感”，把“铃声和提醒”调到最大。",
+    "step_2": "关闭“用按钮调整”，这样音量键就不能调小警报。",
+    "open_settings": "打开设置",
+    "opened_note": "“设置”会打开到Crit Alarm页面。返回上一步即可找到“声音与触感”。",
+    "open_failed": "无法打开“设置”。请按步骤操作。",
+    "ring_again": "再响一次",
+    "back_aria": "返回"
   }
 }

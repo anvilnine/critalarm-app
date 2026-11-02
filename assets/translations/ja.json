@@ -330,6 +330,8 @@
     "send_message": "テストアラーム",
     "send_cancel": "キャンセル",
     "works_title": "動作しました",
+    "not_reached_title": "アラームがこのスマートフォンに届きませんでした",
+    "muted_title": "このスマートフォンは音なしで鳴りました",
     "proof_server_sent": "サーバーが送信しました",
     "proof_push_arrived": "プッシュが届きました",
     "proof_phone_rang": "このスマートフォンが鳴りました",
@@ -799,7 +801,8 @@
       "one": "全1件のメッセージ",
       "other": "全{}件のメッセージ"
     },
-    "no_messages": "メッセージはまだありません。"
+    "no_messages": "メッセージはまだありません。",
+    "ring_length": "起きるまで、{every}おきに最大{total}鳴ります。"
   },
   "topic_tokens": {
     "header": "トークン",
@@ -948,6 +951,8 @@
     "load_failed_title": "アラームを読み込めませんでした",
     "close_queued_title": "サーバーの応答後に終了します",
     "close_queued_body": "このスマートフォンからサーバーに到達でき次第、終了を送信します。それまでは再び鳴る場合があります。",
+    "ack_queued_title": "サーバーの応答後に「起きました」を送信します",
+    "ack_queued_body": "このスマートフォンでは鳴り止みました。サーバーに到達でき次第、「起きました」を送信します。",
     "load_failed_body": "サーバーではアラームが未完了です。再試行するか、このスマートフォンを消音してトピックから開いてください。",
     "retry_button": "再試行",
     "silence_button": "このスマートフォンを消音",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "個別に選んでいないすべてのトピックで鳴ります",
     "priorities_row_title": "優先度",
     "priorities_row_subtitle": "このスマートフォンでの各優先度の動作",
+    "ring_bright_screen_title": "鳴るときは画面を明るく",
+    "ring_bright_screen_subtitle": "アラーム画面を最大の明るさにします。",
+    "ring_vibrate_title": "アラームに合わせて振動",
+    "ring_vibrate_subtitle": "アラーム音のリズムに合わせて振動します。",
     "app_header": "アプリ",
     "storage_header": "ストレージ",
     "storage_delete_after_title": "アラームを削除するまでの期間",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "消去",
     "alarm_debug_flush_now": "今すぐ送信",
     "alarm_debug_reconcile": "今すぐ整合",
+    "alarm_debug_probe_alarms": "アラームを60件テスト",
     "alarm_debug_report_copied": "レポートをコピーしました",
     "alarm_debug_error": "更新できませんでした: {error}",
     "alarm_debug_device_time": "デバイスの時刻",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "最初のメッセージ",
     "check_notifications": "通知がオフです",
     "check_full_screen_alarm": "全画面表示がオフです",
-    "check_battery_optimization": "バッテリーセーバーがオンです",
+    "check_battery_optimization": "バッテリーの最適化がオンです",
     "check_alarms": "アラームがオフです",
     "check_time_sensitive": "即時通知がオフです",
     "check_push_token_confirmed": "プッシュを確認できていません",
@@ -2560,5 +2570,20 @@
     "system_default": "システムのデフォルト",
     "ai_line": "AIで翻訳しています。間違いを見つけましたか？",
     "report_link": "お知らせください。"
+  },
+  "alarm_loudness": {
+    "ask": "音量は十分でしたか？",
+    "ask_yes": "はい",
+    "ask_no": "いいえ",
+    "title": "音を大きくする",
+    "line": "iPhoneでは、アラームは着信音の音量で鳴ります。",
+    "step_aria": "ステップ{number}",
+    "step_1": "設定で「サウンドと触覚」を開き、「着信音と通知音」をいちばん上まで上げてください。",
+    "step_2": "「ボタンで変更」をオフにすると、音量ボタンでアラームが小さくなりません。",
+    "open_settings": "設定を開く",
+    "opened_note": "設定はCrit Alarmのページで開きます。1つ戻って「サウンドと触覚」を開いてください。",
+    "open_failed": "設定を開けませんでした。手順に従ってください。",
+    "ring_again": "もう一度鳴らす",
+    "back_aria": "戻る"
   }
 }

@@ -263,6 +263,15 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
                             AlarmDebugAction.clearContentCache.wireName,
                       ),
                       _button(
+                        LocaleKeys.settings_alarm_debug_probe_alarms.tr(),
+                        () => context.read<AlarmDebugCubit>().performAction(
+                          AlarmDebugAction.probeAlarmCapacity,
+                        ),
+                        busy:
+                            state.actionInProgress ==
+                            AlarmDebugAction.probeAlarmCapacity.wireName,
+                      ),
+                      _button(
                         LocaleKeys.settings_alarm_debug_reconcile.tr(),
                         () => context.read<AlarmDebugCubit>().performAction(
                           AlarmDebugAction.reconcileNow,

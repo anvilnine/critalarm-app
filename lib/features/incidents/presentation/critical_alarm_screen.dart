@@ -5,6 +5,7 @@ import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_screen_host.dart';
 import 'package:critalarm/core/format/clock_format.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
@@ -25,6 +26,7 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/ack_confetti_rule.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
+import 'package:critalarm/features/incidents/domain/loudness_ask.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
@@ -35,6 +37,7 @@ import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_styl
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen_hold.dart';
+import 'package:critalarm/features/incidents/presentation/widgets/loud_enough_ask.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/ringing_screen.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
@@ -290,14 +293,26 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 
   /// Lets the Android window leave the lock screen once this screen stops
   /// ringing, opens another screen on top, or goes away.
+  ///
+  /// The same moments start and stop the iPhone's full brightness and
+  /// vibration (`RingScreenHost`), which only the open, ringing screen gets.
   late final LockScreenHold _lockHold = LockScreenHold(
-    release: (id) => _withAlarmHost((host) => host.releaseLockScreen(id)),
-    hold: (id) => unawaited(_withAlarmHost((host) => host.holdLockScreen(id))),
+    release: (id) {
+      _withRingScreen((host) => host.stop());
+      return _withAlarmHost((host) => host.releaseLockScreen(id));
+    },
+    hold: (id) {
+      unawaited(_withAlarmHost((host) => host.holdLockScreen(id)));
+      _withRingScreen((host) => host.start(topic: _ringingTopic));
+    },
     onSettled: () {
       if (mounted) setState(() {});
     },
     holdsWindow: defaultTargetPlatform == TargetPlatform.android,
   );
+
+  /// The topic of the ringing incident, for the sound its pattern follows.
+  String? _ringingTopic;
 
   /// The last state that drew the ringing layout. Drawn in place of the
   /// acknowledged and failure layouts until the window has left the lock
@@ -309,6 +324,11 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   ) async {
     if (!getIt.isRegistered<AlarmHost>()) return;
     await call(getIt<AlarmHost>());
+  }
+
+  static void _withRingScreen(Future<void> Function(RingScreenHost host) call) {
+    if (!getIt.isRegistered<RingScreenHost>()) return;
+    unawaited(call(getIt<RingScreenHost>()));
   }
 
   /// What the screen draws for [current]. A screen that stops ringing keeps
@@ -374,10 +394,13 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     // challenge opened before is left. It is not carried over, and nothing
     // is owed until "At my desk" is tapped again.
     return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
-      listener: (context, state) => _lockHold.show(
-        incidentId: state.incident?.id,
-        isRinging: showsRingingLayout(state),
-      ),
+      listener: (context, state) {
+        _ringingTopic = state.topic.isEmpty ? null : state.topic;
+        _lockHold.show(
+          incidentId: state.incident?.id,
+          isRinging: showsRingingLayout(state),
+        );
+      },
       child: BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
         listenWhen: (previous, current) =>
             previous.incident?.id != current.incident?.id ||

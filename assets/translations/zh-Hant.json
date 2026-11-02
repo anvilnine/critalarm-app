@@ -330,6 +330,8 @@
     "send_message": "測試警報",
     "send_cancel": "取消",
     "works_title": "成功了",
+    "not_reached_title": "警報沒有送達這支手機",
+    "muted_title": "這支手機響鈴時沒有聲音",
     "proof_server_sent": "伺服器已送出",
     "proof_push_arrived": "推播已送達",
     "proof_phone_rang": "這支手機已響鈴",
@@ -790,7 +792,8 @@
     "all_messages": {
       "other": "全部 {} 則訊息"
     },
-    "no_messages": "尚無訊息。"
+    "no_messages": "尚無訊息。",
+    "ring_length": "每{every}響一次，共響{total}，直到你點「我醒了」。"
   },
   "topic_tokens": {
     "header": "權杖",
@@ -937,6 +940,8 @@
     "load_failed_title": "無法載入警報",
     "close_queued_title": "等待伺服器回應以結束警報",
     "close_queued_body": "這支手機一連上伺服器，就會送出結束請求。在此之前，警報可能會再次響起。",
+    "ack_queued_title": "等伺服器回應後送出「我醒了」",
+    "ack_queued_body": "這支手機已停止響鈴。這支手機一連上伺服器，就會送出「我醒了」。",
     "load_failed_body": "警報在伺服器上仍未結束。請再試一次，或先停止這支手機的聲音，再從主題開啟警報。",
     "retry_button": "再試一次",
     "silence_button": "停止這支手機的聲音",
@@ -998,6 +1003,10 @@
     "alarm_sound_row_subtitle": "適用於所有未個別自訂音效的主題",
     "priorities_row_title": "優先等級",
     "priorities_row_subtitle": "各優先等級在這支手機上的運作方式",
+    "ring_bright_screen_title": "響鈴時螢幕調亮",
+    "ring_bright_screen_subtitle": "警報畫面使用最高亮度。",
+    "ring_vibrate_title": "隨警報震動",
+    "ring_vibrate_subtitle": "跟著聲音的節拍震動。",
     "app_header": "App",
     "storage_header": "儲存空間",
     "storage_delete_after_title": "警報保留期限",
@@ -1045,6 +1054,7 @@
     "alarm_debug_clear_acked": "清除",
     "alarm_debug_flush_now": "立即送出",
     "alarm_debug_reconcile": "立即核對",
+    "alarm_debug_probe_alarms": "測試60個警報",
     "alarm_debug_report_copied": "報告已複製",
     "alarm_debug_error": "無法重新整理：{error}",
     "alarm_debug_device_time": "裝置時間",
@@ -2448,7 +2458,7 @@
     "setup_row_first_message": "發送第一則訊息",
     "check_notifications": "通知已關閉",
     "check_full_screen_alarm": "全螢幕警報已關閉",
-    "check_battery_optimization": "省電模式已開啟",
+    "check_battery_optimization": "電池最佳化已開啟",
     "check_alarms": "鬧鐘權限已關閉",
     "check_time_sensitive": "時效性通知已關閉",
     "check_push_token_confirmed": "推播尚未確認",
@@ -2534,5 +2544,20 @@
     "system_default": "系統預設",
     "ai_line": "由 AI 翻譯。有發現錯誤嗎？",
     "report_link": "回報給我們。"
+  },
+  "alarm_loudness": {
+    "ask": "夠大聲嗎？",
+    "ask_yes": "夠",
+    "ask_no": "不夠",
+    "title": "調大音量",
+    "line": "在iPhone上，警報會以鈴聲音量響起。",
+    "step_aria": "第{number}步",
+    "step_1": "在「設定」中打開「聲音與觸覺回饋」，把「鈴聲與提示」調到最大。",
+    "step_2": "關閉「使用按鈕更改」，音量鍵就不能把警報調小聲。",
+    "open_settings": "打開設定",
+    "opened_note": "「設定」會打開到Crit Alarm頁面。返回上一步就能找到「聲音與觸覺回饋」。",
+    "open_failed": "無法打開「設定」。請照步驟操作。",
+    "ring_again": "再響一次",
+    "back_aria": "返回"
   }
 }

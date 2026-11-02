@@ -330,6 +330,8 @@
     "send_message": "Alarme de test",
     "send_cancel": "Annuler",
     "works_title": "Ça fonctionne",
+    "not_reached_title": "L’alarme n’est pas arrivée sur ce téléphone",
+    "muted_title": "Ce téléphone a sonné sans le son",
     "proof_server_sent": "Le serveur l’a envoyée",
     "proof_push_arrived": "La notification push est arrivée",
     "proof_phone_rang": "Ce téléphone a sonné",
@@ -799,7 +801,8 @@
       "one": "Tous les messages (1)",
       "other": "Tous les messages ({})"
     },
-    "no_messages": "Aucun message pour le moment."
+    "no_messages": "Aucun message pour le moment.",
+    "ring_length": "Sonne pendant {total}, toutes les {every}, jusqu’à ce que vous touchiez « Je suis debout »."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "Impossible de charger l’alarme",
     "close_queued_title": "Clôture dès que votre serveur répondra",
     "close_queued_body": "La demande de clôture sera envoyée dès que ce téléphone pourra joindre votre serveur. D’ici là, l’alarme peut sonner à nouveau.",
+    "ack_queued_title": "« Je suis debout » envoyé dès que votre serveur répondra",
+    "ack_queued_body": "La sonnerie s’est arrêtée sur ce téléphone. « Je suis debout » sera envoyé dès que ce téléphone pourra joindre votre serveur.",
     "load_failed_body": "L’alarme reste ouverte sur le serveur. Réessayez, ou coupez le son de ce téléphone et ouvrez-la depuis vos topics.",
     "retry_button": "Réessayer",
     "silence_button": "Couper le son de ce téléphone",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Utilisé par tous les topics qui n’ont pas leur propre son",
     "priorities_row_title": "Priorités",
     "priorities_row_subtitle": "Ce que fait chaque priorité sur ce téléphone",
+    "ring_bright_screen_title": "Écran lumineux pendant la sonnerie",
+    "ring_bright_screen_subtitle": "Luminosité maximale sur l’écran d’alarme.",
+    "ring_vibrate_title": "Vibrer avec l’alarme",
+    "ring_vibrate_subtitle": "Vibre au rythme du son.",
     "app_header": "App",
     "storage_header": "Stockage",
     "storage_delete_after_title": "Supprimer les alarmes après",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Effacer",
     "alarm_debug_flush_now": "Envoyer maintenant",
     "alarm_debug_reconcile": "Réconcilier maintenant",
+    "alarm_debug_probe_alarms": "Tester 60 alarmes",
     "alarm_debug_report_copied": "Rapport copié",
     "alarm_debug_error": "Actualisation impossible : {error}",
     "alarm_debug_device_time": "Heure de l’appareil",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "premier message",
     "check_notifications": "notifications désactivées",
     "check_full_screen_alarm": "plein écran désactivé",
-    "check_battery_optimization": "économiseur de batterie activé",
+    "check_battery_optimization": "optimisation de la batterie activée",
     "check_alarms": "alarmes désactivées",
     "check_time_sensitive": "notifications urgentes désactivées",
     "check_push_token_confirmed": "push non confirmé",
@@ -2560,5 +2570,20 @@
     "system_default": "Langue du système",
     "ai_line": "Traduit par l’IA. Une erreur ?",
     "report_link": "Dites-le-nous."
+  },
+  "alarm_loudness": {
+    "ask": "Assez fort ?",
+    "ask_yes": "Oui",
+    "ask_no": "Non",
+    "title": "Monter le volume",
+    "line": "Sur iPhone, l’alarme sonne au volume de la sonnerie.",
+    "step_aria": "Étape {number}",
+    "step_1": "Dans Réglages, ouvrez Sons et vibrations et montez Sonnerie et alertes au maximum.",
+    "step_2": "Désactivez Utiliser les boutons, pour que les boutons de volume ne puissent pas baisser l’alarme.",
+    "open_settings": "Ouvrir Réglages",
+    "opened_note": "Réglages s’ouvre sur la page Crit Alarm. Revenez d’un cran pour trouver Sons et vibrations.",
+    "open_failed": "Impossible d’ouvrir Réglages. Suivez les étapes.",
+    "ring_again": "Sonner à nouveau",
+    "back_aria": "Retour"
   }
 }

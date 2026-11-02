@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.AssetFileDescriptor
 import android.util.Log
+import app.critalarm.storage.BootStorage
 import io.flutter.FlutterInjector
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,7 +33,6 @@ object AlarmSoundStore {
     fun soundsDir(context: Context): File =
         File(context.filesDir, "sounds").apply { mkdirs() }
 
-    private const val PREFS = "FlutterSharedPreferences"
     private const val DEFAULT_KEY = "flutter.alarm_sound_default"
     private const val PER_TOPIC_KEY = "flutter.alarm_sound_per_topic"
     private const val USER_LIST_KEY = "flutter.alarm_sound_user_list"
@@ -70,12 +70,24 @@ object AlarmSoundStore {
      * While own sounds are locked, a choice that is an own sound is skipped
      * the same way, so the next one in the chain rings. The saved choices
      * are not touched, and the chain still ends at the classic siren.
+     *
+     * Before the first unlock after a reboot, the sounds folder cannot be
+     * read, so only a sound in the apk can ring: the choice comes from the
+     * copy in device-protected storage, and an own or pack sound falls back
+     * ([resolveFromPrefs] with `bundledOnly`).
      */
     fun resolveForTopic(context: Context, topic: String?): Pair<String, AlarmSoundSource> {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val choice = resolveFromPrefs(prefs, soundsDir(context), topic)
+        val locked = !BootStorage.isUnlocked(context)
+        val prefs = BootStorage.flutterPrefs(context)
+        // Never touched while locked: bundledOnly skips every sound that lives there.
+        val dir = if (locked) File(BootStorage.deviceContext(context).dataDir, "sounds") else soundsDir(context)
+        val choice = resolveFromPrefs(prefs, dir, topic, bundledOnly = locked)
         if (choice.picked.first != choice.wanted) {
-            val reason = if (choice.ownLocked && isOwnSound(choice.wanted)) "sound_own_locked" else "sound_missing"
+            val reason = when {
+                locked && !isBundled(choice.wanted) -> "sound_locked_before_unlock"
+                choice.ownLocked && isOwnSound(choice.wanted) -> "sound_own_locked"
+                else -> "sound_missing"
+            }
             Log.w(TAG, "$reason sound_id=${choice.wanted} falling_back_to=${choice.picked.first}")
         }
         return choice.picked
@@ -94,12 +106,22 @@ object AlarmSoundStore {
      * Everything [resolveForTopic] does after it has the preferences: every
      * key is read here and nowhere else. No Context and no log, so the JVM
      * tests can run it over the real key names.
+     *
+     * [bundledOnly] passes over every sound that is not in the apk, an own
+     * sound or a downloaded pack sound, the way [ownLocked] passes over own
+     * sounds. The chain still ends at the classic siren.
      */
-    fun resolveFromPrefs(prefs: SharedPreferences, soundsDir: File, topic: String?): Choice {
+    fun resolveFromPrefs(
+        prefs: SharedPreferences,
+        soundsDir: File,
+        topic: String?,
+        bundledOnly: Boolean = false,
+    ): Choice {
         val defaultId = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID
         val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)
         val ownLocked = readOwnLocked { prefs.getBoolean(OWN_LOCKED_KEY, false) }
-        val picked = resolveChain(soundsDir, listOfNotNull(topicId, defaultId), ownLocked) {
+        val ids = listOfNotNull(topicId, defaultId).filter { !bundledOnly || isBundled(it) }
+        val picked = resolveChain(soundsDir, ids, ownLocked) {
             importedPath(prefs, it)
         }
         return Choice(picked, wanted = topicId ?: defaultId, ownLocked = ownLocked)
@@ -107,6 +129,9 @@ object AlarmSoundStore {
 
     /** True for a sound the user brought in themselves. */
     fun isOwnSound(soundId: String): Boolean = soundId.startsWith(OWN_PREFIX)
+
+    /** True for a sound that ships in the apk: neither an own sound nor a pack sound. */
+    fun isBundled(soundId: String): Boolean = !isOwnSound(soundId) && !SoundPackRules.isPackSound(soundId)
 
     /**
      * The lock flag, read so that nothing about it can stop an alarm: a

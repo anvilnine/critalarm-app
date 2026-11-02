@@ -61,6 +61,7 @@ final class IncidentPush {
     this.body,
     this.mutableContent = false,
     this.ringUntil,
+    this.topic,
   });
 
   /// Null on a forward: api.md §4.1 sends no incident id for `p4`, and a `p5`
@@ -92,6 +93,11 @@ final class IncidentPush {
   /// never ring at all.
   final DateTime? ringUntil;
 
+  /// The topic's name. FCM has always carried it (api.md §5.2); APNs since
+  /// 1.27.0 (§5.1). Null from an older server, and the alarm chain then uses
+  /// its default timers.
+  final String? topic;
+
   /// True when the relay stripped the content and the app has to fetch it
   /// with `GET /v1/incidents/{id}`.
   ///
@@ -114,6 +120,7 @@ final class IncidentPush {
     ringUntil: _epochSeconds(int.tryParse(data['ring_until'] ?? '')),
     title: data['title'],
     body: data['body'],
+    topic: data['topic'],
   );
 
   /// APNs payload, api.md §5.1. `incident_id`, `server` and `kind` sit at the
@@ -136,6 +143,7 @@ final class IncidentPush {
       ringUntil: _epochSeconds((payload['ring_until'] as num?)?.toInt()),
       title: title as String?,
       body: body as String?,
+      topic: payload['topic'] as String?,
     );
   }
 
@@ -149,6 +157,7 @@ final class IncidentPush {
     required String? body,
     bool mutableContent = false,
     DateTime? ringUntil,
+    String? topic,
   }) {
     final parsedKind = IncidentPushKind.tryParse(kind);
     if (parsedKind == null) return null;
@@ -181,13 +190,13 @@ final class IncidentPush {
       body: (body ?? '').isEmpty ? null : body,
       mutableContent: mutableContent,
       ringUntil: ringUntil,
+      topic: (topic ?? '').isEmpty ? null : topic,
     );
   }
 
   /// `ring_until` is epoch seconds in UTC. Zero and anything unparseable read
   /// as absent, which stops the re-arm rather than ringing on a guess.
-  static DateTime? _epochSeconds(int? value) =>
-      (value == null || value <= 0)
+  static DateTime? _epochSeconds(int? value) => (value == null || value <= 0)
       ? null
       : DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
 }

@@ -33,10 +33,10 @@ class AcknowledgedScreen extends StatelessWidget {
         : null;
     final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
     final startedLabel = startedAt != null
-        ? formatClock(startedAt, is24Hour: is24Hour, withSeconds: true)
+        ? formatLocalClock(startedAt, is24Hour: is24Hour, withSeconds: true)
         : '';
     final ackedLabel = ackedAt != null
-        ? formatClock(ackedAt, is24Hour: is24Hour, withSeconds: true)
+        ? formatLocalClock(ackedAt, is24Hour: is24Hour, withSeconds: true)
         : '';
     final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
       namedArgs: {
@@ -68,7 +68,7 @@ class AcknowledgedScreen extends StatelessWidget {
     final pinsHint = textScale < 1.3 && !fold.isBook;
     final hintInList = !isClosed && !pinsHint;
 
-    final bottomBar = _bottomBar(
+    final exitButtons = _bottomBar(
       context,
       exits: exits,
       setupTest: setupTest,
@@ -77,10 +77,48 @@ class AcknowledgedScreen extends StatelessWidget {
       pinsHint: pinsHint,
     );
 
+    // After a test on an iPhone, "Loud enough?" sits above the exits.
+    final loudnessRetry = state.isPreview
+        ? null
+        : loudnessAskFor(
+            isIos: getIt<PlatformCapabilities>().isIos,
+            exits: exits,
+            isTestIncident: incident != null && IncidentKinds.isTest(incident),
+          );
+    final bottomBar = loudnessRetry == null
+        ? exitButtons
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LoudEnoughAsk(
+                key: ValueKey('loud-enough-${incident?.id}'),
+                retry: loudnessRetry,
+                setupTest: setupTest,
+                incidentId: incident?.id ?? '',
+                textColor: colors.onCanvas,
+              ),
+              exitButtons,
+            ],
+          );
+
     // Setup going on, and the alarm the user's own tool set off, both say
     // what the ring proved.
     final provesSetup =
         exits == AckedExits.continueSetup || exits == AckedExits.firstToolAlarm;
+    // A setup test says "It works" only on what this phone recorded: the
+    // push arrived and the ring could be heard. Until that is read, nothing
+    // is claimed.
+    final evidence = state.setupEvidence;
+    final isSetupProof = provesSetup && exits != AckedExits.firstToolAlarm;
+    final setupRang =
+        evidence != null && setupTestRang(setupTest, evidence: evidence);
+    final setupTitle = evidence == null
+        ? ''
+        : setupRang
+        ? LocaleKeys.onboarding_real_ring_works_title.tr()
+        : setupTest == SetupTestKind.serverSent && !evidence.pushArrived
+        ? LocaleKeys.onboarding_real_ring_not_reached_title.tr()
+        : LocaleKeys.onboarding_real_ring_muted_title.tr();
 
     if (isDemo) {
       return _demoBody(
@@ -90,15 +128,19 @@ class AcknowledgedScreen extends StatelessWidget {
         exits: exits,
         // Setup going on says what the ring proved, as a short list of
         // ticks. The other exits keep the welcome they always had.
-        title: provesSetup
+        title: isSetupProof
+            ? setupTitle
+            : provesSetup
             ? LocaleKeys.onboarding_real_ring_works_title.tr()
             : LocaleKeys.onboarding_connect_welcome_title.tr(),
         detail: provesSetup
             ? ProofList(
                 lines: _proofLines(
-                  exits == AckedExits.firstToolAlarm
+                  !isSetupProof
                       ? firstToolAlarmProof
-                      : setupProofFor(setupTest),
+                      : evidence == null
+                      ? const <ProofLine>[]
+                      : setupProofFor(setupTest, evidence: evidence),
                 ),
               )
             : Text(
@@ -110,7 +152,7 @@ class AcknowledgedScreen extends StatelessWidget {
         // differ in feel as well as in words.
         restFaces:
             exits == AckedExits.continueSetup &&
-                setupTest != SetupTestKind.serverSent
+                (setupTest != SetupTestKind.serverSent || !setupRang)
             ? quietRestFaces
             : celebrationRestFaces,
       );

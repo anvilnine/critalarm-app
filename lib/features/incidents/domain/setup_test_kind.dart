@@ -64,24 +64,60 @@ enum ProofPoint {
 /// a link of the chain, and whether this alarm proved it.
 typedef ProofLine = ({ProofPoint point, bool isProved});
 
+/// What this phone itself recorded about a setup test alarm, read from
+/// native after it rang.
+///
+/// - `pushArrived`: an alarm push for the incident reached this phone.
+/// - `heard`: the ring was not muted. Android records a ring at volume 0,
+///   on a muted stream or under total-silence Do Not Disturb. iOS cannot
+///   read its ringer volume and always says heard.
+///
+/// The incident id alone proves only that the server opened it. Before this
+/// a phone whose push never arrived passed setup with every line ticked.
+typedef SetupTestEvidence = ({bool pushArrived, bool heard});
+
 /// What an acknowledged setup test proved, in the order the screen lists
 /// it. What was proved comes first.
 ///
-/// The test of this phone only proves the phone and nothing else, so the
-/// server and the push are listed as not proved. Nobody should take it for
-/// the full test.
-List<ProofLine> setupProofFor(SetupTestKind kind) => switch (kind) {
-  SetupTestKind.serverSent => const [
-    (point: ProofPoint.serverSent, isProved: true),
-    (point: ProofPoint.pushArrived, isProved: true),
-    (point: ProofPoint.phoneRang, isProved: true),
-  ],
-  SetupTestKind.phoneOnly => const [
-    (point: ProofPoint.phoneRang, isProved: true),
-    (point: ProofPoint.serverSent, isProved: false),
-    (point: ProofPoint.pushArrived, isProved: false),
-  ],
-  SetupTestKind.none => const [],
+/// The server opened the incident, so a server-sent test always proves the
+/// server. The push and the ring are proved only by [evidence]. The test of
+/// this phone only proves the phone and nothing else, so the server and the
+/// push are listed as not proved. Nobody should take it for the full test.
+List<ProofLine> setupProofFor(
+  SetupTestKind kind, {
+  required SetupTestEvidence evidence,
+}) {
+  final rang = setupTestRang(kind, evidence: evidence);
+  final lines = switch (kind) {
+    SetupTestKind.serverSent => [
+      (point: ProofPoint.serverSent, isProved: true),
+      (point: ProofPoint.pushArrived, isProved: evidence.pushArrived),
+      (point: ProofPoint.phoneRang, isProved: rang),
+    ],
+    SetupTestKind.phoneOnly => [
+      (point: ProofPoint.phoneRang, isProved: rang),
+      (point: ProofPoint.serverSent, isProved: false),
+      (point: ProofPoint.pushArrived, isProved: false),
+    ],
+    SetupTestKind.none => const <ProofLine>[],
+  };
+  // What was proved comes first.
+  return [
+    ...lines.where((line) => line.isProved),
+    ...lines.where((line) => !line.isProved),
+  ];
+}
+
+/// Whether the test proved this phone rang out loud. A server-sent test also
+/// needs its push to have arrived: an alarm the app set from the incident
+/// list says nothing about the push path.
+bool setupTestRang(
+  SetupTestKind kind, {
+  required SetupTestEvidence evidence,
+}) => switch (kind) {
+  SetupTestKind.serverSent => evidence.pushArrived && evidence.heard,
+  SetupTestKind.phoneOnly => evidence.heard,
+  SetupTestKind.none => false,
 };
 
 /// What an incident is to the first tool alarm on record.

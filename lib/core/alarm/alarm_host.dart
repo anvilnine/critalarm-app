@@ -218,6 +218,23 @@ final class AlarmHost {
         'incident_id': incidentId,
       });
 
+  /// Whether the alarm screen that could not load [incidentId] may offer
+  /// "I'm up" for it: this phone rang it and nobody answered it yet. Native
+  /// decides from its own record. False where the platform has no such call
+  /// (iOS answers "I'm up" through the alarm itself).
+  Future<bool> canAckFromScreen(String incidentId) async =>
+      await _invoke<bool>('canAckFromScreen', {'incident_id': incidentId}) ??
+      false;
+
+  /// "I'm up" from the screen that could not load [incidentId]: native runs
+  /// the notification's own "I'm up", which stops the ring, sends the ack or
+  /// keeps it until the server can be reached, and starts the desk timer.
+  /// Answers false when native refused or has no such call, and then nothing
+  /// was done.
+  Future<bool> ackFromScreen(String incidentId) async =>
+      await _invoke<bool>('ackFromScreen', {'incident_id': incidentId}) ??
+      false;
+
   /// The error code native answers when the incident is not acknowledged
   /// on this phone. `AlarmChannel.NOT_ACKNOWLEDGED` on Android and the
   /// same word in `AppDelegate` hold it too.
@@ -255,6 +272,25 @@ final class AlarmHost {
   /// when the incident is acknowledged, closed or expired somewhere else.
   Future<void> cancelRearm(String incidentId) async =>
       _invoke<void>('cancelRearm', {'incident_id': incidentId});
+
+  /// Drops every ring the phone set for itself, for every incident. A
+  /// sign-out, an account wipe and a connect to another server call it, so
+  /// no incident of the old account rings on its own. Android sets those
+  /// rings ahead, every repeat interval to `ring_until`, the moment an
+  /// incident first rings.
+  Future<void> cancelAllChains() => _invoke<void>('cancelAllChains');
+
+  /// Drops every ring the phone set for itself for incidents on [topic].
+  /// For a topic that was deleted or had its critical switch turned off.
+  Future<void> cancelChainsForTopic(String topic) =>
+      _invoke<void>('cancelChainsForTopic', {'topic': topic});
+
+  /// Hands over the full topic list, name to critical switch, right after it
+  /// was read. Native drops the rings it set for incidents on a topic that is
+  /// gone from the list or switched off. Incidents whose topic the phone has
+  /// not learned yet keep theirs.
+  Future<void> syncChains(Map<String, bool> criticalByTopic) =>
+      _invoke<void>('syncChains', {'topics': criticalByTopic});
 
   /// The ring generation of [incidentId] on this phone: a counter every
   /// push that arms a ring for it moves on by one. A Stop's own re-arm does
@@ -366,12 +402,18 @@ final class AlarmHost {
   }) => _invoke<void>('setScreenFlash', {'on': on, 'topics': topics});
 
   /// Whether a push that rings reached this phone for [incidentId]. Android
-  /// answers from the record its push service keeps, with no network call.
-  /// iOS has no such record and answers false; the alarm it schedules is
-  /// reported on [alarmsScheduled] instead.
+  /// answers from the record its push service keeps, iOS from the one its
+  /// push handler and notification extension keep, with no network call.
+  /// No answer reads as false.
   Future<bool> receivedAlarmFor(String incidentId) async =>
       await _invoke<bool>('receivedAlarmFor', {'incident_id': incidentId}) ??
       false;
+
+  /// Whether a ring for [incidentId] played muted: Android records the alarm
+  /// stream at 0, muted, or under total-silence Do Not Disturb a moment after
+  /// the sound starts. Every platform with no such record answers false.
+  Future<bool> ringWasMuted(String incidentId) async =>
+      await _invoke<bool>('ringWasMuted', {'incident_id': incidentId}) ?? false;
 
   /// Raw native diagnostic state. Unsupported hosts return empty sections.
   Future<Map<String, Object?>> debugSnapshot() async =>
@@ -393,6 +435,11 @@ final class AlarmHost {
 
   /// Drops every pending native re-arm, leaving unrelated notifications alone.
   Future<void> cancelAllRearms() => _invoke<void>('cancelAllRearms');
+
+  /// Debug builds on iOS 26 and later: sets 60 AlarmKit alarms an hour out,
+  /// lists them back and cancels them. The answer lands in the next
+  /// [debugSnapshot] as an `alarmkit_probe` row. A no-op elsewhere.
+  Future<void> probeAlarmCapacity() => _invoke<void>('probeAlarmCapacity');
 
   /// Clears cached native incident text.
   Future<void> clearContentCache() => _invoke<void>('clearContentCache');

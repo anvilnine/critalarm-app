@@ -330,6 +330,8 @@
     "send_message": "Zkušební alarm",
     "send_cancel": "Zrušit",
     "works_title": "Funguje to",
+    "not_reached_title": "Alarm se do tohoto telefonu nedostal",
+    "muted_title": "Tento telefon zvonil bez zvuku",
     "proof_server_sent": "Server ho odeslal",
     "proof_push_arrived": "Push oznámení dorazilo",
     "proof_phone_rang": "Telefon zazvonil",
@@ -808,7 +810,8 @@
       "few": "Celkem {} zprávy",
       "other": "Celkem {} zpráv"
     },
-    "no_messages": "Zatím žádné zprávy."
+    "no_messages": "Zatím žádné zprávy.",
+    "ring_length": "Zvoní {total}, každých {every}, dokud neklepneš na Už jsem vzhůru."
   },
   "topic_tokens": {
     "header": "Tokeny",
@@ -959,6 +962,8 @@
     "load_failed_title": "Alarm se nepodařilo načíst",
     "close_queued_title": "Uzavře se, až tvůj server odpoví",
     "close_queued_body": "Uzavření se odešle, jakmile se telefon spojí s tvým serverem. Do té doby může alarm znovu zazvonit.",
+    "ack_queued_title": "Už jsem vzhůru se odešle, až tvůj server odpoví",
+    "ack_queued_body": "Na tomto telefonu zvonění přestalo. Už jsem vzhůru se odešle, jakmile se telefon spojí s tvým serverem.",
     "load_failed_body": "Alarm je na serveru stále otevřený. Zkus to znovu, nebo ztiš telefon a otevři ho ze seznamu témat.",
     "retry_button": "Zkusit znovu",
     "silence_button": "Ztišit telefon",
@@ -1020,6 +1025,10 @@
     "alarm_sound_row_subtitle": "Zvoní u každého tématu, které nemá vlastní zvuk",
     "priorities_row_title": "Priority",
     "priorities_row_subtitle": "Co jednotlivé priority dělají na tomto telefonu",
+    "ring_bright_screen_title": "Jasná obrazovka při zvonění",
+    "ring_bright_screen_subtitle": "Plný jas na obrazovce alarmu.",
+    "ring_vibrate_title": "Vibrovat s alarmem",
+    "ring_vibrate_subtitle": "Vibruje do rytmu zvuku.",
     "app_header": "Aplikace",
     "storage_header": "Úložiště",
     "storage_delete_after_title": "Mazat alarmy po",
@@ -1067,6 +1076,7 @@
     "alarm_debug_clear_acked": "Vymazat",
     "alarm_debug_flush_now": "Odeslat frontu",
     "alarm_debug_reconcile": "Srovnat stav",
+    "alarm_debug_probe_alarms": "Otestovat 60 alarmů",
     "alarm_debug_report_copied": "Report zkopírován",
     "alarm_debug_error": "Obnovení se nezdařilo: {error}",
     "alarm_debug_device_time": "Čas zařízení",
@@ -2500,7 +2510,7 @@
     "setup_row_first_message": "první zpráva",
     "check_notifications": "oznámení jsou vypnutá",
     "check_full_screen_alarm": "zobrazení přes celou obrazovku je vypnuté",
-    "check_battery_optimization": "úspora baterie je zapnutá",
+    "check_battery_optimization": "optimalizace baterie je zapnutá",
     "check_alarms": "alarmy jsou vypnuté",
     "check_time_sensitive": "oznámení citlivá na čas jsou vypnutá",
     "check_push_token_confirmed": "push není potvrzený",
@@ -2586,5 +2596,20 @@
     "system_default": "Podle systému",
     "ai_line": "Přeloženo pomocí AI. Vidíš chybu?",
     "report_link": "Dej nám vědět."
+  },
+  "alarm_loudness": {
+    "ask": "Dost nahlas?",
+    "ask_yes": "Ano",
+    "ask_no": "Ne",
+    "title": "Zesílit alarm",
+    "line": "Na iPhonu alarm zvoní hlasitostí vyzvánění.",
+    "step_aria": "Krok {number}",
+    "step_1": "V Nastavení otevři Zvuky a haptika a vytáhni Vyzvánění a upozornění úplně nahoru.",
+    "step_2": "Vypni Měnit tlačítky, aby tlačítka hlasitosti nemohla alarm ztlumit.",
+    "open_settings": "Otevřít Nastavení",
+    "opened_note": "Nastavení se otevře na stránce Crit Alarm. Pro Zvuky a haptika se vrať o krok zpět.",
+    "open_failed": "Nastavení se nepodařilo otevřít. Postupuj podle kroků.",
+    "ring_again": "Zazvonit znovu",
+    "back_aria": "Zpět"
   }
 }

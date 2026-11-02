@@ -139,3 +139,44 @@ enum AckedIncidentStore {
         (defaults.dictionary(forKey: localKey) as? [String: Int]) ?? [:]
     }
 }
+
+/// The incidents an alarm push reached this phone for.
+///
+/// What a setup test proves rests on this: "The push carried it to this
+/// phone" is ticked only for an incident written here. The app's push
+/// handler and the notification extension both write it, so a push that
+/// only one of them saw still counts. Stored in the app group as
+/// `[incident_id: received_at_ms]`, pruned to a day and to the newest 50.
+enum ReceivedAlarmPushStore {
+    static let key = "received_alarm_pushes_v1"
+    static let keepFor: TimeInterval = 24 * 3_600
+    static let maxEntries = 50
+
+    static func record(
+        incidentId: String,
+        at now: Date = Date(),
+        in defaults: UserDefaults? = AckedIncidentStore.groupDefaults
+    ) {
+        guard let defaults, !incidentId.isEmpty else { return }
+        var entries = defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
+        entries[incidentId] = Int(now.timeIntervalSince1970 * 1_000)
+        defaults.set(pruned(entries, now: now), forKey: key)
+    }
+
+    static func contains(
+        incidentId: String,
+        in defaults: UserDefaults? = AckedIncidentStore.groupDefaults
+    ) -> Bool {
+        guard let defaults else { return false }
+        return (defaults.dictionary(forKey: key) as? [String: Int])?[incidentId] != nil
+    }
+
+    /// Drops entries older than [keepFor], then keeps the newest [maxEntries].
+    static func pruned(_ entries: [String: Int], now: Date) -> [String: Int] {
+        let cutoff = Int((now.timeIntervalSince1970 - keepFor) * 1_000)
+        let fresh = entries.filter { $0.value >= cutoff }
+        guard fresh.count > maxEntries else { return fresh }
+        let newest = fresh.sorted { $0.value > $1.value }.prefix(maxEntries)
+        return Dictionary(uniqueKeysWithValues: newest.map { ($0.key, $0.value) })
+    }
+}

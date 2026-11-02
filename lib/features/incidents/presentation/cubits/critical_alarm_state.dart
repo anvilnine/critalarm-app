@@ -42,8 +42,11 @@ class CriticalAlarmState {
     this.isPreview = false,
     this.doneIncidentId,
     this.isDoneHandedOff = false,
+    this.offlineAckIncidentId,
+    this.isAckHandedOff = false,
     this.isHandledElsewhere = false,
     this.isAckPending = false,
+    this.setupEvidence,
   });
 
   final CriticalAlarmStatus status;
@@ -109,6 +112,15 @@ class CriticalAlarmState {
   /// it, or keeps it until the server can be reached.
   final bool isDoneHandedOff;
 
+  /// Set only on a failed load where the server gave no answer, for an
+  /// incident this phone rang and nobody answered (native says so). The
+  /// failed screen then offers "I'm up", which hands the ack to native.
+  final String? offlineAckIncidentId;
+
+  /// That "I'm up" was handed to native. The ring stopped here, and native
+  /// sends the ack or keeps it until the server can be reached.
+  final bool isAckHandedOff;
+
   /// The incident on screen was rung on this phone and then acknowledged,
   /// closed or expired somewhere else, which the server said. The ringing
   /// layout gives way to a short note and one Stop button. The ring is
@@ -120,6 +132,11 @@ class CriticalAlarmState {
   /// server has not answered yet. A 409 never clears this into a confirmed
   /// acknowledge: it ends on [isHandledElsewhere] instead.
   final bool isAckPending;
+
+  /// What native recorded about the setup test on screen: whether its push
+  /// reached this phone and whether the ring could be heard. Null until it
+  /// has been read, and for any alarm that is not a setup test.
+  final SetupTestEvidence? setupEvidence;
 
   /// The topic of every alarm ringing on this screen, the one shown first.
   /// Empty unless the screen is ringing: an acknowledged alarm, a closed one
@@ -183,6 +200,7 @@ class CriticalAlarmState {
     bool? isPreview,
     bool? isHandledElsewhere,
     bool? isAckPending,
+    SetupTestEvidence? setupEvidence,
     bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
@@ -218,8 +236,11 @@ class CriticalAlarmState {
       isPreview: isPreview ?? this.isPreview,
       doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
       isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
+      offlineAckIncidentId: clearDoneHandOff ? null : offlineAckIncidentId,
+      isAckHandedOff: !clearDoneHandOff && isAckHandedOff,
       isHandledElsewhere: isHandledElsewhere ?? this.isHandledElsewhere,
       isAckPending: isAckPending ?? this.isAckPending,
+      setupEvidence: setupEvidence ?? this.setupEvidence,
     );
   }
 
@@ -253,8 +274,11 @@ class CriticalAlarmState {
           isPreview == other.isPreview &&
           doneIncidentId == other.doneIncidentId &&
           isDoneHandedOff == other.isDoneHandedOff &&
+          offlineAckIncidentId == other.offlineAckIncidentId &&
+          isAckHandedOff == other.isAckHandedOff &&
           isHandledElsewhere == other.isHandledElsewhere &&
-          isAckPending == other.isAckPending;
+          isAckPending == other.isAckPending &&
+          setupEvidence == other.setupEvidence;
 
   @override
   int get hashCode => Object.hash(
@@ -284,8 +308,11 @@ class CriticalAlarmState {
       ringTimeSpoken,
       doneIncidentId,
       isDoneHandedOff,
+      offlineAckIncidentId,
+      isAckHandedOff,
       isHandledElsewhere,
       isAckPending,
+      setupEvidence,
     ),
   );
 }

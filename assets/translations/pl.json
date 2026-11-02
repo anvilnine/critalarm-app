@@ -330,6 +330,8 @@
     "send_message": "Alarm testowy",
     "send_cancel": "Anuluj",
     "works_title": "Działa",
+    "not_reached_title": "Alarm nie dotarł do tego telefonu",
+    "muted_title": "Ten telefon dzwonił bez dźwięku",
     "proof_server_sent": "Serwer wysłał alarm",
     "proof_push_arrived": "Powiadomienie push dotarło",
     "proof_phone_rang": "Ten telefon zadzwonił",
@@ -817,7 +819,8 @@
       "many": "Wszystkie {} wiadomości",
       "other": "Wszystkie {} wiadomości"
     },
-    "no_messages": "Brak wiadomości."
+    "no_messages": "Brak wiadomości.",
+    "ring_length": "Dzwoni przez {total}, co {every}, aż stukniesz „Już nie śpię”."
   },
   "topic_tokens": {
     "header": "Tokeny",
@@ -970,6 +973,8 @@
     "load_failed_title": "Nie udało się wczytać alarmu",
     "close_queued_title": "Zostanie zamknięty, gdy serwer odpowie",
     "close_queued_body": "Żądanie zamknięcia zostanie wysłane, gdy telefon połączy się z twoim serwerem. Do tego czasu alarm może zadzwonić ponownie.",
+    "ack_queued_title": "„Już nie śpię” zostanie wysłane, gdy serwer odpowie",
+    "ack_queued_body": "Na tym telefonie alarm przestał dzwonić. „Już nie śpię” zostanie wysłane, gdy telefon połączy się z twoim serwerem.",
     "load_failed_body": "Alarm nadal jest otwarty na serwerze. Spróbuj ponownie lub wycisz ten telefon i otwórz alarm z listy tematów.",
     "retry_button": "Spróbuj ponownie",
     "silence_button": "Wycisz ten telefon",
@@ -1031,6 +1036,10 @@
     "alarm_sound_row_subtitle": "Używany dla każdego tematu bez własnego dźwięku",
     "priorities_row_title": "Priorytety",
     "priorities_row_subtitle": "Jak działają poszczególne priorytety na tym telefonie",
+    "ring_bright_screen_title": "Jasny ekran podczas dzwonienia",
+    "ring_bright_screen_subtitle": "Pełna jasność na ekranie alarmu.",
+    "ring_vibrate_title": "Wibruj razem z alarmem",
+    "ring_vibrate_subtitle": "Wibruje w rytm dźwięku.",
     "app_header": "Aplikacja",
     "storage_header": "Pamięć",
     "storage_delete_after_title": "Usuwaj alarmy po",
@@ -1078,6 +1087,7 @@
     "alarm_debug_clear_acked": "Wyczyść",
     "alarm_debug_flush_now": "Wyślij kolejkę teraz",
     "alarm_debug_reconcile": "Uzgodnij stan teraz",
+    "alarm_debug_probe_alarms": "Przetestuj 60 alarmów",
     "alarm_debug_report_copied": "Skopiowano raport",
     "alarm_debug_error": "Nie udało się odświeżyć: {error}",
     "alarm_debug_device_time": "Czas urządzenia",
@@ -2526,7 +2536,7 @@
     "setup_row_first_message": "pierwsza wiadomość",
     "check_notifications": "powiadomienia są wyłączone",
     "check_full_screen_alarm": "alarm pełnoekranowy jest wyłączony",
-    "check_battery_optimization": "oszczędzanie baterii jest włączone",
+    "check_battery_optimization": "optymalizacja baterii jest włączona",
     "check_alarms": "alarmy są wyłączone",
     "check_time_sensitive": "powiadomienia pilne są wyłączone",
     "check_push_token_confirmed": "brak potwierdzenia push",
@@ -2612,5 +2622,20 @@
     "system_default": "Zgodny z systemem",
     "ai_line": "Przetłumaczono za pomocą AI. Widzisz błąd?",
     "report_link": "Daj nam znać."
+  },
+  "alarm_loudness": {
+    "ask": "Wystarczająco głośno?",
+    "ask_yes": "Tak",
+    "ask_no": "Nie",
+    "title": "Zrób głośniej",
+    "line": "Na iPhonie alarm dzwoni z głośnością dzwonka.",
+    "step_aria": "Krok {number}",
+    "step_1": "W Ustawieniach otwórz Dźwięki i haptyka i ustaw Dzwonek i alerty na maksimum.",
+    "step_2": "Wyłącz Zmieniaj przyciskami, żeby przyciski głośności nie mogły ściszyć alarmu.",
+    "open_settings": "Otwórz Ustawienia",
+    "opened_note": "Ustawienia otworzą się na stronie Crit Alarm. Cofnij się o jeden krok do Dźwięki i haptyka.",
+    "open_failed": "Nie udało się otworzyć Ustawień. Wykonaj kroki.",
+    "ring_again": "Zadzwoń jeszcze raz",
+    "back_aria": "Wstecz"
   }
 }

@@ -5,6 +5,7 @@ import 'package:critalarm/core/alarm/alarm_signal_store.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
+import 'package:critalarm/core/alarm/ring_screen_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/platform/off_platform_channel.dart';
@@ -55,6 +56,10 @@ void registerAlarmPath(GetIt getIt) {
             ? null
             : const OffPlatformChannel(AlarmHost.channelName),
       ),
+    )
+    // Off iOS it calls nothing, so the Mac and Android never reach it.
+    ..registerLazySingleton<RingScreenHost>(
+      () => RingScreenHost(isIos: getIt<PlatformCapabilities>().isIos),
     )
     ..registerLazySingleton<AlarmSignalStore>(
       () => AlarmSignalStore(getIt<SharedPreferences>()),

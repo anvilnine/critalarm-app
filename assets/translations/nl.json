@@ -330,6 +330,8 @@
     "send_message": "Testalarm",
     "send_cancel": "Annuleren",
     "works_title": "Het werkt",
+    "not_reached_title": "Het alarm is niet op deze telefoon aangekomen",
+    "muted_title": "Deze telefoon ging af zonder geluid",
     "proof_server_sent": "De server heeft het verstuurd",
     "proof_push_arrived": "Het pushbericht is aangekomen",
     "proof_phone_rang": "Deze telefoon ging af",
@@ -799,7 +801,8 @@
       "one": "Alle berichten (1)",
       "other": "Alle {} berichten"
     },
-    "no_messages": "Nog geen berichten."
+    "no_messages": "Nog geen berichten.",
+    "ring_length": "Gaat {total} af, elke {every}, tot je op Ik ben wakker tikt."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "Kon het alarm niet laden",
     "close_queued_title": "Wordt gesloten zodra je server reageert",
     "close_queued_body": "Het sluitverzoek wordt verstuurd zodra deze telefoon je server kan bereiken. Tot die tijd kan het alarm opnieuw afgaan.",
+    "ack_queued_title": "Ik ben wakker wordt verstuurd zodra je server reageert",
+    "ack_queued_body": "Het alarm is op deze telefoon gestopt. Ik ben wakker wordt verstuurd zodra deze telefoon je server kan bereiken.",
     "load_failed_body": "Het alarm staat nog open op de server. Probeer het opnieuw of stop het geluid op deze telefoon en open het alarm via je topics.",
     "retry_button": "Opnieuw proberen",
     "silence_button": "Stop het geluid op deze telefoon",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Gaat af voor elk topic zonder eigen geluid",
     "priorities_row_title": "Prioriteiten",
     "priorities_row_subtitle": "Wat elke prioriteit op deze telefoon doet",
+    "ring_bright_screen_title": "Fel scherm als hij afgaat",
+    "ring_bright_screen_subtitle": "Volle helderheid op het alarmscherm.",
+    "ring_vibrate_title": "Trillen met het alarm",
+    "ring_vibrate_subtitle": "Trilt op de maat van het geluid.",
     "app_header": "App",
     "storage_header": "Opslag",
     "storage_delete_after_title": "Alarmen verwijderen na",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Wissen",
     "alarm_debug_flush_now": "Nu versturen",
     "alarm_debug_reconcile": "Nu afstemmen",
+    "alarm_debug_probe_alarms": "60 alarmen testen",
     "alarm_debug_report_copied": "Rapport gekopieerd",
     "alarm_debug_error": "Vernieuwen mislukt: {error}",
     "alarm_debug_device_time": "Apparaattijd",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "eerste bericht",
     "check_notifications": "meldingen staan uit",
     "check_full_screen_alarm": "volledig scherm staat uit",
-    "check_battery_optimization": "batterijbesparing staat aan",
+    "check_battery_optimization": "batterijoptimalisatie staat aan",
     "check_alarms": "wekkers staan uit",
     "check_time_sensitive": "tijdgevoelig staat uit",
     "check_push_token_confirmed": "push is niet bevestigd",
@@ -2560,5 +2570,20 @@
     "system_default": "Systeemstandaard",
     "ai_line": "Vertaald met AI. Zie je een fout?",
     "report_link": "Laat het ons weten."
+  },
+  "alarm_loudness": {
+    "ask": "Hard genoeg?",
+    "ask_yes": "Ja",
+    "ask_no": "Nee",
+    "title": "Harder zetten",
+    "line": "Op een iPhone gaat het alarm af op het volume van je beltoon.",
+    "step_aria": "Stap {number}",
+    "step_1": "Open in Instellingen Geluiden en haptiek en zet Beltoon en meldingen helemaal hoog.",
+    "step_2": "Zet Wijzig met knoppen uit, zodat de volumeknoppen het alarm niet zachter kunnen zetten.",
+    "open_settings": "Instellingen openen",
+    "opened_note": "Instellingen opent op de pagina van Crit Alarm. Ga één stap terug voor Geluiden en haptiek.",
+    "open_failed": "Instellingen kon niet worden geopend. Volg de stappen.",
+    "ring_again": "Opnieuw laten afgaan",
+    "back_aria": "Terug"
   }
 }

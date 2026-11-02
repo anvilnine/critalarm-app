@@ -4,33 +4,39 @@ import UserNotifications
 import AlarmKit
 #endif
 
-/// Sets the phone's own next ring for an incident the user silenced.
+/// Keeps the phone ringing for an incident the user silenced.
 ///
-/// [RearmRule] is the decision and reads nothing. This finds the five inputs,
-/// then puts the ring where the OS can hold it:
+/// The first ring of an incident sets its whole chain (`IncidentChain`), so
+/// the next ring is already held by the system when Stop is tapped. Stop
+/// still comes through here: it tops the chain up, which matters when
+/// AlarmKit's limit kept it short, and starts one when none is set (an
+/// incident that rang before this phone kept chains, or a push the app
+/// never saw). [RearmRule] is the decision for the ring chain and reads
+/// nothing. A desk timer chain set by "I'm up" is topped up on its own rule.
 ///
-/// - iOS 26 and later: another AlarmKit alarm under the same
-///   `IncidentAlarmScheduler.alarmId(for:)`, set from the Stop intent. The
-///   intent runs in the app's own process, so the alarm survives a force-quit,
-///   which is the one exit the server repeat cannot reach.
-/// - iOS 16 to 25: a Time-Sensitive local notification under the incident id,
-///   with the same `alarm.caf` and the `INCIDENT` category. The server repeat
-///   lands on the same `apns-collapse-id`, so the two stay one card.
+/// - iOS 26 and later: AlarmKit alarms. Stop runs in the app's own process,
+///   so the chain survives a force-quit, which is the one exit the server
+///   repeat cannot reach.
+/// - iOS 16 to 25: Time-Sensitive local notifications with the same sound
+///   and the `INCIDENT` category.
 enum IncidentRearm {
     static let category = "INCIDENT"
     private static let debugKey = "critalarm.pending_rearms"
 
-    /// Silence plus a new ring for the same id. Answers the seconds until that
-    /// ring, or nil when nothing was set.
+    /// Silence, then make sure the next ring is set. Answers the seconds
+    /// until that ring, or nil when nothing is set.
     @discardableResult
     static func rearm(
         incidentId: String,
         now: Date = Date(),
         center: UNUserNotificationCenter? = .current()
     ) async -> Int? {
+        if IncidentChainStore.read(incidentId: incidentId)?.kind == .desk {
+            return await IncidentChain.topUp(incidentId: incidentId, now: now, center: center)
+        }
+
         let pending = PendingIncidentStore.read(incidentId: incidentId)
         let topic = pending?.topic
-        let timers = TopicTimers.read(topic: topic)
         let quietHours = QuietHours.read(from: QuietHours.groupDefaults)
 
         let allowed = RearmRule.canRearm(
@@ -52,67 +58,19 @@ enum IncidentRearm {
             return nil
         }
 
-        guard let at = RearmRule.nextRingAt(
-            now: now,
-            repeatIntervalS: timers?.repeatIntervalS ?? RearmRule.defaultRepeatIntervalS,
-            ringUntil: pending?.ringUntil
-        ) else {
-            NSLog("CritAlarmAlarm: rearm_skipped reason=past_ring_until incident_id=%@", incidentId)
-            return nil
-        }
-
-        let delay = at.timeIntervalSince(now)
-        let seconds = Int(delay.rounded())
-
-        #if canImport(AlarmKit)
-        if #available(iOS 26.0, *) {
-            let ok = await IncidentAlarmScheduler.schedule(
-                incidentId: incidentId,
-                topic: pending?.topic ?? "",
-                server: pending?.server ?? "",
-                title: pending?.title ?? "Crit Alarm",
-                sound: pending?.sound,
-                delay: delay,
-                ringUntil: pending?.ringUntil
-            )
-            if ok {
-                remember(incidentId: incidentId, firesAt: at)
-                NSLog("CritAlarmAlarm: rearm_set incident_id=%@ in_s=%d", incidentId, seconds)
-                return seconds
-            }
-            // AlarmKit refused, which is what a revoked authorization looks
-            // like. Fall through to the notification.
-        }
-        #endif
-
-        guard let center else { return nil }
-        let content = UNMutableNotificationContent()
-        content.title = pending?.title ?? "Crit Alarm"
-        content.body = NativeL10n.text(.alarmStillRinging)
-        content.sound = UNNotificationSound(named: UNNotificationSoundName(
-            OwnSoundLock.alarmSound(
-                requested: pending?.sound,
-                ownLocked: OwnSoundLock.isLocked(in: OwnSoundLock.groupDefaults),
-                bundled: IncidentAlarmScheduler.soundName
-            )
-        ))
-        content.categoryIdentifier = category
-        content.userInfo = ["incident_id": incidentId]
-        if #available(iOS 15.0, *) { content.interruptionLevel = .timeSensitive }
-        let request = UNNotificationRequest(
-            identifier: incidentId,
-            content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(delay, 1), repeats: false)
-        )
-        do {
-            try await center.add(request)
-            remember(incidentId: incidentId, firesAt: at)
-            NSLog("CritAlarmAlarm: rearm_notification_set incident_id=%@ in_s=%d", incidentId, seconds)
+        if IncidentChainStore.holdsRing(incidentId: incidentId),
+           let seconds = await IncidentChain.topUp(incidentId: incidentId, now: now, center: center) {
+            NSLog("CritAlarmAlarm: rearm_chain_held incident_id=%@ in_s=%d", incidentId, seconds)
             return seconds
-        } catch {
-            NSLog("CritAlarmAlarm: rearm_failed incident_id=%@ error=%@", incidentId, "\(error)")
-            return nil
         }
+        // No chain, or nothing left in it: start one from now.
+        let seconds = await IncidentChain.armRing(incidentId: incidentId, anchor: now, center: center)
+        if let seconds {
+            NSLog("CritAlarmAlarm: rearm_set incident_id=%@ in_s=%d", incidentId, seconds)
+        } else {
+            NSLog("CritAlarmAlarm: rearm_failed incident_id=%@", incidentId)
+        }
+        return seconds
     }
 
     /// [rearm] as one step on [AlarmSerial], the queue push arming and every
@@ -130,17 +88,39 @@ enum IncidentRearm {
         }
     }
 
-    /// Drops a pending re-arm, whichever of the two holds it. Safe to call
-    /// when there is none.
-    static func cancel(incidentId: String, center: UNUserNotificationCenter? = .current()) async {
+    /// Drops every ring this phone set for itself for [incidentId]: the
+    /// push alarm, the chain, and a single re-arm left by an older build.
+    /// [path] says why, and `ChainRule.scope(for:)` whether a desk timer
+    /// chain stays. Safe to call when there is nothing set.
+    static func cancel(
+        incidentId: String,
+        for path: ChainRule.CancelPath = .ended,
+        center: UNUserNotificationCenter? = .current()
+    ) async {
         center?.removePendingNotificationRequests(withIdentifiers: [incidentId])
         #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
             await IncidentAlarmScheduler.cancel(incidentId: incidentId)
         }
         #endif
-        forget(incidentId: incidentId)
-        NSLog("CritAlarmAlarm: rearm_cancelled incident_id=%@", incidentId)
+        await IncidentChain.cancel(
+            incidentId: incidentId, scope: ChainRule.scope(for: path), center: center
+        )
+        if IncidentChainStore.read(incidentId: incidentId) == nil {
+            forget(incidentId: incidentId)
+        }
+        NSLog("CritAlarmAlarm: rearm_cancelled incident_id=%@ path=%@", incidentId, path.rawValue)
+    }
+
+    /// "I'm up" on this phone: the ring chain goes and the desk timer chain
+    /// is set. Works with no network; the server hears from the ack queue.
+    static func acknowledged(
+        incidentId: String,
+        at now: Date = Date(),
+        center: UNUserNotificationCenter? = .current()
+    ) async {
+        await cancel(incidentId: incidentId, for: .imUp, center: center)
+        await IncidentChain.armDesk(incidentId: incidentId, ackedAt: now, center: center)
     }
 
     static func debugEntries() -> [String: Date] {
@@ -150,7 +130,7 @@ enum IncidentRearm {
         }
     }
 
-    private static func remember(incidentId: String, firesAt: Date) {
+    static func remember(incidentId: String, firesAt: Date) {
         var values = UserDefaults.standard.dictionary(forKey: debugKey) as? [String: Double] ?? [:]
         values[incidentId] = firesAt.timeIntervalSince1970
         UserDefaults.standard.set(values, forKey: debugKey)
@@ -301,10 +281,11 @@ enum RingGeneration {
 
     /// True when this phone rings for [incidentId] now or has a ring set for
     /// it: an AlarmKit alarm in any state, or a re-arm waiting (the
-    /// notification form on older iPhones). Alarms that cannot be read count
-    /// as set.
+    /// notification form on older iPhones), or a chain of rings. Alarms that
+    /// cannot be read count as set.
     static func ringIsSet(incidentId: String) -> Bool {
         if IncidentRearm.debugEntries()[incidentId] != nil { return true }
+        if IncidentChainStore.read(incidentId: incidentId) != nil { return true }
         #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
             let alarmId = IncidentAlarmScheduler.alarmId(for: incidentId)

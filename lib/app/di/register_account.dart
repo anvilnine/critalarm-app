@@ -131,6 +131,7 @@ void registerAccountData(GetIt getIt, {required LocalStore? localStore}) {
         cancelAnswers: getIt<CancelAnswerSender>(),
         heldTopics: localStore?.topics,
         archive: localStore,
+        cancelAlarmChains: () => getIt<AlarmHost>().cancelAllChains(),
         // Not waited for: each check asks the access layer, and neither a
         // wipe nor a connect waits on a plan.
         afterForget: () async {

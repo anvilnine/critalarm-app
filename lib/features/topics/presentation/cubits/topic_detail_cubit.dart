@@ -143,6 +143,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
             status: TopicDetailStatus.loading,
             topicName: topicName,
             critical: listed?.critical ?? state.critical,
+            maxRingS: listed?.maxRingS,
+            repeatIntervalS: listed?.repeatIntervalS,
           ),
     );
 
@@ -209,6 +211,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
           : TopicDetailStatus.success,
       topicName: topic.name,
       critical: topic.critical,
+      maxRingS: topic.maxRingS,
+      repeatIntervalS: topic.repeatIntervalS,
       alarm: authorization,
       severity: stage.severity,
       faceState: stage.face,
@@ -438,6 +442,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       status: TopicDetailStatus.success,
       topicName: topic.name,
       critical: topic.critical,
+      maxRingS: topic.maxRingS,
+      repeatIntervalS: topic.repeatIntervalS,
       severity: stage.severity,
       faceState: stage.face,
       word: stage.word,
@@ -555,6 +561,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
           state.copyWith(
             isUpdatingCritical: false,
             critical: updatedTopic.critical,
+            maxRingS: updatedTopic.maxRingS,
+            repeatIntervalS: updatedTopic.repeatIntervalS,
           ),
         );
       },

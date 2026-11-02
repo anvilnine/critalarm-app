@@ -125,6 +125,9 @@ void main() {
         onError?.call(details);
       };
 
+      // The ring switches sit above the plan, so the row can be below the fold.
+      await tester.ensureVisible(find.text('See Pro'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('See Pro'));
       // Not pumpAndSettle: the paywall layout moves without stopping.
       await tester.pump();

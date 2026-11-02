@@ -330,6 +330,8 @@
     "send_message": "Testalarm",
     "send_cancel": "Abbrechen",
     "works_title": "Es klappt",
+    "not_reached_title": "Der Alarm hat dieses Handy nicht erreicht",
+    "muted_title": "Dieses Handy hat ohne Ton geklingelt",
     "proof_server_sent": "Der Server hat ihn gesendet",
     "proof_push_arrived": "Der Push ist angekommen",
     "proof_phone_rang": "Dieses Handy hat geklingelt",
@@ -799,7 +801,8 @@
       "one": "1 Nachricht",
       "other": "Alle {} Nachrichten"
     },
-    "no_messages": "Noch keine Nachrichten."
+    "no_messages": "Noch keine Nachrichten.",
+    "ring_length": "Klingelt {total} lang, alle {every}, bis du wach bist."
   },
   "topic_tokens": {
     "header": "Tokens",
@@ -948,6 +951,8 @@
     "load_failed_title": "Alarm konnte nicht geladen werden",
     "close_queued_title": "Wird geschlossen, sobald dein Server antwortet",
     "close_queued_body": "Das Schließen wird gesendet, sobald dieses Handy deinen Server erreicht. Bis dahin kann der Alarm erneut klingeln.",
+    "ack_queued_title": "Ich bin wach wird gesendet, sobald dein Server antwortet",
+    "ack_queued_body": "Auf diesem Handy hat das Klingeln aufgehört. Ich bin wach wird gesendet, sobald dieses Handy deinen Server erreicht.",
     "load_failed_body": "Der Alarm ist auf dem Server noch offen. Versuche es erneut oder stoppe den Ton auf diesem Handy und öffne ihn über deine Topics.",
     "retry_button": "Erneut versuchen",
     "silence_button": "Ton auf diesem Handy stoppen",
@@ -1009,6 +1014,10 @@
     "alarm_sound_row_subtitle": "Klingelt für jedes Topic ohne eigenen Ton",
     "priorities_row_title": "Prioritäten",
     "priorities_row_subtitle": "Was jede Priorität auf diesem Handy bewirkt",
+    "ring_bright_screen_title": "Heller Bildschirm, wenn es klingelt",
+    "ring_bright_screen_subtitle": "Volle Helligkeit auf dem Alarmbildschirm.",
+    "ring_vibrate_title": "Mit dem Alarm vibrieren",
+    "ring_vibrate_subtitle": "Vibriert im Takt des Alarmtons.",
     "app_header": "App",
     "storage_header": "Speicher",
     "storage_delete_after_title": "Alarme löschen nach",
@@ -1056,6 +1065,7 @@
     "alarm_debug_clear_acked": "Leeren",
     "alarm_debug_flush_now": "Jetzt senden",
     "alarm_debug_reconcile": "Jetzt abgleichen",
+    "alarm_debug_probe_alarms": "60 Alarme testen",
     "alarm_debug_report_copied": "Bericht kopiert",
     "alarm_debug_error": "Aktualisieren fehlgeschlagen: {error}",
     "alarm_debug_device_time": "Gerätezeit",
@@ -2474,7 +2484,7 @@
     "setup_row_first_message": "erste Nachricht",
     "check_notifications": "Benachrichtigungen sind aus",
     "check_full_screen_alarm": "Vollbild ist aus",
-    "check_battery_optimization": "Energiesparmodus ist an",
+    "check_battery_optimization": "Akku-Optimierung ist an",
     "check_alarms": "Alarme sind aus",
     "check_time_sensitive": "Zeitkritisch ist aus",
     "check_push_token_confirmed": "Push ist nicht bestätigt",
@@ -2560,5 +2570,20 @@
     "system_default": "Systemstandard",
     "ai_line": "Mit KI übersetzt. Fehler entdeckt?",
     "report_link": "Sag es uns."
+  },
+  "alarm_loudness": {
+    "ask": "Laut genug?",
+    "ask_yes": "Ja",
+    "ask_no": "Nein",
+    "title": "Lauter stellen",
+    "line": "Auf dem iPhone klingelt der Alarm in deiner Klingeltonlautstärke.",
+    "step_aria": "Schritt {number}",
+    "step_1": "Öffne in den Einstellungen Töne & Haptik und stelle Klingel- und Hinweistöne ganz nach oben.",
+    "step_2": "Schalte Mit Tasten ändern aus, damit die Lautstärketasten den Alarm nicht leiser machen.",
+    "open_settings": "Einstellungen öffnen",
+    "opened_note": "Die Einstellungen öffnen sich auf der Seite von Crit Alarm. Geh einen Schritt zurück zu Töne & Haptik.",
+    "open_failed": "Die Einstellungen ließen sich nicht öffnen. Folge den Schritten.",
+    "ring_again": "Noch mal klingeln lassen",
+    "back_aria": "Zurück"
   }
 }

@@ -17,6 +17,16 @@ class StateKindRuleTest {
     )
 
     @Test
+    fun `only an ack keeps a desk timer chain, and only a desk one`() {
+        assertTrue(StateKindRule.keepsDeskChain(IncidentPushKind.ACK, chainIsDesk = true))
+        assertFalse(StateKindRule.keepsDeskChain(IncidentPushKind.ACK, chainIsDesk = false))
+        for (kind in listOf(IncidentPushKind.CLOSE, IncidentPushKind.EXPIRE)) {
+            assertFalse(kind.wireValue, StateKindRule.keepsDeskChain(kind, chainIsDesk = true))
+            assertFalse(kind.wireValue, StateKindRule.keepsDeskChain(kind, chainIsDesk = false))
+        }
+    }
+
+    @Test
     fun `ack close and expire parse with no priority`() {
         for (kind in listOf("ack", "close", "expire")) {
             val parsed = push(kind)
