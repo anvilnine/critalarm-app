@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
@@ -100,11 +101,21 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
 
   /// Whether the cap on critical topics applies here. Waits for the plan
   /// to be read, so a paying person never sees the free count first.
-  Future<bool> _isCapped() async =>
-      !(await _featureAccess?.usableOnceReady(
-            AppFeature.unlimitedCriticalTopics,
-          ) ??
-          false);
+  ///
+  /// While the plan cannot be read the answer is no: the count card and the
+  /// Pro ask would sell on a guess, and the server enforces the cap anyway.
+  Future<bool> _isCapped() async {
+    final access = _featureAccess;
+    if (access == null) return true;
+    try {
+      final decision = await access.decideOnceReady(
+        AppFeature.unlimitedCriticalTopics,
+      );
+      return !decision.isUsable;
+    } on HoldingUnreadable {
+      return false;
+    }
+  }
 
   /// Reads the plan again and redraws the free-tier parts of the screen.
   void _onPlanChanged() {
