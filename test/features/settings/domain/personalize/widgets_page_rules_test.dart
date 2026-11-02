@@ -157,10 +157,14 @@ void main() {
       );
     });
 
-    test('unreadable with no sure yes is not usable', () {
+    test('unreadable with no sure yes shows the steps and sells nothing', () {
       expect(
         plan(const FeatureDecision.unread(Holding.pro)),
-        HomeWidgetsPlan.needsPro,
+        HomeWidgetsPlan.pro,
+      );
+      expect(
+        plan(const FeatureDecision.unread(Holding.pro), isOwnServer: true),
+        HomeWidgetsPlan.selfHosted,
       );
     });
   });
