@@ -2484,7 +2484,7 @@
     "setup_row_first_message": "ilk mesaj",
     "check_notifications": "bildirimler kapalı",
     "check_full_screen_alarm": "tam ekran kapalı",
-    "check_battery_optimization": "pil tasarrufu açık",
+    "check_battery_optimization": "pil optimizasyonu açık",
     "check_alarms": "alarmlar kapalı",
     "check_time_sensitive": "zamana duyarlı bildirimler kapalı",
     "check_push_token_confirmed": "anlık bildirim onaylanmadı",

@@ -2484,7 +2484,7 @@
     "setup_row_first_message": "最初のメッセージ",
     "check_notifications": "通知がオフです",
     "check_full_screen_alarm": "全画面表示がオフです",
-    "check_battery_optimization": "バッテリーセーバーがオンです",
+    "check_battery_optimization": "バッテリーの最適化がオンです",
     "check_alarms": "アラームがオフです",
     "check_time_sensitive": "即時通知がオフです",
     "check_push_token_confirmed": "プッシュを確認できていません",

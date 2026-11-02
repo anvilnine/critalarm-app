@@ -2536,7 +2536,7 @@
     "setup_row_first_message": "pierwsza wiadomość",
     "check_notifications": "powiadomienia są wyłączone",
     "check_full_screen_alarm": "alarm pełnoekranowy jest wyłączony",
-    "check_battery_optimization": "oszczędzanie baterii jest włączone",
+    "check_battery_optimization": "optymalizacja baterii jest włączona",
     "check_alarms": "alarmy są wyłączone",
     "check_time_sensitive": "powiadomienia pilne są wyłączone",
     "check_push_token_confirmed": "brak potwierdzenia push",

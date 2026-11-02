@@ -2484,7 +2484,7 @@
     "setup_row_first_message": "primo messaggio",
     "check_notifications": "le notifiche sono disattivate",
     "check_full_screen_alarm": "lo schermo intero è disattivato",
-    "check_battery_optimization": "il risparmio energetico è attivo",
+    "check_battery_optimization": "l’ottimizzazione della batteria è attiva",
     "check_alarms": "gli allarmi sono disattivati",
     "check_time_sensitive": "le notifiche urgenti sono disattivate",
     "check_push_token_confirmed": "la notifica push non è confermata",

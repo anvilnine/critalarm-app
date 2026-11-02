@@ -162,7 +162,7 @@ const _issueLook = _Kind(
       AppPipTone.fine,
       AppPipTone.look,
     ],
-    foot: 'battery saver is on',
+    foot: 'battery optimization is on',
     footTone: AppStatusTone.orangeSoft,
     actionLabel: 'Fix this',
     onAction: _noop,

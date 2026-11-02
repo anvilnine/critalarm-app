@@ -2458,7 +2458,7 @@
     "setup_row_first_message": "첫 메시지",
     "check_notifications": "알림이 꺼져 있어요",
     "check_full_screen_alarm": "전체 화면 알람이 꺼져 있어요",
-    "check_battery_optimization": "절전 모드가 켜져 있어요",
+    "check_battery_optimization": "배터리 최적화가 켜져 있어요",
     "check_alarms": "알람이 꺼져 있어요",
     "check_time_sensitive": "시간 민감형 알림이 꺼져 있어요",
     "check_push_token_confirmed": "푸시가 확인되지 않았어요",

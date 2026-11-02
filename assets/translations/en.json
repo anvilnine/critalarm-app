@@ -2484,7 +2484,7 @@
     "setup_row_first_message": "first message",
     "check_notifications": "notifications are off",
     "check_full_screen_alarm": "full-screen is off",
-    "check_battery_optimization": "battery saver is on",
+    "check_battery_optimization": "battery optimization is on",
     "check_alarms": "alarms are off",
     "check_time_sensitive": "time-sensitive is off",
     "check_push_token_confirmed": "push is not confirmed",

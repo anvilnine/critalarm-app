@@ -2510,7 +2510,7 @@
     "setup_row_first_message": "první zpráva",
     "check_notifications": "oznámení jsou vypnutá",
     "check_full_screen_alarm": "zobrazení přes celou obrazovku je vypnuté",
-    "check_battery_optimization": "úspora baterie je zapnutá",
+    "check_battery_optimization": "optimalizace baterie je zapnutá",
     "check_alarms": "alarmy jsou vypnuté",
     "check_time_sensitive": "oznámení citlivá na čas jsou vypnutá",
     "check_push_token_confirmed": "push není potvrzený",

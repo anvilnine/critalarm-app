@@ -116,7 +116,7 @@ void main() {
       );
       final view = homeCardViewFor(model, now: now);
       expect(view.numeral, '6/7');
-      expect(view.foot, 'battery saver is on');
+      expect(view.foot, 'battery optimization is on');
       expect(view.pips, hasLength(7));
       expect(view.pips![2], AppPipTone.broken);
     });

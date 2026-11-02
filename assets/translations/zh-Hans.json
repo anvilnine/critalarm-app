@@ -2458,7 +2458,7 @@
     "setup_row_first_message": "第一条消息",
     "check_notifications": "通知已关闭",
     "check_full_screen_alarm": "全屏警报已关闭",
-    "check_battery_optimization": "省电模式已开启",
+    "check_battery_optimization": "电池优化已开启",
     "check_alarms": "闹钟已关闭",
     "check_time_sensitive": "时效性通知已关闭",
     "check_push_token_confirmed": "推送未确认",

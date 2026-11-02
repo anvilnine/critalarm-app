@@ -2484,7 +2484,7 @@
     "setup_row_first_message": "erste Nachricht",
     "check_notifications": "Benachrichtigungen sind aus",
     "check_full_screen_alarm": "Vollbild ist aus",
-    "check_battery_optimization": "Energiesparmodus ist an",
+    "check_battery_optimization": "Akku-Optimierung ist an",
     "check_alarms": "Alarme sind aus",
     "check_time_sensitive": "Zeitkritisch ist aus",
     "check_push_token_confirmed": "Push ist nicht bestätigt",
