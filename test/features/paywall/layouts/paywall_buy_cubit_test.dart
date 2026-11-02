@@ -1,6 +1,9 @@
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
@@ -62,7 +65,7 @@ const _offerings = Offerings(
 
 /// A store whose purchase and restore answer what the test scripted.
 class _Store extends InMemorySubscriptionRepository {
-  _Store() : super(offerings: _offerings);
+  _Store() : super(offerings: storeOfferingsOf(_offerings));
 
   Failure? purchaseFailure;
   Failure? restoreFailure;
@@ -73,15 +76,17 @@ class _Store extends InMemorySubscriptionRepository {
   int restores = 0;
 
   @override
-  Future<AppResult<CustomerInfo>> purchasePackage(Package package) async {
-    purchased.add(package.identifier);
+  Future<AppResult<StoreCustomer>> purchasePackage(
+    StoreCatalogEntry package,
+  ) async {
+    purchased.add(package.id);
     final failure = purchaseFailure;
     if (failure != null) return failure.toFailure();
     return super.purchasePackage(package);
   }
 
   @override
-  Future<AppResult<CustomerInfo>> restorePurchases() async {
+  Future<AppResult<StoreCustomer>> restorePurchases() async {
     restores++;
     final failure = restoreFailure;
     if (failure != null) return failure.toFailure();

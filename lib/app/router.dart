@@ -19,7 +19,9 @@ import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/components/pass_route.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
@@ -80,6 +82,7 @@ import 'package:critalarm/features/settings/presentation/sound_recorder_screen.d
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
+import 'package:critalarm/features/topics/presentation/pane_rules.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_tokens_screen.dart';
@@ -159,6 +162,21 @@ abstract final class AppRoute {
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
+
+/// Whether [matches] put a page on the root navigator, above the tabs: a
+/// top-level route such as the ringing alarm, pushed or gone to. The tabs
+/// themselves are a shell match, and a page pushed onto a tab is an
+/// imperative match that holds a shell match.
+bool _hasPageAboveShell(List<RouteMatchBase> matches) {
+  for (final match in matches) {
+    if (match is ImperativeRouteMatch) {
+      if (_hasPageAboveShell(match.matches.matches)) return true;
+    } else if (match is RouteMatch) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /// The card a Personalize pass page grows from: the `PassOrigin` the root
 /// passed as `extra`, or null when the page was opened another way (a deep
@@ -372,6 +390,31 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     // curl line": the token sheet opens as the screen does.
                     final startCurlFlow =
                         state.uri.queryParameters['curl'] == '1';
+                    // On an expanded window the topic opens in Home's detail
+                    // pane, beside the list: this page is a see-through
+                    // stand-in that hands the topic to the pane once it is
+                    // the page in front (at once, or on the way back from
+                    // Messages or Tokens). With a page over the tabs, such
+                    // as the ringing alarm, the topic opens as a page of its
+                    // own and the alarm stays put.
+                    final isCurlTopic =
+                        startCurlFlow &&
+                        state.uri.path == state.matchedLocation;
+                    if (!isCurlTopic &&
+                        opensTopicInHomePane(
+                          AppSize.of(context),
+                          AppFold.of(context),
+                          hasPageAboveShell: _hasPageAboveShell(
+                            GoRouter.of(
+                              context,
+                            ).routerDelegate.currentConfiguration.matches,
+                          ),
+                        )) {
+                      return PaneHandOffPage<void>(
+                        key: state.pageKey,
+                        child: HomePaneHandOff(topicName: name),
+                      );
+                    }
                     return AmbientPage(
                       key: state.pageKey,
                       child: TopicDetailScreen(
@@ -1085,3 +1128,59 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
   ],
 );
+
+/// The page `/topics/<name>` puts on the Home branch while it hands the topic
+/// to Home's detail pane: see-through, with no transition of its own, and
+/// one Home never transitions to. See [PaneHandOffRoute].
+class PaneHandOffPage<T> extends Page<T> {
+  const PaneHandOffPage({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) =>
+      PaneHandOffRoute<T>(settings: this, child: child);
+}
+
+/// The route of a [PaneHandOffPage]. It lives for a frame or two and draws
+/// nothing, so the page under it must not move for it. A page route under
+/// a new page route runs its exit transition (Home's fade and drift) on the
+/// new route's clock, and with no transition that clock jumps to the end
+/// for a frame: Home would blink out. Saying no to [canTransitionFrom] keeps
+/// that clock at rest for the route below.
+class PaneHandOffRoute<T> extends PageRoute<T> {
+  PaneHandOffRoute({required this.child, super.settings});
+
+  final Widget child;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  bool canTransitionFrom(TransitionRoute<dynamic> previousRoute) => false;
+
+  @override
+  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => child;
+}

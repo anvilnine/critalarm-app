@@ -5,7 +5,6 @@ import 'package:critalarm/design/ambient/ambient_shape.dart';
 import 'package:critalarm/design/ambient/hero_disc.dart';
 import 'package:critalarm/design/ambient/hero_timeline.dart';
 import 'package:critalarm/design/ambient/hero_tone.dart';
-import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -56,6 +55,17 @@ const double kHeroStackedFaceSize = 120;
 /// How far the card overlaps the face, in points.
 const double kHeroCardOverlap = 10;
 
+/// The face on a cover screen (the Razr cover), beside a one-line panel, so
+/// the list keeps two rows in view.
+const double kHeroCoverFaceSize = 72;
+
+/// The smallest a hero face is drawn in a column at least
+/// [kHeroFaceFloorMinWidth] wide.
+const double kHeroFaceFloor = 120;
+
+/// From this column width up the hero face is at least [kHeroFaceFloor].
+const double kHeroFaceFloorMinWidth = 360;
+
 /// Which arrangement the scene uses.
 ///
 /// Side by side needs [kHeroSideBySideMinWidth] points and a text scale of
@@ -72,10 +82,23 @@ AppHeroLayout heroLayoutFor({
 }
 
 /// The face's width and height in [layout] for a scene [width] points wide.
-double heroFaceSizeFor(AppHeroLayout layout, double width) => switch (layout) {
-  AppHeroLayout.sideBySide => math.min(kHeroMaxFaceSize, width * 0.44),
-  AppHeroLayout.stacked => math.min(kHeroStackedFaceSize, width * 0.44),
-};
+///
+/// A cover screen gets [kHeroCoverFaceSize]. A column at least
+/// [kHeroFaceFloorMinWidth] wide never draws it under [kHeroFaceFloor].
+double heroFaceSizeFor(
+  AppHeroLayout layout,
+  double width, {
+  bool isCover = false,
+}) {
+  if (isCover) return kHeroCoverFaceSize;
+  final size = switch (layout) {
+    AppHeroLayout.sideBySide => math.min(kHeroMaxFaceSize, width * 0.44),
+    AppHeroLayout.stacked => math.min(kHeroStackedFaceSize, width * 0.44),
+  };
+  return width >= kHeroFaceFloorMinWidth
+      ? math.max(kHeroFaceFloor, size)
+      : size;
+}
 
 /// Room above the face for its bob.
 const double _kHeroFaceTop = Spacing.s2;
@@ -114,6 +137,7 @@ HeroDiscSpot heroDiscSpot({
   required double sceneWidth,
   required double textScale,
   bool isPane = false,
+  bool isCover = false,
 }) {
   final layout = heroLayoutFor(
     width: sceneWidth,
@@ -123,7 +147,7 @@ HeroDiscSpot heroDiscSpot({
   final geometry = heroDiscGeometry(
     layout: layout,
     width: sceneWidth,
-    face: heroFaceSizeFor(layout, sceneWidth),
+    face: heroFaceSizeFor(layout, sceneWidth, isCover: isCover),
   );
   final centre = sceneOrigin + geometry.centre;
   final short = screen.shortestSide;
@@ -140,41 +164,36 @@ HeroDiscSpot heroDiscSpot({
 /// [heroDiscSpot] for the Topics screen on this display: the scene sits under
 /// the status bar, the top bar and one gap, with the list at rest.
 ///
-/// It follows the scaffold's own column rules (a capped, centred column on a
-/// medium display, a list pane beside the detail on an expanded one), so the
-/// disc stays behind the face. Both the shell and the screen call it with the
-/// same context, so they agree on the answer.
+/// It follows the scaffold's own column rules through [AppScreenColumns] (a
+/// capped, centred column on a medium display, a list pane inside the frame
+/// on an expanded one, the start pane of a book fold), so the disc stays
+/// behind the face. Both the shell and the screen call it with the same
+/// context, so they agree on the answer. [hasDetail] says the screen passes
+/// a detail to its scaffold, the way Topics does.
 ///
 /// A screen with something between the top bar and its scene (the Topic
 /// screen's name and summary) passes that height, with its gap, as [above].
-HeroDiscSpot heroDiscSpotOf(BuildContext context, {double above = 0}) {
+HeroDiscSpot heroDiscSpotOf(
+  BuildContext context, {
+  double above = 0,
+  bool hasDetail = true,
+}) {
   // Only the parts that matter, so a keyboard sliding up does not rebuild the
   // shell that calls this.
   final screen = MediaQuery.sizeOf(context);
   final padding = MediaQuery.paddingOf(context);
   final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
-  final size = AppSize.of(context);
-  final isPane = size.isExpanded;
-  final railOnRight = size.navPlacement == AppNavPlacement.right;
-  final railGap = size.hasRail
-      ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
-      : 0.0;
-  final available = screen.width - railGap;
-  final paneWidth = isPane
-      ? AppScreenScaffold.listPaneWidth(available)
-      : screen.width;
-  final gutter = isPane
-      ? 0.0
-      : math.max(railGap, (paneWidth - AppSize.contentMaxWidth) / 2);
+  final columns = AppScreenColumns.of(context, hasDetail: hasDetail);
   return heroDiscSpot(
     screen: screen,
     sceneOrigin: Offset(
-      gutter + (isPane && !railOnRight ? railGap : 0),
+      columns.contentLeft,
       padding.top + AppScreenScaffold.topBarHeight + Spacing.s3 + above,
     ),
-    sceneWidth: paneWidth - 2 * gutter,
+    sceneWidth: columns.contentWidth,
     textScale: textScale,
-    isPane: isPane,
+    isPane: columns.isPane,
+    isCover: AppSize.of(context).isCover,
   );
 }
 
@@ -349,7 +368,11 @@ class AppHeroScene extends StatelessWidget {
           scene: this,
           layout: layout,
           width: width,
-          faceSize: heroFaceSizeFor(layout, width),
+          faceSize: heroFaceSizeFor(
+            layout,
+            width,
+            isCover: AppSize.of(context).isCover,
+          ),
         );
         return hasMotion ? body : PaywallStill(child: body);
       },

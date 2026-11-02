@@ -9,6 +9,7 @@ import 'package:critalarm/app/l10n/easy_localization_language_host.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
+import 'package:critalarm/app/route_top.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
@@ -25,12 +26,14 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/device/native_fold.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/services/store_links.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -67,7 +70,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CritAlarmApp extends StatefulWidget {
@@ -85,6 +87,15 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     initialLocation: widget.initialLocation,
   );
 
+  /// An iPhone tells an unfolded iPhone Fold from an iPad, and is the one
+  /// device whose fold comes over [_foldSource].
+  late final bool _isIphone =
+      getIt.isRegistered<DeviceForm>() && getIt<DeviceForm>().isIphone;
+
+  /// The folding iPhone's fold. One instance, so the scope's stream is not
+  /// opened again on every build.
+  final NativeFoldSource _foldSource = const NativeFoldChannel();
+
   /// Taps, foreground pushes and the resume reload. A notification tapped
   /// while the app is already running does not go through the initial route,
   /// so the platform hands the route over here.
@@ -93,7 +104,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<IncidentsCubit>(),
     getIt<TopicsCubit>(),
     _router.go,
-    () => _router.routerDelegate.currentConfiguration.uri.path,
+    () => topPathOf(_router.routerDelegate.currentConfiguration),
     (incidentId) => CriticalAlarmCubit.current?.select(incidentId),
     getIt<AlarmFocus>(),
   );
@@ -109,9 +120,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     openUrl: (url) async {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     },
-    openStoreReview: () => InAppReview.instance.openStoreListing(
-      appStoreId: FeedbackLinks.appStoreId,
-    ),
+    openStoreReview: () => getIt<StoreLinks>().listing(),
     openFeedbackForm: _openFeedbackForm,
     analytics: getIt<LocalReminderAnalytics>(),
   );
@@ -413,17 +422,20 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           builder: (context, child) => _AppearanceScope(
             child: _OnTranslationsLoaded(
               onLoaded: _quickActions.start,
-              child: AppDeviceScope(
-                isIphone:
-                    getIt.isRegistered<DeviceForm>() &&
-                    getIt<DeviceForm>().isIphone,
-                child: FeatureGuideHost(
-                  router: _router,
-                  child: ConnectLinkHost(
+              // On an iPhone the fold comes from the native side, since
+              // Flutter reports none on iOS. Elsewhere this adds nothing.
+              child: NativeFoldScope(
+                source: _isIphone ? _foldSource : null,
+                child: AppDeviceScope(
+                  isIphone: _isIphone,
+                  child: FeatureGuideHost(
                     router: _router,
-                    child: AppAmbientShell(
+                    child: ConnectLinkHost(
                       router: _router,
-                      child: child ?? const SizedBox.shrink(),
+                      child: AppAmbientShell(
+                        router: _router,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

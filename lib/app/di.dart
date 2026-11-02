@@ -72,8 +72,7 @@ import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
-import 'package:critalarm/core/push/apns_push_token_provider.dart';
-import 'package:critalarm/core/push/firebase_push_token_provider.dart';
+import 'package:critalarm/core/platform/store_kind.dart';
 import 'package:critalarm/core/push/last_push_reader.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -85,7 +84,6 @@ import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/share_copy_path.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
-import 'package:critalarm/core/sound/sound_pack_host.dart';
 import 'package:critalarm/core/sound/sound_pack_repository.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/core/sound/sound_recorder.dart';
@@ -94,6 +92,16 @@ import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
+import 'package:critalarm/core/store/play_apple/play_apple_store_services.dart';
+import 'package:critalarm/core/store/services/google_sign_in_sheet.dart';
+import 'package:critalarm/core/store/services/manage_subscription.dart';
+import 'package:critalarm/core/store/services/sign_in_options.dart';
+import 'package:critalarm/core/store/services/sound_pack_source.dart';
+import 'package:critalarm/core/store/services/store_billing.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
+import 'package:critalarm/core/store/services/store_links.dart';
+import 'package:critalarm/core/store/services/store_review.dart';
+import 'package:critalarm/core/store/services/store_services.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/cancel_reason_analytics.dart';
@@ -102,6 +110,7 @@ import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
+import 'package:critalarm/core/telemetry/telemetry_build_rule.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
 import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
@@ -128,6 +137,7 @@ import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs
 import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feedback/data/platform_device_report_repository.dart';
+import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
@@ -166,8 +176,8 @@ import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cub
 import 'package:critalarm/features/language/presentation/language_cubit.dart';
 import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
-import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/data/store_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs_reader.dart';
@@ -242,8 +252,7 @@ import 'package:critalarm/features/paywall/data/asset_price_book.dart';
 import 'package:critalarm/features/paywall/data/history_own_reader.dart';
 import 'package:critalarm/features/paywall/data/leaving_facts_reader.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
-import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/data/repositories/store_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/price_book.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
@@ -265,8 +274,8 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/pro_pack/data/prefs_pro_pack_dev_switch.dart';
-import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/data/store_pro_pack_shop.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
@@ -389,7 +398,6 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -474,7 +482,23 @@ Future<void> configureDependencies({
         return null;
       }
     }();
-    final telemetryGate = FirebaseTelemetryGate(options: options);
+    // Debug, profile and desk builds, and a web page off the production
+    // host, send no analytics and no crash reports, whatever the user's
+    // switch says. A store build still waits for that switch.
+    final collectionAllowed = telemetryAllowedFor(
+      isRelease: kReleaseMode,
+      usesMockApi: buildUsesMockApi,
+      skipsPaywall: buildSkipsPaywall,
+      hasPaywallLab: buildHasPaywallLab,
+      usesQuietAlarm: buildUsesQuietAlarm,
+      blocksTelemetry: buildBlocksTelemetry,
+      webPage: kIsWeb ? Uri.base : null,
+    );
+    final telemetryGate = FirebaseTelemetryGate(
+      options: options,
+      collectionAllowed: collectionAllowed,
+      isWeb: kIsWeb,
+    );
     await telemetryGate.initialize();
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
   }
@@ -557,57 +581,27 @@ Future<void> configureDependencies({
     );
   }
 
-  if (!getIt.isRegistered<RevenueCatService>()) {
-    final revenueCatService = RevenueCatService();
-    // RevenueCat issues a public SDK key per store and the SDK rejects the
-    // other store's key, so the platform picks which one is passed. The Mac
-    // app is the same App Store app record as the iPhone one (universal
-    // purchase), so it takes the iPhone's key.
-    final sellsThroughAppStore =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.macOS);
-    final revenueCatKey = sellsThroughAppStore
-        ? Env.revenueCatIosApiKey
-        : Env.revenueCatAndroidApiKey;
-    // Thrown above the catch below on purpose. A build that cannot sell has to
-    // stop here, not be swallowed and look like a build nobody bought from.
-    if (releaseBuildCannotSell(
-      isRelease: kReleaseMode,
-      skipsPaywall: buildSkipsPaywall,
-      apiKey: revenueCatKey,
-    )) {
-      final varName = sellsThroughAppStore
-          ? 'REVENUECAT_IOS_API_KEY'
-          : 'REVENUECAT_ANDROID_API_KEY';
-      throw StateError(
-        'This release build has no RevenueCat key, so it cannot sell '
-        'anything. Put $varName in .env. The key comes from RevenueCat, '
-        'Project settings > API keys. Build with '
-        '--dart-define=SKIP_PAYWALL=true if you meant to leave the paywall '
-        'out.',
-      );
-    }
-    try {
-      if (!buildSkipsPaywall && revenueCatKey.isNotEmpty) {
-        await revenueCatService.initialize(
-          apiKey: revenueCatKey,
-          appUserId: (await identityStore.readOrCreate()).accountId,
-        );
-        // The store knows about a purchase before our server does. Mirror its
-        // Pro entitlement so the app turns Pro the moment the buyer pays.
-        revenueCatService.customerInfoStream.listen(_mirrorStorePro);
-        unawaited(
-          revenueCatService.getCustomerInfo().then(
-            _mirrorStorePro,
-            onError: (Object _) {},
-          ),
-        );
-      }
-    } on Object catch (_) {
-      // Ignored for tests or unsupported environments
-    }
-    getIt.registerSingleton<RevenueCatService>(revenueCatService);
+  // The one place that reads `kIsWeb` for feature code. Features ask
+  // `PlatformCapabilities` and never read the global themselves.
+  final capabilities = PlatformCapabilities(
+    isWeb: kIsWeb,
+    platform: defaultTargetPlatform,
+  );
+
+  // The store this build is for, from `--dart-define=STORE=...`, read here
+  // and nowhere else, and the set of store services it picks.
+  final store = StoreKind.resolve(
+    define: const String.fromEnvironment('STORE'),
+    platform: defaultTargetPlatform,
+  );
+  if (!getIt.isRegistered<StoreServices>()) {
+    final storeServices = storeServicesFor(
+      store,
+      capabilities: capabilities,
+      pushHost: getIt.get<PushHost>,
+    );
+    await _startStoreBilling(storeServices, identityStore);
+    getIt.registerSingleton<StoreServices>(storeServices);
   }
 
   // The prices a paywall shows when the store sends none, read once.
@@ -624,12 +618,7 @@ Future<void> configureDependencies({
     isLowRamDevice: deviceForm.isLowRamDevice,
   );
 
-  // The one place that reads `kIsWeb` for feature code. Features ask
-  // `PlatformCapabilities` and never read the global themselves.
-  final capabilities = PlatformCapabilities(
-    isWeb: kIsWeb,
-    platform: defaultTargetPlatform,
-  );
+  final storeServices = getIt<StoreServices>();
 
   // The channels whose native half only the phones have. On a Mac each of
   // these hosts gets a channel that answers "not on this platform" in Dart,
@@ -640,6 +629,19 @@ Future<void> configureDependencies({
 
   getIt
     ..registerSingleton<PlatformCapabilities>(capabilities)
+    ..registerSingleton<StoreKind>(store)
+    // Each part of the store set on its own, so feature code asks for the
+    // one it needs.
+    ..registerLazySingleton<StoreBilling>(() => storeServices.billing)
+    ..registerLazySingleton<ManageSubscription>(
+      () => storeServices.manageSubscription,
+    )
+    ..registerLazySingleton<SignInOptions>(() => storeServices.signInOptions)
+    ..registerLazySingleton<GoogleSignInSheet>(
+      () => storeServices.googleSignIn,
+    )
+    ..registerLazySingleton<StoreReview>(() => storeServices.review)
+    ..registerLazySingleton<StoreLinks>(() => storeServices.links)
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm)
     ..registerLazySingleton<TopicListPrefsRepository>(
@@ -707,16 +709,9 @@ Future<void> configureDependencies({
           ? const ChannelBackupHost()
           : const NoBackupHost(),
     )
-    // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
-    // raw APNs token. Android registers the FCM one (§5.2). The Mac will
-    // register an APNs token too. Until its push lands its PushHost answers
-    // nothing, so it has no token and registers no device.
+    // APNs on iOS and FCM on Android, as the store set says.
     ..registerLazySingleton<PushTokenProvider>(
-      () =>
-          defaultTargetPlatform == TargetPlatform.iOS ||
-              defaultTargetPlatform == TargetPlatform.macOS
-          ? ApnsPushTokenProvider(getIt<PushHost>())
-          : FirebasePushTokenProvider(),
+      () => storeServices.pushTokens,
     )
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
     ..registerLazySingleton<MockApiClient>(
@@ -878,7 +873,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ProPackShop>(
       () => buildSkipsPaywall
           ? const ClosedProPackShop()
-          : RevenueCatProPackShop(getIt<RevenueCatService>()),
+          : StoreProPackShop(getIt<StoreBilling>()),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
@@ -950,13 +945,9 @@ Future<void> configureDependencies({
       () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<SoundHost>(SoundHost.new)
-    // Store-hosted packs are Play Asset Delivery and Background Assets, both
-    // phone only. The Mac lists the bundled sounds and its own imports.
-    ..registerLazySingleton<SoundPackHost>(
-      () => SoundPackHost(phoneOnly(SoundPackHost.channelName)),
-    )
+    ..registerLazySingleton<SoundPackSource>(() => storeServices.soundPacks)
     ..registerLazySingleton<SoundPackRepository>(
-      () => SoundPackRepository(getIt<SoundPackHost>()),
+      () => SoundPackRepository(getIt<SoundPackSource>()),
     )
     ..registerLazySingleton<SoundPeaksCache>(
       () => SoundPeaksCache(getIt<SoundHost>()),
@@ -977,7 +968,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton<SubscriptionRepository>(
       () => buildSkipsPaywall
           ? DevSubscriptionRepository(getIt<DevProSwitch>())
-          : RevenueCatSubscriptionRepository(getIt<RevenueCatService>()),
+          : StoreSubscriptionRepository(getIt<StoreBilling>()),
     )
     ..registerLazySingleton(
       () => GetDevicePermissionsUsecase(
@@ -1012,7 +1003,7 @@ Future<void> configureDependencies({
         getIt<ApiClient>(),
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
-        identifyAccount: getIt<RevenueCatService>().identifyAccount,
+        identifyAccount: getIt<StoreBilling>().identifyAccount,
         beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
         readSessionRelay: () async =>
             (await getIt<ApiSessionStore>().read())?.relayUri,
@@ -1035,7 +1026,10 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<ProviderSignIn>(
-      () => NativeProviderSignIn(capabilities: getIt<PlatformCapabilities>()),
+      () => NativeProviderSignIn(
+        options: getIt<SignInOptions>(),
+        google: getIt<GoogleSignInSheet>(),
+      ),
     )
     ..registerLazySingleton<IdentityRepository>(
       () => HttpIdentityRepository(
@@ -1078,7 +1072,7 @@ Future<void> configureDependencies({
         },
         signOutBilling: buildSkipsPaywall
             ? null
-            : () => getIt<RevenueCatService>().logOut(),
+            : () => getIt<StoreBilling>().logOut(),
         stopAlarm: getIt<AlarmHost>().stopRinging,
         holdings: getIt<Holdings>(),
       ),
@@ -1137,7 +1131,7 @@ Future<void> configureDependencies({
           : NativeLocalReminderScheduler(),
     )
     ..registerLazySingleton<PlanStatusSource>(
-      () => RevenueCatPlanStatusSource(getIt<SubscriptionRepository>()),
+      () => StorePlanStatusSource(getIt<SubscriptionRepository>()),
     )
     ..registerLazySingleton(
       () => LocalReminderInputsReader(
@@ -2913,12 +2907,13 @@ Future<void> configureDependencies({
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
         getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
         subscriptionRepository: getIt<SubscriptionRepository>(),
+        manageSubscription: getIt<ManageSubscription>(),
         analytics: getIt.isRegistered<TelemetryGate>()
             ? PaywallAnalytics(getIt<TelemetryGate>())
             : null,
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
-            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+            await getIt<StoreBilling>().invalidateCustomerCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
           getIt<WidgetSync>().rewrite();
@@ -3028,7 +3023,7 @@ Future<void> configureDependencies({
             readIsPaid: _holdsHosted, // access-ok: the buy cubit's name
             readIsRegisteredPaid: _hostedByServer, // access-ok: same
             refreshRegistration: () async {
-              await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+              await getIt<StoreBilling>().invalidateCustomerCache();
               await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
               getIt<WidgetSync>().rewrite();
             },
@@ -3051,7 +3046,7 @@ Future<void> configureDependencies({
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
-            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+            await getIt<StoreBilling>().invalidateCustomerCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
         },
@@ -3145,7 +3140,7 @@ Stream<void> _expiredIncidentChanges(IncidentsCubit incidents) {
   });
 }
 
-void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
+void _mirrorStorePro(StoreCustomer info) => appPlanChanges.setStoreSaysPro(
   value: HostedHoldingSource.storeSaysHosted(info),
 );
 
@@ -3201,3 +3196,83 @@ Future<bool> _hostedByServer() {
 WeeklyCheckAccess _weeklyCheckAccess() => weeklyCheckAccessFor(
   getIt<FeatureAccess>().decide(AppFeature.weeklyCheck),
 );
+
+/// The store services for [store]: everything a store decides, in one set.
+///
+/// Google Play and the App Store share the RevenueCat set. The Galaxy and
+/// Huawei builds get it too until their own sets exist, so they run the
+/// code the Play build runs today.
+StoreServices storeServicesFor(
+  StoreKind store, {
+  required PlatformCapabilities capabilities,
+  required PushHost Function() pushHost,
+}) => switch (store) {
+  StoreKind.play ||
+  StoreKind.apple ||
+  StoreKind.galaxy ||
+  StoreKind.huawei => PlayAppleStoreServices(
+    store: store,
+    capabilities: capabilities,
+    pushHost: pushHost,
+    appStoreId: FeedbackLinks.appStoreId,
+  ),
+};
+
+/// Sets up the store set's billing for this run: RevenueCat with the key for
+/// the store it sells through.
+Future<void> _startStoreBilling(
+  StoreServices services,
+  DeviceIdentityStore identityStore,
+) async {
+  if (services is! PlayAppleStoreServices) return;
+  final revenueCatService = services.revenueCat.service;
+
+  // RevenueCat issues a public SDK key per store and the SDK rejects the
+  // other store's key, so the platform picks which one is passed. The Mac app
+  // is the same App Store app record as the iPhone one (universal purchase),
+  // so it takes the iPhone's key.
+  final sellsThroughAppStore =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+  final revenueCatKey = sellsThroughAppStore
+      ? Env.revenueCatIosApiKey
+      : Env.revenueCatAndroidApiKey;
+  // Thrown above the catch below on purpose. A build that cannot sell has to
+  // stop here, not be swallowed and look like a build nobody bought from.
+  if (releaseBuildCannotSell(
+    isRelease: kReleaseMode,
+    skipsPaywall: buildSkipsPaywall,
+    apiKey: revenueCatKey,
+  )) {
+    final varName = sellsThroughAppStore
+        ? 'REVENUECAT_IOS_API_KEY'
+        : 'REVENUECAT_ANDROID_API_KEY';
+    throw StateError(
+      'This release build has no RevenueCat key, so it cannot sell '
+      'anything. Put $varName in .env. The key comes from RevenueCat, '
+      'Project settings > API keys. Build with '
+      '--dart-define=SKIP_PAYWALL=true if you meant to leave the paywall '
+      'out.',
+    );
+  }
+  try {
+    if (!buildSkipsPaywall && revenueCatKey.isNotEmpty) {
+      await revenueCatService.initialize(
+        apiKey: revenueCatKey,
+        appUserId: (await identityStore.readOrCreate()).accountId,
+      );
+      // The store knows about a purchase before our server does. Mirror its
+      // Pro entitlement so the app turns Pro the moment the buyer pays.
+      services.billing.customerChanges.listen(_mirrorStorePro);
+      unawaited(
+        services.billing.readCustomer().then(
+          _mirrorStorePro,
+          onError: (Object _) {},
+        ),
+      );
+    }
+  } on Object catch (_) {
+    // Ignored for tests or unsupported environments
+  }
+}

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/store/play_apple/revenuecat_billing.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -30,7 +31,9 @@ void main() {
 
       final customerInfoFuture = repository.customerInfoStream.first;
 
-      final purchaseResult = await repository.purchasePackage(package);
+      final purchaseResult = await repository.purchasePackage(
+        storeCatalogEntryOf(package, offeringId: 'default'),
+      );
       expect(purchaseResult.isSuccess(), isTrue);
 
       final customerInfo = await customerInfoFuture;

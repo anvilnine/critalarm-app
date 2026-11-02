@@ -66,14 +66,27 @@ state-management library.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
-| Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store) |
+| Buy for real on a device (sandbox or licence tester) | `make run-store DEVICE=<id>` (`run-release` skips the store). A desk build: no analytics, never uploaded. An iOS archive for the store comes only from `make release-ios`, never from a manual Xcode archive after `make run-store` |
 | Record the Cloud paywall layouts and benefit previews as frames (site and marketing media) | `make site-paywalls`, then `sh tool/site_paywalls_to_web.sh <out-dir>`. Read the header of `tool/capture_site_paywalls.dart` first |
 | Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
+| Build another store's app to check it | `make build-store-apk STORE=galaxy` (or `huawei`; `play` is the default), `make build-store-appbundle STORE=...`. Desk builds: no analytics, never uploaded. They delete `build/release-android.stamp`, so `release-android.sh --upload-only` refuses until a real release build. Store uploads go only through `make release-android` and `make release-ios` |
+| Store leak check | `make check-store-leaks` (builds under `build/`), or `sh tool/store_leak_check.sh <apk-or-aab> <play\|galaxy\|huawei> [mapping.txt]` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
 
 Fresh cold-start mode wipes all app data on the selected device and requires `--yes-wipe`; the Makefile target never passes it.
+
+**Store flavors.** Every Android build names a store: `--flavor play|galaxy|huawei`
+and the same name as `--dart-define=STORE`, read once in `lib/app/di.dart` into
+`StoreKind` (`lib/core/platform/store_kind.dart`). The Make targets pass both,
+`STORE=play` by default, and leave them out for an iPhone, whose store is
+`apple`. A bare `fvm flutter run` on Android stops and asks for a flavor.
+`play` is `app.critalarm`; `galaxy` and `huawei` add `.galaxy` and `.huawei`.
+Play-only native code (Play Asset Delivery, `SoundPackChannel`) lives in
+`android/app/src/play/` and comes in with `playImplementation`; the other two
+flavors have their own `SoundPackChannel` that answers `unavailable`. The play
+release bundle is `build/app/outputs/bundle/playRelease/app-play-release.aab`.
 
 **Work in a worktree, one per task.** `make worktree-new NAME=search-overlay`
 creates `worktrees/search-overlay` on branch `task/search-overlay` off `main`, so

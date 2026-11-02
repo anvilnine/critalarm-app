@@ -26,6 +26,7 @@ import 'package:critalarm/design/components/waveform_bars.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/pulse_ring_widget.dart';
+import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/gallery/glyphs_and_curves_section.dart';
 import 'package:critalarm/design/gallery/passes_section.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
@@ -82,90 +83,109 @@ class _GalleryScreenState extends State<GalleryScreen> {
           builder: (context) {
             final colors = context.appColors;
 
-            return Scaffold(
-              backgroundColor: colors.canvas,
-              body: SafeArea(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    24,
-                    20,
-                    24 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1040),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+            // On a half-open foldable the header holds still in the start
+            // pane or the top half and the sections scroll in the other, so
+            // nothing sits on the fold.
+            Widget sections({required bool withHeader}) => SafeArea(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  24,
+                  20,
+                  24 + MediaQuery.paddingOf(context).bottom,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1040),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (withHeader) ...[
                           _buildTopBar(context, colors),
                           const SizedBox(height: 32),
-                          _buildIntroduction(colors),
-                          const SizedBox(height: 48),
-                          _buildFiveFacesSection(colors),
-                          const SizedBox(height: 48),
-                          _buildSwatchesSection(colors),
-                          const SizedBox(height: 48),
-                          _buildTypographySection(colors),
-                          const SizedBox(height: 48),
-                          _buildScalesSection(colors),
-                          const SizedBox(height: 48),
-                          const GlyphsAndCurvesSection(),
-                          const SizedBox(height: 48),
-                          _buildButtonsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildInputsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildChipsAndBadgesSection(colors),
-                          const SizedBox(height: 48),
-                          _buildToastsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildListRowsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildSoundRowsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildSoundCropperSection(colors),
-                          const SizedBox(height: 48),
-                          _buildCodeBlockSection(colors),
-                          const SizedBox(height: 48),
-                          _buildEmptyStateSection(colors),
-                          const SizedBox(height: 48),
-                          _buildSetupComponentsSection(colors),
-                          const SizedBox(height: 48),
-                          // The status screens' pieces, with a switch for
-                          // reduce motion in the top bar.
-                          MediaQuery(
-                            data: MediaQuery.of(
-                              context,
-                            ).copyWith(disableAnimations: _reduceMotion),
-                            child: const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TopicsComponentsSection(),
-                                SizedBox(height: 48),
-                                PassesSection(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 48),
-                          _buildControlsAndCardsSection(colors),
-                          const SizedBox(height: 48),
-                          _buildPriorityLadderSection(colors),
-                          const SizedBox(height: 48),
-                          _buildAlarmPreviewSection(colors),
-                          const SizedBox(height: 48),
-                          const PaywallLimitsPreviewsSection(),
-                          const SizedBox(height: 48),
-                          const PaywallExtrasPreviewsSection(),
-                          const SizedBox(height: 64),
                         ],
-                      ),
+                        _buildIntroduction(colors),
+                        const SizedBox(height: 48),
+                        _buildFiveFacesSection(colors),
+                        const SizedBox(height: 48),
+                        _buildSwatchesSection(colors),
+                        const SizedBox(height: 48),
+                        _buildTypographySection(colors),
+                        const SizedBox(height: 48),
+                        _buildScalesSection(colors),
+                        const SizedBox(height: 48),
+                        const GlyphsAndCurvesSection(),
+                        const SizedBox(height: 48),
+                        _buildButtonsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildInputsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildChipsAndBadgesSection(colors),
+                        const SizedBox(height: 48),
+                        _buildToastsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildListRowsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildSoundRowsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildSoundCropperSection(colors),
+                        const SizedBox(height: 48),
+                        _buildCodeBlockSection(colors),
+                        const SizedBox(height: 48),
+                        _buildEmptyStateSection(colors),
+                        const SizedBox(height: 48),
+                        _buildSetupComponentsSection(colors),
+                        const SizedBox(height: 48),
+                        // The status screens' pieces, with a switch for
+                        // reduce motion in the top bar.
+                        MediaQuery(
+                          data: MediaQuery.of(
+                            context,
+                          ).copyWith(disableAnimations: _reduceMotion),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TopicsComponentsSection(),
+                              SizedBox(height: 48),
+                              PassesSection(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+                        _buildControlsAndCardsSection(colors),
+                        const SizedBox(height: 48),
+                        _buildPriorityLadderSection(colors),
+                        const SizedBox(height: 48),
+                        _buildAlarmPreviewSection(colors),
+                        const SizedBox(height: 48),
+                        const PaywallLimitsPreviewsSection(),
+                        const SizedBox(height: 48),
+                        const PaywallExtrasPreviewsSection(),
+                        const SizedBox(height: 64),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            );
+
+            return Scaffold(
+              backgroundColor: colors.canvas,
+              body: AppFoldSplit(
+                stage: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: _buildTopBar(context, colors),
+                    ),
+                  ),
+                ),
+                body: sections(withHeader: false),
+                unfolded: sections(withHeader: true),
               ),
             );
           },

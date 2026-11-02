@@ -1,7 +1,10 @@
 import 'dart:async';
+
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/store/services/store_catalog_entry.dart';
+import 'package:critalarm/core/store/services/store_customer.dart';
+import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// In-memory implementation of [SubscriptionRepository] for testing and
 /// offline runs.
@@ -13,117 +16,63 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
   });
 
   bool isPro;
-  final Offerings? offerings;
-  CustomerInfo? customerInfo;
-  final _customerInfoController = StreamController<CustomerInfo>.broadcast();
+  final StoreOfferings? offerings;
+  StoreCustomer? customerInfo;
+  final _customerInfoController = StreamController<StoreCustomer>.broadcast();
+
+  /// What a purchase or a restore leaves the account holding: Cloud, with
+  /// nothing to renew or expire.
+  static const _hosted = StoreEntitlement(
+    id: SubscriptionTier.proEntitlement,
+    isActive: true,
+    willRenew: true,
+    productId: 'lifetime',
+  );
 
   @override
-  Stream<CustomerInfo> get customerInfoStream => _customerInfoController.stream;
+  Stream<StoreCustomer> get customerInfoStream =>
+      _customerInfoController.stream;
 
   @override
   Future<AppResult<bool>> isProActive() async => Success(isPro);
 
   @override
-  Future<AppResult<CustomerInfo>> getCustomerInfo() async {
-    final existingInfo = customerInfo;
-    if (existingInfo != null) {
-      return Success(existingInfo);
-    }
-    final mockInfo = CustomerInfo.fromJson(const <String, dynamic>{
-      'entitlements': <String, dynamic>{
-        'all': <String, dynamic>{},
-        'active': <String, dynamic>{},
-      },
-      'allPurchaseDates': <String, String?>{},
-      'activeSubscriptions': <String>[],
-      'allPurchasedProductIdentifiers': <String>[],
-      'nonSubscriptionTransactions': <dynamic>[],
-      'firstSeen': '2026-01-01T00:00:00Z',
-      'originalAppUserId': 'mock_user',
-      'allExpirationDates': <String, String?>{},
-      'requestDate': '2026-01-01T00:00:00Z',
-    });
-    return Success(mockInfo);
-  }
+  Future<AppResult<StoreCustomer>> getCustomerInfo() async =>
+      Success(customerInfo ?? const StoreCustomer());
 
   @override
-  Future<AppResult<Offerings>> getOfferings() async {
-    final existingOfferings = offerings;
-    if (existingOfferings != null) {
-      return Success(existingOfferings);
-    }
-    final mockOfferings = Offerings.fromJson(const <String, dynamic>{
-      'all': <String, dynamic>{},
-    });
-    return Success(mockOfferings);
-  }
+  Future<AppResult<StoreOfferings>> getOfferings() async =>
+      Success(offerings ?? const StoreOfferings());
 
   @override
-  Future<AppResult<CustomerInfo>> purchasePackage(Package package) async {
+  Future<AppResult<StoreCustomer>> purchasePackage(
+    StoreCatalogEntry package,
+  ) async {
     isPro = true;
-    final info = CustomerInfo.fromJson(const <String, dynamic>{
-      'entitlements': <String, dynamic>{
-        'all': <String, dynamic>{
-          'hosted': <String, dynamic>{
-            'identifier': 'hosted',
-            'isActive': true,
-            'willRenew': true,
-            'periodType': 'NORMAL',
-            'latestPurchaseDate': '2026-01-01T00:00:00Z',
-            'originalPurchaseDate': '2026-01-01T00:00:00Z',
-            'expirationDate': null,
-            'store': 'APP_STORE',
-            'productIdentifier': 'lifetime',
-            'isSandbox': true,
-            'ownershipType': 'PURCHASED',
-          },
-        },
-        'active': <String, dynamic>{
-          'hosted': <String, dynamic>{
-            'identifier': 'hosted',
-            'isActive': true,
-            'willRenew': true,
-            'periodType': 'NORMAL',
-            'latestPurchaseDate': '2026-01-01T00:00:00Z',
-            'originalPurchaseDate': '2026-01-01T00:00:00Z',
-            'expirationDate': null,
-            'store': 'APP_STORE',
-            'productIdentifier': 'lifetime',
-            'isSandbox': true,
-            'ownershipType': 'PURCHASED',
-          },
-        },
-      },
-      'allPurchaseDates': <String, String?>{'lifetime': '2026-01-01T00:00:00Z'},
-      'activeSubscriptions': <String>[],
-      'allPurchasedProductIdentifiers': <String>['lifetime'],
-      'nonSubscriptionTransactions': <dynamic>[],
-      'firstSeen': '2026-01-01T00:00:00Z',
-      'originalAppUserId': 'mock_user',
-      'allExpirationDates': <String, String?>{},
-      'requestDate': '2026-01-01T00:00:00Z',
-    });
+    const info = StoreCustomer(
+      entitlements: StoreEntitlements(
+        all: {SubscriptionTier.proEntitlement: _hosted},
+        active: {SubscriptionTier.proEntitlement: _hosted},
+      ),
+    );
     customerInfo = info;
     _customerInfoController.add(info);
-    return Success(info);
+    return const Success(info);
   }
 
   @override
-  Future<AppResult<CustomerInfo>> restorePurchases() async {
-    const pkg = Package(
-      'lifetime',
-      PackageType.lifetime,
-      StoreProduct(
-        'lifetime',
-        'Crit Alarm Cloud Lifetime',
-        'Crit Alarm Cloud Lifetime',
-        0,
-        r'$0.00',
-        'USD',
-      ),
-      PresentedOfferingContext('default', null, null),
+  Future<AppResult<StoreCustomer>> restorePurchases() async {
+    const entry = StoreCatalogEntry(
+      offeringId: 'default',
+      id: 'lifetime',
+      productId: 'lifetime',
+      title: 'Crit Alarm Cloud Lifetime',
+      priceString: r'$0.00',
+      price: 0,
+      currency: 'USD',
+      period: StorePeriod.lifetime,
     );
-    return purchasePackage(pkg);
+    return purchasePackage(entry);
   }
 
   Future<void> dispose() async {
