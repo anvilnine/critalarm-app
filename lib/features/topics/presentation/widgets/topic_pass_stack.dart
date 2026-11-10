@@ -324,6 +324,7 @@ class _TopicPassStackState extends State<TopicPassStack> {
       type: MaterialType.transparency,
       child: AppPassBands(
         groupLabel: groupLabel,
+        isLoose: true,
         cards: [
           for (final item in summary.cards)
             _card(live, item, thumbOf(item.pass)),
