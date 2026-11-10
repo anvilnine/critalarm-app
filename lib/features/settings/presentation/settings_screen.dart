@@ -326,7 +326,10 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
         );
 
         return AppScreenScaffold(
-          topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          topBar: AppTopBar(
+            title: LocaleKeys.settings_title.tr(),
+            isTabRoot: true,
+          ),
           detail: shown != null
               ? SettingsPaneScope(
                   key: ValueKey(shown),

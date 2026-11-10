@@ -25,9 +25,21 @@ String formatRingDuration(Duration duration) {
   );
 }
 
-/// "Rang 6 min 02 s. Acknowledged."
+/// "6 min 02 s", or "4 min" when the seconds are 0: a past alarm's ring
+/// time. Not for a live counter, which keeps its seconds so it does not
+/// change width every minute.
+String formatPastRingDuration(Duration duration) {
+  if (duration.inMinutes > 0 && duration.inSeconds % 60 == 0) {
+    return LocaleKeys.dart_format_minutes.tr(
+      namedArgs: {'minutes': formatInt(duration.inMinutes)},
+    );
+  }
+  return formatRingDuration(duration);
+}
+
+/// "Rang 6 min 02 s. Acknowledged.", or "Rang 4 min." on the minute.
 String historyMetaText(HistoryEntry entry) {
-  final duration = formatRingDuration(entry.ringDuration ?? Duration.zero);
+  final duration = formatPastRingDuration(entry.ringDuration ?? Duration.zero);
   final key = switch (entry.state) {
     IncidentState.acked => LocaleKeys.history_meta_acknowledged,
     IncidentState.closed => LocaleKeys.history_meta_resolved,

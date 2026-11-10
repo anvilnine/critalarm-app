@@ -51,7 +51,17 @@ void main() {
         router.go('/settings');
         await tester.pumpAndSettle();
 
-        expect(find.text('Settings'), findsOneWidget);
+        // The tab bar names the tab on a phone, so the title is only the
+        // heading a screen reader hears.
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Semantics &&
+                w.properties.header == true &&
+                w.properties.label == 'Settings',
+          ),
+          findsOneWidget,
+        );
         expect(find.text('PHONE CHECKS'), findsOneWidget);
         expect(find.text('Default sound'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
@@ -360,7 +370,7 @@ void main() {
           find.text('github.com/anvilnine/critalarm-app'),
           findsOneWidget,
         );
-        expect(find.text('Issue Tracker'), findsOneWidget);
+        expect(find.text('Issue tracker'), findsOneWidget);
         expect(
           find.text('github.com/anvilnine/critalarm-app/issues'),
           findsOneWidget,

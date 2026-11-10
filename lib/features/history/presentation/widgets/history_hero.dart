@@ -38,16 +38,17 @@ class HistoryHero extends StatefulWidget {
   /// claim about the week.
   final bool isFiltered;
 
-  /// The face at 120 beside the card, overlapping its left edge, instead of
-  /// perched on its corner: the top half of a tabletop fold, too short for
+  /// The face at 120 beside the card, a gap from its left edge, instead of
+  /// above its corner: the top half of a tabletop fold, too short for
   /// the face on top of the card.
   final bool isBeside;
 
   /// The face's width and height on a phone. See [historyHeroFaceSize].
   static const double faceSize = 60;
 
-  /// How far the card reaches up under the face.
-  static const double overlap = 10;
+  /// The gap between the face and the card. The two never overlap: a card
+  /// reaching under the face read as a mistake.
+  static const double gap = 8;
 
   @override
   State<HistoryHero> createState() => _HistoryHeroState();
@@ -165,7 +166,7 @@ class _HistoryHeroState extends State<HistoryHero> {
           clipBehavior: Clip.none,
           children: [
             Positioned(
-              left: 8 + faceSize - HistoryHero.overlap,
+              left: 8 + faceSize + HistoryHero.gap,
               right: 0,
               top: 0,
               bottom: 0,
@@ -217,9 +218,9 @@ class _HistoryHeroState extends State<HistoryHero> {
           );
 
     if (widget.isBeside) {
-      // The card starts where the face ends, less the overlap, and a little
-      // below the face's top, the way the Topics hero sits beside its card.
-      final cardLeft = 8 + faceSize - HistoryHero.overlap;
+      // The card starts one gap past the face, and a little below the face's
+      // top, the way the Topics hero sits beside its card.
+      final cardLeft = 8 + faceSize + HistoryHero.gap;
       final cardTop = (faceSize * 0.176).roundToDouble();
       return Stack(
         clipBehavior: Clip.none,
@@ -244,7 +245,7 @@ class _HistoryHeroState extends State<HistoryHero> {
       );
     }
 
-    final lift = faceSize - HistoryHero.overlap;
+    final lift = faceSize + HistoryHero.gap;
     return Stack(
       clipBehavior: Clip.none,
       children: [

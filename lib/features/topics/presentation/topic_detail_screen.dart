@@ -639,8 +639,9 @@ class _TopicSheet extends StatelessWidget {
         // The topic's look, sound, wake-up challenge and tokens. Each card
         // opens the page that changes it. Kept on the device only, except the
         // tokens.
+        // 18 above, so the sheet's divider never touches the top card.
         Padding(
-          padding: const EdgeInsets.fromLTRB(2, 10, 2, 10),
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
           child: TopicPassStack(
             topicName: state.topicName,
             isExample: isExample,

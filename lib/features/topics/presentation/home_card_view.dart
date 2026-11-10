@@ -106,6 +106,7 @@ String homeCardNumeralText(HomeCardNumeral numeral, {required DateTime now}) =>
       No() => LocaleKeys.home_card_numeral_no.tr(),
       Unknown() => '?',
       NotYet() => LocaleKeys.home_card_numeral_not_yet.tr(),
+      Count(:final done, isPartial: true) => '$done/?',
       Count(:final done, :final of) => '$done/$of',
       Number(:final n) => '$n',
       Seconds(:final n) => LocaleKeys.home_card_numeral_seconds.tr(

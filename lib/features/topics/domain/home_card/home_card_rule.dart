@@ -325,8 +325,17 @@ HomeCardModel _issue(HomeCardInput i, HomeCardKind kind) {
   return HomeCardModel(
     kind: kind,
     label: HomeCardLabel.willItWakeMe,
-    numeral: Count(count.fine, count.total),
-    pips: pipsFor(checks),
+    // A check that could not run leaves the total open and gets a dim pip
+    // of its own, so a full row never sits next to "a check could not run".
+    numeral: Count(
+      count.fine,
+      count.total,
+      isPartial: i.readiness.incomplete,
+    ),
+    pips: [
+      ...pipsFor(checks),
+      if (i.readiness.incomplete) PipTone.open,
+    ],
     foot: foot,
     action: fixOf == null ? null : Fix(fixOf),
     face: isBroken ? brokenFace : needsLookFace,

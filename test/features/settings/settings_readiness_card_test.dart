@@ -104,6 +104,8 @@ void main() {
       expect(view.kind, ReadinessKind.look);
       expect(view.titleIsMissingCheck, isTrue);
       expect(view.fix, isNull);
+      expect(view.summary.numeralText, '6/?');
+      expect(view.summary.pips.last, PipTone.open);
     });
 
     test('a loaded phone with no checks shows a question mark', () {

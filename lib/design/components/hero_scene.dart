@@ -36,7 +36,7 @@ enum AppHeroGaze {
 
 /// Which way the card and the face are arranged.
 enum AppHeroLayout {
-  /// The face on the left and the card on the right, overlapping it.
+  /// The face on the left and the card on the right, a gap between them.
   sideBySide,
 
   /// The face on top and the card under it at full width.
@@ -49,11 +49,17 @@ const double kHeroSideBySideMinWidth = 340;
 /// The largest the face is drawn, side by side.
 const double kHeroMaxFaceSize = 170;
 
+/// The face's share of the scene width, side by side. Smaller than the
+/// stacked share, so the card keeps its width with [kHeroCardGap] between
+/// the two.
+const double kHeroSideFaceShare = 0.38;
+
 /// The face size when the scene is stacked.
 const double kHeroStackedFaceSize = 120;
 
-/// How far the card overlaps the face, in points.
-const double kHeroCardOverlap = 10;
+/// The gap between the face and the card, in points. The two never overlap:
+/// a card laid over the face's edge read as a mistake.
+const double kHeroCardGap = Spacing.s3;
 
 /// The face on a cover screen (the Razr cover), beside a one-line panel, so
 /// the list keeps two rows in view.
@@ -92,7 +98,10 @@ double heroFaceSizeFor(
 }) {
   if (isCover) return kHeroCoverFaceSize;
   final size = switch (layout) {
-    AppHeroLayout.sideBySide => math.min(kHeroMaxFaceSize, width * 0.44),
+    AppHeroLayout.sideBySide => math.min(
+      kHeroMaxFaceSize,
+      width * kHeroSideFaceShare,
+    ),
     AppHeroLayout.stacked => math.min(kHeroStackedFaceSize, width * 0.44),
   };
   return width >= kHeroFaceFloorMinWidth
@@ -482,10 +491,12 @@ class _HeroBodyState extends PaywallClockState<_HeroBody> {
     // or a capture tool, the scene draws its own.
     final paintsDisc = !AmbientScope.isInAmbientScope(context);
 
-    // The card starts a little under the top of the face beside it, or just
-    // above the foot of the face when stacked.
-    final cardTop = isSide ? faceTop + face * 0.176 : faceTop + face - 10;
-    final cardLeft = isSide ? faceLeft + face - kHeroCardOverlap : gutter;
+    // The card starts a little under the top of the face beside it, or one
+    // gap under the foot of the face when stacked.
+    final cardTop = isSide
+        ? faceTop + face * 0.176
+        : faceTop + face + kHeroCardGap;
+    final cardLeft = isSide ? faceLeft + face + kHeroCardGap : gutter;
 
     final dotRingColor = colors.onCanvas.withValues(alpha: 0.1);
     final dotFillColor = colors.surface.withValues(alpha: 0.7);

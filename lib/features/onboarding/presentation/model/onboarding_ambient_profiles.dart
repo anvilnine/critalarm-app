@@ -79,6 +79,10 @@ OnboardingAmbientStep onboardingStepForPath(String path) {
       OnboardingAmbientStep.notifications;
 }
 
+/// The pale tint the app's calm screens use. Cobalt at low strength over the
+/// yellow canvas read as a muddy tan, so setup takes the pale tint instead.
+const Color _calmPale = Color(0xFFFFE08A);
+
 /// Catalog of tailored ambient visual profiles for every onboarding state.
 abstract final class OnboardingAmbientProfiles {
   /// Builds a map of all onboarding profiles adapted to the current [colors].
@@ -90,7 +94,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.howItRings: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.84,
-        colors: [colors.cobalt, colors.crit, colors.high],
+        colors: [_calmPale, colors.crit, colors.high],
         opacities: const [0.24, 0.16, 0.20],
         anchors: const [
           Alignment(-0.72, -0.30),
@@ -104,7 +108,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.notifications: _profile(
         canvas: colors.canvas,
         surfaceOpacity: 0.84,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.24, 0.18, 0.14],
         anchors: const [
           Alignment(-0.82, -0.65),
@@ -118,7 +122,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.alarms: _profile(
         canvas: colors.highCanvas,
         surfaceOpacity: 0.84,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.22, 0.26, 0.16],
         anchors: const [
           Alignment(-0.35, -0.78),
@@ -132,7 +136,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.battery: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.84,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.20, 0.22, 0.12],
         anchors: const [
           Alignment(0.62, -0.74),
@@ -149,7 +153,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.denied: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.88,
-        colors: [colors.cobalt, colors.high, colors.canvasGhostStrong],
+        colors: [_calmPale, colors.high, colors.canvasGhostStrong],
         opacities: const [0.14, 0.12, 0.10],
         anchors: const [
           Alignment(-0.60, -0.40),
@@ -163,7 +167,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.widgets: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.82,
-        colors: [colors.high, colors.cobalt, colors.crit],
+        colors: [colors.high, _calmPale, colors.crit],
         opacities: const [0.22, 0.24, 0.16],
         anchors: const [
           Alignment(0.60, 0.58),
@@ -177,7 +181,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.connect: _profile(
         canvas: colors.canvas,
         surfaceOpacity: 0.80,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.24, 0.18, 0.14],
         anchors: const [
           Alignment(0.75, -0.70),
@@ -194,7 +198,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.use: _profile(
         canvas: colors.canvas,
         surfaceOpacity: 0.84,
-        colors: [colors.high, colors.cobalt, colors.crit],
+        colors: [colors.high, _calmPale, colors.crit],
         opacities: const [0.26, 0.20, 0.12],
         anchors: const [
           Alignment(0.84, -0.88),
@@ -208,7 +212,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.firstTopic: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.82,
-        colors: [colors.high, colors.cobalt, colors.crit],
+        colors: [colors.high, _calmPale, colors.crit],
         opacities: const [0.24, 0.20, 0.14],
         anchors: const [
           Alignment(-0.74, 0.48),
@@ -222,7 +226,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.connected: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.78,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.28, 0.24, 0.20],
         anchors: const [
           Alignment(-0.70, -0.55),
@@ -236,7 +240,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.countdown: _profile(
         canvas: colors.highCanvasAlt,
         surfaceOpacity: 0.82,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.30, 0.28, 0.26],
         anchors: const [
           Alignment(-0.45, -0.35),
@@ -252,7 +256,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.hookUp: _profile(
         canvas: colors.canvas,
         surfaceOpacity: 0.84,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.22, 0.16, 0.10],
         anchors: const [
           Alignment(0.82, -0.78),
@@ -266,7 +270,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.offer: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.80,
-        colors: [colors.high, colors.cobalt, colors.crit],
+        colors: [colors.high, _calmPale, colors.crit],
         opacities: const [0.26, 0.22, 0.14],
         anchors: const [
           Alignment(0.78, 0.40),
@@ -280,7 +284,7 @@ abstract final class OnboardingAmbientProfiles {
       OnboardingAmbientStep.legacyTest: _profile(
         canvas: colors.canvasAlt,
         surfaceOpacity: 0.78,
-        colors: [colors.cobalt, colors.high, colors.crit],
+        colors: [_calmPale, colors.high, colors.crit],
         opacities: const [0.26, 0.22, 0.18],
         anchors: const [
           Alignment(0.62, -0.62),
@@ -305,7 +309,7 @@ abstract final class OnboardingAmbientProfiles {
         _profile(
           canvas: colors.canvas,
           surfaceOpacity: 0.86,
-          colors: [colors.high, colors.cobalt, colors.crit],
+          colors: [colors.high, _calmPale, colors.crit],
           opacities: const [0.22, 0.20, 0.12],
           anchors: const [
             Alignment(0.70, -0.72),
@@ -321,7 +325,7 @@ abstract final class OnboardingAmbientProfiles {
         _profile(
           canvas: colors.canvas,
           surfaceOpacity: 0.86,
-          colors: [colors.high, colors.cobalt, colors.crit],
+          colors: [colors.high, _calmPale, colors.crit],
           opacities: const [0.24, 0.22, 0.16],
           anchors: const [
             Alignment(-0.80, -0.38),
@@ -336,7 +340,7 @@ abstract final class OnboardingAmbientProfiles {
         _profile(
           canvas: colors.canvas,
           surfaceOpacity: 0.86,
-          colors: [colors.high, colors.cobalt, colors.crit],
+          colors: [colors.high, _calmPale, colors.crit],
           opacities: const [0.20, 0.24, 0.14],
           anchors: const [
             Alignment(0.74, 0.62),

@@ -150,6 +150,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
               topBar: AppTopBar(
                 title: LocaleKeys.history_title.tr(),
+                isTabRoot: true,
                 // The filter button is a 40 circle in a 48 tap box.
                 trailingTapRoom: AppIconButton.tapRoom(40),
                 trailing: Row(
@@ -549,7 +550,9 @@ class _IncidentDetail extends StatelessWidget {
           const SizedBox(height: 10),
           AppKeyValueRow(
             label: LocaleKeys.history_detail_ring_label.tr(),
-            value: formatRingDuration(entry.ringDuration ?? Duration.zero),
+            value: formatPastRingDuration(
+              entry.ringDuration ?? Duration.zero,
+            ),
           ),
         ],
       ),
