@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/components/pass_bands.dart';
 import 'package:critalarm/design/components/pass_card.dart';
 import 'package:critalarm/design/components/pass_page.dart';
 import 'package:critalarm/design/components/pass_route.dart';
@@ -201,8 +202,13 @@ class AppPassStack extends StatelessWidget {
     this.safeBottom,
     this.controller,
     this.handoff,
+    this.isLoose = false,
     super.key,
   });
+
+  /// Whether the overlapped cards sit a little off square, like cards in a
+  /// wallet. See [looseCard].
+  final bool isLoose;
 
   /// The header, such as "Personalize".
   final String title;
@@ -308,17 +314,28 @@ class AppPassStack extends StatelessWidget {
                     left: layout.cardLeft,
                     width: layout.cardWidth,
                     top: layout.tops[i],
-                    height: layout.heights[i],
+                    height: isLoose && i < cards.length - 1
+                        ? looseCoveredHeight(
+                            top: layout.tops[i],
+                            height: layout.heights[i],
+                            stackBottom: layout.tops.last + layout.heights.last,
+                          )
+                        : layout.heights[i],
                     // The next card covers the rest of this one.
-                    child: i < cards.length - 1
-                        ? PassCardBand(height: layout.step, child: cards[i])
-                        : roundsFoot &&
-                              layout.tops[i] +
-                                      layout.heights[i] -
-                                      kPassCardBleed <
-                                  height
-                        ? PassCardEnd(child: cards[i])
-                        : cards[i],
+                    child: looseCard(
+                      i < cards.length - 1
+                          ? PassCardBand(height: layout.step, child: cards[i])
+                          : roundsFoot &&
+                                layout.tops[i] +
+                                        layout.heights[i] -
+                                        kPassCardBleed <
+                                    height
+                          ? PassCardEnd(child: cards[i])
+                          : cards[i],
+                      isLoose: isLoose,
+                      index: i,
+                      isCovered: i < cards.length - 1,
+                    ),
                   ),
               ],
             ),

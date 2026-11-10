@@ -157,18 +157,9 @@ class AppPassBands extends StatelessWidget {
   final bool hasInsets;
 
   /// Whether the overlapped cards sit a little off square, like cards
-  /// pushed into a wallet by hand. Each one keeps the same small tilt and
-  /// shift on every build. The flat column stays square.
+  /// pushed into a wallet by hand. See [looseCard]. The flat column stays
+  /// square.
   final bool isLoose;
-
-  /// The tilt in radians and the sideways shift in points of each loose
-  /// card, top first, repeating past the fourth.
-  static const List<(double, double)> looseOffsets = [
-    (-0.012, -1.5),
-    (0.010, 1.5),
-    (-0.008, -1),
-    (0.012, 1.5),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -210,15 +201,26 @@ class AppPassBands extends StatelessWidget {
                     left: layout.cardLeft,
                     width: layout.cardWidth,
                     top: layout.tops[i],
-                    height: layout.heights[i],
+                    height: isLoose && i < cards.length - 1
+                        ? looseCoveredHeight(
+                            top: layout.tops[i],
+                            height: layout.heights[i],
+                            stackBottom: layout.totalHeight,
+                          )
+                        : layout.heights[i],
                     // The next card covers the rest of this one.
-                    child: _loose(
-                      i,
-                      i == cards.length - 1 ? null : layout.step,
-                      i == cards.length - 1
-                          ? PassCardEnd(child: cards[i])
-                          : PassCardBand(height: layout.step, child: cards[i]),
-                    ),
+                    child: i == cards.length - 1
+                        ? looseCard(
+                            PassCardEnd(child: cards[i]),
+                            isLoose: isLoose,
+                            index: i,
+                          )
+                        : looseCard(
+                            PassCardBand(height: layout.step, child: cards[i]),
+                            isLoose: isLoose,
+                            index: i,
+                            isCovered: true,
+                          ),
                   ),
               ],
             ),
@@ -239,41 +241,46 @@ class AppPassBands extends StatelessWidget {
       },
     );
   }
-
-  /// Tilts and shifts a loose card. A card with a [step] is cut a little
-  /// below the next card's top, so the part that card hides cannot peek out
-  /// past its tilted edge.
-  Widget _loose(int index, double? step, Widget card) {
-    if (!isLoose) return card;
-    final (tilt, shift) = looseOffsets[index % looseOffsets.length];
-    final cut = step == null
-        ? card
-        : ClipRRect(clipper: _BandCut(step + looseCover), child: card);
-    return Transform.translate(
-      offset: Offset(shift, 0),
-      child: Transform.rotate(angle: tilt, child: cut),
-    );
-  }
-
-  /// How far a covered loose card runs under the next one: past its round
-  /// top corners and the few points the two tilts open between them.
-  static const double looseCover = 30;
 }
 
-class _BandCut extends CustomClipper<RRect> {
-  const _BandCut(this.height);
+/// The tilt in radians and the sideways shift in points of each loose card,
+/// top first, repeating past the fourth.
+const List<(double, double)> kLooseCardOffsets = [
+  (-0.012, -1.5),
+  (0.010, 1.5),
+  (-0.008, -1),
+  (0.012, 1.5),
+];
 
-  final double height;
+/// How tall a covered loose card is: down to [kPassCardRadius] above the
+/// stack's bottom, and never shorter than its own [height]. Every card runs
+/// the full length of the stack, so what shows past a tilted edge is the
+/// long side of a card, as in a wallet, and the card is whole when it grows
+/// into its page.
+double looseCoveredHeight({
+  required double top,
+  required double height,
+  required double stackBottom,
+}) => math.max(height, stackBottom - kPassCardRadius - top);
 
-  // Round at the cut like the card's own corners, so what shows past a
-  // tilted edge reads as a tucked corner. Open above for the ledge shadow.
-  @override
-  RRect getClip(Size size) => RRect.fromRectAndCorners(
-    Rect.fromLTWH(0, -24, size.width, height + 24),
-    bottomLeft: const Radius.circular(kPassCardRadius),
-    bottomRight: const Radius.circular(kPassCardRadius),
+/// [card], the [index]th of a stack,, with its small fixed tilt and shift
+/// when [isLoose]. A covered card also rounds its foot, which can peek out
+/// past the tilted card in front of it. It turns on the card's top centre,
+/// so the bands line up where they show.
+Widget looseCard(
+  Widget card, {
+  required bool isLoose,
+  required int index,
+  bool isCovered = false,
+}) {
+  if (!isLoose) return card;
+  final (tilt, shift) = kLooseCardOffsets[index % kLooseCardOffsets.length];
+  return Transform.translate(
+    offset: Offset(shift, 0),
+    child: Transform.rotate(
+      angle: tilt,
+      alignment: Alignment.topCenter,
+      child: isCovered ? PassCardEnd(child: card) : card,
+    ),
   );
-
-  @override
-  bool shouldReclip(_BandCut oldClipper) => oldClipper.height != height;
 }
