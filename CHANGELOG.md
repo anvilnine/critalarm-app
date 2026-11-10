@@ -21,6 +21,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On an iPad, an Android tablet, the Mac and the web app, the app names that device instead of saying phone, in every language.
 - On an iPad, the app says a critical alert comes through silent mode as a notification, since the iPad does not show the full-screen alarm. The Mac and the web app keep saying your phone rings.
 - The tab bar sits lower, just above the home indicator, the way iPhone apps place theirs. Lists reach further down the screen.
+- The Crit face and its card no longer overlap on Topics, a topic and History. On a phone the tab name shows only in the tab bar, and the screen moves up into the space the title left. History shows its filter button once there are enough alarms to filter. The cards on a topic and on Personalize sit a little off square, like cards in a wallet. Settings keeps a gap above its first card.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.
@@ -44,6 +45,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Acknowledging the setup test also stops the test alarm of this phone.
 - Started and Acknowledged on the alarm screen show your own time zone.
 - The readiness line says battery optimization is on, which is what it checks, instead of battery saver.
+- When a phone check could not run, the card shows the count as 2/? with an empty mark for that check, instead of a full score.
 
 ### Security
 - On Android, once an alarm is answered or left on a locked phone, Crit Alarm asks for your unlock before it shows anything else. Reading the message from the ringing screen asks for it too.

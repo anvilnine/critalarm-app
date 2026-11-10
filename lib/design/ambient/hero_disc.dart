@@ -27,9 +27,9 @@ class HeroDiscSpot {
   /// A 390 by 844 phone with a 47 point status bar, side by side layout. The
   /// profile a route gets before the screen has measured its own.
   static const HeroDiscSpot phone = HeroDiscSpot(
-    anchor: Alignment(-0.26718, -0.47085),
-    discScale: 1.20308,
-    ringScale: 1.51256,
+    anchor: Alignment(-0.35326, -0.50133),
+    discScale: 1.0488,
+    ringScale: 1.3186,
   );
 
   /// A 390 by 844 phone with the History tab's small face: a disc about 340

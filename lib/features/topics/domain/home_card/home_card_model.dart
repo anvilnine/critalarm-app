@@ -82,17 +82,23 @@ final class NotYet extends HomeCardNumeral {
 
 /// [done] of [of], such as 6 of 7 checks or 1 of 3 setup rows.
 final class Count extends HomeCardNumeral {
-  const Count(this.done, this.of);
+  const Count(this.done, this.of, {this.isPartial = false});
 
   final int done;
   final int of;
 
-  @override
-  bool operator ==(Object other) =>
-      other is Count && other.done == done && other.of == of;
+  /// A check could not run, so [of] is not the whole total. Drawn `done/?`.
+  final bool isPartial;
 
   @override
-  int get hashCode => Object.hash(Count, done, of);
+  bool operator ==(Object other) =>
+      other is Count &&
+      other.done == done &&
+      other.of == of &&
+      other.isPartial == isPartial;
+
+  @override
+  int get hashCode => Object.hash(Count, done, of, isPartial);
 
   @override
   String toString() => 'Count($done/$of)';

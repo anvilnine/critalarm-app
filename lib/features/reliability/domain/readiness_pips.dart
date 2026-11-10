@@ -138,7 +138,13 @@ class ReadinessSummary {
     return ReadinessSummary(
       kind: kind,
       count: readinessCount(checks),
-      pips: kind == ReadinessKind.loading ? const [] : pipsFor(checks),
+      pips: switch (kind) {
+        ReadinessKind.loading => const [],
+        // The check that could not run gets a dim pip of its own, so a full
+        // row never sits next to "a check could not run".
+        _ when incomplete => [...pipsFor(checks), PipTone.open],
+        _ => pipsFor(checks),
+      },
       isIncomplete: incomplete,
       worst: worstCheck(checks),
       fix: checkToFix(checks)?.fix,
@@ -164,11 +170,13 @@ class ReadinessSummary {
   /// read has a hole in it and no check is known to be broken.
   bool get namesMissingCheck => kind == ReadinessKind.look && isIncomplete;
 
-  /// The big figure: `fine/total`, `···` until the first read ends, and `?`
-  /// when no check exists on this phone.
+  /// The big figure: `fine/total`, `···` until the first read ends, `?`
+  /// when no check exists on this phone, and `fine/?` when a check could not
+  /// run, so the total never claims every check was read.
   String get numeralText => switch (kind) {
     ReadinessKind.loading => '···',
     _ when count.total == 0 => '?',
+    _ when isIncomplete => '${count.fine}/?',
     _ => '${count.fine}/${count.total}',
   };
 }

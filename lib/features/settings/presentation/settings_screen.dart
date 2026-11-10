@@ -326,7 +326,10 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
         );
 
         return AppScreenScaffold(
-          topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          topBar: AppTopBar(
+            title: LocaleKeys.settings_title.tr(),
+            isTabRoot: true,
+          ),
           detail: shown != null
               ? SettingsPaneScope(
                   key: ValueKey(shown),
@@ -360,9 +363,16 @@ class _SettingsScreenContentState extends State<_SettingsScreenContent> {
           // backing holds full strength behind the whole title row.
           slivers: [
             if (!cardOnStage)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  // With no title row above it, the card keeps the gap the
+                  // other tab roots leave at the top.
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    AppTopBar.tabBarNamesTabs(context) ? Spacing.s4 : 0,
+                    12,
+                    12,
+                  ),
                   child: card,
                 ),
               ),

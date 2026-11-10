@@ -141,6 +141,7 @@ class AppPassBands extends StatelessWidget {
     this.handoff,
     this.groupLabel,
     this.hasInsets = false,
+    this.isLoose = false,
     super.key,
   });
 
@@ -154,6 +155,11 @@ class AppPassBands extends StatelessWidget {
 
   /// Whether the cards sit [kPassCardInset] in from the sides.
   final bool hasInsets;
+
+  /// Whether the overlapped cards sit a little off square, like cards
+  /// pushed into a wallet by hand. See [looseCard]. The flat column stays
+  /// square.
+  final bool isLoose;
 
   @override
   Widget build(BuildContext context) {
@@ -195,11 +201,26 @@ class AppPassBands extends StatelessWidget {
                     left: layout.cardLeft,
                     width: layout.cardWidth,
                     top: layout.tops[i],
-                    height: layout.heights[i],
+                    height: isLoose && i < cards.length - 1
+                        ? looseCoveredHeight(
+                            top: layout.tops[i],
+                            height: layout.heights[i],
+                            stackBottom: layout.totalHeight,
+                          )
+                        : layout.heights[i],
                     // The next card covers the rest of this one.
                     child: i == cards.length - 1
-                        ? PassCardEnd(child: cards[i])
-                        : PassCardBand(height: layout.step, child: cards[i]),
+                        ? looseCard(
+                            PassCardEnd(child: cards[i]),
+                            isLoose: isLoose,
+                            index: i,
+                          )
+                        : looseCard(
+                            PassCardBand(height: layout.step, child: cards[i]),
+                            isLoose: isLoose,
+                            index: i,
+                            isCovered: true,
+                          ),
                   ),
               ],
             ),
@@ -220,4 +241,46 @@ class AppPassBands extends StatelessWidget {
       },
     );
   }
+}
+
+/// The tilt in radians and the sideways shift in points of each loose card,
+/// top first, repeating past the fourth.
+const List<(double, double)> kLooseCardOffsets = [
+  (-0.012, -1.5),
+  (0.010, 1.5),
+  (-0.008, -1),
+  (0.012, 1.5),
+];
+
+/// How tall a covered loose card is: down to [kPassCardRadius] above the
+/// stack's bottom, and never shorter than its own [height]. Every card runs
+/// the full length of the stack, so what shows past a tilted edge is the
+/// long side of a card, as in a wallet, and the card is whole when it grows
+/// into its page.
+double looseCoveredHeight({
+  required double top,
+  required double height,
+  required double stackBottom,
+}) => math.max(height, stackBottom - kPassCardRadius - top);
+
+/// [card], the [index]th of a stack,, with its small fixed tilt and shift
+/// when [isLoose]. A covered card also rounds its foot, which can peek out
+/// past the tilted card in front of it. It turns on the card's top centre,
+/// so the bands line up where they show.
+Widget looseCard(
+  Widget card, {
+  required bool isLoose,
+  required int index,
+  bool isCovered = false,
+}) {
+  if (!isLoose) return card;
+  final (tilt, shift) = kLooseCardOffsets[index % kLooseCardOffsets.length];
+  return Transform.translate(
+    offset: Offset(shift, 0),
+    child: Transform.rotate(
+      angle: tilt,
+      alignment: Alignment.topCenter,
+      child: isCovered ? PassCardEnd(child: card) : card,
+    ),
+  );
 }

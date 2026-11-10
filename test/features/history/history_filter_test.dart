@@ -5,6 +5,7 @@ import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
+import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/access/access_fakes.dart';
@@ -225,6 +226,35 @@ void main() {
 
     test('the default filter opens on the widest window', () {
       expect(HistoryFilter.none.window, HistoryWindows.quarter);
+    });
+  });
+
+  group('hasEnoughToFilter', () {
+    List<HistoryEntry> some(int count) => [
+      for (var i = 0; i < count; i++)
+        _entry(id: 'e$i', startedAt: now.subtract(Duration(hours: i))),
+    ];
+
+    test('a few alarms leave nothing worth filtering', () {
+      final few = some(HistoryState.filterMinEntries - 1);
+      expect(HistoryState(entries: few).hasEnoughToFilter, isFalse);
+    });
+
+    test('a screen of alarms or another page shows the filter', () {
+      final full = some(HistoryState.filterMinEntries);
+      expect(HistoryState(entries: full).hasEnoughToFilter, isTrue);
+      expect(
+        HistoryState(entries: some(1), hasMore: true).hasEnoughToFilter,
+        isTrue,
+      );
+    });
+
+    test('an active filter keeps its button so it can be turned off', () {
+      final narrowed = HistoryState(
+        entries: some(1),
+        filter: const HistoryFilter(window: HistoryWindows.day),
+      );
+      expect(narrowed.hasEnoughToFilter, isTrue);
     });
   });
 }

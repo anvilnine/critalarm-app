@@ -39,6 +39,12 @@ void main() {
       formatRingDuration(const Duration(minutes: 6, seconds: 2)),
       '6 min 02 s',
     );
+    expect(formatPastRingDuration(const Duration(minutes: 4)), '4 min');
+    expect(
+      formatPastRingDuration(const Duration(minutes: 6, seconds: 2)),
+      '6 min 02 s',
+    );
+    expect(formatPastRingDuration(const Duration(seconds: 44)), '44 s');
     expect(formatCompactDuration(const Duration(minutes: 60)), '1 h');
     expect(formatCompactDuration(const Duration(minutes: 65)), '1 h 5 min');
     expect(formatNum(1.1999999999999993), '1.2');

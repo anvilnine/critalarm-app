@@ -213,6 +213,7 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
               }
 
               final stack = AppPassStack(
+                isLoose: true,
                 title: LocaleKeys.personalize_title.tr(),
                 backLabel: LocaleKeys.personalize_passes_root_back_label.tr(),
                 groupLabel: LocaleKeys.personalize_passes_root_stack_label.tr(),

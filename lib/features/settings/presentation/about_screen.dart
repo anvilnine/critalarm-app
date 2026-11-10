@@ -75,8 +75,12 @@ class AboutScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const LanguageMistakeLine(screen: 'about'),
+                // English is the source text, not an AI translation, so
+                // the line only shows in the other languages.
+                if (Localizations.localeOf(context).languageCode != 'en') ...[
+                  const SizedBox(height: 16),
+                  const LanguageMistakeLine(screen: 'about'),
+                ],
               ],
             ),
           ),

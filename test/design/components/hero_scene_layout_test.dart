@@ -48,9 +48,15 @@ void main() {
   });
 
   group('heroFaceSizeFor', () {
-    test('side by side is 170 on a phone and 150 at 340', () {
-      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 390), 170);
-      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 340), 149.6);
+    test('side by side is 38 percent of the width, up to 170', () {
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 390),
+        closeTo(148.2, 0.001),
+      );
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 340),
+        closeTo(129.2, 0.001),
+      );
       expect(
         heroFaceSizeFor(AppHeroLayout.sideBySide, 600),
         kHeroMaxFaceSize,
@@ -58,9 +64,18 @@ void main() {
     });
 
     test('side by side at the phone widths the hero is drawn at', () {
-      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 375), 165);
-      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 360), 158.4);
-      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 390), 170);
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 375),
+        closeTo(142.5, 0.001),
+      );
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 360),
+        closeTo(136.8, 0.001),
+      );
+      expect(
+        heroFaceSizeFor(AppHeroLayout.sideBySide, 390),
+        closeTo(148.2, 0.001),
+      );
     });
 
     test('stacked is 120', () {

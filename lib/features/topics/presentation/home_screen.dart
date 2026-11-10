@@ -864,6 +864,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         // rather than only this one.
         topBar: AppTopBar(
           title: LocaleKeys.topics_list_title.tr(),
+          isTabRoot: true,
           trailing: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [ProStatusBadge(), RefreshActivityIndicator()],

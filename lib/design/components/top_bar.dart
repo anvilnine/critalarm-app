@@ -1,4 +1,6 @@
 import 'package:critalarm/design/components/buttons.dart';
+import 'package:critalarm/design/fold.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
@@ -61,8 +63,15 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 10, 16, 0),
     this.backgroundColor,
     this.trailingTapRoom,
+    this.isTabRoot = false,
     super.key,
   });
+
+  /// True on the root screen of a tab (Topics, History, Settings). The title
+  /// then hides while the tab bar along the bottom spells out the same word,
+  /// and stays where a rail or an icons-only bar stands in for the bar.
+  /// Screen readers still hear it as the heading.
+  final bool isTabRoot;
 
   final String? title;
   final Widget? titleWidget;
@@ -79,13 +88,45 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(56);
 
+  /// True when the tab bar along the bottom shows its labels on this
+  /// display, so a tab root's title would only repeat one of them.
+  static bool tabBarNamesTabs(BuildContext context) {
+    final size = AppSize.of(context);
+    // The window's own insets, as the shell reads them: the scaffold takes
+    // the side strip out of the padding its children see, and that strip is
+    // what puts the rail beside an iPhone Duo's screen.
+    final padding = MediaQueryData.fromView(View.of(context)).padding;
+    final placement = navPlacementFor(
+      size,
+      AppFold.of(context),
+      padding: padding,
+    );
+    if (placement != AppNavPlacement.bottom) return false;
+    return !(size.isNarrow || size.isCover);
+  }
+
+  /// True when this bar shows no title and no leading button here, so the
+  /// screen gives its row back to the content. Anything in [trailing] still
+  /// draws in the corner, over the top of the content.
+  bool collapsesOn(BuildContext context) =>
+      isTabRoot &&
+      title != null &&
+      titleWidget == null &&
+      leading == null &&
+      tabBarNamesTabs(context);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final room = _iconRoom(leading, trailing, trailingRoom: trailingTapRoom);
+    final hidesTitle = collapsesOn(context);
 
     return Container(
-      color: backgroundColor ?? Colors.transparent,
+      // A collapsed bar lies over the content, so only its buttons take
+      // taps. A painted box, even a clear one, would swallow the rest.
+      color: hidesTitle && backgroundColor == null
+          ? null
+          : backgroundColor ?? Colors.transparent,
       padding: _paddingAfter(context, padding, room, isSliver: false),
       child: Row(
         children: [
@@ -94,7 +135,15 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             if (title != null || titleWidget != null)
               SizedBox(width: 12 - room.leading),
           ],
-          if (titleWidget != null)
+          if (hidesTitle)
+            Expanded(
+              child: Semantics(
+                header: true,
+                label: title,
+                child: const SizedBox.shrink(),
+              ),
+            )
+          else if (titleWidget != null)
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,

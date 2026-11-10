@@ -266,16 +266,6 @@ class _AppInboxRowState extends State<AppInboxRow> {
     final glyphColor = colors.ink3;
     final nameRow = Row(
       children: [
-        if (widget.hasCriticalDelivery) ...[
-          Semantics(
-            label: widget.criticalLabel,
-            child: AppGlyph(
-              GlyphType.bell,
-              color: colors.ink,
-            ),
-          ),
-          const SizedBox(width: 5),
-        ],
         Flexible(
           child: Text(
             widget.name,
@@ -284,6 +274,20 @@ class _AppInboxRowState extends State<AppInboxRow> {
             style: nameStyle,
           ),
         ),
+        // After the name, with the other marks, so every name starts on the
+        // same edge whether or not its topic rings.
+        if (widget.hasCriticalDelivery) ...[
+          const SizedBox(width: 6),
+          Semantics(
+            label: widget.criticalLabel,
+            child: AppGlyph(
+              GlyphType.bell,
+              size: 13,
+              strokeWidth: 2.4,
+              color: colors.ink,
+            ),
+          ),
+        ],
         if (widget.isPinned) ...[
           const SizedBox(width: 6),
           AppGlyph(
