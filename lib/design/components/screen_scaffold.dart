@@ -552,7 +552,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
     // The tab bar leaves room for itself, and so does a pinned bar.
     final tabBarRoom = hasTabBar && !hasRail
-        ? AppFloatingTabBar.contentGapFor(size)
+        ? AppFloatingTabBar.contentGapFor(size, padding.bottom)
         : 0.0;
 
     Widget buildBody(double barHeight) {
@@ -731,7 +731,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               right: 0,
               child: AppScrollFade(
                 edge: ScrollFadeEdge.bottom,
-                height: padding.bottom + AppFloatingTabBar.fadeHeightFor(size),
+                height:
+                    padding.bottom +
+                    AppFloatingTabBar.fadeHeightFor(size, padding.bottom),
                 color: canvas,
               ),
             ),

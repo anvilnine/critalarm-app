@@ -244,6 +244,36 @@ void main() {
         AppFloatingTabBar.fadeHeight,
       );
     });
+
+    test('an iPhone home indicator puts the bar 18 from the edge', () {
+      const phone = AppSize(393, 852);
+      expect(AppFloatingTabBar.bottomFor(phone, 34), 18);
+      // The list clears the bar by the same room, counted from the inset.
+      expect(
+        34 + AppFloatingTabBar.contentGapFor(phone, 34),
+        18 + AppFloatingTabBar.height + AppFloatingTabBar.rowClearance,
+      );
+      expect(
+        34 + AppFloatingTabBar.fadeHeightFor(phone, 34),
+        18 + AppFloatingTabBar.height,
+      );
+    });
+
+    test('an Android gesture handle overlaps the same way', () {
+      const phone = AppSize(412, 915);
+      expect(AppFloatingTabBar.bottomFor(phone, 24), 18);
+      expect(AppFloatingTabBar.bottomFor(phone, 40), 24);
+    });
+
+    test('three-button navigation keeps the bar above the buttons', () {
+      const phone = AppSize(412, 915);
+      expect(AppFloatingTabBar.bottomFor(phone, 48), 48 + 8);
+    });
+
+    test('no inset keeps the usual gap', () {
+      const phone = AppSize(375, 667);
+      expect(AppFloatingTabBar.bottomFor(phone, 0), AppFloatingTabBar.edgeGap);
+    });
   });
 
   group('hero face size', () {

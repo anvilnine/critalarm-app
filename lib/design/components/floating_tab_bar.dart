@@ -67,31 +67,63 @@ class AppFloatingTabBar extends StatelessWidget {
   static const double height = 56;
 
   /// Gap between the bottom edge of the display and the bottom of the bar,
-  /// on top of the view's own bottom inset.
+  /// on top of the view's own bottom inset, where nothing system-drawn sits
+  /// at the bottom: a Home button iPhone, an old Android, the desktop.
   static const double edgeGap = 22;
 
-  /// What a screen should leave free at the bottom of its scroll view so the
-  /// last row clears the bar. Add the view's own bottom inset on top.
-  static const double contentGap = height + 28;
+  /// How far the bar's bottom sits from the display edge on a phone with a
+  /// home indicator or gesture handle. The bar overlaps the inset strip and
+  /// stops just above the handle, the way the iOS 26 tab bar does. Holding it
+  /// a full [edgeGap] above the inset left it floating mid-air.
+  static const double handleClearance = 18;
 
-  /// How tall the fade behind the bar is, so its top edge lands on the top of
-  /// the bar and never above it. Add the view's own bottom inset on top.
+  /// A bottom inset at or under this is a home indicator or a gesture handle,
+  /// which the bar may overlap. A taller one is a row of system buttons
+  /// (three-button Android navigation), which the bar must stay clear of.
+  static const double handleInsetMax = 40;
+
+  /// Room left between the top of the bar and the last row of a list.
+  static const double rowClearance = 6;
+
+  /// What a screen should leave free at the bottom of its scroll view so the
+  /// last row clears the bar, with [edgeGap] under it. Add the view's own
+  /// bottom inset on top. [contentGapFor] is the one that follows the inset.
+  static const double contentGap = height + edgeGap + rowClearance;
+
+  /// How tall the fade behind the bar is, with [edgeGap] under it, so its top
+  /// edge lands on the top of the bar. Add the view's own bottom inset on top.
   static const double fadeHeight = height + edgeGap;
 
   /// [edgeGap] on a cover screen, where every row of height counts.
   static const double coverEdgeGap = 8;
 
-  /// The gap under the bar on a display of [size]: [coverEdgeGap] on a cover
-  /// screen, [edgeGap] everywhere else.
-  static double edgeGapFor(AppSize size) =>
-      size.isCover ? coverEdgeGap : edgeGap;
+  /// Distance from the bottom edge of the display to the bottom of the bar,
+  /// with the view's bottom inset [safeBottom] already counted in.
+  static double bottomFor(AppSize size, double safeBottom) {
+    if (size.isCover) return safeBottom + coverEdgeGap;
+    if (safeBottom <= 0) return edgeGap;
+    if (safeBottom <= handleInsetMax) {
+      return safeBottom - 16 > handleClearance
+          ? safeBottom - 16
+          : handleClearance;
+    }
+    return safeBottom + coverEdgeGap;
+  }
 
-  /// [contentGap] on a display of [size].
-  static double contentGapFor(AppSize size) =>
-      contentGap - edgeGap + edgeGapFor(size);
+  /// The gap under the bar on a display of [size] measured from the top of
+  /// the inset [safeBottom]. Negative when the bar overlaps the inset strip.
+  static double edgeGapFor(AppSize size, [double safeBottom = 0]) =>
+      bottomFor(size, safeBottom) - safeBottom;
 
-  /// [fadeHeight] on a display of [size].
-  static double fadeHeightFor(AppSize size) => height + edgeGapFor(size);
+  /// [contentGap] on a display of [size] with bottom inset [safeBottom].
+  /// Add [safeBottom] on top, as with [contentGap].
+  static double contentGapFor(AppSize size, [double safeBottom = 0]) =>
+      edgeGapFor(size, safeBottom) + height + rowClearance;
+
+  /// [fadeHeight] on a display of [size] with bottom inset [safeBottom].
+  /// Add [safeBottom] on top, as with [fadeHeight].
+  static double fadeHeightFor(AppSize size, [double safeBottom = 0]) =>
+      edgeGapFor(size, safeBottom) + height;
 
   final List<AppTabItem> items;
   final int currentIndex;

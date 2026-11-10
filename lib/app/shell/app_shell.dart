@@ -312,7 +312,7 @@ class _AppShellContentState extends State<_AppShellContent>
     // ProblemStack does, so the field is never hidden behind it.
     final barBottom = keyboard > 0
         ? keyboard + _panelGap
-        : bottomInset + AppFloatingTabBar.edgeGapFor(size);
+        : AppFloatingTabBar.bottomFor(size, bottomInset);
     final panelBottom = barBottom + AppFloatingTabBar.height + _panelGap;
     final width = (navArea.width - _gutter * 2).clamp(0.0, _maxWidth);
     final navLeft = navArea.left;
