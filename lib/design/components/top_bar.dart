@@ -105,14 +105,28 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     return !(size.isNarrow || size.isCover);
   }
 
+  /// True when this bar shows no title and no leading button here, so the
+  /// screen gives its row back to the content. Anything in [trailing] still
+  /// draws in the corner, over the top of the content.
+  bool collapsesOn(BuildContext context) =>
+      isTabRoot &&
+      title != null &&
+      titleWidget == null &&
+      leading == null &&
+      tabBarNamesTabs(context);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final room = _iconRoom(leading, trailing, trailingRoom: trailingTapRoom);
-    final hidesTitle = isTabRoot && title != null && tabBarNamesTabs(context);
+    final hidesTitle = collapsesOn(context);
 
     return Container(
-      color: backgroundColor ?? Colors.transparent,
+      // A collapsed bar lies over the content, so only its buttons take
+      // taps. A painted box, even a clear one, would swallow the rest.
+      color: hidesTitle && backgroundColor == null
+          ? null
+          : backgroundColor ?? Colors.transparent,
       padding: _paddingAfter(context, padding, room, isSliver: false),
       child: Row(
         children: [

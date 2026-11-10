@@ -20,7 +20,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Times on the alarm screen follow your phone's 12 or 24 hour clock.
 - On an iPad, an Android tablet, the Mac and the web app, the app names that device instead of saying phone, in every language.
 - On an iPad, the app says a critical alert comes through silent mode as a notification, since the iPad does not show the full-screen alarm. The Mac and the web app keep saying your phone rings.
-- The Crit face and its card no longer overlap on Topics, a topic and History. On a phone the tab name shows only in the tab bar, not again at the top of the screen.
+- The Crit face and its card no longer overlap on Topics, a topic and History. On a phone the tab name shows only in the tab bar, and the screen moves up into the space the title left. History shows its filter button once there are enough alarms to filter.
 
 ### Fixed
 - After you restore an iPhone from a backup or move to a new one, the account screen shows you signed out, so you can sign in again.

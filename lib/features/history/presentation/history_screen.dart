@@ -157,8 +157,10 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const RefreshActivityIndicator(),
-                    const SizedBox(width: 8),
-                    _FilterButton(filter: state.filter),
+                    if (state.hasEnoughToFilter) ...[
+                      const SizedBox(width: 8),
+                      _FilterButton(filter: state.filter),
+                    ],
                   ],
                 ),
               ),

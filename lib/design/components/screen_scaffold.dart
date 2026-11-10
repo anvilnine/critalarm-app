@@ -4,6 +4,7 @@ import 'package:critalarm/design/ambient/ambient_scope.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
+import 'package:critalarm/design/components/top_bar.dart';
 import 'package:critalarm/design/faces/ghost_field.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/fold.dart';
@@ -536,8 +537,12 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       right: columns.listLeft + paneWidth,
     );
 
+    // A tab root whose title the tab bar already names keeps no row for it.
+    // Its bar still backs the status bar once the list scrolls under it.
+    final barTakesRow =
+        topBar != null && !(topBar is AppTopBar && topBar.collapsesOn(context));
     final topInset =
-        padding.top + (topBar == null ? 0 : AppScreenScaffold.topBarHeight);
+        padding.top + (barTakesRow ? AppScreenScaffold.topBarHeight : 0);
 
     // A screen with no top bar of its own can sit under a bar the host draws
     // over it. The list keeps its own top padding, and the backing covers

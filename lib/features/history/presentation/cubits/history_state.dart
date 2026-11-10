@@ -57,6 +57,14 @@ class HistoryState {
   bool get isEmptyAfterFilter =>
       status == HistoryStatus.success && entries.isNotEmpty && days.isEmpty;
 
+  /// Enough alarms that narrowing them helps: more than one screen of rows,
+  /// another page on disk, or a filter already on (so it can be turned off).
+  bool get hasEnoughToFilter =>
+      filter.isActive || hasMore || entries.length >= filterMinEntries;
+
+  /// Fewer alarms than this fit on one screen, so the filter button hides.
+  static const int filterMinEntries = 6;
+
   int get alarmCount =>
       days.fold(0, (total, day) => total + day.entries.length);
 
