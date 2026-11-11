@@ -156,7 +156,7 @@ class AppPassBands extends StatelessWidget {
   /// Whether the cards sit [kPassCardInset] in from the sides.
   final bool hasInsets;
 
-  /// Whether the overlapped cards sit a little off square, like cards
+  /// Whether the overlapped cards sit visibly off square, like cards
   /// pushed into a wallet by hand. See [looseCard]. The flat column stays
   /// square.
   final bool isLoose;
@@ -190,6 +190,11 @@ class AppPassBands extends StatelessWidget {
             ),
           );
         } else {
+          final room = isLoose ? looseCardRoomFor(layout.cardWidth) : 0.0;
+          final cardWidth = layout.cardWidth - 2 * room;
+          LooseCardPose? poseOf(int i) => isLoose
+              ? looseCardPoseFor(index: i, cardWidth: cardWidth, room: room)
+              : null;
           body = SizedBox(
             width: width,
             height: layout.totalHeight,
@@ -198,27 +203,26 @@ class AppPassBands extends StatelessWidget {
               children: [
                 for (var i = 0; i < cards.length; i++)
                   Positioned(
-                    left: layout.cardLeft,
-                    width: layout.cardWidth,
+                    left: layout.cardLeft + room,
+                    width: cardWidth,
                     top: layout.tops[i],
                     height: isLoose && i < cards.length - 1
                         ? looseCoveredHeight(
                             top: layout.tops[i],
                             height: layout.heights[i],
                             stackBottom: layout.totalHeight,
+                            pose: poseOf(i)!,
                           )
                         : layout.heights[i],
                     // The next card covers the rest of this one.
                     child: i == cards.length - 1
                         ? looseCard(
                             PassCardEnd(child: cards[i]),
-                            isLoose: isLoose,
-                            index: i,
+                            pose: poseOf(i),
                           )
                         : looseCard(
                             PassCardBand(height: layout.step, child: cards[i]),
-                            isLoose: isLoose,
-                            index: i,
+                            pose: poseOf(i),
                             isCovered: true,
                           ),
                   ),
@@ -243,42 +247,129 @@ class AppPassBands extends StatelessWidget {
   }
 }
 
-/// The tilt in radians and the sideways shift in points of each loose card,
-/// top first, repeating past the fourth.
-const List<(double, double)> kLooseCardOffsets = [
-  (-0.012, -1.5),
-  (0.010, 1.5),
-  (-0.008, -1),
-  (0.012, 1.5),
+/// How far in from each side a loose card sits, in points, so its shift and
+/// tilt never reach past the column the stack was given. The flat column
+/// keeps the full width.
+const double kLooseCardRoom = 10;
+
+/// The least room a loose card keeps on each side, on the narrowest column.
+const double kLooseCardMinRoom = 4;
+
+/// A loose card gives up its room before it narrows past this width, so a
+/// label, its plan badge and the value beside them still fit on a small
+/// phone.
+const double kLooseCardMinWidth = 312;
+
+/// The most a tilted card's top corner may rise or fall, in points. A wide
+/// card turns less, so the corner never climbs into the band above it.
+const double kLooseCardMaxLift = 12;
+
+/// The loose pattern, top card first, repeating past the fourth: the tilt in
+/// degrees (positive turns clockwise) and the shift of the card's top in
+/// points (positive to the right). The tilt and the shift always share a
+/// sign, so a card's top leans one way and its foot swings back under the
+/// stack. Neighbours always lean opposite ways, and no two in a row share a
+/// size, so the stack reads as placed by hand rather than drawn askew.
+const List<(double, double)> kLooseCardPattern = [
+  (-2.5, -8),
+  (3, 9),
+  (-2, -7),
+  (3.5, 9),
 ];
 
+/// The room a loose card keeps on each side when the square card would be
+/// [squareWidth] wide. Pure. [kLooseCardRoom], less on a column so narrow
+/// that the card would drop under [kLooseCardMinWidth], and never under
+/// [kLooseCardMinRoom].
+double looseCardRoomFor(double squareWidth) =>
+    ((squareWidth - kLooseCardMinWidth) / 2).clamp(
+      kLooseCardMinRoom,
+      kLooseCardRoom,
+    );
+
+/// The tilt in radians and the shift in points of one loose card, and the
+/// room it has on each side.
+@immutable
+class LooseCardPose {
+  const LooseCardPose({
+    required this.tilt,
+    required this.shift,
+    this.room = kLooseCardRoom,
+  });
+
+  /// The turn in radians, about the card's top centre. Positive is clockwise.
+  final double tilt;
+
+  /// How far the card moves sideways, in points. Positive is to the right.
+  final double shift;
+
+  /// How far in from each side of the column the card sits.
+  final double room;
+
+  /// The tallest this card can be before its foot swings past [room].
+  /// Infinite for a card that does not turn.
+  double get maxHeight {
+    final sine = math.sin(tilt.abs());
+    if (sine == 0) return double.infinity;
+    return (room + shift.abs()) / sine;
+  }
+}
+
+/// The pose of the [index]th loose card of a stack whose cards are
+/// [cardWidth] wide with [room] on each side. Pure.
+///
+/// It follows [kLooseCardPattern], so a card keeps its pose from visit to
+/// visit. A wide card turns less, so its top corner never rises or falls more
+/// than [kLooseCardMaxLift]. The shift stays a point inside [room].
+LooseCardPose looseCardPoseFor({
+  required int index,
+  required double cardWidth,
+  double room = kLooseCardRoom,
+}) {
+  final (degrees, shift) = kLooseCardPattern[index % kLooseCardPattern.length];
+  final tilt = degrees * math.pi / 180;
+  final half = cardWidth / 2;
+  final maxTilt = half <= kLooseCardMaxLift
+      ? tilt.abs()
+      : math.asin(kLooseCardMaxLift / half);
+  final reach = math.max(0, room - 1).toDouble();
+  return LooseCardPose(
+    tilt: tilt.sign * math.min(tilt.abs(), maxTilt),
+    shift: shift.clamp(-reach, reach),
+    room: room,
+  );
+}
+
 /// How tall a covered loose card is: down to [kPassCardRadius] above the
-/// stack's bottom, and never shorter than its own [height]. Every card runs
-/// the full length of the stack, so what shows past a tilted edge is the
-/// long side of a card, as in a wallet, and the card is whole when it grows
-/// into its page.
+/// stack's bottom, and never shorter than its own [height]. The card runs
+/// most of the stack, so what shows past a tilted edge is the long side of a
+/// card, as in a wallet, and the card is whole when it grows into its page.
+/// It stops at [pose]'s `maxHeight`, so a long stack never swings a foot past
+/// the column.
 double looseCoveredHeight({
   required double top,
   required double height,
   required double stackBottom,
-}) => math.max(height, stackBottom - kPassCardRadius - top);
+  required LooseCardPose pose,
+}) => math.max(
+  height,
+  math.min(stackBottom - kPassCardRadius - top, pose.maxHeight),
+);
 
-/// [card], the [index]th of a stack,, with its small fixed tilt and shift
-/// when [isLoose]. A covered card also rounds its foot, which can peek out
-/// past the tilted card in front of it. It turns on the card's top centre,
-/// so the bands line up where they show.
+/// [card] with [pose]'s tilt and shift, or as it is when [pose] is null. A
+/// covered card also rounds its foot, which can peek out past the tilted card
+/// in front of it. It turns on the card's top centre, so the band's top edge
+/// is where the eye reads the lean.
 Widget looseCard(
   Widget card, {
-  required bool isLoose,
-  required int index,
+  required LooseCardPose? pose,
   bool isCovered = false,
 }) {
-  if (!isLoose) return card;
-  final (tilt, shift) = kLooseCardOffsets[index % kLooseCardOffsets.length];
+  if (pose == null) return card;
   return Transform.translate(
-    offset: Offset(shift, 0),
+    offset: Offset(pose.shift, 0),
     child: Transform.rotate(
-      angle: tilt,
+      angle: pose.tilt,
       alignment: Alignment.topCenter,
       child: isCovered ? PassCardEnd(child: card) : card,
     ),

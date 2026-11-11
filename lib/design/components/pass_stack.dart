@@ -206,7 +206,7 @@ class AppPassStack extends StatelessWidget {
     super.key,
   });
 
-  /// Whether the overlapped cards sit a little off square, like cards in a
+  /// Whether the overlapped cards sit visibly off square, like cards in a
   /// wallet. See [looseCard].
   final bool isLoose;
 
@@ -229,7 +229,8 @@ class AppPassStack extends StatelessWidget {
   /// True gives the last card round bottom corners when it stops short of
   /// the bottom edge. On a full display the last card runs off that edge; a
   /// stack drawn in a pane taller than itself would otherwise end in mid air
-  /// with a square foot.
+  /// with a square foot. A loose stack always rounds a foot that stops
+  /// short, since a tilted square foot in mid air reads as a cut.
   final bool roundsFoot;
 
   /// The spoken name of the group of cards.
@@ -302,6 +303,11 @@ class AppPassStack extends StatelessWidget {
             ),
           );
         } else {
+          final room = isLoose ? looseCardRoomFor(layout.cardWidth) : 0.0;
+          final cardWidth = layout.cardWidth - 2 * room;
+          LooseCardPose? poseOf(int i) => isLoose
+              ? looseCardPoseFor(index: i, cardWidth: cardWidth, room: room)
+              : null;
           body = SizedBox(
             width: constraints.maxWidth,
             height: layout.scrollExtent,
@@ -311,29 +317,29 @@ class AppPassStack extends StatelessWidget {
                 header,
                 for (var i = 0; i < cards.length; i++)
                   Positioned(
-                    left: layout.cardLeft,
-                    width: layout.cardWidth,
+                    left: layout.cardLeft + room,
+                    width: cardWidth,
                     top: layout.tops[i],
                     height: isLoose && i < cards.length - 1
                         ? looseCoveredHeight(
                             top: layout.tops[i],
                             height: layout.heights[i],
                             stackBottom: layout.tops.last + layout.heights.last,
+                            pose: poseOf(i)!,
                           )
                         : layout.heights[i],
                     // The next card covers the rest of this one.
                     child: looseCard(
                       i < cards.length - 1
                           ? PassCardBand(height: layout.step, child: cards[i])
-                          : roundsFoot &&
+                          : (roundsFoot || isLoose) &&
                                 layout.tops[i] +
                                         layout.heights[i] -
                                         kPassCardBleed <
                                     height
                           ? PassCardEnd(child: cards[i])
                           : cards[i],
-                      isLoose: isLoose,
-                      index: i,
+                      pose: poseOf(i),
                       isCovered: i < cards.length - 1,
                     ),
                   ),

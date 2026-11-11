@@ -12,6 +12,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
 ### Added
 - Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
+- The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
