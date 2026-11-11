@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/design/ambient/ambient_lift.dart';
 import 'package:critalarm/design/ambient/ambient_page.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +11,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('AmbientPage route creation', () {
-    testWidgets('creates route with expected defaults and properties',
-        (tester) async {
+    testWidgets('creates route with expected defaults and properties', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -90,6 +92,64 @@ void main() {
       expect(find.text('Root Screen'), findsOneWidget);
     });
 
+    testWidgets(
+      'a lifted page keeps what was typed through a cancelled swipe, then '
+      'pops on a full one',
+      (tester) async {
+        final router = GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              pageBuilder: (context, state) => AmbientPage(
+                key: state.pageKey,
+                child: const Scaffold(body: Text('Root Screen')),
+              ),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    entrance: AmbientEntrance.lift,
+                    opaque: true,
+                    child: const Scaffold(body: Center(child: TextField())),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            routerConfig: router,
+          ),
+        );
+        await tester.pumpAndSettle();
+        unawaited(router.push('/new'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'prod-db');
+
+        final short = await tester.startGesture(const Offset(5, 100));
+        await tester.pump();
+        await short.moveBy(const Offset(60, 0));
+        await tester.pump();
+        await short.up();
+        await tester.pumpAndSettle();
+        expect(find.text('prod-db'), findsOneWidget);
+
+        final full = await tester.startGesture(const Offset(5, 100));
+        await tester.pump();
+        await full.moveBy(const Offset(500, 0));
+        await tester.pump();
+        await full.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(TextField), findsNothing);
+        expect(find.text('Root Screen'), findsOneWidget);
+      },
+    );
+
     testWidgets('short drag cancels swipe back on iOS', (tester) async {
       final router = GoRouter(
         initialLocation: '/',
@@ -137,8 +197,9 @@ void main() {
       expect(find.text('Detail Screen'), findsOneWidget);
     });
 
-    testWidgets('fullscreenDialog routes do not allow swipe back on iOS',
-        (tester) async {
+    testWidgets('fullscreenDialog routes do not allow swipe back on iOS', (
+      tester,
+    ) async {
       final router = GoRouter(
         initialLocation: '/',
         routes: [
@@ -231,8 +292,9 @@ void main() {
       expect(find.text('Detail Screen'), findsOneWidget);
     });
 
-    testWidgets('AmbientPageRoute also supports edge swipe on iOS',
-        (tester) async {
+    testWidgets('AmbientPageRoute also supports edge swipe on iOS', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(platform: TargetPlatform.iOS),
