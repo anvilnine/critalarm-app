@@ -59,14 +59,14 @@ const double kLiftSinkScale = 0.96;
 
 /// The screen that leaves, whichever it is, is gone by this point of the
 /// move.
-const double _leaveFadeEnd = 0.4;
+const double _leaveFadeEnd = 0.35;
 
 /// The screen that arrives starts to show at this point of the move, and is
-/// fully shown by [_arriveFadeEnd]. The two fades barely overlap, so the two
-/// screens are never both fully drawn: between them the canvas shows on its
-/// own for a moment.
-const double _arriveFadeStart = 0.2;
-const double _arriveFadeEnd = 0.75;
+/// fully shown by [_arriveFadeEnd]. The two fades never overlap: the leaving
+/// screen is gone before the arriving one starts to show, and between them
+/// the canvas shows on its own for a moment. No frame shows both screens.
+const double _arriveFadeStart = 0.45;
+const double _arriveFadeEnd = 0.85;
 
 /// How far the leaving screen has faded at [u] of the move, 0 to 1.
 double _leaveFade(double u) =>

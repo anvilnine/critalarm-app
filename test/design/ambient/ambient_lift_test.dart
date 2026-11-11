@@ -24,15 +24,15 @@ void main() {
         expect(pose.dy, greaterThanOrEqualTo(0));
         lastDy = pose.dy;
       }
-      expect(liftInPose(0.15).opacity, 0);
-      expect(liftInPose(0.8).opacity, 1);
+      expect(liftInPose(0.45).opacity, 0);
+      expect(liftInPose(0.85).opacity, 1);
     });
 
     test('on a pop it moves and fades from the first frame', () {
       final early = liftInPose(0.95, reverse: true);
       expect(early.dy, greaterThan(0));
       expect(early.opacity, lessThan(1));
-      expect(liftInPose(0.55, reverse: true).opacity, 0);
+      expect(liftInPose(0.65, reverse: true).opacity, 0);
       expect(liftInPose(1, reverse: true), LiftPose.rest);
     });
   });
@@ -48,18 +48,29 @@ void main() {
       expect(end.dy, closeTo(-kLiftSinkRise, 1e-9));
       expect(end.scale, closeTo(kLiftSinkScale, 1e-9));
       expect(end.opacity, 0);
-      expect(liftCoveredPose(0.4).opacity, 0);
+      expect(liftCoveredPose(0.35).opacity, 0);
     });
 
     test('comes back late on a pop, after the page above has faded', () {
-      expect(liftCoveredPose(0.85, reverse: true).opacity, 0);
-      expect(liftCoveredPose(0.2, reverse: true).opacity, 1);
+      expect(liftCoveredPose(0.55, reverse: true).opacity, 0);
+      expect(liftCoveredPose(0.15, reverse: true).opacity, 1);
     });
 
     test('push end and pop start are the same frame', () {
       expect(liftCoveredPose(1), liftCoveredPose(1, reverse: true));
       expect(liftInPose(1), liftInPose(1, reverse: true));
     });
+  });
+
+  test('no frame shows both screens, either way', () {
+    for (var i = 0; i <= 480; i++) {
+      final t = i / 480;
+      for (final reverse in [false, true]) {
+        final top = liftInPose(t, reverse: reverse).opacity;
+        final under = liftCoveredPose(t, reverse: reverse).opacity;
+        expect(top == 0 || under == 0, isTrue, reason: 't=$t reverse=$reverse');
+      }
+    }
   });
 
   group('coverEntranceOf', () {
