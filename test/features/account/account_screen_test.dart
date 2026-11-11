@@ -16,9 +16,15 @@ void main() {
   Widget wrap(AccountCubit cubit) {
     return MaterialApp(
       theme: buildLightTheme(),
-      home: BlocProvider<AccountCubit>.value(
-        value: cubit,
-        child: const AccountView(),
+      // The view is a part of Account and plan now, not a screen, so the
+      // test gives it the scroll the page would.
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: BlocProvider<AccountCubit>.value(
+            value: cubit,
+            child: const AccountView(),
+          ),
+        ),
       ),
     );
   }
@@ -291,7 +297,7 @@ void main() {
     expect(find.text('Privacy Policy'), findsNothing);
   });
 
-  testWidgets('renders the calm mascot face at the top when available', (
+  testWidgets('draws no face: the phone checks card keeps the only one', (
     tester,
   ) async {
     final account = FakeAccountRepository(linkAnswers: const []);
@@ -305,9 +311,8 @@ void main() {
     await tester.pumpWidget(wrap(cubit));
     await tester.pumpAndSettle();
 
-    final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-    expect(face.state, FaceState.calm);
-    expect(face.size, 96);
+    expect(find.byType(FaceWidget), findsNothing);
+    expect(find.text('Join code'), findsOneWidget);
   });
 
   testWidgets(
@@ -337,7 +342,7 @@ void main() {
     },
   );
 
-  testWidgets('delete account is placed outside the main auth sheet', (
+  testWidgets('delete account is placed outside the account card', (
     tester,
   ) async {
     final account = FakeAccountRepository(linkAnswers: const []);
@@ -352,18 +357,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Delete account'), findsOneWidget);
-    // Delete account should NOT be inside AppSheet
     expect(
       find.descendant(
-        of: find.byType(AppSheet),
+        of: find.byKey(accountCardKey),
         matching: find.text('Delete account'),
       ),
       findsNothing,
     );
-    // But Google sign in IS inside AppSheet
     expect(
       find.descendant(
-        of: find.byType(AppSheet),
+        of: find.byKey(accountCardKey),
         matching: find.text('Continue with Google'),
       ),
       findsOneWidget,

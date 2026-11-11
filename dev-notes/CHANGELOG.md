@@ -1,6 +1,10 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
+## Unreleased
+### Added
+- AppTitledCard and AppCardRow in lib/design for titled groups of one-line rows, and a person glyph.
+
 ## 1.1.0+17 - 2026-11-11
 ### Added
 - assets/translations has de.json and ja.json. make check-l10n runs tool/l10n\_parity.dart and checks the native strings tool/l10n\_native.dart generates.

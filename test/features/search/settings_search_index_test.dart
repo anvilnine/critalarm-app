@@ -136,7 +136,7 @@ void main() {
         expect(pro.titleKey, LocaleKeys.settings_pro_title);
         // It leads to the Settings tab, where the row is. It opens no
         // paywall of its own, so a person who owns Pro is never offered it.
-        expect(pro.routePath, '/settings');
+        expect(pro.routePath, '/settings/account');
         expect(
           SearchRanking.score(result, query: 'pro'),
           greaterThan(0),

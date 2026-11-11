@@ -2,17 +2,19 @@
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
 ## Unreleased
+### Added
+- Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
+
 ### Changed
 - Endless climb is the default alarm sound and the first one in the sound list.
 - A sound preview in the sound list plays on a loop until you tap it again, pick another sound or leave the list.
 - The new topic form lifts up into place while the screen before it sinks back, instead of opening on top of it.
 - The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
 - The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
+- Settings is easier to scan. Your plan and account sit in a card on top, and the rest is grouped under clear titles: Alarms, App, Server and data, Help. The ring switches and Priorities moved to Ringing, Feature Guides to Help and feedback, and Sign out and Delete account to Account and plan.
 
 ### Removed
 - Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
-### Added
-- Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added

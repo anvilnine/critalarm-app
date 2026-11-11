@@ -2,53 +2,43 @@ import 'package:critalarm/features/settings/presentation/widgets/settings_pane.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  List<SettingsPage> nativeShown() => settingsPagesShown(
-    canRunAlarm: true,
-    hasAccounts: true,
-    hasLocalNotifications: true,
-    showsDeveloper: false,
-  );
+  List<SettingsPage> nativeShown() =>
+      settingsPagesShown(hasLocalNotifications: true);
 
-  List<SettingsPage> webShown() => settingsPagesShown(
-    canRunAlarm: false,
-    hasAccounts: true,
-    hasLocalNotifications: false,
-    showsDeveloper: false,
-  );
+  List<SettingsPage> webShown() =>
+      settingsPagesShown(hasLocalNotifications: false);
 
   group('settingsPagesShown', () {
-    test('a phone lists every row but the developer page, in row order', () {
+    test('a phone lists every row, in the order of the cards', () {
       expect(nativeShown(), [
-        SettingsPage.sound,
-        SettingsPage.priorities,
-        SettingsPage.storage,
-        SettingsPage.server,
-        SettingsPage.account,
+        SettingsPage.accountPlan,
+        SettingsPage.ringing,
         SettingsPage.personalize,
         SettingsPage.appearance,
         SettingsPage.language,
         SettingsPage.localReminders,
+        SettingsPage.server,
+        SettingsPage.storage,
         SettingsPage.privacy,
+        SettingsPage.help,
         SettingsPage.about,
       ]);
     });
 
-    test('the web has no Priorities and no local reminders', () {
+    test('the web has no local reminders, and keeps Ringing for the sound', () {
       final shown = webShown();
-      expect(shown, isNot(contains(SettingsPage.priorities)));
       expect(shown, isNot(contains(SettingsPage.localReminders)));
-      expect(shown.first, SettingsPage.sound);
+      expect(shown, contains(SettingsPage.ringing));
+      expect(shown.first, SettingsPage.accountPlan);
     });
 
-    test('a self-hosted server has no account row', () {
-      final shown = settingsPagesShown(
-        canRunAlarm: true,
-        hasAccounts: false,
-        hasLocalNotifications: true,
-        showsDeveloper: true,
-      );
-      expect(shown, isNot(contains(SettingsPage.account)));
-      expect(shown, contains(SettingsPage.developer));
+    test('the pages one level down keep their old routes', () {
+      expect(SettingsLinks.defaultSound, '/sounds');
+      expect(SettingsLinks.priorities, '/settings/priorities');
+      expect(SettingsLinks.developer, '/settings/developer');
+      expect(SettingsLinks.deleteAccount, '/settings/account/delete');
+      expect(SettingsPage.accountPlan.path, '/settings/account');
+      expect(SettingsPage.storage.path, '/settings/alarms');
     });
   });
 
@@ -56,11 +46,11 @@ void main() {
     test('opens on the first row before anything is tapped', () {
       expect(
         settingsPaneSelection(selected: null, shown: nativeShown()),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
       expect(
         settingsPaneSelection(selected: null, shown: webShown()),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
     });
 
@@ -75,13 +65,13 @@ void main() {
     });
 
     test('falls back to the first row when the tapped row is gone', () {
-      // Priorities is not listed on the web.
+      // Local reminders is not listed on the web.
       expect(
         settingsPaneSelection(
-          selected: SettingsPage.priorities,
+          selected: SettingsPage.localReminders,
           shown: webShown(),
         ),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
     });
 
@@ -91,19 +81,19 @@ void main() {
           selected: SettingsPage.language,
           shown: nativeShown(),
         ),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
       expect(
         settingsPaneSelection(
           selected: null,
-          shown: const [SettingsPage.account, SettingsPage.server],
+          shown: const [SettingsPage.language, SettingsPage.server],
         ),
         SettingsPage.server,
       );
       expect(
         settingsPaneSelection(
           selected: null,
-          shown: const [SettingsPage.account, SettingsPage.language],
+          shown: const [SettingsPage.localReminders, SettingsPage.language],
         ),
         isNull,
       );
@@ -181,7 +171,7 @@ void main() {
           connectionKnown: true,
           isConnected: true,
         ),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
     });
 
@@ -227,17 +217,17 @@ void main() {
         settingsPaneSelection(
           selected: null,
           shown: webShown(),
-          preferred: SettingsPage.priorities,
+          preferred: SettingsPage.localReminders,
         ),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
       expect(
         settingsPaneSelection(
           selected: null,
           shown: nativeShown(),
-          preferred: SettingsPage.account,
+          preferred: SettingsPage.language,
         ),
-        SettingsPage.sound,
+        SettingsPage.accountPlan,
       );
     });
   });
@@ -245,13 +235,14 @@ void main() {
   group('settingsRowTapFor', () {
     test('with a pane, a pane page is selected and nothing is pushed', () {
       for (final page in [
-        SettingsPage.sound,
-        SettingsPage.priorities,
+        SettingsPage.accountPlan,
+        SettingsPage.ringing,
         SettingsPage.storage,
         SettingsPage.server,
         SettingsPage.personalize,
         SettingsPage.appearance,
         SettingsPage.privacy,
+        SettingsPage.help,
         SettingsPage.about,
       ]) {
         expect(
@@ -264,10 +255,8 @@ void main() {
 
     test('with a pane, a page owned by another feature still pushes', () {
       for (final page in [
-        SettingsPage.account,
         SettingsPage.language,
         SettingsPage.localReminders,
-        SettingsPage.developer,
       ]) {
         expect(
           settingsRowTapFor(showsDetail: true, page: page),
@@ -289,7 +278,8 @@ void main() {
 
     test('Server pushes its own route', () {
       expect(SettingsPage.server.path, '/settings/server');
-      expect(SettingsPage.sound.path, '/sounds');
+      expect(SettingsPage.ringing.path, '/settings/ringing');
+      expect(SettingsPage.help.path, '/settings/help');
     });
   });
 }

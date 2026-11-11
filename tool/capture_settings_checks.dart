@@ -8,11 +8,11 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
+import 'package:critalarm/features/settings/presentation/account_plan_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_readiness_card.dart';
-import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart'
     show StringTranslateExtension;
@@ -60,7 +60,7 @@ Finder _top(Finder finder) {
 /// however far the list has scrolled.
 List<String> _listTexts() => [
   for (final element in _top(
-    find.descendant(of: find.byType(AppListRow), matching: find.byType(Text)),
+    find.descendant(of: find.byType(AppCardRow), matching: find.byType(Text)),
   ).evaluate())
     if (element.findAncestorWidgetOfExactType<AppDetailPane>() == null)
       (element.widget as Text).data ?? '',
@@ -132,8 +132,8 @@ List<(String, bool)> settingsChecksAtRest(
                 'the pane opens on Server (the phone lost its server)',
               )
             : _check(
-                _inPane(find.byType(SoundPickerScreen)).evaluate().isNotEmpty,
-                'the pane opens on the first row (Default sound)',
+                _inPane(find.byType(AccountPlanScreen)).evaluate().isNotEmpty,
+                'the pane opens on the first row (Account and plan)',
               ),
       )
       ..add(
@@ -171,7 +171,7 @@ List<(String, bool)> settingsChecksAtRest(
         'readiness card bottom ${card.bottom} <= band top ${fold.band.top}',
       ),
     );
-    final row = _painted(_top(find.byType(AppListRow)).first);
+    final row = _painted(_top(find.byType(AppCardRow)).first);
     if (row != null) {
       lines.add(
         _check(

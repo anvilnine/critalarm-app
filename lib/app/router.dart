@@ -59,6 +59,7 @@ import 'package:critalarm/features/settings/domain/personalize/pass_scope.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
+import 'package:critalarm/features/settings/presentation/account_plan_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
@@ -67,6 +68,7 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/help_feedback_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/challenge/challenge_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/look/look_pass_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/passes/personalize_root_page.dart';
@@ -75,6 +77,7 @@ import 'package:critalarm/features/settings/presentation/personalize/widgets/wid
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
+import 'package:critalarm/features/settings/presentation/ringing_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
@@ -132,6 +135,9 @@ abstract final class AppRoute {
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
+  static const joinCode = 'joinCode';
+  static const ringingSettings = 'ringingSettings';
+  static const helpFeedback = 'helpFeedback';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
   static const languageSettings = 'languageSettings';
@@ -671,8 +677,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     child: const ServerSettingsScreen(),
                   ),
                 ),
-                // Absent on a self-hosted server: Settings hides the row that
-                // leads here, because that server has no accounts.
+                // Account and plan, which the card on top of Settings opens.
+                // The plan and Pro show on every server. The account part
+                // shows only where the server has accounts, so a self-hosted
+                // server gets the plan alone. A Local Reminder that asks to
+                // sign in still lands here.
                 GoRoute(
                   path: 'account',
                   parentNavigatorKey: _rootKey,
@@ -681,9 +690,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     opaque: true,
                     leavesTabBehind: true,
-                    child: const AccountScreen(),
+                    child: const AccountPlanScreen(),
                   ),
                   routes: [
+                    GoRoute(
+                      path: 'join-code',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.joinCode,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const JoinCodeScreen(),
+                      ),
+                    ),
                     // Its own route rather than a dialog: there is too much
                     // to read before erasing an account.
                     GoRoute(
@@ -756,6 +775,32 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       ),
                     ),
                   ],
+                ),
+                // The ring switches, with links to the default sound and to
+                // Priorities.
+                GoRoute(
+                  path: 'ringing',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.ringingSettings,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const RingingSettingsScreen(),
+                  ),
+                ),
+                // Feature Guides, the docs, the forms, a problem report and
+                // the store listing.
+                GoRoute(
+                  path: 'help',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.helpFeedback,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    leavesTabBehind: true,
+                    child: const HelpFeedbackScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'appearance',

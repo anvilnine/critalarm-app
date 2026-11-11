@@ -19,6 +19,7 @@ import 'package:critalarm/design/components/preview_button.dart';
 import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/switches.dart';
+import 'package:critalarm/design/components/titled_card.dart';
 import 'package:critalarm/design/components/toasts.dart';
 import 'package:critalarm/design/components/transport_button.dart';
 import 'package:critalarm/design/components/waiting_face.dart';
@@ -1376,6 +1377,30 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ),
           child: Column(
             children: [
+              AppTitledCard(
+                title: 'Titled card',
+                children: [
+                  AppCardRow(
+                    title: 'Opens a page',
+                    value: 'value',
+                    onTap: () {},
+                  ),
+                  AppCardRow(
+                    title: 'Server address',
+                    value: 'alerts.example.com',
+                    isMonoValue: true,
+                    onTap: () {},
+                  ),
+                  AppCardRow(
+                    title: 'A switch',
+                    detail: 'A quieter second line',
+                    toggleValue: true,
+                    onToggle: (_) {},
+                  ),
+                  AppCardRow(title: 'Sign out', isDanger: true, onTap: () {}),
+                ],
+              ),
+              const SizedBox(height: 8),
               AppValueRow(title: 'Opens a page', value: 'value', onTap: () {}),
               const SizedBox(height: 8),
               AppPickerRow<String>(

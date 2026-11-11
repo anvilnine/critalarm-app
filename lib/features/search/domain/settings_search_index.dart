@@ -47,7 +47,7 @@ class SettingsDestination {
 /// this, so a new setting is unsearchable until it is listed.
 abstract final class SettingsSearchIndex {
   static final List<SettingsDestination> all = <SettingsDestination>[
-    // The six top level screens.
+    // The top level screens.
     const SettingsDestination(
       id: 'reliability',
       routePath: '/settings/reliability',
@@ -106,7 +106,7 @@ abstract final class SettingsSearchIndex {
       id: 'docs',
       routePath: '/settings/docs',
       titleKey: LocaleKeys.docs_list_title,
-      parentTitleKey: LocaleKeys.settings_help_header,
+      parentTitleKey: LocaleKeys.settings_help_feedback_title,
       keywords: <String>['docs', 'documentation', 'help', 'guide', 'manual'],
     ),
     const SettingsDestination(
@@ -120,9 +120,55 @@ abstract final class SettingsSearchIndex {
       id: 'developer',
       routePath: '/settings/developer',
       titleKey: LocaleKeys.settings_developer_row_title,
-      parentTitleKey: LocaleKeys.nav_settings,
+      parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['developer', 'debug'],
       devOnly: true,
+    ),
+    const SettingsDestination(
+      id: 'account_plan',
+      routePath: '/settings/account',
+      titleKey: LocaleKeys.settings_account_plan_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'account',
+        'sign in',
+        'sign out',
+        'login',
+        'join code',
+        'delete account',
+        'plan',
+      ],
+    ),
+    const SettingsDestination(
+      id: 'ringing',
+      routePath: '/settings/ringing',
+      titleKey: LocaleKeys.settings_ringing_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'ringing',
+        'ring',
+        'vibrate',
+        'vibration',
+        'bright',
+        'brightness',
+        'screen',
+      ],
+    ),
+    const SettingsDestination(
+      id: 'help_feedback',
+      routePath: '/settings/help',
+      titleKey: LocaleKeys.settings_help_feedback_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'help',
+        'feedback',
+        'feature guides',
+        'tour',
+        'walkthrough',
+        'report',
+        'rate',
+        'review',
+      ],
     ),
 
     const SettingsDestination(
@@ -149,7 +195,7 @@ abstract final class SettingsSearchIndex {
       id: 'alarm_sound',
       routePath: '/sounds',
       titleKey: LocaleKeys.settings_alarm_sound_row_title,
-      parentTitleKey: LocaleKeys.nav_settings,
+      parentTitleKey: LocaleKeys.personalize_title,
       keywords: <String>[
         'sound',
         'ringtone',
@@ -174,7 +220,7 @@ abstract final class SettingsSearchIndex {
       id: 'priorities',
       routePath: '/settings/priorities',
       titleKey: LocaleKeys.settings_priorities_row_title,
-      parentTitleKey: LocaleKeys.nav_settings,
+      parentTitleKey: LocaleKeys.settings_ringing_title,
       keywords: <String>[
         'priority',
         'priorities',
@@ -210,9 +256,9 @@ abstract final class SettingsSearchIndex {
     ),
     const SettingsDestination(
       id: 'theme',
-      routePath: '/settings',
+      routePath: '/settings/appearance',
       titleKey: LocaleKeys.settings_theme_header,
-      parentTitleKey: LocaleKeys.nav_settings,
+      parentTitleKey: LocaleKeys.settings_appearance_header,
       keywords: <String>[
         'theme',
         'dark',
@@ -282,13 +328,13 @@ abstract final class SettingsSearchIndex {
       ],
       hiddenWhenSelfHosted: true,
     ),
-    // The Pro row sits under the plan card on the Settings tab. Pro is bought
-    // in the app, so an own server finds it too.
+    // The Pro row sits under the plan card on Account and plan. Pro is
+    // bought in the app, so an own server finds it too.
     const SettingsDestination(
       id: 'pro',
-      routePath: '/settings',
+      routePath: '/settings/account',
       titleKey: LocaleKeys.settings_pro_title,
-      parentTitleKey: LocaleKeys.settings_plan_header,
+      parentTitleKey: LocaleKeys.settings_account_plan_title,
       keywords: <String>[
         'pro',
         'looks',

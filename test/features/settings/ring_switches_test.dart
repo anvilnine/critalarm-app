@@ -41,7 +41,7 @@ void main() {
     });
   });
 
-  group('Settings ring switches', () {
+  group('Settings, Ringing switches', () {
     setUpAll(() async {
       SharedPreferences.setMockInitialValues({});
       await configureDependencies(useMockApi: true);
@@ -75,7 +75,7 @@ void main() {
 
       final router = buildRouter();
       await tester.pumpWidget(buildTestApp(router));
-      router.go('/settings');
+      router.go('/settings/ringing');
       await tester.pumpAndSettle();
 
       expect(find.text('Bright screen when it rings'), findsOneWidget);
@@ -102,10 +102,10 @@ void main() {
       expect(prefs.getBool('ring_bright_screen'), isFalse);
       expect(prefs.getBool('ring_vibrate'), isFalse);
 
-      // Leave Settings and come back: a fresh cubit reads them off disk.
+      // Leave Ringing and come back: a fresh cubit reads them off disk.
       router.go('/settings/about');
       await tester.pumpAndSettle();
-      router.go('/settings');
+      router.go('/settings/ringing');
       await tester.pumpAndSettle();
       expect(switchIn(tester, 'settings-ring-bright-screen').value, isFalse);
       expect(switchIn(tester, 'settings-ring-vibrate').value, isFalse);

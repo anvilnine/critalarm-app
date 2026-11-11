@@ -5,18 +5,22 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 /// A page one of the Settings rows opens, in the order the rows run.
+///
+/// The account and plan card on top opens [accountPlan]. Then come the
+/// titled cards: Alarms, App, Server and data, Help. Default sound and
+/// Priorities sit on [ringing], Feature Guides on [help] and Developer
+/// options on [about], one level down.
 enum SettingsPage {
-  sound('/sounds', opensInPane: true),
-  priorities('/settings/priorities', opensInPane: true),
-  storage('/settings/alarms', opensInPane: true),
-  server('/settings/server', opensInPane: true),
-  account('/settings/account'),
+  accountPlan('/settings/account', opensInPane: true),
+  ringing('/settings/ringing', opensInPane: true),
   personalize('/settings/personalize', opensInPane: true),
   appearance('/settings/appearance', opensInPane: true),
   language('/settings/language'),
   localReminders('/settings/local-reminders'),
-  developer('/settings/developer'),
+  server('/settings/server', opensInPane: true),
+  storage('/settings/alarms', opensInPane: true),
   privacy('/settings/privacy', opensInPane: true),
+  help('/settings/help', opensInPane: true),
   about('/settings/about', opensInPane: true);
 
   const SettingsPage(this.path, {this.opensInPane = false});
@@ -29,21 +33,35 @@ enum SettingsPage {
   final bool opensInPane;
 }
 
+/// Pages one level under a Settings page. Each one keeps the route it had
+/// when it was a row of its own, so links and search still land on it.
+abstract final class SettingsLinks {
+  /// The Sound pass in Personalize, the one home of the default sound.
+  static const String defaultSound = '/sounds';
+
+  /// What each priority does. On Ringing.
+  static const String priorities = '/settings/priorities';
+
+  /// Developer options. On About, in developer builds only.
+  static const String developer = '/settings/developer';
+
+  /// The join code. On Account and plan.
+  static const String joinCode = '/settings/account/join-code';
+
+  /// Delete account and its confirm. At the bottom of Account and plan.
+  static const String deleteAccount = '/settings/account/delete';
+}
+
 /// The pages the Settings rows lead to on this phone, in row order. A
-/// browser has no alarm and no local notifications, a self-hosted server has
-/// no accounts, and only developer builds have the developer page.
+/// browser has no local notifications, so no Local reminders row. Every
+/// other page has a row everywhere: Ringing keeps the default sound on the
+/// web, and Account and plan keeps the plan on a server of one's own.
 List<SettingsPage> settingsPagesShown({
-  required bool canRunAlarm,
-  required bool hasAccounts,
   required bool hasLocalNotifications,
-  required bool showsDeveloper,
 }) => [
   for (final page in SettingsPage.values)
     if (switch (page) {
-      SettingsPage.priorities => canRunAlarm,
-      SettingsPage.account => hasAccounts,
       SettingsPage.localReminders => hasLocalNotifications,
-      SettingsPage.developer => showsDeveloper,
       _ => true,
     })
       page,

@@ -15,19 +15,20 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// The Help block in Settings: two forms, a problem report by email, and
-/// the store listing.
+/// The help rows on Settings, Help and feedback: the docs, two forms, a
+/// problem report by email, and the store listing, in one white card.
 ///
 /// A form row stays hidden while its address in [FeedbackLinks] is blank.
 /// The Rate row never shows on web, and on iOS waits for the App Store id.
 class HelpSection extends StatelessWidget {
-  const HelpSection({
-    this.headerPadding = const EdgeInsets.fromLTRB(4, 10, 4, 6),
-    super.key,
-  });
+  const HelpSection({super.key, this.title, this.leading = const []});
 
-  /// The padding of the "Help" label, so it lines up with the rows around it.
-  final EdgeInsetsGeometry headerPadding;
+  /// The card's title, or none.
+  final String? title;
+
+  /// Rows drawn first in the same card, such as Feature Guides on Help and
+  /// feedback.
+  final List<Widget> leading;
 
   static bool _canRate(PlatformCapabilities on) =>
       !on.isWeb &&
@@ -37,73 +38,50 @@ class HelpSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final on = getIt<PlatformCapabilities>();
-    final rows = <Widget>[
-      _row(
-        context,
-        LocaleKeys.settings_help_docs_row.tr(),
-        () async => context.pushNamed(AppRoute.docs),
-        subtitle: LocaleKeys.settings_help_docs_sub.tr(),
-      ),
-      if (FeedbackLinks.feedbackFormUrl.isNotEmpty)
-        _row(
-          context,
-          LocaleKeys.settings_help_feedback_row.tr(),
-          () => _openForm(context, FeedbackLinks.feedbackFormUrl),
-        ),
-      if (FeedbackLinks.featureFormUrl.isNotEmpty)
-        _row(
-          context,
-          LocaleKeys.settings_help_feature_row.tr(),
-          () => _openForm(context, FeedbackLinks.featureFormUrl),
-        ),
-      _row(
-        context,
-        LocaleKeys.settings_help_report_row.tr(),
-        () => _openReportMail(context),
-        subtitle: LocaleKeys.settings_help_report_sub.tr(),
-      ),
-      if (_canRate(on))
-        _row(
-          context,
-          LocaleKeys.settings_help_rate_row.tr(),
-          () => getIt<StoreLinks>().listing(),
-          subtitle: on.platform == TargetPlatform.android
-              ? LocaleKeys.settings_help_rate_sub_android.tr()
-              : LocaleKeys.settings_help_rate_sub_ios.tr(),
-        ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+    return AppTitledCard(
+      title: title,
       children: [
-        AppSectionHeader(
-          LocaleKeys.settings_help_header.tr(),
-          padding: headerPadding,
+        ...leading,
+        _row(
+          LocaleKeys.settings_help_docs_row.tr(),
+          () async => context.pushNamed(AppRoute.docs),
+          detail: LocaleKeys.settings_help_docs_sub.tr(),
         ),
-        for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
-          rows[i],
-        ],
+        if (FeedbackLinks.feedbackFormUrl.isNotEmpty)
+          _row(
+            LocaleKeys.settings_help_feedback_row.tr(),
+            () => _openForm(context, FeedbackLinks.feedbackFormUrl),
+          ),
+        if (FeedbackLinks.featureFormUrl.isNotEmpty)
+          _row(
+            LocaleKeys.settings_help_feature_row.tr(),
+            () => _openForm(context, FeedbackLinks.featureFormUrl),
+          ),
+        _row(
+          LocaleKeys.settings_help_report_row.tr(),
+          () => _openReportMail(context),
+          detail: LocaleKeys.settings_help_report_sub.tr(),
+        ),
+        if (_canRate(on))
+          _row(
+            LocaleKeys.settings_help_rate_row.tr(),
+            () => getIt<StoreLinks>().listing(),
+            detail: on.platform == TargetPlatform.android
+                ? LocaleKeys.settings_help_rate_sub_android.tr()
+                : LocaleKeys.settings_help_rate_sub_ios.tr(),
+          ),
       ],
     );
   }
 
   Widget _row(
-    BuildContext context,
-    String name,
+    String title,
     Future<void> Function() onTap, {
-    String subtitle = '',
+    String? detail,
   }) {
-    return AppListRow(
-      name: name,
-      meta: subtitle,
-      faceState: null,
-      trailing: AppGlyph(
-        GlyphType.arrow,
-        color: context.appColors.ink3,
-        size: 16,
-      ),
+    return AppCardRow(
+      title: title,
+      detail: detail,
       onTap: () => unawaited(onTap()),
     );
   }

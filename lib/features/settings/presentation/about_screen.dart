@@ -1,18 +1,23 @@
 import 'dart:async';
 
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
+import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/language/presentation/language_mistake_line.dart';
 import 'package:critalarm/features/settings/presentation/widgets/settings_pane.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Which build this is, what licence it ships under, and where the code and
-/// the docs live.
+/// the docs live. Developer builds also get Developer options and Redo
+/// onboarding here, at the bottom, with the same flags as before.
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -75,6 +80,10 @@ class AboutScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (_showsDeveloperCard) ...[
+                  const SizedBox(height: 14),
+                  const _DeveloperCard(),
+                ],
                 // English is the source text, not an AI translation, so
                 // the line only shows in the other languages.
                 if (Localizations.localeOf(context).languageCode != 'en') ...[
@@ -85,6 +94,40 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Debug and developer-flag builds. A store build never shows the card.
+bool get _showsDeveloperCard =>
+    kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
+
+/// Redo onboarding (debug and developer-flag builds) and Developer options
+/// (developer-flag builds only), as on Settings before.
+class _DeveloperCard extends StatelessWidget {
+  const _DeveloperCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppTitledCard(
+      children: [
+        AppCardRow(
+          title: LocaleKeys.settings_redo_onboarding_title.tr(),
+          detail: LocaleKeys.settings_redo_onboarding_subtitle.tr(),
+          // From Settings this is a look at the screens, not a real run, so
+          // no step is skipped for being granted.
+          onTap: () => context.pushNamed(
+            AppRoute.onboardingWelcome,
+            queryParameters: const {'demo': 'true'},
+          ),
+        ),
+        if (buildSkipsPaywall || buildHasPaywallLab)
+          AppCardRow(
+            title: LocaleKeys.settings_developer_row_title.tr(),
+            detail: LocaleKeys.settings_developer_row_subtitle.tr(),
+            onTap: () => unawaited(context.push(SettingsLinks.developer)),
+          ),
       ],
     );
   }

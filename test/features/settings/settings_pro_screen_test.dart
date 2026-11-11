@@ -31,6 +31,7 @@ void main() {
     WidgetTester tester, {
     ServerMode mode = ServerMode.hosted,
     Set<Holding> held = const {},
+    String path = '/settings/account',
   }) async {
     // Made here, inside the test's own zone: a future made in a setUp
     // completes outside the fake clock and the screen never sees it.
@@ -54,12 +55,60 @@ void main() {
         ),
       ),
     );
-    router.go('/settings');
+    router.go(path);
     await tester.pumpAndSettle();
     return router;
   }
 
-  group('the Pro row on Settings', () {
+  // The plan card and the Pro row moved from Settings to Account and plan.
+  // The card on top of Settings carries the same two buttons.
+  // The mock server here never says what the plan is, so the plan name
+  // reads "Plan unavailable", as the plan card always did.
+  group('the card on top of Settings', () {
+    testWidgets('offers Cloud and Pro to a person without Cloud', (
+      tester,
+    ) async {
+      await openSettings(tester, path: '/settings');
+
+      expect(find.text('Plan unavailable'), findsOneWidget);
+      expect(find.text('See Cloud'), findsOneWidget);
+      expect(find.text('See Pro'), findsOneWidget);
+      // Above the phone checks card.
+      final hero = tester.getTopLeft(find.text('See Pro')).dy;
+      final checks = tester.getTopLeft(find.text('PHONE CHECKS')).dy;
+      expect(hero, lessThan(checks));
+    });
+
+    testWidgets('an own server offers Pro alone', (tester) async {
+      await openSettings(
+        tester,
+        mode: ServerMode.selfhosted,
+        path: '/settings',
+      );
+
+      expect(find.text('Self-hosted'), findsOneWidget);
+      expect(find.text('See Pro'), findsOneWidget);
+      expect(find.text('See Cloud'), findsNothing);
+    });
+
+    testWidgets('Pro owned shows the badge and no button', (tester) async {
+      await openSettings(tester, path: '/settings');
+      access.pro.set(HoldingState.held);
+      await tester.pumpAndSettle();
+      expect(find.text('See Pro'), findsNothing);
+      expect(find.text('PRO'), findsOneWidget);
+    });
+
+    testWidgets('a tap opens Account and plan', (tester) async {
+      await openSettings(tester, path: '/settings');
+      await tester.tap(find.text('Plan unavailable'));
+      await tester.pumpAndSettle();
+      expect(find.text('Account and plan'), findsWidgets);
+      expect(find.text('Plan'), findsOneWidget);
+    });
+  });
+
+  group('the Pro row on Account and plan', () {
     testWidgets('sits under the plan card with the button for a person '
         'without Pro', (tester) async {
       await openSettings(tester);
@@ -67,13 +116,11 @@ void main() {
       expect(find.text('Plan'), findsOneWidget);
       expect(find.text('Pro'), findsOneWidget);
       expect(find.text('See Pro'), findsOneWidget);
-      // The Hosted card keeps its own button.
+      // The Cloud card keeps its own button.
       expect(find.text('See Cloud'), findsOneWidget);
       final plan = tester.getTopLeft(find.text('See Cloud')).dy;
       final pro = tester.getTopLeft(find.text('Pro')).dy;
-      final setup = tester.getTopLeft(find.text('Setup')).dy;
       expect(pro, greaterThan(plan));
-      expect(pro, lessThan(setup));
     });
 
     testWidgets('shows on a phone with its own server', (tester) async {
@@ -125,7 +172,6 @@ void main() {
         onError?.call(details);
       };
 
-      // The ring switches sit above the plan, so the row can be below the fold.
       await tester.ensureVisible(find.text('See Pro'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('See Pro'));

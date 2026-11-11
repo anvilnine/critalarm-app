@@ -63,11 +63,21 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('PHONE CHECKS'), findsOneWidget);
-        expect(find.text('Default sound'), findsOneWidget);
+        // Titled cards, each group's name the first line inside its card.
+        expect(find.text('Alarms'), findsOneWidget);
+        expect(find.text('App'), findsOneWidget);
+        expect(find.text('Server and data'), findsOneWidget);
+        expect(find.text('Help'), findsOneWidget);
+        expect(find.text('Ringing'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
         expect(find.text('Privacy'), findsOneWidget);
         expect(find.text('About'), findsOneWidget);
-        expect(find.text('Redo onboarding'), findsOneWidget);
+        // These moved one level down: the default sound and the ring
+        // switches to Ringing, the developer rows to About, Feature Guides
+        // to Help and feedback.
+        expect(find.text('Default sound'), findsNothing);
+        expect(find.text('Redo onboarding'), findsNothing);
+        expect(find.text('Feature Guides'), findsNothing);
 
         // Both of these were dropped: priority is a per-message header, not a
         // topic setting, and the permissions are reached from Reliability.
@@ -371,6 +381,8 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Issue tracker'), findsOneWidget);
+        // A debug build keeps Redo onboarding, now at the bottom of About.
+        expect(find.text('Redo onboarding'), findsOneWidget);
         expect(
           find.text('github.com/anvilnine/critalarm-app/issues'),
           findsOneWidget,

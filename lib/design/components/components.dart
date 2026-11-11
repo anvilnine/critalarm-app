@@ -47,6 +47,7 @@ export 'swipe_actions.dart';
 export 'switches.dart';
 export 'tap_target.dart';
 export 'tilt_showcase.dart';
+export 'titled_card.dart';
 export 'toasts.dart';
 export 'top_bar.dart';
 export 'transport_button.dart';

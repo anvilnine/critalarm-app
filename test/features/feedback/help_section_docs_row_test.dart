@@ -18,7 +18,7 @@ void main() {
   });
   tearDown(getIt.reset);
 
-  testWidgets('Docs is the first row under Help', (tester) async {
+  testWidgets('Docs is the first help row', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -38,10 +38,8 @@ void main() {
       tester.getTopLeft(docs).dy,
       lessThan(tester.getTopLeft(report).dy),
     );
-    // Nothing sits between the header and Docs.
-    expect(
-      tester.getTopLeft(find.text('Help')).dy,
-      lessThan(tester.getTopLeft(docs).dy),
-    );
+    // The page around it (Help and feedback) carries the title, so the
+    // card has none of its own.
+    expect(find.text('Help'), findsNothing);
   });
 }

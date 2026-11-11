@@ -131,6 +131,16 @@ Two more came later and are listed after them.
   current value and opens a bottom sheet of `AppSheetOptionRow`s that closes on a pick. A list of
   more than six opens the sheet that scrolls. Use a toggle row for on and off, never a picker.
 
+- `AppTitledCard` and `AppCardRow` (`titled_card.dart`): the Settings groups. A white card whose
+  first line is its title in Bricolage Grotesque 800 at 20 points, so a group title never reads
+  as a row's description. Rows sit edge to edge with a hairline between them. `AppCardRow` is one
+  line: a title in Instrument Sans 600 at 16, an optional value in ink3 (mono with
+  `isMonoValue`, for an address or a version) and an arrow. `detail` adds a quieter second line,
+  for child pages only. `toggleValue` makes the row a switch that flips on a tap anywhere and
+  reads as one switch. `isDanger` draws the title in `critText`, for Sign out and Delete account.
+  `isSelected` tints the row cobalt while its page shows in the detail pane. A card with no title
+  holds risky actions at the bottom of a page.
+
 ## Status screen components
 
 All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce motion switch.

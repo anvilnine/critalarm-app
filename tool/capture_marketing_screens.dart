@@ -29,6 +29,7 @@ import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
@@ -40,6 +41,7 @@ import 'package:critalarm/core/platform/device_text.dart';
 import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -57,6 +59,7 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/localization.dart';
@@ -268,6 +271,56 @@ final List<_Screen> _screens = [
   ),
 ];
 
+/// The Settings pages one level down, and the lower half of Settings. Drawn
+/// only when SCREENS_ONLY names them, like the setup screens.
+final List<_Screen> _settingsScreens = [
+  (
+    id: 'settings.lower',
+    route: '/settings',
+    fixture: 'calm',
+    after: _scrollToSettingsEnd,
+    story: null,
+  ),
+  (
+    id: 'settings.hosted',
+    route: '/settings',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'settings.account',
+    route: '/settings/account',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'settings.ringing',
+    route: '/settings/ringing',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'settings.help',
+    route: '/settings/help',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+  (
+    id: 'settings.about',
+    route: '/settings/about',
+    fixture: 'calm',
+    after: null,
+    story: null,
+  ),
+];
+
+/// The shots drawn with a saved session on our server.
+const Set<String> _hostedSessionShots = {'settings.hosted', 'settings.account'};
+
 /// Setup screens that name the device, for checking the device word. Drawn
 /// only when SCREENS_ONLY names them, so a plain run's output is unchanged.
 final List<_Screen> _setupScreens = [
@@ -458,6 +511,13 @@ Future<void> _showCriticalSwitch(WidgetTester tester) async {
         w is FeatureGuideAnchor && w.id == FeatureGuideAnchorId.topicCritical,
   );
   await Scrollable.ensureVisible(tester.element(row), alignment: 0.5);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+Future<void> _scrollToSettingsEnd(WidgetTester tester) async {
+  final about = find.text(LocaleKeys.settings_about_row_title.tr());
+  await Scrollable.ensureVisible(tester.element(about.last), alignment: 0.6);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
 }
@@ -821,7 +881,11 @@ void main() {
   final named = only.split(',');
   final screens = storiesOnly
       ? _storyScreens()
-      : [..._screens, ..._setupScreens.where((s) => named.contains(s.id))];
+      : [
+          ..._screens,
+          ..._setupScreens.where((s) => named.contains(s.id)),
+          ..._settingsScreens.where((s) => named.contains(s.id)),
+        ];
   final entries = <Map<String, Object?>>[];
 
   setUpAll(() async {
@@ -978,6 +1042,24 @@ void main() {
         final rel = '$folder${device.id}/${theme.name}/${screen.id}.png';
         testWidgets('screen $rel', (tester) async {
           _seed(getIt<MockServer>(), screen.fixture, story: screen.story);
+          // A few Settings shots need to know the server is ours, so the
+          // account part of Account and plan and the sign-in line show.
+          // Every other shot keeps no saved session, as before.
+          await tester.runAsync(() async {
+            final sessions = getIt<ApiSessionStore>();
+            if (_hostedSessionShots.contains(screen.id)) {
+              await sessions.write(
+                ApiSession(
+                  baseUri: Uri.parse('https://api.critalarm.app'),
+                  relayUri: Uri.parse('https://relay.critalarm.app'),
+                  mode: ServerMode.hosted,
+                  managementCredential: 'dv_capture',
+                ),
+              );
+            } else {
+              await sessions.clear();
+            }
+          });
           // The store keeps what the last capture synced. Empty it so this
           // screen sees only its own fixture. sqflite hands back the open
           // connection for the same path.

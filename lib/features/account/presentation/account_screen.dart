@@ -17,28 +17,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Who this phone belongs to, and the way in and out.
+/// The key of the white card that holds who is signed in, so a test can
+/// tell it from the card of risky actions under it.
+const Key accountCardKey = ValueKey('account-card');
+
+/// Who this phone belongs to, and the way in and out: the account part of
+/// Settings, Account and plan.
+///
+/// One titled card holds who is signed in (or the sign-in buttons) and the
+/// row to the join code. Under it a card of its own holds Sign out and the
+/// row to Delete account, so nothing is reached past to get to them.
 ///
 /// On a self-hosted server there is nothing here: that server has one operator
-/// and no accounts to sign in to, so the section is left out rather than shown
-/// greyed out.
-class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) {
-        final cubit = getIt<AccountCubit>();
-        unawaited(cubit.load());
-        return cubit;
-      },
-      child: const AccountView(),
-    );
-  }
-}
-
-/// The screen itself, taking its cubit from the tree so a test can supply one.
+/// and no accounts to sign in to, so the part is left out rather than shown
+/// greyed out. Takes its cubit from the tree.
 class AccountView extends StatelessWidget {
   const AccountView({super.key});
 
@@ -54,33 +46,7 @@ class AccountView extends StatelessWidget {
       listener: (context, state) => unawaited(
         _showErrorDialog(context, state.errorMessage!),
       ),
-      builder: (context, state) {
-        return AppScreenScaffold(
-          hasTabBar: false,
-          topBar: AppTopBar(
-            title: LocaleKeys.account_header.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
-            ),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
-                child: _body(context, state),
-              ),
-            ),
-          ],
-        );
-      },
+      builder: _body,
     );
   }
 
@@ -91,36 +57,103 @@ class AccountView extends StatelessWidget {
     if (state.status == AccountStatus.choosing) {
       return MergeOrFreshPanel(state: state);
     }
+    final cubit = context.read<AccountCubit>();
+    // Whether anyone is signed in, not what the screen is busy doing.
+    // `working` covers adding a second provider, and keying off the status
+    // showed a signed-in person the signed-out pitch for as long as the link
+    // took. Every path that signs out clears the identity.
+    final signedIn = state.identity != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: Spacing.s2),
-        const Center(
-          child: FaceWidget(
-            state: FaceState.calm,
-            size: 96,
-          ),
+        AppTitledCard(
+          key: accountCardKey,
+          title: LocaleKeys.account_header.tr(),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: signedIn
+                  ? _SignedIn(state: state)
+                  : _SignedOut(state: state),
+            ),
+            // Any device on the account may mint a join code, signed in or
+            // not, so the row shows either way.
+            AppCardRow(
+              title: LocaleKeys.account_join_code_header.tr(),
+              onTap: () => unawaited(context.push(_joinCodePath)),
+            ),
+          ],
         ),
-        const SizedBox(height: Spacing.s4),
-        AppSheet(
-          // Whether anyone is signed in, not what the screen is busy doing.
-          // `working` covers adding a second provider, and keying off the
-          // status showed a signed-in person the signed-out pitch for as long
-          // as the link took. Every path that signs out clears the identity.
-          child: state.identity != null
-              ? _SignedIn(state: state)
-              : _SignedOut(state: state),
+        const SizedBox(height: 14),
+        AppTitledCard(
+          children: [
+            if (signedIn)
+              AppCardRow(
+                title: LocaleKeys.account_sign_out.tr(),
+                isDanger: true,
+                showsArrow: false,
+                onTap: state.isBusy ? null : () => unawaited(cubit.signOut()),
+              ),
+            // It only leads to the confirm screen. Nothing is erased from
+            // here.
+            AppCardRow(
+              title: LocaleKeys.account_delete_button.tr(),
+              isDanger: true,
+              onTap: () => unawaited(context.push(_deleteAccountPath)),
+            ),
+          ],
         ),
-        const SizedBox(height: Spacing.s4),
-        // Any device on the account may mint a join code, signed in or not,
-        // so this sits outside the sheet that switches on sign-in.
-        AppSheet(child: _JoinCode(state: state)),
-        // 8 less than the 16 it was: the button below is 48 high now, and its
-        // text sits 8 lower in it, so the text stays where it was.
-        const SizedBox(height: Spacing.s2),
-        const _DeleteAccountButton(),
       ],
+    );
+  }
+}
+
+/// The join code page: Settings, Account and plan, Join code.
+const String _joinCodePath = '/settings/account/join-code';
+
+/// Delete account and its confirm.
+const String _deleteAccountPath = '/settings/account/delete';
+
+/// Mint a join code on a page of its own, one level under Account and plan.
+class JoinCodeScreen extends StatelessWidget {
+  const JoinCodeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) {
+        final cubit = getIt<AccountCubit>();
+        unawaited(cubit.load());
+        return cubit;
+      },
+      child: BlocBuilder<AccountCubit, AccountState>(
+        builder: (context, state) => AppScreenScaffold(
+          hasTabBar: false,
+          topBar: AppTopBar(
+            title: LocaleKeys.account_join_code_header.tr(),
+            leading: AppIconButton(
+              glyph: GlyphType.back,
+              ariaLabel: LocaleKeys.common_back.tr(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/settings/account');
+                }
+              },
+            ),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
+                child: AppSheet(child: _JoinCode(state: state)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -210,7 +243,6 @@ class _SignedIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<AccountCubit>();
     final colors = context.appColors;
     final identity = state.identity!;
     // Every way in the account holds, not just the one this phone used. A
@@ -256,14 +288,6 @@ class _SignedIn extends StatelessWidget {
           showCopyButton: true,
         ),
         _AddProviderRows(state: state),
-        const SizedBox(height: 16),
-        AppButton(
-          label: LocaleKeys.account_sign_out.tr(),
-          variant: AppButtonVariant.ghost,
-          isFullWidth: true,
-          isLoading: state.isBusy,
-          onPressed: () => unawaited(cubit.signOut()),
-        ),
       ],
     );
   }
@@ -462,42 +486,6 @@ class _JoinCode extends StatelessWidget {
           onPressed: () => unawaited(cubit.mintJoinToken()),
         ),
       ],
-    );
-  }
-}
-
-/// The way out, located quietly below the sheet so nothing is reached past to
-/// get to it.
-///
-/// It only leads to the confirm screen. Nothing is erased from here.
-class _DeleteAccountButton extends StatelessWidget {
-  const _DeleteAccountButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Center(
-      child: TextButton(
-        onPressed: () => context.push('/settings/account/delete'),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          // The text is 16 high with 8 above and below. The button is 48
-          // high around it, and the text stays in the middle.
-          minimumSize: const Size(48, 48),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(
-          LocaleKeys.account_delete_button.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: colors.ink3,
-          ),
-        ),
-      ),
     );
   }
 }

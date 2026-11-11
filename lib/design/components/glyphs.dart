@@ -33,6 +33,7 @@ enum GlyphType {
   share,
   lock,
   moon,
+  person,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -402,6 +403,15 @@ class _GlyphPainter extends CustomPainter {
             strokePaint,
           )
           ..drawPath(shackle, strokePaint);
+
+      case GlyphType.person:
+        // A head and shoulders: circle 12,8 r4 M4 20a8 8 0 0 1 16 0
+        final shoulders = Path()
+          ..moveTo(4, 20)
+          ..arcToPoint(const Offset(20, 20), radius: const Radius.circular(8));
+        canvas
+          ..drawCircle(const Offset(12, 8), 4, strokePaint)
+          ..drawPath(shoulders, strokePaint);
 
       case GlyphType.info:
         canvas.drawCircle(const Offset(12, 12), 9, strokePaint);
