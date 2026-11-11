@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/tap_target.dart';
@@ -188,25 +190,18 @@ class AppFloatingTabBar extends StatelessWidget {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 2),
-                    _wrap(
-                      wrapTab,
-                      i,
-                      _TabSlot(
-                        item: items[i],
-                        isCurrent: i == currentIndex,
-                        iconsOnly: iconsOnly,
-                        // Tapping the tab already showing still calls
-                        // onSelect: that is how the user gets back to its
-                        // first screen.
-                        onTap: () {
-                          AppHaptics.selection();
-                          onSelect(i);
-                        },
-                      ),
-                    ),
-                  ],
+                  _TabRow(
+                    items: items,
+                    currentIndex: currentIndex,
+                    iconsOnly: iconsOnly,
+                    wrapTab: wrapTab,
+                    // Tapping the tab already showing still calls onSelect:
+                    // that is how the user gets back to its first screen.
+                    onTap: (i) {
+                      AppHaptics.selection();
+                      onSelect(i);
+                    },
+                  ),
                   const SizedBox(width: 2),
                   if (onSearch != null) ...[
                     _wrap(
@@ -345,23 +340,291 @@ class _CloseSlot extends StatelessWidget {
   }
 }
 
-class _TabSlot extends StatelessWidget {
-  const _TabSlot({
-    required this.item,
-    required this.isCurrent,
+/// The tabs, with one yellow pill that slides from the old tab to the new
+/// one. It is one shape that moves, so a change of tab reads as the pill
+/// travelling rather than one pill going out and another coming in.
+///
+/// Two copies of the tabs are drawn. The one underneath is the real one:
+/// light labels, the tap targets, the semantics. The one on top is yellow
+/// with dark, heavier labels, and it is clipped to the pill. So wherever the
+/// pill is, the label under it turns dark and bold, pixel for pixel, in step
+/// with the move.
+///
+/// Taps, deep links and the back button all arrive here as a new
+/// [currentIndex], so they all slide the same way. Under reduce motion the
+/// pill jumps.
+class _TabRow extends StatefulWidget {
+  const _TabRow({
+    required this.items,
+    required this.currentIndex,
+    required this.iconsOnly,
     required this.onTap,
-    this.iconsOnly = false,
+    required this.wrapTab,
   });
 
-  final AppTabItem item;
-  final bool isCurrent;
-  final VoidCallback onTap;
+  final List<AppTabItem> items;
+  final int currentIndex;
   final bool iconsOnly;
+  final ValueChanged<int> onTap;
+  final AppNavSlotWrapper<int>? wrapTab;
+
+  @override
+  State<_TabRow> createState() => _TabRowState();
+}
+
+class _TabRowState extends State<_TabRow> with SingleTickerProviderStateMixin {
+  // Starts finished, so the first frame is the resting picture.
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    value: 1,
+  );
+  late final Animation<double> _move = CurvedAnimation(
+    parent: _controller,
+    curve: AppCurves.easeOut,
+  );
+
+  final GlobalKey _clipKey = GlobalKey();
+  late List<GlobalKey> _pillKeys = _keysFor(widget.items.length);
+
+  // Where the pill was when the current move began. A change in the middle
+  // of a move starts from wherever the pill had got to, so it never snaps.
+  Rect? _fromRect;
+  Rect? _lastRect;
+
+  static List<GlobalKey> _keysFor(int n) => [
+    for (var i = 0; i < n; i++) GlobalKey(),
+  ];
+
+  @override
+  void didUpdateWidget(_TabRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.items.length != oldWidget.items.length) {
+      _pillKeys = _keysFor(widget.items.length);
+      _fromRect = null;
+      _controller.value = 1;
+      return;
+    }
+    if (widget.currentIndex == oldWidget.currentIndex) return;
+
+    _fromRect = _lastRect;
+    final duration = context.motion(AppDurations.base);
+    if (duration == Duration.zero) {
+      _controller.value = 1;
+    } else {
+      _controller.duration = duration;
+      unawaited(_controller.forward(from: 0));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Where the pill is this frame, in the clip layer's coordinates. Called
+  /// while painting, after the tabs have been laid out. Null before the
+  /// first layout.
+  Rect? _pillRect() {
+    final index = widget.currentIndex;
+    if (index < 0 || index >= _pillKeys.length) return null;
+    final clipBox = _clipKey.currentContext?.findRenderObject();
+    final pillBox = _pillKeys[index].currentContext?.findRenderObject();
+    if (clipBox is! RenderBox || pillBox is! RenderBox) return null;
+    if (!clipBox.hasSize || !pillBox.hasSize || !pillBox.attached) {
+      return null;
+    }
+    final to = MatrixUtils.transformRect(
+      pillBox.getTransformTo(clipBox),
+      Offset.zero & pillBox.size,
+    );
+    final rect = Rect.lerp(_fromRect ?? to, to, _move.value);
+    _lastRect = rect;
+    return rect;
+  }
+
+  Widget _row({required bool ink}) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < widget.items.length; i++) ...[
+        if (i > 0) const SizedBox(width: 2),
+        if (ink)
+          _TabSlot(
+            item: widget.items[i],
+            iconsOnly: widget.iconsOnly,
+            ink: true,
+          )
+        else
+          _wrap(
+            widget.wrapTab,
+            i,
+            _TabSlot(
+              pillKey: _pillKeys[i],
+              item: widget.items[i],
+              isCurrent: i == widget.currentIndex,
+              iconsOnly: widget.iconsOnly,
+              onTap: () => widget.onTap(i),
+            ),
+          ),
+      ],
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final fg = isCurrent ? colors.inkFixed : colors.onPanel;
+
+    return Stack(
+      children: [
+        _row(ink: false),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              child: ClipPath(
+                key: _clipKey,
+                clipper: _PillClipper(reclip: _move, rect: _pillRect),
+                child: ColoredBox(
+                  color: colors.yellow,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _row(ink: true),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PillClipper extends CustomClipper<Path> {
+  _PillClipper({required Listenable reclip, required this.rect})
+    : super(reclip: reclip);
+
+  final Rect? Function() rect;
+
+  @override
+  Path getClip(Size size) {
+    final r = rect();
+    if (r == null) return Path();
+    return Path()..addRRect(
+      RRect.fromRectAndRadius(r, Radius.circular(r.shortestSide / 2)),
+    );
+  }
+
+  // The tabs can change width without this box changing size (a new
+  // language, a new label), so always clip again after a rebuild.
+  @override
+  bool shouldReclip(_PillClipper oldClipper) => true;
+}
+
+class _TabSlot extends StatelessWidget {
+  const _TabSlot({
+    required this.item,
+    this.pillKey,
+    this.isCurrent = false,
+    this.onTap,
+    this.iconsOnly = false,
+    this.ink = false,
+  });
+
+  /// Marks the box the yellow pill fills when this tab is current.
+  final GlobalKey? pillKey;
+  final AppTabItem item;
+  final bool isCurrent;
+  final VoidCallback? onTap;
+  final bool iconsOnly;
+
+  /// The copy drawn on the pill: dark, heavier labels, no taps, no semantics.
+  final bool ink;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final fg = ink ? colors.inkFixed : colors.onPanel;
+
+    TextStyle labelStyle(FontWeight weight, Color color) => TextStyle(
+      fontFamily: AppTypography.fontDisplay,
+      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+      fontWeight: weight,
+      fontSize: 12,
+      letterSpacing: 0.6,
+      height: 1.1,
+      color: color,
+    );
+
+    final label = upperInContext(item.label, context);
+
+    final pill = Container(
+      key: pillKey,
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Center(
+            child: iconsOnly
+                ? SizedBox(
+                    width: 44,
+                    child: Center(
+                      child: AppGlyph(item.glyph, size: 20, color: fg),
+                    ),
+                  )
+                // The label on the pill is the heavier cut. In Bricolage
+                // the heavier cut is also narrower, so the slot holds an
+                // invisible copy of the other cut and is always as wide as
+                // the wider of the two. The copies line up and the tabs
+                // never shift when the pill arrives.
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        style: labelStyle(
+                          ink ? FontWeight.w700 : FontWeight.w800,
+                          const Color(0x00000000),
+                        ),
+                      ),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        style: labelStyle(
+                          ink ? FontWeight.w800 : FontWeight.w700,
+                          fg,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          // Drawn in both copies. Its ring takes the colour of what is
+          // under it, the bar or the pill, so the dot looks cut into both.
+          if (item.showFlag)
+            Positioned(
+              top: 4,
+              right: iconsOnly ? 2 : -6,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: colors.high,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: ink ? colors.yellow : colors.panel,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    // The same 48 box as the real slot, so the copies line up.
+    if (ink) return AppTapTarget(minWidth: 0, child: pill);
 
     return Semantics(
       button: true,
@@ -376,62 +639,7 @@ class _TabSlot extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: Radii.fullAll,
-          child: AnimatedContainer(
-            duration: context.motion(AppDurations.quick),
-            curve: AppCurves.easeSpring,
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),
-            decoration: BoxDecoration(
-              color: isCurrent ? colors.yellow : Colors.transparent,
-              borderRadius: Radii.fullAll,
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Center(
-                  child: iconsOnly
-                      ? SizedBox(
-                          width: 44,
-                          child: Center(
-                            child: AppGlyph(item.glyph, size: 20, color: fg),
-                          ),
-                        )
-                      : Text(
-                          upperInContext(item.label, context),
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontDisplay,
-                            fontFamilyFallback:
-                                AppTypography.fontDisplayFallbacks,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            letterSpacing: 0.6,
-                            height: 1.1,
-                            color: fg,
-                          ),
-                        ),
-                ),
-                if (item.showFlag)
-                  Positioned(
-                    top: 4,
-                    right: iconsOnly ? 2 : -6,
-                    child: Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: colors.high,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isCurrent ? colors.yellow : colors.panel,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          child: pill,
         ),
       ),
     );
