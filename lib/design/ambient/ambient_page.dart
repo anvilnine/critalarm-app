@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/design/ambient/ambient_lift.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -16,17 +17,25 @@ const Duration _kDroppedSwipePageAnimationDuration = Duration(
 
 /// Builds synchronized slide and fade transitions for routes over an ambient
 /// canvas.
+///
+/// [entrance] is how this page comes in. [coveredBy] is how the page above
+/// it came in, which decides how this page leaves under it. An iOS back
+/// swipe always follows the finger sideways, whatever the entrance: both
+/// moves agree at their ends, so the swipe can take over from a lift.
 Widget buildAmbientTransitions({
   required BuildContext context,
   required Animation<double> animation,
   required Animation<double> secondaryAnimation,
   required Widget child,
   bool isPopGestureInProgress = false,
+  AmbientEntrance entrance = AmbientEntrance.slide,
+  AmbientEntrance coveredBy = AmbientEntrance.slide,
 }) {
   if (context.reduceMotion) {
     return child;
   }
 
+  final lifts = entrance == AmbientEntrance.lift && !isPopGestureInProgress;
   final primaryCurve = isPopGestureInProgress
       ? Curves.linear
       : AppCurves.easeOut;
@@ -36,7 +45,9 @@ Widget buildAmbientTransitions({
 
   final primarySlide = animation.drive(
     Tween<Offset>(
-      begin: isPopGestureInProgress
+      begin: lifts
+          ? Offset.zero
+          : isPopGestureInProgress
           ? const Offset(1, 0)
           : const Offset(0.12, 0),
       end: Offset.zero,
@@ -44,28 +55,39 @@ Widget buildAmbientTransitions({
   );
   final primaryFade = animation.drive(
     Tween<double>(
-      begin: isPopGestureInProgress ? 1.0 : 0.0,
+      begin: lifts || isPopGestureInProgress ? 1.0 : 0.0,
       end: 1,
     ).chain(CurveTween(curve: primaryFadeCurve)),
   );
 
+  // The same three wrappers for every entrance, only fed differently. A
+  // wrapper that came and went as a back swipe started would build the page
+  // again and lose what was typed into it.
   return buildAmbientCoveredTransition(
     context: context,
     secondaryAnimation: secondaryAnimation,
     isPopGestureInProgress: isPopGestureInProgress,
-    child: SlideTransition(
-      position: primarySlide,
-      child: FadeTransition(
-        opacity: primaryFade,
-        child: child,
+    coveredBy: coveredBy,
+    child: LiftTransition(
+      animation: animation,
+      pose: lifts ? liftInPose : _restPose,
+      child: SlideTransition(
+        position: primarySlide,
+        child: FadeTransition(
+          opacity: primaryFade,
+          child: child,
+        ),
       ),
     ),
   );
 }
 
+LiftPose _restPose(double t, {bool reverse = false}) => LiftPose.rest;
+
 /// The half of the ambient transition a page plays while another ambient page
 /// covers it: it drifts left a little and fades out as [secondaryAnimation]
-/// runs.
+/// runs. Under a page that lifts in ([coveredBy] is
+/// [AmbientEntrance.lift]) it sinks back and fades instead.
 ///
 /// A page built with [buildAmbientTransitions] already does this. A route that
 /// is not an ambient page, such as the tab shell under a Settings screen, calls
@@ -75,11 +97,13 @@ Widget buildAmbientCoveredTransition({
   required Animation<double> secondaryAnimation,
   required Widget child,
   bool isPopGestureInProgress = false,
+  AmbientEntrance coveredBy = AmbientEntrance.slide,
 }) {
   if (context.reduceMotion) {
     return child;
   }
 
+  final sinks = coveredBy == AmbientEntrance.lift && !isPopGestureInProgress;
   final secondaryCurve = isPopGestureInProgress
       ? Curves.linear
       : AppCurves.easeOut;
@@ -90,7 +114,9 @@ Widget buildAmbientCoveredTransition({
   final secondarySlide = secondaryAnimation.drive(
     Tween<Offset>(
       begin: Offset.zero,
-      end: isPopGestureInProgress
+      end: sinks
+          ? Offset.zero
+          : isPopGestureInProgress
           ? const Offset(-0.25, 0)
           : const Offset(-0.08, 0),
     ).chain(CurveTween(curve: secondaryCurve)),
@@ -98,17 +124,32 @@ Widget buildAmbientCoveredTransition({
   final secondaryFade = secondaryAnimation.drive(
     Tween<double>(
       begin: 1,
-      end: 0,
+      end: sinks ? 1 : 0,
     ).chain(CurveTween(curve: secondaryFadeCurve)),
   );
 
-  return SlideTransition(
-    position: secondarySlide,
-    child: FadeTransition(
-      opacity: secondaryFade,
-      child: child,
+  return LiftTransition(
+    animation: secondaryAnimation,
+    pose: sinks ? liftCoveredPose : _restPose,
+    child: SlideTransition(
+      position: secondarySlide,
+      child: FadeTransition(
+        opacity: secondaryFade,
+        child: child,
+      ),
     ),
   );
+}
+
+/// How [route] came in, when it is an ambient page, or
+/// [AmbientEntrance.slide] for anything else and for nothing.
+AmbientEntrance coverEntranceOf(Object? route) =>
+    route is AmbientEntranceRoute ? route.entrance : AmbientEntrance.slide;
+
+/// A route that says how it comes in, so the route under it can leave to
+/// match.
+abstract interface class AmbientEntranceRoute {
+  AmbientEntrance get entrance;
 }
 
 /// A route that covers a tab of the shell and wants the tab to leave the way
@@ -122,6 +163,24 @@ abstract interface class AmbientTabCover {
 /// A mixin on [PageRoute] providing iOS-style interactive edge-swipe pop
 /// gesture support while preserving the ambient transition styling.
 mixin AmbientRoutePopGestureMixin<T> on PageRoute<T> {
+  /// How the route above this one came in, so this one leaves to match.
+  AmbientEntrance _coveredBy = AmbientEntrance.slide;
+
+  /// How this route itself comes in.
+  AmbientEntrance get ambientEntrance => AmbientEntrance.slide;
+
+  @override
+  void didChangeNext(Route<dynamic>? nextRoute) {
+    _coveredBy = coverEntranceOf(nextRoute);
+    super.didChangeNext(nextRoute);
+  }
+
+  @override
+  void didPopNext(Route<dynamic> nextRoute) {
+    _coveredBy = coverEntranceOf(nextRoute);
+    super.didPopNext(nextRoute);
+  }
+
   /// Starts tracking an edge-swipe gesture to pop this route.
   AmbientBackGestureController<T> startPopGesture() {
     assert(popGestureEnabled, 'Route pop gesture was started when disabled');
@@ -158,6 +217,8 @@ mixin AmbientRoutePopGestureMixin<T> on PageRoute<T> {
       secondaryAnimation: secondaryAnimation,
       child: pageChild,
       isPopGestureInProgress: popGestureInProgress,
+      entrance: ambientEntrance,
+      coveredBy: _coveredBy,
     );
   }
 }
@@ -187,6 +248,7 @@ class AmbientPage<T> extends CustomTransitionPage<T> {
     super.transitionDuration = AppDurations.slow,
     super.reverseTransitionDuration = AppDurations.slow,
     this.leavesTabBehind = false,
+    this.entrance = AmbientEntrance.slide,
   }) : super(
          transitionsBuilder: (context, animation, secondaryAnimation, child) {
            return buildAmbientTransitions(
@@ -194,9 +256,13 @@ class AmbientPage<T> extends CustomTransitionPage<T> {
              animation: animation,
              secondaryAnimation: secondaryAnimation,
              child: child,
+             entrance: entrance,
            );
          },
        );
+
+  /// How the page comes in. See [AmbientEntrance].
+  final AmbientEntrance entrance;
 
   /// Whether the tab shell under this page fades and drifts out as the page
   /// opens, like the Topics list does under a Topic. For a page on the root
@@ -210,10 +276,16 @@ class AmbientPage<T> extends CustomTransitionPage<T> {
 
 class _AmbientPageRoute<T> extends PageRoute<T>
     with AmbientRoutePopGestureMixin<T>
-    implements AmbientTabCover {
+    implements AmbientTabCover, AmbientEntranceRoute {
   _AmbientPageRoute({required this.page}) : super(settings: page);
 
   final AmbientPage<T> page;
+
+  @override
+  AmbientEntrance get entrance => page.entrance;
+
+  @override
+  AmbientEntrance get ambientEntrance => page.entrance;
 
   @override
   bool get leavesTabBehind => page.leavesTabBehind;

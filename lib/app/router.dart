@@ -228,10 +228,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.createTopic,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
-        // Opaque, because it opens straight over the tab shell, which does
-        // not fade out under an ambient page. Transparent, the Topics list
-        // stayed on screen behind the form. The ambient backdrop sits outside
-        // the navigator, so it still shows.
+        // The form lifts up from just below while the tab shell sinks back
+        // and fades, so the old screen hands off to the new one. Before, the
+        // shell stayed fully drawn under the form until it was opaque, and
+        // the two screens showed through each other. The ambient canvas sits
+        // outside the navigator and morphs on under both.
+        entrance: AmbientEntrance.lift,
+        leavesTabBehind: true,
+        transitionDuration: AppDurations.lift,
+        reverseTransitionDuration: AppDurations.lift,
+        // Opaque, so the shell is not drawn at all once it has faded out.
         opaque: true,
         child: CreateTopicScreen(
           initialTool: ToolTemplate.fromId(state.uri.queryParameters['tool']),

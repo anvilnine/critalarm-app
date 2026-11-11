@@ -1354,6 +1354,31 @@ _Clip _historyWeek() => (
   },
 );
 
+/// Home, then the new topic form opens over it and closes again.
+_Clip _newTopicOpens() => (
+  id: 'topics.new-topic',
+  screen: 'Home (Topics), then Create a topic, then back',
+  look: '-',
+  story: null,
+  theme: _theme,
+  features: ['F-redesigned-screens'],
+  note:
+      'The form is pushed at 0.6 s the way the compose button pushes it, '
+      'and popped at 2.2 s.',
+  run: (scene) async {
+    scene.seedHome();
+    final take = await scene.open('/');
+    await take.record();
+    await take.hold(0.6);
+    take.mark('push /topics/new');
+    unawaited(take.router.pushNamed<void>(AppRoute.createTopic));
+    await take.hold(1.6);
+    take.mark('pop');
+    take.router.pop();
+    await take.hold(1.4);
+  },
+);
+
 /// The Priorities page: what each priority does, scrolled.
 _Clip _priorities() => (
   id: 'priorities.open',
@@ -1456,4 +1481,5 @@ List<_Clip> _allClips() => [
   _reliabilityScroll(),
   _historyWeek(),
   _priorities(),
+  _newTopicOpens(),
 ];

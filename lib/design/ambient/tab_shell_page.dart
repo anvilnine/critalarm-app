@@ -1,3 +1,4 @@
+import 'package:critalarm/design/ambient/ambient_lift.dart';
 import 'package:critalarm/design/ambient/ambient_page.dart';
 import 'package:flutter/material.dart';
 
@@ -49,6 +50,9 @@ class _TabShellRoute extends MaterialPageRoute<void> {
   /// Whether the route above is a cover that makes the shell leave.
   bool _isCovered = false;
 
+  /// How that cover came in, which decides how the shell leaves under it.
+  AmbientEntrance _coverEntrance = AmbientEntrance.slide;
+
   @override
   bool get maintainState => _page.maintainState;
 
@@ -62,12 +66,14 @@ class _TabShellRoute extends MaterialPageRoute<void> {
   @override
   void didChangeNext(Route<dynamic>? nextRoute) {
     _isCovered = coverLeavesTabBehind(nextRoute);
+    _coverEntrance = coverEntranceOf(nextRoute);
     super.didChangeNext(nextRoute);
   }
 
   @override
   void didPopNext(Route<dynamic> nextRoute) {
     _isCovered = coverLeavesTabBehind(nextRoute);
+    _coverEntrance = coverEntranceOf(nextRoute);
     super.didPopNext(nextRoute);
   }
 
@@ -93,6 +99,7 @@ class _TabShellRoute extends MaterialPageRoute<void> {
           ? secondaryAnimation
           : kAlwaysDismissedAnimation,
       isPopGestureInProgress: navigator?.userGestureInProgress ?? false,
+      coveredBy: _coverEntrance,
       child: material,
     );
   }

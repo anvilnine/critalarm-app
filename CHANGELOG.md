@@ -8,6 +8,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ### Removed
 - Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
+- The new topic form lifts up into place while the screen before it sinks back, instead of opening on top of it.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
