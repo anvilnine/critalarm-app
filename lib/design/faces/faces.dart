@@ -7,6 +7,8 @@ export 'face_rig.dart';
 export 'face_ripple.dart';
 export 'face_shape.dart';
 export 'face_state.dart';
+export 'face_tap_play.dart';
+export 'face_tap_rules.dart';
 export 'face_widget.dart';
 export 'ghost_field.dart';
 export 'idle_face.dart';

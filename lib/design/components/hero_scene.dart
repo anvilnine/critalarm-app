@@ -8,6 +8,7 @@ import 'package:critalarm/design/ambient/hero_tone.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/faces/face_tap_play.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
@@ -588,16 +589,26 @@ class _HeroBodyState extends PaywallClockState<_HeroBody> {
                     child: child,
                   );
                 },
-                child: ValueListenableBuilder<({double blink, double glance})>(
-                  valueListenable: _faceTick,
-                  builder: (context, tick, _) => _HeroFace(
-                    state: scene.face,
-                    shape: scene.faceShape,
-                    size: face,
-                    isLive: scene.isLive,
-                    gaze: Offset.lerp(rest, _listGaze, tick.glance)!,
-                    blink: tick.blink,
-                  ),
+                // A tap on the face plays a short reaction and comes back to
+                // the scene's own face. It rides the bob, so the two never
+                // pull apart.
+                child: FaceTapPlay(
+                  state: scene.face,
+                  size: face,
+                  restShape: _restShape(scene, rest),
+                  isEnabled: !scene.isLive,
+                  child:
+                      ValueListenableBuilder<({double blink, double glance})>(
+                        valueListenable: _faceTick,
+                        builder: (context, tick, _) => _HeroFace(
+                          state: scene.face,
+                          shape: scene.faceShape,
+                          size: face,
+                          isLive: scene.isLive,
+                          gaze: Offset.lerp(rest, _listGaze, tick.glance)!,
+                          blink: tick.blink,
+                        ),
+                      ),
                 ),
               ),
             ),
@@ -617,6 +628,16 @@ class _HeroBodyState extends PaywallClockState<_HeroBody> {
         ),
       ],
     );
+  }
+
+  /// The pose the face rests in while nothing plays, so a tap reaction
+  /// lands back on what the scene draws.
+  static FaceShape? _restShape(AppHeroScene scene, Offset gaze) {
+    final shaped = scene.faceShape != null || scene.face == FaceState.calm;
+    final looks = heroFaceBlinks(scene.face) && gaze != Offset.zero;
+    if (!shaped && !looks) return null;
+    final pose = scene.faceShape ?? heroBaseShape(scene.face);
+    return looks ? heroLookedShape(pose, gaze) : pose;
   }
 
   Widget _dot(Offset at, double size, {Color? border, Color? fill}) =>

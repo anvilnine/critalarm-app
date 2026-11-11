@@ -10,6 +10,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
 - The new topic form lifts up into place while the screen before it sinks back, instead of opening on top of it.
 - The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
+### Added
+- Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added

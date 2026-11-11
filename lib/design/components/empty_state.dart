@@ -1,5 +1,6 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/faces/face_tap_play.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -66,18 +67,22 @@ class AppEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showFace) ...[
-              if (followsRefresh)
-                stageFace(
-                  context,
-                  state: faceState,
-                  size: 120,
-                  isLive: isLive,
-                )
-              else
-                FaceWidget(
-                  state: faceState,
-                  isLive: isLive,
-                ),
+              // A tap plays a short reaction and comes back to this face.
+              FaceTapPlay(
+                state: faceState,
+                size: 120,
+                child: followsRefresh
+                    ? stageFace(
+                        context,
+                        state: faceState,
+                        size: 120,
+                        isLive: isLive,
+                      )
+                    : FaceWidget(
+                        state: faceState,
+                        isLive: isLive,
+                      ),
+              ),
               const SizedBox(height: Spacing.s4),
             ],
             FittedBox(
