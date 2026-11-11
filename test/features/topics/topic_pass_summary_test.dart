@@ -22,6 +22,11 @@ final AlarmSound _classic = _sound(
   'Classic siren',
   AlarmSoundSource.bundled,
 );
+final AlarmSound _climb = _sound(
+  'loop_ascend',
+  'Endless climb',
+  AlarmSoundSource.bundled,
+);
 final AlarmSound _piano = _sound('piano', 'Piano', AlarmSoundSource.bundled);
 final AlarmSound _mine = _sound('user_1', 'My voice', AlarmSoundSource.user);
 
@@ -44,7 +49,7 @@ TopicPassSummary _summary({
   areSoundsLoaded: areSoundsLoaded,
   assignments:
       assignments ?? const SoundAssignments(defaultSoundId: 'classic_siren'),
-  builtInSounds: [_classic, _piano],
+  builtInSounds: [_climb, _classic, _piano],
   userSounds: [_mine],
   otherSounds: const [],
   ownSoundsLocked: ownSoundsLocked,
@@ -157,7 +162,7 @@ void main() {
     });
 
     test(
-      'a locked own sound over an own default falls to the classic siren',
+      'a locked own sound over an own default falls to Endless climb',
       () {
         final summary = _summary(
           ownSoundsLocked: true,
@@ -168,7 +173,7 @@ void main() {
         );
         expect(
           summary.of(PassId.sound).value,
-          const PassValueText('Classic siren'),
+          const PassValueText('Endless climb'),
         );
       },
     );

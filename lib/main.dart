@@ -32,6 +32,7 @@ import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
+import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -110,6 +111,9 @@ Future<void> main() async {
       BundledSounds.catalogue(platform: defaultTargetPlatform),
     ),
   );
+  // A choice on a sound that no longer ships, or no choice at all, is
+  // saved as the fallback sound, so the native alarm reads the same thing.
+  unawaited(_replaceRemovedSounds());
 
   if (kDebugMode) {
     // Needed to aim a real APNs push at this handset. `flutter run` prints
@@ -252,4 +256,24 @@ Future<void> main() async {
       child: CritAlarmApp(initialLocation: initialLocation),
     ),
   );
+}
+
+/// Saves removed or unset sound choices as the fallback, then hands the
+/// new choices to the iOS notification extension.
+Future<void> _replaceRemovedSounds() async {
+  try {
+    if (await getIt<AlarmSoundRepository>().replaceRemovedSounds()) {
+      await getIt<SoundHost>().publishSoundAssignments();
+    }
+  } on Object catch (e, s) {
+    if (getIt.isRegistered<TelemetryGate>()) {
+      unawaited(
+        getIt<TelemetryGate>().recordError(
+          e,
+          s,
+          reason: 'replace_removed_sounds',
+        ),
+      );
+    }
+  }
 }

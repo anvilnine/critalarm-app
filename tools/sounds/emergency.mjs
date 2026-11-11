@@ -1,6 +1,6 @@
 // Crit Alarm emergency sounds. Fourteen non-musical warning signals, synthesized here.
 // Run from the repo root:
-//   node tools/sounds/emergency.mjs                         (all 14)
+//   node tools/sounds/emergency.mjs                         (all 13)
 //   node tools/sounds/emergency.mjs 07                      (one sound, by number)
 //   node tools/sounds/emergency.mjs emergency_sos_horn      (one sound, by id)
 // Writes one file for iOS and one for Android per sound into assets/sounds/, encoded as the
@@ -19,7 +19,7 @@ import { spawnSync } from 'node:child_process';
 const SR = 48000, TAU = Math.PI * 2;
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'sounds');
 
-// ---------- ENCODING: change a value here and rerun to re-encode all 14 ----------
+// ---------- ENCODING: change a value here and rerun to re-encode all 13 ----------
 // channels: 2 = stereo, 1 = mono. A mono file gets its own mono master (see master()).
 // iOS gets AAC in m4a, not mp3: AVFoundation converts an m4a to caf at its exact length, while
 // an mp3 comes out with encoder padding added. Changing ext also needs the matching extension
@@ -44,6 +44,7 @@ const ENCODING = {
 const MAX_DECODED_TP = -1.1, MAX_CEIL_ROUNDS = 8;
 
 // Number in this file to the id the app stores against topics. Ids never change once shipped.
+// 14 (emergency_tone_ladder, Tone ladder) was taken out of the app after 1.1.0.
 const IDS = {
   '01': 'emergency_hilo_siren',
   '02': 'emergency_wail_siren',
@@ -58,7 +59,6 @@ const IDS = {
   '11': 'emergency_speeding_beeper',
   '12': 'emergency_proximity',
   '13': 'emergency_alarm_bell',
-  '14': 'emergency_tone_ladder',
 };
 const PAD = 0.06; // digital silence at each end, seconds
 // Every bundled sound has to read at least -9 LUFS on its decoded mono app file. -8.5 on the
@@ -585,32 +585,10 @@ SOUNDS['13'] = { slug: 'bell', fn() {
   echo(b, main, 0.17, 0.23, 0.18, 0.2, 3000, 4);
   return b; } };
 
-// 14 ladder: eight-step stepped tone climbing 600 to 1650 Hz every 2 s; layers pile on each pair of ladders
-SOUNDS['14'] = { slug: 'ladder', fn() {
-  const L2 = 2, b = bus(L2 * 8), ev = [], st = 0.22;
-  const f = new Float64Array(b.n).fill(600);
-  for (let l = 0; l < 8; l++) for (let s = 0; s < 8; s++) {
-    const t = l * L2 + s * st + (l === 0 && s === 0 ? PAD : 0), len = st - 0.03 - (l === 0 && s === 0 ? PAD : 0);
-    const fs = 600 * Math.pow(1650 / 600, s / 7);
-    ev.push({ t, len, l, s });
-    const a = S(t); for (let i = 0; i < S(len + 0.03); i++) if (a + i < b.n) f[a + i] = fs * (1 + 0.035 * Math.exp(-i / SR / 0.012));
-  }
-  const lv = t => db(-6 + 6 * smooth(t / 13));
-  const main = osc(b.n, f, ODD(1.45)); const ev2 = osc(b.n, f, k => (k % 2 ? 0 : 0.15 / k));
-  for (let i = 0; i < b.n; i++) main[i] += ev2[i];
-  const g = gate(b.n, ev, 0.004, 0.012, lv);
-  // top steps on the last two ladders flutter
-  for (const e of ev) if (e.l >= 6 && e.s >= 5) { const a = S(e.t); for (let i = 0; i < S(e.len); i++) g[a + i] *= 0.75 + 0.25 * Math.cos(TAU * 18 * i / SR); }
-  mul(main, g); add(b, main);
-  const oct = osc(b.n, curve(b.n, t => f[S(t)] * 2), SAW(2.4));
-  mul(oct, gate(b.n, ev.filter(e => e.l >= 4), 0.004, 0.012, () => db(-12))); add(b, oct, 1, 0);
-  echo(b, main, 0.11, 0.165, 0.22, 0.12, 3200, 2 * L2);
-  return b; } };
-
 // ---------- run ----------
 const only = process.argv[2];
 if (only && !SOUNDS[only] && !Object.values(IDS).includes(only)) {
-  console.error(`unknown sound "${only}". Use 01 to 14 or one of: ${Object.values(IDS).join(', ')}`);
+  console.error(`unknown sound "${only}". Use 01 to 13 or one of: ${Object.values(IDS).join(', ')}`);
   process.exit(1);
 }
 // bitexact keeps encoder version strings and random Ogg serial numbers out of the files, so a

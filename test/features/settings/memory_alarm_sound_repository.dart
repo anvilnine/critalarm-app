@@ -74,4 +74,15 @@ class MemoryAlarmSoundRepository implements AlarmSoundRepository {
     );
     return unit.toSuccess();
   }
+
+  @override
+  Future<bool> replaceRemovedSounds() async {
+    final next = assignments.withRemovedSoundsReplaced(
+      BundledSounds.removedIds,
+      replacementId: BundledSounds.fallbackId,
+    );
+    if (next == assignments) return false;
+    assignments = next;
+    return true;
+  }
 }

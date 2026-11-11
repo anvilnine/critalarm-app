@@ -1730,10 +1730,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "Klassieke sirene",
-      "pulsing_klaxon": "Pulserende claxon",
       "marimba_escalator": "Oplopende marimba",
       "soft_to_loud_ramp": "Van zacht naar hard",
-      "pager_beep": "Pieper",
       "submarine_dive_horn": "Duikalarm onderzeeër",
       "rising_synth_sweep": "Oplopende synth",
       "plain_loud_beep": "Eenvoudige harde piep",
@@ -1750,7 +1748,6 @@
       "emergency_speeding_beeper": "Versnellende pieper",
       "emergency_proximity": "Naderingsalarm",
       "emergency_alarm_bell": "Alarmbel",
-      "emergency_tone_ladder": "Toonladder",
       "loop_ascend": "Eindeloze stijging",
       "loop_dread": "Dalende dreiging",
       "loop_chiprun": "Chiploop",

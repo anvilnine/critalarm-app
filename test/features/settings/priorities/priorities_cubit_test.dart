@@ -93,10 +93,10 @@ void main() {
     });
 
     test('the sound is the default alarm sound', () async {
-      await repository.setDefaultSoundId('pager_beep');
+      await repository.setDefaultSoundId('submarine_dive_horn');
       final cubit = build();
       await cubit.load();
-      expect(cubit.state.sound?.id, 'pager_beep');
+      expect(cubit.state.sound?.id, 'submarine_dive_horn');
       await cubit.close();
     });
 

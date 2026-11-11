@@ -496,9 +496,9 @@ final class SharedSoundsTests: XCTestCase {
     }
 
     func testATopicWhosePackSoundIsGonePlaysTheDefault() {
-        SharedSounds.publish(defaultFile: "pager_beep.caf", perTopicFiles: ["prod": "pack_library_boxing_bell.caf"], to: defaults)
+        SharedSounds.publish(defaultFile: "submarine_dive_horn.caf", perTopicFiles: ["prod": "pack_library_boxing_bell.caf"], to: defaults)
         let name = SharedSounds.fileName(forTopic: "prod", defaults: defaults) { $0 != "pack_library_boxing_bell.caf" }
-        XCTAssertEqual(name, "pager_beep.caf")
+        XCTAssertEqual(name, "submarine_dive_horn.caf")
     }
 
     func testAPackSoundOnDiskPlaysItself() {
@@ -577,41 +577,41 @@ final class OwnSoundLockTests: XCTestCase {
     func testOpenPublishesOwnSoundsAsBefore() {
         let choices = SharedSounds.choicesToPublish(
             defaultId: own,
-            perTopicIds: ["prod": otherOwn, "staging": "pager_beep"],
+            perTopicIds: ["prod": otherOwn, "staging": "submarine_dive_horn"],
             ownLocked: false,
             ringableFileName: SharedSounds.fileNameFor(soundID:)
         )
         XCTAssertEqual(choices.defaultFile, "\(own).caf")
-        XCTAssertEqual(choices.perTopicFiles, ["prod": "\(otherOwn).caf", "staging": "pager_beep.caf"])
+        XCTAssertEqual(choices.perTopicFiles, ["prod": "\(otherOwn).caf", "staging": "submarine_dive_horn.caf"])
     }
 
     func testLockedPublishesNoOwnFile() {
         let choices = SharedSounds.choicesToPublish(
             defaultId: own,
-            perTopicIds: ["prod": otherOwn, "staging": "pager_beep", "web": pack],
+            perTopicIds: ["prod": otherOwn, "staging": "submarine_dive_horn", "web": pack],
             ownLocked: true,
             ringableFileName: SharedSounds.fileNameFor(soundID:)
         )
-        XCTAssertEqual(choices.defaultFile, "classic_siren.caf")
-        XCTAssertEqual(choices.perTopicFiles, ["staging": "pager_beep.caf", "web": "\(pack).caf"])
+        XCTAssertEqual(choices.defaultFile, "loop_ascend.caf")
+        XCTAssertEqual(choices.perTopicFiles, ["staging": "submarine_dive_horn.caf", "web": "\(pack).caf"])
     }
 
     func testLockedKeepsABuiltInDefault() {
         let choices = SharedSounds.choicesToPublish(
-            defaultId: "pager_beep",
+            defaultId: "submarine_dive_horn",
             perTopicIds: ["prod": own],
             ownLocked: true,
             ringableFileName: SharedSounds.fileNameFor(soundID:)
         )
-        XCTAssertEqual(choices.defaultFile, "pager_beep.caf")
+        XCTAssertEqual(choices.defaultFile, "submarine_dive_horn.caf")
         XCTAssertEqual(choices.perTopicFiles, [:])
     }
 
-    func testLockedAnOwnDefaultTooLongToRingStillBecomesTheClassicSiren() {
+    func testLockedAnOwnDefaultTooLongToRingStillBecomesTheFallback() {
         let choices = SharedSounds.choicesToPublish(
             defaultId: own, perTopicIds: [:], ownLocked: true, ringableFileName: { _ in nil }
         )
-        XCTAssertEqual(choices.defaultFile, "classic_siren.caf")
+        XCTAssertEqual(choices.defaultFile, "loop_ascend.caf")
     }
 
     func testNoDefaultSavedPublishesNoneLockedOrOpen() {
@@ -625,31 +625,45 @@ final class OwnSoundLockTests: XCTestCase {
         }
     }
 
+    func testARemovedSoundPublishesTheFallback() {
+        let choices = SharedSounds.choicesToPublish(
+            defaultId: "pager_beep",
+            perTopicIds: ["prod": "pulsing_klaxon", "web": "emergency_tone_ladder", "db": "classic_siren"],
+            ownLocked: false,
+            ringableFileName: SharedSounds.fileNameFor(soundID:)
+        )
+        XCTAssertEqual(choices.defaultFile, "loop_ascend.caf")
+        XCTAssertEqual(
+            choices.perTopicFiles,
+            ["prod": "loop_ascend.caf", "web": "loop_ascend.caf", "db": "classic_siren.caf"]
+        )
+    }
+
     // What the extension rings.
 
     func testOpenAnOwnTopicSoundRings() {
-        publish(defaultId: "pager_beep", perTopic: ["prod": own], ownLocked: false)
+        publish(defaultId: "submarine_dive_horn", perTopic: ["prod": own], ownLocked: false)
         XCTAssertEqual(rings("prod"), "\(own).caf")
-        XCTAssertEqual(rings("staging"), "pager_beep.caf")
+        XCTAssertEqual(rings("staging"), "submarine_dive_horn.caf")
     }
 
     func testLockedAnOwnTopicSoundRingsTheBuiltInDefault() {
-        publish(defaultId: "pager_beep", perTopic: ["prod": own], ownLocked: true)
-        XCTAssertEqual(rings("prod"), "pager_beep.caf")
-        XCTAssertEqual(rings(nil), "pager_beep.caf")
+        publish(defaultId: "submarine_dive_horn", perTopic: ["prod": own], ownLocked: true)
+        XCTAssertEqual(rings("prod"), "submarine_dive_horn.caf")
+        XCTAssertEqual(rings(nil), "submarine_dive_horn.caf")
     }
 
-    func testLockedAnOwnDefaultRingsTheClassicSiren() {
-        publish(defaultId: own, perTopic: ["prod": "pager_beep"], ownLocked: true)
-        XCTAssertEqual(rings(nil), "classic_siren.caf")
-        XCTAssertEqual(rings("staging"), "classic_siren.caf")
-        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+    func testLockedAnOwnDefaultRingsTheFallback() {
+        publish(defaultId: own, perTopic: ["prod": "submarine_dive_horn"], ownLocked: true)
+        XCTAssertEqual(rings(nil), "loop_ascend.caf")
+        XCTAssertEqual(rings("staging"), "loop_ascend.caf")
+        XCTAssertEqual(rings("prod"), "submarine_dive_horn.caf")
     }
 
-    func testLockedOwnOnTheTopicAndAsTheDefaultRingsTheClassicSiren() {
+    func testLockedOwnOnTheTopicAndAsTheDefaultRingsTheFallback() {
         publish(defaultId: otherOwn, perTopic: ["prod": own], ownLocked: true)
-        XCTAssertEqual(rings("prod"), "classic_siren.caf")
-        XCTAssertEqual(rings(nil), "classic_siren.caf")
+        XCTAssertEqual(rings("prod"), "loop_ascend.caf")
+        XCTAssertEqual(rings(nil), "loop_ascend.caf")
     }
 
     func testOpenAgainTheSameChoicesRingTheirOwnSounds() {
@@ -661,21 +675,21 @@ final class OwnSoundLockTests: XCTestCase {
 
     func testNoOwnSoundAnywhereRingsTheSameLockedOrOpen() {
         for locked in [true, false] {
-            publish(defaultId: "pager_beep", perTopic: ["prod": pack], ownLocked: locked)
+            publish(defaultId: "submarine_dive_horn", perTopic: ["prod": pack], ownLocked: locked)
             XCTAssertEqual(rings("prod"), "\(pack).caf")
-            XCTAssertEqual(rings(nil), "pager_beep.caf")
+            XCTAssertEqual(rings(nil), "submarine_dive_horn.caf")
         }
     }
 
     /// Own files published before the lock, with only the flag set since.
     func testTheFlagAloneKeepsAnOwnFileFromRinging() {
         SharedSounds.publish(
-            defaultFile: "pager_beep.caf",
+            defaultFile: "submarine_dive_horn.caf",
             perTopicFiles: ["prod": "\(own).caf"],
             ownLocked: true,
             to: defaults
         )
-        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+        XCTAssertEqual(rings("prod"), "submarine_dive_horn.caf")
 
         SharedSounds.publish(
             defaultFile: "\(otherOwn).caf",
@@ -683,8 +697,8 @@ final class OwnSoundLockTests: XCTestCase {
             ownLocked: true,
             to: defaults
         )
-        XCTAssertEqual(rings("prod"), "classic_siren.caf")
-        XCTAssertEqual(rings(nil), "classic_siren.caf")
+        XCTAssertEqual(rings("prod"), "loop_ascend.caf")
+        XCTAssertEqual(rings(nil), "loop_ascend.caf")
     }
 
     func testNoFlagPublishedIsNotLocked() {
@@ -720,7 +734,7 @@ final class OwnSoundLockTests: XCTestCase {
     }
 
     func testLockedNeverRingsAnOwnFileWhateverIsSaved() {
-        let ids = [own, otherOwn, "pager_beep", pack, "classic_siren"]
+        let ids = [own, otherOwn, "submarine_dive_horn", pack, "classic_siren"]
         for defaultId in ids {
             for topicId in ids {
                 publish(defaultId: defaultId, perTopic: ["prod": topicId], ownLocked: true)
@@ -752,8 +766,8 @@ final class OwnSoundLockTests: XCTestCase {
     func testTheAlarmKeepsABuiltInNameLockedOrOpen() {
         for locked in [true, false] {
             XCTAssertEqual(
-                OwnSoundLock.alarmSound(requested: "pager_beep.caf", ownLocked: locked, bundled: "alarm.caf"),
-                "pager_beep.caf"
+                OwnSoundLock.alarmSound(requested: "submarine_dive_horn.caf", ownLocked: locked, bundled: "alarm.caf"),
+                "submarine_dive_horn.caf"
             )
         }
     }

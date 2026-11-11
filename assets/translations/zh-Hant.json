@@ -1714,10 +1714,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "經典警笛",
-      "pulsing_klaxon": "脈衝喇叭",
       "marimba_escalator": "漸升馬林巴",
       "soft_to_loud_ramp": "由弱漸強",
-      "pager_beep": "呼叫器嗶聲",
       "submarine_dive_horn": "潛艇下潛警笛",
       "rising_synth_sweep": "漸升合成音",
       "plain_loud_beep": "響亮單音嗶聲",
@@ -1734,7 +1732,6 @@
       "emergency_speeding_beeper": "加速嗶聲",
       "emergency_proximity": "接近警告",
       "emergency_alarm_bell": "警鈴",
-      "emergency_tone_ladder": "音階警報",
       "loop_ascend": "無盡上升",
       "loop_dread": "墜落驚懼",
       "loop_chiprun": "晶片疾走",

@@ -1450,8 +1450,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppRadioRow(
-                title: 'Pager beep',
-                meta: '0:14',
+                title: 'Plain loud beep',
+                meta: '0:12',
                 selected: true,
                 leading: AppPreviewButton(
                   isPlaying: false,

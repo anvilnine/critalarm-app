@@ -82,11 +82,11 @@ void main() {
   });
 
   test('a default changed in the sound picker shows after a reload', () async {
-    await repository.setDefaultSoundId('pager_beep');
+    await repository.setDefaultSoundId('submarine_dive_horn');
     await cubit.load();
     expect(
       cubit.state.soundStrip(ownSoundsLocked: false).current?.id,
-      'pager_beep',
+      'submarine_dive_horn',
     );
   });
 

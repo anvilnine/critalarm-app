@@ -1730,10 +1730,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "Klasik siren",
-      "pulsing_klaxon": "Kesik kesik klakson",
       "marimba_escalator": "Yükselen marimba",
       "soft_to_loud_ramp": "Kısık sesten yükseğe",
-      "pager_beep": "Çağrı cihazı bipi",
       "submarine_dive_horn": "Denizaltı dalış kornası",
       "rising_synth_sweep": "Yükselen synth sesi",
       "plain_loud_beep": "Sade yüksek bip",
@@ -1750,7 +1748,6 @@
       "emergency_speeding_beeper": "Hızlanan bip",
       "emergency_proximity": "Yaklaşma uyarısı",
       "emergency_alarm_bell": "Alarm zili",
-      "emergency_tone_ladder": "Ton merdiveni",
       "loop_ascend": "Sonsuz tırmanış",
       "loop_dread": "Alçalan gerilim",
       "loop_chiprun": "Çip koşusu",

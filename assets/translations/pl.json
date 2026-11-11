@@ -1762,10 +1762,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "Klasyczna syrena",
-      "pulsing_klaxon": "Pulsujący klakson",
       "marimba_escalator": "Wznosząca marimba",
       "soft_to_loud_ramp": "Od cichego do głośnego",
-      "pager_beep": "Sygnał pagera",
       "submarine_dive_horn": "Alarm zanurzenia",
       "rising_synth_sweep": "Wznoszący syntezator",
       "plain_loud_beep": "Zwykły głośny sygnał",
@@ -1782,7 +1780,6 @@
       "emergency_speeding_beeper": "Przyspieszający brzęczyk",
       "emergency_proximity": "Alarm zbliżeniowy",
       "emergency_alarm_bell": "Dzwon alarmowy",
-      "emergency_tone_ladder": "Drabina tonów",
       "loop_ascend": "Niekończąca się wspinaczka",
       "loop_dread": "Narastający niepokój",
       "loop_chiprun": "Bieg w 8 bitach",

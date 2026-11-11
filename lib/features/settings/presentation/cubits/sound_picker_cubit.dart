@@ -365,15 +365,22 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
       await _repository.setDefaultSoundId(soundId);
     }
     await _host.publishSoundAssignments();
+    if (isClosed) return;
     emit(
       state.copyWith(
         selectedSoundId: soundId,
         defaultSoundId: state.isPerTopic ? state.defaultSoundId : soundId,
       ),
     );
+    // Picking another sound ends the loop of the one previewing. Picking
+    // the one that plays leaves it playing.
+    final playing = state.previewingSoundId;
+    if (playing != null && playing != soundId) await stopPreview();
   }
 
-  /// Tapping play on the row already playing stops it.
+  /// Tapping play on the row already playing stops it. A preview loops
+  /// until it is stopped: a second tap, another row, or the picker closing
+  /// ([close]) or going off screen.
   Future<void> togglePreview(AlarmSound sound) async {
     if (state.previewingSoundId == sound.id) {
       await _host.stopPreview();
@@ -381,7 +388,13 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
       return;
     }
     await _host.stopPreview();
-    final started = await _host.startPreview(sound);
+    final started = await _host.startPreview(sound, loop: true);
+    if (isClosed) {
+      // The picker closed while the platform was starting it. Nothing is
+      // left to stop a loop, so stop it here.
+      if (started) await _host.stopPreview();
+      return;
+    }
     emit(
       started
           ? state.copyWith(previewingSoundId: sound.id)

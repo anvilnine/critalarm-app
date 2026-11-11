@@ -10,10 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AlarmSound', () {
     const sound = AlarmSound(
-      id: 'pager_beep',
-      name: 'Pager beep',
+      id: 'submarine_dive_horn',
+      name: 'Submarine dive horn',
       source: AlarmSoundSource.bundled,
-      path: 'assets/sounds/pager_beep.ogg',
+      path: 'assets/sounds/submarine_dive_horn.ogg',
       duration: Duration(seconds: 14),
     );
 
@@ -112,13 +112,13 @@ void main() {
   });
 
   group('BundledSounds', () {
-    // Stored against topics, so the ids and their order are fixed.
-    const firstEight = [
+    // Stored against topics, so the ids are fixed. Three were taken out after
+    // 1.1.0 and are in [BundledSounds.removedIds].
+    const removed = ['pulsing_klaxon', 'pager_beep', 'emergency_tone_ladder'];
+    const firstSix = [
       'classic_siren',
-      'pulsing_klaxon',
       'marimba_escalator',
       'soft_to_loud_ramp',
-      'pager_beep',
       'submarine_dive_horn',
       'rising_synth_sweep',
       'plain_loud_beep',
@@ -137,7 +137,6 @@ void main() {
       'emergency_speeding_beeper',
       'emergency_proximity',
       'emergency_alarm_bell',
-      'emergency_tone_ladder',
     ];
     const loops = [
       'loop_ascend',
@@ -147,14 +146,77 @@ void main() {
       'loop_royalroad',
     ];
 
-    test('ships 27 sounds', () {
-      expect(BundledSounds.ids, hasLength(27));
-      expect(BundledSounds.catalogue(), hasLength(27));
+    test('ships 24 sounds', () {
+      expect(BundledSounds.ids, hasLength(24));
+      expect(BundledSounds.catalogue(), hasLength(24));
     });
 
-    test('the first eight keep their ids and order, then the emergency 14, '
-        'then the five loops', () {
-      expect(BundledSounds.ids, [...firstEight, ...emergency, ...loops]);
+    test('Endless climb first, then the first six, the emergency 13 and the '
+        'other four loops', () {
+      expect(BundledSounds.ids, [
+        'loop_ascend',
+        ...firstSix,
+        ...emergency,
+        ...loops.where((id) => id != 'loop_ascend'),
+      ]);
+    });
+
+    test('the picker lists Endless climb first', () {
+      final catalogue = BundledSounds.catalogue();
+      expect(catalogue.first.id, 'loop_ascend');
+      expect(catalogue.first.name, 'Endless climb');
+    });
+
+    test('the removed sounds are gone everywhere', () {
+      expect(BundledSounds.removedIds, removed.toSet());
+      for (final id in removed) {
+        expect(BundledSounds.ids, isNot(contains(id)), reason: id);
+        expect(BundledSounds.isBundled(id), isFalse, reason: id);
+        expect(BundledSounds.iosExtensions, isNot(contains(id)), reason: id);
+        expect(BundledSounds.englishNames, isNot(contains(id)), reason: id);
+        for (final ext in ['mp3', 'm4a', 'ogg']) {
+          expect(
+            File('assets/sounds/$id.$ext').existsSync(),
+            isFalse,
+            reason: '$id.$ext',
+          );
+        }
+        expect(
+          File('ios/Runner/Haptics/$id.ahap').existsSync(),
+          isFalse,
+          reason: id,
+        );
+      }
+      final licences = File('assets/sounds/LICENSES.md').readAsStringSync();
+      for (final id in removed) {
+        expect(licences, isNot(contains('`$id`')), reason: id);
+      }
+    });
+
+    test('no translation still names a removed sound', () {
+      for (final file in Directory('assets/translations').listSync()) {
+        if (file is! File || !file.path.endsWith('.json')) continue;
+        final json =
+            jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        final names =
+            (json['sound_library'] as Map<String, dynamic>)['names']
+                as Map<String, dynamic>;
+        for (final id in removed) {
+          expect(names, isNot(contains(id)), reason: '${file.path} $id');
+        }
+      }
+    });
+
+    test('a removed sound is replaced by Endless climb', () {
+      for (final id in removed) {
+        expect(BundledSounds.replacingRemoved(id), 'loop_ascend', reason: id);
+      }
+      expect(BundledSounds.replacingRemoved('classic_siren'), 'classic_siren');
+      expect(BundledSounds.replacingRemoved('user_1'), 'user_1');
+      expect(
+        BundledSounds.replacingRemoved('pack_library_boxing_bell'),
+        'pack_library_boxing_bell',
+      );
     });
 
     test('the loops have their names', () {
@@ -200,15 +262,13 @@ void main() {
       expect(flagged(android), flagged(ios));
     });
 
-    test('the first eight keep their lengths', () {
+    test('the first six keep their lengths', () {
       expect(
-        {for (final id in firstEight) id: BundledSounds.durations[id]},
+        {for (final id in firstSix) id: BundledSounds.durations[id]},
         const {
           'classic_siren': Duration(seconds: 16),
-          'pulsing_klaxon': Duration(seconds: 12),
           'marimba_escalator': Duration(milliseconds: 15600),
           'soft_to_loud_ramp': Duration(seconds: 15),
-          'pager_beep': Duration(seconds: 14),
           'submarine_dive_horn': Duration(seconds: 15),
           'rising_synth_sweep': Duration(seconds: 15),
           'plain_loud_beep': Duration(seconds: 12),
@@ -233,7 +293,6 @@ void main() {
           'emergency_speeding_beeper': Duration(seconds: 16),
           'emergency_proximity': Duration(seconds: 16),
           'emergency_alarm_bell': Duration(seconds: 16),
-          'emergency_tone_ladder': Duration(seconds: 16),
         },
       );
     });
@@ -300,8 +359,8 @@ void main() {
       }
     });
 
-    test('iOS plays the first eight as mp3, Android as ogg', () {
-      for (final id in firstEight) {
+    test('iOS plays the first six as mp3, Android as ogg', () {
+      for (final id in firstSix) {
         expect(
           BundledSounds.assetPath(id, TargetPlatform.iOS),
           'assets/sounds/$id.mp3',
@@ -339,8 +398,8 @@ void main() {
     test('the catalogue carries the per-sound iOS path', () {
       final ios = BundledSounds.catalogue(platform: TargetPlatform.iOS);
       expect(
-        ios.firstWhere((s) => s.id == 'pager_beep').path,
-        'assets/sounds/pager_beep.mp3',
+        ios.firstWhere((s) => s.id == 'classic_siren').path,
+        'assets/sounds/classic_siren.mp3',
       );
       expect(
         ios.firstWhere((s) => s.id == 'emergency_klaxon').path,
@@ -371,9 +430,13 @@ void main() {
       }
     });
 
-    test('the fallback is still the classic siren', () {
-      expect(BundledSounds.fallbackId, 'classic_siren');
+    test('the fallback, and so the default, is Endless climb', () {
+      expect(BundledSounds.fallbackId, 'loop_ascend');
       expect(BundledSounds.isBundled(BundledSounds.fallbackId), isTrue);
+      expect(
+        BundledSounds.removedIds,
+        isNot(contains(BundledSounds.fallbackId)),
+      );
       expect(BundledSounds.isBundled('emergency_sos_horn'), isTrue);
       expect(BundledSounds.isBundled('user_123'), isFalse);
     });
@@ -382,7 +445,7 @@ void main() {
       final translated = BundledSounds.catalogue(
         nameOf: (id) => 'NAME:$id',
       );
-      expect(translated.first.name, 'NAME:classic_siren');
+      expect(translated.first.name, 'NAME:loop_ascend');
     });
   });
 }

@@ -14,7 +14,7 @@ class SoundPackRulesTest {
     @get:Rule
     val temp = TemporaryFolder()
 
-    private val siren = AlarmSoundSource.Asset("assets/sounds/classic_siren.ogg")
+    private val siren = AlarmSoundSource.Asset("assets/sounds/loop_ascend.ogg")
     private val id = "pack_library_boxing_bell"
 
     private fun packWith(vararg ids: String): File {
@@ -104,8 +104,8 @@ class SoundPackRulesTest {
     fun bundledAndUserSoundsResolveAsBefore() {
         val sounds = temp.newFolder("sounds")
         assertEquals(
-            AlarmSoundSource.Asset("assets/sounds/pager_beep.ogg"),
-            AlarmSoundStore.resolveIn(sounds, "pager_beep") { null }.source,
+            AlarmSoundSource.Asset("assets/sounds/submarine_dive_horn.ogg"),
+            AlarmSoundStore.resolveIn(sounds, "submarine_dive_horn") { null }.source,
         )
         val user = File(sounds, "user_1.wav").apply { writeBytes(byteArrayOf(1)) }
         assertEquals(
@@ -125,22 +125,22 @@ class SoundPackRulesTest {
     @Test
     fun aTopicWhosePackSoundIsGoneRingsTheDefault() {
         val sounds = temp.newFolder("sounds")
-        val picked = AlarmSoundStore.resolveChain(sounds, listOf(id, "pager_beep")) { null }
-        assertEquals("pager_beep" to AlarmSoundSource.Asset("assets/sounds/pager_beep.ogg"), picked)
+        val picked = AlarmSoundStore.resolveChain(sounds, listOf(id, "submarine_dive_horn")) { null }
+        assertEquals("submarine_dive_horn" to AlarmSoundSource.Asset("assets/sounds/submarine_dive_horn.ogg"), picked)
     }
 
     @Test
     fun aDefaultThatIsAlsoGoneRingsTheClassicSiren() {
         val sounds = temp.newFolder("sounds")
         val picked = AlarmSoundStore.resolveChain(sounds, listOf(id, "pack_library_buzzer_1")) { null }
-        assertEquals("classic_siren" to siren, picked)
+        assertEquals("loop_ascend" to siren, picked)
     }
 
     @Test
     fun aTopicWhosePackSoundIsThereRingsIt() {
         val sounds = temp.newFolder("sounds")
         File(sounds, "$id.ogg").writeBytes(byteArrayOf(1))
-        val picked = AlarmSoundStore.resolveChain(sounds, listOf(id, "pager_beep")) { null }
+        val picked = AlarmSoundStore.resolveChain(sounds, listOf(id, "submarine_dive_horn")) { null }
         assertEquals(id, picked.first)
     }
 }

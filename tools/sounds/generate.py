@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Build the first eight bundled alarm sounds.
+"""Build the first six bundled alarm sounds.
 
-The 14 emergency sounds come from tools/sounds/emergency.mjs instead.
+Pulsing klaxon and Pager beep were taken out of the app after 1.1.0.
+
+The emergency sounds come from tools/sounds/emergency.mjs instead.
 
 Every sound is written here from scratch with the Python standard library, so
-all eight are our own work and carry no third-party licence. Run this and the
+all six are our own work and carry no third-party licence. Run this and the
 files under assets/sounds/ are rebuilt byte for byte the same way.
 
     python3 tools/sounds/generate.py
@@ -110,7 +112,7 @@ def burst(t, start, length, freq, wave_fn=math.sin, gain=1.0):
     return gain * edge_fade(local, length) * wave_fn(2 * math.pi * freq * local)
 
 
-# --- the eight patterns -------------------------------------------------
+# --- the six patterns -------------------------------------------------
 # Each returns one sample for time t inside one repeat of the pattern.
 
 
@@ -125,11 +127,6 @@ def classic_siren(t, period=4.0):
         600 * t + 400 * (t - (blast / (2 * math.pi)) * math.sin(2 * math.pi * t / blast))
     )
     return edge_fade(t, blast, 0.05) * (0.75 * math.sin(phase) + 0.25 * math.sin(2 * phase))
-
-
-def pulsing_klaxon(t, period=1.0):
-    """Hard on-off honk, the sound a ship's klaxon makes."""
-    return burst(t, 0.1, 0.35, 440.0, square, 0.95)
 
 
 def marimba_escalator(t, period=2.6):
@@ -164,14 +161,6 @@ def soft_to_loud_ramp(t, period=15.0):
         return 0.0
     level = 10 ** (-16.0 * (1.0 - min(1.0, (t - 0.1) / rise)) / 20)
     return edge_fade(local, on, 0.008) * level * math.sin(2 * math.pi * 880.0 * local)
-
-
-def pager_beep(t, period=2.0):
-    """Three thin high beeps, like an old hospital pager."""
-    out = 0.0
-    for i in range(3):
-        out += burst(t, 0.12 + i * 0.15, 0.08, 2600.0, math.sin, 0.9)
-    return out
 
 
 def submarine_dive_horn(t, period=5.0):
@@ -209,10 +198,8 @@ def plain_loud_beep(t, period=1.0):
 
 SOUNDS = [
     ("classic_siren", "Classic siren", classic_siren, 4.0, 4),
-    ("pulsing_klaxon", "Pulsing klaxon", pulsing_klaxon, 1.0, 12),
     ("marimba_escalator", "Marimba escalator", marimba_escalator, 2.6, 6),
     ("soft_to_loud_ramp", "Soft to loud ramp", soft_to_loud_ramp, 15.0, 1),
-    ("pager_beep", "Pager beep", pager_beep, 2.0, 7),
     ("submarine_dive_horn", "Submarine dive horn", submarine_dive_horn, 5.0, 3),
     ("rising_synth_sweep", "Rising synth sweep", rising_synth_sweep, 2.5, 6),
     ("plain_loud_beep", "Plain loud beep", plain_loud_beep, 1.0, 12),

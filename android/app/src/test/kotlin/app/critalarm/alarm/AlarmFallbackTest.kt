@@ -20,7 +20,7 @@ class AlarmFallbackTest {
     fun aBrokenBundledSoundFallsBackToTheDefault() {
         assertEquals(
             AlarmSoundSource.Asset(default),
-            AlarmFallback.next(AlarmSoundSource.Asset("assets/sounds/pager_beep.ogg"), default),
+            AlarmFallback.next(AlarmSoundSource.Asset("assets/sounds/submarine_dive_horn.ogg"), default),
         )
     }
 

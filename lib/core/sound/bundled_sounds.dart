@@ -1,32 +1,49 @@
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:flutter/foundation.dart';
 
-/// The 27 sounds that ship inside the app: the first eight, then 14
-/// emergency sounds, then five seamless loops.
+/// The 24 sounds that ship inside the app: Endless climb first, then six
+/// of the first sounds, then 13 emergency sounds, then the other four
+/// seamless loops.
 ///
 /// `assets/sounds/LICENSES.md` says where each came from.
-/// `tools/sounds/generate.py` rebuilds the first eight,
+/// `tools/sounds/generate.py` rebuilds the first sounds,
 /// `tools/sounds/emergency.mjs` rebuilds the `emergency_` ones and
 /// `tools/sounds/loops.mjs` rebuilds the `loop_` ones. The ids here
 /// are the file names with no extension, and they are stored against topics,
 /// so they can never change.
 abstract final class BundledSounds {
   /// The one every install starts on, and the one anything falls back to
-  /// when a sound is deleted. It cannot itself be deleted.
-  static const fallbackId = 'classic_siren';
+  /// when a sound is deleted. It cannot itself be deleted. It is Endless
+  /// climb, listed first in the picker. Classic siren held the spot until
+  /// 1.1.0.
+  static const fallbackId = 'loop_ascend';
 
-  /// Android plays the ogg for every sound. iOS plays the first eight as
+  /// Sounds that shipped once and were taken out. A choice saved against
+  /// one of them rings [fallbackId] instead. The native alarm code keeps
+  /// the same list: `AlarmSoundStore.REMOVED_IDS` on Android and
+  /// `SharedSounds.removedSoundIds` on iOS.
+  static const removedIds = <String>{
+    'pulsing_klaxon',
+    'pager_beep',
+    'emergency_tone_ladder',
+  };
+
+  /// [id] as it should ring today: a removed sound becomes [fallbackId],
+  /// anything else is handed back as it is.
+  static String replacingRemoved(String id) =>
+      removedIds.contains(id) ? fallbackId : id;
+
+  /// Android plays the ogg for every sound. iOS plays the first sounds as
   /// mp3 and the emergency sounds and loops as m4a: AVFoundation turns an
   /// m4a into a caf at its exact length, an mp3 with encoder padding added.
   static const _androidExtension = 'ogg';
 
   /// id to the extension of the file iOS plays.
   static const iosExtensions = <String, String>{
+    'loop_ascend': 'm4a',
     'classic_siren': 'mp3',
-    'pulsing_klaxon': 'mp3',
     'marimba_escalator': 'mp3',
     'soft_to_loud_ramp': 'mp3',
-    'pager_beep': 'mp3',
     'submarine_dive_horn': 'mp3',
     'rising_synth_sweep': 'mp3',
     'plain_loud_beep': 'mp3',
@@ -43,8 +60,6 @@ abstract final class BundledSounds {
     'emergency_speeding_beeper': 'm4a',
     'emergency_proximity': 'm4a',
     'emergency_alarm_bell': 'm4a',
-    'emergency_tone_ladder': 'm4a',
-    'loop_ascend': 'm4a',
     'loop_dread': 'm4a',
     'loop_chiprun': 'm4a',
     'loop_glockslide': 'm4a',
@@ -79,11 +94,11 @@ abstract final class BundledSounds {
 
   /// id to length, measured from what the generator wrote.
   static const durations = <String, Duration>{
+    // First, so the picker lists it first. See [fallbackId].
+    'loop_ascend': Duration(milliseconds: 28800),
     'classic_siren': Duration(seconds: 16),
-    'pulsing_klaxon': Duration(seconds: 12),
     'marimba_escalator': Duration(milliseconds: 15600),
     'soft_to_loud_ramp': Duration(seconds: 15),
-    'pager_beep': Duration(seconds: 14),
     'submarine_dive_horn': Duration(seconds: 15),
     'rising_synth_sweep': Duration(seconds: 15),
     'plain_loud_beep': Duration(seconds: 12),
@@ -100,8 +115,6 @@ abstract final class BundledSounds {
     'emergency_speeding_beeper': Duration(seconds: 16),
     'emergency_proximity': Duration(seconds: 16),
     'emergency_alarm_bell': Duration(seconds: 16),
-    'emergency_tone_ladder': Duration(seconds: 16),
-    'loop_ascend': Duration(milliseconds: 28800),
     'loop_dread': Duration(milliseconds: 28800),
     'loop_chiprun': Duration(milliseconds: 28800),
     'loop_glockslide': Duration(milliseconds: 28800),
@@ -110,11 +123,10 @@ abstract final class BundledSounds {
 
   /// Shown when nothing has translated the name yet, and used by tests.
   static const englishNames = <String, String>{
+    'loop_ascend': 'Endless climb',
     'classic_siren': 'Classic siren',
-    'pulsing_klaxon': 'Pulsing klaxon',
     'marimba_escalator': 'Marimba escalator',
     'soft_to_loud_ramp': 'Soft to loud ramp',
-    'pager_beep': 'Pager beep',
     'submarine_dive_horn': 'Submarine dive horn',
     'rising_synth_sweep': 'Rising synth sweep',
     'plain_loud_beep': 'Plain loud beep',
@@ -131,8 +143,6 @@ abstract final class BundledSounds {
     'emergency_speeding_beeper': 'Speeding beeper',
     'emergency_proximity': 'Proximity warning',
     'emergency_alarm_bell': 'Alarm bell',
-    'emergency_tone_ladder': 'Tone ladder',
-    'loop_ascend': 'Endless climb',
     'loop_dread': 'Falling dread',
     'loop_chiprun': 'Chip run',
     'loop_glockslide': 'Glock slide',

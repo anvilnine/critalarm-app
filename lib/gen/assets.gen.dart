@@ -223,14 +223,6 @@ class $AssetsSoundsGen {
   String get emergencySpeedingBeeperOgg =>
       'assets/sounds/emergency_speeding_beeper.ogg';
 
-  /// File path: assets/sounds/emergency_tone_ladder.m4a
-  String get emergencyToneLadderM4a =>
-      'assets/sounds/emergency_tone_ladder.m4a';
-
-  /// File path: assets/sounds/emergency_tone_ladder.ogg
-  String get emergencyToneLadderOgg =>
-      'assets/sounds/emergency_tone_ladder.ogg';
-
   /// File path: assets/sounds/emergency_wail_siren.m4a
   String get emergencyWailSirenM4a => 'assets/sounds/emergency_wail_siren.m4a';
 
@@ -287,23 +279,11 @@ class $AssetsSoundsGen {
   /// File path: assets/sounds/marimba_escalator.ogg
   String get marimbaEscalatorOgg => 'assets/sounds/marimba_escalator.ogg';
 
-  /// File path: assets/sounds/pager_beep.mp3
-  String get pagerBeepMp3 => 'assets/sounds/pager_beep.mp3';
-
-  /// File path: assets/sounds/pager_beep.ogg
-  String get pagerBeepOgg => 'assets/sounds/pager_beep.ogg';
-
   /// File path: assets/sounds/plain_loud_beep.mp3
   String get plainLoudBeepMp3 => 'assets/sounds/plain_loud_beep.mp3';
 
   /// File path: assets/sounds/plain_loud_beep.ogg
   String get plainLoudBeepOgg => 'assets/sounds/plain_loud_beep.ogg';
-
-  /// File path: assets/sounds/pulsing_klaxon.mp3
-  String get pulsingKlaxonMp3 => 'assets/sounds/pulsing_klaxon.mp3';
-
-  /// File path: assets/sounds/pulsing_klaxon.ogg
-  String get pulsingKlaxonOgg => 'assets/sounds/pulsing_klaxon.ogg';
 
   /// File path: assets/sounds/rising_synth_sweep.mp3
   String get risingSynthSweepMp3 => 'assets/sounds/rising_synth_sweep.mp3';
@@ -351,8 +331,6 @@ class $AssetsSoundsGen {
     emergencySosHornOgg,
     emergencySpeedingBeeperM4a,
     emergencySpeedingBeeperOgg,
-    emergencyToneLadderM4a,
-    emergencyToneLadderOgg,
     emergencyWailSirenM4a,
     emergencyWailSirenOgg,
     emergencyWindupSirenM4a,
@@ -371,12 +349,8 @@ class $AssetsSoundsGen {
     loopRoyalroadOgg,
     marimbaEscalatorMp3,
     marimbaEscalatorOgg,
-    pagerBeepMp3,
-    pagerBeepOgg,
     plainLoudBeepMp3,
     plainLoudBeepOgg,
-    pulsingKlaxonMp3,
-    pulsingKlaxonOgg,
     risingSynthSweepMp3,
     risingSynthSweepOgg,
     softToLoudRampMp3,

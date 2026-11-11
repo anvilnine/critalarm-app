@@ -1,6 +1,14 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Changed
+- Endless climb is the default alarm sound and the first one in the sound list.
+- A sound preview in the sound list plays on a loop until you tap it again, pick another sound or leave the list.
+
+### Removed
+- Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
+
 ## 1.1.0+17 - 2026-11-11
 ### Added
 - Crit Alarm now speaks German and Japanese. Pick a language in Settings under Language, or keep System default to follow your phone. The alarm screen, notifications and widgets switch too.

@@ -150,8 +150,8 @@ void main() {
     expect(isMarked(tester, ownSound.name), isFalse);
 
     // The mark is on the sound that will ring in its place.
-    const ringing = 'Classic siren';
-    expect(BundledSounds.fallbackId, 'classic_siren');
+    const ringing = 'Endless climb';
+    expect(BundledSounds.fallbackId, 'loop_ascend');
     expect(isMarked(tester, ringing), isTrue);
     // The choice is saved the moment it is made, so there is no button that
     // confirms it.

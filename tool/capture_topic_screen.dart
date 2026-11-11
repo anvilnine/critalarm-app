@@ -167,7 +167,7 @@ Future<void> _ownThings(MockServer server) async {
   await getIt<AlarmStyleChoices>().setTopicStyle('prod-db', 'terminal');
   await getIt<AlarmSoundRepository>().setTopicSoundId(
     'prod-db',
-    'pager_beep',
+    'plain_loud_beep',
   );
   await getIt<ChallengeChoices>().setChoice('prod-db', ChallengeKind.opsMath);
   server.createTopicToken('prod-db');

@@ -130,6 +130,9 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
         val isAsset = call.argument<Boolean>("is_asset") ?: false
         val startMs = call.argument<Number>("start_ms")?.toInt()
         val endMs = call.argument<Number>("end_ms")?.toInt()
+        // The picker loops a preview until Dart stops it. A cropper range
+        // never loops.
+        val loop = (call.argument<Boolean>("loop") ?: false) && startMs == null && endMs == null
         stopPreview()
         previewPath = path
         return runCatching {
@@ -145,8 +148,8 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
                 } else {
                     setDataSource(path)
                 }
-                // One pass only. The picker is not the alarm.
-                isLooping = false
+                // One pass, unless the picker asked for a loop.
+                isLooping = loop
                 setOnCompletionListener { endPreview() }
                 setOnErrorListener { _, _, _ ->
                     endPreview()

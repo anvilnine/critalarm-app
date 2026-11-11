@@ -1746,10 +1746,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "Klasická siréna",
-      "pulsing_klaxon": "Pulzující klakson",
       "marimba_escalator": "Stoupající marimba",
       "soft_to_loud_ramp": "Postupné zesilování",
-      "pager_beep": "Pípání pageru",
       "submarine_dive_horn": "Ponorková houkačka",
       "rising_synth_sweep": "Stoupající syntezátor",
       "plain_loud_beep": "Prosté hlasité pípání",
@@ -1766,7 +1764,6 @@
       "emergency_speeding_beeper": "Zrychlující pípání",
       "emergency_proximity": "Varování před přiblížením",
       "emergency_alarm_bell": "Poplašný zvonek",
-      "emergency_tone_ladder": "Stoupající tóny",
       "loop_ascend": "Nekonečné stoupání",
       "loop_dread": "Klesající děs",
       "loop_chiprun": "Čipový běh",

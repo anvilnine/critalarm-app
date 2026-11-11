@@ -1714,10 +1714,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "클래식 사이렌",
-      "pulsing_klaxon": "끊어 울리는 경적",
       "marimba_escalator": "점점 올라가는 마림바",
       "soft_to_loud_ramp": "점점 커지는 소리",
-      "pager_beep": "호출기 신호음",
       "submarine_dive_horn": "잠수함 잠항 경적",
       "rising_synth_sweep": "솟아오르는 신시사이저 소리",
       "plain_loud_beep": "단순하고 큰 비프음",
@@ -1734,7 +1732,6 @@
       "emergency_speeding_beeper": "점점 빨라지는 신호음",
       "emergency_proximity": "근접 경고",
       "emergency_alarm_bell": "경보 벨",
-      "emergency_tone_ladder": "계단식 소리",
       "loop_ascend": "끝없는 상승",
       "loop_dread": "가라앉는 공포",
       "loop_chiprun": "달리는 칩튠",

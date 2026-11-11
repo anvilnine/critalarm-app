@@ -11,7 +11,7 @@ import Foundation
 enum SharedSounds {
     static let appGroup = "group.app.critalarm"
 
-    /// File name ("classic_siren.caf") used when a topic has no choice of its own.
+    /// File name ("loop_ascend.caf") used when a topic has no choice of its own.
     static let defaultFileKey = "sound_default_file"
 
     /// Topic name to file name, written by the app on every change.
@@ -41,7 +41,9 @@ enum SharedSounds {
     ///
     /// While own sounds are locked no own file is published:
     /// - a topic on an own sound is left out, so it rings the default;
-    /// - a default that is an own sound becomes the bundled classic siren.
+    /// - a default that is an own sound becomes the bundled Endless climb.
+    ///
+    /// A saved id in [removedSoundIds] is read as [fallbackSoundId] first.
     ///
     /// The same rule as `OwnSoundRule` in lib/core/sound/own_sound_rule.dart
     /// and `AlarmSoundStore.resolveChain` on Android. The ids handed in are
@@ -52,12 +54,14 @@ enum SharedSounds {
         ownLocked: Bool,
         ringableFileName: (String) -> String?
     ) -> (defaultFile: String?, perTopicFiles: [String: String]) {
+        let defaultId = defaultId.map(replacingRemoved)
         var defaultFile = defaultId.flatMap(ringableFileName)
         if ownLocked, let id = defaultId, OwnSoundLock.isOwn(id) {
             defaultFile = packFallbackFile
         }
         var perTopic: [String: String] = [:]
-        for (topic, id) in perTopicIds {
+        for (topic, saved) in perTopicIds {
+            let id = replacingRemoved(saved)
             if ownLocked && OwnSoundLock.isOwn(id) { continue }
             if let name = ringableFileName(id) { perTopic[topic] = name }
         }
@@ -90,9 +94,23 @@ enum SharedSounds {
     /// name, starting with this.
     static let packSoundPrefix = "pack_"
 
+    /// The bundled default, Endless climb. `BundledSounds.fallbackId` in
+    /// Dart and `AlarmSoundStore.FALLBACK_ID` on Android; keep them in step.
+    static let fallbackSoundId = "loop_ascend"
+
+    /// Bundled sounds that were taken out of the app. A choice still saved
+    /// against one rings [fallbackSoundId]. `BundledSounds.removedIds` in
+    /// Dart and `AlarmSoundStore.REMOVED_IDS` on Android.
+    static let removedSoundIds: Set<String> = ["pulsing_klaxon", "pager_beep", "emergency_tone_ladder"]
+
+    /// [id] as it rings today: a removed sound is [fallbackSoundId].
+    static func replacingRemoved(_ id: String) -> String {
+        removedSoundIds.contains(id) ? fallbackSoundId : id
+    }
+
     /// What a pack sound whose file has gone rings instead: the bundled
     /// default, which the app copies into the group on every launch.
-    static let packFallbackFile = "classic_siren.caf"
+    static let packFallbackFile = "\(fallbackSoundId).caf"
 
     /// The file name to play for [topic], or nil when nothing was published
     /// or no file is on disk. Nil means leave the payload's sound alone.

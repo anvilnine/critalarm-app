@@ -1730,10 +1730,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "Sirena clásica",
-      "pulsing_klaxon": "Bocina intermitente",
       "marimba_escalator": "Marimba ascendente",
       "soft_to_loud_ramp": "Volumen creciente",
-      "pager_beep": "Pitido de buscapersonas",
       "submarine_dive_horn": "Bocina de inmersión submarina",
       "rising_synth_sweep": "Barrido ascendente de sintetizador",
       "plain_loud_beep": "Pitido sencillo y fuerte",
@@ -1750,7 +1748,6 @@
       "emergency_speeding_beeper": "Pitido acelerado",
       "emergency_proximity": "Aviso de proximidad",
       "emergency_alarm_bell": "Campana de alarma",
-      "emergency_tone_ladder": "Escalera de tonos",
       "loop_ascend": "Subida sin fin",
       "loop_dread": "Inquietud descendente",
       "loop_chiprun": "Carrera de chip",

@@ -736,10 +736,10 @@ class PassPageDemo extends StatelessWidget {
         trailing: play(),
         slivers: [
           sheet([
-            'Classic siren',
-            'Pulsing klaxon',
-            'Hi-lo siren',
             'Endless climb',
+            'Classic siren',
+            'Hi-lo siren',
+            'Marimba escalator',
             'Deep horn',
             'Two tone',
             'Slow wail',
@@ -859,7 +859,7 @@ class PassPageDemo extends StatelessWidget {
         label: 'Sound',
         value: 'My recording of the kitchen timer going off at six',
         slivers: [
-          sheet(['Classic siren', 'Pulsing klaxon', 'Hi-lo siren']),
+          sheet(['Endless climb', 'Classic siren', 'Hi-lo siren']),
         ],
       ),
     };

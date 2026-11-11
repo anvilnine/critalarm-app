@@ -188,7 +188,7 @@ void main() {
           defaultSoundId: 'pack_library_boxing_bell',
           perTopic: {
             'prod': 'pack_library_buzzer_1',
-            'db': 'pager_beep',
+            'db': 'submarine_dive_horn',
             'old': 'pack_gone_forever',
           },
         );

@@ -1176,7 +1176,7 @@ enum SoundLibrary {
     return FileManager.default.fileExists(atPath: byName.path) ? byName : stored
   }
 
-  /// Turns `assets/sounds/pager_beep.mp3` into a real file inside the bundle.
+  /// Turns `assets/sounds/classic_siren.mp3` into a real file inside the bundle.
   static func bundleURL(forFlutterAsset asset: String) -> URL? {
     let key = FlutterDartProject.lookupKey(forAsset: asset)
     guard let path = Bundle.main.path(forResource: key, ofType: nil) else { return nil }
@@ -1658,9 +1658,11 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
     onEnded?(path)
   }
 
-  /// Plays [url] once. With [from] and [to] (seconds), plays only that part,
-  /// for a file open in the cropper.
-  func start(url: URL, path: String, from: TimeInterval? = nil, to: TimeInterval? = nil) -> Bool {
+  /// Plays [url] once, or over and over with [loop]. With [from] and [to]
+  /// (seconds), plays only that part, for a file open in the cropper.
+  func start(
+    url: URL, path: String, from: TimeInterval? = nil, to: TimeInterval? = nil, loop: Bool = false
+  ) -> Bool {
     stop()
     playingPath = path
     do {
@@ -1668,8 +1670,9 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
       try AVAudioSession.sharedInstance().setActive(true)
       let player = try AVAudioPlayer(contentsOf: url)
       player.delegate = self
-      // One pass. The picker is not the alarm.
-      player.numberOfLoops = 0
+      // One pass, unless the picker asked for a loop. A clip range never
+      // loops. -1 plays again from the start until stop().
+      player.numberOfLoops = loop && from == nil && to == nil ? -1 : 0
       player.prepareToPlay()
       if let from { player.currentTime = from }
       self.player = player
@@ -1735,7 +1738,8 @@ extension AppDelegate {
         guard let url else { result(false); return }
         let from = (args["start_ms"] as? Int).map { TimeInterval($0) / 1000 }
         let to = (args["end_ms"] as? Int).map { TimeInterval($0) / 1000 }
-        result(SoundPreviewPlayer.shared.start(url: url, path: path, from: from, to: to))
+        let loop = args["loop"] as? Bool ?? false
+        result(SoundPreviewPlayer.shared.start(url: url, path: path, from: from, to: to, loop: loop))
       case "stopPreview":
         SoundPreviewPlayer.shared.stop()
         result(true)

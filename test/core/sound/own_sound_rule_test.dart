@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const own = 'user_1700000000000000';
   const otherOwn = 'user_1700000000000001';
-  const builtIn = 'pager_beep';
+  const builtIn = 'submarine_dive_horn';
   const pack = 'pack_library_boxing_bell';
 
   String rings(
@@ -77,9 +77,9 @@ void main() {
       expect(rings(saved, locked: false, topic: 'staging'), own);
     });
 
-    test('locked: the classic siren rings for the default', () {
+    test('locked: the fallback rings for the default', () {
       expect(rings(saved, locked: true), BundledSounds.fallbackId);
-      expect(rings(saved, locked: true, topic: 'staging'), 'classic_siren');
+      expect(rings(saved, locked: true, topic: 'staging'), 'loop_ascend');
     });
 
     test('a topic on a built-in sound keeps it either way', () {
@@ -106,9 +106,9 @@ void main() {
       expect(rings(saved, locked: false), otherOwn);
     });
 
-    test('locked: the classic siren rings for both', () {
-      expect(rings(saved, locked: true, topic: 'prod'), 'classic_siren');
-      expect(rings(saved, locked: true), 'classic_siren');
+    test('locked: the fallback rings for both', () {
+      expect(rings(saved, locked: true, topic: 'prod'), 'loop_ascend');
+      expect(rings(saved, locked: true), 'loop_ascend');
     });
   });
 
@@ -148,8 +148,8 @@ void main() {
       expect(
         ringing,
         const SoundAssignments(
-          defaultSoundId: 'classic_siren',
-          perTopic: {'prod': 'classic_siren', 'staging': builtIn},
+          defaultSoundId: 'loop_ascend',
+          perTopic: {'prod': 'loop_ascend', 'staging': builtIn},
         ),
       );
       expect(saved.defaultSoundId, own);

@@ -131,7 +131,7 @@ class _SoundPickerView extends StatefulWidget {
 }
 
 class _SoundPickerViewState extends State<_SoundPickerView>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   /// Where the preview has got. The platform does not report where playback
   /// is, so the playhead, the row's ring and its bars run off the sound's
   /// length, and the cubit clears the preview when the platform says it ended.
@@ -141,6 +141,23 @@ class _SoundPickerViewState extends State<_SoundPickerView>
   /// Whether the page was on screen at the last check. See
   /// [didChangeDependencies].
   bool _isShowing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// A preview loops until it is stopped, so it stops when the app leaves
+  /// the screen too. iOS would keep playing it in the background.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive) {
+      return;
+    }
+    unawaited(context.read<SoundPickerCubit>().stopPreview());
+  }
 
   @override
   void didChangeDependencies() {
@@ -157,12 +174,14 @@ class _SoundPickerViewState extends State<_SoundPickerView>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progress.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  /// Starts the playhead for the sound now previewing, or rests it.
+  /// Starts the playhead for the sound now previewing, or rests it. The
+  /// preview loops, so the playhead runs again from the start each pass.
   void _followPreview(SoundPickerState state) {
     final id = state.previewingSoundId;
     if (id == null) {
@@ -174,7 +193,8 @@ class _SoundPickerViewState extends State<_SoundPickerView>
     _progress.duration = length > Duration.zero
         ? length
         : const Duration(seconds: 1);
-    unawaited(_progress.forward(from: 0));
+    _progress.value = 0;
+    unawaited(_progress.repeat());
   }
 
   void _leave(BuildContext context) {

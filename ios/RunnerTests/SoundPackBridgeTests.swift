@@ -128,7 +128,7 @@ final class SoundPackBridgeTests: XCTestCase {
         try packHolds(bell)
         let b = bridge(store: store)
         b.syncCopies(inUse: [bell])
-        b.syncCopies(inUse: ["pager_beep"])
+        b.syncCopies(inUse: ["submarine_dive_horn"])
         XCTAssertFalse(FileManager.default.fileExists(atPath: caf(bell).path))
     }
 
@@ -227,15 +227,15 @@ final class SoundPackBridgeTests: XCTestCase {
         XCTAssertNil(bridge(store: nil).packPath(pack, anySoundID: bell))
     }
 
-    func testAMissingPackSoundRingsTheClassicSirenThroughTheExtension() throws {
+    func testAMissingPackSoundRingsTheFallbackThroughTheExtension() throws {
         let suite = "SoundPackBridgeTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         SharedSounds.publish(defaultFile: "\(bell).caf", perTopicFiles: [:], to: defaults)
         let name = SharedSounds.fileName(forTopic: nil, defaults: defaults) { $0 == SharedSounds.packFallbackFile }
-        XCTAssertEqual(name, "classic_siren.caf")
+        XCTAssertEqual(name, "loop_ascend.caf")
         // A topic whose pack sound is gone plays the default first.
-        SharedSounds.publish(defaultFile: "pager_beep.caf", perTopicFiles: ["prod": "\(bell).caf"], to: defaults)
-        XCTAssertEqual(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { $0 != "\(bell).caf" }, "pager_beep.caf")
+        SharedSounds.publish(defaultFile: "submarine_dive_horn.caf", perTopicFiles: ["prod": "\(bell).caf"], to: defaults)
+        XCTAssertEqual(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { $0 != "\(bell).caf" }, "submarine_dive_horn.caf")
     }
 }
