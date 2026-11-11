@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/components/skeleton.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/faces/face_tap_play.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -187,12 +188,16 @@ class AppStage extends StatelessWidget {
             if (faceWidget != null)
               faceWidget!
             else if (faceState != null)
-              stageFace(
-                context,
+              FaceTapPlay(
                 state: faceState!,
                 size: shownFaceSize,
-                isLive: isLive,
-                idleWhenCalm: idleWhenCalm,
+                child: stageFace(
+                  context,
+                  state: faceState!,
+                  size: shownFaceSize,
+                  isLive: isLive,
+                  idleWhenCalm: idleWhenCalm,
+                ),
               ),
             const SizedBox(width: 16),
             Expanded(
@@ -286,12 +291,16 @@ class AppStage extends StatelessWidget {
           if (faceWidget != null)
             faceWidget!
           else if (faceState != null)
-            stageFace(
-              context,
+            FaceTapPlay(
               state: faceState!,
               size: shownFaceSize,
-              isLive: isLive,
-              idleWhenCalm: idleWhenCalm,
+              child: stageFace(
+                context,
+                state: faceState!,
+                size: shownFaceSize,
+                isLive: isLive,
+                idleWhenCalm: idleWhenCalm,
+              ),
             ),
           AnimatedSize(
             duration: context.motion(AppDurations.base),

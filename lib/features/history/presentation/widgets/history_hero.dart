@@ -148,7 +148,9 @@ class _HistoryHeroState extends State<HistoryHero> {
         : formatCompactDuration(longest);
     final secondCaption = LocaleKeys.history_hero_longest_answered.tr();
 
-    final face = ExcludeSemantics(
+    final face = FaceTapPlay(
+      state: week.face,
+      size: faceSize,
       child: stageFace(
         context,
         state: week.face,
