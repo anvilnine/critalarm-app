@@ -5,14 +5,14 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Changed
 - Endless climb is the default alarm sound and the first one in the sound list.
 - A sound preview in the sound list plays on a loop until you tap it again, pick another sound or leave the list.
+- The new topic form lifts up into place while the screen before it sinks back, instead of opening on top of it.
+- The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
+- The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
 
 ### Removed
 - Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
-- The new topic form lifts up into place while the screen before it sinks back, instead of opening on top of it.
-- The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
 ### Added
 - Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
-- The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
