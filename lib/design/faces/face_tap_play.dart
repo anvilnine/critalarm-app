@@ -60,8 +60,9 @@ class FaceTapPlay extends StatefulWidget {
 class _FaceTapPlayState extends State<FaceTapPlay>
     with SingleTickerProviderStateMixin {
   final FaceTapSequencer _sequencer = FaceTapSequencer();
-  late final AnimationController _clock = AnimationController(vsync: this)
-    ..addStatusListener(_onStatus);
+  // Built in initState, never lazily: a lazy controller built first in
+  // dispose looks up TickerMode on a deactivated element and throws.
+  late final AnimationController _clock;
 
   FaceTapReaction? _reaction;
 
@@ -85,6 +86,12 @@ class _FaceTapPlayState extends State<FaceTapPlay>
     if (status == AnimationStatus.completed && mounted) {
       setState(() => _reaction = null);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = AnimationController(vsync: this)..addStatusListener(_onStatus);
   }
 
   @override
