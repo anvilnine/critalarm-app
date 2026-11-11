@@ -1,6 +1,10 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Changed
+- The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
+
 ## 1.1.0+17 - 2026-11-11
 ### Added
 - Crit Alarm now speaks German and Japanese. Pick a language in Settings under Language, or keep System default to follow your phone. The alarm screen, notifications and widgets switch too.

@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/pass_bands.dart';
 import 'package:critalarm/design/components/pass_card.dart';
+import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/pass_stack.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/pass_tones.dart';
@@ -205,6 +208,102 @@ void main() {
     test('tokens is the last pass, after the app icon', () {
       expect(PassId.values.last, PassId.tokens);
       expect(PassId.tokens.index, PassId.appIcon.index + 1);
+    });
+  });
+
+  group('loose card pattern', () {
+    double degrees(double radians) => radians * 180 / math.pi;
+
+    test('neighbours lean opposite ways, tilt and shift together', () {
+      for (var i = 0; i < 8; i++) {
+        final pose = looseCardPoseFor(index: i, cardWidth: 330);
+        final next = looseCardPoseFor(index: i + 1, cardWidth: 330);
+        expect(pose.tilt.sign, -next.tilt.sign);
+        expect(pose.shift.sign, -next.shift.sign);
+        expect(pose.tilt.sign, pose.shift.sign);
+      }
+    });
+
+    test('a phone card turns 2 to 4 degrees and shifts 7 to 9', () {
+      for (var i = 0; i < 4; i++) {
+        final pose = looseCardPoseFor(index: i, cardWidth: 330);
+        expect(degrees(pose.tilt).abs(), inInclusiveRange(2, 4));
+        expect(pose.shift.abs(), inInclusiveRange(7, 9));
+      }
+    });
+
+    test('the pattern repeats past the fourth card', () {
+      final first = looseCardPoseFor(index: 0, cardWidth: 330);
+      final fifth = looseCardPoseFor(index: 4, cardWidth: 330);
+      expect(fifth.tilt, first.tilt);
+      expect(fifth.shift, first.shift);
+    });
+
+    test('a wide card turns less, its corner lifts no more than 12', () {
+      for (final width in [330.0, 536.0, 900.0]) {
+        for (var i = 0; i < 4; i++) {
+          final pose = looseCardPoseFor(index: i, cardWidth: width);
+          final lift = width / 2 * math.sin(pose.tilt.abs());
+          expect(lift, lessThanOrEqualTo(kLooseCardMaxLift + 1e-9));
+        }
+      }
+      final phone = looseCardPoseFor(index: 3, cardWidth: 330);
+      final tablet = looseCardPoseFor(index: 3, cardWidth: 536);
+      expect(tablet.tilt.abs(), lessThan(phone.tilt.abs()));
+    });
+
+    test('the shift stays a point inside the room', () {
+      for (final room in [kLooseCardMinRoom, 7.0, kLooseCardRoom]) {
+        for (var i = 0; i < 4; i++) {
+          final pose = looseCardPoseFor(index: i, cardWidth: 300, room: room);
+          expect(pose.shift.abs(), lessThanOrEqualTo(room - 1));
+          expect(pose.room, room);
+        }
+      }
+    });
+
+    test('the room shrinks on a narrow column, between 4 and 10', () {
+      expect(looseCardRoomFor(366), kLooseCardRoom);
+      expect(looseCardRoomFor(320), 4);
+      expect(looseCardRoomFor(326), 7);
+      expect(looseCardRoomFor(280), kLooseCardMinRoom);
+      // A 360 phone's Topic column keeps a card wide enough for its label.
+      expect(320 - 2 * looseCardRoomFor(320), kLooseCardMinWidth);
+    });
+
+    test('a covered card stops before its foot swings past the room', () {
+      final pose = looseCardPoseFor(index: 0, cardWidth: 330);
+      final height = looseCoveredHeight(
+        top: 0,
+        height: 190,
+        stackBottom: 2000,
+        pose: pose,
+      );
+      expect(height, pose.maxHeight);
+      final swing = height * math.sin(pose.tilt.abs()) - pose.shift.abs();
+      expect(swing, lessThanOrEqualTo(pose.room + 1e-9));
+    });
+
+    test('a covered card is never shorter than its own height', () {
+      final pose = looseCardPoseFor(index: 1, cardWidth: 330);
+      expect(
+        looseCoveredHeight(top: 0, height: 190, stackBottom: 100, pose: pose),
+        190,
+      );
+    });
+
+    test('a four card band stack runs each covered card to its foot', () {
+      final layout = layoutOf();
+      final pose = looseCardPoseFor(index: 0, cardWidth: 330);
+      expect(
+        looseCoveredHeight(
+          top: layout.tops.first,
+          height: layout.heights.first,
+          stackBottom: layout.totalHeight,
+          pose: pose,
+        ),
+        layout.totalHeight - kPassCardRadius,
+      );
     });
   });
 }
