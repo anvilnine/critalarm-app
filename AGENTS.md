@@ -1,5 +1,8 @@
 # Crit Alarm: rules for every agent
 
+> Part of Anvil Nine (GitHub org `anvilnine`). Shared rules, docs and skills: `~/Projects/anvilnine/docs/INDEX.md`. Read it when the task touches DNS, payments or tips, CI, signups, brand, scheduled routines or prose style.
+> If that folder is missing (cloud session, other machine), the shared docs have no GitHub copy: follow this repo's own files and ask the owner before changing anything other repos depend on.
+
 <!-- Shared block. critalarm-server, -app, -site and -cli each carry a copy. Change all four
      together. -->
 
