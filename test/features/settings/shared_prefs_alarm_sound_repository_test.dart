@@ -54,19 +54,119 @@ void main() {
     );
   });
 
-  test('a missing pack sound falls back to classic_siren and keeps the user '
+  test('a missing pack sound falls back to Endless climb and keeps the user '
       'sounds', () async {
     await repository.setDefaultSoundId('pack_library_boxing_bell');
     await repository.setTopicSoundId('prod', 'pack_library_boxing_bell');
-    await repository.setTopicSoundId('db', 'pager_beep');
+    await repository.setTopicSoundId('db', 'submarine_dive_horn');
 
     final result = await repository.fallBackFrom('pack_library_boxing_bell');
     expect(result.isSuccess(), isTrue);
 
     final assignments = (await repository.getAssignments()).getOrThrow();
-    expect(assignments.defaultSoundId, 'classic_siren');
-    expect(assignments.soundIdFor('prod'), 'classic_siren');
-    expect(assignments.soundIdFor('db'), 'pager_beep');
+    expect(assignments.defaultSoundId, 'loop_ascend');
+    expect(assignments.soundIdFor('prod'), 'loop_ascend');
+    expect(assignments.soundIdFor('db'), 'submarine_dive_horn');
     expect((await repository.getUserSounds()).getOrThrow(), hasLength(3));
+  });
+
+  group('removed and unset sounds', () {
+    const removed = ['pulsing_klaxon', 'pager_beep', 'emergency_tone_ladder'];
+
+    Future<SharedPrefsAlarmSoundRepository> withSaved(
+      Map<String, Object> values,
+    ) async {
+      SharedPreferences.setMockInitialValues(values);
+      return SharedPrefsAlarmSoundRepository(
+        await SharedPreferences.getInstance(),
+      );
+    }
+
+    test('nothing saved reads as Endless climb', () async {
+      final repo = await withSaved({});
+      final assignments = (await repo.getAssignments()).getOrThrow();
+      expect(assignments.defaultSoundId, 'loop_ascend');
+      expect(assignments.soundIdFor('prod'), 'loop_ascend');
+    });
+
+    test('an empty saved default reads as Endless climb', () async {
+      final repo = await withSaved({
+        SharedPrefsAlarmSoundRepository.defaultKey: '',
+      });
+      expect(repo.assignmentsNow().defaultSoundId, 'loop_ascend');
+    });
+
+    for (final id in removed) {
+      test('$id as the default reads as Endless climb', () async {
+        final repo = await withSaved({
+          SharedPrefsAlarmSoundRepository.defaultKey: id,
+        });
+        expect(repo.assignmentsNow().defaultSoundId, 'loop_ascend');
+      });
+
+      test('$id on a topic reads as Endless climb, not the default', () async {
+        final repo = await withSaved({
+          SharedPrefsAlarmSoundRepository.defaultKey: 'classic_siren',
+          SharedPrefsAlarmSoundRepository.perTopicKey: '{"prod":"$id"}',
+        });
+        final assignments = repo.assignmentsNow();
+        expect(assignments.defaultSoundId, 'classic_siren');
+        expect(assignments.soundIdFor('prod'), 'loop_ascend');
+      });
+    }
+
+    test('sounds that still ship are left alone', () async {
+      final repo = await withSaved({
+        SharedPrefsAlarmSoundRepository.defaultKey: 'classic_siren',
+        SharedPrefsAlarmSoundRepository.perTopicKey:
+            '{"prod":"emergency_klaxon","db":"user_1",'
+            '"web":"pack_library_boxing_bell"}',
+      });
+      final assignments = repo.assignmentsNow();
+      expect(assignments.defaultSoundId, 'classic_siren');
+      expect(assignments.perTopic, {
+        'prod': 'emergency_klaxon',
+        'db': 'user_1',
+        'web': 'pack_library_boxing_bell',
+      });
+      expect(await repo.replaceRemovedSounds(), isFalse);
+    });
+
+    test('replaceRemovedSounds saves the replacement once', () async {
+      SharedPreferences.setMockInitialValues({
+        SharedPrefsAlarmSoundRepository.defaultKey: 'pager_beep',
+        SharedPrefsAlarmSoundRepository.perTopicKey:
+            '{"prod":"pulsing_klaxon","db":"classic_siren"}',
+      });
+      final saved = await SharedPreferences.getInstance();
+      final repo = SharedPrefsAlarmSoundRepository(saved);
+
+      expect(await repo.replaceRemovedSounds(), isTrue);
+      expect(
+        saved.getString(SharedPrefsAlarmSoundRepository.defaultKey),
+        'loop_ascend',
+      );
+      expect(
+        saved.getString(SharedPrefsAlarmSoundRepository.perTopicKey),
+        '{"prod":"loop_ascend","db":"classic_siren"}',
+      );
+      expect(await repo.replaceRemovedSounds(), isFalse);
+    });
+
+    test(
+      'replaceRemovedSounds saves Endless climb when nothing was saved',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final saved = await SharedPreferences.getInstance();
+        final repo = SharedPrefsAlarmSoundRepository(saved);
+
+        expect(await repo.replaceRemovedSounds(), isTrue);
+        expect(
+          saved.getString(SharedPrefsAlarmSoundRepository.defaultKey),
+          'loop_ascend',
+        );
+        expect(await repo.replaceRemovedSounds(), isFalse);
+      },
+    );
   });
 }

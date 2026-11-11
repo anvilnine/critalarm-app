@@ -125,7 +125,7 @@ void main() {
       final loading = cubit.load();
       await pumpEventQueue();
       expect(cubit.state.isLoading, isFalse);
-      expect(cubit.state.bundled, hasLength(27));
+      expect(cubit.state.bundled, hasLength(24));
 
       await loading;
       expect(cubit.state.packs.single.status.state, SoundPackState.failed);
@@ -159,12 +159,13 @@ void main() {
       expect(preview.arguments, {
         'path': '/sounds/$bell.ogg',
         'is_asset': false,
+        'loop': true,
       });
     },
   );
 
   test(
-    'a topic whose pack sound went missing falls back to classic_siren',
+    'a topic whose pack sound went missing falls back to the fallback sound',
     () async {
       await repository.setTopicSoundId('prod', bell);
       await repository.setDefaultSoundId(bell);

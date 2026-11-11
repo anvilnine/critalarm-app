@@ -182,7 +182,7 @@ final class SoundPublishTests: XCTestCase {
         app.removePersistentDomain(forName: appSuite)
         group.removePersistentDomain(forName: groupSuite)
         // What `shared_preferences` leaves in the app's standard defaults.
-        app.set("pager_beep", forKey: "flutter.alarm_sound_default")
+        app.set("submarine_dive_horn", forKey: "flutter.alarm_sound_default")
         app.set("{\"prod\":\"\(own)\"}", forKey: "flutter.alarm_sound_per_topic")
     }
 
@@ -202,8 +202,8 @@ final class SoundPublishTests: XCTestCase {
         SoundLibrary.publishChoices(defaults: app, to: group)
         XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
         XCTAssertEqual(group.dictionary(forKey: "sound_per_topic_files") as? [String: String], [:])
-        XCTAssertEqual(group.string(forKey: "sound_default_file"), "pager_beep.caf")
-        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "submarine_dive_horn.caf")
+        XCTAssertEqual(rings("prod"), "submarine_dive_horn.caf")
     }
 
     /// The same publish carries the wake-up challenge flags, for the Done
@@ -236,7 +236,7 @@ final class SoundPublishTests: XCTestCase {
         XCTAssertFalse(SoundLibrary.publishChoices(defaults: app, to: group))
 
         XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
-        XCTAssertEqual(group.string(forKey: "sound_default_file"), "pager_beep.caf")
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "submarine_dive_horn.caf")
         XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
     }
 
@@ -266,19 +266,19 @@ final class SoundPublishTests: XCTestCase {
     func testAPublishAfterTheFlagClearsBringsTheOwnFileBack() {
         app.set(true, forKey: "flutter.alarm_sound_own_locked")
         SoundLibrary.publishChoices(defaults: app, to: group)
-        XCTAssertEqual(rings("prod"), "pager_beep.caf")
+        XCTAssertEqual(rings("prod"), "submarine_dive_horn.caf")
 
         app.set(false, forKey: "flutter.alarm_sound_own_locked")
         SoundLibrary.publishChoices(defaults: app, to: group)
         XCTAssertEqual(rings("prod"), "\(own).caf")
     }
 
-    func testThePublishTurnsALockedOwnDefaultIntoTheClassicSiren() {
+    func testThePublishTurnsALockedOwnDefaultIntoTheFallback() {
         app.set(true, forKey: "flutter.alarm_sound_own_locked")
         app.set(otherOwn, forKey: "flutter.alarm_sound_default")
         SoundLibrary.publishChoices(defaults: app, to: group)
-        XCTAssertEqual(group.string(forKey: "sound_default_file"), "classic_siren.caf")
-        XCTAssertEqual(rings("prod"), "classic_siren.caf")
-        XCTAssertEqual(rings(nil), "classic_siren.caf")
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "loop_ascend.caf")
+        XCTAssertEqual(rings("prod"), "loop_ascend.caf")
+        XCTAssertEqual(rings(nil), "loop_ascend.caf")
     }
 }

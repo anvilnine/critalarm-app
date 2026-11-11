@@ -134,12 +134,15 @@ final class SoundHost {
     await _invoke<Map<Object?, Object?>>('capabilities'),
   );
 
-  /// Starts the preview, replacing anything already playing. One loop only,
-  /// so the picker does not ring forever if the user walks away.
-  Future<bool> startPreview(AlarmSound sound) async =>
+  /// Starts the preview, replacing anything already playing. One pass by
+  /// default. With [loop] it plays again from the start until
+  /// [stopPreview], and never sends [previewEnded] for reaching the end.
+  /// A caller that loops must stop it when its screen goes away.
+  Future<bool> startPreview(AlarmSound sound, {bool loop = false}) async =>
       await _invoke<bool>('startPreview', {
         'path': sound.path,
         'is_asset': sound.source == AlarmSoundSource.bundled,
+        if (loop) 'loop': true,
       }) ??
       false;
 

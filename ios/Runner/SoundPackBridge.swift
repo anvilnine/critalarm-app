@@ -151,7 +151,7 @@ final class SoundPackBridge {
   ///
   /// A sound in use whose caf cannot be made (the pack is gone, or this is
   /// before iOS 26) keeps whatever caf it has; with none, the notification
-  /// extension rings the default, then classic_siren.
+  /// extension rings the default, then Endless climb.
   func sync(
     inUse: Set<String>,
     choicesReadable: Bool,

@@ -47,7 +47,8 @@ enum SoundChannel {
         guard let url else { result(false); return }
         let from = (args["start_ms"] as? Int).map { TimeInterval($0) / 1000 }
         let to = (args["end_ms"] as? Int).map { TimeInterval($0) / 1000 }
-        result(MacSoundPreviewPlayer.shared.start(url: url, path: path, from: from, to: to))
+        let loop = args["loop"] as? Bool ?? false
+        result(MacSoundPreviewPlayer.shared.start(url: url, path: path, from: from, to: to, loop: loop))
       case "stopPreview":
         MacSoundPreviewPlayer.shared.stop()
         result(true)
@@ -137,7 +138,7 @@ enum MacSoundLibrary {
     return FileManager.default.fileExists(atPath: byName.path) ? byName : stored
   }
 
-  /// Turns `assets/sounds/pager_beep.mp3` into the file inside
+  /// Turns `assets/sounds/classic_siren.mp3` into the file inside
   /// `App.framework/Resources/flutter_assets`.
   static func bundleURL(forFlutterAsset asset: String) -> URL? {
     if let frameworks = Bundle.main.privateFrameworksURL,
@@ -330,7 +331,9 @@ final class MacSoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
     onEnded?(path)
   }
 
-  func start(url: URL, path: String, from: TimeInterval? = nil, to: TimeInterval? = nil) -> Bool {
+  func start(
+    url: URL, path: String, from: TimeInterval? = nil, to: TimeInterval? = nil, loop: Bool = false
+  ) -> Bool {
     stop()
     playingPath = path
     let scoped = url.startAccessingSecurityScopedResource()
@@ -338,7 +341,9 @@ final class MacSoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
     do {
       let player = try AVAudioPlayer(contentsOf: url)
       player.delegate = self
-      player.numberOfLoops = 0
+      // One pass, unless the picker asked for a loop. A clip range never
+      // loops. -1 plays again from the start until stop().
+      player.numberOfLoops = loop && from == nil && to == nil ? -1 : 0
       player.prepareToPlay()
       if let from { player.currentTime = from }
       self.player = player

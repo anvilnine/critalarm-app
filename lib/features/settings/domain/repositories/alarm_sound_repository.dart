@@ -43,4 +43,10 @@ abstract interface class AlarmSoundRepository {
   /// without touching the user sound list. For a pack sound whose file is
   /// no longer on the device.
   Future<AppResult<Unit>> fallBackFrom(String soundId);
+
+  /// Saves the choices the way they are read: an unset default, and any
+  /// choice on a sound that no longer ships, become the fallback sound.
+  /// The native alarm reads the saved values itself, so they are written
+  /// back once. True when something was written.
+  Future<bool> replaceRemovedSounds();
 }

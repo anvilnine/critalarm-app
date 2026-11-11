@@ -79,6 +79,20 @@ class SharedPrefsAlarmSoundRepository implements AlarmSoundRepository {
     ),
   );
 
+  @override
+  Future<bool> replaceRemovedSounds() async {
+    final next = _readAssignments();
+    final stored = SoundAssignments(
+      defaultSoundId: _prefs.getString(defaultKey) ?? '',
+      perTopic: _readPerTopic(),
+    );
+    if (stored == next) return false;
+    return (await _write(next)).isSuccess();
+  }
+
+  /// The saved choices as they ring today. An unset default is
+  /// [BundledSounds.fallbackId], and a choice on a sound that no longer
+  /// ships ([BundledSounds.removedIds]) reads as the fallback too.
   SoundAssignments _readAssignments() {
     final stored = _prefs.getString(defaultKey);
     final defaultId = stored != null && stored.isNotEmpty
@@ -87,6 +101,9 @@ class SharedPrefsAlarmSoundRepository implements AlarmSoundRepository {
     return SoundAssignments(
       defaultSoundId: defaultId,
       perTopic: _readPerTopic(),
+    ).withRemovedSoundsReplaced(
+      BundledSounds.removedIds,
+      replacementId: BundledSounds.fallbackId,
     );
   }
 

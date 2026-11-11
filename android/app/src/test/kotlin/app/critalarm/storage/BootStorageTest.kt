@@ -48,7 +48,7 @@ class BootStorageTest {
         "flutter.quiet_hours_start_minutes" to 1320L,
         "flutter.quiet_hours_end_minutes" to 420L,
         "flutter.quiet_hours_critical_rings" to true,
-        "flutter.alarm_sound_default" to "pager_beep",
+        "flutter.alarm_sound_default" to "submarine_dive_horn",
         "flutter.alarm_sound_per_topic" to """{"prod":"classic_siren"}""",
         "flutter.alarm_sound_user_list" to """[{"id":"user_1","path":"/data/user/0/app/files/sounds/user_1.wav"}]""",
         "flutter.alarm_sound_own_locked" to false,
@@ -138,7 +138,7 @@ class BootStorageTest {
         assertEquals(server, mirror.getString(BootMirror.SERVER_KEY, null))
         assertFalse(mirror.getBoolean("flutter.topic_critical.staging", true))
         assertEquals(1320L, mirror.getLong("flutter.quiet_hours_start_minutes", 0L))
-        assertEquals("pager_beep", mirror.getString("flutter.alarm_sound_default", null))
+        assertEquals("submarine_dive_horn", mirror.getString("flutter.alarm_sound_default", null))
     }
 
     @Test

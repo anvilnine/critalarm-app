@@ -54,14 +54,14 @@ void main() {
       return [0.0, 0.5, 1, 1.4, -0.2];
     });
     final peaks = await SoundHost().readPeaks(
-      path: 'assets/sounds/pager_beep.mp3',
+      path: 'assets/sounds/submarine_dive_horn.mp3',
       isAsset: true,
       count: 5,
     );
     expect(peaks, [0.0, 0.5, 1.0, 1.0, 0.0]);
     expect(calls.single.method, 'readPeaks');
     expect(calls.single.arguments, {
-      'path': 'assets/sounds/pager_beep.mp3',
+      'path': 'assets/sounds/submarine_dive_horn.mp3',
       'is_asset': true,
       'count': 5,
     });

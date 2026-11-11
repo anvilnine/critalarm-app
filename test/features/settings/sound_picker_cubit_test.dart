@@ -181,19 +181,19 @@ void main() {
 
     test('a built-in sound can still be picked', () async {
       await lock();
-      await cubit.select('pager_beep');
-      expect(repository.assignments.defaultSoundId, 'pager_beep');
+      await cubit.select('submarine_dive_horn');
+      expect(repository.assignments.defaultSoundId, 'submarine_dive_horn');
       expect(cubit.state.isLocked(cubit.state.bundled.first), isFalse);
     });
 
-    test('a locked own default shows the classic siren as ringing', () async {
+    test('a locked own default shows the fallback as ringing', () async {
       repository.sounds.add(userSound);
       await repository.setDefaultSoundId(userSound.id);
       await cubit.load();
       await lock();
 
       expect(cubit.state.selectedSoundId, userSound.id);
-      expect(cubit.state.ringingSoundId, 'classic_siren');
+      expect(cubit.state.ringingSoundId, BundledSounds.fallbackId);
       expect(cubit.state.ringsSomethingElse, isTrue);
       // The lock changes what rings, never what is saved.
       expect(repository.assignments.defaultSoundId, userSound.id);
@@ -201,13 +201,13 @@ void main() {
 
     test('a locked own topic sound shows the default as ringing', () async {
       repository.sounds.add(userSound);
-      await repository.setDefaultSoundId('pager_beep');
+      await repository.setDefaultSoundId('submarine_dive_horn');
       await repository.setTopicSoundId('prod', userSound.id);
       await cubit.load(topicName: 'prod');
       await lock();
 
       expect(cubit.state.selectedSoundId, userSound.id);
-      expect(cubit.state.ringingSoundId, 'pager_beep');
+      expect(cubit.state.ringingSoundId, 'submarine_dive_horn');
       expect(repository.assignments.soundIdFor('prod'), userSound.id);
     });
 
@@ -231,10 +231,10 @@ void main() {
       await cubit.load();
       await lock();
       calls.clear();
-      expect(cubit.state.ringingSoundId, 'classic_siren');
+      expect(cubit.state.ringingSoundId, BundledSounds.fallbackId);
 
-      // The ticked row is the classic siren. Tapping it changes nothing.
-      await cubit.select('classic_siren');
+      // The ticked row is the fallback. Tapping it changes nothing.
+      await cubit.select(BundledSounds.fallbackId);
       expect(repository.assignments.defaultSoundId, userSound.id);
       expect(cubit.state.selectedSoundId, userSound.id);
       expect(publishCount(), 0);
@@ -248,13 +248,13 @@ void main() {
 
     test('the same on a topic whose stand-in is the default', () async {
       repository.sounds.add(userSound);
-      await repository.setDefaultSoundId('pager_beep');
+      await repository.setDefaultSoundId('submarine_dive_horn');
       await repository.setTopicSoundId('prod', userSound.id);
       await cubit.load(topicName: 'prod');
       await lock();
       calls.clear();
 
-      await cubit.select('pager_beep');
+      await cubit.select('submarine_dive_horn');
       expect(repository.assignments.soundIdFor('prod'), userSound.id);
       expect(repository.assignments.perTopic, {'prod': userSound.id});
       expect(publishCount(), 0);
@@ -267,9 +267,9 @@ void main() {
       await lock();
       calls.clear();
 
-      await cubit.select('pager_beep');
-      expect(repository.assignments.defaultSoundId, 'pager_beep');
-      expect(cubit.state.selectedSoundId, 'pager_beep');
+      await cubit.select('submarine_dive_horn');
+      expect(repository.assignments.defaultSoundId, 'submarine_dive_horn');
+      expect(cubit.state.selectedSoundId, 'submarine_dive_horn');
       expect(cubit.state.ringsSomethingElse, isFalse);
       expect(publishCount(), 1);
     });
@@ -302,24 +302,76 @@ void main() {
   });
 
   test('choosing a sound publishes the choices to the platform', () async {
-    await cubit.select('pager_beep');
+    await cubit.select('submarine_dive_horn');
     expect(publishCount(), 1);
   });
 
   test('choosing a sound for a topic publishes too', () async {
     await cubit.load(topicName: 'prod');
     calls.clear();
-    await cubit.select('pager_beep');
-    expect(repository.assignments.soundIdFor('prod'), 'pager_beep');
+    await cubit.select('submarine_dive_horn');
+    expect(repository.assignments.soundIdFor('prod'), 'submarine_dive_horn');
     expect(publishCount(), 1);
   });
 
-  test('the picker lists all 27 built-in sounds in catalogue order', () {
+  test('the picker lists all 24 built-in sounds in catalogue order', () {
     expect(
       [for (final s in cubit.state.bundled) s.id],
       BundledSounds.ids,
     );
-    expect(cubit.state.bundled, hasLength(27));
+    expect(cubit.state.bundled, hasLength(24));
+    expect(cubit.state.bundled.first.id, 'loop_ascend');
+  });
+
+  test('a fresh install has Endless climb picked', () async {
+    expect(cubit.state.selectedSoundId, 'loop_ascend');
+    expect(cubit.state.defaultSoundId, 'loop_ascend');
+  });
+
+  test('a preview asks the platform to loop', () async {
+    final first = cubit.state.bundled.first;
+    await cubit.togglePreview(first);
+    final args = previewCalls.single.arguments as Map<Object?, Object?>;
+    expect(args['loop'], isTrue);
+  });
+
+  test('a second tap on the playing row stops the loop', () async {
+    final first = cubit.state.bundled.first;
+    await cubit.togglePreview(first);
+    calls.clear();
+    await cubit.togglePreview(first);
+    expect(calls, contains('stopPreview'));
+    expect(cubit.state.previewingSoundId, isNull);
+  });
+
+  test('picking another sound stops the loop', () async {
+    final playing = cubit.state.bundled.singleWhere(
+      (s) => s.id == 'loop_dread',
+    );
+    await cubit.togglePreview(playing);
+    calls.clear();
+    await cubit.select('classic_siren');
+    expect(calls, contains('stopPreview'));
+    expect(cubit.state.previewingSoundId, isNull);
+  });
+
+  test('picking the sound that plays keeps it playing', () async {
+    final playing = cubit.state.bundled.singleWhere(
+      (s) => s.id == 'loop_dread',
+    );
+    await cubit.togglePreview(playing);
+    calls.clear();
+    await cubit.select('loop_dread');
+    expect(calls, isNot(contains('stopPreview')));
+    expect(cubit.state.previewingSoundId, 'loop_dread');
+  });
+
+  test('closing the picker stops the loop', () async {
+    final first = cubit.state.bundled.first;
+    await cubit.togglePreview(first);
+    calls.clear();
+    await cubit.close();
+    expect(calls, contains('stopPreview'));
   });
 
   test('a loop previews from its bundled asset', () async {

@@ -12,10 +12,10 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   const pager = AlarmSound(
-    id: 'pager_beep',
+    id: 'submarine_dive_horn',
     name: 'Pager beep',
     source: AlarmSoundSource.bundled,
-    path: 'assets/sounds/pager_beep.mp3',
+    path: 'assets/sounds/submarine_dive_horn.mp3',
     duration: Duration(seconds: 14),
   );
 
@@ -45,7 +45,7 @@ void main() {
     expect(again, [0.2, 1.0]);
     expect(calls, hasLength(1));
     expect(calls.single.arguments, {
-      'path': 'assets/sounds/pager_beep.mp3',
+      'path': 'assets/sounds/submarine_dive_horn.mp3',
       'is_asset': true,
       'count': SoundPeaksCache.barCount,
     });

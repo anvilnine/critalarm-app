@@ -40,7 +40,7 @@ abstract class AlarmSound with _$AlarmSound {
     required String name,
     required AlarmSoundSource source,
 
-    /// Bundled: the asset key, for example `assets/sounds/pager_beep.mp3`.
+    /// Bundled: the asset key, for example `assets/sounds/classic_siren.mp3`.
     /// User and pack: an absolute path inside the app's own sound folder.
     required String path,
     @DurationMsConverter() required Duration duration,

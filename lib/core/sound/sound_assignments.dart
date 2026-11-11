@@ -55,6 +55,22 @@ class SoundAssignments {
     return SoundAssignments(defaultSoundId: nextDefault, perTopic: next);
   }
 
+  /// Sounds that no longer ship. The default and every topic on one of
+  /// [removedIds] move to [replacementId]. A topic moves to [replacementId]
+  /// itself, not to the default, so it keeps a sound of its own.
+  SoundAssignments withRemovedSoundsReplaced(
+    Set<String> removedIds, {
+    required String replacementId,
+  }) {
+    String replace(String id) => removedIds.contains(id) ? replacementId : id;
+    return SoundAssignments(
+      defaultSoundId: replace(defaultSoundId),
+      perTopic: {
+        for (final entry in perTopic.entries) entry.key: replace(entry.value),
+      },
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is SoundAssignments &&

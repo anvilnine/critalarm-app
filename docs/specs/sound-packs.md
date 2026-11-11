@@ -33,20 +33,20 @@ on iOS, where AlarmKit reads compiled-in sounds only.
 
 Pack sound ids start with `pack_`. When a topic's sound file is gone, the topic
 rings the user's default sound, and only when that is gone too does
-`classic_siren` ring. The picker and both platforms follow the same order:
+`loop_ascend` (Endless climb) ring. The picker and both platforms follow the same order:
 
 - Dart: opening the picker drops the topic's choice so it follows the default,
-  and moves a default whose pack sound is gone to `classic_siren`
+  and moves a default whose pack sound is gone to `loop_ascend` (Endless climb)
   (`AlarmSoundRepository.fallBackFrom`), the way deleting a user sound does.
   It does this only when the platform answered; a failed question moves
   nothing.
 - Android: `AlarmSoundStore.resolveForTopic` tries the topic's sound, then the
-  default, then `classic_siren`, skipping an imported or pack file that is
+  default, then `loop_ascend` (Endless climb), skipping an imported or pack file that is
   missing or empty. A file that is there but will not decode goes through the
-  existing `AlarmFallback` chain to `classic_siren`.
+  existing `AlarmFallback` chain to `loop_ascend` (Endless climb).
 - iOS: `SharedSounds.fileName` tries the topic's file, then the default's.
   When those include a missing pack file, the notification plays
-  `classic_siren.caf`.
+  `loop_ascend.caf`.
 
 ## Where the files are
 
@@ -118,8 +118,8 @@ To check the fallback, build the bundle with `--debug` instead (so `run-as`
 works), install it the same way, pick a pack sound, then delete its copy and
 ring again:
 `adb shell run-as app.critalarm rm files/sounds/pack_library_boxing_bell.ogg`.
-The alarm logs `sound_missing ... falling_back_to=classic_siren` and rings the
-classic siren.
+The alarm logs `sound_missing ... falling_back_to=loop_ascend` and rings
+Endless climb.
 
 The internal test track is the real thing: upload the bundle, install from the
 Play Store on a tester's phone, and the download comes from Play.

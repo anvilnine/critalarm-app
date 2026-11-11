@@ -27,7 +27,19 @@ sealed interface AlarmSoundSource {
  * `shared_preferences` plugin writes, where every key is prefixed `flutter.`.
  */
 object AlarmSoundStore {
-    const val FALLBACK_ID = "classic_siren"
+    /** Endless climb. `BundledSounds.fallbackId` in Dart; keep the two in step. */
+    const val FALLBACK_ID = "loop_ascend"
+
+    /**
+     * Bundled sounds that were taken out of the app. A choice still saved
+     * against one rings [FALLBACK_ID]. `BundledSounds.removedIds` in Dart;
+     * keep the two in step.
+     */
+    val REMOVED_IDS = setOf("pulsing_klaxon", "pager_beep", "emergency_tone_ladder")
+
+    /** [soundId] as it rings today: a removed sound is [FALLBACK_ID]. */
+    fun replacingRemoved(soundId: String): String =
+        if (soundId in REMOVED_IDS) FALLBACK_ID else soundId
 
     /** Where imported sounds are copied to. Also used by the import call. */
     fun soundsDir(context: Context): File =
@@ -63,13 +75,13 @@ object AlarmSoundStore {
      * The topic's own choice comes first, then the default. A choice whose
      * file is gone (an imported or pack sound) is skipped, the same way the
      * picker moves a topic back to the default when its sound goes, and only
-     * when both are gone does the bundled classic siren ring. A file that is
+     * when both are gone does the bundled Endless climb ring. A file that is
      * there but will not decode falls back later, in AlarmPlayer, through
      * [app.critalarm.alarm.AlarmFallback].
      *
      * While own sounds are locked, a choice that is an own sound is skipped
      * the same way, so the next one in the chain rings. The saved choices
-     * are not touched, and the chain still ends at the classic siren.
+     * are not touched, and the chain still ends at Endless climb.
      *
      * Before the first unlock after a reboot, the sounds folder cannot be
      * read, so only a sound in the apk can ring: the choice comes from the
@@ -109,7 +121,7 @@ object AlarmSoundStore {
      *
      * [bundledOnly] passes over every sound that is not in the apk, an own
      * sound or a downloaded pack sound, the way [ownLocked] passes over own
-     * sounds. The chain still ends at the classic siren.
+     * sounds. The chain still ends at Endless climb.
      */
     fun resolveFromPrefs(
         prefs: SharedPreferences,
@@ -117,8 +129,10 @@ object AlarmSoundStore {
         topic: String?,
         bundledOnly: Boolean = false,
     ): Choice {
-        val defaultId = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID
-        val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)
+        val defaultId = replacingRemoved(
+            prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID,
+        )
+        val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)?.let(::replacingRemoved)
         val ownLocked = readOwnLocked { prefs.getBoolean(OWN_LOCKED_KEY, false) }
         val ids = listOfNotNull(topicId, defaultId).filter { !bundledOnly || isBundled(it) }
         val picked = resolveChain(soundsDir, ids, ownLocked) {
@@ -148,10 +162,10 @@ object AlarmSoundStore {
     }
 
     /**
-     * The first of [soundIds] whose file is there, then the classic siren.
+     * The first of [soundIds] whose file is there, then Endless climb.
      * With [ownLocked], an own sound is passed over even when its file is
      * there. Whatever is passed in, the answer is a sound: the last step is
-     * the classic siren, which ships in the apk.
+     * Endless climb, which ships in the apk.
      * Pure, so the JVM tests can run it.
      */
     fun resolveChain(
@@ -177,6 +191,8 @@ object AlarmSoundStore {
      */
     fun resolveIn(soundsDir: File, soundId: String, importedPath: (String) -> String?): Resolved {
         val fallback = Resolved(AlarmSoundSource.Asset(assetPathFor(FALLBACK_ID)), fellBack = true)
+        // No longer in the apk.
+        if (soundId in REMOVED_IDS) return fallback
         if (soundId.startsWith("user_")) {
             val path = importedPath(soundId)
             if (path != null && File(path).exists()) {

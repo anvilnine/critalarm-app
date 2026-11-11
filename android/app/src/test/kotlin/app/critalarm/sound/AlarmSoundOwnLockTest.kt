@@ -19,8 +19,9 @@ class AlarmSoundOwnLockTest {
     @get:Rule
     val temp = TemporaryFolder()
 
-    private val siren = "classic_siren" to AlarmSoundSource.Asset("assets/sounds/classic_siren.ogg")
-    private val beep = "pager_beep" to AlarmSoundSource.Asset("assets/sounds/pager_beep.ogg")
+    // What every chain ends at: Endless climb.
+    private val fallback = "loop_ascend" to AlarmSoundSource.Asset("assets/sounds/loop_ascend.ogg")
+    private val beep = "submarine_dive_horn" to AlarmSoundSource.Asset("assets/sounds/submarine_dive_horn.ogg")
     private val pack = "pack_library_boxing_bell"
 
     private lateinit var sounds: File
@@ -48,12 +49,12 @@ class AlarmSoundOwnLockTest {
 
     @Test
     fun openAnOwnTopicSoundRings() {
-        assertEquals("user_1" to AlarmSoundSource.Imported(own.path), rings(listOf("user_1", "pager_beep"), false))
+        assertEquals("user_1" to AlarmSoundSource.Imported(own.path), rings(listOf("user_1", "submarine_dive_horn"), false))
     }
 
     @Test
     fun lockedAnOwnTopicSoundRingsTheBuiltInDefault() {
-        assertEquals(beep, rings(listOf("user_1", "pager_beep"), true))
+        assertEquals(beep, rings(listOf("user_1", "submarine_dive_horn"), true))
     }
 
     @Test
@@ -63,12 +64,12 @@ class AlarmSoundOwnLockTest {
 
     @Test
     fun lockedAnOwnDefaultRingsTheClassicSiren() {
-        assertEquals(siren, rings(listOf("user_1"), true))
+        assertEquals(fallback, rings(listOf("user_1"), true))
     }
 
     @Test
     fun lockedOwnOnTheTopicAndAsTheDefaultRingsTheClassicSiren() {
-        assertEquals(siren, rings(listOf("user_1", "user_2"), true))
+        assertEquals(fallback, rings(listOf("user_1", "user_2"), true))
         assertEquals(
             "user_1" to AlarmSoundSource.Imported(own.path),
             rings(listOf("user_1", "user_2"), false),
@@ -77,33 +78,33 @@ class AlarmSoundOwnLockTest {
 
     @Test
     fun aBuiltInTopicSoundKeepsRingingOverALockedOwnDefault() {
-        assertEquals(beep, rings(listOf("pager_beep", "user_1"), true))
+        assertEquals(beep, rings(listOf("submarine_dive_horn", "user_1"), true))
     }
 
     @Test
     fun noOwnSoundAnywhereRingsTheSameLockedOrOpen() {
         for (locked in listOf(true, false)) {
-            assertEquals(beep, rings(listOf("pager_beep", "classic_siren"), locked))
-            assertEquals(siren, rings(listOf("classic_siren"), locked))
+            assertEquals(beep, rings(listOf("submarine_dive_horn", "classic_siren"), locked))
+            assertEquals("classic_siren" to AlarmSoundSource.Asset("assets/sounds/classic_siren.ogg"), rings(listOf("classic_siren"), locked))
         }
     }
 
     @Test
     fun aStorePackSoundRingsWhileOwnSoundsAreLocked() {
         File(sounds, "$pack.ogg").writeBytes(byteArrayOf(1))
-        assertEquals(pack, rings(listOf(pack, "pager_beep"), true).first)
+        assertEquals(pack, rings(listOf(pack, "submarine_dive_horn"), true).first)
         // A locked own topic sound falls to a pack default.
         assertEquals(pack, rings(listOf("user_1", pack), true).first)
     }
 
     @Test
     fun lockedAnOwnTopicSoundOverAMissingPackDefaultRingsTheClassicSiren() {
-        assertEquals(siren, rings(listOf("user_1", pack), true))
+        assertEquals(fallback, rings(listOf("user_1", pack), true))
     }
 
     @Test
     fun lockedNeverRingsAnOwnSoundWhateverIsSaved() {
-        val ids = listOf("user_1", "user_2", "pager_beep", pack, "classic_siren")
+        val ids = listOf("user_1", "user_2", "submarine_dive_horn", pack, "classic_siren")
         val ownSources = listOf(AlarmSoundSource.Imported(own.path), AlarmSoundSource.Imported(otherOwn.path))
         for (topic in ids + listOf<String?>(null)) {
             for (default in ids) {
@@ -116,8 +117,8 @@ class AlarmSoundOwnLockTest {
 
     @Test
     fun anEmptyChainStillRingsTheClassicSiren() {
-        assertEquals(siren, rings(emptyList(), true))
-        assertEquals(siren, rings(emptyList(), false))
+        assertEquals(fallback, rings(emptyList(), true))
+        assertEquals(fallback, rings(emptyList(), false))
     }
 
     @Test
@@ -138,7 +139,7 @@ class AlarmSoundOwnLockTest {
 
     /** The last step of every chain is a file that ships in the apk. */
     @Test
-    fun theClassicSirenIsBundled() {
+    fun theFallbackIsBundled() {
         val assetPath = AlarmSoundStore.assetPathFor(AlarmSoundStore.FALLBACK_ID)
         var dir: File? = File("").absoluteFile
         var found = false
@@ -155,7 +156,7 @@ class AlarmSoundOwnLockTest {
     /** `FlutterSharedPreferences` as the alarm service finds it. */
     private fun prefs(
         topicSound: String? = "user_1",
-        default: String? = "pager_beep",
+        default: String? = "submarine_dive_horn",
         ownLocked: Any? = null,
     ): SharedPreferences {
         val values = mutableMapOf<String, Any?>(
@@ -170,6 +171,23 @@ class AlarmSoundOwnLockTest {
 
     private fun ringsFor(prefs: SharedPreferences, topic: String?) =
         AlarmSoundStore.resolveFromPrefs(prefs, sounds, topic)
+
+    @Test
+    fun aRemovedBundledSoundRingsTheFallback() {
+        for (removed in listOf("pulsing_klaxon", "pager_beep", "emergency_tone_ladder")) {
+            val onTopic = ringsFor(prefs(topicSound = removed), "prod")
+            assertEquals(fallback, onTopic.picked)
+            val asDefault = ringsFor(prefs(topicSound = null, default = removed), null)
+            assertEquals(fallback, asDefault.picked)
+            assertTrue(AlarmSoundStore.resolveIn(sounds, removed) { null }.fellBack)
+        }
+    }
+
+    @Test
+    fun theFallbackIsEndlessClimbAndNotARemovedSound() {
+        assertEquals("loop_ascend", AlarmSoundStore.FALLBACK_ID)
+        assertFalse(AlarmSoundStore.FALLBACK_ID in AlarmSoundStore.REMOVED_IDS)
+    }
 
     @Test
     fun theFlagUnderTheKeyDartWritesLocksATopicOnAnOwnSound() {
@@ -196,8 +214,8 @@ class AlarmSoundOwnLockTest {
     @Test
     fun theFlagLocksAnOwnDefaultForAPushWithNoTopic() {
         val locked = prefs(topicSound = null, default = "user_2", ownLocked = true)
-        assertEquals(siren, ringsFor(locked, null).picked)
-        assertEquals(siren, ringsFor(locked, "staging").picked)
+        assertEquals(fallback, ringsFor(locked, null).picked)
+        assertEquals(fallback, ringsFor(locked, "staging").picked)
         val open = prefs(topicSound = null, default = "user_2", ownLocked = false)
         assertEquals("user_2" to AlarmSoundSource.Imported(otherOwn.path), ringsFor(open, null).picked)
     }
@@ -210,10 +228,10 @@ class AlarmSoundOwnLockTest {
     }
 
     @Test
-    fun emptyPreferencesRingTheClassicSirenLockedOrNot() {
-        assertEquals(siren, ringsFor(FakePrefs(mutableMapOf()), "prod").picked)
+    fun emptyPreferencesRingTheFallbackLockedOrNot() {
+        assertEquals(fallback, ringsFor(FakePrefs(mutableMapOf()), "prod").picked)
         assertEquals(
-            siren,
+            fallback,
             ringsFor(FakePrefs(mutableMapOf("flutter.alarm_sound_own_locked" to true)), null).picked,
         )
     }

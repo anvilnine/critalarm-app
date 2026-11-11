@@ -1730,10 +1730,8 @@
   "sound_library": {
     "names": {
       "classic_siren": "クラシックサイレン",
-      "pulsing_klaxon": "断続クラクション",
       "marimba_escalator": "上昇するマリンバ",
       "soft_to_loud_ramp": "小さい音から大きい音へ",
-      "pager_beep": "ポケットベル",
       "submarine_dive_horn": "潜水艦の潜航ホーン",
       "rising_synth_sweep": "上昇するシンセ音",
       "plain_loud_beep": "シンプルな大音量ビープ",
@@ -1750,7 +1748,6 @@
       "emergency_speeding_beeper": "加速するビープ",
       "emergency_proximity": "接近警告",
       "emergency_alarm_bell": "アラームベル",
-      "emergency_tone_ladder": "音の階段",
       "loop_ascend": "終わらない上昇",
       "loop_dread": "落ちていく不安",
       "loop_chiprun": "チップラン",
