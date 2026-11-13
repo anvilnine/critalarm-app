@@ -105,8 +105,9 @@ final class HttpApiClient
     // credential is wrong, not that this phone's account is gone.
     bool recoversDeadCredential = true,
     bool followsRedirects = true,
+    Map<String, String> extraHeaders = const {},
   }) async {
-    final headers = <String, String>{'accept': accept};
+    final headers = <String, String>{'accept': accept, ...extraHeaders};
     if (body != null) headers['content-type'] = 'application/json';
     if (auth != null) headers['authorization'] = 'Bearer $auth';
     final request = http.Request(method, uri)
@@ -416,6 +417,33 @@ final class HttpApiClient
       'already_linked' => AccountLinkResult.alreadyLinked(accountId: accountId),
       _ => AccountLinkResult.claimed(accountId: accountId),
     };
+  }
+
+  @override
+  Future<List<AccountIdentityRow>> listAccountIdentities({
+    String? identityToken,
+  }) async {
+    final (session, uri) = await _sessionUri(const ['account', 'identities']);
+    final response = await _send(
+      'GET',
+      uri,
+      auth: session.managementCredential,
+      // Optional. A session that is no longer good is not a 401 here: the
+      // rows just come back masked.
+      extraHeaders: {
+        if (identityToken != null && identityToken.isNotEmpty)
+          'x-identity-token': identityToken,
+      },
+    );
+    final json = _json(response) as Map<String, dynamic>;
+    final rows = json['identities'] as List<dynamic>? ?? const [];
+    final parsed = [
+      for (final row in rows)
+        AccountIdentityRow.fromJson(row as Map<String, dynamic>),
+    ];
+    // The server sends them oldest first. Sorted again so a reader can rely
+    // on it whatever arrives.
+    return parsed..sort((a, b) => a.linkedAt.compareTo(b.linkedAt));
   }
 
   @override

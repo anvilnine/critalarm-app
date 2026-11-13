@@ -202,6 +202,14 @@ class MockApiClient
   }
 
   @override
+  Future<List<AccountIdentityRow>> listAccountIdentities({
+    String? identityToken,
+  }) async => server.listAccountIdentities(
+    deviceToken: deviceToken ?? '',
+    identityToken: identityToken,
+  );
+
+  @override
   Future<AccountJoinTokenResult> mintAccountJoinToken() async {
     return server.mintAccountJoinToken(deviceToken: deviceToken ?? '');
   }
