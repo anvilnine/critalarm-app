@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Dieses iPad",
     "ways_this_device_tablet": "Dieses Tablet",
     "ways_this_device_computer": "Dieser Computer",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Hinzugefügt am {}",
     "ways_remove_label": "{} entfernen",
     "ways_remove_title": "Diese Anmeldemethode entfernen?",

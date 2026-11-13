@@ -179,7 +179,7 @@ class _Body extends StatelessWidget {
   ) async {
     final cubit = context.read<SignInMethodsCubit>();
     final body = row.current
-        ? '${LocaleKeys.account_ways_remove_body.tr()}\n\n'
+        ? '${LocaleKeys.account_ways_remove_body.tr()}\n'
               '${LocaleKeys.account_ways_remove_current.tr()}'
         : LocaleKeys.account_ways_remove_body.tr();
     final remove = await showAppDialog<bool>(
@@ -227,32 +227,37 @@ class _MethodRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = _titleOf(row);
     final provider = row.provider;
+    final added = row.showsDate
+        ? LocaleKeys.account_ways_added.tr(
+            args: [
+              DateFormat.yMMMd(
+                Localizations.localeOf(context).toLanguageTag(),
+              ).format(row.linkedAt.toLocal()),
+            ],
+          )
+        : null;
+    final device = row.current
+        ? LocaleKeys.account_ways_this_device.tr()
+        : null;
+    // The quiet second line: which one is this phone's, and when a row that
+    // reads like another was added.
+    final detail = device != null && added != null
+        ? LocaleKeys.account_ways_row_detail.tr(
+            namedArgs: {'device': device, 'added': added},
+          )
+        : device ?? added;
     return AppCardRow(
       title: title,
-      detail: row.showsDate
-          ? LocaleKeys.account_ways_added.tr(
-              args: [
-                DateFormat.yMMMd(
-                  Localizations.localeOf(context).toLanguageTag(),
-                ).format(row.linkedAt.toLocal()),
-              ],
-            )
-          : null,
+      detail: detail,
       leading: provider == null ? null : _ProviderMark(provider: provider),
       showsArrow: false,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (row.current)
-            AppBadge(text: LocaleKeys.account_ways_this_device.tr()),
-          if (showsRemove)
-            AppDismissCross(
+      trailing: showsRemove
+          ? AppDismissCross(
               label: LocaleKeys.account_ways_remove_label.tr(args: [title]),
               tapSize: 48,
               onPressed: onRemove ?? () {},
-            ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }

@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Questo iPad",
     "ways_this_device_tablet": "Questo tablet",
     "ways_this_device_computer": "Questo computer",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Aggiunto il {}",
     "ways_remove_label": "Rimuovi {}",
     "ways_remove_title": "Rimuovere questo modo di accesso?",

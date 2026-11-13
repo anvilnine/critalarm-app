@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "This iPad",
     "ways_this_device_tablet": "This tablet",
     "ways_this_device_computer": "This computer",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Added {}",
     "ways_remove_label": "Remove {}",
     "ways_remove_title": "Remove this way to sign in?",

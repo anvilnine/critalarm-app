@@ -2020,6 +2020,7 @@
     "ways_this_device_ipad": "Ten iPad",
     "ways_this_device_tablet": "Ten tablet",
     "ways_this_device_computer": "Ten komputer",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Dodano {}",
     "ways_remove_label": "Usuń {}",
     "ways_remove_title": "Usunąć ten sposób logowania?",

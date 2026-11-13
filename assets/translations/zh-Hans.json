@@ -1954,6 +1954,7 @@
     "ways_this_device_ipad": "这台 iPad",
     "ways_this_device_tablet": "这台平板",
     "ways_this_device_computer": "这台电脑",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "添加于 {}",
     "ways_remove_label": "移除{}",
     "ways_remove_title": "移除这种登录方式？",

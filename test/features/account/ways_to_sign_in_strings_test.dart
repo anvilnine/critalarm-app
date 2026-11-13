@@ -29,6 +29,7 @@ void main() {
     'ways_remove_button',
     'ways_error_cap',
     'ways_remove_failed',
+    'ways_row_detail',
     'link_add_apple',
     'link_add_google',
   ];
@@ -76,5 +77,15 @@ void main() {
     ).readAsStringSync();
     expect(page, isNot(contains('account_delete')));
     expect(page, isNot(contains('/settings/account/delete')));
+  });
+
+  test('rule 3: the This phone marker is a quiet second line, with no face '
+      'and no badge on the page', () {
+    final page = File(
+      'lib/features/account/presentation/sign_in_methods_screen.dart',
+    ).readAsStringSync();
+    expect(page, isNot(contains('AppBadge')));
+    expect(page, isNot(contains('FaceWidget')));
+    expect(page, contains('account_ways_row_detail'));
   });
 }

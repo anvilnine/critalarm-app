@@ -2020,6 +2020,7 @@
     "ways_this_device_ipad": "Цей iPad",
     "ways_this_device_tablet": "Цей планшет",
     "ways_this_device_computer": "Цей комп'ютер",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Додано {}",
     "ways_remove_label": "Вилучити {}",
     "ways_remove_title": "Вилучити цей спосіб входу?",

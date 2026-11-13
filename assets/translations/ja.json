@@ -1971,6 +1971,7 @@
     "ways_this_device_ipad": "このiPad",
     "ways_this_device_tablet": "このタブレット",
     "ways_this_device_computer": "このコンピュータ",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "{}に追加",
     "ways_remove_label": "{}を削除",
     "ways_remove_title": "このサインイン方法を削除しますか？",

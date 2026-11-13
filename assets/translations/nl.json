@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Deze iPad",
     "ways_this_device_tablet": "Deze tablet",
     "ways_this_device_computer": "Deze computer",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Toegevoegd op {}",
     "ways_remove_label": "{} verwijderen",
     "ways_remove_title": "Deze inlogmethode verwijderen?",

@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Este iPad",
     "ways_this_device_tablet": "Esta tableta",
     "ways_this_device_computer": "Este ordenador",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Añadida el {}",
     "ways_remove_label": "Quitar {}",
     "ways_remove_title": "¿Quitar esta forma de iniciar sesión?",

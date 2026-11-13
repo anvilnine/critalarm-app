@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Bu iPad",
     "ways_this_device_tablet": "Bu tablet",
     "ways_this_device_computer": "Bu bilgisayar",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Eklenme: {}",
     "ways_remove_label": "{} kaldır",
     "ways_remove_title": "Bu giriş yolu kaldırılsın mı?",

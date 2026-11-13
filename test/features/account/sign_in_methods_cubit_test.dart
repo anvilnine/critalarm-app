@@ -59,26 +59,29 @@ void main() {
   );
 
   group('rule 3: one row per sign-in', () {
-    test('rows come from the server list, oldest first, with the badge on '
-        'the current one, read with the held session', () async {
-      rows.rows = [
-        row('idn_1', email: 'zed@gmail.com', current: true),
-        row('idn_2', provider: 'apple', hidden: true, linkedAt: 1763000500),
-      ];
-      final cubit = cubitFor(FakeAccountRepository(linkAnswers: const []));
+    test(
+      'rows come from the server list, oldest first, with the This phone '
+      'marker on the current one, read with the held session',
+      () async {
+        rows.rows = [
+          row('idn_1', email: 'zed@gmail.com', current: true),
+          row('idn_2', provider: 'apple', hidden: true, linkedAt: 1763000500),
+        ];
+        final cubit = cubitFor(FakeAccountRepository(linkAnswers: const []));
 
-      await cubit.load();
+        await cubit.load();
 
-      expect(cubit.state.status, SignInMethodsStatus.ready);
-      expect(rows.sentTokens, ['sess_held']);
-      final list = cubit.state.rows;
-      expect(list.map((r) => r.id), ['idn_1', 'idn_2']);
-      expect(list.first.current, isTrue);
-      expect(list.first.email, 'zed@gmail.com');
-      expect(list.last.provider, IdentityProvider.apple);
-      expect(list.last.emailHidden, isTrue);
-      expect(list.any((r) => r.showsDate), isFalse);
-    });
+        expect(cubit.state.status, SignInMethodsStatus.ready);
+        expect(rows.sentTokens, ['sess_held']);
+        final list = cubit.state.rows;
+        expect(list.map((r) => r.id), ['idn_1', 'idn_2']);
+        expect(list.first.current, isTrue);
+        expect(list.first.email, 'zed@gmail.com');
+        expect(list.last.provider, IdentityProvider.apple);
+        expect(list.last.emailHidden, isTrue);
+        expect(list.any((r) => r.showsDate), isFalse);
+      },
+    );
 
     test('two rows that would read the same get the date', () async {
       rows.rows = [
@@ -181,36 +184,39 @@ void main() {
       expect(account.linkTokens, ['session_1']);
     });
 
-    test('adding a second Google ends with two Google rows, the badge on '
-        'the first, and the held session unchanged', () async {
-      rows.rowsAfterRemove = null;
-      final account = FakeAccountRepository(
-        linkAnswers: const [AccountLinkResult.linked(accountId: 'acc_1')],
-      );
-      final cubit = cubitFor(account);
-      await cubit.load();
-      // What the server lists once the add went through.
-      account.onLink = () => rows.rows = [
-        row('idn_1', email: 'zed@gmail.com', current: true),
-        row('idn_2', email: 'home@gmail.com', linkedAt: 1763000500),
-      ];
+    test(
+      'adding a second Google ends with two Google rows, the This phone '
+      'marker on the first, and the held session unchanged',
+      () async {
+        rows.rowsAfterRemove = null;
+        final account = FakeAccountRepository(
+          linkAnswers: const [AccountLinkResult.linked(accountId: 'acc_1')],
+        );
+        final cubit = cubitFor(account);
+        await cubit.load();
+        // What the server lists once the add went through.
+        account.onLink = () => rows.rows = [
+          row('idn_1', email: 'zed@gmail.com', current: true),
+          row('idn_2', email: 'home@gmail.com', linkedAt: 1763000500),
+        ];
 
-      await cubit.add(IdentityProvider.google);
+        await cubit.add(IdentityProvider.google);
 
-      final list = cubit.state.rows;
-      expect(list.map((r) => r.provider), [
-        IdentityProvider.google,
-        IdentityProvider.google,
-      ]);
-      expect(list.first.current, isTrue);
-      expect(list.last.current, isFalse);
-      expect(held.token, 'sess_held');
-      expect(held.provider, IdentityProvider.google);
-      expect(held.email, 'zed@gmail.com');
-      expect(rows.sentTokens.last, 'sess_held');
-      expect(cubit.state.errorMessage, isNull);
-      expect(identities.saved?.providers, {IdentityProvider.google});
-    });
+        final list = cubit.state.rows;
+        expect(list.map((r) => r.provider), [
+          IdentityProvider.google,
+          IdentityProvider.google,
+        ]);
+        expect(list.first.current, isTrue);
+        expect(list.last.current, isFalse);
+        expect(held.token, 'sess_held');
+        expect(held.provider, IdentityProvider.google);
+        expect(held.email, 'zed@gmail.com');
+        expect(rows.sentTokens.last, 'sess_held');
+        expect(cubit.state.errorMessage, isNull);
+        expect(identities.saved?.providers, {IdentityProvider.google});
+      },
+    );
 
     test('already_linked refreshes the list with no error', () async {
       final account = FakeAccountRepository(

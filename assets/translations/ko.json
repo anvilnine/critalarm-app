@@ -1954,6 +1954,7 @@
     "ways_this_device_ipad": "이 iPad",
     "ways_this_device_tablet": "이 태블릿",
     "ways_this_device_computer": "이 컴퓨터",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "{} 추가됨",
     "ways_remove_label": "{} 제거",
     "ways_remove_title": "이 로그인 방법을 제거할까요?",

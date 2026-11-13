@@ -1998,6 +1998,7 @@
     "ways_this_device_ipad": "Tento iPad",
     "ways_this_device_tablet": "Tento tablet",
     "ways_this_device_computer": "Tento počítač",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Přidáno {}",
     "ways_remove_label": "Odebrat {}",
     "ways_remove_title": "Odebrat tento způsob přihlášení?",

@@ -1976,6 +1976,7 @@
     "ways_this_device_ipad": "Cet iPad",
     "ways_this_device_tablet": "Cette tablette",
     "ways_this_device_computer": "Cet ordinateur",
+    "ways_row_detail": "{device} · {added}",
     "ways_added": "Ajouté le {}",
     "ways_remove_label": "Retirer {}",
     "ways_remove_title": "Retirer ce moyen de connexion ?",
