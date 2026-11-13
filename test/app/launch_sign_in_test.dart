@@ -1,7 +1,6 @@
 import 'package:critalarm/app/launch_sign_in.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
-import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
@@ -57,6 +56,7 @@ void main() {
       SignInRestore restore,
       HttpIdentityRepository identities,
       FakeAccountRepository account,
+      FakeAccountIdentities rows,
     })
   >
   make(InstallMarkerVerdict verdict, Map<String, Object> prefsValues) async {
@@ -76,19 +76,20 @@ void main() {
       tokens: PrefsIdentityTokenStore(prefs),
       identityChanges: AccountIdentityChanges(),
     );
-    final account = FakeAccountRepository(
-      linkAnswers: const [AccountLinkResult.alreadyLinked(accountId: 'acc_1')],
-    );
+    final account = FakeAccountRepository(linkAnswers: const []);
+    final rows = FakeAccountIdentities([
+      identityRow(email: 'zed@gmail.com', current: true),
+    ]);
     return (
       identities: identities,
       account: account,
+      rows: rows,
       restore: SignInRestore(
         identities: identities,
         account: account,
-        accountIdentities: FakeAccountIdentities([
-          identityRow(email: 'zed@gmail.com', current: true),
-        ]),
+        accountIdentities: rows,
         held: identities,
+        readDeviceAccountId: () async => 'acc_1',
       ),
       reset: MovedPhoneReset(
         host: _Host(verdict),
@@ -126,6 +127,7 @@ void main() {
     // A screen that loads later in the same run sends no session either.
     await made.restore.run();
     expect(made.account.calls, isEmpty);
+    expect(made.rows.sentTokens.whereType<String>(), isEmpty);
   });
 
   test('rule 2: the same phone after a reinstall restores at launch', () async {
@@ -142,8 +144,9 @@ void main() {
     await pumpEventQueue();
 
     expect(moved, isFalse);
-    expect(made.account.linkTokens, ['sess_kept']);
-    expect(made.account.linkIntents, [AccountLinkIntent.signIn]);
+    // Read only: the session went to the identities list, nothing posted.
+    expect(made.account.calls, isEmpty);
+    expect(made.rows.sentTokens, ['sess_kept']);
     final identity = await made.identities.readIdentity();
     expect(identity?.email, 'zed@gmail.com');
     expect(identity?.accountId, 'acc_1');

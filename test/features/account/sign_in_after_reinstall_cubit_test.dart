@@ -33,6 +33,7 @@ void main() {
       account: account,
       accountIdentities: rows,
       held: held,
+      readDeviceAccountId: () async => 'acc_1',
     ),
     held: held,
     readTopicCount: () async => topics,
@@ -47,15 +48,11 @@ void main() {
   }
 
   group('rule 2: silent restore', () {
-    test('token held, no saved identity, already_linked: signed in with the '
-        'email from the current row, nothing shown', () async {
+    test('token held, no saved identity, a current row: signed in with the '
+        'email from that row, nothing shown', () async {
       held.token = 'sess_keychain';
       rows.rows = [identityRow(email: 'zed@gmail.com', current: true)];
-      final account = FakeAccountRepository(
-        linkAnswers: const [
-          AccountLinkResult.alreadyLinked(accountId: 'acc_1'),
-        ],
-      );
+      final account = FakeAccountRepository(linkAnswers: const []);
       final cubit = cubitFor(account);
       final seen = record(cubit);
 
@@ -75,49 +72,44 @@ void main() {
         expect(state.leave, isNull);
         expect(state.unfinished, isNull);
       }
-      expect(account.linkIntents, [AccountLinkIntent.signIn]);
+      // Read only: nothing was posted to the server.
+      expect(account.calls, isEmpty);
     });
 
-    for (final answer in const [
-      AccountLinkResult.accountHasAnotherIdentity(),
-      AccountLinkResult.unauthorized(),
-    ]) {
-      test('token held, $answer: Finish signing in, no error, token still '
-          'held', () async {
-        held.token = 'sess_keychain';
-        rows.rows = [identityRow()];
-        final account = FakeAccountRepository(linkAnswers: [answer]);
-        final cubit = cubitFor(account);
-        final seen = record(cubit);
-
-        await cubit.load();
-        await Future<void>.delayed(Duration.zero);
-
-        expect(cubit.state.status, AccountStatus.unfinished);
-        expect(cubit.state.unfinished, isNotNull);
-        expect(cubit.state.errorMessage, isNull);
-        expect(seen.every((s) => s.errorMessage == null), isTrue);
-        expect(held.token, 'sess_keychain');
-        expect(identities.clearCalls, 0);
-        // A 409 here is the restore asking, never the leave panel.
-        expect(seen.every((s) => s.leave == null), isTrue);
-        expect(account.signOutCalls, 0);
-      });
-    }
-
-    test('token held, the server throws: Finish signing in, no error, token '
-        'still held', () async {
+    test('token held, no current row: Finish signing in, no error, token '
+        'still held, nothing posted', () async {
       held.token = 'sess_keychain';
       rows.rows = [identityRow()];
-      final account = FakeAccountRepository(linkAnswers: const [])
-        ..linkError = Exception('offline');
+      final account = FakeAccountRepository(linkAnswers: const []);
+      final cubit = cubitFor(account);
+      final seen = record(cubit);
+
+      await cubit.load();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.status, AccountStatus.unfinished);
+      expect(cubit.state.unfinished, isNotNull);
+      expect(cubit.state.errorMessage, isNull);
+      expect(seen.every((s) => s.errorMessage == null), isTrue);
+      expect(held.token, 'sess_keychain');
+      expect(identities.clearCalls, 0);
+      expect(seen.every((s) => s.leave == null), isTrue);
+      expect(account.calls, isEmpty);
+    });
+
+    test('token held, the read fails: plain signed out, no error, token '
+        'still held', () async {
+      held.token = 'sess_keychain';
+      rows.error = Exception('offline');
+      final account = FakeAccountRepository(linkAnswers: const []);
       final cubit = cubitFor(account);
 
       await cubit.load();
 
-      expect(cubit.state.status, AccountStatus.unfinished);
+      expect(cubit.state.status, AccountStatus.signedOut);
       expect(cubit.state.errorMessage, isNull);
       expect(held.token, 'sess_keychain');
+      expect(account.calls, isEmpty);
     });
   });
 
@@ -202,6 +194,7 @@ void main() {
           account: account,
           accountIdentities: rows,
           held: held,
+          readDeviceAccountId: () async => 'acc_1',
         ),
         readRingClaim: () async => RingClaim.timeSensitive,
       );

@@ -95,6 +95,10 @@ void registerAccount(
         account: getIt<AccountRepository>(),
         accountIdentities: getIt<AccountIdentitiesRepository>(),
         held: getIt<HeldSession>(),
+        // The account this phone's registration is on: a current row is
+        // saved under it, never under an account the server names.
+        readDeviceAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
       ),
     )
     ..registerLazySingleton<AccountRepository>(

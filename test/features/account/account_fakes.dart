@@ -238,9 +238,13 @@ final class FakeAccountIdentities implements AccountIdentitiesRepository {
   /// The session sent with each call, nulls included.
   final List<String?> sentTokens = [];
 
+  /// Holds each answer until completed.
+  Completer<void>? gate;
+
   @override
   Future<List<AccountIdentityRow>> list({String? identityToken}) async {
     sentTokens.add(identityToken);
+    await gate?.future;
     final thrown = error;
     if (thrown != null) throw thrown;
     // The server unmasks and marks current only for a session on the

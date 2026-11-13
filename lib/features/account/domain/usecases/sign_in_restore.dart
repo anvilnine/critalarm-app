@@ -39,15 +39,16 @@ final class SignInRestoreSignedOut extends SignInRestoreOutcome {
 /// An iPhone keeps its device credential and its session token in the
 /// Keychain across an uninstall, and loses the preferences. After a
 /// reinstall the phone is on its old account and rings for it, and read
-/// "Not signed in". This asks the server with the session it still holds
-/// (`link`, `intent: sign_in`). Only `already_linked` restores, and nothing
-/// is shown for it. Every other answer, a 401 or no network leaves the
-/// token where it is, and the phone reads which account it is on from the
-/// identities list instead.
+/// "Not signed in". This reads the identities list with the session it still
+/// holds. A row marked `current` proves the session is of an identity on
+/// this phone's account, and that row is saved with nothing shown. No
+/// `current` row, an empty list or a failure leaves the token where it is,
+/// and the phone says which account it is on from the list instead.
 ///
-/// It never sends `intent: link`, never merges and never switches. A phone
-/// restored from a backup or moved to another one drops its sign-in at
-/// launch on purpose ([skipLink]), and this never puts it back.
+/// It only reads. It never sends `link`, never merges and never switches,
+/// so it cannot change anything on the server. A phone restored from a
+/// backup or moved to another one drops its sign-in at launch on purpose
+/// ([skipLink]), and this never sends its session.
 ///
 /// One run at a time: the launch, the account screen and the Settings card
 /// all ask, and a second ask joins the run in flight.
@@ -57,12 +58,16 @@ final class SignInRestore {
     required this.account,
     required this.accountIdentities,
     required this.held,
+    required this.readDeviceAccountId,
   });
 
   final IdentityRepository identities;
   final AccountRepository account;
   final AccountIdentitiesRepository accountIdentities;
   final HeldSession held;
+
+  /// The account this phone's device registration is on.
+  final Future<String?> Function() readDeviceAccountId;
 
   bool _linkSkipped = false;
   Future<SignInRestoreOutcome>? _flight;
@@ -95,36 +100,30 @@ final class SignInRestore {
       token = null;
     }
 
-    List<AccountIdentityRow>? rows;
-    if (token != null && !_linkSkipped) {
-      try {
-        final result = await account.link(token);
-        if (result case AccountLinkAlreadyLinked(:final accountId)) {
-          rows = await accountIdentities.list(identityToken: token);
-          final restored = await _restore(rows, accountId);
-          if (restored != null) return SignInRestoreSignedIn(restored);
-        }
-      } on Object catch (_) {
-        // Offline, or a server that broke. Falls to the list below.
-      }
-    }
-
+    final send = _linkSkipped ? null : token;
+    final List<AccountIdentityRow> rows;
     try {
-      rows ??= await accountIdentities.list(identityToken: token);
+      rows = await accountIdentities.list(identityToken: send);
     } on Object catch (_) {
       return const SignInRestoreSignedOut();
+    }
+    if (send != null) {
+      try {
+        final restored = await _restore(rows);
+        if (restored != null) return SignInRestoreSignedIn(restored);
+      } on Object catch (_) {
+        // Could not save. Falls to the list below.
+      }
     }
     if (rows.isEmpty) return const SignInRestoreSignedOut();
     return SignInRestoreUnfinished(rows);
   }
 
-  /// Saves the identity the row marked `current` names. Null when no row is
-  /// marked or its provider is one this build does not know, and then
+  /// Saves the identity the row marked `current` names, on the account this
+  /// phone is registered on. Null when no row is marked, its provider is one
+  /// this build does not know or the phone holds no account id, and then
   /// nothing is saved.
-  Future<AccountIdentity?> _restore(
-    List<AccountIdentityRow> rows,
-    String accountId,
-  ) async {
+  Future<AccountIdentity?> _restore(List<AccountIdentityRow> rows) async {
     AccountIdentityRow? current;
     for (final row in rows) {
       if (row.current) current = row;
@@ -132,6 +131,8 @@ final class SignInRestore {
     if (current == null) return null;
     final provider = IdentityProvider.fromWire(current.provider);
     if (provider == null) return null;
+    final accountId = await readDeviceAccountId();
+    if (accountId == null) return null;
     final identity = AccountIdentity(
       provider: provider,
       accountId: accountId,

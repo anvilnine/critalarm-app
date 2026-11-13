@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
@@ -29,18 +28,21 @@ void main() {
     ]);
   });
 
+  String? deviceAccountId;
+
   SignInRestore restoreWith(FakeAccountRepository account) => SignInRestore(
     identities: identities,
     account: account,
     accountIdentities: rows,
     held: held,
+    readDeviceAccountId: () async => deviceAccountId,
   );
 
-  test('rule 2: already_linked saves the identity the current row names, '
-      'with no prompt', () async {
-    final account = FakeAccountRepository(
-      linkAnswers: const [AccountLinkResult.alreadyLinked(accountId: 'acc_1')],
-    );
+  setUp(() => deviceAccountId = 'acc_1');
+
+  test('rule 2: a current row saves the identity it names, on this '
+      'phone account, with no prompt', () async {
+    final account = FakeAccountRepository(linkAnswers: const []);
 
     final outcome = await restoreWith(account).run();
 
@@ -54,59 +56,53 @@ void main() {
     expect(rows.sentTokens, ['sess_keychain']);
   });
 
-  test('rule 2: restore sends intent sign_in and nothing else', () async {
-    final account = FakeAccountRepository(
-      linkAnswers: const [AccountLinkResult.alreadyLinked(accountId: 'acc_1')],
-    );
+  test('rule 2: the restore only reads, it makes no POST', () async {
+    final account = FakeAccountRepository(linkAnswers: const []);
 
     await restoreWith(account).run();
-
-    expect(account.linkTokens, ['sess_keychain']);
-    expect(account.linkIntents, [AccountLinkIntent.signIn]);
-    expect(account.calls, ['link']);
-  });
-
-  for (final answer in const [
-    AccountLinkResult.accountHasAnotherIdentity(),
-    AccountLinkResult.unauthorized(),
-    AccountLinkResult.choose(intoAccount: 'acc_9', topics: 3, incidents: 1),
-  ]) {
-    test('rule 2: $answer falls to the identities list, token kept', () async {
-      final account = FakeAccountRepository(linkAnswers: [answer]);
-
-      final outcome = await restoreWith(account).run();
-
-      expect(outcome, isA<SignInRestoreUnfinished>());
-      expect(identities.saved, isNull);
-      expect(identities.clearCalls, 0);
-      expect(held.token, 'sess_keychain');
-      expect(account.calls, ['link']);
-    });
-  }
-
-  test('rule 2: no network falls to the list, token kept', () async {
-    final account = FakeAccountRepository(linkAnswers: const [])
-      ..linkError = Exception('offline');
-
-    final outcome = await restoreWith(account).run();
-
-    expect(outcome, isA<SignInRestoreUnfinished>());
-    expect(held.token, 'sess_keychain');
-    expect(identities.clearCalls, 0);
-  });
-
-  test('rule 2: already_linked with no current row restores nothing', () async {
+    // And again with nothing current, the path that falls through.
     rows.rows = [identityRow()];
-    final account = FakeAccountRepository(
-      linkAnswers: const [AccountLinkResult.alreadyLinked(accountId: 'acc_1')],
-    );
+    identities.saved = null;
+    await restoreWith(account).run();
+
+    expect(account.calls, isEmpty);
+    expect(account.linkTokens, isEmpty);
+  });
+
+  test('rule 2: no current row restores nothing and keeps the token', () async {
+    rows.rows = [identityRow()];
+    final account = FakeAccountRepository(linkAnswers: const []);
 
     final outcome = await restoreWith(account).run();
 
     expect(outcome, isA<SignInRestoreUnfinished>());
     expect(identities.saved, isNull);
+    expect(identities.clearCalls, 0);
+    expect(held.token, 'sess_keychain');
     // The rows already read are used, not asked for twice.
     expect(rows.sentTokens, ['sess_keychain']);
+  });
+
+  test('rule 2: no account id on the phone restores nothing', () async {
+    deviceAccountId = null;
+    final account = FakeAccountRepository(linkAnswers: const []);
+
+    final outcome = await restoreWith(account).run();
+
+    expect(outcome, isA<SignInRestoreUnfinished>());
+    expect(identities.saved, isNull);
+  });
+
+  test('rule 2: a failed read is plain signed out, token kept', () async {
+    rows.error = Exception('offline');
+    final account = FakeAccountRepository(linkAnswers: const []);
+
+    final outcome = await restoreWith(account).run();
+
+    expect(outcome, isA<SignInRestoreSignedOut>());
+    expect(held.token, 'sess_keychain');
+    expect(identities.clearCalls, 0);
+    expect(account.calls, isEmpty);
   });
 
   test('rule 2: a saved identity is answered with no server call', () async {
@@ -143,6 +139,7 @@ void main() {
     final outcome = await restore.run();
 
     expect(account.calls, isEmpty);
+    expect(rows.sentTokens, [null]);
     // Which account it is on can still be said, masked.
     expect(outcome, isA<SignInRestoreUnfinished>());
   });
@@ -169,19 +166,16 @@ void main() {
   test(
     'rule 2: the launch and a screen asking at once share one run',
     () async {
-      final account = FakeAccountRepository(
-        linkAnswers: const [
-          AccountLinkResult.alreadyLinked(accountId: 'acc_1'),
-        ],
-      )..linkGate = Completer<void>();
+      final account = FakeAccountRepository(linkAnswers: const []);
+      rows.gate = Completer<void>();
       final restore = restoreWith(account);
 
       final first = restore.run();
       final second = restore.run();
-      account.linkGate!.complete();
+      rows.gate!.complete();
       await Future.wait([first, second]);
 
-      expect(account.linkTokens, hasLength(1));
+      expect(rows.sentTokens, hasLength(1));
     },
   );
 }
