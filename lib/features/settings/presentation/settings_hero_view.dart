@@ -22,6 +22,10 @@ enum SettingsHeroLine {
   /// "Signed in with Apple", from the account's providers.
   signedIn,
 
+  /// Nobody is signed in, and the account this phone is on holds an
+  /// identity: "This phone is on z•••@gmail.com".
+  onAccount,
+
   /// Accounts exist on this server and nobody is signed in.
   signedOut,
 
@@ -46,6 +50,9 @@ class SettingsHeroView {
     required this.ownsPro,
   });
 
+  /// [onAccount] is true when nobody is signed in and the account this phone
+  /// is on holds an identity.
+  ///
   /// [serverMode] is null until the server has been read. [loaded] is false
   /// until the plan has been read, and the name stays blank until then, so
   /// "Plan unavailable" never flashes on a slow start. [planKnown] is whether
@@ -60,6 +67,7 @@ class SettingsHeroView {
     required HoldingState? proState,
     required bool signedIn,
     required bool canManage,
+    bool onAccount = false,
   }) {
     final ownServer = isOwnServerMode(serverMode);
     final offersPro =
@@ -84,6 +92,8 @@ class SettingsHeroView {
         ? SettingsHeroLine.none
         : signedIn
         ? SettingsHeroLine.signedIn
+        : onAccount
+        ? SettingsHeroLine.onAccount
         : SettingsHeroLine.signedOut;
     return SettingsHeroView(
       planKey: planKey,

@@ -1925,10 +1925,48 @@
     "sign_out": "Cerrar sesión",
     "sign_out_failed": "No se pudo cerrar sesión. Inténtalo de nuevo.",
     "error_sign_in_failed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
-    "error_other_identity": "Este teléfono ya pertenece a otra cuenta. Cierra sesión en ella primero y vuelve a iniciar sesión.",
-    "error_other_identity_ipad": "Este iPad ya pertenece a otra cuenta. Cierra sesión en ella primero y vuelve a iniciar sesión.",
-    "error_other_identity_tablet": "Esta tableta ya pertenece a otra cuenta. Cierra sesión en ella primero y vuelve a iniciar sesión.",
-    "error_other_identity_computer": "Esta computadora ya pertenece a otra cuenta. Cierra sesión en ella primero y vuelve a iniciar sesión.",
+    "on_account_label": "Este teléfono usa la cuenta",
+    "on_account_label_ipad": "Este iPad usa la cuenta",
+    "on_account_label_tablet": "Esta tableta usa la cuenta",
+    "on_account_label_computer": "Esta computadora usa la cuenta",
+    "on_account_email_hidden": "Apple, correo oculto",
+    "on_account_others": {
+      "one": "y {} inicio de sesión más",
+      "other": "y {} inicios de sesión más"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Las alarmas siguen sonando en este teléfono.",
+    "on_account_alarms_ring_ipad": "Las alarmas siguen sonando en este iPad.",
+    "on_account_alarms_ring_tablet": "Las alarmas siguen sonando en esta tableta.",
+    "on_account_alarms_ring_computer": "Los avisos se siguen recibiendo en esta computadora.",
+    "on_account_alerts_arrive": "Los avisos se siguen recibiendo en este teléfono.",
+    "on_account_alerts_arrive_ipad": "Los avisos se siguen recibiendo en este iPad.",
+    "on_account_alerts_arrive_tablet": "Los avisos se siguen recibiendo en esta tableta.",
+    "on_account_alerts_arrive_computer": "Los avisos se siguen recibiendo en esta computadora.",
+    "finish_sign_in": "Terminar de iniciar sesión",
+    "use_different_account": "Usar otra cuenta",
+    "leave_title": "Este teléfono usa otra cuenta",
+    "leave_title_ipad": "Este iPad usa otra cuenta",
+    "leave_title_tablet": "Esta tableta usa otra cuenta",
+    "leave_title_computer": "Esta computadora usa otra cuenta",
+    "leave_warning": {
+      "one": "Su {} tema deja de sonar en este teléfono. Se queda en esa cuenta.",
+      "other": "Sus {} temas dejan de sonar en este teléfono. Se quedan en esa cuenta."
+    },
+    "leave_warning_ipad": {
+      "one": "Su {} tema deja de sonar en este iPad. Se queda en esa cuenta.",
+      "other": "Sus {} temas dejan de sonar en este iPad. Se quedan en esa cuenta."
+    },
+    "leave_warning_tablet": {
+      "one": "Su {} tema deja de sonar en esta tableta. Se queda en esa cuenta.",
+      "other": "Sus {} temas dejan de sonar en esta tableta. Se quedan en esa cuenta."
+    },
+    "leave_warning_computer": {
+      "one": "Su {} tema deja de sonar en esta computadora. Se queda en esa cuenta.",
+      "other": "Sus {} temas dejan de sonar en esta computadora. Se quedan en esa cuenta."
+    },
+    "leave_button": "Salir e iniciar sesión",
+    "stay_button": "Seguir en esta cuenta",
     "providers_label": "Formas de iniciar sesión",
     "link_header": "Añade otra forma de iniciar sesión",
     "link_body": "Usa cualquiera de las dos para acceder a esta misma cuenta.",

@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'package:critalarm/core/access/own_server.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
+import 'package:critalarm/features/account/domain/usecases/sign_in_restore.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -19,14 +25,43 @@ class AccountCubit extends Cubit<AccountState> {
   AccountCubit({
     required this.identities,
     required this.account,
+    this.restore,
+    this.held,
+    this.readTopicCount,
+    this.readLiveIncidentId,
+    this.readRingClaim,
   }) : super(const AccountState());
 
   final IdentityRepository identities;
   final AccountRepository account;
 
+  /// Puts a lost sign-in back, or says which account the phone is on. Null
+  /// in a test that only reads the saved identity.
+  final SignInRestore? restore;
+
+  /// Writes a session back after leaving an account drops the stored one.
+  final HeldSession? held;
+
+  /// How many topics are in the list this phone holds. Null reads as none.
+  final Future<int> Function()? readTopicCount;
+
+  /// An alarm ringing or set to ring on this phone, or open on the server.
+  /// Leaving is refused while there is one.
+  final Future<String?> Function()? readLiveIncidentId;
+
+  /// Which words a line about ringing may use here. Null reads as
+  /// [RingClaim.alarm].
+  final Future<RingClaim> Function()? readRingClaim;
+
   /// The session behind the open prompt. Held here, not in the state, so a
   /// token never reaches a widget.
   IdentitySession? _pending;
+
+  /// What was held before a sign-in from the signed-out or "Finish signing
+  /// in" card. The provider sign-in writes its session over it before the
+  /// server has said that identity is on this account, so a sign-in that
+  /// does not finish puts this back. Null once nothing needs putting back.
+  HeldSnapshot? _heldBefore;
 
   bool supports(IdentityProvider provider) => identities.supports(provider);
 
@@ -46,21 +81,104 @@ class AccountCubit extends Cubit<AccountState> {
 
   Future<void> load() async {
     final mode = await account.readServerMode();
-    final identity = await identities.readIdentity();
     final holdsHosted = await account.readHoldsHosted();
+    final restore = this.restore;
+    final SignInRestoreOutcome outcome;
+    if (restore != null && mode != null && !isOwnServerMode(mode)) {
+      outcome = await restore.run();
+    } else {
+      final saved = await identities.readIdentity();
+      outcome = saved == null
+          ? const SignInRestoreSignedOut()
+          : SignInRestoreSignedIn(saved);
+    }
     if (isClosed) return;
-    emit(
-      state.copyWith(
-        status: identity == null
-            ? AccountStatus.signedOut
-            : AccountStatus.signedIn,
-        mode: mode,
-        identity: identity,
-        holdsHosted: holdsHosted,
-        clearIdentity: identity == null,
-      ),
+    switch (outcome) {
+      case SignInRestoreSignedIn(:final identity):
+        emit(
+          state.copyWith(
+            status: AccountStatus.signedIn,
+            mode: mode,
+            identity: identity,
+            holdsHosted: holdsHosted,
+            clearUnfinished: true,
+          ),
+        );
+      case SignInRestoreUnfinished(:final rows):
+        final unfinished = await _unfinishedFrom(rows);
+        final claim = await _ringClaim();
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            status: AccountStatus.unfinished,
+            mode: mode,
+            holdsHosted: holdsHosted,
+            unfinished: unfinished,
+            ringClaim: claim,
+            clearIdentity: true,
+          ),
+        );
+      case SignInRestoreSignedOut():
+        emit(
+          state.copyWith(
+            status: AccountStatus.signedOut,
+            mode: mode,
+            holdsHosted: holdsHosted,
+            clearIdentity: true,
+            clearUnfinished: true,
+          ),
+        );
+    }
+  }
+
+  /// The card's "Finish signing in" state, from the identities list. Shows
+  /// the oldest row and counts the rest.
+  Future<UnfinishedSignIn> _unfinishedFrom(
+    List<AccountIdentityRow> rows,
+  ) async {
+    final oldest = rows.first;
+    final provider = IdentityProvider.fromWire(oldest.provider);
+    return UnfinishedSignIn(
+      provider: provider,
+      offered: provider != null && identities.supports(provider),
+      emailHint: oldest.emailHidden ? null : oldest.emailHint,
+      emailHidden: oldest.emailHidden,
+      others: rows.length - 1,
+      topics: await _topicCount(),
     );
   }
+
+  Future<int> _topicCount() async {
+    try {
+      return await readTopicCount?.call() ?? 0;
+    } on Object catch (_) {
+      return 0;
+    }
+  }
+
+  Future<RingClaim> _ringClaim() async {
+    try {
+      return await readRingClaim?.call() ?? RingClaim.alarm;
+    } on Object catch (_) {
+      // The quiet wording is never wrong on an older iPhone.
+      return RingClaim.timeSensitive;
+    }
+  }
+
+  Future<String?> _liveIncident() async {
+    try {
+      return await readLiveIncidentId?.call();
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  /// Where the card rests when nothing is in flight.
+  AccountStatus get _restingStatus => state.identity != null
+      ? AccountStatus.signedIn
+      : state.unfinished != null
+      ? AccountStatus.unfinished
+      : AccountStatus.signedOut;
 
   Future<void> signIn(IdentityProvider provider) async {
     emit(
@@ -71,15 +189,180 @@ class AccountCubit extends Cubit<AccountState> {
         clearChoice: true,
       ),
     );
+    final h = held;
+    if (h != null && state.identity == null) {
+      try {
+        _heldBefore = await h.snapshot();
+      } on Object catch (_) {
+        _heldBefore = null;
+      }
+    }
     try {
       final session = await identities.signIn(provider);
       await _linkSession(session, canRetry: true);
     } on IdentitySignInCancelled {
       if (isClosed) return;
-      emit(state.copyWith(status: AccountStatus.signedOut));
+      await _putBackHeld();
+      if (isClosed) return;
+      emit(state.copyWith(status: _restingStatus));
     } on Object catch (_) {
       _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
     }
+  }
+
+  /// Puts back what was held before the sign-in, once.
+  Future<void> _putBackHeld([HeldSnapshot? replacement]) async {
+    final before = replacement ?? _heldBefore;
+    _heldBefore = null;
+    final h = held;
+    if (h == null || before == null) return;
+    try {
+      await h.putBack(before);
+    } on Object catch (_) {
+      // The store would not answer. Nothing better to do here.
+    }
+  }
+
+  /// "Use a different account" on the card: the leave panel, with nobody
+  /// signed in yet. Leaving lands on the sign-in buttons.
+  Future<void> useDifferentAccount() async {
+    if (state.isBusy) return;
+    _pending = null;
+    await _offerLeave();
+  }
+
+  /// "Leave and sign in" on the leave panel.
+  Future<void> leaveAndSignIn() async {
+    if (state.isBusy) return;
+    await _leave();
+  }
+
+  /// "Stay on this account": back to the card, nothing sent anywhere. The
+  /// session the sign-in just wrote is of an identity on another account, so
+  /// what was held before goes back.
+  void stayOnThisAccount() {
+    if (state.isBusy) return;
+    _pending = null;
+    unawaited(_putBackHeld());
+    emit(
+      state.copyWith(
+        status: _restingStatus,
+        clearLeave: true,
+        clearLiveIncident: true,
+        clearError: true,
+      ),
+    );
+  }
+
+  /// Raises the leave panel, or leaves straight away when the phone holds
+  /// no topics, because then there is nothing to warn about.
+  Future<void> _offerLeave() async {
+    final topics = await _topicCount();
+    if (isClosed) return;
+    if (topics == 0) {
+      await _leave();
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: AccountStatus.choosing,
+        leave: LeaveOffer(topics: topics),
+        clearChoice: true,
+        clearError: true,
+        clearLiveIncident: true,
+      ),
+    );
+  }
+
+  /// Leaves the account this phone is on, then signs in with the identity
+  /// the person just used, if there is one.
+  ///
+  /// Leaving is the ordinary sign-out: the device is deleted on the server
+  /// and registers again on a fresh anonymous account (api.md §3.7). The
+  /// account it left stays as it was.
+  Future<void> _leave() async {
+    emit(
+      state.copyWith(
+        status: AccountStatus.working,
+        clearError: true,
+        clearLiveIncident: true,
+      ),
+    );
+    final live = await _liveIncident();
+    if (isClosed) return;
+    if (live != null) {
+      // Not acknowledged here. The person acknowledges it and tries again.
+      emit(
+        state.copyWith(
+          status: AccountStatus.choosing,
+          leave: state.leave ?? LeaveOffer(topics: await _topicCount()),
+          liveIncidentId: live,
+          clearChoice: true,
+        ),
+      );
+      return;
+    }
+    try {
+      await account.signOutDevice();
+    } on Object catch (_) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          status: state.leave != null ? AccountStatus.choosing : _restingStatus,
+          errorMessage: LocaleKeys.account_sign_out_failed.tr(),
+        ),
+      );
+      return;
+    }
+    if (isClosed) return;
+    final session = _pending;
+    if (session == null) {
+      emit(
+        const AccountState(status: AccountStatus.signedOut).copyWith(
+          mode: state.mode,
+          holdsHosted: state.holdsHosted,
+          ringClaim: state.ringClaim,
+        ),
+      );
+      return;
+    }
+    final AccountLinkResult result;
+    try {
+      result = await account.link(session.token);
+    } on Object catch (_) {
+      _failAfterLeave();
+      return;
+    }
+    if (isClosed) return;
+    switch (result) {
+      case AccountLinkClaimed(:final accountId) ||
+          AccountLinkAttached(:final accountId) ||
+          AccountLinkAlreadyLinked(:final accountId) ||
+          AccountLinkLinked(:final accountId):
+        // Signing out dropped the stored session, so it goes back first.
+        await held?.keep(session);
+        await _signedIn(session, accountId);
+      case _:
+        _failAfterLeave();
+    }
+  }
+
+  /// The phone left and the sign-in after it did not go through. It is on a
+  /// fresh anonymous account that works, so that is what the card shows.
+  void _failAfterLeave() {
+    if (isClosed) return;
+    _pending = null;
+    // The phone left the account the old session was on, and the new one
+    // never got on this one, so nothing stays held.
+    if (_heldBefore != null) unawaited(_putBackHeld(const HeldSnapshot()));
+    emit(
+      const AccountState(status: AccountStatus.signedOut).copyWith(
+        mode: state.mode,
+        holdsHosted: state.holdsHosted,
+        ringClaim: state.ringClaim,
+        errorMessage: LocaleKeys.account_error_sign_in_failed.tr(),
+      ),
+    );
   }
 
   /// Keep both. Folds this phone's account into the one being signed in to.
@@ -191,7 +474,9 @@ class AccountCubit extends Cubit<AccountState> {
         await _providerAdded(session, accountId);
       case AccountLinkIdentityHasAnotherAccount():
         _failAddProvider(LocaleKeys.account_error_identity_taken.tr());
-      case AccountLinkChoose() || AccountLinkAccountHasAnotherIdentity():
+      case AccountLinkChoose() ||
+          AccountLinkAccountHasAnotherIdentity() ||
+          AccountLinkUnknownConflict():
         // api.md §3.7 answers neither of these to `intent: link`. If a server
         // ever does, the person is told the add did not happen rather than
         // being shown a prompt built for the sign-in screen.
@@ -461,13 +746,27 @@ class AccountCubit extends Cubit<AccountState> {
           debugPrint('CritAlarm: account choose prompt with 0 topics');
         }
         _pending = session;
-        emit(state.copyWith(status: AccountStatus.choosing, choice: result));
+        emit(
+          state.copyWith(
+            status: AccountStatus.choosing,
+            choice: result,
+            clearLeave: true,
+          ),
+        );
       case AccountLinkAccountHasAnotherIdentity():
-        _failSignedOut(LocaleKeys.account_error_other_identity.tr());
+        // The phone is on an account somebody signed in to with another
+        // identity. One panel offers to leave it, in place of an error.
+        _pending = session;
+        await _offerLeave();
       case AccountLinkIdentityHasAnotherAccount():
         // api.md §3.7 answers this to `intent: link` only, so the sign-in
         // screen never sees it. Said plainly rather than left silent.
         _failSignedOut(LocaleKeys.account_error_identity_taken.tr());
+      case AccountLinkUnknownConflict():
+        // A 409 this build does not know. The ordinary failure, never the
+        // leave panel: leaving is only offered for the one answer that
+        // means it.
+        _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
       case AccountLinkUnauthorized():
         if (!canRetry) {
           _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
@@ -491,6 +790,7 @@ class AccountCubit extends Cubit<AccountState> {
     await identities.saveIdentity(identity);
     if (isClosed) return;
     _pending = null;
+    _heldBefore = null;
     emit(
       state.copyWith(
         status: AccountStatus.signedIn,
@@ -498,6 +798,8 @@ class AccountCubit extends Cubit<AccountState> {
         clearChoice: true,
         clearError: true,
         clearLiveIncident: true,
+        clearUnfinished: true,
+        clearLeave: true,
       ),
     );
   }
@@ -505,12 +807,16 @@ class AccountCubit extends Cubit<AccountState> {
   void _failSignedOut(String message) {
     if (isClosed) return;
     _pending = null;
+    unawaited(_putBackHeld());
     emit(
       state.copyWith(
-        status: AccountStatus.signedOut,
+        status: state.unfinished != null
+            ? AccountStatus.unfinished
+            : AccountStatus.signedOut,
         errorMessage: message,
         clearChoice: true,
         clearIdentity: true,
+        clearLeave: true,
       ),
     );
   }

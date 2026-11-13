@@ -183,6 +183,11 @@ final class ScopedApiClient
   }) => _inner.linkAccount(identityToken: identityToken, intent: intent);
 
   @override
+  Future<List<AccountIdentityRow>> listAccountIdentities({
+    String? identityToken,
+  }) => _inner.listAccountIdentities(identityToken: identityToken);
+
+  @override
   Future<AccountJoinTokenResult> mintAccountJoinToken() =>
       _inner.mintAccountJoinToken();
 

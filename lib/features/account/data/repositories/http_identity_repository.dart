@@ -7,6 +7,7 @@ import 'package:critalarm/features/account/data/services/identity_token_store.da
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
+import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// The account routes want an `identity_token` issued by our server, so the
 /// provider sheet is only the first half of signing in.
-final class HttpIdentityRepository implements IdentityRepository {
+final class HttpIdentityRepository implements IdentityRepository, HeldSession {
   HttpIdentityRepository({
     required this.httpClient,
     required this.sessions,
@@ -153,6 +154,55 @@ final class HttpIdentityRepository implements IdentityRepository {
     await prefs.remove(_providersKey);
     await providers.signOut();
     identityChanges.bump();
+  }
+
+  @override
+  Future<String?> readOwnToken() async {
+    // [IdentityTokenStore.readAfterMove], never [IdentityTokenStore.read]:
+    // a token a backup left in the preferences is dropped here, not moved
+    // into the Keychain and sent.
+    try {
+      return await tokens.readAfterMove();
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> keep(IdentitySession session) async {
+    await tokens.write(session.token);
+    await prefs.setString(_providerKey, session.provider.wireValue);
+    final email = session.email;
+    if (email != null) await prefs.setString(_emailKey, email);
+  }
+
+  @override
+  Future<HeldSnapshot> snapshot() async => HeldSnapshot(
+    token: await readOwnToken(),
+    provider: _readProvider(),
+    email: prefs.getString(_emailKey),
+  );
+
+  @override
+  Future<void> putBack(HeldSnapshot snapshot) async {
+    final token = snapshot.token;
+    final provider = snapshot.provider;
+    final email = snapshot.email;
+    if (token == null) {
+      await tokens.clear();
+    } else {
+      await tokens.write(token);
+    }
+    if (provider == null) {
+      await prefs.remove(_providerKey);
+    } else {
+      await prefs.setString(_providerKey, provider.wireValue);
+    }
+    if (email == null) {
+      await prefs.remove(_emailKey);
+    } else {
+      await prefs.setString(_emailKey, email);
+    }
   }
 
   @override

@@ -9,4 +9,13 @@ enum IdentityProvider {
 
   /// What `POST /api/auth/sign-in/social` expects in `provider`.
   String get wireValue => name;
+
+  /// The provider a server row names, or null for one this build does not
+  /// know.
+  static IdentityProvider? fromWire(String value) {
+    for (final provider in values) {
+      if (provider.wireValue == value) return provider;
+    }
+    return null;
+  }
 }

@@ -1925,10 +1925,48 @@
     "sign_out": "Çıkış yap",
     "sign_out_failed": "Çıkış yapılamadı. Tekrar dene.",
     "error_sign_in_failed": "Giriş yapılamadı. Tekrar dene.",
-    "error_other_identity": "Bu telefon zaten başka bir hesaba ait. Önce o hesaptan çıkış yap, sonra yeniden giriş yap.",
-    "error_other_identity_ipad": "Bu iPad zaten başka bir hesaba ait. Önce o hesaptan çıkış yap, sonra yeniden giriş yap.",
-    "error_other_identity_tablet": "Bu tablet zaten başka bir hesaba ait. Önce o hesaptan çıkış yap, sonra yeniden giriş yap.",
-    "error_other_identity_computer": "Bu bilgisayar zaten başka bir hesaba ait. Önce o hesaptan çıkış yap, sonra yeniden giriş yap.",
+    "on_account_label": "Bu telefondaki hesap",
+    "on_account_label_ipad": "Bu iPad'deki hesap",
+    "on_account_label_tablet": "Bu tabletteki hesap",
+    "on_account_label_computer": "Bu bilgisayardaki hesap",
+    "on_account_email_hidden": "Apple, e-posta gizli",
+    "on_account_others": {
+      "one": "ve {} giriş yöntemi daha",
+      "other": "ve {} giriş yöntemi daha"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Alarmlar bu telefonda çalmaya devam ediyor.",
+    "on_account_alarms_ring_ipad": "Alarmlar bu iPad'de çalmaya devam ediyor.",
+    "on_account_alarms_ring_tablet": "Alarmlar bu tablette çalmaya devam ediyor.",
+    "on_account_alarms_ring_computer": "Uyarılar bu bilgisayara gelmeye devam ediyor.",
+    "on_account_alerts_arrive": "Uyarılar bu telefona gelmeye devam ediyor.",
+    "on_account_alerts_arrive_ipad": "Uyarılar bu iPad'e gelmeye devam ediyor.",
+    "on_account_alerts_arrive_tablet": "Uyarılar bu tablete gelmeye devam ediyor.",
+    "on_account_alerts_arrive_computer": "Uyarılar bu bilgisayara gelmeye devam ediyor.",
+    "finish_sign_in": "Girişi tamamla",
+    "use_different_account": "Başka bir hesap kullan",
+    "leave_title": "Bu telefon başka bir hesapta",
+    "leave_title_ipad": "Bu iPad başka bir hesapta",
+    "leave_title_tablet": "Bu tablet başka bir hesapta",
+    "leave_title_computer": "Bu bilgisayar başka bir hesapta",
+    "leave_warning": {
+      "one": "{} konusu bu telefonda artık alarm vermez. Konu o hesapta kalır.",
+      "other": "{} konusu bu telefonda artık alarm vermez. Konular o hesapta kalır."
+    },
+    "leave_warning_ipad": {
+      "one": "{} konusu bu iPad'de artık alarm vermez. Konu o hesapta kalır.",
+      "other": "{} konusu bu iPad'de artık alarm vermez. Konular o hesapta kalır."
+    },
+    "leave_warning_tablet": {
+      "one": "{} konusu bu tablette artık alarm vermez. Konu o hesapta kalır.",
+      "other": "{} konusu bu tablette artık alarm vermez. Konular o hesapta kalır."
+    },
+    "leave_warning_computer": {
+      "one": "{} konusu bu bilgisayarda artık alarm vermez. Konu o hesapta kalır.",
+      "other": "{} konusu bu bilgisayarda artık alarm vermez. Konular o hesapta kalır."
+    },
+    "leave_button": "Ayrıl ve giriş yap",
+    "stay_button": "Bu hesapta kal",
     "providers_label": "Giriş yöntemlerin",
     "link_header": "Başka bir giriş yöntemi ekle",
     "link_body": "Hangisiyle giriş yaparsan yap aynı hesaba ulaşırsın.",

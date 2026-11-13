@@ -136,6 +136,16 @@ abstract interface class ApiClient {
     AccountLinkIntent intent = AccountLinkIntent.signIn,
   });
 
+  /// GET /v1/account/identities
+  ///
+  /// The ways to sign in this device's account holds, oldest first.
+  /// [identityToken] goes in `X-Identity-Token` when the phone holds a
+  /// session. Without one, or with one that is no longer good, the rows come
+  /// back masked: no `email`, only the hint (api.md §3.7).
+  Future<List<AccountIdentityRow>> listAccountIdentities({
+    String? identityToken,
+  });
+
   /// POST /v1/account/join-token
   ///
   /// Mints a fresh `aj_` for the account this device already belongs to. The

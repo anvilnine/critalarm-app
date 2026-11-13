@@ -124,6 +124,21 @@ void main() {
       expect(shared, const AccountLinkResult.accountHasAnotherIdentity());
     });
 
+    test('a 409 this build does not know is its own result, never the '
+        'leave panel one', () async {
+      for (final error in ['proof required', 'something new', null]) {
+        final result = await clientAnswering({
+          'error': ?error,
+        }, 409).linkAccount(identityToken: 'session_abc');
+
+        expect(
+          result,
+          AccountLinkResult.unknownConflict(error: error),
+          reason: '$error',
+        );
+      }
+    });
+
     test('a join code posts to the right path with dv_', () async {
       late http.Request captured;
       final client = clientAnswering(

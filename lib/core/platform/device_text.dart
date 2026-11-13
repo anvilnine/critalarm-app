@@ -489,10 +489,30 @@ const Map<String, DeviceKeys> deviceVariantKeys = {
     tablet: LocaleKeys.account_signed_out_pitch_tablet,
     computer: LocaleKeys.account_signed_out_pitch_computer,
   ),
-  LocaleKeys.account_error_other_identity: DeviceKeys(
-    ipad: LocaleKeys.account_error_other_identity_ipad,
-    tablet: LocaleKeys.account_error_other_identity_tablet,
-    computer: LocaleKeys.account_error_other_identity_computer,
+  LocaleKeys.account_on_account_label: DeviceKeys(
+    ipad: LocaleKeys.account_on_account_label_ipad,
+    tablet: LocaleKeys.account_on_account_label_tablet,
+    computer: LocaleKeys.account_on_account_label_computer,
+  ),
+  LocaleKeys.account_on_account_alarms_ring: DeviceKeys(
+    ipad: LocaleKeys.account_on_account_alarms_ring_ipad,
+    tablet: LocaleKeys.account_on_account_alarms_ring_tablet,
+    computer: LocaleKeys.account_on_account_alarms_ring_computer,
+  ),
+  LocaleKeys.account_on_account_alerts_arrive: DeviceKeys(
+    ipad: LocaleKeys.account_on_account_alerts_arrive_ipad,
+    tablet: LocaleKeys.account_on_account_alerts_arrive_tablet,
+    computer: LocaleKeys.account_on_account_alerts_arrive_computer,
+  ),
+  LocaleKeys.account_leave_title: DeviceKeys(
+    ipad: LocaleKeys.account_leave_title_ipad,
+    tablet: LocaleKeys.account_leave_title_tablet,
+    computer: LocaleKeys.account_leave_title_computer,
+  ),
+  LocaleKeys.account_leave_warning: DeviceKeys(
+    ipad: LocaleKeys.account_leave_warning_ipad,
+    tablet: LocaleKeys.account_leave_warning_tablet,
+    computer: LocaleKeys.account_leave_warning_computer,
   ),
   LocaleKeys.account_choose_title: DeviceKeys(
     ipad: LocaleKeys.account_choose_title_ipad,

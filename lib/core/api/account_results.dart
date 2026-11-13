@@ -74,6 +74,99 @@ sealed class AccountLinkResult with _$AccountLinkResult {
 
   /// 401. A bad device token, or a session that has died.
   const factory AccountLinkResult.unauthorized() = AccountLinkUnauthorized;
+
+  /// A 409 whose `error` this build does not know, `proof required`
+  /// included. Shown as an add or sign-in that did not go through, never as
+  /// one of the prompts above.
+  const factory AccountLinkResult.unknownConflict({String? error}) =
+      AccountLinkUnknownConflict;
+}
+
+/// One row of `GET /v1/account/identities` (api.md §3.7): one way to sign in
+/// that this device's account holds.
+///
+/// [email] is there only when the request carried a live session of an
+/// identity on this account. Without one the row still carries
+/// [emailHint], so a phone that lost its session can say which account it
+/// is on. An Apple private relay address has [emailHidden] true and carries
+/// neither.
+@immutable
+final class AccountIdentityRow {
+  const AccountIdentityRow({
+    required this.id,
+    required this.provider,
+    required this.linkedAt,
+    this.email,
+    this.emailHint,
+    this.emailHidden = false,
+    this.current = false,
+  });
+
+  factory AccountIdentityRow.fromJson(Map<String, dynamic> json) =>
+      AccountIdentityRow(
+        id: json['id'] as String,
+        provider: json['provider'] as String,
+        email: json['email'] as String?,
+        emailHint: json['email_hint'] as String?,
+        emailHidden: json['email_hidden'] as bool? ?? false,
+        linkedAt: DateTime.fromMillisecondsSinceEpoch(
+          (json['linked_at'] as num).toInt() * 1000,
+          isUtc: true,
+        ),
+        current: json['current'] as bool? ?? false,
+      );
+
+  /// Opaque and stable. Names this row.
+  final String id;
+
+  /// `apple` or `google`, as the server wrote it. Kept as text so a provider
+  /// this build has not heard of still reads.
+  final String provider;
+
+  final String? email;
+
+  /// The first character, three dots, then `@` and the whole domain.
+  final String? emailHint;
+
+  final bool emailHidden;
+
+  final DateTime linkedAt;
+
+  /// The identity the session sent with the request resolves to.
+  final bool current;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'provider': provider,
+    'email_hint': ?emailHint,
+    'email': ?email,
+    'email_hidden': emailHidden,
+    'linked_at': linkedAt.millisecondsSinceEpoch ~/ 1000,
+    'current': current,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AccountIdentityRow &&
+          id == other.id &&
+          provider == other.provider &&
+          email == other.email &&
+          emailHint == other.emailHint &&
+          emailHidden == other.emailHidden &&
+          linkedAt == other.linkedAt &&
+          current == other.current;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    provider,
+    email,
+    emailHint,
+    emailHidden,
+    linkedAt,
+    current,
+  );
 }
 
 /// What `POST /v1/account/merge` answered (api.md §3.7).

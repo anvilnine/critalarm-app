@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/launch_sign_in.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/state/held_rows.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
@@ -23,6 +24,7 @@ import 'package:critalarm/core/telemetry/crash_hooks.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/account/domain/usecases/sign_in_restore.dart';
 import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
@@ -95,8 +97,12 @@ Future<void> main() async {
   // An install that was restored onto another phone drops what named the
   // old one. Awaited, and first: everything below reads an identity, a
   // flag or the acknowledge queue. On a phone that has not moved this is
-  // one question to the phone.
-  await getIt<MovedPhoneReset>().run();
+  // one question to the phone. An iPhone reinstalled on the same phone
+  // then gets its sign-in back in the background, if its session is alive.
+  await resetThenRestoreSignIn(
+    reset: getIt<MovedPhoneReset>(),
+    restore: getIt<SignInRestore>(),
+  );
   // The iOS ACK action runs with no engine and writes straight to the queue
   // Dart drains. Listen before asking for the backlog, or the one waiting from
   // a cold launch is missed.

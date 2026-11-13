@@ -9,12 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Keep both, or start fresh.
+/// Keep both, or start fresh. Or, when the phone is on an account somebody
+/// signed in to with another identity, leave it.
 ///
 /// Both counts come from the server, which counted them on this phone's
 /// account: the one that is folded in or given up. Neither button is the
 /// default and neither is dressed up as the safe one, and each takes one tap,
 /// because this screen is the confirmation.
+///
+/// The leave version has one choice and a quiet way back. Its count is the
+/// topic list the phone holds.
 class MergeOrFreshPanel extends StatelessWidget {
   const MergeOrFreshPanel({required this.state, super.key});
 
@@ -22,6 +26,8 @@ class MergeOrFreshPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final leave = state.leave;
+    if (leave != null) return _LeavePanel(state: state, offer: leave);
     final cubit = context.read<AccountCubit>();
     final colors = context.appColors;
     final choice = state.choice!;
@@ -94,19 +100,75 @@ class MergeOrFreshPanel extends StatelessWidget {
   }
 }
 
+/// "This phone is on another account": leave it and sign in, or stay.
+class _LeavePanel extends StatelessWidget {
+  const _LeavePanel({required this.state, required this.offer});
+
+  final AccountState state;
+  final LeaveOffer offer;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<AccountCubit>();
+    final colors = context.appColors;
+
+    return AppSheet(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            LocaleKeys.account_leave_title.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontDisplay,
+              fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: colors.ink,
+            ),
+          ),
+          if (state.liveIncidentId != null) ...[
+            const SizedBox(height: 12),
+            _LiveIncident(incidentId: state.liveIncidentId!),
+          ],
+          const SizedBox(height: 16),
+          _Choice(
+            // The part a person cannot guess, before the call is made.
+            warning: offer.topics > 0
+                ? LocaleKeys.account_leave_warning.plural(offer.topics)
+                : null,
+            button: LocaleKeys.account_leave_button.tr(),
+            variant: AppButtonVariant.crit,
+            isLoading: state.isBusy,
+            onPressed: () => unawaited(cubit.leaveAndSignIn()),
+          ),
+          const SizedBox(height: 4),
+          AppButton(
+            label: LocaleKeys.account_stay_button.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            isFullWidth: true,
+            onPressed: state.isBusy ? null : cubit.stayOnThisAccount,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Choice extends StatelessWidget {
   const _Choice({
-    required this.title,
-    required this.body,
     required this.button,
     required this.variant,
     required this.isLoading,
     required this.onPressed,
+    this.title,
+    this.body,
     this.warning,
   });
 
-  final String title;
-  final String body;
+  final String? title;
+  final String? body;
   final String? warning;
   final String button;
   final AppButtonVariant variant;
@@ -128,29 +190,32 @@ class _Choice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: colors.ink,
+          if (title != null) ...[
+            Text(
+              title!,
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: colors.ink,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            body,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 13,
-              color: colors.ink2,
-              height: 1.4,
-            ),
-          ),
-          if (warning != null) ...[
             const SizedBox(height: 6),
+          ],
+          if (body != null)
+            Text(
+              body!,
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 13,
+                color: colors.ink2,
+                height: 1.4,
+              ),
+            ),
+          if (warning != null) ...[
+            if (title != null || body != null) const SizedBox(height: 6),
             Text(
               warning!,
               style: TextStyle(

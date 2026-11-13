@@ -1925,10 +1925,48 @@
     "sign_out": "Se déconnecter",
     "sign_out_failed": "Déconnexion impossible. Réessayez.",
     "error_sign_in_failed": "La connexion n’a pas abouti. Réessayez.",
-    "error_other_identity": "Ce téléphone appartient déjà à un autre compte. Déconnectez-vous d’abord de ce compte, puis reconnectez-vous.",
-    "error_other_identity_ipad": "Cet iPad appartient déjà à un autre compte. Déconnectez-vous d’abord de ce compte, puis reconnectez-vous.",
-    "error_other_identity_tablet": "Cette tablette appartient déjà à un autre compte. Déconnectez-vous d’abord de ce compte, puis reconnectez-vous.",
-    "error_other_identity_computer": "Cet ordinateur appartient déjà à un autre compte. Déconnectez-vous d’abord de ce compte, puis reconnectez-vous.",
+    "on_account_label": "Ce téléphone utilise le compte",
+    "on_account_label_ipad": "Cet iPad utilise le compte",
+    "on_account_label_tablet": "Cette tablette utilise le compte",
+    "on_account_label_computer": "Cet ordinateur utilise le compte",
+    "on_account_email_hidden": "Apple, e-mail masqué",
+    "on_account_others": {
+      "one": "et {} autre connexion",
+      "other": "et {} autres connexions"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Les alarmes sonnent toujours sur ce téléphone.",
+    "on_account_alarms_ring_ipad": "Les alarmes sonnent toujours sur cet iPad.",
+    "on_account_alarms_ring_tablet": "Les alarmes sonnent toujours sur cette tablette.",
+    "on_account_alarms_ring_computer": "Les alertes arrivent toujours sur cet ordinateur.",
+    "on_account_alerts_arrive": "Les alertes arrivent toujours sur ce téléphone.",
+    "on_account_alerts_arrive_ipad": "Les alertes arrivent toujours sur cet iPad.",
+    "on_account_alerts_arrive_tablet": "Les alertes arrivent toujours sur cette tablette.",
+    "on_account_alerts_arrive_computer": "Les alertes arrivent toujours sur cet ordinateur.",
+    "finish_sign_in": "Terminer la connexion",
+    "use_different_account": "Utiliser un autre compte",
+    "leave_title": "Ce téléphone utilise un autre compte",
+    "leave_title_ipad": "Cet iPad utilise un autre compte",
+    "leave_title_tablet": "Cette tablette utilise un autre compte",
+    "leave_title_computer": "Cet ordinateur utilise un autre compte",
+    "leave_warning": {
+      "one": "Son {} topic cesse de sonner sur ce téléphone. Il reste sur ce compte.",
+      "other": "Ses {} topics cessent de sonner sur ce téléphone. Ils restent sur ce compte."
+    },
+    "leave_warning_ipad": {
+      "one": "Son {} topic cesse de sonner sur cet iPad. Il reste sur ce compte.",
+      "other": "Ses {} topics cessent de sonner sur cet iPad. Ils restent sur ce compte."
+    },
+    "leave_warning_tablet": {
+      "one": "Son {} topic cesse de sonner sur cette tablette. Il reste sur ce compte.",
+      "other": "Ses {} topics cessent de sonner sur cette tablette. Ils restent sur ce compte."
+    },
+    "leave_warning_computer": {
+      "one": "Son {} topic cesse de sonner sur cet ordinateur. Il reste sur ce compte.",
+      "other": "Ses {} topics cessent de sonner sur cet ordinateur. Ils restent sur ce compte."
+    },
+    "leave_button": "Quitter et se connecter",
+    "stay_button": "Rester sur ce compte",
     "providers_label": "Vos moyens de connexion",
     "link_header": "Ajouter un moyen de connexion",
     "link_body": "Connectez-vous avec l’un ou l’autre pour accéder au même compte.",

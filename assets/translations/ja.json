@@ -1925,10 +1925,43 @@
     "sign_out": "サインアウト",
     "sign_out_failed": "サインアウトできませんでした。再試行してください。",
     "error_sign_in_failed": "サインインできませんでした。再試行してください。",
-    "error_other_identity": "このスマートフォンはすでに別のアカウントに属しています。先にサインアウトしてから、もう一度サインインしてください。",
-    "error_other_identity_ipad": "このiPadはすでに別のアカウントに属しています。先にサインアウトしてから、もう一度サインインしてください。",
-    "error_other_identity_tablet": "このタブレットはすでに別のアカウントに属しています。先にサインアウトしてから、もう一度サインインしてください。",
-    "error_other_identity_computer": "このパソコンはすでに別のアカウントに属しています。先にサインアウトしてから、もう一度サインインしてください。",
+    "on_account_label": "このスマートフォンのアカウント",
+    "on_account_label_ipad": "このiPadのアカウント",
+    "on_account_label_tablet": "このタブレットのアカウント",
+    "on_account_label_computer": "このパソコンのアカウント",
+    "on_account_email_hidden": "Apple(メール非公開)",
+    "on_account_others": {
+      "other": "ほか{}件のサインイン方法"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "このスマートフォンでは引き続きアラームが鳴ります。",
+    "on_account_alarms_ring_ipad": "このiPadでは引き続きアラームが鳴ります。",
+    "on_account_alarms_ring_tablet": "このタブレットでは引き続きアラームが鳴ります。",
+    "on_account_alarms_ring_computer": "このパソコンには引き続き通知が届きます。",
+    "on_account_alerts_arrive": "このスマートフォンには引き続き通知が届きます。",
+    "on_account_alerts_arrive_ipad": "このiPadには引き続き通知が届きます。",
+    "on_account_alerts_arrive_tablet": "このタブレットには引き続き通知が届きます。",
+    "on_account_alerts_arrive_computer": "このパソコンには引き続き通知が届きます。",
+    "finish_sign_in": "サインインを完了",
+    "use_different_account": "別のアカウントを使う",
+    "leave_title": "このスマートフォンは別のアカウントを使っています",
+    "leave_title_ipad": "このiPadは別のアカウントを使っています",
+    "leave_title_tablet": "このタブレットは別のアカウントを使っています",
+    "leave_title_computer": "このパソコンは別のアカウントを使っています",
+    "leave_warning": {
+      "other": "{}件のトピックはこのスマートフォンで鳴らなくなります。トピックはそのアカウントに残ります。"
+    },
+    "leave_warning_ipad": {
+      "other": "{}件のトピックはこのiPadで鳴らなくなります。トピックはそのアカウントに残ります。"
+    },
+    "leave_warning_tablet": {
+      "other": "{}件のトピックはこのタブレットで鳴らなくなります。トピックはそのアカウントに残ります。"
+    },
+    "leave_warning_computer": {
+      "other": "{}件のトピックはこのパソコンで鳴らなくなります。トピックはそのアカウントに残ります。"
+    },
+    "leave_button": "このアカウントを離れてサインイン",
+    "stay_button": "このアカウントのままにする",
     "providers_label": "利用できるサインイン方法",
     "link_header": "別のサインイン方法を追加",
     "link_body": "どちらでサインインしても、同じアカウントに入れます。",

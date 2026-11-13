@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -20,9 +21,81 @@ enum AccountStatus {
 
   signedIn,
 
+  /// Nobody is signed in on this phone, and the account it is on holds an
+  /// identity: a reinstalled iPhone whose session is gone. The card says
+  /// which account it is and offers one way forward.
+  unfinished,
+
   /// The account is gone and this phone is already on a fresh anonymous one.
   /// The confirm screen leaves as soon as it sees this.
   deleted,
+}
+
+/// Which account a phone with no usable session is on: the card's
+/// "Finish signing in" state.
+@immutable
+final class UnfinishedSignIn {
+  const UnfinishedSignIn({
+    required this.provider,
+    required this.offered,
+    required this.others,
+    required this.topics,
+    this.emailHint,
+    this.emailHidden = false,
+  });
+
+  /// The oldest way to sign in the account holds. Null for a provider this
+  /// build does not know.
+  final IdentityProvider? provider;
+
+  /// This phone can run [provider]'s sign-in. An Apple-only account on
+  /// Android cannot, and then the one way forward is another account.
+  final bool offered;
+
+  /// The masked address, `z•••@gmail.com`.
+  final String? emailHint;
+
+  /// An Apple private relay address, which has no hint.
+  final bool emailHidden;
+
+  /// How many other ways to sign in the account holds.
+  final int others;
+
+  /// The topics in the list this phone holds.
+  final int topics;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UnfinishedSignIn &&
+          provider == other.provider &&
+          offered == other.offered &&
+          emailHint == other.emailHint &&
+          emailHidden == other.emailHidden &&
+          others == other.others &&
+          topics == other.topics;
+
+  @override
+  int get hashCode =>
+      Object.hash(provider, offered, emailHint, emailHidden, others, topics);
+}
+
+/// The panel that offers to leave the account this phone is on and sign in
+/// to another one.
+@immutable
+final class LeaveOffer {
+  const LeaveOffer({required this.topics});
+
+  /// The topics in the list this phone holds. They stop sounding here and
+  /// stay on that account.
+  final int topics;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is LeaveOffer && topics == other.topics;
+
+  @override
+  int get hashCode => topics.hashCode;
 }
 
 /// What the account screen knows.
@@ -41,6 +114,9 @@ class AccountState {
     this.joinTokenMints = 0,
     this.isMintingJoinToken = false,
     this.joinTokenError,
+    this.unfinished,
+    this.leave,
+    this.ringClaim = RingClaim.alarm,
   });
 
   final AccountStatus status;
@@ -82,6 +158,15 @@ class AccountState {
 
   final String? joinTokenError;
 
+  /// Set while nobody is signed in and the account holds an identity.
+  final UnfinishedSignIn? unfinished;
+
+  /// Set while the leave panel is up.
+  final LeaveOffer? leave;
+
+  /// Which words a line about ringing may use on this phone.
+  final RingClaim ringClaim;
+
   /// Sign-in exists everywhere except on a self-hosted server, which has one
   /// operator and no accounts.
   /// About what the server is, not about plans.
@@ -109,6 +194,9 @@ class AccountState {
     int? joinTokenMints,
     bool? isMintingJoinToken,
     String? joinTokenError,
+    UnfinishedSignIn? unfinished,
+    LeaveOffer? leave,
+    RingClaim? ringClaim,
     bool clearIdentity = false,
     bool clearChoice = false,
     bool clearError = false,
@@ -116,6 +204,8 @@ class AccountState {
     bool clearLinkingProvider = false,
     bool clearJoinToken = false,
     bool clearJoinTokenError = false,
+    bool clearUnfinished = false,
+    bool clearLeave = false,
   }) {
     return AccountState(
       status: status ?? this.status,
@@ -136,6 +226,9 @@ class AccountState {
       joinTokenError: clearJoinTokenError
           ? null
           : (joinTokenError ?? this.joinTokenError),
+      unfinished: clearUnfinished ? null : (unfinished ?? this.unfinished),
+      leave: clearLeave ? null : (leave ?? this.leave),
+      ringClaim: ringClaim ?? this.ringClaim,
     );
   }
 
@@ -155,7 +248,10 @@ class AccountState {
           joinToken == other.joinToken &&
           joinTokenMints == other.joinTokenMints &&
           isMintingJoinToken == other.isMintingJoinToken &&
-          joinTokenError == other.joinTokenError;
+          joinTokenError == other.joinTokenError &&
+          unfinished == other.unfinished &&
+          leave == other.leave &&
+          ringClaim == other.ringClaim;
 
   @override
   int get hashCode => Object.hash(
@@ -171,5 +267,8 @@ class AccountState {
     joinTokenMints,
     isMintingJoinToken,
     joinTokenError,
+    unfinished,
+    leave,
+    ringClaim,
   );
 }

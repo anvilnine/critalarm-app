@@ -35,6 +35,23 @@ final class MockCancelAnswer {
   String? text;
 }
 
+/// Who one identity token stands for, as the auth surface would know it.
+final class MockIdentityProfile {
+  MockIdentityProfile({
+    required this.provider,
+    required this.email,
+    this.linkedAt,
+  });
+
+  /// `apple` or `google`.
+  final String provider;
+
+  final String email;
+
+  /// When it joined the account it is on. Set when a link adds it.
+  DateTime? linkedAt;
+}
+
 /// One token this fake server holds: the name it shows and when it was made.
 typedef _HeldToken = ({String name, DateTime createdAt});
 
@@ -79,6 +96,14 @@ class MockServer {
   /// second, different identity arriving with intent `sign_in` is still the
   /// shared-handset refusal.
   final Map<String, Set<String>> accountIdentities = {};
+
+  /// Who each identity token is: its provider and its address. A test, or a
+  /// capture, writes a row before the token signs in. A token with no row
+  /// reads as a Google identity at an address made from the token.
+  final Map<String, MockIdentityProfile> identityProfiles = {};
+
+  /// The clock `linked_at` is read from. A test swaps it.
+  DateTime Function() identityClock = DateTime.now;
 
   /// Accounts left behind by a merge or a switch.
   final Set<String> tombstonedAccounts = {};
@@ -192,6 +217,8 @@ class MockServer {
     _devices.clear();
     identityAccounts.clear();
     accountIdentities.clear();
+    identityProfiles.clear();
+    identityClock = DateTime.now;
     tombstonedAccounts.clear();
     accountJoinTokens.clear();
     grantedPacks.clear();
@@ -1832,7 +1859,7 @@ class MockServer {
         return const AccountLinkResult.identityHasAnotherAccount();
       }
       identityAccounts[identityToken] = account;
-      (accountIdentities[account] ??= <String>{}).add(identityToken);
+      _addIdentity(account, identityToken);
       return AccountLinkResult.linked(accountId: account);
     }
     if (owners.isNotEmpty) {
@@ -1840,7 +1867,7 @@ class MockServer {
     }
     if (identityAccount == null) {
       identityAccounts[identityToken] = account;
-      (accountIdentities[account] ??= <String>{}).add(identityToken);
+      _addIdentity(account, identityToken);
       return AccountLinkResult.claimed(accountId: account);
     }
     // An empty account is one with no topics and no incidents. Registration
@@ -1856,6 +1883,73 @@ class MockServer {
       topics: _topics.length,
       incidents: _incidents.length,
     );
+  }
+
+  /// Puts [identityToken] on [account] and stamps when it joined.
+  void _addIdentity(String account, String identityToken) {
+    final added = (accountIdentities[account] ??= <String>{}).add(
+      identityToken,
+    );
+    if (!added) return;
+    (identityProfiles[identityToken] ??= _profileFor(
+      identityToken,
+    )).linkedAt ??= identityClock();
+  }
+
+  MockIdentityProfile _profileFor(String identityToken) => MockIdentityProfile(
+    provider: 'google',
+    email:
+        '${identityToken.replaceAll(RegExp('[^A-Za-z0-9]'), '')}'
+        '@example.com',
+  );
+
+  /// The domain of an Apple private relay address. A row at it is hidden.
+  static const _relayDomain = 'privaterelay.appleid.com';
+
+  /// The first character of the local part, exactly three dots, then `@`
+  /// and the whole domain (api.md §3.7).
+  static String _emailHint(String email) {
+    final at = email.indexOf('@');
+    if (at <= 0) return '•••';
+    return '${email[0]}•••${email.substring(at)}';
+  }
+
+  /// GET /v1/account/identities
+  ///
+  /// Oldest first. [identityToken] is the `X-Identity-Token` header: one on
+  /// this account unmasks every row and marks its own as current. Any other
+  /// value, or none, masks them and is never a 401.
+  List<AccountIdentityRow> listAccountIdentities({
+    required String deviceToken,
+    String? identityToken,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    final owners = accountIdentities[account] ?? const <String>{};
+    final unmasked = identityToken != null && owners.contains(identityToken);
+    final rows = <AccountIdentityRow>[];
+    for (final token in owners) {
+      final profile = identityProfiles[token] ??= _profileFor(token);
+      final hidden = profile.email.toLowerCase().endsWith('@$_relayDomain');
+      rows.add(
+        AccountIdentityRow(
+          id: 'idn_${token.hashCode.toUnsigned(32).toRadixString(16)}',
+          provider: profile.provider,
+          email: unmasked && !hidden ? profile.email : null,
+          emailHint: hidden ? null : _emailHint(profile.email),
+          emailHidden: hidden,
+          linkedAt: DateTime.fromMillisecondsSinceEpoch(
+            (profile.linkedAt ?? _seedTime).millisecondsSinceEpoch ~/
+                1000 *
+                1000,
+            isUtc: true,
+          ),
+          current: unmasked && token == identityToken,
+        ),
+      );
+    }
+    rows.sort((a, b) => a.linkedAt.compareTo(b.linkedAt));
+    return rows;
   }
 
   /// POST /v1/account/merge
@@ -1880,7 +1974,7 @@ class MockServer {
     }
     tombstonedAccounts.add(account);
     _pointDeviceAtAccount(deviceToken, intoAccount);
-    (accountIdentities[intoAccount] ??= <String>{}).add(identityToken);
+    _addIdentity(intoAccount, identityToken);
     return AccountMergeResult.merged(
       accountId: intoAccount,
       mergedFrom: account,
@@ -1900,7 +1994,7 @@ class MockServer {
     }
     tombstonedAccounts.add(account);
     _pointDeviceAtAccount(deviceToken, intoAccount);
-    (accountIdentities[intoAccount] ??= <String>{}).add(identityToken);
+    _addIdentity(intoAccount, identityToken);
     return AccountSwitchResult.switched(accountId: intoAccount);
   }
 
@@ -2206,6 +2300,19 @@ class MockServer {
             identityToken: body['identity_token'] as String?,
           ),
         );
+      }
+
+      // 11b. GET /v1/account/identities
+      if (path == '/v1/account/identities' && method == 'GET') {
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        final rows = listAccountIdentities(
+          deviceToken: credential,
+          identityToken: request.headers['x-identity-token'],
+        );
+        return _jsonResponse({
+          'identities': [for (final row in rows) row.toJson()],
+        }, 200);
       }
 
       // 12. /v1/account/join-token
@@ -2605,6 +2712,9 @@ class MockServer {
           {'error': 'unauthorized'},
           401,
         ),
+        AccountLinkUnknownConflict(:final error) => _jsonResponse({
+          'error': ?error,
+        }, 409),
       };
 
   static http.Response _mergeResponse(AccountMergeResult result) =>
