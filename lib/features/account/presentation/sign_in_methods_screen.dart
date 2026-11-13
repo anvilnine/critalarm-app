@@ -226,13 +226,16 @@ class _MethodRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = _titleOf(row);
-    final locale = context.locale.toLanguageTag();
     final provider = row.provider;
     return AppCardRow(
       title: title,
       detail: row.showsDate
           ? LocaleKeys.account_ways_added.tr(
-              args: [DateFormat.yMMMd(locale).format(row.linkedAt.toLocal())],
+              args: [
+                DateFormat.yMMMd(
+                  Localizations.localeOf(context).toLanguageTag(),
+                ).format(row.linkedAt.toLocal()),
+              ],
             )
           : null,
       leading: provider == null ? null : _ProviderMark(provider: provider),
