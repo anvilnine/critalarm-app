@@ -87,7 +87,12 @@ final class ApiAccountRepository implements AccountRepository {
   Future<AccountLinkResult> link(
     String identityToken, {
     AccountLinkIntent intent = AccountLinkIntent.signIn,
-  }) => api.linkAccount(identityToken: identityToken, intent: intent);
+    String? proofToken,
+  }) => api.linkAccount(
+    identityToken: identityToken,
+    intent: intent,
+    proofToken: proofToken,
+  );
 
   @override
   Future<AccountJoinTokenResult> mintJoinToken() => api.mintAccountJoinToken();

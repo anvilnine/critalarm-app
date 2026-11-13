@@ -83,6 +83,7 @@ class FakeAccountRepo implements AccountRepository {
   Future<AccountLinkResult> link(
     String identityToken, {
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) async => const AccountLinkResult.claimed(accountId: 'acc1');
 
   @override

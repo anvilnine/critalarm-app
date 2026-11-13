@@ -109,7 +109,7 @@ class AccountState {
     this.errorMessage,
     this.liveIncidentId,
     this.holdsHosted = false,
-    this.linkingProvider,
+    this.signInWays,
     this.joinToken,
     this.joinTokenMints = 0,
     this.isMintingJoinToken = false,
@@ -142,9 +142,10 @@ class AccountState {
   /// it.
   final bool holdsHosted;
 
-  /// The provider whose add-row is waiting on its sheet, so one row spins
-  /// instead of the whole screen.
-  final IdentityProvider? linkingProvider;
+  /// How many ways to sign in the account holds, for the "Ways to sign in"
+  /// row. Null unless signed in with a session the server still takes, and
+  /// then the row is not shown.
+  final int? signInWays;
 
   /// The join code that was just minted. The server keeps a hash of it and
   /// has nothing to hand back, so this is the one place the value exists.
@@ -189,7 +190,7 @@ class AccountState {
     String? errorMessage,
     String? liveIncidentId,
     bool? holdsHosted,
-    IdentityProvider? linkingProvider,
+    int? signInWays,
     String? joinToken,
     int? joinTokenMints,
     bool? isMintingJoinToken,
@@ -201,7 +202,7 @@ class AccountState {
     bool clearChoice = false,
     bool clearError = false,
     bool clearLiveIncident = false,
-    bool clearLinkingProvider = false,
+    bool clearSignInWays = false,
     bool clearJoinToken = false,
     bool clearJoinTokenError = false,
     bool clearUnfinished = false,
@@ -217,9 +218,7 @@ class AccountState {
           ? null
           : (liveIncidentId ?? this.liveIncidentId),
       holdsHosted: holdsHosted ?? this.holdsHosted,
-      linkingProvider: clearLinkingProvider
-          ? null
-          : (linkingProvider ?? this.linkingProvider),
+      signInWays: clearSignInWays ? null : (signInWays ?? this.signInWays),
       joinToken: clearJoinToken ? null : (joinToken ?? this.joinToken),
       joinTokenMints: joinTokenMints ?? this.joinTokenMints,
       isMintingJoinToken: isMintingJoinToken ?? this.isMintingJoinToken,
@@ -244,7 +243,7 @@ class AccountState {
           errorMessage == other.errorMessage &&
           liveIncidentId == other.liveIncidentId &&
           holdsHosted == other.holdsHosted &&
-          linkingProvider == other.linkingProvider &&
+          signInWays == other.signInWays &&
           joinToken == other.joinToken &&
           joinTokenMints == other.joinTokenMints &&
           isMintingJoinToken == other.isMintingJoinToken &&
@@ -262,7 +261,7 @@ class AccountState {
     errorMessage,
     liveIncidentId,
     holdsHosted,
-    linkingProvider,
+    signInWays,
     joinToken,
     joinTokenMints,
     isMintingJoinToken,

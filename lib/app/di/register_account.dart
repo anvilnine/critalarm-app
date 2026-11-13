@@ -34,6 +34,7 @@ import 'package:critalarm/features/account/domain/repositories/held_session.dart
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/domain/usecases/sign_in_restore.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/account/presentation/cubits/sign_in_methods_cubit.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
@@ -202,21 +203,31 @@ void registerAccountData(GetIt getIt, {required LocalStore? localStore}) {
 
 /// The account cubit.
 void registerAccountCubit(GetIt getIt) {
-  getIt.registerFactory(
-    () => AccountCubit(
-      identities: getIt<IdentityRepository>(),
-      account: getIt<AccountRepository>(),
-      restore: getIt<SignInRestore>(),
-      held: getIt<HeldSession>(),
-      // The topic list this phone holds, the one Home shows.
-      readTopicCount: () async => getIt<TopicsCubit>().state.topics.length,
-      readLiveIncidentId: () => _readLiveIncidentId(getIt),
-      // The host answers "unsupported" when it cannot be reached, which
-      // RingClaim reads as the quiet wording on an iPhone.
-      readRingClaim: () async =>
-          RingClaim.forPhone(await getIt<AlarmHost>().authorizationStatus()),
-    ),
-  );
+  getIt
+    ..registerFactory(
+      () => AccountCubit(
+        identities: getIt<IdentityRepository>(),
+        account: getIt<AccountRepository>(),
+        restore: getIt<SignInRestore>(),
+        held: getIt<HeldSession>(),
+        // The topic list this phone holds, the one Home shows.
+        readTopicCount: () async => getIt<TopicsCubit>().state.topics.length,
+        readLiveIncidentId: () => _readLiveIncidentId(getIt),
+        // The host answers "unsupported" when it cannot be reached, which
+        // RingClaim reads as the quiet wording on an iPhone.
+        readRingClaim: () async =>
+            RingClaim.forPhone(await getIt<AlarmHost>().authorizationStatus()),
+        accountIdentities: getIt<AccountIdentitiesRepository>(),
+      ),
+    )
+    ..registerFactory(
+      () => SignInMethodsCubit(
+        identities: getIt<IdentityRepository>(),
+        account: getIt<AccountRepository>(),
+        accountIdentities: getIt<AccountIdentitiesRepository>(),
+        held: getIt<HeldSession>(),
+      ),
+    );
 }
 
 /// An alarm ringing or set to ring on this phone, or else one the server

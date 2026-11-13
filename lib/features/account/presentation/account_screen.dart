@@ -8,6 +8,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_state.dart';
+import 'package:critalarm/features/account/presentation/sign_in_methods_screen.dart';
 import 'package:critalarm/features/account/presentation/widgets/merge_or_fresh_panel.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -84,6 +85,20 @@ class AccountView extends StatelessWidget {
                   ? _SignedIn(state: state)
                   : _SignedOut(state: state),
             ),
+            // Only with a session the server still takes, so never in the
+            // "Finish signing in" state.
+            if (signedIn && state.signInWays != null)
+              AppCardRow(
+                title: LocaleKeys.account_ways_title.tr(),
+                value: '${state.signInWays}',
+                onTap: () => unawaited(
+                  context.push(signInMethodsPath).then((_) {
+                    // An add or a remove changes the count, and removing
+                    // this phone's own way in signs it out.
+                    if (!cubit.isClosed) unawaited(cubit.load());
+                  }),
+                ),
+              ),
             // Any device on the account may mint a join code, signed in or
             // not, so the row shows either way.
             AppCardRow(
@@ -262,18 +277,16 @@ class _SignedIn extends StatelessWidget {
   Widget build(BuildContext context) {
     final identity = state.identity;
     if (identity == null) return _Unfinished(state: state);
-    // Every way in the account holds, not just the one this phone used. A
-    // second provider is added by the rows below.
-    final names = identity.providers.map(providerName).join(', ');
-    final label = identity.providers.length > 1
-        ? LocaleKeys.account_providers_label.tr()
-        : LocaleKeys.account_provider_label.tr();
+    // The way this phone signed in. Every way the account holds is on the
+    // "Ways to sign in" page.
+    final label = LocaleKeys.account_provider_label.tr();
+    final name = providerName(identity.provider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _CardLabel(text: '$label $names'),
+        _CardLabel(text: '$label $name'),
         const SizedBox(height: 6),
         // Apple's private relay address is a real address, so it is shown
         // exactly as it came back.
@@ -288,7 +301,6 @@ class _SignedIn extends StatelessWidget {
           value: identity.accountId,
           showCopyButton: true,
         ),
-        _AddProviderRows(state: state),
       ],
     );
   }
@@ -449,72 +461,6 @@ String providerName(IdentityProvider provider) => switch (provider) {
 /// Apple is missing from this list on Android, the same way it is missing
 /// from the sign-in buttons: the cubit asks whether the platform offers it at
 /// all before offering to add it.
-class _AddProviderRows extends StatelessWidget {
-  const _AddProviderRows({required this.state});
-
-  final AccountState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<AccountCubit>();
-    final colors = context.appColors;
-    final addable = cubit.addableProviders;
-    if (addable.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 18),
-        Text(
-          LocaleKeys.account_link_header.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colors.ink3,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          LocaleKeys.account_link_body.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 13,
-            color: colors.ink2,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 10),
-        for (final provider in addable) ...[
-          AppButton(
-            label: switch (provider) {
-              IdentityProvider.apple => LocaleKeys.account_link_add_apple.tr(),
-              IdentityProvider.google =>
-                LocaleKeys.account_link_add_google.tr(),
-            },
-            icon: switch (provider) {
-              IdentityProvider.apple => BrandIcon.apple(color: colors.ink),
-              IdentityProvider.google => const BrandIcon.google(),
-            },
-            variant: AppButtonVariant.paper,
-            isFullWidth: true,
-            // One row spins, not the whole screen, so it is obvious which
-            // sheet is open.
-            isLoading: state.linkingProvider == provider,
-            onPressed: state.isBusy
-                ? null
-                : () => unawaited(cubit.addProvider(provider)),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
-}
-
 /// Mint a join code and show it once.
 ///
 /// The server keeps a hash and not the value, so the reply is the only place

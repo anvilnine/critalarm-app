@@ -102,8 +102,40 @@ class MockServer {
   /// reads as a Google identity at an address made from the token.
   final Map<String, MockIdentityProfile> identityProfiles = {};
 
-  /// The clock `linked_at` is read from. A test swaps it.
+  /// The clock `linked_at` and session ages are read from. A test swaps it.
   DateTime Function() identityClock = DateTime.now;
+
+  /// Sessions minted for an identity after its first sign-in, each naming
+  /// the identity it is of. An identity token is also its own first session.
+  final Map<String, String> sessionIdentities = {};
+
+  /// When each session was made, for the 300 second rule on removal.
+  final Map<String, DateTime> sessionCreatedAt = {};
+
+  /// Sessions a removal ended. They are no proof and no longer current.
+  final Set<String> endedSessions = {};
+
+  int _sessionCount = 0;
+
+  /// A new session of [identityToken], made now: what signing in again with
+  /// an identity already on an account gives.
+  String mintSession(String identityToken) {
+    final session = 'sess_minted_${++_sessionCount}';
+    sessionIdentities[session] = identityToken;
+    sessionCreatedAt[session] = identityClock();
+    return session;
+  }
+
+  /// The identity [session] is of, or null when it is unknown or ended.
+  String? _identityOfSession(String? session) {
+    if (session == null || endedSessions.contains(session)) return null;
+    return sessionIdentities[session] ??
+        (identityAccounts.containsKey(session) ? session : null);
+  }
+
+  /// The id a row carries for [identityToken]. Opaque and stable.
+  static String _rowId(String identityToken) =>
+      'idn_${identityToken.hashCode.toUnsigned(32).toRadixString(16)}';
 
   /// Accounts left behind by a merge or a switch.
   final Set<String> tombstonedAccounts = {};
@@ -219,6 +251,9 @@ class MockServer {
     accountIdentities.clear();
     identityProfiles.clear();
     identityClock = DateTime.now;
+    sessionIdentities.clear();
+    sessionCreatedAt.clear();
+    endedSessions.clear();
     tombstonedAccounts.clear();
     accountJoinTokens.clear();
     grantedPacks.clear();
@@ -1840,6 +1875,7 @@ class MockServer {
     required String deviceToken,
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) {
     _requireAccountsSupported();
     final account = _accountForDeviceToken(deviceToken);
@@ -1853,10 +1889,20 @@ class MockServer {
       return AccountLinkResult.alreadyLinked(accountId: account);
     }
     if (intent == AccountLinkIntent.link) {
+      // Adding needs proof: a live session of an identity already on this
+      // account. Checked before every outcome but `already_linked`, and not
+      // for the first claim of an account holding nothing.
+      if (owners.isNotEmpty &&
+          !owners.contains(_identityOfSession(proofToken))) {
+        return const AccountLinkResult.proofRequired();
+      }
       // Adding a second way in. The identity joins the account this handset
       // already has, unless it is spoken for somewhere else.
       if (identityAccount != null) {
         return const AccountLinkResult.identityHasAnotherAccount();
+      }
+      if (owners.length >= maxIdentities) {
+        return const AccountLinkResult.capIdentities();
       }
       identityAccounts[identityToken] = account;
       _addIdentity(account, identityToken);
@@ -1885,12 +1931,19 @@ class MockServer {
     );
   }
 
+  /// The most identities one account holds (api.md §3.7).
+  static const maxIdentities = 6;
+
+  /// How old a session may be and still remove a way to sign in.
+  static const removalSessionAge = Duration(seconds: 300);
+
   /// Puts [identityToken] on [account] and stamps when it joined.
   void _addIdentity(String account, String identityToken) {
     final added = (accountIdentities[account] ??= <String>{}).add(
       identityToken,
     );
     if (!added) return;
+    sessionCreatedAt[identityToken] ??= identityClock();
     (identityProfiles[identityToken] ??= _profileFor(
       identityToken,
     )).linkedAt ??= identityClock();
@@ -1926,14 +1979,15 @@ class MockServer {
     _requireAccountsSupported();
     final account = _accountForDeviceToken(deviceToken);
     final owners = accountIdentities[account] ?? const <String>{};
-    final unmasked = identityToken != null && owners.contains(identityToken);
+    final asking = _identityOfSession(identityToken);
+    final unmasked = asking != null && owners.contains(asking);
     final rows = <AccountIdentityRow>[];
     for (final token in owners) {
       final profile = identityProfiles[token] ??= _profileFor(token);
       final hidden = profile.email.toLowerCase().endsWith('@$_relayDomain');
       rows.add(
         AccountIdentityRow(
-          id: 'idn_${token.hashCode.toUnsigned(32).toRadixString(16)}',
+          id: _rowId(token),
           provider: profile.provider,
           email: unmasked && !hidden ? profile.email : null,
           emailHint: hidden ? null : _emailHint(profile.email),
@@ -1944,7 +1998,7 @@ class MockServer {
                 1000,
             isUtc: true,
           ),
-          current: unmasked && token == identityToken,
+          current: unmasked && token == asking,
         ),
       );
     }
@@ -2010,6 +2064,49 @@ class MockServer {
     return null;
   }
 
+  /// DELETE /v1/account/identities/{identity_id}
+  ///
+  /// Any identity on the account may remove any other, or itself while
+  /// another remains, with a session no more than 300 seconds old. Every
+  /// session of the removed identity ends. In this mock one identity is one
+  /// provider sign-in, so removing it never keeps a session of it.
+  AccountIdentityRemoveResult removeAccountIdentity({
+    required String deviceToken,
+    required String identityId,
+    required String identityToken,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    final owners = accountIdentities[account] ?? <String>{};
+    final asking = _identityOfSession(identityToken);
+    if (asking == null || !owners.contains(asking)) {
+      return const AccountIdentityRemoveResult.unauthorized();
+    }
+    final made = sessionCreatedAt[identityToken];
+    if (made == null || identityClock().difference(made) > removalSessionAge) {
+      return const AccountIdentityRemoveResult.recentSignInRequired();
+    }
+    String? target;
+    for (final owner in owners) {
+      if (_rowId(owner) == identityId) target = owner;
+    }
+    if (target == null) return const AccountIdentityRemoveResult.notFound();
+    if (owners.length == 1) {
+      return const AccountIdentityRemoveResult.lastIdentity();
+    }
+    final open = _openIncident;
+    if (open != null) {
+      return AccountIdentityRemoveResult.liveIncident(incidentId: open.id);
+    }
+    owners.remove(target);
+    identityAccounts.remove(target);
+    endedSessions.add(target);
+    for (final entry in sessionIdentities.entries) {
+      if (entry.value == target) endedSessions.add(entry.key);
+    }
+    return const AccountIdentityRemoveResult.removed();
+  }
+
   /// DELETE /v1/account
   AccountDeleteResult deleteAccount({
     required String deviceToken,
@@ -2022,7 +2119,8 @@ class MockServer {
     // holds identities needs one of them too, so a handset left in a drawer
     // cannot wipe a signed-in account. Any one of them is enough: they all
     // belong to the same person.
-    if (owners.isNotEmpty && !owners.contains(identityToken)) {
+    if (owners.isNotEmpty &&
+        !owners.contains(_identityOfSession(identityToken))) {
       return const AccountDeleteResult.unauthorized();
     }
     final open = _openIncident;
@@ -2315,6 +2413,44 @@ class MockServer {
         }, 200);
       }
 
+      // 11c. DELETE /v1/account/identities/{identity_id}
+      final identityMatch = RegExp(
+        r'^/v1/account/identities/([^/]+)$',
+      ).firstMatch(path);
+      if (identityMatch != null && method == 'DELETE') {
+        final body = bodyString.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(bodyString) as Map<String, dynamic>;
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        return switch (removeAccountIdentity(
+          deviceToken: credential,
+          identityId: Uri.decodeComponent(identityMatch[1]!),
+          identityToken: body['identity_token'] as String? ?? '',
+        )) {
+          AccountIdentityRemoved() => http.Response('', 204),
+          AccountIdentityRemoveUnauthorized() => _jsonResponse({
+            'error': 'unauthorized',
+          }, 401),
+          AccountIdentityRemoveRecentSignInRequired() => _jsonResponse({
+            'error': 'recent sign-in required',
+          }, 403),
+          AccountIdentityRemoveNotFound() => _jsonResponse({
+            'error': 'not found',
+          }, 404),
+          AccountIdentityRemoveLastIdentity() => _jsonResponse({
+            'error': 'last identity',
+          }, 409),
+          AccountIdentityRemoveLiveIncident(:final incidentId) => _jsonResponse(
+            {
+              'error': 'live incident',
+              'incident_id': incidentId,
+            },
+            409,
+          ),
+        };
+      }
+
       // 12. /v1/account/join-token
       if (path == '/v1/account/join-token' && method == 'POST') {
         final credential = (request.headers['authorization'] ?? '')
@@ -2346,6 +2482,7 @@ class MockServer {
               intent: body['intent'] == AccountLinkIntent.link.wireValue
                   ? AccountLinkIntent.link
                   : AccountLinkIntent.signIn,
+              proofToken: body['proof_token'] as String?,
             ),
           ),
           'merge' => _mergeResponse(
@@ -2712,6 +2849,13 @@ class MockServer {
           {'error': 'unauthorized'},
           401,
         ),
+        AccountLinkProofRequired() => _jsonResponse({
+          'error': 'proof required',
+        }, 409),
+        AccountLinkCapIdentities() => _jsonResponse({
+          'error': 'cap',
+          'cap': 'identities',
+        }, 409),
         AccountLinkUnknownConflict(:final error) => _jsonResponse({
           'error': ?error,
         }, 409),

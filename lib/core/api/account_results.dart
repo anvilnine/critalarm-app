@@ -75,11 +75,50 @@ sealed class AccountLinkResult with _$AccountLinkResult {
   /// 401. A bad device token, or a session that has died.
   const factory AccountLinkResult.unauthorized() = AccountLinkUnauthorized;
 
-  /// A 409 whose `error` this build does not know, `proof required`
-  /// included. Shown as an add or sign-in that did not go through, never as
-  /// one of the prompts above.
+  /// 409 `proof required`. Intent `link` only. `proof_token` was missing,
+  /// expired or of an identity not on this account. The held session is
+  /// never cleared for it.
+  const factory AccountLinkResult.proofRequired() = AccountLinkProofRequired;
+
+  /// 409 `cap` with `cap: identities`. The account already holds 6 ways to
+  /// sign in.
+  const factory AccountLinkResult.capIdentities() = AccountLinkCapIdentities;
+
+  /// A 409 whose `error` this build does not know. Shown as an add or
+  /// sign-in that did not go through, never as one of the prompts above.
   const factory AccountLinkResult.unknownConflict({String? error}) =
       AccountLinkUnknownConflict;
+}
+
+/// What `DELETE /v1/account/identities/{identity_id}` answered (api.md
+/// §3.7). Any other status throws.
+@freezed
+sealed class AccountIdentityRemoveResult with _$AccountIdentityRemoveResult {
+  /// 204. That way to sign in is gone.
+  const factory AccountIdentityRemoveResult.removed() = AccountIdentityRemoved;
+
+  /// 401. A bad device token, or a session that is not of an identity on
+  /// this account.
+  const factory AccountIdentityRemoveResult.unauthorized() =
+      AccountIdentityRemoveUnauthorized;
+
+  /// 403 `recent sign-in required`. The session is good and older than 300
+  /// seconds, so the provider sign-in runs again first.
+  const factory AccountIdentityRemoveResult.recentSignInRequired() =
+      AccountIdentityRemoveRecentSignInRequired;
+
+  /// 404. No such identity on this account.
+  const factory AccountIdentityRemoveResult.notFound() =
+      AccountIdentityRemoveNotFound;
+
+  /// 409 `last identity`. It is the only one the account holds.
+  const factory AccountIdentityRemoveResult.lastIdentity() =
+      AccountIdentityRemoveLastIdentity;
+
+  /// 409 `live incident`. An alarm is ringing. Acknowledge it, then retry.
+  const factory AccountIdentityRemoveResult.liveIncident({
+    required String incidentId,
+  }) = AccountIdentityRemoveLiveIncident;
 }
 
 /// One row of `GET /v1/account/identities` (api.md §3.7): one way to sign in

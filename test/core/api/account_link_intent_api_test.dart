@@ -126,7 +126,7 @@ void main() {
 
     test('a 409 this build does not know is its own result, never the '
         'leave panel one', () async {
-      for (final error in ['proof required', 'something new', null]) {
+      for (final error in ['something new', null]) {
         final result = await clientAnswering({
           'error': ?error,
         }, 409).linkAccount(identityToken: 'session_abc');
@@ -210,6 +210,7 @@ void main() {
       final added = await client.linkAccount(
         identityToken: 'session_apple',
         intent: AccountLinkIntent.link,
+        proofToken: 'session_google',
       );
 
       expect(added, AccountLinkResult.linked(accountId: signedIn.accountId));
@@ -238,6 +239,7 @@ void main() {
       final result = await client.linkAccount(
         identityToken: 'session_apple',
         intent: AccountLinkIntent.link,
+        proofToken: 'session_google',
       );
 
       expect(result, const AccountLinkResult.identityHasAnotherAccount());
@@ -271,6 +273,7 @@ void main() {
       await client.linkAccount(
         identityToken: 'session_apple',
         intent: AccountLinkIntent.link,
+        proofToken: 'session_google',
       );
 
       final result = await client.deleteAccount(

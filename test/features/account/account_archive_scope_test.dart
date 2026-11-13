@@ -77,6 +77,7 @@ final class _ScriptedApi extends MockApiClient {
   Future<AccountLinkResult> linkAccount({
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) async => links.removeAt(0);
 
   @override

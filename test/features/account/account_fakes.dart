@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/api/account_results.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
@@ -12,6 +13,9 @@ import 'package:critalarm/features/account/domain/repositories/identity_reposito
 final class FakeIdentityRepository implements IdentityRepository {
   int signInCalls = 0;
   int clearCalls = 0;
+
+  /// The provider of every sheet that ran, in order.
+  final List<IdentityProvider> signedInProviders = [];
   AccountIdentity? saved;
 
   /// Which providers this platform offers. Apple is iOS only in the real
@@ -32,6 +36,7 @@ final class FakeIdentityRepository implements IdentityRepository {
       throw const IdentitySignInCancelled();
     }
     signInCalls++;
+    signedInProviders.add(provider);
     final session = IdentitySession(
       token: 'session_$signInCalls',
       provider: provider,
@@ -118,6 +123,12 @@ final class FakeAccountRepository implements AccountRepository {
   /// account screen said `link` and the sign-in screen said `sign_in`.
   final List<AccountLinkIntent> linkIntents = [];
 
+  /// Runs inside every link call, before it answers.
+  void Function()? onLink;
+
+  /// The `proof_token` sent with each link call, nulls included.
+  final List<String?> proofTokens = [];
+
   /// One answer per join-token call, in order.
   List<AccountJoinTokenResult> joinTokenAnswers = const [
     AccountJoinTokenResult.minted(joinToken: 'aj_first'),
@@ -138,10 +149,13 @@ final class FakeAccountRepository implements AccountRepository {
   Future<AccountLinkResult> link(
     String identityToken, {
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) async {
     calls.add('link');
     linkTokens.add(identityToken);
     linkIntents.add(intent);
+    proofTokens.add(proofToken);
+    onLink?.call();
     final error = linkError;
     if (error != null) throw error;
     final answer = linkTokens.length - 1;
@@ -271,10 +285,48 @@ final class FakeAccountIdentities implements AccountIdentitiesRepository {
   /// Holds each answer until completed.
   Completer<void>? gate;
 
+  /// One answer per remove call, in order. Running out means the cubit
+  /// asked more often than the test expected.
+  List<AccountIdentityRemoveResult> removeAnswers = const [
+    AccountIdentityRemoveResult.removed(),
+  ];
+
+  /// Every remove call: the row id and the session sent with it.
+  final List<({String id, String token})> removes = [];
+
+  /// Rows to answer with after each successful remove, when set.
+  List<AccountIdentityRow>? rowsAfterRemove;
+
+  /// A successful remove makes the next list call a 401.
+  bool listErrorAfterRemove = false;
+
+  /// Thrown by the next list call, then cleared.
+  Exception? nextListError;
+
+  @override
+  Future<AccountIdentityRemoveResult> remove({
+    required String identityId,
+    required String identityToken,
+  }) async {
+    removes.add((id: identityId, token: identityToken));
+    final answer = removeAnswers[removes.length - 1];
+    final after = rowsAfterRemove;
+    if (answer is AccountIdentityRemoved && after != null) rows = after;
+    if (answer is AccountIdentityRemoved && listErrorAfterRemove) {
+      nextListError = const ApiException(statusCode: 401, message: 'gone');
+    }
+    return answer;
+  }
+
   @override
   Future<List<AccountIdentityRow>> list({String? identityToken}) async {
     sentTokens.add(identityToken);
     await gate?.future;
+    final once = nextListError;
+    if (once != null) {
+      nextListError = null;
+      throw once;
+    }
     final thrown = error;
     if (thrown != null) throw thrown;
     // The server unmasks and marks current only for a session on the

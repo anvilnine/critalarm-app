@@ -131,9 +131,13 @@ abstract interface class ApiClient {
   /// [intent] says which screen the person was on. `sign_in` is the sign-in
   /// screen and behaves as it always has; `link` is the account screen adding
   /// a second way in. The server cannot tell them apart on its own.
+  ///
+  /// [proofToken] is sent with `intent: link` only: a live session of an
+  /// identity already on this account. `intent: sign_in` never carries it.
   Future<AccountLinkResult> linkAccount({
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   });
 
   /// GET /v1/account/identities
@@ -144,6 +148,15 @@ abstract interface class ApiClient {
   /// back masked: no `email`, only the hint (api.md §3.7).
   Future<List<AccountIdentityRow>> listAccountIdentities({
     String? identityToken,
+  });
+
+  /// DELETE /v1/account/identities/{identity_id}
+  ///
+  /// Removes one way to sign in, never the last. [identityToken] is a
+  /// session of any identity on this account, no more than 300 seconds old.
+  Future<AccountIdentityRemoveResult> removeAccountIdentity({
+    required String identityId,
+    required String identityToken,
   });
 
   /// POST /v1/account/join-token

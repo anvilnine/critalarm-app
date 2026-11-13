@@ -504,6 +504,16 @@ const Map<String, DeviceKeys> deviceVariantKeys = {
     tablet: LocaleKeys.account_on_account_alerts_arrive_tablet,
     computer: LocaleKeys.account_on_account_alerts_arrive_computer,
   ),
+  LocaleKeys.account_ways_this_device: DeviceKeys(
+    ipad: LocaleKeys.account_ways_this_device_ipad,
+    tablet: LocaleKeys.account_ways_this_device_tablet,
+    computer: LocaleKeys.account_ways_this_device_computer,
+  ),
+  LocaleKeys.account_ways_remove_current: DeviceKeys(
+    ipad: LocaleKeys.account_ways_remove_current_ipad,
+    tablet: LocaleKeys.account_ways_remove_current_tablet,
+    computer: LocaleKeys.account_ways_remove_current_computer,
+  ),
   LocaleKeys.account_leave_title: DeviceKeys(
     ipad: LocaleKeys.account_leave_title_ipad,
     tablet: LocaleKeys.account_leave_title_tablet,
