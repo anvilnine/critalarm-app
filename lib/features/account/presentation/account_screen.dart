@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -54,7 +55,10 @@ class AccountView extends StatelessWidget {
     if (state.status == AccountStatus.loading || !state.isAvailable) {
       return const SizedBox.shrink();
     }
-    if (state.status == AccountStatus.choosing) {
+    // The leave panel stays up while its leave is in flight, so the button
+    // that was pressed is the one that spins.
+    if (state.status == AccountStatus.choosing ||
+        (state.isBusy && state.leave != null)) {
       return MergeOrFreshPanel(state: state);
     }
     final cubit = context.read<AccountCubit>();
@@ -63,6 +67,9 @@ class AccountView extends StatelessWidget {
     // showed a signed-in person the signed-out pitch for as long as the link
     // took. Every path that signs out clears the identity.
     final signedIn = state.identity != null;
+    // Nobody signed in, and the account the phone is on holds an identity.
+    // Drawn in the signed-in layout, saying which account it is.
+    final unfinished = signedIn ? null : state.unfinished;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -73,7 +80,7 @@ class AccountView extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: signedIn
+              child: signedIn || unfinished != null
                   ? _SignedIn(state: state)
                   : _SignedOut(state: state),
             ),
@@ -94,6 +101,16 @@ class AccountView extends StatelessWidget {
                 isDanger: true,
                 showsArrow: false,
                 onTap: state.isBusy ? null : () => unawaited(cubit.signOut()),
+              ),
+            // Where Sign out sits. When the provider cannot run here, the
+            // same action is the card's one button instead.
+            if (unfinished != null && unfinished.offered)
+              AppCardRow(
+                title: LocaleKeys.account_use_different_account.tr(),
+                showsArrow: false,
+                onTap: state.isBusy
+                    ? null
+                    : () => unawaited(cubit.useDifferentAccount()),
               ),
             // It only leads to the confirm screen. Nothing is erased from
             // here.
@@ -243,8 +260,8 @@ class _SignedIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final identity = state.identity!;
+    final identity = state.identity;
+    if (identity == null) return _Unfinished(state: state);
     // Every way in the account holds, not just the one this phone used. A
     // second provider is added by the rows below.
     final names = identity.providers.map(providerName).join(', ');
@@ -256,28 +273,12 @@ class _SignedIn extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '$label $names',
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colors.ink3,
-          ),
-        ),
+        _CardLabel(text: '$label $names'),
         const SizedBox(height: 6),
         // Apple's private relay address is a real address, so it is shown
         // exactly as it came back.
-        Text(
-          identity.email ?? LocaleKeys.account_email_missing.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: colors.ink,
-          ),
+        _CardTitle(
+          text: identity.email ?? LocaleKeys.account_email_missing.tr(),
         ),
         const SizedBox(height: 12),
         // Small and selectable, because it is the one thing a support message
@@ -289,6 +290,133 @@ class _SignedIn extends StatelessWidget {
         ),
         _AddProviderRows(state: state),
       ],
+    );
+  }
+}
+
+/// The signed-in layout for a phone whose session is gone: which account it
+/// is on, that its alarms still ring, and one way forward.
+class _Unfinished extends StatelessWidget {
+  const _Unfinished({required this.state});
+
+  final AccountState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<AccountCubit>();
+    final colors = context.appColors;
+    final unfinished = state.unfinished!;
+    final provider = unfinished.provider;
+    final hint = unfinished.emailHidden || unfinished.emailHint == null
+        ? LocaleKeys.account_on_account_email_hidden.tr()
+        : unfinished.emailHint!;
+    final topics = unfinished.topics;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CardLabel(text: LocaleKeys.account_on_account_label.tr()),
+        const SizedBox(height: 6),
+        _CardTitle(text: hint),
+        if (unfinished.others > 0) ...[
+          const SizedBox(height: 2),
+          _CardLabel(
+            text: LocaleKeys.account_on_account_others.plural(
+              unfinished.others,
+            ),
+          ),
+        ],
+        if (topics > 0) ...[
+          const SizedBox(height: 10),
+          Text(
+            LocaleKeys.account_on_account_status.tr(
+              namedArgs: {
+                'topics': LocaleKeys.account_choose_topics.plural(topics),
+                // The quiet wording on an iPhone that has no AlarmKit.
+                'alarms': state.ringClaim == RingClaim.timeSensitive
+                    ? LocaleKeys.account_on_account_alerts_arrive.tr()
+                    : LocaleKeys.account_on_account_alarms_ring.tr(),
+              },
+            ),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 13,
+              color: colors.ink2,
+              height: 1.4,
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        if (unfinished.offered && provider != null)
+          AppButton(
+            label: LocaleKeys.account_finish_sign_in.tr(),
+            icon: switch (provider) {
+              IdentityProvider.apple => BrandIcon.apple(color: colors.canvas),
+              IdentityProvider.google => const BrandIcon.google(),
+            },
+            variant: switch (provider) {
+              IdentityProvider.apple => AppButtonVariant.ink,
+              IdentityProvider.google => AppButtonVariant.paper,
+            },
+            isFullWidth: true,
+            isLoading: state.isBusy,
+            onPressed: () => unawaited(cubit.signIn(provider)),
+          )
+        else
+          // An Apple-only account on Android: its sign-in cannot run here,
+          // so another account is the one way forward.
+          AppButton(
+            label: LocaleKeys.account_use_different_account.tr(),
+            variant: AppButtonVariant.paper,
+            isFullWidth: true,
+            isLoading: state.isBusy,
+            onPressed: () => unawaited(cubit.useDifferentAccount()),
+          ),
+      ],
+    );
+  }
+}
+
+/// The small grey line over the card's main line.
+class _CardLabel extends StatelessWidget {
+  const _CardLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: context.appColors.ink3,
+      ),
+    );
+  }
+}
+
+/// The card's main line: the address.
+class _CardTitle extends StatelessWidget {
+  const _CardTitle({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: context.appColors.ink,
+      ),
     );
   }
 }

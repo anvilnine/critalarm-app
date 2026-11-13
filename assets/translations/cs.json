@@ -1942,10 +1942,53 @@
     "sign_out": "Odhlásit se",
     "sign_out_failed": "Odhlášení se nezdařilo. Zkus to znovu.",
     "error_sign_in_failed": "Přihlášení se nezdařilo. Zkus to znovu.",
-    "error_other_identity": "Tento telefon už patří k jinému účtu. Nejdřív se z něj odhlas a pak se přihlas znovu.",
-    "error_other_identity_ipad": "Tento iPad už patří k jinému účtu. Nejdřív se z něj odhlas a pak se přihlas znovu.",
-    "error_other_identity_tablet": "Tento tablet už patří k jinému účtu. Nejdřív se z něj odhlas a pak se přihlas znovu.",
-    "error_other_identity_computer": "Tento počítač už patří k jinému účtu. Nejdřív se z něj odhlas a pak se přihlas znovu.",
+    "on_account_label": "Tento telefon používá účet",
+    "on_account_label_ipad": "Tento iPad používá účet",
+    "on_account_label_tablet": "Tento tablet používá účet",
+    "on_account_label_computer": "Tento počítač používá účet",
+    "on_account_email_hidden": "Apple, e-mail skrytý",
+    "on_account_others": {
+      "one": "a {} další přihlášení",
+      "few": "a {} další přihlášení",
+      "other": "a {} dalších přihlášení"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Alarmy na tomto telefonu dál zvoní.",
+    "on_account_alarms_ring_ipad": "Alarmy na tomto iPadu dál zvoní.",
+    "on_account_alarms_ring_tablet": "Alarmy na tomto tabletu dál zvoní.",
+    "on_account_alarms_ring_computer": "Upozornění na tomto počítači dál chodí.",
+    "on_account_alerts_arrive": "Upozornění na tomto telefonu dál chodí.",
+    "on_account_alerts_arrive_ipad": "Upozornění na tomto iPadu dál chodí.",
+    "on_account_alerts_arrive_tablet": "Upozornění na tomto tabletu dál chodí.",
+    "on_account_alerts_arrive_computer": "Upozornění na tomto počítači dál chodí.",
+    "finish_sign_in": "Dokončit přihlášení",
+    "use_different_account": "Použít jiný účet",
+    "leave_title": "Tento telefon používá jiný účet",
+    "leave_title_ipad": "Tento iPad používá jiný účet",
+    "leave_title_tablet": "Tento tablet používá jiný účet",
+    "leave_title_computer": "Tento počítač používá jiný účet",
+    "leave_warning": {
+      "one": "Jeho {} téma na tomto telefonu přestane znít. Zůstane na tom účtu.",
+      "few": "Jeho {} témata na tomto telefonu přestanou znít. Zůstanou na tom účtu.",
+      "other": "Jeho {} témat na tomto telefonu přestane znít. Zůstanou na tom účtu."
+    },
+    "leave_warning_ipad": {
+      "one": "Jeho {} téma na tomto iPadu přestane znít. Zůstane na tom účtu.",
+      "few": "Jeho {} témata na tomto iPadu přestanou znít. Zůstanou na tom účtu.",
+      "other": "Jeho {} témat na tomto iPadu přestane znít. Zůstanou na tom účtu."
+    },
+    "leave_warning_tablet": {
+      "one": "Jeho {} téma na tomto tabletu přestane znít. Zůstane na tom účtu.",
+      "few": "Jeho {} témata na tomto tabletu přestanou znít. Zůstanou na tom účtu.",
+      "other": "Jeho {} témat na tomto tabletu přestane znít. Zůstanou na tom účtu."
+    },
+    "leave_warning_computer": {
+      "one": "Jeho {} téma na tomto počítači přestane znít. Zůstane na tom účtu.",
+      "few": "Jeho {} témata na tomto počítači přestanou znít. Zůstanou na tom účtu.",
+      "other": "Jeho {} témat na tomto počítači přestane znít. Zůstanou na tom účtu."
+    },
+    "leave_button": "Odejít a přihlásit se",
+    "stay_button": "Zůstat u tohoto účtu",
     "providers_label": "Způsoby přihlášení",
     "link_header": "Přidat další způsob přihlášení",
     "link_body": "Ať použiješ kterýkoli z nich, přihlásíš se ke stejnému účtu.",

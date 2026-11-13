@@ -13,6 +13,7 @@ void main() {
     HoldingState? pro = HoldingState.notHeld,
     bool signedIn = false,
     bool canManage = true,
+    bool onAccount = false,
   }) => SettingsHeroView.from(
     serverMode: mode,
     loaded: loaded,
@@ -21,6 +22,7 @@ void main() {
     proState: pro,
     signedIn: signedIn,
     canManage: canManage,
+    onAccount: onAccount,
   );
 
   group('SettingsHeroView', () {
@@ -37,6 +39,21 @@ void main() {
 
     test('signed in reads as signed in', () {
       expect(view(signedIn: true).line, SettingsHeroLine.signedIn);
+    });
+
+    test('rule 3: a phone on an account it is not signed in to says which '
+        'one, as a third line', () {
+      expect(view(onAccount: true).line, SettingsHeroLine.onAccount);
+      // Signed in wins, and a server of the person's own has no accounts.
+      expect(
+        view(onAccount: true, signedIn: true).line,
+        SettingsHeroLine.signedIn,
+      );
+      expect(
+        view(onAccount: true, mode: ServerMode.selfhosted).line,
+        SettingsHeroLine.ownServer,
+      );
+      expect(view(onAccount: true, loaded: false).line, SettingsHeroLine.none);
     });
 
     test('Cloud held offers Manage, not Cloud', () {

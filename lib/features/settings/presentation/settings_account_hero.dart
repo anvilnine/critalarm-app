@@ -43,6 +43,7 @@ class SettingsAccountHero extends StatelessWidget {
     return BlocBuilder<AccountCubit, AccountState>(
       builder: (context, account) {
         final identity = account.identity;
+        final unfinished = identity == null ? account.unfinished : null;
         final view = SettingsHeroView.from(
           serverMode: state.serverMode,
           loaded: state.status == SettingsStatus.success,
@@ -50,6 +51,7 @@ class SettingsAccountHero extends StatelessWidget {
           planKnown: state.access.isKnown,
           proState: state.proState,
           signedIn: identity != null,
+          onAccount: unfinished != null,
           canManage: settingsCanManageCloud(),
         );
         final plan = view.planKey?.tr() ?? '';
@@ -57,6 +59,9 @@ class SettingsAccountHero extends StatelessWidget {
           SettingsHeroLine.signedIn =>
             '${LocaleKeys.account_provider_label.tr()} '
                 '${identity!.providers.map(providerName).join(', ')}',
+          SettingsHeroLine.onAccount =>
+            '${LocaleKeys.account_on_account_label.tr()} '
+                '${_onAccountName(unfinished!)}',
           SettingsHeroLine.signedOut =>
             LocaleKeys.settings_hero_signed_out.tr(),
           SettingsHeroLine.ownServer =>
@@ -189,6 +194,13 @@ class SettingsAccountHero extends StatelessWidget {
         ),
       };
 }
+
+/// The masked address of the account the phone is on, or the words for an
+/// Apple address that is hidden.
+String _onAccountName(UnfinishedSignIn unfinished) =>
+    unfinished.emailHidden || unfinished.emailHint == null
+    ? LocaleKeys.account_on_account_email_hidden.tr()
+    : unfinished.emailHint!;
 
 /// A square in the panel colour with a person drawn in the Crit yellow.
 class _Avatar extends StatelessWidget {

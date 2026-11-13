@@ -136,17 +136,23 @@ void main() {
   });
 
   test(
-    'a handset another identity owns refuses and points at sign out',
+    'a handset another identity owns, holding no topics, leaves and signs in '
+    'with no error',
     () async {
       final account = FakeAccountRepository(
-        linkAnswers: const [AccountLinkResult.accountHasAnotherIdentity()],
+        linkAnswers: const [
+          AccountLinkResult.accountHasAnotherIdentity(),
+          AccountLinkResult.claimed(accountId: 'acc_fresh'),
+        ],
       );
       final cubit = cubitFor(account);
 
       await cubit.signIn(IdentityProvider.google);
 
-      expect(cubit.state.status, AccountStatus.signedOut);
-      expect(cubit.state.errorMessage, contains('Sign out'));
+      expect(account.signOutCalls, 1);
+      expect(cubit.state.status, AccountStatus.signedIn);
+      expect(cubit.state.identity?.accountId, 'acc_fresh');
+      expect(cubit.state.errorMessage, isNull);
     },
   );
 

@@ -1925,10 +1925,48 @@
     "sign_out": "Abmelden",
     "sign_out_failed": "Abmelden fehlgeschlagen. Versuche es erneut.",
     "error_sign_in_failed": "Anmeldung fehlgeschlagen. Versuche es erneut.",
-    "error_other_identity": "Dieses Handy gehört schon zu einem anderen Konto. Melde dich dort zuerst ab und dann erneut an.",
-    "error_other_identity_ipad": "Dieses iPad gehört schon zu einem anderen Konto. Melde dich dort zuerst ab und dann erneut an.",
-    "error_other_identity_tablet": "Dieses Tablet gehört schon zu einem anderen Konto. Melde dich dort zuerst ab und dann erneut an.",
-    "error_other_identity_computer": "Dieser Computer gehört schon zu einem anderen Konto. Melde dich dort zuerst ab und dann erneut an.",
+    "on_account_label": "Dieses Handy nutzt das Konto",
+    "on_account_label_ipad": "Dieses iPad nutzt das Konto",
+    "on_account_label_tablet": "Dieses Tablet nutzt das Konto",
+    "on_account_label_computer": "Dieser Computer nutzt das Konto",
+    "on_account_email_hidden": "Apple, E-Mail verborgen",
+    "on_account_others": {
+      "one": "und {} weitere Anmeldung",
+      "other": "und {} weitere Anmeldungen"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Alarme klingeln auf diesem Handy weiter.",
+    "on_account_alarms_ring_ipad": "Alarme klingeln auf diesem iPad weiter.",
+    "on_account_alarms_ring_tablet": "Alarme klingeln auf diesem Tablet weiter.",
+    "on_account_alarms_ring_computer": "Benachrichtigungen kommen auf diesem Computer weiter an.",
+    "on_account_alerts_arrive": "Benachrichtigungen kommen auf diesem Handy weiter an.",
+    "on_account_alerts_arrive_ipad": "Benachrichtigungen kommen auf diesem iPad weiter an.",
+    "on_account_alerts_arrive_tablet": "Benachrichtigungen kommen auf diesem Tablet weiter an.",
+    "on_account_alerts_arrive_computer": "Benachrichtigungen kommen auf diesem Computer weiter an.",
+    "finish_sign_in": "Anmeldung abschließen",
+    "use_different_account": "Anderes Konto verwenden",
+    "leave_title": "Dieses Handy nutzt ein anderes Konto",
+    "leave_title_ipad": "Dieses iPad nutzt ein anderes Konto",
+    "leave_title_tablet": "Dieses Tablet nutzt ein anderes Konto",
+    "leave_title_computer": "Dieser Computer nutzt ein anderes Konto",
+    "leave_warning": {
+      "one": "Sein {} Topic löst auf diesem Handy keinen Alarm mehr aus. Es bleibt in dem Konto.",
+      "other": "Seine {} Topics lösen auf diesem Handy keinen Alarm mehr aus. Sie bleiben in dem Konto."
+    },
+    "leave_warning_ipad": {
+      "one": "Sein {} Topic löst auf diesem iPad keinen Alarm mehr aus. Es bleibt in dem Konto.",
+      "other": "Seine {} Topics lösen auf diesem iPad keinen Alarm mehr aus. Sie bleiben in dem Konto."
+    },
+    "leave_warning_tablet": {
+      "one": "Sein {} Topic löst auf diesem Tablet keinen Alarm mehr aus. Es bleibt in dem Konto.",
+      "other": "Seine {} Topics lösen auf diesem Tablet keinen Alarm mehr aus. Sie bleiben in dem Konto."
+    },
+    "leave_warning_computer": {
+      "one": "Sein {} Topic löst auf diesem Computer keinen Alarm mehr aus. Es bleibt in dem Konto.",
+      "other": "Seine {} Topics lösen auf diesem Computer keinen Alarm mehr aus. Sie bleiben in dem Konto."
+    },
+    "leave_button": "Verlassen und anmelden",
+    "stay_button": "In diesem Konto bleiben",
     "providers_label": "Deine Anmeldewege",
     "link_header": "Weiteren Anmeldeweg hinzufügen",
     "link_body": "Beide Anmeldewege führen dich zu diesem selben Konto.",

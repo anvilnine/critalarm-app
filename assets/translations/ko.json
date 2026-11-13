@@ -1908,10 +1908,43 @@
     "sign_out": "로그아웃",
     "sign_out_failed": "로그아웃하지 못했어요. 다시 시도해 주세요.",
     "error_sign_in_failed": "로그인하지 못했어요. 다시 시도해 주세요.",
-    "error_other_identity": "이 휴대폰은 이미 다른 계정에 연결돼 있어요. 먼저 해당 계정에서 로그아웃한 뒤 다시 로그인해 주세요.",
-    "error_other_identity_ipad": "이 iPad는 이미 다른 계정에 연결돼 있어요. 먼저 해당 계정에서 로그아웃한 뒤 다시 로그인해 주세요.",
-    "error_other_identity_tablet": "이 태블릿은 이미 다른 계정에 연결돼 있어요. 먼저 해당 계정에서 로그아웃한 뒤 다시 로그인해 주세요.",
-    "error_other_identity_computer": "이 컴퓨터는 이미 다른 계정에 연결돼 있어요. 먼저 해당 계정에서 로그아웃한 뒤 다시 로그인해 주세요.",
+    "on_account_label": "이 휴대폰의 계정",
+    "on_account_label_ipad": "이 iPad의 계정",
+    "on_account_label_tablet": "이 태블릿의 계정",
+    "on_account_label_computer": "이 컴퓨터의 계정",
+    "on_account_email_hidden": "Apple, 이메일 숨김",
+    "on_account_others": {
+      "other": "외 로그인 방법 {}개"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "이 휴대폰에서는 계속 알람이 울려요.",
+    "on_account_alarms_ring_ipad": "이 iPad에서는 계속 알람이 울려요.",
+    "on_account_alarms_ring_tablet": "이 태블릿에서는 계속 알람이 울려요.",
+    "on_account_alarms_ring_computer": "이 컴퓨터에서 계속 알림을 받아요.",
+    "on_account_alerts_arrive": "이 휴대폰에서 계속 알림을 받아요.",
+    "on_account_alerts_arrive_ipad": "이 iPad에서 계속 알림을 받아요.",
+    "on_account_alerts_arrive_tablet": "이 태블릿에서 계속 알림을 받아요.",
+    "on_account_alerts_arrive_computer": "이 컴퓨터에서 계속 알림을 받아요.",
+    "finish_sign_in": "로그인 마치기",
+    "use_different_account": "다른 계정 사용",
+    "leave_title": "이 휴대폰에서 다른 계정을 쓰고 있어요",
+    "leave_title_ipad": "이 iPad에서 다른 계정을 쓰고 있어요",
+    "leave_title_tablet": "이 태블릿에서 다른 계정을 쓰고 있어요",
+    "leave_title_computer": "이 컴퓨터에서 다른 계정을 쓰고 있어요",
+    "leave_warning": {
+      "other": "토픽 {}개가 이 휴대폰에서 더 이상 울리지 않아요. 토픽은 그 계정에 남아요."
+    },
+    "leave_warning_ipad": {
+      "other": "토픽 {}개가 이 iPad에서 더 이상 울리지 않아요. 토픽은 그 계정에 남아요."
+    },
+    "leave_warning_tablet": {
+      "other": "토픽 {}개가 이 태블릿에서 더 이상 울리지 않아요. 토픽은 그 계정에 남아요."
+    },
+    "leave_warning_computer": {
+      "other": "토픽 {}개가 이 컴퓨터에서 더 이상 울리지 않아요. 토픽은 그 계정에 남아요."
+    },
+    "leave_button": "나가고 로그인",
+    "stay_button": "이 계정에 그대로 있기",
     "providers_label": "사용 가능한 로그인 방법",
     "link_header": "로그인 방법 추가",
     "link_body": "어느 방법으로 로그인해도 같은 계정으로 연결돼요.",

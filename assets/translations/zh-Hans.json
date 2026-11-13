@@ -1908,10 +1908,43 @@
     "sign_out": "退出登录",
     "sign_out_failed": "退出登录失败，请重试。",
     "error_sign_in_failed": "登录失败，请重试。",
-    "error_other_identity": "当前手机已绑定其他账号。请先退出该账号，再重新登录。",
-    "error_other_identity_ipad": "当前iPad已绑定其他账号。请先退出该账号，再重新登录。",
-    "error_other_identity_tablet": "当前平板已绑定其他账号。请先退出该账号，再重新登录。",
-    "error_other_identity_computer": "当前电脑已绑定其他账号。请先退出该账号，再重新登录。",
+    "on_account_label": "本机所用账号",
+    "on_account_label_ipad": "本机所用账号",
+    "on_account_label_tablet": "本机所用账号",
+    "on_account_label_computer": "本机所用账号",
+    "on_account_email_hidden": "Apple，邮箱已隐藏",
+    "on_account_others": {
+      "other": "及另外 {} 种登录方式"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "本机仍会响铃。",
+    "on_account_alarms_ring_ipad": "本机仍会响铃。",
+    "on_account_alarms_ring_tablet": "本机仍会响铃。",
+    "on_account_alarms_ring_computer": "本机仍会收到提醒。",
+    "on_account_alerts_arrive": "本机仍会收到提醒。",
+    "on_account_alerts_arrive_ipad": "本机仍会收到提醒。",
+    "on_account_alerts_arrive_tablet": "本机仍会收到提醒。",
+    "on_account_alerts_arrive_computer": "本机仍会收到提醒。",
+    "finish_sign_in": "完成登录",
+    "use_different_account": "使用其他账号",
+    "leave_title": "本机正在使用另一个账号",
+    "leave_title_ipad": "本机正在使用另一个账号",
+    "leave_title_tablet": "本机正在使用另一个账号",
+    "leave_title_computer": "本机正在使用另一个账号",
+    "leave_warning": {
+      "other": "{}个主题将不再在本机发出警报。它们会保留在那个账号中。"
+    },
+    "leave_warning_ipad": {
+      "other": "{}个主题将不再在本机发出警报。它们会保留在那个账号中。"
+    },
+    "leave_warning_tablet": {
+      "other": "{}个主题将不再在本机发出警报。它们会保留在那个账号中。"
+    },
+    "leave_warning_computer": {
+      "other": "{}个主题将不再在本机发出警报。它们会保留在那个账号中。"
+    },
+    "leave_button": "退出并登录",
+    "stay_button": "留在此账号",
     "providers_label": "可用的登录方式",
     "link_header": "绑定其他登录方式",
     "link_body": "使用任一方式登录，都会进入同一个账号。",

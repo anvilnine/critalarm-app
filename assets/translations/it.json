@@ -1925,10 +1925,48 @@
     "sign_out": "Esci",
     "sign_out_failed": "Impossibile uscire. Riprova.",
     "error_sign_in_failed": "Accesso non riuscito. Riprova.",
-    "error_other_identity": "Questo telefono appartiene già a un altro account. Esci prima da quello, poi accedi di nuovo.",
-    "error_other_identity_ipad": "Questo iPad appartiene già a un altro account. Esci prima da quello, poi accedi di nuovo.",
-    "error_other_identity_tablet": "Questo tablet appartiene già a un altro account. Esci prima da quello, poi accedi di nuovo.",
-    "error_other_identity_computer": "Questo computer appartiene già a un altro account. Esci prima da quello, poi accedi di nuovo.",
+    "on_account_label": "Questo telefono usa l'account",
+    "on_account_label_ipad": "Questo iPad usa l'account",
+    "on_account_label_tablet": "Questo tablet usa l'account",
+    "on_account_label_computer": "Questo computer usa l'account",
+    "on_account_email_hidden": "Apple, email nascosta",
+    "on_account_others": {
+      "one": "e {} altro accesso",
+      "other": "e altri {} accessi"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Gli allarmi suonano ancora su questo telefono.",
+    "on_account_alarms_ring_ipad": "Gli allarmi suonano ancora su questo iPad.",
+    "on_account_alarms_ring_tablet": "Gli allarmi suonano ancora su questo tablet.",
+    "on_account_alarms_ring_computer": "Gli avvisi arrivano ancora su questo computer.",
+    "on_account_alerts_arrive": "Gli avvisi arrivano ancora su questo telefono.",
+    "on_account_alerts_arrive_ipad": "Gli avvisi arrivano ancora su questo iPad.",
+    "on_account_alerts_arrive_tablet": "Gli avvisi arrivano ancora su questo tablet.",
+    "on_account_alerts_arrive_computer": "Gli avvisi arrivano ancora su questo computer.",
+    "finish_sign_in": "Completa l'accesso",
+    "use_different_account": "Usa un altro account",
+    "leave_title": "Questo telefono usa un altro account",
+    "leave_title_ipad": "Questo iPad usa un altro account",
+    "leave_title_tablet": "Questo tablet usa un altro account",
+    "leave_title_computer": "Questo computer usa un altro account",
+    "leave_warning": {
+      "one": "Il suo {} topic smette di suonare su questo telefono. Resta su quell'account.",
+      "other": "I suoi {} topic smettono di suonare su questo telefono. Restano su quell'account."
+    },
+    "leave_warning_ipad": {
+      "one": "Il suo {} topic smette di suonare su questo iPad. Resta su quell'account.",
+      "other": "I suoi {} topic smettono di suonare su questo iPad. Restano su quell'account."
+    },
+    "leave_warning_tablet": {
+      "one": "Il suo {} topic smette di suonare su questo tablet. Resta su quell'account.",
+      "other": "I suoi {} topic smettono di suonare su questo tablet. Restano su quell'account."
+    },
+    "leave_warning_computer": {
+      "one": "Il suo {} topic smette di suonare su questo computer. Resta su quell'account.",
+      "other": "I suoi {} topic smettono di suonare su questo computer. Restano su quell'account."
+    },
+    "leave_button": "Esci e accedi",
+    "stay_button": "Resta su questo account",
     "providers_label": "Metodi di accesso",
     "link_header": "Aggiungi un altro metodo di accesso",
     "link_body": "Accedendo con uno qualsiasi dei due entrerai in questo stesso account.",

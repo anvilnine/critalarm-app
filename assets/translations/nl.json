@@ -1925,10 +1925,48 @@
     "sign_out": "Uitloggen",
     "sign_out_failed": "Kon niet uitloggen. Probeer het opnieuw.",
     "error_sign_in_failed": "Inloggen mislukt. Probeer het opnieuw.",
-    "error_other_identity": "Deze telefoon hoort al bij een ander account. Log daar eerst uit en log daarna opnieuw in.",
-    "error_other_identity_ipad": "Deze iPad hoort al bij een ander account. Log daar eerst uit en log daarna opnieuw in.",
-    "error_other_identity_tablet": "Deze tablet hoort al bij een ander account. Log daar eerst uit en log daarna opnieuw in.",
-    "error_other_identity_computer": "Deze computer hoort al bij een ander account. Log daar eerst uit en log daarna opnieuw in.",
+    "on_account_label": "Deze telefoon gebruikt het account",
+    "on_account_label_ipad": "Deze iPad gebruikt het account",
+    "on_account_label_tablet": "Deze tablet gebruikt het account",
+    "on_account_label_computer": "Deze computer gebruikt het account",
+    "on_account_email_hidden": "Apple, e-mail verborgen",
+    "on_account_others": {
+      "one": "en nog {} manier om in te loggen",
+      "other": "en nog {} manieren om in te loggen"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Alarmen gaan op deze telefoon nog steeds af.",
+    "on_account_alarms_ring_ipad": "Alarmen gaan op deze iPad nog steeds af.",
+    "on_account_alarms_ring_tablet": "Alarmen gaan op deze tablet nog steeds af.",
+    "on_account_alarms_ring_computer": "Meldingen komen op deze computer nog steeds binnen.",
+    "on_account_alerts_arrive": "Meldingen komen op deze telefoon nog steeds binnen.",
+    "on_account_alerts_arrive_ipad": "Meldingen komen op deze iPad nog steeds binnen.",
+    "on_account_alerts_arrive_tablet": "Meldingen komen op deze tablet nog steeds binnen.",
+    "on_account_alerts_arrive_computer": "Meldingen komen op deze computer nog steeds binnen.",
+    "finish_sign_in": "Inloggen afronden",
+    "use_different_account": "Ander account gebruiken",
+    "leave_title": "Deze telefoon gebruikt een ander account",
+    "leave_title_ipad": "Deze iPad gebruikt een ander account",
+    "leave_title_tablet": "Deze tablet gebruikt een ander account",
+    "leave_title_computer": "Deze computer gebruikt een ander account",
+    "leave_warning": {
+      "one": "Het {} topic gaat op deze telefoon niet meer af. Het blijft op dat account.",
+      "other": "De {} topics gaan op deze telefoon niet meer af. Ze blijven op dat account."
+    },
+    "leave_warning_ipad": {
+      "one": "Het {} topic gaat op deze iPad niet meer af. Het blijft op dat account.",
+      "other": "De {} topics gaan op deze iPad niet meer af. Ze blijven op dat account."
+    },
+    "leave_warning_tablet": {
+      "one": "Het {} topic gaat op deze tablet niet meer af. Het blijft op dat account.",
+      "other": "De {} topics gaan op deze tablet niet meer af. Ze blijven op dat account."
+    },
+    "leave_warning_computer": {
+      "one": "Het {} topic gaat op deze computer niet meer af. Het blijft op dat account.",
+      "other": "De {} topics gaan op deze computer niet meer af. Ze blijven op dat account."
+    },
+    "leave_button": "Verlaten en inloggen",
+    "stay_button": "Op dit account blijven",
     "providers_label": "Manieren om in te loggen",
     "link_header": "Andere inlogmethode toevoegen",
     "link_body": "Met beide methoden kom je in hetzelfde account terecht.",

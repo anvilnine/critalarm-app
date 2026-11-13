@@ -1925,10 +1925,48 @@
     "sign_out": "Sair",
     "sign_out_failed": "Não foi possível sair. Tente de novo.",
     "error_sign_in_failed": "Não foi possível entrar. Tente de novo.",
-    "error_other_identity": "Este celular já pertence a outra conta. Saia dela primeiro e entre de novo.",
-    "error_other_identity_ipad": "Este iPad já pertence a outra conta. Saia dela primeiro e entre de novo.",
-    "error_other_identity_tablet": "Este tablet já pertence a outra conta. Saia dela primeiro e entre de novo.",
-    "error_other_identity_computer": "Este computador já pertence a outra conta. Saia dela primeiro e entre de novo.",
+    "on_account_label": "Este celular usa a conta",
+    "on_account_label_ipad": "Este iPad usa a conta",
+    "on_account_label_tablet": "Este tablet usa a conta",
+    "on_account_label_computer": "Este computador usa a conta",
+    "on_account_email_hidden": "Apple, e-mail oculto",
+    "on_account_others": {
+      "one": "e mais {} forma de entrar",
+      "other": "e mais {} formas de entrar"
+    },
+    "on_account_status": "{topics} · {alarms}",
+    "on_account_alarms_ring": "Os alarmes continuam tocando neste celular.",
+    "on_account_alarms_ring_ipad": "Os alarmes continuam tocando neste iPad.",
+    "on_account_alarms_ring_tablet": "Os alarmes continuam tocando neste tablet.",
+    "on_account_alarms_ring_computer": "Os alertas continuam chegando neste computador.",
+    "on_account_alerts_arrive": "Os alertas continuam chegando neste celular.",
+    "on_account_alerts_arrive_ipad": "Os alertas continuam chegando neste iPad.",
+    "on_account_alerts_arrive_tablet": "Os alertas continuam chegando neste tablet.",
+    "on_account_alerts_arrive_computer": "Os alertas continuam chegando neste computador.",
+    "finish_sign_in": "Concluir login",
+    "use_different_account": "Usar outra conta",
+    "leave_title": "Este celular usa outra conta",
+    "leave_title_ipad": "Este iPad usa outra conta",
+    "leave_title_tablet": "Este tablet usa outra conta",
+    "leave_title_computer": "Este computador usa outra conta",
+    "leave_warning": {
+      "one": "O {} tópico dela para de soar neste celular. Ele continua naquela conta.",
+      "other": "Os {} tópicos dela param de soar neste celular. Eles continuam naquela conta."
+    },
+    "leave_warning_ipad": {
+      "one": "O {} tópico dela para de soar neste iPad. Ele continua naquela conta.",
+      "other": "Os {} tópicos dela param de soar neste iPad. Eles continuam naquela conta."
+    },
+    "leave_warning_tablet": {
+      "one": "O {} tópico dela para de soar neste tablet. Ele continua naquela conta.",
+      "other": "Os {} tópicos dela param de soar neste tablet. Eles continuam naquela conta."
+    },
+    "leave_warning_computer": {
+      "one": "O {} tópico dela para de soar neste computador. Ele continua naquela conta.",
+      "other": "Os {} tópicos dela param de soar neste computador. Eles continuam naquela conta."
+    },
+    "leave_button": "Sair e entrar",
+    "stay_button": "Ficar nesta conta",
     "providers_label": "Formas de entrar",
     "link_header": "Adicionar outra forma de entrar",
     "link_body": "Entre com qualquer uma delas para acessar esta mesma conta.",
