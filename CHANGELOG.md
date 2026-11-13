@@ -4,6 +4,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ## Unreleased
 ### Added
 - Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
+- A Ways to sign in page under Account and plan lists every way you sign in, lets you add Apple or Google (a second Google account too) and remove any but the last.
 
 ### Changed
 - Endless climb is the default alarm sound and the first one in the sound list.

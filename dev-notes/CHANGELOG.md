@@ -5,6 +5,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Added
 - AppTitledCard and AppCardRow in lib/design for titled groups of one-line rows, and a person glyph.
 - GET /v1/account/identities on ApiClient and the mock server, SignInRestore, HeldSession and AccountIdentitiesRepository. AccountState gains unfinished, leave and ringClaim; the account.error\_other\_identity keys are removed.
+- DELETE /v1/account/identities/{id}, proof\_token on intent link, and the proof required and identity cap results on ApiClient and the mock server. SignInMethodsCubit and its page; AccountCubit drops addProvider and gains signInWays. A restore only reads the identities list, and an unknown 409 on sign-in is its own result.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
