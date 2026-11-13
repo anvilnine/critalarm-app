@@ -177,6 +177,35 @@ final class HttpIdentityRepository implements IdentityRepository, HeldSession {
   }
 
   @override
+  Future<HeldSnapshot> snapshot() async => HeldSnapshot(
+    token: await readOwnToken(),
+    provider: _readProvider(),
+    email: prefs.getString(_emailKey),
+  );
+
+  @override
+  Future<void> putBack(HeldSnapshot snapshot) async {
+    final token = snapshot.token;
+    final provider = snapshot.provider;
+    final email = snapshot.email;
+    if (token == null) {
+      await tokens.clear();
+    } else {
+      await tokens.write(token);
+    }
+    if (provider == null) {
+      await prefs.remove(_providerKey);
+    } else {
+      await prefs.setString(_providerKey, provider.wireValue);
+    }
+    if (email == null) {
+      await prefs.remove(_emailKey);
+    } else {
+      await prefs.setString(_emailKey, email);
+    }
+  }
+
+  @override
   Future<void> forgetRestoredSignIn() async {
     // Not [IdentityTokenStore.read]: that would move a token left in the
     // preferences by a backup made before the Keychain held it.

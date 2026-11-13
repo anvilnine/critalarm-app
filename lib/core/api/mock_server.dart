@@ -2712,6 +2712,9 @@ class MockServer {
           {'error': 'unauthorized'},
           401,
         ),
+        AccountLinkUnknownConflict(:final error) => _jsonResponse({
+          'error': ?error,
+        }, 409),
       };
 
   static http.Response _mergeResponse(AccountMergeResult result) =>

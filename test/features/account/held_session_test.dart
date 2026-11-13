@@ -5,6 +5,7 @@ import 'package:critalarm/features/account/data/services/identity_token_store.da
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
+import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -143,4 +144,40 @@ void main() {
       expect((await made.repo.readIdentity())?.accountId, 'acc_fresh');
     },
   );
+
+  test('rule 4: a snapshot of a reinstalled iPhone holds the token alone, '
+      'and putting it back removes what a sign-in wrote', () async {
+    keychain = 'sess_keychain';
+    final made = await make({});
+    final before = await made.repo.snapshot();
+    expect(before, const HeldSnapshot(token: 'sess_keychain'));
+
+    await made.repo.keep(
+      const IdentitySession(
+        token: 'sess_stranger',
+        provider: IdentityProvider.google,
+        email: 'stranger@example.test',
+      ),
+    );
+    await made.repo.putBack(before);
+
+    expect(keychain, 'sess_keychain');
+    expect(await made.repo.snapshot(), before);
+    expect(made.prefs.getString('identity_email'), isNull);
+  });
+
+  test('rule 4: putting back nothing clears the token', () async {
+    final made = await make({});
+    await made.repo.keep(
+      const IdentitySession(
+        token: 'sess_stranger',
+        provider: IdentityProvider.apple,
+      ),
+    );
+
+    await made.repo.putBack(const HeldSnapshot());
+
+    expect(keychain, isNull);
+    expect(await made.repo.readSession(), isNull);
+  });
 }

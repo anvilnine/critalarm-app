@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/account_results.dart';
@@ -54,6 +56,12 @@ class AccountCubit extends Cubit<AccountState> {
   /// The session behind the open prompt. Held here, not in the state, so a
   /// token never reaches a widget.
   IdentitySession? _pending;
+
+  /// What was held before a sign-in from the signed-out or "Finish signing
+  /// in" card. The provider sign-in writes its session over it before the
+  /// server has said that identity is on this account, so a sign-in that
+  /// does not finish puts this back. Null once nothing needs putting back.
+  HeldSnapshot? _heldBefore;
 
   bool supports(IdentityProvider provider) => identities.supports(provider);
 
@@ -181,14 +189,37 @@ class AccountCubit extends Cubit<AccountState> {
         clearChoice: true,
       ),
     );
+    final h = held;
+    if (h != null && state.identity == null) {
+      try {
+        _heldBefore = await h.snapshot();
+      } on Object catch (_) {
+        _heldBefore = null;
+      }
+    }
     try {
       final session = await identities.signIn(provider);
       await _linkSession(session, canRetry: true);
     } on IdentitySignInCancelled {
       if (isClosed) return;
+      await _putBackHeld();
+      if (isClosed) return;
       emit(state.copyWith(status: _restingStatus));
     } on Object catch (_) {
       _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
+    }
+  }
+
+  /// Puts back what was held before the sign-in, once.
+  Future<void> _putBackHeld([HeldSnapshot? replacement]) async {
+    final before = replacement ?? _heldBefore;
+    _heldBefore = null;
+    final h = held;
+    if (h == null || before == null) return;
+    try {
+      await h.putBack(before);
+    } on Object catch (_) {
+      // The store would not answer. Nothing better to do here.
     }
   }
 
@@ -206,10 +237,13 @@ class AccountCubit extends Cubit<AccountState> {
     await _leave();
   }
 
-  /// "Stay on this account": back to the card, nothing sent anywhere.
+  /// "Stay on this account": back to the card, nothing sent anywhere. The
+  /// session the sign-in just wrote is of an identity on another account, so
+  /// what was held before goes back.
   void stayOnThisAccount() {
     if (state.isBusy) return;
     _pending = null;
+    unawaited(_putBackHeld());
     emit(
       state.copyWith(
         status: _restingStatus,
@@ -318,6 +352,9 @@ class AccountCubit extends Cubit<AccountState> {
   void _failAfterLeave() {
     if (isClosed) return;
     _pending = null;
+    // The phone left the account the old session was on, and the new one
+    // never got on this one, so nothing stays held.
+    if (_heldBefore != null) unawaited(_putBackHeld(const HeldSnapshot()));
     emit(
       const AccountState(status: AccountStatus.signedOut).copyWith(
         mode: state.mode,
@@ -437,7 +474,9 @@ class AccountCubit extends Cubit<AccountState> {
         await _providerAdded(session, accountId);
       case AccountLinkIdentityHasAnotherAccount():
         _failAddProvider(LocaleKeys.account_error_identity_taken.tr());
-      case AccountLinkChoose() || AccountLinkAccountHasAnotherIdentity():
+      case AccountLinkChoose() ||
+          AccountLinkAccountHasAnotherIdentity() ||
+          AccountLinkUnknownConflict():
         // api.md §3.7 answers neither of these to `intent: link`. If a server
         // ever does, the person is told the add did not happen rather than
         // being shown a prompt built for the sign-in screen.
@@ -723,6 +762,11 @@ class AccountCubit extends Cubit<AccountState> {
         // api.md §3.7 answers this to `intent: link` only, so the sign-in
         // screen never sees it. Said plainly rather than left silent.
         _failSignedOut(LocaleKeys.account_error_identity_taken.tr());
+      case AccountLinkUnknownConflict():
+        // A 409 this build does not know. The ordinary failure, never the
+        // leave panel: leaving is only offered for the one answer that
+        // means it.
+        _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
       case AccountLinkUnauthorized():
         if (!canRetry) {
           _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
@@ -746,6 +790,7 @@ class AccountCubit extends Cubit<AccountState> {
     await identities.saveIdentity(identity);
     if (isClosed) return;
     _pending = null;
+    _heldBefore = null;
     emit(
       state.copyWith(
         status: AccountStatus.signedIn,
@@ -762,6 +807,7 @@ class AccountCubit extends Cubit<AccountState> {
   void _failSignedOut(String message) {
     if (isClosed) return;
     _pending = null;
+    unawaited(_putBackHeld());
     emit(
       state.copyWith(
         status: state.unfinished != null

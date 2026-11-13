@@ -32,12 +32,18 @@ final class FakeIdentityRepository implements IdentityRepository {
       throw const IdentitySignInCancelled();
     }
     signInCalls++;
-    return IdentitySession(
+    final session = IdentitySession(
       token: 'session_$signInCalls',
       provider: provider,
       email: 'someone@example.test',
     );
+    onSignedIn?.call(session);
+    return session;
   }
+
+  /// The real sign-in writes the new session where the held one was. A test
+  /// that shares storage with a [FakeHeldSession] wires that up here.
+  void Function(IdentitySession session)? onSignedIn;
 
   /// The session from an earlier launch. Null means nobody is signed in,
   /// which is how an anonymous account looks.
@@ -212,6 +218,30 @@ final class FakeHeldSession implements HeldSession {
   FakeHeldSession([this.token]);
 
   String? token;
+  IdentityProvider? provider;
+  String? email;
+
+  /// Every snapshot put back, in order.
+  final List<HeldSnapshot> putBacks = [];
+
+  /// What the real sign-in does to the store: overwrites all three.
+  void overwrite(IdentitySession session) {
+    token = session.token;
+    provider = session.provider;
+    email = session.email;
+  }
+
+  @override
+  Future<HeldSnapshot> snapshot() async =>
+      HeldSnapshot(token: token, provider: provider, email: email);
+
+  @override
+  Future<void> putBack(HeldSnapshot snapshot) async {
+    putBacks.add(snapshot);
+    token = snapshot.token;
+    provider = snapshot.provider;
+    email = snapshot.email;
+  }
 
   /// Every session written back, in order.
   final List<IdentitySession> kept = [];

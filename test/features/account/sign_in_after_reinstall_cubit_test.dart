@@ -235,6 +235,126 @@ void main() {
     });
   });
 
+  group('rule 4: a stranger session is never left held', () {
+    FakeAccountRepository refused() => FakeAccountRepository(
+      linkAnswers: const [
+        AccountLinkResult.accountHasAnotherIdentity(),
+        AccountLinkResult.claimed(accountId: 'acc_fresh'),
+      ],
+    );
+
+    setUp(() => identities.onSignedIn = held.overwrite);
+
+    test('Stay from signed out puts back nothing held', () async {
+      final account = refused();
+      final cubit = cubitFor(account);
+      await cubit.load();
+      await cubit.signIn(IdentityProvider.google);
+      expect(held.token, 'session_1');
+
+      cubit.stayOnThisAccount();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(held.token, isNull);
+      expect(held.provider, isNull);
+      expect(held.email, isNull);
+    });
+
+    test('Stay from Finish signing in puts the old token back, and the next '
+        'load sends it, not the stranger one', () async {
+      held.token = 'sess_keychain';
+      rows.rows = [identityRow()];
+      final account = refused();
+      final cubit = cubitFor(account);
+      await cubit.load();
+      await cubit.signIn(IdentityProvider.google);
+      expect(held.token, 'session_1');
+
+      cubit.stayOnThisAccount();
+      await Future<void>.delayed(Duration.zero);
+      rows.sentTokens.clear();
+      await cubit.load();
+
+      expect(held.token, 'sess_keychain');
+      expect(held.provider, isNull);
+      expect(rows.sentTokens, ['sess_keychain']);
+    });
+
+    test('a sign-out that fails, then Stay, puts back what was held', () async {
+      held.token = 'sess_keychain';
+      rows.rows = [identityRow()];
+      final account = refused()..signOutError = Exception('delete refused');
+      final cubit = cubitFor(account);
+      await cubit.load();
+      await cubit.signIn(IdentityProvider.google);
+
+      await cubit.leaveAndSignIn();
+      expect(cubit.state.leave, isNotNull);
+      cubit.stayOnThisAccount();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(held.token, 'sess_keychain');
+    });
+
+    test('left, then the second link fails: nothing stays held', () async {
+      held.token = 'sess_keychain';
+      rows.rows = [identityRow()];
+      final account = FakeAccountRepository(
+        linkAnswers: const [
+          AccountLinkResult.accountHasAnotherIdentity(),
+          AccountLinkResult.unauthorized(),
+        ],
+      );
+      final cubit = cubitFor(account);
+      await cubit.load();
+      await cubit.signIn(IdentityProvider.google);
+
+      await cubit.leaveAndSignIn();
+
+      expect(cubit.state.status, AccountStatus.signedOut);
+      expect(held.token, isNull);
+    });
+
+    test('a leave that works keeps the new session', () async {
+      final account = refused();
+      final cubit = cubitFor(account);
+      await cubit.load();
+      await cubit.signIn(IdentityProvider.google);
+
+      await cubit.leaveAndSignIn();
+
+      expect(cubit.state.status, AccountStatus.signedIn);
+      expect(held.token, 'session_1');
+      expect(held.putBacks, isEmpty);
+    });
+
+    test('an unknown 409 on sign-in is the ordinary failure, no panel, and '
+        'the stranger session is not left held', () async {
+      held.token = 'sess_keychain';
+      rows.rows = [identityRow()];
+      final account = FakeAccountRepository(
+        linkAnswers: const [
+          AccountLinkResult.unknownConflict(error: 'proof required'),
+        ],
+      );
+      final cubit = cubitFor(account);
+      await cubit.load();
+      final seen = record(cubit);
+
+      await cubit.signIn(IdentityProvider.google);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(seen.where((s) => s.leave != null), isEmpty);
+      expect(account.signOutCalls, 0);
+      expect(cubit.state.status, AccountStatus.unfinished);
+      expect(
+        cubit.state.errorMessage,
+        'Sign-in did not go through. Try again.',
+      );
+      expect(held.token, 'sess_keychain');
+    });
+  });
+
   group('rule 4: leave panel', () {
     FakeAccountRepository refusedThenClaimed() => FakeAccountRepository(
       linkAnswers: const [

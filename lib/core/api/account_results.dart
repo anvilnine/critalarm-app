@@ -74,6 +74,12 @@ sealed class AccountLinkResult with _$AccountLinkResult {
 
   /// 401. A bad device token, or a session that has died.
   const factory AccountLinkResult.unauthorized() = AccountLinkUnauthorized;
+
+  /// A 409 whose `error` this build does not know, `proof required`
+  /// included. Shown as an add or sign-in that did not go through, never as
+  /// one of the prompts above.
+  const factory AccountLinkResult.unknownConflict({String? error}) =
+      AccountLinkUnknownConflict;
 }
 
 /// One row of `GET /v1/account/identities` (api.md §3.7): one way to sign in

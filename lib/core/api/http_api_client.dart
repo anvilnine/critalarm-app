@@ -402,7 +402,11 @@ final class HttpApiClient
         ),
         'identity has another account' =>
           const AccountLinkResult.identityHasAnotherAccount(),
-        _ => const AccountLinkResult.accountHasAnotherIdentity(),
+        'account has another identity' =>
+          const AccountLinkResult.accountHasAnotherIdentity(),
+        final Object? error => AccountLinkResult.unknownConflict(
+          error: error is String ? error : null,
+        ),
       };
     }
     final accountId = json['account_id'] as String;
