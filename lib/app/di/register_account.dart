@@ -4,11 +4,14 @@ import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/held_account_scope.dart';
 import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -20,12 +23,16 @@ import 'package:critalarm/core/store/services/google_sign_in_sheet.dart';
 import 'package:critalarm/core/store/services/sign_in_options.dart';
 import 'package:critalarm/core/store/services/store_billing.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
+import 'package:critalarm/features/account/data/repositories/api_account_identities_repository.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/identity_token_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
+import 'package:critalarm/features/account/domain/repositories/account_identities_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
+import 'package:critalarm/features/account/domain/usecases/sign_in_restore.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/in_app_notices/domain/cancel_question/cancel_answer_sender.dart';
@@ -57,7 +64,7 @@ void registerAccount(
         google: getIt<GoogleSignInSheet>(),
       ),
     )
-    ..registerLazySingleton<IdentityRepository>(
+    ..registerLazySingleton<HttpIdentityRepository>(
       () => HttpIdentityRepository(
         httpClient: httpClient ?? http.Client(),
         sessions: getIt<ApiSessionStore>(),
@@ -69,6 +76,25 @@ void registerAccount(
             ? KeychainIdentityTokenStore(getIt<SharedPreferences>())
             : PrefsIdentityTokenStore(getIt<SharedPreferences>()),
         identityChanges: appAccountIdentityChanges,
+      ),
+    )
+    // One repository, two views of it: the sign-in, and the session token
+    // read and written on its own.
+    ..registerLazySingleton<IdentityRepository>(
+      () => getIt<HttpIdentityRepository>(),
+    )
+    ..registerLazySingleton<HeldSession>(() => getIt<HttpIdentityRepository>())
+    ..registerLazySingleton<AccountIdentitiesRepository>(
+      () => ApiAccountIdentitiesRepository(api: getIt<ApiClient>()),
+    )
+    // One for the app, so the launch, the account screen and the Settings
+    // card share a run, and a moved phone skips it for the whole launch.
+    ..registerLazySingleton<SignInRestore>(
+      () => SignInRestore(
+        identities: getIt<IdentityRepository>(),
+        account: getIt<AccountRepository>(),
+        accountIdentities: getIt<AccountIdentitiesRepository>(),
+        held: getIt<HeldSession>(),
       ),
     )
     ..registerLazySingleton<AccountRepository>(
@@ -176,6 +202,29 @@ void registerAccountCubit(GetIt getIt) {
     () => AccountCubit(
       identities: getIt<IdentityRepository>(),
       account: getIt<AccountRepository>(),
+      restore: getIt<SignInRestore>(),
+      held: getIt<HeldSession>(),
+      // The topic list this phone holds, the one Home shows.
+      readTopicCount: () async => getIt<TopicsCubit>().state.topics.length,
+      readLiveIncidentId: () => _readLiveIncidentId(getIt),
+      // The host answers "unsupported" when it cannot be reached, which
+      // RingClaim reads as the quiet wording on an iPhone.
+      readRingClaim: () async =>
+          RingClaim.forPhone(await getIt<AlarmHost>().authorizationStatus()),
     ),
   );
+}
+
+/// An alarm ringing or set to ring on this phone, or else one the server
+/// still has open. Null when neither, or when the server cannot be asked:
+/// leaving then goes ahead as an ordinary sign-out does.
+Future<String?> _readLiveIncidentId(GetIt getIt) async {
+  final ringing = getIt<IncidentAlarmController>().alarmingIncidentIds;
+  if (ringing.isNotEmpty) return ringing.first;
+  try {
+    final open = await getIt<ApiClient>().getIncidents(limit: 1, state: 'open');
+    return open.isEmpty ? null : open.first.id;
+  } on Object catch (_) {
+    return null;
+  }
 }
