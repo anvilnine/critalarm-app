@@ -25,6 +25,7 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
+import 'package:critalarm/features/account/presentation/sign_in_methods_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_loudness_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
@@ -136,6 +137,7 @@ abstract final class AppRoute {
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
   static const joinCode = 'joinCode';
+  static const signInMethods = 'signInMethods';
   static const ringingSettings = 'ringingSettings';
   static const helpFeedback = 'helpFeedback';
   static const privacySettings = 'privacySettings';
@@ -701,6 +703,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         key: state.pageKey,
                         opaque: true,
                         child: const JoinCodeScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'sign-in-methods',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.signInMethods,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const SignInMethodsScreen(),
                       ),
                     ),
                     // Its own route rather than a dialog: there is too much

@@ -180,12 +180,26 @@ final class ScopedApiClient
   Future<AccountLinkResult> linkAccount({
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
-  }) => _inner.linkAccount(identityToken: identityToken, intent: intent);
+    String? proofToken,
+  }) => _inner.linkAccount(
+    identityToken: identityToken,
+    intent: intent,
+    proofToken: proofToken,
+  );
 
   @override
   Future<List<AccountIdentityRow>> listAccountIdentities({
     String? identityToken,
   }) => _inner.listAccountIdentities(identityToken: identityToken);
+
+  @override
+  Future<AccountIdentityRemoveResult> removeAccountIdentity({
+    required String identityId,
+    required String identityToken,
+  }) => _inner.removeAccountIdentity(
+    identityId: identityId,
+    identityToken: identityToken,
+  );
 
   @override
   Future<AccountJoinTokenResult> mintAccountJoinToken() =>

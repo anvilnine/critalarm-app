@@ -193,11 +193,13 @@ class MockApiClient
   Future<AccountLinkResult> linkAccount({
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) async {
     return server.linkAccount(
       deviceToken: deviceToken ?? '',
       identityToken: identityToken,
       intent: intent,
+      proofToken: intent == AccountLinkIntent.link ? proofToken : null,
     );
   }
 
@@ -206,6 +208,16 @@ class MockApiClient
     String? identityToken,
   }) async => server.listAccountIdentities(
     deviceToken: deviceToken ?? '',
+    identityToken: identityToken,
+  );
+
+  @override
+  Future<AccountIdentityRemoveResult> removeAccountIdentity({
+    required String identityId,
+    required String identityToken,
+  }) async => server.removeAccountIdentity(
+    deviceToken: deviceToken ?? '',
+    identityId: identityId,
     identityToken: identityToken,
   );
 

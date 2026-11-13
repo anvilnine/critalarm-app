@@ -5,6 +5,7 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
+import 'package:critalarm/features/account/domain/repositories/account_identities_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
@@ -30,6 +31,7 @@ class AccountCubit extends Cubit<AccountState> {
     this.readTopicCount,
     this.readLiveIncidentId,
     this.readRingClaim,
+    this.accountIdentities,
   }) : super(const AccountState());
 
   final IdentityRepository identities;
@@ -49,6 +51,10 @@ class AccountCubit extends Cubit<AccountState> {
   /// Leaving is refused while there is one.
   final Future<String?> Function()? readLiveIncidentId;
 
+  /// The identities list, read for the "Ways to sign in" row. Null in a
+  /// test that has no row.
+  final AccountIdentitiesRepository? accountIdentities;
+
   /// Which words a line about ringing may use here. Null reads as
   /// [RingClaim.alarm].
   final Future<RingClaim> Function()? readRingClaim;
@@ -64,20 +70,6 @@ class AccountCubit extends Cubit<AccountState> {
   HeldSnapshot? _heldBefore;
 
   bool supports(IdentityProvider provider) => identities.supports(provider);
-
-  /// The providers this phone can offer that the account does not hold yet.
-  ///
-  /// Empty when nobody is signed in, and never holds Apple on Android, which
-  /// [IdentityRepository.supports] already rules out for the sign-in buttons.
-  List<IdentityProvider> get addableProviders {
-    final identity = state.identity;
-    if (identity == null) return const [];
-    return [
-      for (final provider in IdentityProvider.values)
-        if (identities.supports(provider) && !identity.holds(provider))
-          provider,
-    ];
-  }
 
   Future<void> load() async {
     final mode = await account.readServerMode();
@@ -95,12 +87,16 @@ class AccountCubit extends Cubit<AccountState> {
     if (isClosed) return;
     switch (outcome) {
       case SignInRestoreSignedIn(:final identity):
+        final ways = await _liveWays();
+        if (isClosed) return;
         emit(
           state.copyWith(
             status: AccountStatus.signedIn,
             mode: mode,
             identity: identity,
             holdsHosted: holdsHosted,
+            signInWays: ways,
+            clearSignInWays: ways == null,
             clearUnfinished: true,
           ),
         );
@@ -116,6 +112,7 @@ class AccountCubit extends Cubit<AccountState> {
             unfinished: unfinished,
             ringClaim: claim,
             clearIdentity: true,
+            clearSignInWays: true,
           ),
         );
       case SignInRestoreSignedOut():
@@ -126,8 +123,26 @@ class AccountCubit extends Cubit<AccountState> {
             holdsHosted: holdsHosted,
             clearIdentity: true,
             clearUnfinished: true,
+            clearSignInWays: true,
           ),
         );
+    }
+  }
+
+  /// How many ways to sign in the account holds, read with the held
+  /// session. Null when the session is not of an identity on the account,
+  /// or the list cannot be read: the row is then left out.
+  Future<int?> _liveWays() async {
+    final list = accountIdentities;
+    final h = held;
+    if (list == null || h == null) return null;
+    try {
+      final token = await h.readOwnToken();
+      if (token == null) return null;
+      final rows = await list.list(identityToken: token);
+      return rows.any((row) => row.current) ? rows.length : null;
+    } on Object catch (_) {
+      return null;
     }
   }
 
@@ -418,126 +433,11 @@ class AccountCubit extends Cubit<AccountState> {
     }
   }
 
-  /// Adds another way in to the account this phone already has.
-  ///
-  /// Same provider sheet the sign-in screen runs, then the same route with
-  /// `intent: link`, which is the only thing that tells the server this is
-  /// somebody adding their second provider rather than a second person
-  /// signing in on a borrowed handset (api.md §3.7).
-  Future<void> addProvider(IdentityProvider provider) async {
-    if (state.identity == null || state.isBusy) return;
-    emit(
-      state.copyWith(
-        status: AccountStatus.working,
-        linkingProvider: provider,
-        clearError: true,
-      ),
-    );
-    final IdentitySession session;
-    try {
-      session = await identities.signIn(provider);
-    } on IdentitySignInCancelled {
-      // Backing out of the sheet is not a failure, so nothing is said about
-      // it.
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          status: AccountStatus.signedIn,
-          clearLinkingProvider: true,
-        ),
-      );
-      return;
-    } on Object catch (_) {
-      _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
-      return;
-    }
-    if (isClosed) return;
-    await _addProviderOnce(session, canRetry: true);
-  }
-
-  Future<void> _addProviderOnce(
-    IdentitySession session, {
-    required bool canRetry,
-  }) async {
-    final result = await account.link(
-      session.token,
-      intent: AccountLinkIntent.link,
-    );
-    if (isClosed) return;
-    switch (result) {
-      // `already_linked` is a retry after a dropped reply landing on work
-      // that is already done, so it looks like success and says nothing.
-      case AccountLinkLinked(:final accountId) ||
-          AccountLinkAlreadyLinked(:final accountId) ||
-          AccountLinkClaimed(:final accountId) ||
-          AccountLinkAttached(:final accountId):
-        await _providerAdded(session, accountId);
-      case AccountLinkIdentityHasAnotherAccount():
-        _failAddProvider(LocaleKeys.account_error_identity_taken.tr());
-      case AccountLinkChoose() ||
-          AccountLinkAccountHasAnotherIdentity() ||
-          AccountLinkUnknownConflict():
-        // api.md §3.7 answers neither of these to `intent: link`. If a server
-        // ever does, the person is told the add did not happen rather than
-        // being shown a prompt built for the sign-in screen.
-        _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
-      case AccountLinkUnauthorized():
-        if (!canRetry) {
-          _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
-          return;
-        }
-        // The session died rather than the person being refused. Drop it and
-        // run the provider sheet once more. One retry, never a loop.
-        await identities.clearSession();
-        final IdentitySession retried;
-        try {
-          retried = await identities.signIn(session.provider);
-        } on Object catch (_) {
-          _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
-          return;
-        }
-        if (isClosed) return;
-        await _addProviderOnce(retried, canRetry: false);
-    }
-  }
-
-  /// The account now holds one more way in, and this phone holds the session
-  /// that came with it.
-  Future<void> _providerAdded(IdentitySession session, String accountId) async {
-    final identity = AccountIdentity(
-      provider: session.provider,
-      accountId: accountId,
-      email: session.email ?? state.identity?.email,
-      providers: {...?state.identity?.providers, session.provider},
-    );
-    await identities.saveIdentity(identity);
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        status: AccountStatus.signedIn,
-        identity: identity,
-        clearLinkingProvider: true,
-        clearError: true,
-      ),
-    );
-  }
-
   /// The person has read the error dialog. Drops the message so closing and
   /// reopening the screen does not show it a second time.
   void dismissError() {
     if (isClosed || state.errorMessage == null) return;
     emit(state.copyWith(clearError: true));
-  }
-
-  void _failAddProvider(String message) {
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        status: AccountStatus.signedIn,
-        errorMessage: message,
-        clearLinkingProvider: true,
-      ),
-    );
   }
 
   /// Mints a join code and holds it for the screen to show once.
@@ -762,8 +662,11 @@ class AccountCubit extends Cubit<AccountState> {
         // api.md §3.7 answers this to `intent: link` only, so the sign-in
         // screen never sees it. Said plainly rather than left silent.
         _failSignedOut(LocaleKeys.account_error_identity_taken.tr());
-      case AccountLinkUnknownConflict():
-        // A 409 this build does not know. The ordinary failure, never the
+      case AccountLinkUnknownConflict() ||
+          AccountLinkProofRequired() ||
+          AccountLinkCapIdentities():
+        // A 409 this build does not know, or one `intent: sign_in` never
+        // gets. The ordinary failure, never the
         // leave panel: leaving is only offered for the one answer that
         // means it.
         _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
@@ -791,10 +694,14 @@ class AccountCubit extends Cubit<AccountState> {
     if (isClosed) return;
     _pending = null;
     _heldBefore = null;
+    final ways = await _liveWays();
+    if (isClosed) return;
     emit(
       state.copyWith(
         status: AccountStatus.signedIn,
         identity: identity,
+        signInWays: ways,
+        clearSignInWays: ways == null,
         clearChoice: true,
         clearError: true,
         clearLiveIncident: true,

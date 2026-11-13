@@ -251,6 +251,7 @@ void main() {
       await client.linkAccount(
         identityToken: 'sess_second',
         intent: AccountLinkIntent.link,
+        proofToken: 'sess_first',
       );
 
       final rows = await client.listAccountIdentities(

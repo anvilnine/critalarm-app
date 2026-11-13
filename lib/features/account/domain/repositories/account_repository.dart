@@ -8,9 +8,13 @@ abstract interface class AccountRepository {
   /// [intent] says which screen the person was on. The sign-in screen sends
   /// `sign_in`; the account screen, under the button that adds another way in,
   /// sends `link` (api.md §3.7).
+  ///
+  /// [proofToken] goes with `intent: link` only: the session the phone holds,
+  /// of an identity already on the account.
   Future<AccountLinkResult> link(
     String identityToken, {
     AccountLinkIntent intent,
+    String? proofToken,
   });
 
   /// Mints a fresh join code for this account and hands it back once. The

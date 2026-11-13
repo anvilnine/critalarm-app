@@ -377,6 +377,7 @@ final class HttpApiClient
   Future<AccountLinkResult> linkAccount({
     required String identityToken,
     AccountLinkIntent intent = AccountLinkIntent.signIn,
+    String? proofToken,
   }) async {
     final (session, uri) = await _sessionUri(const ['account', 'link']);
     final response = await _send(
@@ -386,6 +387,9 @@ final class HttpApiClient
       body: {
         'identity_token': identityToken,
         'intent': intent.wireValue,
+        // `intent: sign_in` never reads it, so it is never sent there.
+        if (intent == AccountLinkIntent.link && proofToken != null)
+          'proof_token': proofToken,
       },
       tolerate: const {401, 409},
     );
@@ -404,6 +408,9 @@ final class HttpApiClient
           const AccountLinkResult.identityHasAnotherAccount(),
         'account has another identity' =>
           const AccountLinkResult.accountHasAnotherIdentity(),
+        'proof required' => const AccountLinkResult.proofRequired(),
+        'cap' when json['cap'] == 'identities' =>
+          const AccountLinkResult.capIdentities(),
         final Object? error => AccountLinkResult.unknownConflict(
           error: error is String ? error : null,
         ),
@@ -448,6 +455,45 @@ final class HttpApiClient
     // The server sends them oldest first. Sorted again so a reader can rely
     // on it whatever arrives.
     return parsed..sort((a, b) => a.linkedAt.compareTo(b.linkedAt));
+  }
+
+  @override
+  Future<AccountIdentityRemoveResult> removeAccountIdentity({
+    required String identityId,
+    required String identityToken,
+  }) async {
+    final (session, uri) = await _sessionUri([
+      'account',
+      'identities',
+      identityId,
+    ]);
+    final response = await _send(
+      'DELETE',
+      uri,
+      auth: session.managementCredential,
+      body: {'identity_token': identityToken},
+      tolerate: const {401, 403, 404, 409},
+      // A 401 here is most often the session in the body, not the device
+      // token, so it never wipes the account the way a dead `dv_` does.
+      recoversDeadCredential: false,
+    );
+    switch (response.statusCode) {
+      case 401:
+        return const AccountIdentityRemoveResult.unauthorized();
+      case 403:
+        return const AccountIdentityRemoveResult.recentSignInRequired();
+      case 404:
+        return const AccountIdentityRemoveResult.notFound();
+      case 409:
+        final json = _json(response) as Map<String, dynamic>;
+        if (json['error'] == 'live incident') {
+          return AccountIdentityRemoveResult.liveIncident(
+            incidentId: json['incident_id'] as String? ?? '',
+          );
+        }
+        return const AccountIdentityRemoveResult.lastIdentity();
+    }
+    return const AccountIdentityRemoveResult.removed();
   }
 
   @override
