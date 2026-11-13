@@ -12,6 +12,10 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The yellow pill on the tab bar now slides to the tab you pick, and the current tab's name is bolder.
 - The colour cards on a topic and on Personalize now sit at a clear, even lean, each one turned the other way from the card above it.
 - Settings is easier to scan. Your plan and account sit in a card on top, and the rest is grouped under clear titles: Alarms, App, Server and data, Help. The ring switches and Priorities moved to Ringing, Feature Guides to Help and feedback, and Sign out and Delete account to Account and plan.
+- Signing in with another account on a phone that is on someone's account now offers to leave it and sign in, instead of an error with no way out. Its topics stop sounding on this phone and stay on that account.
+
+### Fixed
+- After reinstalling on iPhone, you are signed in again on your own with no prompt when your session is still good. When it is not, the account card says which account the phone is on, with one button to finish signing in.
 
 ### Removed
 - Pulsing klaxon, Tone ladder and Pager beep are gone. Anything set to one of them now rings Endless climb.
