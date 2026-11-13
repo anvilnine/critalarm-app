@@ -4,7 +4,9 @@ import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
+import 'package:critalarm/features/account/domain/repositories/account_identities_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/account/domain/repositories/held_session.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 
 final class FakeIdentityRepository implements IdentityRepository {
@@ -98,6 +100,10 @@ final class FakeAccountRepository implements AccountRepository {
 
   final List<String> linkTokens = [];
 
+  /// Thrown by every link call instead of answering, which is what offline
+  /// looks like.
+  Exception? linkError;
+
   /// Held open by a test that wants to look at the screen while a link is
   /// still in flight. Null means link answers straight away.
   Completer<void>? linkGate;
@@ -115,6 +121,9 @@ final class FakeAccountRepository implements AccountRepository {
   Exception? joinTokenError;
 
   int joinTokenCalls = 0;
+
+  /// Every server call, in order: `link`, `merge`, `switch`, `signOut`.
+  final List<String> calls = [];
   int mergeCalls = 0;
   int switchCalls = 0;
   int signOutCalls = 0;
@@ -124,8 +133,11 @@ final class FakeAccountRepository implements AccountRepository {
     String identityToken, {
     AccountLinkIntent intent = AccountLinkIntent.signIn,
   }) async {
+    calls.add('link');
     linkTokens.add(identityToken);
     linkIntents.add(intent);
+    final error = linkError;
+    if (error != null) throw error;
     final answer = linkTokens.length - 1;
     final gate = linkGate;
     if (gate != null) await gate.future;
@@ -145,6 +157,7 @@ final class FakeAccountRepository implements AccountRepository {
     required String identityToken,
     required String intoAccount,
   }) async {
+    calls.add('merge');
     mergeCalls++;
     return mergeAnswer;
   }
@@ -154,12 +167,14 @@ final class FakeAccountRepository implements AccountRepository {
     required String identityToken,
     required String intoAccount,
   }) async {
+    calls.add('switch');
     switchCalls++;
     return switchAnswer;
   }
 
   @override
   Future<void> signOutDevice() async {
+    calls.add('signOut');
     signOutCalls++;
     final error = signOutError;
     if (error != null) throw error;
@@ -185,8 +200,70 @@ final class FakeAccountRepository implements AccountRepository {
   @override
   Future<bool> readHoldsHosted() async => holdsHosted;
 
-  ServerMode mode = ServerMode.hosted;
+  ServerMode? mode = ServerMode.hosted;
 
   @override
   Future<ServerMode?> readServerMode() async => mode;
 }
+
+/// The session token held on its own, as a reinstalled iPhone keeps it in
+/// the Keychain with nothing in the preferences.
+final class FakeHeldSession implements HeldSession {
+  FakeHeldSession([this.token]);
+
+  String? token;
+
+  /// Every session written back, in order.
+  final List<IdentitySession> kept = [];
+
+  @override
+  Future<String?> readOwnToken() async => token;
+
+  @override
+  Future<void> keep(IdentitySession session) async {
+    kept.add(session);
+    token = session.token;
+  }
+}
+
+/// `GET /v1/account/identities`, scripted.
+final class FakeAccountIdentities implements AccountIdentitiesRepository {
+  FakeAccountIdentities([this.rows = const []]);
+
+  List<AccountIdentityRow> rows;
+
+  /// Thrown instead of answering.
+  Exception? error;
+
+  /// The session sent with each call, nulls included.
+  final List<String?> sentTokens = [];
+
+  @override
+  Future<List<AccountIdentityRow>> list({String? identityToken}) async {
+    sentTokens.add(identityToken);
+    final thrown = error;
+    if (thrown != null) throw thrown;
+    // The server unmasks and marks current only for a session on the
+    // account. A test scripts what it wants back, so this hands it over.
+    return rows;
+  }
+}
+
+/// One row the way the server writes it.
+AccountIdentityRow identityRow({
+  String id = 'idn_1',
+  String provider = 'google',
+  String? email,
+  String? emailHint = 'z•••@gmail.com',
+  bool emailHidden = false,
+  int linkedAt = 1763000000,
+  bool current = false,
+}) => AccountIdentityRow(
+  id: id,
+  provider: provider,
+  email: email,
+  emailHint: emailHidden ? null : emailHint,
+  emailHidden: emailHidden,
+  linkedAt: DateTime.fromMillisecondsSinceEpoch(linkedAt * 1000, isUtc: true),
+  current: current,
+);
