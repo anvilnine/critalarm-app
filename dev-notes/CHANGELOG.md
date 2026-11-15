@@ -6,6 +6,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppTitledCard and AppCardRow in lib/design for titled groups of one-line rows, and a person glyph.
 - GET /v1/account/identities on ApiClient and the mock server, SignInRestore, HeldSession and AccountIdentitiesRepository. AccountState gains unfinished, leave and ringClaim; the account.error\_other\_identity keys are removed.
 - DELETE /v1/account/identities/{id}, proof\_token on intent link, and the proof required and identity cap results on ApiClient and the mock server. SignInMethodsCubit and its page; AccountCubit drops addProvider and gains signInWays. A restore only reads the identities list, and an unknown 409 on sign-in is its own result.
+- Developer options gain a Folding display section on Android (PlatformCapabilities.canEmulateFoldDivision): iPhone Duo division, keep it on a flat device, and its overlay. DevFoldDivisionSwitches keeps them in the prefs keys dev.fold\_division.on, dev.fold\_division.flat and dev.fold\_division.overlay, all off by default.
+
+### Changed
+- The fold of a folding phone comes from the foldable\_ext package on both platforms: AppFoldScope in lib/core/device/fold\_scope.dart replaces NativeFoldScope, and DisplayFoldChannel (app.critalarm/display) and lib/core/device/native\_fold.dart are removed.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
