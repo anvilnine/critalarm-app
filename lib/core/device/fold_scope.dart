@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show DisplayFeature, DisplayFeatureType;
 
 import 'package:critalarm/core/device/fold_division_switches.dart';
@@ -68,6 +69,85 @@ List<DisplayFeature> foldFeaturesAcrossWindow(
   return changed ? out : features;
 }
 
+/// Whether layout follows the iPhone rules: on an iPhone, and on a device
+/// that is rendered as one ([isRenderedAsIphone], see
+/// [AppFoldScope.isRenderedAsIphoneOf]).
+///
+/// Layout only. What the platform can do (alarms, notifications, purchases)
+/// is still asked of `PlatformCapabilities`, which answers for the real
+/// device.
+bool layoutIsIphone({
+  required bool isIphone,
+  required bool isRenderedAsIphone,
+}) => isIphone || isRenderedAsIphone;
+
+/// What `MediaQueryData.fromView` answers for the window the app is drawn
+/// in: [view] as it is, or the window of the device in [emulation] while
+/// the app is rendered as one.
+///
+/// - No emulation: [view], the same instance.
+/// - The window size is matched: the size and the safe area of the emulated
+///   window, a pixel ratio multiplied by its scale, no keyboard inset, no
+///   system gesture insets and no display features. An iPhone reports no
+///   display features through its view either.
+/// - The window size is kept: [view] with the safe area of the emulation.
+///
+/// The text size, the brightness and every other setting are those of
+/// [view].
+MediaQueryData appWindowMediaFor(
+  MediaQueryData view,
+  DeviceEmulation? emulation,
+) {
+  if (emulation == null) return view;
+  final safeArea = emulation.safeArea;
+  if (!emulation.matchesWindowSize) {
+    final keyboard = view.viewInsets;
+    return view.copyWith(
+      viewPadding: safeArea,
+      padding: EdgeInsets.fromLTRB(
+        math.max(0, safeArea.left - keyboard.left),
+        math.max(0, safeArea.top - keyboard.top),
+        math.max(0, safeArea.right - keyboard.right),
+        math.max(0, safeArea.bottom - keyboard.bottom),
+      ),
+    );
+  }
+  return view.copyWith(
+    size: emulation.windowSize,
+    devicePixelRatio: view.devicePixelRatio * emulation.scale,
+    padding: safeArea,
+    viewPadding: safeArea,
+    viewInsets: EdgeInsets.zero,
+    systemGestureInsets: EdgeInsets.zero,
+    displayFeatures: const <DisplayFeature>[],
+  );
+}
+
+/// The window the app is drawn in, for code that has to step outside the
+/// `MediaQuery` it is under: a pane's `MediaQuery` has lost the side insets
+/// and the status bar the window has.
+///
+/// Ask this in place of `MediaQueryData.fromView(View.of(context))`. The
+/// view is the real screen, which is another size with another safe area
+/// while the app is rendered as an iPhone Duo.
+MediaQueryData appWindowMediaOf(BuildContext context) => appWindowMediaFor(
+  MediaQueryData.fromView(View.of(context)),
+  FoldDivision.emulationOf(context),
+);
+
+/// The bounds of the render box of [context] in the coordinates of the
+/// window `MediaQuery` describes, or null before the box is laid out.
+///
+/// Use it for a rect that is drawn or compared in window coordinates: an
+/// overlay over the app, a route that grows out of a card.
+/// `RenderBox.localToGlobal` answers for the real screen, which is not the
+/// window while the app is rendered as an iPhone Duo. Everywhere else the
+/// two agree.
+///
+/// Call it after layout, from a post-frame callback or an event handler.
+Rect? appWindowRectOf(BuildContext context) =>
+    FoldDivision.windowRectOf(context);
+
 /// How much of the fold goes into `MediaQuery.displayFeatures`: the division
 /// and the cutouts, because `AppFold` reads the fold from there.
 const DisplayFeatureBridgeMode appFoldBridgeMode =
@@ -84,8 +164,15 @@ const DisplayFeatureBridgeMode appFoldBridgeMode =
 ///   hinge is partly open. Flat or closed, there is no fold.
 /// - Android: the engine fills `MediaQuery.displayFeatures` itself and the
 ///   list goes through untouched. With the developer switch on
-///   ([switches]), the hinge is reported as an iPhone Duo division instead.
+///   ([switches]), a foldable renders the app as an iPhone Duo instead: the
+///   subtree is laid out in the iPhone Duo window, scaled to fit the screen,
+///   and `MediaQuery` under the scope describes that window, its safe area
+///   and its division. [isRenderedAsIphoneOf] says so.
 /// - Everywhere else there is no fold.
+///
+/// While the app is rendered as an iPhone Duo, `RenderBox.localToGlobal`
+/// and the view still answer for the real screen. [appWindowRectOf] and
+/// [appWindowMediaOf] answer for the window.
 ///
 /// Place it once, inside the `MaterialApp` builder, above the router. Every
 /// widget it adds is there fold or not, so the tree keeps its shape (and its
@@ -98,6 +185,11 @@ class AppFoldScope extends StatelessWidget {
   final DevFoldDivisionSwitches? switches;
 
   final Widget child;
+
+  /// Whether the subtree of [context] is rendered as an iPhone Duo on a
+  /// device that is not one. The caller rebuilds when that changes.
+  static bool isRenderedAsIphoneOf(BuildContext context) =>
+      FoldDivision.emulatedDeviceOf(context) != null;
 
   @override
   Widget build(BuildContext context) {

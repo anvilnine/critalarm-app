@@ -88,7 +88,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     initialLocation: widget.initialLocation,
   );
 
-  /// An iPhone tells an unfolded iPhone Fold from an iPad.
+  /// An iPhone tells an unfolded iPhone Fold from an iPad. A device that
+  /// is rendered as an iPhone Duo counts as one for layout too, which is
+  /// worked out under the fold scope.
   late final bool _isIphone =
       getIt.isRegistered<DeviceForm>() && getIt<DeviceForm>().isIphone;
 
@@ -427,18 +429,29 @@ class _CritAlarmAppState extends State<CritAlarmApp>
               onLoaded: _quickActions.start,
               // A folding iPhone's fold joins `MediaQuery` here, since
               // Flutter reports none on iOS. An Android foldable's own
-              // list goes through as the engine gave it.
+              // list goes through as the engine gave it, unless a developer
+              // switch has it render the app as an iPhone Duo.
               child: AppFoldScope(
                 switches: _foldSwitches,
-                child: AppDeviceScope(
-                  isIphone: _isIphone,
-                  child: FeatureGuideHost(
-                    router: _router,
-                    child: ConnectLinkHost(
+                // Under the fold scope, which knows whether the app is
+                // rendered as an iPhone Duo. Always there, so the tree
+                // keeps its shape.
+                child: Builder(
+                  builder: (context) => AppDeviceScope(
+                    isIphone: layoutIsIphone(
+                      isIphone: _isIphone,
+                      isRenderedAsIphone: AppFoldScope.isRenderedAsIphoneOf(
+                        context,
+                      ),
+                    ),
+                    child: FeatureGuideHost(
                       router: _router,
-                      child: AppAmbientShell(
+                      child: ConnectLinkHost(
                         router: _router,
-                        child: child ?? const SizedBox.shrink(),
+                        child: AppAmbientShell(
+                          router: _router,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

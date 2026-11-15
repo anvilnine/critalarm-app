@@ -2,7 +2,7 @@ import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/fold.dart';
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foldable_ext/foldable_ext.dart';
 
@@ -32,7 +32,199 @@ List<DisplayFeature> _onDuo(
   return foldFeaturesAcrossWindow(published, published, window);
 }
 
+// Said outright: the package default is on in a debug build only.
+// ignore: avoid_redundant_argument_values
+const _divisionOn = FoldDivisionConfig(enabled: true);
+
+/// What the package publishes on an Android foldable that is rendered as an
+/// iPhone Duo: the features it builds from the emulated window [state].
+List<DisplayFeature> _publishedAsDuo(
+  EmulatedDeviceState state,
+  HingeStatus status,
+) {
+  final emulated = emulateDeviceData(
+    data: FoldableData(
+      capabilities: FoldableData.unsupported.capabilities,
+      status: status,
+      angleDegrees: null,
+      regions: const [],
+      displayFeatures: const [],
+    ),
+    state: state,
+    config: _divisionOn,
+  );
+  return DisplayFeatureBridge.build(
+    mode: appFoldBridgeMode,
+    regions: emulated.regions,
+    status: emulated.status,
+  );
+}
+
+/// What reaches `MediaQuery` there: the package swaps the engine's list for
+/// the one it publishes, so both lists are the same.
+List<DisplayFeature> _asDuo(EmulatedDeviceState state, HingeStatus status) {
+  final published = _publishedAsDuo(state, status);
+  return foldFeaturesAcrossWindow(published, published, state.windowSize);
+}
+
 void main() {
+  group('an Android foldable rendered as an iPhone Duo', () {
+    const duo = EmulatedDevice.iphoneDuo;
+
+    test('partly folded with the fold upright reads as book', () {
+      final state = duo.innerLandscape;
+      final features = _asDuo(state, HingeStatus.partiallyOpen);
+      final fold = AppFold.fromFeatures(features, state.windowSize);
+      expect(fold.isBook, isTrue);
+      expect(fold.bounds, const Rect.fromLTWH(455.5, 0, 40, 669));
+    });
+
+    test('partly folded with the fold level reads as tabletop', () {
+      final state = duo.innerPortrait;
+      final features = _asDuo(state, HingeStatus.partiallyOpen);
+      final fold = AppFold.fromFeatures(features, state.windowSize);
+      expect(fold.isTabletop, isTrue);
+      expect(fold.bounds, const Rect.fromLTWH(0, 455.5, 669, 40));
+    });
+
+    test('the emulated fold already spans the window, so the list is '
+        'handed back as it is', () {
+      final state = duo.innerLandscape;
+      final published = _publishedAsDuo(state, HingeStatus.partiallyOpen);
+      expect(published, hasLength(1));
+      expect(
+        identical(
+          foldFeaturesAcrossWindow(published, published, state.windowSize),
+          published,
+        ),
+        isTrue,
+      );
+    });
+
+    test('laid flat has no fold', () {
+      final state = duo.innerLandscape;
+      final features = _asDuo(state, HingeStatus.fullyOpen);
+      expect(AppFold.fromFeatures(features, state.windowSize).isNone, isTrue);
+    });
+
+    test('the outer display has no fold, and its system strip is no '
+        'fold either', () {
+      final state = duo.outerPortrait;
+      final features = _asDuo(state, HingeStatus.partiallyOpen);
+      expect(
+        features.where((f) => f.type == DisplayFeatureType.fold),
+        isEmpty,
+      );
+      expect(AppFold.fromFeatures(features, state.windowSize).isNone, isTrue);
+    });
+  });
+
+  group('layoutIsIphone', () {
+    test('an iPhone follows the iPhone rules', () {
+      expect(
+        layoutIsIphone(isIphone: true, isRenderedAsIphone: false),
+        isTrue,
+      );
+    });
+
+    test('a device rendered as an iPhone Duo follows them too', () {
+      expect(
+        layoutIsIphone(isIphone: false, isRenderedAsIphone: true),
+        isTrue,
+      );
+    });
+
+    test('any other device does not', () {
+      expect(
+        layoutIsIphone(isIphone: false, isRenderedAsIphone: false),
+        isFalse,
+      );
+    });
+  });
+
+  group('appWindowMediaFor', () {
+    // A Galaxy Z Fold open and upright: its own bars, and a fold the engine
+    // reports.
+    const view = MediaQueryData(
+      size: Size(768, 884),
+      devicePixelRatio: 2.5,
+      padding: EdgeInsets.only(top: 32, bottom: 20),
+      viewPadding: EdgeInsets.only(top: 32, bottom: 20),
+      systemGestureInsets: EdgeInsets.only(left: 30, right: 30),
+      textScaler: TextScaler.linear(1.3),
+      displayFeatures: [
+        DisplayFeature(
+          bounds: Rect.fromLTWH(384, 0, 0, 884),
+          type: DisplayFeatureType.fold,
+          state: DisplayFeatureState.postureHalfOpened,
+        ),
+      ],
+    );
+
+    test('with no emulation the view is handed back as it is', () {
+      expect(identical(appWindowMediaFor(view, null), view), isTrue);
+    });
+
+    test('a matched window has the size, the safe area and the scale of '
+        'the emulated one', () {
+      final state = EmulatedDevice.iphoneDuo.innerLandscape;
+      final window = appWindowMediaFor(
+        view,
+        DeviceEmulation(
+          device: EmulatedDevice.iphoneDuo,
+          kind: EmulatedWindowKind.innerLandscape,
+          matchesWindowSize: true,
+          windowSize: state.windowSize,
+          safeArea: state.safeArea,
+          scale: 0.8,
+        ),
+      );
+      expect(window.size, const Size(951, 669));
+      expect(window.padding, const EdgeInsets.only(right: 84));
+      expect(window.viewPadding, const EdgeInsets.only(right: 84));
+      expect(window.devicePixelRatio, 2);
+      expect(window.viewInsets, EdgeInsets.zero);
+      expect(window.systemGestureInsets, EdgeInsets.zero);
+      expect(window.displayFeatures, isEmpty);
+      expect(window.textScaler, const TextScaler.linear(1.3));
+    });
+
+    test('a window that keeps its size takes the safe area only', () {
+      const safeArea = EdgeInsets.only(top: 32, right: 84, bottom: 20);
+      final window = appWindowMediaFor(
+        view,
+        const DeviceEmulation(
+          device: EmulatedDevice.iphoneDuo,
+          kind: EmulatedWindowKind.innerLandscape,
+          matchesWindowSize: false,
+          windowSize: Size(768, 884),
+          safeArea: safeArea,
+        ),
+      );
+      expect(window.size, const Size(768, 884));
+      expect(window.devicePixelRatio, 2.5);
+      expect(window.viewPadding, safeArea);
+      expect(window.padding, safeArea);
+      expect(window.displayFeatures, view.displayFeatures);
+    });
+
+    test('the keyboard covers the bottom of a safe area that keeps its '
+        'size', () {
+      final window = appWindowMediaFor(
+        view.copyWith(viewInsets: const EdgeInsets.only(bottom: 300)),
+        const DeviceEmulation(
+          device: EmulatedDevice.iphoneDuo,
+          kind: EmulatedWindowKind.innerLandscape,
+          matchesWindowSize: false,
+          windowSize: Size(768, 884),
+          safeArea: EdgeInsets.only(top: 32, right: 84, bottom: 20),
+        ),
+      );
+      expect(window.padding, const EdgeInsets.only(top: 32, right: 84));
+      expect(window.viewPadding.bottom, 20);
+    });
+  });
+
   group('an iPhone Duo', () {
     test('partly folded with an upright division reads as book', () {
       final features = _onDuo(
