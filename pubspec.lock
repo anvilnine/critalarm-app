@@ -641,11 +641,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "6c44d249c7cfa651e850d39c1975137376311050"
-      resolved-ref: "6c44d249c7cfa651e850d39c1975137376311050"
+      ref: e48593c679db657922d2fc526b80e4b6c3d57e7b
+      resolved-ref: e48593c679db657922d2fc526b80e4b6c3d57e7b
       url: "https://github.com/kuyazee/foldable_ext.git"
     source: git
-    version: "0.1.0"
+    version: "0.2.0"
   freezed:
     dependency: "direct dev"
     description:

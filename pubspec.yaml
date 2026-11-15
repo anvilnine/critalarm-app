@@ -26,7 +26,7 @@ dependencies:
   foldable_ext:
     git:
       url: https://github.com/kuyazee/foldable_ext.git
-      ref: 6c44d249c7cfa651e850d39c1975137376311050
+      ref: e48593c679db657922d2fc526b80e4b6c3d57e7b
   freezed_annotation: ^3.1.0
   get_it: ^9.2.1
   go_router: ^17.3.0
