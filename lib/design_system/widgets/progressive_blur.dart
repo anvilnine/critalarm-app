@@ -95,6 +95,34 @@ class ProgressiveBlurEdge extends StatelessWidget {
   }
 }
 
+/// The two screen rows, in physical pixels, the edge blur shader fades
+/// between: the blur is whole from `full` outwards and gone at `clear`.
+///
+/// - [top] and [bottom]: where the strip is drawn, in logical pixels of the
+///   screen.
+/// - [height] and [plateau]: the strip and its full blur part as they are
+///   laid out. A strip drawn at another size than [height] scales the
+///   plateau with it.
+/// - [pixelRatio]: physical pixels per logical pixel of the screen.
+///
+/// The shader holds the full blur from the first row outwards, so moving
+/// that row in by the plateau keeps the blur full under the bar.
+({double full, double clear}) edgeBlurRows({
+  required double top,
+  required double bottom,
+  required double height,
+  required double plateau,
+  required bool isTop,
+  required double pixelRatio,
+}) {
+  final drawn = height > 0 ? (bottom - top) / height : 1.0;
+  final held = plateau.clamp(0.0, height) * drawn;
+  return (
+    full: (isTop ? top + held : bottom - held) * pixelRatio,
+    clear: (isTop ? bottom : top) * pixelRatio,
+  );
+}
+
 /// One plain blur, faded in towards the edge by `shaders/edge_blur.frag`.
 ///
 /// The engine blurs the strip once, which it does cheaply, and the shader sets
@@ -127,9 +155,11 @@ class _ShaderEdge extends StatefulWidget {
 class _ShaderEdgeState extends State<_ShaderEdge> {
   late final ui.FragmentShader _shader = widget.program.fragmentShader();
 
-  /// Screen y of the top of this strip, in logical pixels. Null until the
-  /// first measure, and nothing is drawn until then.
+  /// Screen y of the top and the bottom of this strip, in logical pixels of
+  /// the screen. Null until the first measure, and nothing is drawn until
+  /// then.
   double? _top;
+  double? _bottom;
 
   Animation<double>? _routeAnimation;
 
@@ -158,25 +188,39 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
     if (!mounted) return;
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
+    // Both ends, so a strip drawn smaller or larger than it is laid out
+    // (an app scaled to fit the screen) is measured at the size it is drawn.
     final top = box.localToGlobal(Offset.zero).dy;
-    if (top != _top) setState(() => _top = top);
+    final bottom = box.localToGlobal(Offset(0, widget.height)).dy;
+    if (top != _top || bottom != _bottom) {
+      setState(() {
+        _top = top;
+        _bottom = bottom;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
     final top = _top;
-    if (top == null) return const SizedBox.expand();
+    final bottom = _bottom;
+    if (top == null || bottom == null) return const SizedBox.expand();
 
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final bottom = top + widget.height;
-    // Floats 0 and 1 are the input size, which the engine sets. The shader
-    // holds the full blur from the first line outwards, so moving that line
-    // in by the plateau keeps the blur full under the bar.
-    final plateau = widget.plateau.clamp(0.0, widget.height);
+    // Floats 0 and 1 are the input size, which the engine sets.
+    final rows = edgeBlurRows(
+      top: top,
+      bottom: bottom,
+      height: widget.height,
+      plateau: widget.plateau,
+      isTop: widget.isTop,
+      // The screen's own ratio. `MediaQuery` can describe a window that is
+      // drawn at another scale.
+      pixelRatio: View.of(context).devicePixelRatio,
+    );
     _shader
-      ..setFloat(2, (widget.isTop ? top + plateau : bottom - plateau) * dpr)
-      ..setFloat(3, (widget.isTop ? bottom : top) * dpr);
+      ..setFloat(2, rows.full)
+      ..setFloat(3, rows.clear);
 
     return ClipRect(
       child: BackdropFilter(
