@@ -13,6 +13,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/settings/presentation/access_lab_rules.dart';
+import 'package:critalarm/features/settings/presentation/developer_fold_section.dart';
 import 'package:critalarm/features/settings/presentation/developer_options_group.dart';
 import 'package:critalarm/features/settings/presentation/developer_options_rules.dart';
 import 'package:critalarm/features/settings/presentation/developer_setup_section.dart';
@@ -40,6 +41,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
     final sections = developerSectionsFor(
       hasPlanSwitches: buildSkipsPaywall,
       hasSetupTools: developerSetupIsShown(),
+      hasFoldSwitches: developerFoldIsShown(),
     );
     return AppScreenScaffold(
       hasTabBar: false,
@@ -73,6 +75,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       DeveloperSection.plans => const _PlansSection(),
                       DeveloperSection.paywalls => const _PaywallsSection(),
                       DeveloperSection.setup => const DeveloperSetupSection(),
+                      DeveloperSection.fold => const DeveloperFoldSection(),
                       DeveloperSection.tools => const _ToolsSection(),
                     },
                 ],
