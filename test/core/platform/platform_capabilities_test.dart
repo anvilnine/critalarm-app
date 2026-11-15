@@ -170,5 +170,26 @@ void main() {
         ),
       );
     });
+
+    test('only the Android app can stand in for the fold division', () {
+      for (final platform in TargetPlatform.values) {
+        expect(
+          PlatformCapabilities(
+            isWeb: false,
+            platform: platform,
+          ).canEmulateFoldDivision,
+          platform == TargetPlatform.android,
+          reason: platform.name,
+        );
+        expect(
+          PlatformCapabilities(
+            isWeb: true,
+            platform: platform,
+          ).canEmulateFoldDivision,
+          isFalse,
+          reason: platform.name,
+        );
+      }
+    });
   });
 }
