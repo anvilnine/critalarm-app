@@ -19,7 +19,11 @@ enum AppPosture {
 
 /// The one fold or hinge that splits the window, if there is one.
 ///
-/// Built on what Flutter ships (`MediaQuery.displayFeatures`), no package.
+/// Read from `MediaQuery.displayFeatures`. On Android the engine fills that
+/// list. On a folding iPhone, where Flutter reports nothing, `AppFoldScope`
+/// (`lib/core/device/fold_scope.dart`) adds the fold it gets from the
+/// `foldable_ext` package.
+///
 /// A fold counts while it is half opened, and a hinge counts whenever it has
 /// a width, because a hinge hides pixels even when the device is flat. A fold
 /// opened flat is no fold, so a Galaxy Fold laid flat keeps the normal size
