@@ -7,9 +7,11 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - GET /v1/account/identities on ApiClient and the mock server, SignInRestore, HeldSession and AccountIdentitiesRepository. AccountState gains unfinished, leave and ringClaim; the account.error\_other\_identity keys are removed.
 - DELETE /v1/account/identities/{id}, proof\_token on intent link, and the proof required and identity cap results on ApiClient and the mock server. SignInMethodsCubit and its page; AccountCubit drops addProvider and gains signInWays. A restore only reads the identities list, and an unknown 409 on sign-in is its own result.
 - Developer options gain a Folding display section on Android (PlatformCapabilities.canEmulateFoldDivision): iPhone Duo division, keep it on a flat device, and its overlay. DevFoldDivisionSwitches keeps them in the prefs keys dev.fold\_division.on, dev.fold\_division.flat and dev.fold\_division.overlay, all off by default.
+- appWindowMediaOf and appWindowRectOf in lib/core/device/fold\_scope.dart answer for the window MediaQuery describes. Use them in place of MediaQueryData.fromView(View.of(context)) and of RenderBox.localToGlobal for a rect drawn in window coordinates: the view and global coordinates are the real screen while the app is rendered as an iPhone Duo. edgeBlurRows places the edge blur shader on a strip that is drawn scaled.
 
 ### Changed
 - The fold of a folding phone comes from the foldable\_ext package on both platforms: AppFoldScope in lib/core/device/fold\_scope.dart replaces NativeFoldScope, and DisplayFoldChannel (app.critalarm/display) and lib/core/device/native\_fold.dart are removed.
+- The first Folding display developer switch is now Render as an iPhone Duo: with foldable\_ext 0.2.0 an Android foldable lays the app out in the iPhone Duo window (size, safe area, fold), scaled to fit the screen, and AppDeviceScope.isIphone is true under it (layoutIsIphone, AppFoldScope.isRenderedAsIphoneOf). A fourth switch, Match the iPhone Duo screen size, is on by default and keeps false in the prefs key dev.fold\_division.match\_size.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
