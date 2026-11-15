@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
@@ -81,7 +82,7 @@ class RingingPreview extends StatefulWidget {
   /// of a phone held that way.
   static MediaQueryData screenOf(BuildContext context, {Size? size}) {
     final here = MediaQuery.of(context);
-    final view = MediaQueryData.fromView(View.of(context));
+    final view = appWindowMediaOf(context);
     final base = size == null
         ? view
         : view.copyWith(

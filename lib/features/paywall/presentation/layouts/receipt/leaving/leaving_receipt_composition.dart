@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/core/format/date_label.dart';
 import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/design.dart';
@@ -190,9 +191,8 @@ class LeavingReceiptComposition extends StatelessWidget {
       slip.strongest ?? LeavingRow.rang,
     );
     // The frame's safe area has taken the status bar out of the media
-    // query, so its height is read from the view: the air runs under it.
-    final view = View.of(context);
-    final bleedTop = view.viewPadding.top / view.devicePixelRatio;
+    // query, so its height is read from the window: the air runs under it.
+    final bleedTop = appWindowMediaOf(context).viewPadding.top;
 
     return PaywallCueScore(
       clock: scope.clock,
