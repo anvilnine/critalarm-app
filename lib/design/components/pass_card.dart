@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/components/pass_route.dart';
 import 'package:critalarm/design/components/pro_badge.dart';
@@ -389,7 +390,12 @@ class _AppPassCardState extends State<AppPassCard> {
     onTap(
       PassOrigin(
         pass: widget.pass,
-        rect: box.localToGlobal(Offset.zero) & box.size,
+        // In the coordinates of the window the page grows to fill, which
+        // `display` below describes.
+        rect:
+            (appWindowRectOf(context)?.topLeft ??
+                box.localToGlobal(Offset.zero)) &
+            box.size,
         tone: widget.tone,
         label: widget.label,
         value: widget.value,
