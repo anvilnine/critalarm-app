@@ -1,3 +1,4 @@
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/fold.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -95,7 +96,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     // The window's own insets, as the shell reads them: the scaffold takes
     // the side strip out of the padding its children see, and that strip is
     // what puts the rail beside an iPhone Duo's screen.
-    final padding = MediaQueryData.fromView(View.of(context)).padding;
+    final padding = appWindowMediaOf(context).padding;
     final placement = navPlacementFor(
       size,
       AppFold.of(context),

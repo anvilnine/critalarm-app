@@ -63,6 +63,6 @@ Mac sign-in waits for contract 1.23.0 (`platform: "macos"`) and A332.
 | `app.critalarm/device_identity` | Stubbed. Only the iPhone uses the Keychain stores (`KeychainDeviceIdentityStore`, `KeychainIdentityTokenStore`). The Mac keeps the identity in preferences. The Keychain move for the Mac is open. |
 | `app.critalarm/ui_sound` | Not registered. `UiSoundHost` catches `MissingPluginException`, so the paywall sounds are silent. |
 | `app.critalarm/maker_settings` | Not registered. Caught as `MissingPluginException` (Android only screen). |
-| `app.critalarm/display` and `app.critalarm/display/fold` | Not registered. `NativeFoldChannel` drops `MissingPluginException`, so there is no fold. |
+| `foldable/methods` and `foldable/events` (the `foldable` plugin, through `foldable_ext`) | Not registered: the plugin has an iOS side only. Its Dart side answers a missing plugin as "unsupported", so `AppFoldScope` adds no fold. |
 
 "Not registered" channels are caught in the host. "Off platform" ones never leave Dart.

@@ -11,9 +11,11 @@ import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/device/fold_division_switches.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/platform/device_word.dart';
 import 'package:critalarm/core/platform/off_platform_channel.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -39,6 +41,12 @@ import 'package:flutter/services.dart' show MethodChannel;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Whether this build has Developer options: a debug build, or one made
+/// with a developer dart-define. All three are compile-time constants, so a
+/// store build holds no developer switch.
+const bool _buildHasDeveloperOptions =
+    kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
 
 /// The platform values read once at launch and shared as they are.
 void registerPlatformSingletons(
@@ -69,6 +77,18 @@ void registerPlatformSingletons(
     ..registerLazySingleton<StoreLinks>(() => storeServices.links)
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm);
+
+  // An Android foldable can render the app as an iPhone Duo. Off in every
+  // build until a developer turns it on: the package starts it on in a
+  // debug build, so the setting is written here at each launch. A store
+  // build, an iPhone, web and the Mac register no switches and keep it off.
+  if (_buildHasDeveloperOptions && capabilities.canEmulateFoldDivision) {
+    final foldSwitches = DevFoldDivisionSwitches(prefs);
+    getIt.registerSingleton<DevFoldDivisionSwitches>(foldSwitches);
+    bindFoldDivisionConfig(foldSwitches);
+  } else {
+    bindFoldDivisionConfig(null);
+  }
 }
 
 /// Native hosts, the session and identity stores, the backup host and the

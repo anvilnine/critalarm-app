@@ -87,6 +87,13 @@ class PlatformCapabilities {
   bool get hasStrongAlarmVibration =>
       !isWeb && platform == TargetPlatform.android;
 
+  /// Whether the device can have a hinge, so that it can render the app as
+  /// an iPhone Duo with the hinge as its division. That is what the
+  /// developer switches of the fold division need. Android only: an iPhone
+  /// reports its own division, and web and the Mac have no hinge.
+  bool get canEmulateFoldDivision =>
+      !isWeb && platform == TargetPlatform.android;
+
   /// True where the camera flash can only blink while the app's own alarm
   /// screen is open, which is the iPhone. On Android the alarm service
   /// blinks it with the app closed.

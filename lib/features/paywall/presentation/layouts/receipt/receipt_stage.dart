@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
@@ -159,9 +160,8 @@ class _ReceiptCompositionState extends State<ReceiptComposition> {
         ),
     ];
     // The frame's safe area has taken the status bar out of the media
-    // query, so its height is read from the view: the air runs under it.
-    final view = View.of(context);
-    final bleedTop = view.viewPadding.top / view.devicePixelRatio;
+    // query, so its height is read from the window: the air runs under it.
+    final bleedTop = appWindowMediaOf(context).viewPadding.top;
 
     return PaywallCueScore(
       clock: scope.clock,

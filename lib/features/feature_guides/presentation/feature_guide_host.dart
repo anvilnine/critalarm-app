@@ -5,6 +5,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -515,16 +516,10 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
     return null;
   }
 
-  /// The anchor's box on screen. Goes through the full transform, so a bar
-  /// scaled down to fit a narrow screen is measured at the size it is drawn.
-  static Rect? _rectOf(BuildContext anchor) {
-    final box = anchor.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    return MatrixUtils.transformRect(
-      box.getTransformTo(null),
-      Offset.zero & box.size,
-    );
-  }
+  /// The anchor's box in the window, the coordinates the spotlight is drawn
+  /// in. Goes through the full transform, so a bar scaled down to fit a
+  /// narrow screen is measured at the size it is drawn.
+  static Rect? _rectOf(BuildContext anchor) => appWindowRectOf(anchor);
 
   static Future<void> _nextFrame() {
     SchedulerBinding.instance.scheduleFrame();

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
@@ -176,9 +177,8 @@ class _WipeStageState extends State<WipeStage> {
     final gripY = wipeGripCentreFor(arrangement, size);
 
     // The frame's safe area has taken the status bar out of the media
-    // query, so its height is read from the view: both sides run under it.
-    final view = View.of(context);
-    final bleed = view.viewPadding.top / view.devicePixelRatio;
+    // query, so its height is read from the window: both sides run under it.
+    final bleed = appWindowMediaOf(context).viewPadding.top;
 
     final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
     final tagStyle = AppTypography.label(tones.ink, fontSize: 12);

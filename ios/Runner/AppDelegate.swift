@@ -125,9 +125,6 @@ import AlarmKit
     UiSoundPlayer.shared.attach(messenger: messenger)
     MotionSensorChannel.shared.attach(messenger: messenger)
     RingScreenEffects.shared.attach(messenger: messenger)
-    if let display = engineBridge.pluginRegistry.registrar(forPlugin: "CritAlarmDisplay") {
-      DisplayFoldChannel.shared.attach(registrar: display)
-    }
 
     let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
     alarm.setMethodCallHandler { [weak self] call, result in

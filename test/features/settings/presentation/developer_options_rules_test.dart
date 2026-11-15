@@ -33,6 +33,35 @@ void main() {
       );
     });
 
+    test('the fold switches sit above tools where a hinge can exist', () {
+      expect(
+        developerSectionsFor(
+          hasPlanSwitches: true,
+          hasSetupTools: true,
+          hasFoldSwitches: true,
+        ),
+        [
+          DeveloperSection.plans,
+          DeveloperSection.paywalls,
+          DeveloperSection.setup,
+          DeveloperSection.fold,
+          DeveloperSection.tools,
+        ],
+      );
+      expect(
+        developerSectionsFor(
+          hasPlanSwitches: false,
+          hasSetupTools: false,
+          hasFoldSwitches: true,
+        ),
+        [
+          DeveloperSection.paywalls,
+          DeveloperSection.fold,
+          DeveloperSection.tools,
+        ],
+      );
+    });
+
     test('tools close the list in every build', () {
       for (final plans in [true, false]) {
         for (final setup in [true, false]) {

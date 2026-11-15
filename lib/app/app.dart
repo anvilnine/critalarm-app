@@ -26,7 +26,8 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
-import 'package:critalarm/core/device/native_fold.dart';
+import 'package:critalarm/core/device/fold_division_switches.dart';
+import 'package:critalarm/core/device/fold_scope.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
@@ -87,14 +88,18 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     initialLocation: widget.initialLocation,
   );
 
-  /// An iPhone tells an unfolded iPhone Fold from an iPad, and is the one
-  /// device whose fold comes over [_foldSource].
+  /// An iPhone tells an unfolded iPhone Fold from an iPad. A device that
+  /// is rendered as an iPhone Duo counts as one for layout too, which is
+  /// worked out under the fold scope.
   late final bool _isIphone =
       getIt.isRegistered<DeviceForm>() && getIt<DeviceForm>().isIphone;
 
-  /// The folding iPhone's fold. One instance, so the scope's stream is not
-  /// opened again on every build.
-  final NativeFoldSource _foldSource = const NativeFoldChannel();
+  /// The developer switches of the fold division. Null in a store build and
+  /// on a platform where no hinge can exist.
+  late final DevFoldDivisionSwitches? _foldSwitches =
+      getIt.isRegistered<DevFoldDivisionSwitches>()
+      ? getIt<DevFoldDivisionSwitches>()
+      : null;
 
   /// Taps, foreground pushes and the resume reload. A notification tapped
   /// while the app is already running does not go through the initial route,
@@ -422,19 +427,31 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           builder: (context, child) => _AppearanceScope(
             child: _OnTranslationsLoaded(
               onLoaded: _quickActions.start,
-              // On an iPhone the fold comes from the native side, since
-              // Flutter reports none on iOS. Elsewhere this adds nothing.
-              child: NativeFoldScope(
-                source: _isIphone ? _foldSource : null,
-                child: AppDeviceScope(
-                  isIphone: _isIphone,
-                  child: FeatureGuideHost(
-                    router: _router,
-                    child: ConnectLinkHost(
+              // A folding iPhone's fold joins `MediaQuery` here, since
+              // Flutter reports none on iOS. An Android foldable's own
+              // list goes through as the engine gave it, unless a developer
+              // switch has it render the app as an iPhone Duo.
+              child: AppFoldScope(
+                switches: _foldSwitches,
+                // Under the fold scope, which knows whether the app is
+                // rendered as an iPhone Duo. Always there, so the tree
+                // keeps its shape.
+                child: Builder(
+                  builder: (context) => AppDeviceScope(
+                    isIphone: layoutIsIphone(
+                      isIphone: _isIphone,
+                      isRenderedAsIphone: AppFoldScope.isRenderedAsIphoneOf(
+                        context,
+                      ),
+                    ),
+                    child: FeatureGuideHost(
                       router: _router,
-                      child: AppAmbientShell(
+                      child: ConnectLinkHost(
                         router: _router,
-                        child: child ?? const SizedBox.shrink(),
+                        child: AppAmbientShell(
+                          router: _router,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

@@ -34,6 +34,11 @@ enum AppNavPlacement {
 /// thing about the device its width and height cannot answer: an unfolded
 /// iPhone Fold and an iPad mini are about the same size. Placed once above the
 /// router, so every screen reads the same answer.
+///
+/// A device that is rendered as an iPhone Duo (a developer switch on an
+/// Android foldable) answers as an iPhone here, so its layout is the iPhone
+/// Duo layout. That is a layout answer only: what the platform can do is
+/// asked of `PlatformCapabilities`.
 class AppDeviceScope extends InheritedWidget {
   const AppDeviceScope({
     required this.isIphone,

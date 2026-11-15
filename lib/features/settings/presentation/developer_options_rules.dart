@@ -14,6 +14,9 @@ enum DeveloperSection {
   /// The setup flow, its replays and its switches.
   setup,
 
+  /// The switches of the fold division on a foldable.
+  fold,
+
   /// Pages that only open: galleries, labs and debug views. Always last.
   tools,
 }
@@ -21,15 +24,18 @@ enum DeveloperSection {
 /// The sections one build shows, top to bottom.
 ///
 /// [hasPlanSwitches] is a build that skips the store. [hasSetupTools] is a
-/// developer build on a phone where setup runs. Paywalls and tools are in
-/// every build that reaches the screen, and tools close the list.
+/// developer build on a phone where setup runs. [hasFoldSwitches] is a
+/// platform where a hinge can exist. Paywalls and tools are in every build
+/// that reaches the screen, and tools close the list.
 List<DeveloperSection> developerSectionsFor({
   required bool hasPlanSwitches,
   required bool hasSetupTools,
+  bool hasFoldSwitches = false,
 }) => [
   if (hasPlanSwitches) DeveloperSection.plans,
   DeveloperSection.paywalls,
   if (hasSetupTools) DeveloperSection.setup,
+  if (hasFoldSwitches) DeveloperSection.fold,
   DeveloperSection.tools,
 ];
 
