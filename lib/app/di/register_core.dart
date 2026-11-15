@@ -78,7 +78,7 @@ void registerPlatformSingletons(
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm);
 
-  // The fold division an Android foldable can stand in for. Off in every
+  // An Android foldable can render the app as an iPhone Duo. Off in every
   // build until a developer turns it on: the package starts it on in a
   // debug build, so the setting is written here at each launch. A store
   // build, an iPhone, web and the Mac register no switches and keep it off.

@@ -22,7 +22,9 @@ enum AppPosture {
 /// Read from `MediaQuery.displayFeatures`. On Android the engine fills that
 /// list. On a folding iPhone, where Flutter reports nothing, `AppFoldScope`
 /// (`lib/core/device/fold_scope.dart`) adds the fold it gets from the
-/// `foldable_ext` package.
+/// `foldable_ext` package. On an Android foldable that is rendered as an
+/// iPhone Duo (a developer switch), the list holds the fold of the iPhone
+/// Duo window in place of the engine's.
 ///
 /// A fold counts while it is half opened, and a hinge counts whenever it has
 /// a width, because a hinge hides pixels even when the device is flat. A fold
