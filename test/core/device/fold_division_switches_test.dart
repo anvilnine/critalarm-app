@@ -18,11 +18,12 @@ void main() {
   }
 
   group('DevFoldDivisionSwitches', () {
-    test('every switch is off until it is set', () async {
+    test('every switch but the screen size is off until it is set', () async {
       final switches = await switchesWith({});
       expect(switches.isOn, isFalse);
       expect(switches.staysOnFlat, isFalse);
       expect(switches.showsOverlay, isFalse);
+      expect(switches.matchesWindowSize, isTrue);
     });
 
     test('a switch that was set is still set after a restart', () async {
@@ -30,6 +31,7 @@ void main() {
       await switches.setOn(isOn: true);
       await switches.setStaysOnFlat(staysOnFlat: true);
       await switches.setShowsOverlay(showsOverlay: true);
+      await switches.setMatchesWindowSize(matchesWindowSize: false);
 
       final again = DevFoldDivisionSwitches(
         await SharedPreferences.getInstance(),
@@ -37,6 +39,20 @@ void main() {
       expect(again.isOn, isTrue);
       expect(again.staysOnFlat, isTrue);
       expect(again.showsOverlay, isTrue);
+      expect(again.matchesWindowSize, isFalse);
+    });
+
+    test('the screen size switch keeps false and drops its key when it '
+        'is back on', () async {
+      final switches = await switchesWith({});
+      final prefs = await SharedPreferences.getInstance();
+
+      await switches.setMatchesWindowSize(matchesWindowSize: false);
+      expect(prefs.getBool(DevFoldDivisionSwitches.sizeKey), isFalse);
+
+      await switches.setMatchesWindowSize(matchesWindowSize: true);
+      expect(switches.matchesWindowSize, isTrue);
+      expect(prefs.getKeys(), isEmpty);
     });
 
     test('turning a switch off removes its key', () async {
@@ -70,6 +86,7 @@ void main() {
       final config = foldDivisionConfigFor(packageDefault, null);
       expect(config.enabled, isFalse);
       expect(config.activation, DivisionActivation.followPosture);
+      expect(config.matchWindowSize, isTrue);
     });
 
     test('with every switch off the division is off', () async {
@@ -100,6 +117,45 @@ void main() {
       );
       expect(config.enabled, isTrue);
       expect(config.activation, DivisionActivation.always);
+    });
+
+    test(
+      'the screen size switch turned off keeps the real window size',
+      () async {
+        final config = foldDivisionConfigFor(
+          packageDefault,
+          await switchesWith({
+            DevFoldDivisionSwitches.divisionKey: true,
+            DevFoldDivisionSwitches.sizeKey: false,
+          }),
+        );
+        expect(config.enabled, isTrue);
+        expect(config.matchWindowSize, isFalse);
+      },
+    );
+
+    test(
+      'the screen size is matched again when its switch is back on',
+      () async {
+        final switches = await switchesWith({
+          DevFoldDivisionSwitches.divisionKey: true,
+          DevFoldDivisionSwitches.sizeKey: false,
+        });
+        await switches.setMatchesWindowSize(matchesWindowSize: true);
+        final config = foldDivisionConfigFor(
+          const FoldDivisionConfig(matchWindowSize: false),
+          switches,
+        );
+        expect(config.matchWindowSize, isTrue);
+      },
+    );
+
+    test('the device is the iPhone Duo, as the package starts with', () async {
+      final config = foldDivisionConfigFor(
+        packageDefault,
+        await switchesWith({DevFoldDivisionSwitches.divisionKey: true}),
+      );
+      expect(config.device, EmulatedDevice.iphoneDuo);
     });
 
     test('the size and the margins of the division are kept', () {
@@ -137,6 +193,9 @@ void main() {
 
       await switches.setStaysOnFlat(staysOnFlat: true);
       expect(FoldDivision.config.value.activation, DivisionActivation.always);
+
+      await switches.setMatchesWindowSize(matchesWindowSize: false);
+      expect(FoldDivision.config.value.matchWindowSize, isFalse);
 
       await switches.setOn(isOn: false);
       expect(FoldDivision.config.value.enabled, isFalse);

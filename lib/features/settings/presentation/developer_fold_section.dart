@@ -13,9 +13,9 @@ bool developerFoldIsShown() =>
     getIt<PlatformCapabilities>().canEmulateFoldDivision &&
     getIt.isRegistered<DevFoldDivisionSwitches>();
 
-/// The fold switches of developer settings. They make a foldable report its
-/// hinge as the reserved middle region an iPhone Duo reports, so iPhone Duo
-/// layouts can be checked on it.
+/// The fold switches of developer settings. They make a foldable render the
+/// app as an iPhone Duo does (its window size, its safe area and its fold),
+/// so iPhone Duo layouts can be checked on it.
 ///
 /// Plain English, like the Plans and features lab: it only exists in a
 /// build that has Developer options.
@@ -31,12 +31,24 @@ class DeveloperFoldSection extends StatelessWidget {
         title: 'Folding display', // l10n-ok: developer option
         rows: [
           AppToggleRow(
-            title: 'iPhone Duo division', // l10n-ok: developer option
+            title: 'Render as an iPhone Duo', // l10n-ok: developer option
             subtitle:
-                'Report the hinge as the reserved middle region an '
-                'iPhone Duo has', // l10n-ok: developer option
+                'Lay the app out in the iPhone Duo window, with its safe '
+                'area and its fold', // l10n-ok: developer option
             value: switches.isOn,
             onChanged: (val) => unawaited(switches.setOn(isOn: val)),
+          ),
+          AppToggleRow(
+            title:
+                'Match the iPhone Duo screen '
+                'size', // l10n-ok: developer option
+            subtitle:
+                'Off keeps the real screen size and takes the safe area '
+                'only', // l10n-ok: developer option
+            value: switches.matchesWindowSize,
+            onChanged: (val) => unawaited(
+              switches.setMatchesWindowSize(matchesWindowSize: val),
+            ),
           ),
           AppToggleRow(
             title:
