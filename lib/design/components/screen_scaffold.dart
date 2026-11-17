@@ -543,6 +543,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         ? AppShadows.cardSideReach
         : 0.0;
 
+    // How far the bar backings reach past each side: as far as the list
+    // draws, and inside a detail pane to the pane's edges, so the backing
+    // never stops short of them in a hard line (AppBarBackingScope.barReach).
+    final barReach = scope?.barReach ?? EdgeInsets.zero;
+    final barLeft = math.max(sideBleed, barReach.left);
+    final barRight = math.max(sideBleed, barReach.right);
+
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
 
@@ -676,8 +683,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       );
 
       return Stack(
-        // The list and the bar backings draw past the sides (sideBleed).
-        clipBehavior: sideBleed > 0 ? Clip.none : Clip.hardEdge,
+        // The list and the bar backings draw past the sides (sideBleed,
+        // barLeft, barRight).
+        clipBehavior: barLeft > 0 || barRight > 0 ? Clip.none : Clip.hardEdge,
         children: [
           Positioned.fill(
             child: backing == null
@@ -703,8 +711,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (widget.withEdgeBlur) ...[
             Positioned(
               top: 0,
-              left: -sideBleed,
-              right: -sideBleed,
+              left: -barLeft,
+              right: -barRight,
               child: isScoped && hasTopBacking
                   // At rest this is the quiet edge blur every screen has.
                   // Once a row is under the bar the same blur reaches a
@@ -747,8 +755,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (isScoped && widget.bottomBar == null && tabBarRoom > 0)
             Positioned(
               bottom: 0,
-              left: -sideBleed,
-              right: -sideBleed,
+              left: -barLeft,
+              right: -barRight,
               child: scopedBottomBacking(padding.bottom + tabBarRoom),
             ),
           // The tab bar floats over every branch screen, so the fade behind it
@@ -772,8 +780,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (effectiveWithFades && topBar != null)
             Positioned(
               top: 0,
-              left: -sideBleed,
-              right: -sideBleed,
+              left: -barLeft,
+              right: -barRight,
               child: AppScrollFade(
                 edge: ScrollFadeEdge.top,
                 height: padding.top + AppScreenScaffold.topBarHeight + 16,
@@ -783,8 +791,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (backing != null && hasTopBacking)
             Positioned(
               top: 0,
-              left: -sideBleed,
-              right: -sideBleed,
+              left: -barLeft,
+              right: -barRight,
               // Nothing is under the bar until the list has moved, and a
               // block there would cut the background shapes for no reason.
               child: ValueListenableBuilder<double>(
@@ -1335,6 +1343,7 @@ class AppBarBackingScope extends InheritedWidget {
     this.topBarMaxTextScale,
     this.barOverTop,
     this.quietEdgeAtRest = true,
+    this.barReach,
     super.key,
   });
 
@@ -1357,6 +1366,12 @@ class AppBarBackingScope extends InheritedWidget {
   /// fringe. The blur behind the bar once a row is under it stays.
   final bool quietEdgeAtRest;
 
+  /// How far past its left and right sides a screen draws the blur and the
+  /// tint behind its bars. A detail pane sets it to the distance from the
+  /// page to the pane's edges, so the backing spans the whole pane. Null
+  /// keeps them to the screen's own width.
+  final EdgeInsets? barReach;
+
   static AppBarBackingScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppBarBackingScope>();
 
@@ -1365,7 +1380,8 @@ class AppBarBackingScope extends InheritedWidget {
       color != oldWidget.color ||
       topBarMaxTextScale != oldWidget.topBarMaxTextScale ||
       barOverTop != oldWidget.barOverTop ||
-      quietEdgeAtRest != oldWidget.quietEdgeAtRest;
+      quietEdgeAtRest != oldWidget.quietEdgeAtRest ||
+      barReach != oldWidget.barReach;
 }
 
 /// Hands over how tall its child came out, once per change.
@@ -1528,42 +1544,54 @@ class AppDetailPane extends StatelessWidget {
       // in it is never cut by that edge. A side inset that reaches the pane
       // (the iPhone Duo's strip at the end of a book fold) goes under the
       // surface and keeps the content out of it.
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: gutter + math.max(0, padding.left - startInset),
-          right: gutter + padding.right,
-        ),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSize.detailMaxWidth,
-            ),
-            // The margin above already clears the status bar, so the page
-            // in the pane must not leave room for it a second time. The same
-            // goes for the home indicator under a pane that ends inside, and
-            // for the side insets the padding above has taken.
-            child: MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              removeBottom: endsInside,
-              removeLeft: true,
-              removeRight: true,
-              // The page in the pane sits on the pane's surface, not on the
-              // canvas, so it backs its bars with the surface. With the
-              // canvas colour a band of it would wash over the pane.
-              child: AppBarBackingScope(
-                color: colors.surface,
-                topBarMaxTextScale: outerScope?.topBarMaxTextScale,
-                barOverTop: outerScope?.barOverTop,
-                quietEdgeAtRest: false,
-                // Its cards sit a narrow gutter from the pane's clipped
-                // edge, so they cast a shadow that fades out inside it.
-                child: AppCardShadowScope(child: child),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final left = gutter + math.max(0.0, padding.left - startInset);
+          final right = gutter + padding.right;
+          // The room on each side of the page once it stops at its readable
+          // width, which its bar backings reach across to the pane's edges.
+          final double room = math.max(0, constraints.maxWidth - left - right);
+          final spare = math.max<double>(0, room - AppSize.detailMaxWidth) / 2;
+          return Padding(
+            padding: EdgeInsets.only(left: left, right: right),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSize.detailMaxWidth,
+                ),
+                // The margin above already clears the status bar, so the
+                // page in the pane must not leave room for it a second time.
+                // The same goes for the home indicator under a pane that ends
+                // inside, and for the side insets the padding above has
+                // taken.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  removeBottom: endsInside,
+                  removeLeft: true,
+                  removeRight: true,
+                  // The page in the pane sits on the pane's surface, not on
+                  // the canvas, so it backs its bars with the surface. With
+                  // the canvas colour a band of it would wash over the pane.
+                  child: AppBarBackingScope(
+                    color: colors.surface,
+                    topBarMaxTextScale: outerScope?.topBarMaxTextScale,
+                    barOverTop: outerScope?.barOverTop,
+                    quietEdgeAtRest: false,
+                    barReach: EdgeInsets.only(
+                      left: left + spare,
+                      right: right + spare,
+                    ),
+                    // Its cards sit a narrow gutter from the pane's clipped
+                    // edge, so they cast a shadow that fades out inside it.
+                    child: AppCardShadowScope(child: child),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
