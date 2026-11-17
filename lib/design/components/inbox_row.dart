@@ -195,6 +195,7 @@ class AppInboxRow extends StatefulWidget {
     this.isPinned = false,
     this.isQuietHours = false,
     this.quietLabel,
+    this.isSelected = false,
     this.onTap,
     super.key,
   }) : assert(
@@ -235,6 +236,11 @@ class AppInboxRow extends StatefulWidget {
 
   /// What a screen reader says for the moon.
   final String? quietLabel;
+
+  /// True when this row's topic is open in the pane beside the list. Draws
+  /// the highlight ring in front of the row, so it shows on a tinted row
+  /// too, and a light cobalt fill under a row with no tint of its own.
+  final bool isSelected;
 
   final VoidCallback? onTap;
 
@@ -391,11 +397,21 @@ class _AppInboxRowState extends State<AppInboxRow> {
       scale: _isPressed ? pressScale : 1,
       duration: context.motion(AppDurations.tap),
       curve: AppCurves.easeOut,
-      child: DecoratedBox(
+      child: Container(
         decoration: BoxDecoration(
-          color: inboxRowTint(kind, colors),
+          color:
+              inboxRowTint(kind, colors) ??
+              (widget.isSelected
+                  ? colors.cobaltTint.withValues(alpha: 0.6)
+                  : null),
           borderRadius: BorderRadius.circular(AppInboxSheet.rowRadius),
         ),
+        foregroundDecoration: widget.isSelected
+            ? BoxDecoration(
+                border: Border.all(color: colors.highlight, width: 2.5),
+                borderRadius: BorderRadius.circular(AppInboxSheet.rowRadius),
+              )
+            : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -441,6 +457,7 @@ class _AppInboxRowState extends State<AppInboxRow> {
       opacity: isMuted ? 0.55 : 1,
       child: Semantics(
         button: widget.onTap != null,
+        selected: widget.isSelected,
         label: spoken,
         excludeSemantics: true,
         onTap: widget.onTap,
