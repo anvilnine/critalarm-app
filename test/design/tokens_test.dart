@@ -1,4 +1,6 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/radios.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -41,6 +43,27 @@ void main() {
         AppShadows.cardSideReach,
         greaterThanOrEqualTo(AppShadows.sideReach(AppShadows.lightLg)),
       );
+    });
+  });
+
+  group('AppCardShadowScope.small', () {
+    test('keeps the theme of the shadow it shrinks', () {
+      expect(AppCardShadowScope.small(AppShadows.lightLg), AppShadows.lightSm);
+      expect(AppCardShadowScope.small(AppShadows.lightMd), AppShadows.lightSm);
+      expect(AppCardShadowScope.small(AppShadows.darkLg), AppShadows.darkSm);
+      expect(AppCardShadowScope.small(AppShadows.darkMd), AppShadows.darkSm);
+    });
+
+    test('leaves no shadow as none', () {
+      expect(AppCardShadowScope.small(const []), isEmpty);
+    });
+
+    test('the small shadow fits a detail pane gutter', () {
+      // Two blur sigmas, where the shadow is down to a few per cent.
+      final sigma = Shadow.convertRadiusToSigma(
+        AppShadows.lightSm.first.blurRadius,
+      );
+      expect(2 * sigma, lessThanOrEqualTo(AppDetailPane.gutter));
     });
   });
 
