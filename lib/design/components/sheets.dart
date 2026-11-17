@@ -30,6 +30,7 @@ class AppSheet extends StatelessWidget {
     final colors = context.appColors;
 
     final sides = padding.resolve(Directionality.maybeOf(context));
+    final inset = math.min(sides.left, sides.right);
     return Container(
       margin: margin,
       padding: padding,
@@ -40,13 +41,14 @@ class AppSheet extends StatelessWidget {
         border: border,
       ),
       // A filled row in the sheet rounds its corners to follow the sheet's.
-      child: AppRowRadius(
-        radius: math.max(
-          Radii.sm,
-          Radii.concentric(Radii.xl, math.min(sides.left, sides.right)),
-        ),
-        child: child,
-      ),
+      // A sheet with almost no side padding leaves its content to pad
+      // itself, so its rows keep their own corner.
+      child: inset < Radii.sm
+          ? child
+          : AppRowRadius(
+              radius: Radii.concentric(Radii.xl, inset),
+              child: child,
+            ),
     );
   }
 }

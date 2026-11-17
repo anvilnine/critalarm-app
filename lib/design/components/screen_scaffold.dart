@@ -351,7 +351,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       required bool hasTabBar,
       bool showTopBar = true,
       bool hostsFaceRefresh = true,
-      bool drawsPastSides = true,
+      bool drawsPastSides = false,
     }) => KeyedSubtree(
       key: _listKey,
       child: LayoutBuilder(
@@ -396,7 +396,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       // pane keeps the canvas, and the tab bar where the shell draws one.
       hasStagePane = false;
       first = const SizedBox.shrink();
-      second = list(detail: null, hasTabBar: false);
+      second = list(detail: null, hasTabBar: false, drawsPastSides: true);
     } else if (fold.isBook && detail != null) {
       hasStagePane = false;
       // List in the start pane, over the pill where there is one. Detail in
@@ -411,6 +411,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       first = list(
         detail: null,
         hasTabBar: widget.hasTabBar && pillInStartPane,
+        drawsPastSides: true,
       );
       second = AppDetailPane(
         child: KeyedSubtree(key: _detailKey, child: detail),
@@ -433,9 +434,6 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         hasTabBar: widget.hasTabBar && fold.isTabletop,
         showTopBar: false,
         hostsFaceRefresh: false,
-        // The stage pane sits right beside this one, top bar and all, and
-        // this pane paints after it.
-        drawsPastSides: false,
       );
     }
     Widget split = Stack(
@@ -536,8 +534,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     // the list draws this far past its sides and the shadow fades out
     // instead of stopping on a line. The backings under the top and bottom
     // bars reach as far, so the part of a shadow under a bar is washed like
-    // the card that casts it.
-    final sideBleed = drawsPastSides ? AppShadows.cardSideReach : 0.0;
+    // the card that casts it. A one column list keeps its clip: its edges
+    // are the screen's, and a page sliding in must not paint past them. A
+    // list beside a stage pane keeps it too, since it paints over the
+    // stage's top bar.
+    final sideBleed = drawsPastSides || twoPane
+        ? AppShadows.cardSideReach
+        : 0.0;
 
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
