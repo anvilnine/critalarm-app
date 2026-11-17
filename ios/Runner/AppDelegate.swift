@@ -300,8 +300,14 @@ import AlarmKit
     // not told to reload.
     let isLocalReminder = LocalReminderNotifications.isLocalReminder(notification.request)
     if !isLocalReminder {
-      NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
-      if let shown = IncidentPush(payload: notification.request.content.userInfo),
+      // Never the title: it is the sender's text, and NSLog keeps it in the
+      // system log of a release build.
+      let shownPush = IncidentPush(payload: notification.request.content.userInfo)
+      NSLog(
+        "CritAlarm: push_presented_foreground incident_id=%@",
+        shownPush?.incidentId ?? "-"
+      )
+      if let shown = shownPush,
         shown.kind != .p4, let shownId = shown.incidentId
       {
         ReceivedAlarmPushStore.record(incidentId: shownId)

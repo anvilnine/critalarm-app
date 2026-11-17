@@ -146,7 +146,12 @@ final class NotificationService: UNNotificationServiceExtension {
         applyPickedSound(to: content, topic: resolved?.topic)
         if !fetched { patchWidgets(push: push, resolved: resolved) }
 
-        NSLog("CritAlarmNSE delivered title=%@", content.title)
+        // The title is the sender's own text and NSLog writes it to the
+        // phone's system log in a release build, so only ids go here.
+        NSLog(
+            "CritAlarmNSE delivered incident_id=%@ resolved=%@",
+            push?.incidentId ?? "-", resolved == nil ? "no" : "yes"
+        )
         handler(content)
     }
 
