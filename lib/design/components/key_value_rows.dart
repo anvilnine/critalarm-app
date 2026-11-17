@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -102,7 +103,7 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
       constraints: _hasCopyPill ? const BoxConstraints(minHeight: 46) : null,
       decoration: BoxDecoration(
         color: colors.cream,
-        borderRadius: Radii.mdAll,
+        borderRadius: AppRowRadius.allOf(context),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

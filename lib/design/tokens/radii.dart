@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// Corner radius tokens for Crit Alarm Design System.
@@ -18,6 +20,12 @@ abstract final class Radii {
   static const BorderRadius lgAll = BorderRadius.all(Radius.circular(lg));
   static const BorderRadius xlAll = BorderRadius.all(Radius.circular(xl));
   static const BorderRadius fullAll = BorderRadius.all(Radius.circular(full));
+
+  /// The corner of a box set [inset] inside a box with corner [outer], so
+  /// both curves keep the same centre and the gap between them stays even.
+  /// Never below 0.
+  static double concentric(double outer, double inset) =>
+      math.max(0, outer - inset);
 
   // Backwards compatibility
   static const BorderRadius xsAll = BorderRadius.all(Radius.circular(xs));

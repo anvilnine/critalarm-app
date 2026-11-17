@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -176,7 +177,7 @@ class _AppListRowState extends State<AppListRow> {
                 ),
                 decoration: BoxDecoration(
                   color: bg,
-                  borderRadius: Radii.mdAll,
+                  borderRadius: AppRowRadius.allOf(context),
                   boxShadow: shadows,
                   border: widget.isSelected
                       ? Border.all(color: colors.highlight, width: 2.5)

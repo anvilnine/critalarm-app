@@ -11,6 +11,15 @@ import 'package:flutter/material.dart';
 /// row and sits under the title, where the whole width is free for it.
 const double kCardRowValueMaxTextScale = 1.15;
 
+/// How far a selected [AppCardRow]'s tint and its ripple sit inside the card,
+/// on each side.
+const double kCardRowHighlightInset = 6;
+
+/// The corner of that tint: concentric with the card's.
+const BorderRadius _highlightRadius = BorderRadius.all(
+  Radius.circular(Radii.lg - kCardRowHighlightInset),
+);
+
 /// A white card whose first line is its title, then its rows.
 ///
 /// The title is set in the display face at 20 points, so it reads as the
@@ -228,67 +237,91 @@ class AppCardRow extends StatelessWidget {
       selected: isSelected,
       value: value,
       child: Material(
-        color: isSelected ? colors.cobaltTint : Colors.transparent,
-        child: InkWell(
-          onTap: tap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: kMinTapTarget + 4),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  children: [
-                    if (leading != null) ...[
-                      leading!,
-                      const SizedBox(width: 12),
-                    ],
-                    // A switch row's switch carries the words, so they are
-                    // read once.
-                    Expanded(
-                      child: ExcludeSemantics(
-                        excluding: isToggle,
-                        child: words,
-                      ),
-                    ),
-                    if (valueText != null && !valueUnderTitle) ...[
-                      const SizedBox(width: 12),
-                      // The value is chrome: it stops growing with the text
-                      // size, and never takes more than 45 per cent of the
-                      // row, so the title keeps its room.
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.45,
-                        ),
-                        child: ExcludeSemantics(
-                          child: MediaQuery(
-                            data: MediaQuery.of(context).copyWith(
-                              textScaler: MediaQuery.textScalerOf(
-                                context,
-                              ).clamp(maxScaleFactor: kChromeMaxTextScale),
-                            ),
-                            child: valueText,
+        type: MaterialType.transparency,
+        // The selected tint and the ripple sit a little inside the card, with
+        // corners that follow the card's. The words stay where they were.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kCardRowHighlightInset,
+            vertical: 2,
+          ),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: isSelected ? colors.cobaltTint : null,
+              borderRadius: _highlightRadius,
+            ),
+            child: InkWell(
+              onTap: tap,
+              borderRadius: _highlightRadius,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: kMinTapTarget),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    16 - kCardRowHighlightInset,
+                    10,
+                    14 - kCardRowHighlightInset,
+                    10,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        if (leading != null) ...[
+                          leading!,
+                          const SizedBox(width: 12),
+                        ],
+                        // A switch row's switch carries the words, so they are
+                        // read once.
+                        Expanded(
+                          child: ExcludeSemantics(
+                            excluding: isToggle,
+                            child: words,
                           ),
                         ),
-                      ),
-                    ],
-                    if (trailing != null) ...[
-                      const SizedBox(width: 12),
-                      trailing!,
-                    ],
-                    if (isToggle) ...[
-                      const SizedBox(width: 12),
-                      AppSwitch(
-                        value: toggleValue,
-                        onChanged: onToggle,
-                        semanticLabel: title,
-                        semanticHint: detail,
-                      ),
-                    ],
-                    if (arrow) ...[
-                      const SizedBox(width: 8),
-                      AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
-                    ],
-                  ],
+                        if (valueText != null && !valueUnderTitle) ...[
+                          const SizedBox(width: 12),
+                          // The value is chrome: it stops growing with the text
+                          // size, and never takes more than 45 per cent of the
+                          // row, so the title keeps its room.
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth * 0.45,
+                            ),
+                            child: ExcludeSemantics(
+                              child: MediaQuery(
+                                data: MediaQuery.of(context).copyWith(
+                                  textScaler: MediaQuery.textScalerOf(
+                                    context,
+                                  ).clamp(maxScaleFactor: kChromeMaxTextScale),
+                                ),
+                                child: valueText,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (trailing != null) ...[
+                          const SizedBox(width: 12),
+                          trailing!,
+                        ],
+                        if (isToggle) ...[
+                          const SizedBox(width: 12),
+                          AppSwitch(
+                            value: toggleValue,
+                            onChanged: onToggle,
+                            semanticLabel: title,
+                            semanticHint: detail,
+                          ),
+                        ],
+                        if (arrow) ...[
+                          const SizedBox(width: 8),
+                          AppGlyph(
+                            GlyphType.arrow,
+                            color: colors.ink3,
+                            size: 16,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

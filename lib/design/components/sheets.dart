@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -27,6 +29,7 @@ class AppSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
+    final sides = padding.resolve(Directionality.maybeOf(context));
     return Container(
       margin: margin,
       padding: padding,
@@ -36,9 +39,36 @@ class AppSheet extends StatelessWidget {
         boxShadow: AppShadows.lg,
         border: border,
       ),
-      child: child,
+      // A filled row in the sheet rounds its corners to follow the sheet's.
+      child: AppRowRadius(
+        radius: math.max(
+          Radii.sm,
+          Radii.concentric(Radii.xl, math.min(sides.left, sides.right)),
+        ),
+        child: child,
+      ),
     );
   }
+}
+
+/// The corner radius for a filled row (a cream switch row, a picker row, a
+/// note) inside a rounded container, so its corners follow the container's.
+///
+/// [AppSheet] places one. A row outside any reads [Radii.md].
+class AppRowRadius extends InheritedWidget {
+  const AppRowRadius({required this.radius, required super.child, super.key});
+
+  final double radius;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppRowRadius>()?.radius ??
+      Radii.md;
+
+  static BorderRadius allOf(BuildContext context) =>
+      BorderRadius.all(Radius.circular(of(context)));
+
+  @override
+  bool updateShouldNotify(AppRowRadius oldWidget) => radius != oldWidget.radius;
 }
 
 /// Section header used inside sheets matching index.html .sheet h4.
@@ -234,7 +264,7 @@ class AppNote extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: colors.cream,
-        borderRadius: Radii.mdAll,
+        borderRadius: AppRowRadius.allOf(context),
       ),
       child: Text(
         text,

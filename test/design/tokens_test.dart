@@ -4,12 +4,46 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('Radii.concentric', () {
+    test('an inset box takes the outer corner less the inset', () {
+      expect(Radii.concentric(Radii.lg, 6), Radii.md);
+      expect(Radii.concentric(Radii.xl, 16), 16);
+    });
+
+    test('an inset past the corner gives a square corner', () {
+      expect(Radii.concentric(Radii.sm, 14), 0);
+    });
+  });
+
+  group('AppShadows.sideReach', () {
+    test('three sigmas of the widest blur, plus spread and side offset', () {
+      const shadows = [
+        BoxShadow(blurRadius: 10, offset: Offset(0, 8)),
+        BoxShadow(blurRadius: 20, offset: Offset(4, 0), spreadRadius: 2),
+      ];
+      final sigma = Shadow.convertRadiusToSigma(20);
+      expect(AppShadows.sideReach(shadows), 4 + 2 + 3 * sigma);
+    });
+
+    test('a card keeps room for the large shadow in either theme', () {
+      expect(
+        AppShadows.cardSideReach,
+        greaterThanOrEqualTo(AppShadows.sideReach(AppShadows.darkLg)),
+      );
+      expect(
+        AppShadows.cardSideReach,
+        greaterThanOrEqualTo(AppShadows.sideReach(AppShadows.lightLg)),
+      );
+    });
+  });
+
   group('AppColors', () {
     test('light colors match design system tokens', () {
       const colors = AppColors.light;

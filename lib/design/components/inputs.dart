@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
-import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
@@ -239,7 +239,7 @@ class _AppTextFieldState extends State<AppTextField> {
         constraints: BoxConstraints(minHeight: minHeight),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: Radii.mdAll,
+          borderRadius: AppRowRadius.allOf(context),
           border: Border.all(
             color: borderColor,
             width: 1.5,
