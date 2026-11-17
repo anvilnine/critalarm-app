@@ -13,6 +13,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The fold of a folding phone comes from the foldable\_ext package on both platforms: AppFoldScope in lib/core/device/fold\_scope.dart replaces NativeFoldScope, and DisplayFoldChannel (app.critalarm/display) and lib/core/device/native\_fold.dart are removed.
 - The first Folding display developer switch is now Render as an iPhone Duo: with foldable\_ext 0.2.0 an Android foldable lays the app out in the iPhone Duo window (size, safe area, fold), scaled to fit the screen, and AppDeviceScope.isIphone is true under it (layoutIsIphone, AppFoldScope.isRenderedAsIphoneOf). A fourth switch, Match the iPhone Duo screen size, is on by default and keeps false in the prefs key dev.fold\_division.match\_size.
 
+### Fixed
+- Tablets and open foldables: the edge blur draws in landscape and inside an emulated iPhone Duo window, card shadows fade out past list pane edges, the detail pane backs its bars with its surface, and nested corners follow their container
+
 ## 1.1.0+17 - 2026-11-11
 ### Added
 - assets/translations has de.json and ja.json. make check-l10n runs tool/l10n\_parity.dart and checks the native strings tool/l10n\_native.dart generates.
