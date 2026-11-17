@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -112,7 +113,17 @@ class AppHighlightCard extends StatelessWidget {
         borderRadius: BorderRadius.all(Radius.circular(radius)),
         border: Border.all(color: stroke, width: highlightCardStrokeWidth),
       ),
-      child: AppHighlightSurface(fill: fill, child: child),
+      child: AppHighlightSurface(
+        fill: fill,
+        // Rows in the card follow its corners, not those of a sheet it sits
+        // in.
+        child: AppRowRadius.inside(
+          context,
+          outer: radius,
+          padding: padding,
+          child: child,
+        ),
+      ),
     );
   }
 }

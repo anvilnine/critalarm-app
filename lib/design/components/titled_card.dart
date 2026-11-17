@@ -1,5 +1,6 @@
 import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -16,10 +17,43 @@ const double kCardRowValueMaxTextScale = 1.15;
 /// on each side.
 const double kCardRowHighlightInset = 6;
 
+/// How far that tint and ripple sit inside the row, top and bottom.
+const double _highlightInsetY = 2;
+
 /// The corner of that tint: concentric with the card's.
 const BorderRadius _highlightRadius = BorderRadius.all(
   Radius.circular(Radii.lg - kCardRowHighlightInset),
 );
+
+/// The shape of a card row's tint and ripple: the row's box drawn
+/// [kCardRowHighlightInset] in from each side and [_highlightInsetY] in from
+/// the top and bottom, with [_highlightRadius] corners. Only the drawing is
+/// inset. The row still takes taps across its whole box.
+class _InsetHighlightBorder extends ShapeBorder {
+  const _InsetHighlightBorder();
+
+  static const EdgeInsets _inset = EdgeInsets.symmetric(
+    horizontal: kCardRowHighlightInset,
+    vertical: _highlightInsetY,
+  );
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(_highlightRadius.toRRect(_inset.deflateRect(rect)));
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+
+  @override
+  ShapeBorder scale(double t) => this;
+}
 
 /// A white card whose first line is its title, then its rows.
 ///
@@ -67,40 +101,46 @@ class AppTitledCard extends StatelessWidget {
         borderRadius: Radii.lgAll,
         boxShadow: AppCardShadowScope.of(context, AppShadows.lg),
       ),
-      child: ClipRRect(
-        borderRadius: Radii.lgAll,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (title != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Semantics(
-                        header: true,
-                        child: Text(
-                          title,
-                          style: AppTypography.title(
-                            colors.ink,
-                          ).copyWith(fontWeight: FontWeight.w800),
+      // Rows in the card follow its own corners, not a sheet it sits in.
+      child: AppRowRadius.inside(
+        context,
+        outer: Radii.lg,
+        padding: const EdgeInsets.symmetric(horizontal: kCardRowHighlightInset),
+        child: ClipRRect(
+          borderRadius: Radii.lgAll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            title,
+                            style: AppTypography.title(
+                              colors.ink,
+                            ).copyWith(fontWeight: FontWeight.w800),
+                          ),
                         ),
                       ),
-                    ),
-                    if (titleTrailing != null) ...[
-                      const SizedBox(width: 8),
-                      titleTrailing!,
+                      if (titleTrailing != null) ...[
+                        const SizedBox(width: 8),
+                        titleTrailing!,
+                      ],
                     ],
-                  ],
-                ),
-              )
-            else
+                  ),
+                )
+              else
+                const SizedBox(height: 4),
+              ...rows,
               const SizedBox(height: 4),
-            ...rows,
-            const SizedBox(height: 4),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -240,88 +280,80 @@ class AppCardRow extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         // The selected tint and the ripple sit a little inside the card, with
-        // corners that follow the card's. The words stay where they were.
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: kCardRowHighlightInset,
-            vertical: 2,
+        // corners that follow the card's. The tap target is still the whole
+        // row, and the words stay where they were.
+        child: Ink(
+          decoration: ShapeDecoration(
+            color: isSelected ? colors.cobaltTint : null,
+            shape: const _InsetHighlightBorder(),
           ),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: isSelected ? colors.cobaltTint : null,
-              borderRadius: _highlightRadius,
-            ),
-            child: InkWell(
-              onTap: tap,
-              borderRadius: _highlightRadius,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: kMinTapTarget),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    16 - kCardRowHighlightInset,
-                    10,
-                    14 - kCardRowHighlightInset,
-                    10,
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) => Row(
-                      children: [
-                        if (leading != null) ...[
-                          leading!,
-                          const SizedBox(width: 12),
-                        ],
-                        // A switch row's switch carries the words, so they are
-                        // read once.
-                        Expanded(
+          child: InkWell(
+            onTap: tap,
+            customBorder: const _InsetHighlightBorder(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: kMinTapTarget + 2 * _highlightInsetY,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      if (leading != null) ...[
+                        leading!,
+                        const SizedBox(width: 12),
+                      ],
+                      // A switch row's switch carries the words, so they are
+                      // read once.
+                      Expanded(
+                        child: ExcludeSemantics(
+                          excluding: isToggle,
+                          child: words,
+                        ),
+                      ),
+                      if (valueText != null && !valueUnderTitle) ...[
+                        const SizedBox(width: 12),
+                        // The value is chrome: it stops growing with the text
+                        // size, and never takes more than 45 per cent of the
+                        // row, so the title keeps its room.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.45,
+                          ),
                           child: ExcludeSemantics(
-                            excluding: isToggle,
-                            child: words,
+                            child: MediaQuery(
+                              data: MediaQuery.of(context).copyWith(
+                                textScaler: MediaQuery.textScalerOf(
+                                  context,
+                                ).clamp(maxScaleFactor: kChromeMaxTextScale),
+                              ),
+                              child: valueText,
+                            ),
                           ),
                         ),
-                        if (valueText != null && !valueUnderTitle) ...[
-                          const SizedBox(width: 12),
-                          // The value is chrome: it stops growing with the text
-                          // size, and never takes more than 45 per cent of the
-                          // row, so the title keeps its room.
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: constraints.maxWidth * 0.45,
-                            ),
-                            child: ExcludeSemantics(
-                              child: MediaQuery(
-                                data: MediaQuery.of(context).copyWith(
-                                  textScaler: MediaQuery.textScalerOf(
-                                    context,
-                                  ).clamp(maxScaleFactor: kChromeMaxTextScale),
-                                ),
-                                child: valueText,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (trailing != null) ...[
-                          const SizedBox(width: 12),
-                          trailing!,
-                        ],
-                        if (isToggle) ...[
-                          const SizedBox(width: 12),
-                          AppSwitch(
-                            value: toggleValue,
-                            onChanged: onToggle,
-                            semanticLabel: title,
-                            semanticHint: detail,
-                          ),
-                        ],
-                        if (arrow) ...[
-                          const SizedBox(width: 8),
-                          AppGlyph(
-                            GlyphType.arrow,
-                            color: colors.ink3,
-                            size: 16,
-                          ),
-                        ],
                       ],
-                    ),
+                      if (trailing != null) ...[
+                        const SizedBox(width: 12),
+                        trailing!,
+                      ],
+                      if (isToggle) ...[
+                        const SizedBox(width: 12),
+                        AppSwitch(
+                          value: toggleValue,
+                          onChanged: onToggle,
+                          semanticLabel: title,
+                          semanticHint: detail,
+                        ),
+                      ],
+                      if (arrow) ...[
+                        const SizedBox(width: 8),
+                        AppGlyph(
+                          GlyphType.arrow,
+                          color: colors.ink3,
+                          size: 16,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

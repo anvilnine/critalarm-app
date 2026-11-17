@@ -26,12 +26,15 @@ class AppSheet extends StatelessWidget {
   final Color? color;
   final BoxBorder? border;
 
+  /// The least side padding at which the rows in a sheet round their corners
+  /// to follow the sheet's (see [AppRowRadius]). Below it the content pads
+  /// itself.
+  static const double minRowInset = 6;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    final sides = padding.resolve(Directionality.maybeOf(context));
-    final inset = math.min(sides.left, sides.right);
     return Container(
       margin: margin,
       padding: padding,
@@ -42,14 +45,12 @@ class AppSheet extends StatelessWidget {
         border: border,
       ),
       // A filled row in the sheet rounds its corners to follow the sheet's.
-      // A sheet with almost no side padding leaves its content to pad
-      // itself, so its rows keep their own corner.
-      child: inset < Radii.sm
-          ? child
-          : AppRowRadius(
-              radius: Radii.concentric(Radii.xl, inset),
-              child: child,
-            ),
+      child: AppRowRadius.inside(
+        context,
+        outer: Radii.xl,
+        padding: padding,
+        child: child,
+      ),
     );
   }
 }
@@ -60,6 +61,27 @@ class AppSheet extends StatelessWidget {
 /// [AppSheet] places one. A row outside any reads [Radii.md].
 class AppRowRadius extends InheritedWidget {
   const AppRowRadius({required this.radius, required super.child, super.key});
+
+  /// [child] in a container with [outer] corners and [padding]: its rows
+  /// follow the container's corners. A container nested in a sheet puts
+  /// one too, so its rows follow it and not the sheet around it. With side
+  /// padding under [AppSheet.minRowInset] the content pads itself, and its
+  /// rows keep the corner a row has outside any container.
+  static Widget inside(
+    BuildContext context, {
+    required double outer,
+    required EdgeInsetsGeometry padding,
+    required Widget child,
+  }) {
+    final sides = padding.resolve(Directionality.maybeOf(context));
+    final inset = math.min(sides.left, sides.right);
+    return AppRowRadius(
+      radius: inset < AppSheet.minRowInset
+          ? Radii.md
+          : Radii.concentric(outer, inset),
+      child: child,
+    );
+  }
 
   final double radius;
 
