@@ -70,14 +70,20 @@ class AppSwipeActions extends StatelessWidget {
   ActionPane _pane(List<AppSwipeAction> actions) => ActionPane(
     motion: const BehindMotion(),
     extentRatio: _extentPerAction * actions.length,
-    children: [for (final a in actions) _ActionButton(action: a)],
+    children: [
+      for (final a in actions) _ActionButton(action: a, radius: radius),
+    ],
   );
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.action});
+  const _ActionButton({required this.action, required this.radius});
 
   final AppSwipeAction action;
+
+  /// The row's corner, so a tile has the same shape as the row it sits
+  /// behind.
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +101,7 @@ class _ActionButton extends StatelessWidget {
           excludeSemantics: true,
           child: Material(
             color: bg,
-            borderRadius: Radii.mdAll,
+            borderRadius: BorderRadius.all(Radius.circular(radius)),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () {
