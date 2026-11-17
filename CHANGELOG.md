@@ -1,7 +1,7 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
-## Unreleased
+## 1.1.0+18 - 2026-11-18
 ### Added
 - Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
 - A Ways to sign in page under Account and plan lists every way you sign in, lets you add Apple or Google (a second Google account too) and remove any but the last.

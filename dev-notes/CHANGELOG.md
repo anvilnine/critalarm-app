@@ -1,7 +1,7 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
-## Unreleased
+## 1.1.0+18 - 2026-11-18
 ### Added
 - AppTitledCard and AppCardRow in lib/design for titled groups of one-line rows, and a person glyph.
 - GET /v1/account/identities on ApiClient and the mock server, SignInRestore, HeldSession and AccountIdentitiesRepository. AccountState gains unfinished, leave and ringClaim; the account.error\_other\_identity keys are removed.
