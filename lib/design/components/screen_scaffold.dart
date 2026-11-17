@@ -351,6 +351,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       required bool hasTabBar,
       bool showTopBar = true,
       bool hostsFaceRefresh = true,
+      bool drawsPastSides = true,
     }) => KeyedSubtree(
       key: _listKey,
       child: LayoutBuilder(
@@ -363,6 +364,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           hasTabBar: hasTabBar,
           showTopBar: showTopBar,
           hostsFaceRefresh: hostsFaceRefresh,
+          drawsPastSides: drawsPastSides,
         ),
       ),
     );
@@ -431,6 +433,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         hasTabBar: widget.hasTabBar && fold.isTabletop,
         showTopBar: false,
         hostsFaceRefresh: false,
+        // The stage pane sits right beside this one, top bar and all, and
+        // this pane paints after it.
+        drawsPastSides: false,
       );
     }
     Widget split = Stack(
@@ -480,6 +485,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     required bool hasTabBar,
     required bool showTopBar,
     required bool hostsFaceRefresh,
+    required bool drawsPastSides,
   }) {
     // In a fold split the stage pane draws the top bar, so the list does not.
     final topBar = showTopBar ? widget.topBar : null;
@@ -524,6 +530,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
     final paneWidth = columns.listWidth;
     final gutter = columns.gutter;
+
+    // A card near the side of the list casts its shadow past the list's
+    // edge. In two panes, or in a fold pane, that edge is in the open, so
+    // the list draws this far past its sides and the shadow fades out
+    // instead of stopping on a line. The backings under the top and bottom
+    // bars reach as far, so the part of a shadow under a bar is washed like
+    // the card that casts it.
+    final sideBleed = drawsPastSides ? AppShadows.cardSideReach : 0.0;
 
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
@@ -579,6 +593,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
       Widget list = CustomScrollView(
         controller: widget.scrollController,
+        // Clipped below instead, top and bottom only.
+        clipBehavior: sideBleed > 0 ? Clip.none : Clip.hardEdge,
         physics:
             widget.physics ??
             const AlwaysScrollableScrollPhysics(
@@ -597,6 +613,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
             SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
         ],
       );
+
+      if (sideBleed > 0) {
+        list = ClipRect(clipper: _SideBleedClipper(sideBleed), child: list);
+      }
 
       if (widget.contentSortKey != null) {
         list = Semantics(
@@ -642,6 +662,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       );
 
       return Stack(
+        // The list and the bar backings draw past the sides (sideBleed).
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: backing == null
@@ -667,8 +689,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (widget.withEdgeBlur) ...[
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -sideBleed,
+              right: -sideBleed,
               child: isScoped && hasTopBacking
                   // At rest this is the quiet edge blur every screen has.
                   // Once a row is under the bar the same blur reaches a
@@ -722,8 +744,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (isScoped && widget.bottomBar == null && tabBarRoom > 0)
             Positioned(
               bottom: 0,
-              left: 0,
-              right: 0,
+              left: -sideBleed,
+              right: -sideBleed,
               child: scopedBottomBacking(padding.bottom + tabBarRoom),
             ),
           // The tab bar floats over every branch screen, so the fade behind it
@@ -747,8 +769,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (effectiveWithFades && topBar != null)
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -sideBleed,
+              right: -sideBleed,
               child: AppScrollFade(
                 edge: ScrollFadeEdge.top,
                 height: padding.top + AppScreenScaffold.topBarHeight + 16,
@@ -758,8 +780,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (backing != null && hasTopBacking)
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -sideBleed,
+              right: -sideBleed,
               // Nothing is under the bar until the list has moved, and a
               // block there would cut the background shapes for no reason.
               child: ValueListenableBuilder<double>(
@@ -1515,7 +1537,16 @@ class AppDetailPane extends StatelessWidget {
               removeBottom: endsInside,
               removeLeft: true,
               removeRight: true,
-              child: child,
+              // The page in the pane sits on the pane's surface, not on the
+              // canvas, so it backs its bars with the surface. With the
+              // canvas colour a band of it would wash over the pane.
+              child: AppBarBackingScope(
+                color: colors.surface,
+                topBarMaxTextScale: AppBarBackingScope.maybeOf(
+                  context,
+                )?.topBarMaxTextScale,
+                child: child,
+              ),
             ),
           ),
         ),
@@ -1565,6 +1596,21 @@ class _BarBacking extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Clips a list to its own top and bottom, and [bleed] past each side, so a
+/// card's shadow near the side is drawn in full.
+class _SideBleedClipper extends CustomClipper<Rect> {
+  const _SideBleedClipper(this.bleed);
+
+  final double bleed;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-bleed, 0, size.width + bleed, size.height);
+
+  @override
+  bool shouldReclip(_SideBleedClipper oldClipper) => oldClipper.bleed != bleed;
 }
 
 /// The blur behind a bar that takes its backing from an
