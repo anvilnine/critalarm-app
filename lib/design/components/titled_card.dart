@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/components/tap_target.dart';
@@ -64,7 +65,7 @@ class AppTitledCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: Radii.lgAll,
-        boxShadow: AppShadows.lg,
+        boxShadow: AppCardShadowScope.of(context, AppShadows.lg),
       ),
       child: ClipRRect(
         borderRadius: Radii.lgAll,

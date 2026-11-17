@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -32,7 +33,9 @@ class AppLadderRow extends StatelessWidget {
     final padding = isCrit
         ? const EdgeInsets.symmetric(horizontal: 18, vertical: 20)
         : const EdgeInsets.symmetric(horizontal: 18, vertical: 14);
-    final shadows = isCrit ? AppShadows.lightMd : null;
+    final shadows = isCrit
+        ? AppCardShadowScope.of(context, AppShadows.lightMd)
+        : null;
     final faceSize = isCrit ? 48.0 : 36.0;
 
     return Container(

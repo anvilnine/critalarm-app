@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -37,7 +38,7 @@ class AppSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? colors.surface,
         borderRadius: Radii.xlAll,
-        boxShadow: AppShadows.lg,
+        boxShadow: AppCardShadowScope.of(context, AppShadows.lg),
         border: border,
       ),
       // A filled row in the sheet rounds its corners to follow the sheet's.

@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/buttons.dart';
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -576,7 +577,9 @@ class _AppStatusCardState extends State<AppStatusCard>
           border: surface.line == null
               ? null
               : Border.all(color: surface.line!),
-          boxShadow: isDark ? const [] : AppShadows.lightMd,
+          boxShadow: isDark
+              ? const []
+              : AppCardShadowScope.of(context, AppShadows.lightMd),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),

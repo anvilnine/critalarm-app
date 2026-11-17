@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -63,7 +64,7 @@ class AppNotificationCard extends StatelessWidget {
         color: bg,
         borderRadius: Radii.lgAll,
         border: border,
-        boxShadow: shadows,
+        boxShadow: AppCardShadowScope.of(context, shadows),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

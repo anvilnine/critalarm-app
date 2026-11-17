@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/ambient/ambient_scope.dart';
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
@@ -572,6 +573,16 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final hasTopBacking = backedTopOrNull != null;
     final backedTop = backedTopOrNull ?? topInset;
 
+    // The quiet blur at the top edge of a screen at rest, which a detail pane
+    // turns off (AppBarBackingScope.quietEdgeAtRest).
+    final quietTopEdge = scope?.quietEdgeAtRest ?? true;
+    final quietTop = quietTopEdge
+        ? SizedBox(
+            height: topInset + 16,
+            child: ProgressiveBlurEdge(height: topInset + 16, isTop: true),
+          )
+        : const SizedBox.shrink();
+
     // The tab bar leaves room for itself, and so does a pinned bar.
     final tabBarRoom = hasTabBar && !hasRail
         ? AppFloatingTabBar.contentGapFor(size, padding.bottom)
@@ -666,7 +677,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
       return Stack(
         // The list and the bar backings draw past the sides (sideBleed).
-        clipBehavior: Clip.none,
+        clipBehavior: sideBleed > 0 ? Clip.none : Clip.hardEdge,
         children: [
           Positioned.fill(
             child: backing == null
@@ -704,27 +715,16 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                           topBar == null && amount <= 0
                           // The bar is the host's, so at rest the screen
                           // keeps the edge it always had.
-                          ? SizedBox(
-                              height: topInset + 16,
-                              child: ProgressiveBlurEdge(
-                                height: topInset + 16,
-                                isTop: true,
-                              ),
-                            )
+                          ? quietTop
                           : _BarBlur(
                               style: backingConfig.top,
                               amount: amount,
                               bar: backedTop,
                               isTop: true,
+                              quietAtRest: quietTopEdge,
                             ),
                     )
-                  : SizedBox(
-                      height: topInset + 16,
-                      child: ProgressiveBlurEdge(
-                        height: topInset + 16,
-                        isTop: true,
-                      ),
-                    ),
+                  : quietTop,
             ),
             // Only where something is pinned at the bottom. With nothing
             // there the list runs sharp to the edge of the screen. A pinned
@@ -1334,6 +1334,7 @@ class AppBarBackingScope extends InheritedWidget {
     required super.child,
     this.topBarMaxTextScale,
     this.barOverTop,
+    this.quietEdgeAtRest = true,
     super.key,
   });
 
@@ -1350,6 +1351,12 @@ class AppBarBackingScope extends InheritedWidget {
   /// own. Null when the host draws no bar there.
   final double? barOverTop;
 
+  /// Whether a screen at rest keeps the quiet blur at its top edge. False
+  /// inside a pane that starts below the window's top: there the blur would
+  /// reach past the pane and pull the canvas above it in as a coloured
+  /// fringe. The blur behind the bar once a row is under it stays.
+  final bool quietEdgeAtRest;
+
   static AppBarBackingScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppBarBackingScope>();
 
@@ -1357,7 +1364,8 @@ class AppBarBackingScope extends InheritedWidget {
   bool updateShouldNotify(AppBarBackingScope oldWidget) =>
       color != oldWidget.color ||
       topBarMaxTextScale != oldWidget.topBarMaxTextScale ||
-      barOverTop != oldWidget.barOverTop;
+      barOverTop != oldWidget.barOverTop ||
+      quietEdgeAtRest != oldWidget.quietEdgeAtRest;
 }
 
 /// Hands over how tall its child came out, once per change.
@@ -1498,6 +1506,7 @@ class AppDetailPane extends StatelessWidget {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final padding = MediaQuery.paddingOf(context);
+    final outerScope = AppBarBackingScope.maybeOf(context);
 
     return Container(
       margin: EdgeInsets.only(
@@ -1545,10 +1554,12 @@ class AppDetailPane extends StatelessWidget {
               // canvas colour a band of it would wash over the pane.
               child: AppBarBackingScope(
                 color: colors.surface,
-                topBarMaxTextScale: AppBarBackingScope.maybeOf(
-                  context,
-                )?.topBarMaxTextScale,
-                child: child,
+                topBarMaxTextScale: outerScope?.topBarMaxTextScale,
+                barOverTop: outerScope?.barOverTop,
+                quietEdgeAtRest: false,
+                // Its cards sit a narrow gutter from the pane's clipped
+                // edge, so they cast a shadow that fades out inside it.
+                child: AppCardShadowScope(child: child),
               ),
             ),
           ),
@@ -1632,10 +1643,15 @@ class _BarBlur extends StatelessWidget {
     required this.amount,
     required this.bar,
     required this.isTop,
+    this.quietAtRest = true,
   });
 
   final BarBackingStyle style;
   final double amount;
+
+  /// Whether the top keeps the quiet blur at rest. See
+  /// [AppBarBackingScope.quietEdgeAtRest].
+  final bool quietAtRest;
 
   /// Height of the bar, measured from the edge of the display.
   final double bar;
@@ -1647,7 +1663,7 @@ class _BarBlur extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (amount <= 0 || !style.mode.blurs) {
-      if (!isTop) return const SizedBox.shrink();
+      if (!isTop || !quietAtRest) return const SizedBox.shrink();
       return SizedBox(
         height: bar + _quietRun,
         child: ProgressiveBlurEdge(height: bar + _quietRun, isTop: true),
@@ -1655,7 +1671,8 @@ class _BarBlur extends StatelessWidget {
     }
     // The top starts from the quiet blur that is already there, so nothing
     // jumps on the first pixel of scroll. The bottom starts from nothing.
-    final fromSigma = isTop ? ProgressiveBlurEdge.quietSigma : 0.0;
+    final fromQuiet = isTop && quietAtRest;
+    final fromSigma = fromQuiet ? ProgressiveBlurEdge.quietSigma : 0.0;
     final fromRun = isTop ? _quietRun : style.fadeLength;
     final height = bar + fromRun + (style.fadeLength - fromRun) * amount;
     return SizedBox(

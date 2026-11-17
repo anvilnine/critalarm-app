@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -143,7 +144,9 @@ class AppInboxSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: isDark ? const [] : AppShadows.lightMd,
+        boxShadow: isDark
+            ? const []
+            : AppCardShadowScope.of(context, AppShadows.lightMd),
       ),
       child: Padding(
         padding: padding,
