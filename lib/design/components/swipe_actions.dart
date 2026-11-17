@@ -36,6 +36,7 @@ class AppSwipeActions extends StatelessWidget {
     this.start = const [],
     this.end = const [],
     this.groupTag,
+    this.radius = Radii.md,
     super.key,
   });
 
@@ -47,12 +48,16 @@ class AppSwipeActions extends StatelessWidget {
   final List<AppSwipeAction> end;
   final Object? groupTag;
 
+  /// The corner the row is clipped to. Pass the row's own corner, so a
+  /// tinted row keeps its shape.
+  final double radius;
+
   @override
   Widget build(BuildContext context) {
     // Clipped to the row, so the row slides away under its own edge instead
     // of out past the sheet it sits on.
     return ClipRRect(
-      borderRadius: Radii.mdAll,
+      borderRadius: BorderRadius.all(Radius.circular(radius)),
       child: Slidable(
         groupTag: groupTag,
         startActionPane: start.isEmpty ? null : _pane(start),

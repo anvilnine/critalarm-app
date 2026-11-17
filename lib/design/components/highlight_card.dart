@@ -85,12 +85,17 @@ class AppHighlightCard extends StatelessWidget {
     required this.child,
     this.tone = AppHighlightTone.crit,
     this.padding = const EdgeInsets.all(14),
+    this.radius = Radii.lg,
     super.key,
   });
 
   final Widget child;
   final AppHighlightTone tone;
   final EdgeInsetsGeometry padding;
+
+  /// The corner radius. Inside another rounded surface, pass the radius
+  /// that keeps both corners concentric.
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +109,7 @@ class AppHighlightCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: fill,
-        borderRadius: Radii.lgAll,
+        borderRadius: BorderRadius.all(Radius.circular(radius)),
         border: Border.all(color: stroke, width: highlightCardStrokeWidth),
       ),
       child: AppHighlightSurface(fill: fill, child: child),

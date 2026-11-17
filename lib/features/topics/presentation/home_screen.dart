@@ -609,6 +609,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       },
       child: AppSwipeActions(
         groupTag: 'home_topics',
+        radius: AppInboxSheet.rowRadius,
         start: [
           AppSwipeAction(
             label: markRead,
@@ -1015,7 +1016,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return DecoratedBox(
       decoration: BoxDecoration(
         color: context.appColors.cobaltTint.withValues(alpha: 0.6),
-        borderRadius: Radii.mdAll,
+        borderRadius: BorderRadius.circular(AppInboxSheet.rowRadius),
       ),
       child: row,
     );
@@ -1112,7 +1113,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           closeLabel: LocaleKeys.home_day0_dismiss_button.tr(),
         );
     }
-    return Padding(padding: const EdgeInsets.all(4), child: card);
+    return Padding(
+      padding: const EdgeInsets.all(AppInboxSheet.cardInset),
+      child: card,
+    );
   }
 
   /// The one bar floating above the tab bar.

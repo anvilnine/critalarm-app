@@ -95,6 +95,10 @@ Color inboxRowTimeColor(AppInboxRowKind kind, AppColors colors) {
   };
 }
 
+/// Below this width the time in an [AppInboxRow] sits under the topic name
+/// instead of beside it, so a narrow pane still shows the name.
+const double inboxRowTimeBesideMinWidth = 160;
+
 /// The text in the unread pill: the count, or `99+` past 99.
 String inboxUnreadText(int count) => count > 99 ? '99+' : '$count';
 
@@ -103,7 +107,7 @@ String inboxUnreadText(int count) => count > 99 ? '99+' : '$count';
 class AppInboxSheet extends StatelessWidget {
   const AppInboxSheet({
     required this.children,
-    this.padding = const EdgeInsets.all(6),
+    this.padding = const EdgeInsets.all(rowInset),
     super.key,
   });
 
@@ -116,6 +120,20 @@ class AppInboxSheet extends StatelessWidget {
 
   /// The sheet's corner radius.
   static const double radius = 28;
+
+  /// The room between the sheet's edge and its rows, by default.
+  static const double rowInset = 6;
+
+  /// The corner of a row's tint, and of anything that marks a row: the
+  /// sheet's corner less [rowInset], so the two curves are concentric.
+  static const double rowRadius = radius - rowInset;
+
+  /// The room around a card that sits in the sheet in place of a row, such
+  /// as a cream card, inside [rowInset].
+  static const double cardInset = 4;
+
+  /// That card's corner, concentric with the sheet's.
+  static const double cardRadius = rowRadius - cardInset;
 
   @override
   Widget build(BuildContext context) {
@@ -325,20 +343,25 @@ class _AppInboxRowState extends State<AppInboxRow> {
       style: timeStyle,
     );
 
-    final header = dropsTime
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [nameRow, timeText],
-          )
-        : Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Expanded(child: nameRow),
-              const SizedBox(width: 8),
-              Flexible(flex: 0, child: timeText),
-            ],
-          );
+    // The time also drops under the name in a narrow pane, where beside it
+    // the time would take the room the name needs.
+    final header = LayoutBuilder(
+      builder: (context, constraints) =>
+          dropsTime || constraints.maxWidth < inboxRowTimeBesideMinWidth
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [nameRow, timeText],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(child: nameRow),
+                const SizedBox(width: 8),
+                Flexible(flex: 0, child: timeText),
+              ],
+            ),
+    );
 
     final body = Padding(
       padding: const EdgeInsets.only(top: 3),
@@ -368,7 +391,7 @@ class _AppInboxRowState extends State<AppInboxRow> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: inboxRowTint(kind, colors),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppInboxSheet.rowRadius),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

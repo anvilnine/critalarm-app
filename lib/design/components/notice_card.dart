@@ -1,6 +1,7 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/dismiss_cross.dart';
 import 'package:critalarm/design/components/highlight_card.dart';
+import 'package:critalarm/design/components/inbox_row.dart';
 import 'package:critalarm/design/components/tap_target.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -49,7 +50,8 @@ class AppCreamCard extends StatelessWidget {
 
   final VoidCallback onAction;
 
-  /// True draws the ink stroke, for a card on the white sheet.
+  /// True draws the ink stroke, for a card on the white sheet. Its corners
+  /// then follow the sheet's, set [AppInboxSheet.cardInset] inside its rows.
   final bool isOnSheet;
 
   /// Puts the card away. Null draws no cross.
@@ -181,6 +183,7 @@ class AppCreamCard extends StatelessWidget {
         ? AppHighlightCard(
             tone: AppHighlightTone.choice,
             padding: padding,
+            radius: AppInboxSheet.cardRadius,
             child: content,
           )
         : DecoratedBox(
