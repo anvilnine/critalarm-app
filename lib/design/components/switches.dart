@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -162,7 +163,7 @@ class AppToggleRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colors.cream,
-        borderRadius: Radii.mdAll,
+        borderRadius: AppRowRadius.allOf(context),
       ),
       child: Row(
         children: [

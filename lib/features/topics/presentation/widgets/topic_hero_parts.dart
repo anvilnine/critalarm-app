@@ -1,6 +1,7 @@
 import 'package:critalarm/core/format/when_label.dart';
 import 'package:critalarm/core/l10n/upper_for_locale.dart';
 import 'package:critalarm/design/ambient/hero_disc.dart';
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/components/status_card.dart';
@@ -541,7 +542,9 @@ class HeroLinePanel extends StatelessWidget {
               border: surface.line == null
                   ? null
                   : Border.all(color: surface.line!),
-              boxShadow: isDark ? const [] : AppShadows.lightMd,
+              boxShadow: isDark
+                  ? const []
+                  : AppCardShadowScope.of(context, AppShadows.lightMd),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),

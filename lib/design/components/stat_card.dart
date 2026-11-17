@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -193,7 +194,9 @@ class AppStatCard extends StatelessWidget {
           border: surface.line == null
               ? null
               : Border.all(color: surface.line!),
-          boxShadow: isDark ? const [] : AppShadows.lightMd,
+          boxShadow: isDark
+              ? const []
+              : AppCardShadowScope.of(context, AppShadows.lightMd),
         ),
         child: Padding(
           padding: _padding,

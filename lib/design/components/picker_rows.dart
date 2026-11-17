@@ -1,7 +1,7 @@
 import 'package:critalarm/design/components/bottom_sheets.dart';
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
-import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +59,7 @@ class AppValueRow extends StatelessWidget {
       value: value,
       child: Material(
         color: colors.cream,
-        borderRadius: Radii.mdAll,
+        borderRadius: AppRowRadius.allOf(context),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

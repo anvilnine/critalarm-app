@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/ambient/ambient_scope.dart';
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
@@ -351,6 +352,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       required bool hasTabBar,
       bool showTopBar = true,
       bool hostsFaceRefresh = true,
+      bool drawsPastSides = false,
     }) => KeyedSubtree(
       key: _listKey,
       child: LayoutBuilder(
@@ -363,6 +365,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           hasTabBar: hasTabBar,
           showTopBar: showTopBar,
           hostsFaceRefresh: hostsFaceRefresh,
+          drawsPastSides: drawsPastSides,
         ),
       ),
     );
@@ -394,7 +397,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       // pane keeps the canvas, and the tab bar where the shell draws one.
       hasStagePane = false;
       first = const SizedBox.shrink();
-      second = list(detail: null, hasTabBar: false);
+      second = list(detail: null, hasTabBar: false, drawsPastSides: true);
     } else if (fold.isBook && detail != null) {
       hasStagePane = false;
       // List in the start pane, over the pill where there is one. Detail in
@@ -409,6 +412,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       first = list(
         detail: null,
         hasTabBar: widget.hasTabBar && pillInStartPane,
+        drawsPastSides: true,
       );
       second = AppDetailPane(
         child: KeyedSubtree(key: _detailKey, child: detail),
@@ -480,6 +484,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     required bool hasTabBar,
     required bool showTopBar,
     required bool hostsFaceRefresh,
+    required bool drawsPastSides,
   }) {
     // In a fold split the stage pane draws the top bar, so the list does not.
     final topBar = showTopBar ? widget.topBar : null;
@@ -525,6 +530,26 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final paneWidth = columns.listWidth;
     final gutter = columns.gutter;
 
+    // A card near the side of the list casts its shadow past the list's
+    // edge. In two panes, or in a fold pane, that edge is in the open, so
+    // the list draws this far past its sides and the shadow fades out
+    // instead of stopping on a line. The backings under the top and bottom
+    // bars reach as far, so the part of a shadow under a bar is washed like
+    // the card that casts it. A one column list keeps its clip: its edges
+    // are the screen's, and a page sliding in must not paint past them. A
+    // list beside a stage pane keeps it too, since it paints over the
+    // stage's top bar.
+    final sideBleed = drawsPastSides || twoPane
+        ? AppShadows.cardSideReach
+        : 0.0;
+
+    // How far the bar backings reach past each side: as far as the list
+    // draws, and inside a detail pane to the pane's edges, so the backing
+    // never stops short of them in a hard line (AppBarBackingScope.barReach).
+    final barReach = scope?.barReach ?? EdgeInsets.zero;
+    final barLeft = math.max(sideBleed, barReach.left);
+    final barRight = math.max(sideBleed, barReach.right);
+
     // What a pinned bottom bar keeps clear of on each side in one column.
     final sideClearance = twoPane ? 0.0 : columns.railClearance;
 
@@ -555,6 +580,16 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final hasTopBacking = backedTopOrNull != null;
     final backedTop = backedTopOrNull ?? topInset;
 
+    // The quiet blur at the top edge of a screen at rest, which a detail pane
+    // turns off (AppBarBackingScope.quietEdgeAtRest).
+    final quietTopEdge = scope?.quietEdgeAtRest ?? true;
+    final quietTop = quietTopEdge
+        ? SizedBox(
+            height: topInset + 16,
+            child: ProgressiveBlurEdge(height: topInset + 16, isTop: true),
+          )
+        : const SizedBox.shrink();
+
     // The tab bar leaves room for itself, and so does a pinned bar.
     final tabBarRoom = hasTabBar && !hasRail
         ? AppFloatingTabBar.contentGapFor(size, padding.bottom)
@@ -579,6 +614,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
       Widget list = CustomScrollView(
         controller: widget.scrollController,
+        // Clipped below instead, top and bottom only.
+        clipBehavior: sideBleed > 0 ? Clip.none : Clip.hardEdge,
         physics:
             widget.physics ??
             const AlwaysScrollableScrollPhysics(
@@ -597,6 +634,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
             SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
         ],
       );
+
+      if (sideBleed > 0) {
+        list = ClipRect(clipper: _SideBleedClipper(sideBleed), child: list);
+      }
 
       if (widget.contentSortKey != null) {
         list = Semantics(
@@ -642,6 +683,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       );
 
       return Stack(
+        // The list and the bar backings draw past the sides (sideBleed,
+        // barLeft, barRight).
+        clipBehavior: barLeft > 0 || barRight > 0 ? Clip.none : Clip.hardEdge,
         children: [
           Positioned.fill(
             child: backing == null
@@ -667,8 +711,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (widget.withEdgeBlur) ...[
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -barLeft,
+              right: -barRight,
               child: isScoped && hasTopBacking
                   // At rest this is the quiet edge blur every screen has.
                   // Once a row is under the bar the same blur reaches a
@@ -679,27 +723,16 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                           topBar == null && amount <= 0
                           // The bar is the host's, so at rest the screen
                           // keeps the edge it always had.
-                          ? SizedBox(
-                              height: topInset + 16,
-                              child: ProgressiveBlurEdge(
-                                height: topInset + 16,
-                                isTop: true,
-                              ),
-                            )
+                          ? quietTop
                           : _BarBlur(
                               style: backingConfig.top,
                               amount: amount,
                               bar: backedTop,
                               isTop: true,
+                              quietAtRest: quietTopEdge,
                             ),
                     )
-                  : SizedBox(
-                      height: topInset + 16,
-                      child: ProgressiveBlurEdge(
-                        height: topInset + 16,
-                        isTop: true,
-                      ),
-                    ),
+                  : quietTop,
             ),
             // Only where something is pinned at the bottom. With nothing
             // there the list runs sharp to the edge of the screen. A pinned
@@ -722,8 +755,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (isScoped && widget.bottomBar == null && tabBarRoom > 0)
             Positioned(
               bottom: 0,
-              left: 0,
-              right: 0,
+              left: -barLeft,
+              right: -barRight,
               child: scopedBottomBacking(padding.bottom + tabBarRoom),
             ),
           // The tab bar floats over every branch screen, so the fade behind it
@@ -747,8 +780,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (effectiveWithFades && topBar != null)
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -barLeft,
+              right: -barRight,
               child: AppScrollFade(
                 edge: ScrollFadeEdge.top,
                 height: padding.top + AppScreenScaffold.topBarHeight + 16,
@@ -758,8 +791,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           if (backing != null && hasTopBacking)
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
+              left: -barLeft,
+              right: -barRight,
               // Nothing is under the bar until the list has moved, and a
               // block there would cut the background shapes for no reason.
               child: ValueListenableBuilder<double>(
@@ -1309,6 +1342,8 @@ class AppBarBackingScope extends InheritedWidget {
     required super.child,
     this.topBarMaxTextScale,
     this.barOverTop,
+    this.quietEdgeAtRest = true,
+    this.barReach,
     super.key,
   });
 
@@ -1325,6 +1360,18 @@ class AppBarBackingScope extends InheritedWidget {
   /// own. Null when the host draws no bar there.
   final double? barOverTop;
 
+  /// Whether a screen at rest keeps the quiet blur at its top edge. False
+  /// inside a pane that starts below the window's top: there the blur would
+  /// reach past the pane and pull the canvas above it in as a coloured
+  /// fringe. The blur behind the bar once a row is under it stays.
+  final bool quietEdgeAtRest;
+
+  /// How far past its left and right sides a screen draws the blur and the
+  /// tint behind its bars. A detail pane sets it to the distance from the
+  /// page to the pane's edges, so the backing spans the whole pane. Null
+  /// keeps them to the screen's own width.
+  final EdgeInsets? barReach;
+
   static AppBarBackingScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppBarBackingScope>();
 
@@ -1332,7 +1379,9 @@ class AppBarBackingScope extends InheritedWidget {
   bool updateShouldNotify(AppBarBackingScope oldWidget) =>
       color != oldWidget.color ||
       topBarMaxTextScale != oldWidget.topBarMaxTextScale ||
-      barOverTop != oldWidget.barOverTop;
+      barOverTop != oldWidget.barOverTop ||
+      quietEdgeAtRest != oldWidget.quietEdgeAtRest ||
+      barReach != oldWidget.barReach;
 }
 
 /// Hands over how tall its child came out, once per change.
@@ -1473,6 +1522,7 @@ class AppDetailPane extends StatelessWidget {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final padding = MediaQuery.paddingOf(context);
+    final outerScope = AppBarBackingScope.maybeOf(context);
 
     return Container(
       margin: EdgeInsets.only(
@@ -1494,31 +1544,54 @@ class AppDetailPane extends StatelessWidget {
       // in it is never cut by that edge. A side inset that reaches the pane
       // (the iPhone Duo's strip at the end of a book fold) goes under the
       // surface and keeps the content out of it.
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: gutter + math.max(0, padding.left - startInset),
-          right: gutter + padding.right,
-        ),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSize.detailMaxWidth,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final left = gutter + math.max(0.0, padding.left - startInset);
+          final right = gutter + padding.right;
+          // The room on each side of the page once it stops at its readable
+          // width, which its bar backings reach across to the pane's edges.
+          final double room = math.max(0, constraints.maxWidth - left - right);
+          final spare = math.max<double>(0, room - AppSize.detailMaxWidth) / 2;
+          return Padding(
+            padding: EdgeInsets.only(left: left, right: right),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSize.detailMaxWidth,
+                ),
+                // The margin above already clears the status bar, so the
+                // page in the pane must not leave room for it a second time.
+                // The same goes for the home indicator under a pane that ends
+                // inside, and for the side insets the padding above has
+                // taken.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  removeBottom: endsInside,
+                  removeLeft: true,
+                  removeRight: true,
+                  // The page in the pane sits on the pane's surface, not on
+                  // the canvas, so it backs its bars with the surface. With
+                  // the canvas colour a band of it would wash over the pane.
+                  child: AppBarBackingScope(
+                    color: colors.surface,
+                    topBarMaxTextScale: outerScope?.topBarMaxTextScale,
+                    barOverTop: outerScope?.barOverTop,
+                    quietEdgeAtRest: false,
+                    barReach: EdgeInsets.only(
+                      left: left + spare,
+                      right: right + spare,
+                    ),
+                    // Its cards sit a narrow gutter from the pane's clipped
+                    // edge, so they cast a shadow that fades out inside it.
+                    child: AppCardShadowScope(child: child),
+                  ),
+                ),
+              ),
             ),
-            // The margin above already clears the status bar, so the page
-            // in the pane must not leave room for it a second time. The same
-            // goes for the home indicator under a pane that ends inside, and
-            // for the side insets the padding above has taken.
-            child: MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              removeBottom: endsInside,
-              removeLeft: true,
-              removeRight: true,
-              child: child,
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -1567,6 +1640,21 @@ class _BarBacking extends StatelessWidget {
   }
 }
 
+/// Clips a list to its own top and bottom, and [bleed] past each side, so a
+/// card's shadow near the side is drawn in full.
+class _SideBleedClipper extends CustomClipper<Rect> {
+  const _SideBleedClipper(this.bleed);
+
+  final double bleed;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-bleed, 0, size.width + bleed, size.height);
+
+  @override
+  bool shouldReclip(_SideBleedClipper oldClipper) => oldClipper.bleed != bleed;
+}
+
 /// The blur behind a bar that takes its backing from an
 /// [AppBarBackingScope]: the progressive blur over the height of the [bar]
 /// plus the fade length. It is nothing at the inner edge of that zone and
@@ -1583,10 +1671,15 @@ class _BarBlur extends StatelessWidget {
     required this.amount,
     required this.bar,
     required this.isTop,
+    this.quietAtRest = true,
   });
 
   final BarBackingStyle style;
   final double amount;
+
+  /// Whether the top keeps the quiet blur at rest. See
+  /// [AppBarBackingScope.quietEdgeAtRest].
+  final bool quietAtRest;
 
   /// Height of the bar, measured from the edge of the display.
   final double bar;
@@ -1598,7 +1691,7 @@ class _BarBlur extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (amount <= 0 || !style.mode.blurs) {
-      if (!isTop) return const SizedBox.shrink();
+      if (!isTop || !quietAtRest) return const SizedBox.shrink();
       return SizedBox(
         height: bar + _quietRun,
         child: ProgressiveBlurEdge(height: bar + _quietRun, isTop: true),
@@ -1606,7 +1699,8 @@ class _BarBlur extends StatelessWidget {
     }
     // The top starts from the quiet blur that is already there, so nothing
     // jumps on the first pixel of scroll. The bottom starts from nothing.
-    final fromSigma = isTop ? ProgressiveBlurEdge.quietSigma : 0.0;
+    final fromQuiet = isTop && quietAtRest;
+    final fromSigma = fromQuiet ? ProgressiveBlurEdge.quietSigma : 0.0;
     final fromRun = isTop ? _quietRun : style.fadeLength;
     final height = bar + fromRun + (style.fadeLength - fromRun) * amount;
     return SizedBox(

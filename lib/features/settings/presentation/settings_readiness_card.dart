@@ -251,7 +251,7 @@ class SettingsReadinessLine extends StatelessWidget {
                   : Border.all(color: surface.line!),
               boxShadow: brightness == Brightness.dark
                   ? const []
-                  : AppShadows.lightMd,
+                  : AppCardShadowScope.of(context, AppShadows.lightMd),
             ),
             child: Row(
               children: [

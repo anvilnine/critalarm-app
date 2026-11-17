@@ -1,7 +1,9 @@
 import 'dart:ui' as ui;
 
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:flutter/material.dart';
+import 'package:foldable_ext/foldable_ext.dart';
 
 /// A subtle progressive blur along one edge of a scrolling list.
 ///
@@ -12,7 +14,8 @@ import 'package:flutter/material.dart';
 ///
 /// What it draws follows [appEdgeEffect]: the shader blur, the older slice
 /// blur, or nothing (the fade and none effects draw no blur). It draws
-/// nothing in landscape, whatever the effect.
+/// nothing on a short display, such as a phone on its side, whatever the
+/// effect.
 class ProgressiveBlurEdge extends StatelessWidget {
   const ProgressiveBlurEdge({
     required this.height,
@@ -62,11 +65,10 @@ class ProgressiveBlurEdge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Portrait only. Held sideways, a phone or tablet keeps the colour fade
-    // and draws no blur.
-    if (MediaQuery.orientationOf(context) == Orientation.landscape) {
-      return const SizedBox.shrink();
-    }
+    // A phone on its side keeps the colour fade and draws no blur. A tablet
+    // or an open foldable on its side is tall enough to keep it: its panes
+    // scroll under the bar like a portrait screen does.
+    if (AppSize.of(context).isShort) return const SizedBox.shrink();
     if (maxSigma < _leastSigma) return const SizedBox.shrink();
     return ValueListenableBuilder<EdgeEffect>(
       valueListenable: appEdgeEffect,
@@ -100,6 +102,9 @@ class ProgressiveBlurEdge extends StatelessWidget {
 ///
 /// - [top] and [bottom]: where the strip is drawn, in logical pixels of the
 ///   screen.
+/// - [origin]: screen y, in logical pixels, of the top of the buffer the
+///   strip is drawn into. The shader counts rows from there. 0 when the app
+///   draws straight to the screen.
 /// - [height] and [plateau]: the strip and its full blur part as they are
 ///   laid out. A strip drawn at another size than [height] scales the
 ///   plateau with it.
@@ -114,12 +119,13 @@ class ProgressiveBlurEdge extends StatelessWidget {
   required double plateau,
   required bool isTop,
   required double pixelRatio,
+  double origin = 0,
 }) {
   final drawn = height > 0 ? (bottom - top) / height : 1.0;
   final held = plateau.clamp(0.0, height) * drawn;
   return (
-    full: (isTop ? top + held : bottom - held) * pixelRatio,
-    clear: (isTop ? bottom : top) * pixelRatio,
+    full: ((isTop ? top + held : bottom - held) - origin) * pixelRatio,
+    clear: ((isTop ? bottom : top) - origin) * pixelRatio,
   );
 }
 
@@ -130,9 +136,14 @@ class ProgressiveBlurEdge extends StatelessWidget {
 /// screen behind comes through. That is one blur pass per edge, where the
 /// slice blur needs one per slice.
 ///
-/// The shader works in screen pixels, so it needs to know where this strip
-/// sits on the screen. That is measured after each build and again when the
-/// route finishes moving, because a page slides in from somewhere else.
+/// The shader works in the pixels of the buffer it draws into, so it needs to
+/// know where this strip sits in that buffer. That is measured after each
+/// build and again when the route finishes moving, because a page slides in
+/// from somewhere else.
+///
+/// The buffer is the screen, except in an emulated window (an app rendered
+/// as an iPhone Duo on another device). That window draws into a buffer of
+/// its own that starts at the window's top, so rows are counted from there.
 class _ShaderEdge extends StatefulWidget {
   const _ShaderEdge({
     required this.program,
@@ -160,6 +171,9 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
   /// then.
   double? _top;
   double? _bottom;
+
+  /// Screen y of the top of the buffer this strip draws into.
+  double _origin = 0;
 
   Animation<double>? _routeAnimation;
 
@@ -190,14 +204,32 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
     if (box == null || !box.hasSize) return;
     // Both ends, so a strip drawn smaller or larger than it is laid out
     // (an app scaled to fit the screen) is measured at the size it is drawn.
+    // The laid out size, not `widget.height`: on the frame the height
+    // changes, the box still has the old one.
     final top = box.localToGlobal(Offset.zero).dy;
-    final bottom = box.localToGlobal(Offset(0, widget.height)).dy;
-    if (top != _top || bottom != _bottom) {
+    final bottom = box.localToGlobal(Offset(0, box.size.height)).dy;
+    final origin = _bufferTop(box);
+    if (top != _top || bottom != _bottom || origin != _origin) {
       setState(() {
         _top = top;
         _bottom = bottom;
+        _origin = origin;
       });
     }
+  }
+
+  /// Screen y of the top of the buffer [box] paints into: the top of the
+  /// nearest emulated window that is drawn, or 0 for the screen.
+  static double _bufferTop(RenderBox box) {
+    var node = box.parent;
+    while (node != null) {
+      if (node is RenderEmulatedWindow && node.placement != null) {
+        final window = node.child;
+        if (window != null) return window.localToGlobal(Offset.zero).dy;
+      }
+      node = node.parent;
+    }
+    return 0;
   }
 
   @override
@@ -211,6 +243,7 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
     final rows = edgeBlurRows(
       top: top,
       bottom: bottom,
+      origin: _origin,
       height: widget.height,
       plateau: widget.plateau,
       isTop: widget.isTop,

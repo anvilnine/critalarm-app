@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -23,6 +26,11 @@ class AppSheet extends StatelessWidget {
   final Color? color;
   final BoxBorder? border;
 
+  /// The least side padding at which the rows in a sheet round their corners
+  /// to follow the sheet's (see [AppRowRadius]). Below it the content pads
+  /// itself.
+  static const double minRowInset = 6;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -33,12 +41,59 @@ class AppSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? colors.surface,
         borderRadius: Radii.xlAll,
-        boxShadow: AppShadows.lg,
+        boxShadow: AppCardShadowScope.of(context, AppShadows.lg),
         border: border,
       ),
+      // A filled row in the sheet rounds its corners to follow the sheet's.
+      child: AppRowRadius.inside(
+        context,
+        outer: Radii.xl,
+        padding: padding,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// The corner radius for a filled row (a cream switch row, a picker row, a
+/// note) inside a rounded container, so its corners follow the container's.
+///
+/// [AppSheet] places one. A row outside any reads [Radii.md].
+class AppRowRadius extends InheritedWidget {
+  const AppRowRadius({required this.radius, required super.child, super.key});
+
+  /// [child] in a container with [outer] corners and [padding]: its rows
+  /// follow the container's corners. A container nested in a sheet puts
+  /// one too, so its rows follow it and not the sheet around it. With side
+  /// padding under [AppSheet.minRowInset] the content pads itself, and its
+  /// rows keep the corner a row has outside any container.
+  static Widget inside(
+    BuildContext context, {
+    required double outer,
+    required EdgeInsetsGeometry padding,
+    required Widget child,
+  }) {
+    final sides = padding.resolve(Directionality.maybeOf(context));
+    final inset = math.min(sides.left, sides.right);
+    return AppRowRadius(
+      radius: inset < AppSheet.minRowInset
+          ? Radii.md
+          : Radii.concentric(outer, inset),
       child: child,
     );
   }
+
+  final double radius;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppRowRadius>()?.radius ??
+      Radii.md;
+
+  static BorderRadius allOf(BuildContext context) =>
+      BorderRadius.all(Radius.circular(of(context)));
+
+  @override
+  bool updateShouldNotify(AppRowRadius oldWidget) => radius != oldWidget.radius;
 }
 
 /// Section header used inside sheets matching index.html .sheet h4.
@@ -234,7 +289,7 @@ class AppNote extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: colors.cream,
-        borderRadius: Radii.mdAll,
+        borderRadius: AppRowRadius.allOf(context),
       ),
       child: Text(
         text,

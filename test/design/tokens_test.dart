@@ -1,15 +1,72 @@
+import 'package:critalarm/design/components/card_shadow.dart';
 import 'package:critalarm/design/components/radios.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('Radii.concentric', () {
+    test('an inset box takes the outer corner less the inset', () {
+      expect(Radii.concentric(Radii.lg, 6), Radii.md);
+      expect(Radii.concentric(Radii.xl, 16), 16);
+    });
+
+    test('an inset past the corner gives a square corner', () {
+      expect(Radii.concentric(Radii.sm, 14), 0);
+    });
+  });
+
+  group('AppShadows.sideReach', () {
+    test('three sigmas of the widest blur, plus spread and side offset', () {
+      const shadows = [
+        BoxShadow(blurRadius: 10, offset: Offset(0, 8)),
+        BoxShadow(blurRadius: 20, offset: Offset(4, 0), spreadRadius: 2),
+      ];
+      final sigma = Shadow.convertRadiusToSigma(20);
+      expect(AppShadows.sideReach(shadows), 4 + 2 + 3 * sigma);
+    });
+
+    test('a card keeps room for the large shadow in either theme', () {
+      expect(
+        AppShadows.cardSideReach,
+        greaterThanOrEqualTo(AppShadows.sideReach(AppShadows.darkLg)),
+      );
+      expect(
+        AppShadows.cardSideReach,
+        greaterThanOrEqualTo(AppShadows.sideReach(AppShadows.lightLg)),
+      );
+    });
+  });
+
+  group('AppCardShadowScope.small', () {
+    test('keeps the theme of the shadow it shrinks', () {
+      expect(AppCardShadowScope.small(AppShadows.lightLg), AppShadows.lightSm);
+      expect(AppCardShadowScope.small(AppShadows.lightMd), AppShadows.lightSm);
+      expect(AppCardShadowScope.small(AppShadows.darkLg), AppShadows.darkSm);
+      expect(AppCardShadowScope.small(AppShadows.darkMd), AppShadows.darkSm);
+    });
+
+    test('leaves no shadow as none', () {
+      expect(AppCardShadowScope.small(const []), isEmpty);
+    });
+
+    test('the small shadow fits a detail pane gutter', () {
+      // Two blur sigmas, where the shadow is down to a few per cent.
+      final sigma = Shadow.convertRadiusToSigma(
+        AppShadows.lightSm.first.blurRadius,
+      );
+      expect(2 * sigma, lessThanOrEqualTo(AppDetailPane.gutter));
+    });
+  });
+
   group('AppColors', () {
     test('light colors match design system tokens', () {
       const colors = AppColors.light;

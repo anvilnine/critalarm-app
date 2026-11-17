@@ -118,7 +118,7 @@ class SettingsAccountHero extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.surface,
             borderRadius: Radii.xlAll,
-            boxShadow: AppShadows.lg,
+            boxShadow: AppCardShadowScope.of(context, AppShadows.lg),
             border: isSelected
                 ? Border.all(color: colors.highlight, width: 2.5)
                 : null,

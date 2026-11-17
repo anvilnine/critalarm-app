@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// Elevation shadow tokens for Crit Alarm Design System.
@@ -80,4 +82,25 @@ abstract final class AppShadows {
       isDark ? darkMd : lightMd;
   static List<BoxShadow> shadowLg({bool isDark = false}) =>
       isDark ? darkLg : lightLg;
+
+  /// How far [shadows] reach past the side of the box that casts them, in
+  /// logical pixels. Three blur sigmas, where a Gaussian has faded to
+  /// nothing the eye can see.
+  static double sideReach(List<BoxShadow> shadows) {
+    var reach = 0.0;
+    for (final shadow in shadows) {
+      final sigma = Shadow.convertRadiusToSigma(shadow.blurRadius);
+      final r = shadow.offset.dx.abs() + shadow.spreadRadius + 3 * sigma;
+      if (r > reach) reach = r;
+    }
+    return reach;
+  }
+
+  /// How far a card's shadow reaches past its side: the largest shadow a
+  /// card casts, in either theme. A list keeps this much room past its sides
+  /// so the shadow is never cut off.
+  static final double cardSideReach = math.max(
+    sideReach(lightLg),
+    sideReach(darkLg),
+  );
 }

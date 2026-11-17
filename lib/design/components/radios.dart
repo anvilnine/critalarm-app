@@ -1,7 +1,7 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
-import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
@@ -117,7 +117,7 @@ class AppRadioRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: selected ? colors.ash : colors.cream,
-              borderRadius: Radii.mdAll,
+              borderRadius: AppRowRadius.allOf(context),
               border: Border.all(
                 color: selected ? colors.highlight : Colors.transparent,
               ),

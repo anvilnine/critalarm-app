@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -85,12 +86,17 @@ class AppHighlightCard extends StatelessWidget {
     required this.child,
     this.tone = AppHighlightTone.crit,
     this.padding = const EdgeInsets.all(14),
+    this.radius = Radii.lg,
     super.key,
   });
 
   final Widget child;
   final AppHighlightTone tone;
   final EdgeInsetsGeometry padding;
+
+  /// The corner radius. Inside another rounded surface, pass the radius
+  /// that keeps both corners concentric.
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -104,10 +110,20 @@ class AppHighlightCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: fill,
-        borderRadius: Radii.lgAll,
+        borderRadius: BorderRadius.all(Radius.circular(radius)),
         border: Border.all(color: stroke, width: highlightCardStrokeWidth),
       ),
-      child: AppHighlightSurface(fill: fill, child: child),
+      child: AppHighlightSurface(
+        fill: fill,
+        // Rows in the card follow its corners, not those of a sheet it sits
+        // in.
+        child: AppRowRadius.inside(
+          context,
+          outer: radius,
+          padding: padding,
+          child: child,
+        ),
+      ),
     );
   }
 }

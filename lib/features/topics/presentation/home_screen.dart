@@ -609,6 +609,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       },
       child: AppSwipeActions(
         groupTag: 'home_topics',
+        radius: AppInboxSheet.rowRadius,
         start: [
           AppSwipeAction(
             label: markRead,
@@ -980,7 +981,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     required bool isExample,
     required bool isExpanded,
   }) {
-    final row = AppInboxRow(
+    return AppInboxRow(
       name: topic.name,
       message: topic.preview ?? LocaleKeys.home_card_row_no_message.tr(),
       time: inboxTimeText(
@@ -999,6 +1000,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ? inboxBellLabel(_ringClaim)
           : null,
       isPinned: topic.isPinned,
+      isSelected: isSelected,
       onTap: () {
         // Opening a topic reads it.
         if (!isExample) unawaited(home.markRead(topic.name));
@@ -1010,14 +1012,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           unawaited(context.push('/topics/${topic.name}'));
         }
       },
-    );
-    if (!isSelected) return row;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.appColors.cobaltTint.withValues(alpha: 0.6),
-        borderRadius: Radii.mdAll,
-      ),
-      child: row,
     );
   }
 
@@ -1112,7 +1106,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           closeLabel: LocaleKeys.home_day0_dismiss_button.tr(),
         );
     }
-    return Padding(padding: const EdgeInsets.all(4), child: card);
+    return Padding(
+      padding: const EdgeInsets.all(AppInboxSheet.cardInset),
+      child: card,
+    );
   }
 
   /// The one bar floating above the tab bar.

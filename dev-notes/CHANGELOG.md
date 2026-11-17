@@ -15,6 +15,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The notification extension and the foreground push handler log the incident id, never the notification title, which is the sender's text.
 - CI pins actions/checkout, subosito/flutter-action and actions/cache to commit SHAs, with the version in a comment.
 
+### Fixed
+- Tablets and open foldables: the edge blur draws in landscape and inside an emulated iPhone Duo window, card shadows fade out past list pane edges, the detail pane backs its bars with its surface, and nested corners follow their container
+
 ## 1.1.0+17 - 2026-11-11
 ### Added
 - assets/translations has de.json and ja.json. make check-l10n runs tool/l10n\_parity.dart and checks the native strings tool/l10n\_native.dart generates.

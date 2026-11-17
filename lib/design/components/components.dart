@@ -6,6 +6,7 @@ export 'badges.dart';
 export 'bottom_sheets.dart';
 export 'brand_icons.dart';
 export 'buttons.dart';
+export 'card_shadow.dart';
 export 'chips.dart';
 export 'code_block.dart';
 export 'crop_editor.dart';
