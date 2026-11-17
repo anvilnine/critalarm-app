@@ -13,6 +13,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The fold of a folding phone comes from the foldable\_ext package on both platforms: AppFoldScope in lib/core/device/fold\_scope.dart replaces NativeFoldScope, and DisplayFoldChannel (app.critalarm/display) and lib/core/device/native\_fold.dart are removed.
 - The first Folding display developer switch is now Render as an iPhone Duo: with foldable\_ext 0.2.0 an Android foldable lays the app out in the iPhone Duo window (size, safe area, fold), scaled to fit the screen, and AppDeviceScope.isIphone is true under it (layoutIsIphone, AppFoldScope.isRenderedAsIphoneOf). A fourth switch, Match the iPhone Duo screen size, is on by default and keeps false in the prefs key dev.fold\_division.match\_size.
 - The notification extension and the foreground push handler log the incident id, never the notification title, which is the sender's text.
+- CI pins actions/checkout, subosito/flutter-action and actions/cache to commit SHAs, with the version in a comment.
 
 ## 1.1.0+17 - 2026-11-11
 ### Added
