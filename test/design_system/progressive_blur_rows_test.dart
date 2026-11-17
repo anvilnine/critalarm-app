@@ -77,6 +77,22 @@ void main() {
       expect(rows.clear, 1500);
     });
 
+    test('rows count from the top of the buffer the strip draws into', () {
+      // An emulated window draws into its own buffer, here starting at
+      // screen row 37. A strip from 37 to 126 then runs from buffer row 0.
+      final rows = edgeBlurRows(
+        top: 37,
+        bottom: 126,
+        height: 89,
+        plateau: 0,
+        isTop: true,
+        pixelRatio: 2,
+        origin: 37,
+      );
+      expect(rows.full, 0);
+      expect(rows.clear, 178);
+    });
+
     test('a strip with no height has no plateau', () {
       final rows = edgeBlurRows(
         top: 40,
