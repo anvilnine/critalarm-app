@@ -7,7 +7,7 @@ notification with sound on older iPhones, and a full-screen alarm on Android.
 Two stages: "I'm up" stops the noise, "At my desk" closes the incident. Miss
 the second one and it starts ringing again.
 
-Status: the first build is submitted to the App Store.
+Status: Crit Alarm 1.1.0 is live on the [App Store](https://apps.apple.com/us/app/crit-alarm/id6810356497) for iPhone. Android is in open testing on Google Play and launching soon; join the waitlist on [critalarm.app](https://critalarm.app/).
 
 ## Run it
 
