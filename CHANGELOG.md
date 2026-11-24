@@ -1,6 +1,10 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Fixed
+- When you connect to a self-hosted server with an admin token, the app checks it against your server instead of failing on your phone.
+
 ## 1.1.0+18 - 2026-11-18
 ### Added
 - Tap Crit's face on Topics, a topic, History and empty screens and he reacts: a boop, a giggle, a wink and more. Tap fast and he gets dizzy.
