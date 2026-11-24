@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/cancel_reason_api.dart';
+import 'package:critalarm/core/api/management_credential_probe.dart';
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/stale_account_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
@@ -26,7 +27,12 @@ import 'package:critalarm/core/models/weekly_check.dart';
 ///
 /// Every other call passes straight through.
 final class ScopedApiClient
-    implements ApiClient, PacksApi, WeeklyCheckApi, CancelReasonApi {
+    implements
+        ApiClient,
+        PacksApi,
+        WeeklyCheckApi,
+        CancelReasonApi,
+        ManagementCredentialProbe {
   ScopedApiClient(this._inner, {required this._readScope});
 
   final ApiClient _inner;
@@ -35,6 +41,7 @@ final class ScopedApiClient
   PacksApi get _packs => _inner as PacksApi;
   WeeklyCheckApi get _weekly => _inner as WeeklyCheckApi;
   CancelReasonApi get _cancelReason => _inner as CancelReasonApi;
+  ManagementCredentialProbe get _probe => _inner as ManagementCredentialProbe;
 
   Future<String?> _scope() async {
     try {
@@ -294,6 +301,12 @@ final class ScopedApiClient
     incidentId: incidentId,
     activityId: activityId,
   );
+
+  // A plain pass-through. Onboarding asks this before any session names the
+  // server, so there is no account to hold the answer against.
+  @override
+  Future<void> checkManagementCredential(Uri baseUri, String credential) =>
+      _probe.checkManagementCredential(baseUri, credential);
 
   // A plain pass-through: the route returns no incidents or messages, so there
   // is no answer to hold against the account that asked.
