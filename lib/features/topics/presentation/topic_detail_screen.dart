@@ -985,23 +985,69 @@ class _OlderMessages extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: AppButton(
+          child: _OlderPill(
             label: LocaleKeys.topic_hero_older_notice.plural(older.length),
-            variant: AppButtonVariant.ink,
-            size: AppButtonSize.sm,
-            onPressed: () {
-              AppHaptics.selection();
-              unawaited(
-                openPaywallForFeature(
-                  context,
-                  AppFeature.longHistory,
-                  LockSource.historyOlder,
-                ),
-              );
-            },
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The Cloud prompt over the blurred rows. Its words wrap: an `AppButton`
+/// keeps one line and shrinks it, which makes the longer translations too
+/// small to read on a narrow phone.
+class _OlderPill extends StatelessWidget {
+  const _OlderPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Semantics(
+      button: true,
+      child: Material(
+        color: colors.ink,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.selection();
+            unawaited(
+              openPaywallForFeature(
+                context,
+                AppFeature.longHistory,
+                LockSource.historyOlder,
+              ),
+            );
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: kMinTapTarget),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              child: Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontDisplay,
+                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    height: 1.2,
+                    color: colors.canvas,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -430,7 +430,13 @@ const _scenes = <_Scene>[
   _Scene('datesold', 'prod-db', seed: _datesOld),
   _Scene('longname', _longName, seed: _seedLongName, extra: true),
   _Scene('warning', 'nas-backup', seed: _worried),
-  _Scene('older', 'nas-backup', held: _olderOnly, plan: PassPlanState.free),
+  _Scene(
+    'older',
+    'nas-backup',
+    held: _olderOnly,
+    plan: PassPlanState.free,
+    extra: true,
+  ),
   _Scene('pane', 'prod-db', isPane: true),
   _Scene('example', 'example', isExample: true),
 ];
