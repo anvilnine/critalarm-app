@@ -1,7 +1,7 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
-## Unreleased
+## 1.1.1+19 - 2026-11-26
 ### Fixed
 - When all messages in a topic are older than the free plan window, the app now blurs them and shows a button to see them on Cloud instead of saying there are no messages yet.
 
