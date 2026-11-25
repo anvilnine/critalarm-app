@@ -52,6 +52,18 @@ class TopicMessageWindow {
         if (message.time >= seconds) message,
     ];
   }
+
+  /// Only the [messages] older than [bound]: the ones [inside] leaves out.
+  /// The phone still holds them, so the Topic screen draws them blurred
+  /// under a Cloud prompt instead of saying the topic is empty.
+  static List<Message> outside(List<Message> messages, DateTime? bound) {
+    if (bound == null) return const [];
+    final seconds = bound.toUtc().millisecondsSinceEpoch ~/ 1000;
+    return [
+      for (final message in messages)
+        if (message.time < seconds) message,
+    ];
+  }
 }
 
 /// The rows the Topic screen shows for [newestFirst]. One place, so the rows
@@ -85,6 +97,7 @@ TopicGlance topicGlanceOf(
   required DateTime now,
 }) {
   final inside = newestFirst(TopicMessageWindow.inside(held, lowerBound));
+  final older = newestFirst(TopicMessageWindow.outside(held, lowerBound));
   return TopicGlance(
     topicCreatedAt: topic.createdAt,
     messageTimes: [
@@ -93,5 +106,6 @@ TopicGlance topicGlanceOf(
     ],
     hasHighMessage: inside.any((m) => m.priority == 4),
     messages: topicMessageRows(inside, now: now),
+    olderMessages: topicMessageRows(older, now: now),
   );
 }

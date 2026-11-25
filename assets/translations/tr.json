@@ -906,6 +906,10 @@
       "other": "{} mesajın tümü"
     },
     "no_messages": "Henüz mesaj yok.",
+    "older_notice": {
+      "one": "Daha eski 1 mesaj. Cloud ile görebilirsin.",
+      "other": "Daha eski {} mesaj. Cloud ile görebilirsin."
+    },
     "ring_length": "Uyandım'a dokunana kadar {every} arayla, toplam {total} boyunca çalar."
   },
   "topic_tokens": {

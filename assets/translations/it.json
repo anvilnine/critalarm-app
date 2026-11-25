@@ -906,6 +906,10 @@
       "other": "Tutti i {} messaggi"
     },
     "no_messages": "Ancora nessun messaggio.",
+    "older_notice": {
+      "one": "1 messaggio meno recente. Con Cloud puoi vederlo.",
+      "other": "{} messaggi meno recenti. Con Cloud puoi vederli."
+    },
     "ring_length": "Suona per {total}, ogni {every}, finché non tocchi \"Arrivo\"."
   },
   "topic_tokens": {

@@ -906,6 +906,10 @@
       "other": "Alle {} Nachrichten"
     },
     "no_messages": "Noch keine Nachrichten.",
+    "older_notice": {
+      "one": "1 ältere Nachricht. Cloud zeigt sie.",
+      "other": "{} ältere Nachrichten. Cloud zeigt sie."
+    },
     "ring_length": "Klingelt {total} lang, alle {every}, bis du wach bist."
   },
   "topic_tokens": {

@@ -906,6 +906,10 @@
       "other": "Alle {} berichten"
     },
     "no_messages": "Nog geen berichten.",
+    "older_notice": {
+      "one": "1 ouder bericht. Cloud toont het.",
+      "other": "{} oudere berichten. Cloud toont ze."
+    },
     "ring_length": "Gaat {total} af, elke {every}, tot je op Ik ben wakker tikt."
   },
   "topic_tokens": {

@@ -897,6 +897,9 @@
       "other": "전체 메시지 {}개"
     },
     "no_messages": "아직 메시지가 없어요.",
+    "older_notice": {
+      "other": "이전 메시지 {}건. Cloud에서 볼 수 있어요."
+    },
     "ring_length": "'일어났어요'를 누를 때까지 {every}마다, 총 {total} 동안 울려요."
   },
   "topic_tokens": {

@@ -906,6 +906,10 @@
       "other": "Tous les messages ({})"
     },
     "no_messages": "Aucun message pour le moment.",
+    "older_notice": {
+      "one": "1 message plus ancien. Visible avec Cloud.",
+      "other": "{} messages plus anciens. Visibles avec Cloud."
+    },
     "ring_length": "Sonne pendant {total}, toutes les {every}, jusqu’à ce que vous touchiez « Je suis debout »."
   },
   "topic_tokens": {

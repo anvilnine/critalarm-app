@@ -10,6 +10,7 @@ class TopicGlance {
     required this.messageTimes,
     required this.hasHighMessage,
     this.messages,
+    this.olderMessages = const [],
   });
 
   /// When the topic was created. A glance is used only for the topic it was
@@ -26,6 +27,9 @@ class TopicGlance {
 
   /// The rows the Topic screen draws. Null leaves them to load.
   final List<TopicDetailMessageItem>? messages;
+
+  /// The rows older than the plan's window, which the Topic screen blurs.
+  final List<TopicDetailMessageItem> olderMessages;
 }
 
 /// The glances taken so far, one per topic, in memory only.

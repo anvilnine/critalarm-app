@@ -897,6 +897,9 @@
       "other": "全部 {} 則訊息"
     },
     "no_messages": "尚無訊息。",
+    "older_notice": {
+      "other": "另有 {} 則較早的訊息，Cloud 可查看。"
+    },
     "ring_length": "每{every}響一次，共響{total}，直到你點「我醒了」。"
   },
   "topic_tokens": {

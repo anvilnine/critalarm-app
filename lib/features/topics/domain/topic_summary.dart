@@ -50,13 +50,17 @@ bool _sameDay(DateTime a, DateTime b) {
 ///
 /// - [messageTimes]: when each message the screen holds arrived.
 /// - [lastAlarmAt]: the newest incident the topic has raised, or null.
+/// - [hasOlderMessage]: the phone holds messages past the plan's window. The
+///   screen draws them blurred, so the topic has messages even when
+///   [messageTimes] is empty.
 TopicSummary topicSummaryFor({
   required Iterable<DateTime> messageTimes,
   required DateTime? lastAlarmAt,
   required DateTime now,
+  bool hasOlderMessage = false,
 }) {
   var today = 0;
-  var any = false;
+  var any = hasOlderMessage;
   for (final at in messageTimes) {
     any = true;
     if (_sameDay(at, now)) today++;

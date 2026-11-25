@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/alarm/alarm_signals.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
@@ -13,6 +15,8 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
 import 'package:critalarm/features/topics/domain/topic_hero_card.dart';
 import 'package:critalarm/features/topics/domain/topic_summary.dart';
 import 'package:critalarm/features/topics/domain/topic_tokens_page_rules.dart';
@@ -305,6 +309,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
           messageTimes: state.messageTimes,
           lastAlarmAt: state.lastAlarmAt,
           now: DateTime.now(),
+          hasOlderMessage: state.olderMessages.isNotEmpty,
         );
 
         final tone = _heroTone(card, state.severity);
@@ -538,6 +543,7 @@ AmbientProfile topicCanvasProfileFor(
               messageTimes: state.messageTimes,
               lastAlarmAt: state.lastAlarmAt,
               now: DateTime.now(),
+              hasOlderMessage: state.olderMessages.isNotEmpty,
             ),
           )
         : '',
@@ -826,6 +832,14 @@ class _MessagesBlock extends StatelessWidget {
                     child: AppMessageCardSkeleton(),
                   ),
                 )
+              : messages.isEmpty && state.olderMessages.isNotEmpty
+              ? KeyedSubtree(
+                  key: ValueKey('messages_older_${state.olderMessages.length}'),
+                  child: _OlderMessages(
+                    older: state.olderMessages,
+                    rows: limit,
+                  ),
+                )
               : messages.isEmpty
               ? KeyedSubtree(
                   key: const ValueKey('messages_empty'),
@@ -875,6 +889,11 @@ class _MessagesBlock extends StatelessWidget {
                           onTap: () => unawaited(
                             context.push('${_topicPath(context)}/messages'),
                           ),
+                        )
+                      else if (state.olderMessages.isNotEmpty)
+                        _OlderMessages(
+                          older: state.olderMessages,
+                          rows: limit - shown.length,
                         ),
                     ],
                   ),
@@ -915,6 +934,74 @@ class _MessagesBlock extends StatelessWidget {
       tag: topicLatestMessageHeroTag(state.topicName, message.timestamp),
       flightShuttleBuilder: topicMessageHeroShuttle,
       child: Material(color: Colors.transparent, child: row),
+    );
+  }
+}
+
+/// The messages this phone holds that are older than the free plan's window
+/// (api.md §4.2), drawn blurred with a Cloud prompt over them. Nothing was
+/// deleted from the phone, so Cloud puts them back with no download. Without
+/// this a topic whose messages are all past the window read as empty while
+/// Home still showed its last message.
+class _OlderMessages extends StatelessWidget {
+  const _OlderMessages({required this.older, required this.rows});
+
+  final List<TopicDetailMessageItem> older;
+
+  /// How many blurred rows to draw. At least one, so the prompt has a row to
+  /// sit on.
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final drawn = older.take(rows < 1 ? 1 : rows).toList();
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // The rows are a picture of what is there, not something to read or
+        // tap: no semantics, no touches.
+        ExcludeSemantics(
+          child: IgnorePointer(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final message in drawn)
+                    TopicMessageRow(
+                      title: message.title,
+                      timestamp: message.timestamp,
+                      body: message.body,
+                      source: message.source,
+                      isHigh: message.isHigh,
+                      shareLabel: '',
+                      onShare: (_) {},
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: AppButton(
+            label: LocaleKeys.topic_hero_older_notice.plural(older.length),
+            variant: AppButtonVariant.ink,
+            size: AppButtonSize.sm,
+            onPressed: () {
+              AppHaptics.selection();
+              unawaited(
+                openPaywallForFeature(
+                  context,
+                  AppFeature.longHistory,
+                  LockSource.historyOlder,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

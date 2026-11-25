@@ -1,6 +1,10 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
+## Unreleased
+### Changed
+- TopicDetailState adds olderMessages, TopicMessageWindow.outside returns the held messages past the plan window, and the Topic screen draws those messages blurred under a pill that opens the longHistory paywall.
+
 ## 1.1.0+18 - 2026-11-18
 ### Added
 - AppTitledCard and AppCardRow in lib/design for titled groups of one-line rows, and a person glyph.

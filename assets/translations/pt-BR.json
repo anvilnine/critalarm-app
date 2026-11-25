@@ -906,6 +906,10 @@
       "other": "Ver todas as {} mensagens"
     },
     "no_messages": "Nenhuma mensagem ainda.",
+    "older_notice": {
+      "one": "1 mensagem mais antiga. Disponível no Cloud.",
+      "other": "{} mensagens mais antigas. Disponíveis no Cloud."
+    },
     "ring_length": "Toca por {total}, a cada {every}, até você tocar em \"Já acordei\"."
   },
   "topic_tokens": {

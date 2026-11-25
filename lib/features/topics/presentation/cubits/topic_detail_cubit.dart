@@ -204,6 +204,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       hasHighMessage: glance?.hasHighMessage ?? false,
     );
     final rows = glance?.messages;
+    final older = glance?.olderMessages ?? const <TopicDetailMessageItem>[];
     final signals = signalStore?.read();
     return state.copyWith(
       status: authorization == null
@@ -217,8 +218,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       severity: stage.severity,
       faceState: stage.face,
       word: stage.word,
-      subText: rows == null ? '' : _subTextOf(rows.length, stage.priority),
+      subText: rows == null
+          ? ''
+          : _subTextOf(rows.length + older.length, stage.priority),
       messages: rows ?? const [],
+      olderMessages: rows == null ? const [] : older,
       isMessagesLoading: rows == null,
       messageTimes: glance?.messageTimes ?? const [],
       areMessageTimesKnown: glance != null,
@@ -297,7 +301,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         severity: stage.severity,
         faceState: stage.face,
         word: stage.word,
-        subText: _subTextOf(state.messages.length, stage.priority),
+        subText: _subTextOf(
+          state.messages.length + state.olderMessages.length,
+          stage.priority,
+        ),
         openIncidentIds: openIds,
         lastAlarmAt:
             _lastAlarmOf(topic.name, [...shared.incidents]) ??
@@ -415,11 +422,12 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         isMessagesLoading: false,
       );
     }
-    final polled = newestFirst(
-      TopicMessageWindow.inside(
-        pollResult.getOrNull() ?? <Message>[],
-        await _window.lowerBound(),
-      ),
+    final held = pollResult.getOrNull() ?? <Message>[];
+    final bound = await _window.lowerBound();
+    final polled = newestFirst(TopicMessageWindow.inside(held, bound));
+    final older = topicMessageRows(
+      newestFirst(TopicMessageWindow.outside(held, bound)),
+      now: DateTime.now(),
     );
 
     final openIncidents = _incidents.state
@@ -447,8 +455,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       severity: stage.severity,
       faceState: stage.face,
       word: stage.word,
-      subText: _subTextOf(messages.length, stage.priority),
+      // Messages past the window still count: the topic is not empty, and
+      // the screen shows them blurred.
+      subText: _subTextOf(messages.length + older.length, stage.priority),
       messages: messages,
+      olderMessages: older,
       isMessagesLoading: false,
       messageTimes: messageTimes,
       areMessageTimesKnown: true,
@@ -463,6 +474,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         messageTimes: messageTimes,
         hasHighMessage: polled.any((m) => m.priority == 4),
         messages: messages,
+        olderMessages: older,
       ),
     );
     return built;

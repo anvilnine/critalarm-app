@@ -897,6 +897,9 @@
       "other": "全部{}条消息"
     },
     "no_messages": "还没有消息。",
+    "older_notice": {
+      "other": "另有{}条更早的消息，可通过Cloud查看。"
+    },
     "ring_length": "每{every}响一次，共响{total}，直到你点“我醒了”。"
   },
   "topic_tokens": {

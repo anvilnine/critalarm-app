@@ -103,6 +103,7 @@ class TopicDetailState {
     this.word = '',
     this.subText = '',
     this.messages = const [],
+    this.olderMessages = const [],
     this.errorMessage,
     this.isUpdatingCritical = false,
     this.isMarkingAsRead = false,
@@ -142,6 +143,11 @@ class TopicDetailState {
   final String word;
   final String subText;
   final List<TopicDetailMessageItem> messages;
+
+  /// Messages the phone holds that are older than the plan's history window
+  /// (api.md §4.2), newest first. The screen draws them blurred under a Cloud
+  /// prompt, so a topic with only old messages never reads as empty.
+  final List<TopicDetailMessageItem> olderMessages;
   final String? errorMessage;
   final bool isUpdatingCritical;
   final bool isMarkingAsRead;
@@ -165,6 +171,7 @@ class TopicDetailState {
   /// How often it rings again inside that time, in seconds
   /// (`repeat_interval_s`), or null until the topic has been read.
   final int? repeatIntervalS;
+
   /// Whether this topic's ring also blinks the camera flash. Kept on this
   /// phone only, and off until the user turns it on.
   final bool flashOn;
@@ -199,6 +206,7 @@ class TopicDetailState {
     String? word,
     String? subText,
     List<TopicDetailMessageItem>? messages,
+    List<TopicDetailMessageItem>? olderMessages,
     String? errorMessage,
     bool? isUpdatingCritical,
     bool? isMarkingAsRead,
@@ -225,6 +233,7 @@ class TopicDetailState {
       word: word ?? this.word,
       subText: subText ?? this.subText,
       messages: messages ?? this.messages,
+      olderMessages: olderMessages ?? this.olderMessages,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isUpdatingCritical: isUpdatingCritical ?? this.isUpdatingCritical,
       isMarkingAsRead: isMarkingAsRead ?? this.isMarkingAsRead,
@@ -256,6 +265,7 @@ class TopicDetailState {
           word == other.word &&
           subText == other.subText &&
           listEquals(messages, other.messages) &&
+          listEquals(olderMessages, other.olderMessages) &&
           errorMessage == other.errorMessage &&
           isUpdatingCritical == other.isUpdatingCritical &&
           isMarkingAsRead == other.isMarkingAsRead &&
@@ -281,7 +291,7 @@ class TopicDetailState {
     faceState,
     word,
     subText,
-    Object.hashAll(messages),
+    Object.hash(Object.hashAll(messages), Object.hashAll(olderMessages)),
     errorMessage,
     isUpdatingCritical,
     isMarkingAsRead,

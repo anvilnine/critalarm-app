@@ -924,6 +924,12 @@
       "other": "Wszystkie {} wiadomości"
     },
     "no_messages": "Brak wiadomości.",
+    "older_notice": {
+      "one": "1 starsza wiadomość. Zobaczysz ją w Cloud.",
+      "few": "{} starsze wiadomości. Zobaczysz je w Cloud.",
+      "many": "{} starszych wiadomości. Zobaczysz je w Cloud.",
+      "other": "{} starszych wiadomości. Zobaczysz je w Cloud."
+    },
     "ring_length": "Dzwoni przez {total}, co {every}, aż stukniesz „Już nie śpię”."
   },
   "topic_tokens": {

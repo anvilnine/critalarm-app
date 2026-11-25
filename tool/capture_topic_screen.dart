@@ -49,16 +49,20 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/core/access/dev_access_switches.dart';
+import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
+import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
@@ -102,6 +106,7 @@ class _Scene {
     this.plan,
     this.prepare,
     this.isLoadingHeld = false,
+    this.held,
   });
 
   final String name;
@@ -131,6 +136,10 @@ class _Scene {
   /// Captures before the mock server has answered, so the tokens and the
   /// sound are still loading.
   final bool isLoadingHeld;
+
+  /// Messages the phone kept that the server no longer returns. Every poll
+  /// of the scene answers with them too, as the phone store would.
+  final List<Message> Function(DateTime now)? held;
 }
 
 /// The preferences that hold [plan], as the developer switches save them.
@@ -421,11 +430,27 @@ const _scenes = <_Scene>[
   _Scene('datesold', 'prod-db', seed: _datesOld),
   _Scene('longname', _longName, seed: _seedLongName, extra: true),
   _Scene('warning', 'nas-backup', seed: _worried),
+  _Scene('older', 'nas-backup', held: _olderOnly, plan: PassPlanState.free),
   _Scene('pane', 'prod-db', isPane: true),
   _Scene('example', 'example', isExample: true),
 ];
 
 void _worried(MockServer server, DateTime now) => server.seedWorried();
+
+/// Only messages past the free plan's 7 days, kept on the phone after the
+/// server deleted them: the Topic screen draws them blurred under the Cloud
+/// prompt instead of "No messages yet".
+List<Message> _olderOnly(DateTime now) => [
+  for (final days in const [10, 9])
+    Message(
+      id: 'm_cap_older_$days',
+      topic: 'nas-backup',
+      time: now.subtract(Duration(days: days)).millisecondsSinceEpoch ~/ 1000,
+      title: 'Backup finished',
+      message: 'Nightly backup of /volume1 finished in 42 min.',
+      tags: const ['backup'],
+    ),
+];
 
 /// The phones, themes and text sizes each state is captured at.
 List<(String, Size, ThemeMode, double)> _variants(_Scene scene) => scene.isPane
@@ -443,6 +468,32 @@ List<(String, Size, ThemeMode, double)> _variants(_Scene scene) => scene.isPane
           ('390x844', const Size(390, 844), ThemeMode.light, 2.0),
         ],
       ];
+
+/// Answers a poll the way the phone store does: what the server returned
+/// plus what the phone kept. A capture has no documents folder for the real
+/// store.
+class _HeldMessagesRepository extends InMemoryIncidentRepository {
+  // The parent names its client `_client`, which a super parameter cannot.
+  // ignore: matching_super_parameters
+  _HeldMessagesRepository(super.client, this._held);
+
+  final List<Message> _held;
+
+  @override
+  Future<AppResult<List<Message>>> pollMessages(
+    String topic, {
+    required int poll,
+    String? since,
+  }) async {
+    final fresh = await super.pollMessages(topic, poll: poll, since: since);
+    final ids = {for (final m in fresh.getOrNull() ?? const <Message>[]) m.id};
+    return [
+      ...?fresh.getOrNull(),
+      for (final m in _held)
+        if (m.topic == topic && !ids.contains(m.id)) m,
+    ].toSuccess();
+  }
+}
 
 class _FixedSource implements ReliabilityCheckSource {
   _FixedSource(this.checks);
@@ -476,6 +527,14 @@ Future<void> _boot(_Scene scene) async {
   });
   await getIt.reset();
   await configureDependencies(useMockApi: true);
+  final held = scene.held;
+  if (held != null) {
+    final messages = held(DateTime.now().toUtc());
+    await getIt.unregister<IncidentRepository>();
+    getIt.registerLazySingleton<IncidentRepository>(
+      () => _HeldMessagesRepository(getIt<ApiClient>(), messages),
+    );
+  }
   final server = getIt<MockServer>();
   final seed = scene.seed;
   if (seed == null) {

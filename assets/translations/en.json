@@ -906,6 +906,10 @@
       "other": "All {} messages"
     },
     "no_messages": "No messages yet.",
+    "older_notice": {
+      "one": "1 older message. Cloud shows it.",
+      "other": "{} older messages. Cloud shows them."
+    },
     "ring_length": "Rings for {total}, every {every}, until you're up."
   },
   "topic_tokens": {

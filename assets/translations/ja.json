@@ -906,6 +906,10 @@
       "other": "全{}件のメッセージ"
     },
     "no_messages": "メッセージはまだありません。",
+    "older_notice": {
+      "one": "さらに前のメッセージが1件あります。Cloudで表示できます。",
+      "other": "さらに前のメッセージが{}件あります。Cloudで表示できます。"
+    },
     "ring_length": "起きるまで、{every}おきに最大{total}鳴ります。"
   },
   "topic_tokens": {
