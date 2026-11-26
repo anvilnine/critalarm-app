@@ -8,7 +8,9 @@
 # wants to do twice in an evening.
 #
 # Auth is an App Store Connect API key, never a password. No two factor prompt,
-# nothing interactive, and the same call works from a laptop or from CI.
+# nothing interactive, and the same call works from a laptop or from CI. The
+# key signs the build as well as uploading it, so Xcode needs no Apple ID
+# signed in.
 #
 #   ./scripts/release-ios.sh              build, validate and upload
 #   ./scripts/release-ios.sh --bump       same, after bumping the build number
@@ -78,6 +80,39 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\033[31mrelease-ios: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# The options `flutter build ipa` writes for an App Store export, except that
+# Xcode may not change the build number. With the API key Xcode can see what
+# App Store Connect already has, and it would quietly upload a higher number
+# than pubspec.yaml, the commit and the tag. A number Apple has seen fails at
+# validate instead. The team comes from the Xcode project.
+write_export_options() {
+  local team
+  team="$(grep -m1 -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+' ios/Runner.xcodeproj/project.pbxproj | awk '{print $3}')"
+  [ -n "$team" ] || die "no DEVELOPMENT_TEAM in ios/Runner.xcodeproj/project.pbxproj."
+  cat > "$1" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>destination</key>
+  <string>export</string>
+  <key>manageAppVersionAndBuildNumber</key>
+  <false/>
+  <key>method</key>
+  <string>app-store-connect</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>stripSwiftSymbols</key>
+  <true/>
+  <key>teamID</key>
+  <string>$team</string>
+  <key>uploadSymbols</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+}
 
 # The ipa under build/ already carries its number. Moving pubspec now would
 # upload one number and commit another.
@@ -155,6 +190,42 @@ elif [ "$reuse_build" -eq 0 ]; then
   say "Building $name+$number. Pass --bump if Apple already has this build number."
 fi
 
+# -------------------------------------------------------------------------- auth
+
+# Before the build, because the build signs with this key too. Sending symbols
+# needs no Apple key, so --symbols-only skips it.
+if [ "$symbols_only" -eq 0 ]; then
+  [ -n "$secrets_dir" ] || die "cannot find the secrets directory next to this repo."
+
+  env_file="$secrets_dir/appstoreconnect-api.env"
+  [ -f "$env_file" ] || die "missing $env_file. See the header of this script for what goes in it."
+
+  # shellcheck disable=SC1090
+  . "$env_file"
+
+  : "${APP_STORE_CONNECT_KEY_ID:?APP_STORE_CONNECT_KEY_ID is not set in $env_file}"
+  : "${APP_STORE_CONNECT_ISSUER_ID:?APP_STORE_CONNECT_ISSUER_ID is not set in $env_file}"
+
+  key_file="$secrets_dir/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+  [ -f "$key_file" ] || die "missing $key_file.
+    altool finds the key by name, so the file has to be called
+    AuthKey_<KEYID>.p8 and sit in the secrets directory."
+
+  # altool looks for the .p8 in a few fixed places. This points it at secrets/ so
+  # the key never has to be copied into the home directory or into this repo.
+  export API_PRIVATE_KEYS_DIR="$secrets_dir"
+
+  # xcodebuild wants an absolute path to the key itself. With
+  # -allowProvisioningUpdates it fetches the profiles and the cloud managed
+  # distribution certificate it needs.
+  xcode_auth=(
+    -allowProvisioningUpdates
+    -authenticationKeyPath "$key_file"
+    -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID"
+    -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+  )
+fi
+
 # ------------------------------------------------------------------------- build
 
 if [ "$reuse_build" -eq 0 ]; then
@@ -167,8 +238,28 @@ if [ "$reuse_build" -eq 0 ]; then
   # --obfuscate hides Dart names in the binary. The names go to
   # --split-debug-info instead, and keep_symbols copies them out of build/.
   rm -rf "$(dart_symbols_dir ios)"
-  fvm flutter build ipa --release \
+  # Flutter writes the build settings, then xcodebuild archives and exports.
+  # `flutter build ipa` would sign with the Apple ID signed in to Xcode, and a
+  # release stopped at export whenever Xcode had lost that account. These two
+  # calls sign with the API key above instead, so Xcode needs no account.
+  fvm flutter build ios --release --config-only \
     --obfuscate --split-debug-info="$(dart_symbols_dir ios)"
+  archive="build/ios/archive/Runner.xcarchive"
+  rm -rf "$archive" build/ios/ipa
+  xcodebuild archive \
+    -workspace ios/Runner.xcworkspace \
+    -scheme Runner \
+    -configuration Release \
+    -destination 'generic/platform=iOS' \
+    -archivePath "$archive" \
+    "${xcode_auth[@]}"
+  mkdir -p build/ios/ipa
+  write_export_options build/ios/ipa/ExportOptions.plist
+  xcodebuild -exportArchive \
+    -archivePath "$archive" \
+    -exportPath build/ios/ipa \
+    -exportOptionsPlist build/ios/ipa/ExportOptions.plist \
+    "${xcode_auth[@]}"
   write_stamp ios
   keep_symbols ios
 fi
@@ -193,28 +284,6 @@ if [ "$build_only" -eq 1 ]; then
   echo "  $repo_root/$ipa"
   exit 0
 fi
-
-# -------------------------------------------------------------------------- auth
-
-[ -n "$secrets_dir" ] || die "cannot find the secrets directory next to this repo."
-
-env_file="$secrets_dir/appstoreconnect-api.env"
-[ -f "$env_file" ] || die "missing $env_file. See the header of this script for what goes in it."
-
-# shellcheck disable=SC1090
-. "$env_file"
-
-: "${APP_STORE_CONNECT_KEY_ID:?APP_STORE_CONNECT_KEY_ID is not set in $env_file}"
-: "${APP_STORE_CONNECT_ISSUER_ID:?APP_STORE_CONNECT_ISSUER_ID is not set in $env_file}"
-
-key_file="$secrets_dir/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
-[ -f "$key_file" ] || die "missing $key_file.
-  altool finds the key by name, so the file has to be called
-  AuthKey_<KEYID>.p8 and sit in the secrets directory."
-
-# altool looks for the .p8 in a few fixed places. This points it at secrets/ so
-# the key never has to be copied into the home directory or into this repo.
-export API_PRIVATE_KEYS_DIR="$secrets_dir"
 
 # ---------------------------------------------------------------------- validate
 
